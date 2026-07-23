@@ -11,7 +11,12 @@ preserved (in every case the link text was the target filename).
 
 ## Rewrites (10 total, across 4 files)
 
-| Destination file : line | Original relative link | Rewritten reference | Target exists in SOC? |
+Line numbers below are **import-time (pre-canonicalization) line numbers**, recorded as an
+audit fact of the 2026-07-23 import. Later canonicalization edits (e.g. the CANONICAL banner
+added to `README.md`) shifted some lines; the import-time numbers are intentionally kept
+unchanged here and remain verifiable against suite commit `acb9842`.
+
+| Destination file : line (import-time) | Original relative link | Rewritten reference | Target exists in SOC? |
 |---|---|---|---|
 | `README.md:103` | `../architecture/ARCHITECTURE-OVERVIEW-2026-07.md` | `cybrik-soc-command-center:docs/architecture/ARCHITECTURE-OVERVIEW-2026-07.md` | Yes |
 | `README.md:104` | `../architecture/DATA-PLANE-V2.md` | `cybrik-soc-command-center:docs/architecture/DATA-PLANE-V2.md` | Yes |

@@ -10,7 +10,7 @@ explicitly approved migration designates otherwise.
 
 | Field | Value |
 |---|---|
-| Source repository path | `/Users/hoanglinh/Claude/Projects/cybrik-soc-command-center` |
+| Source repository path | `<CYBRIK_WORKSPACE_ROOT>/cybrik-soc-command-center` |
 | Source directory | `docs/cybrik-suite/` |
 | Source branch | `main` |
 | Source HEAD | `78bd289ccefa34223f78e6f1eafbfc581ecb1a8f` |
@@ -46,3 +46,50 @@ outward-link rewrite described in `SOURCE-MAP.md`; no other content was changed.
 Internal links between the strategy documents (e.g. `01-STRATEGIC-THESIS.md` →
 `02-INTERNATIONAL-RESEARCH-AND-STANDARDS.md`) were preserved unchanged and remain valid,
 since all ten files were copied into the same destination directory.
+
+## Path normalization (2026-07-23)
+
+Per Founder decision, workstation-specific absolute paths in migration documentation were
+normalized to the placeholder `<CYBRIK_WORKSPACE_ROOT>`. For audit purposes the mapping is
+recorded exactly once, here:
+
+> `<CYBRIK_WORKSPACE_ROOT>` = `/Users/hoanglinh/Claude/Projects` (the workspace root on the
+> workstation where the 2026-07-23 bootstrap was executed).
+
+Rewrites performed (11 total):
+
+| File | Lines | Rewrite |
+|---|---|---|
+| `CLAUDE-CODE-MULTI-REPO-BOOTSTRAP.md` | 15, 16, 41, 44, 47, 50, 54, 75, 90, 463 (pre-header line numbers) | 10 occurrences of the absolute workspace prefix → `<CYBRIK_WORKSPACE_ROOT>` |
+| `IMPORT-MANIFEST.md` (this file) | Source table, "Source repository path" row | absolute source path → `<CYBRIK_WORKSPACE_ROOT>/cybrik-soc-command-center` |
+
+`SOURCE-MAP.md` contained no absolute paths and required no normalization.
+
+## Canonicalization (2026-07-23, Founder decision)
+
+The statement `DRAFT IMPORT — SOURCE NOT DELETED` above records a true fact about the
+import moment and is retained unchanged. It is now superseded by the following Founder
+decisions:
+
+1. `docs/strategy/README.md` and strategy documents `01`–`08` in **this repository** are the
+   **canonical** CYBRIK Suite strategy documentation.
+2. `09-CLAUDE-CODE-MULTI-REPO-BOOTSTRAP-PROMPT.md` was moved (via `git mv`, history
+   preserved) to `docs/migration/CLAUDE-CODE-MULTI-REPO-BOOTSTRAP.md` — it is a migration
+   runbook, not a strategy document. A short EXECUTED header and the path normalization
+   above were applied to the moved file.
+3. In the SOC repository, `docs/cybrik-suite/README.md` is replaced by a concise SUPERSEDED
+   pointer; strategy documents `01`–`08` and the untracked source copy of `09` are removed
+   from the SOC working tree after hash verification against the committed destination
+   (suite commit `acb9842888def89859008a37d5ca1e8311435e16`).
+
+Post-import modifications to previously imported files (all documented, none touching
+strategy substance of `01`–`08`):
+
+| File | New SHA-256 | Change |
+|---|---|---|
+| `docs/migration/CLAUDE-CODE-MULTI-REPO-BOOTSTRAP.md` (was `docs/strategy/09-…`) | `4802b41d0ea1979d3fdf2b33b66feb593f4c97bf18a6176a3f1bcede6a11ecdb` | moved; EXECUTED header added; 10 path normalizations |
+| `docs/strategy/README.md` | `5999e5bac8ba0a568b6061f86ab2cbabe1301ebcdde9d6fa19fc2af87f9123af` | CANONICAL banner added; document 09 removed from the strategy catalog, replaced by a pointer to the migration runbook |
+
+Strategy documents `01`–`08` remain byte-identical to their state in suite commit
+`acb9842` (of which `04`–`08` are byte-identical to the SOC source; `01`–`03` differ only
+by the outward-link rewrites recorded in `SOURCE-MAP.md`).

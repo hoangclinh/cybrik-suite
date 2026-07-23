@@ -1,5 +1,11 @@
 # Claude Code Prompt — Bootstrap CYBRIK Multi-Repository Workspace
 
+> **Migration runbook — EXECUTED 2026-07-23.** This is the historical bootstrap prompt, kept as
+> a migration record (moved here from `docs/strategy/` per Founder decision 2026-07-23; it is a
+> runbook, not a strategy document). Workstation-specific absolute paths have been normalized to
+> `<CYBRIK_WORKSPACE_ROOT>` — the mapping and every rewrite are recorded in
+> `IMPORT-MANIFEST.md`.
+
 - **Ngày:** 2026-07-23
 - **Mục đích:** dùng Claude Code tạo cấu trúc multi-repository an toàn mà không di chuyển hoặc làm
   hỏng `cybrik-soc-command-center`
@@ -12,8 +18,8 @@
 Tạo thư mục rỗng cho meta repository rồi chạy Claude Code từ đó:
 
 ```bash
-mkdir -p /Users/hoanglinh/Claude/Projects/cybrik-suite
-cd /Users/hoanglinh/Claude/Projects/cybrik-suite
+mkdir -p <CYBRIK_WORKSPACE_ROOT>/cybrik-suite
+cd <CYBRIK_WORKSPACE_ROOT>/cybrik-suite
 claude --add-dir ../cybrik-soc-command-center
 ```
 
@@ -38,20 +44,20 @@ MỤC TIÊU
 Tạo một multi-repository workspace gồm:
 
 1. Repository hiện hữu, phải giữ nguyên:
-   /Users/hoanglinh/Claude/Projects/cybrik-soc-command-center
+   <CYBRIK_WORKSPACE_ROOT>/cybrik-soc-command-center
 
 2. Meta/control repository mới:
-   /Users/hoanglinh/Claude/Projects/cybrik-suite
+   <CYBRIK_WORKSPACE_ROOT>/cybrik-suite
 
 3. Product repository mới:
-   /Users/hoanglinh/Claude/Projects/cybrik-cyber-ai-platform
+   <CYBRIK_WORKSPACE_ROOT>/cybrik-cyber-ai-platform
 
 4. Product repository mới:
-   /Users/hoanglinh/Claude/Projects/cybrik-security-tool-fabric
+   <CYBRIK_WORKSPACE_ROOT>/cybrik-security-tool-fabric
 
 MÔ HÌNH ĐÍCH
 
-/Users/hoanglinh/Claude/Projects/
+<CYBRIK_WORKSPACE_ROOT>/
 ├── cybrik-soc-command-center/       # giữ nguyên đường dẫn và Git repository
 ├── cybrik-suite/                    # docs/contracts/integration/release control
 ├── cybrik-cyber-ai-platform/        # Cyber AI product
@@ -72,7 +78,7 @@ MODE LÀM VIỆC
 SAFETY INVARIANTS TUYỆT ĐỐI
 
 1. Không move, rename, copy hoặc delete:
-   /Users/hoanglinh/Claude/Projects/cybrik-soc-command-center
+   <CYBRIK_WORKSPACE_ROOT>/cybrik-soc-command-center
 
 2. Không chạy:
    - git worktree add/remove/move/repair/prune;
@@ -87,7 +93,7 @@ SAFETY INVARIANTS TUYỆT ĐỐI
 3. Không sửa `.git` file/directory hoặc các đường dẫn:
    - cybrik-soc-command-center/.claude/worktrees/**;
    - /private/tmp/claude-*/**;
-   - /Users/hoanglinh/Claude/Projects/cybrik-worktrees/**.
+   - <CYBRIK_WORKSPACE_ROOT>/cybrik-worktrees/**.
 
 4. Không đọc/copy/in nội dung:
    - `.env`, `.env.*`, secret, token, private key, certificate private material;
@@ -460,7 +466,7 @@ Báo:
 - cách mở session riêng từng product;
 - cách mở cross-repo session:
 
-  cd /Users/hoanglinh/Claude/Projects/cybrik-suite
+  cd <CYBRIK_WORKSPACE_ROOT>/cybrik-suite
   claude \
     --add-dir ../cybrik-soc-command-center \
     --add-dir ../cybrik-cyber-ai-platform \

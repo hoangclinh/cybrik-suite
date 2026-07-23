@@ -1,5 +1,9 @@
 # CYBRIK Sovereign Security Investigation Suite — Hồ sơ chiến lược
 
+> **CANONICAL** kể từ 2026-07-23 theo Founder decision: README này và các tài liệu 01–08 là
+> phiên bản chiến lược chính thức của CYBRIK Suite. Bản trong
+> `cybrik-soc-command-center:docs/cybrik-suite/` là SUPERSEDED pointer.
+
 - **Ngày lập:** 2026-07-22 · **Cập nhật roadmap:** 2026-07-23
 - **Tầm nhìn:** hoàn thành sản phẩm 2026 · go-to-market 2027 · mở rộng 2028–2029
 - **Trạng thái:** Founder đã chốt deadline và full-feature contract 2026; 2027 chỉ thương mại hóa/mở rộng
@@ -83,7 +87,10 @@ của mình.
 | [06-ROADMAP-2026-2029.md](06-ROADMAP-2026-2029.md) | Execution board: Full Competitive Release trong 2026, thị trường từ 2027 |
 | [07-SOLO-FOUNDER-AI-OPERATING-MODEL.md](07-SOLO-FOUNDER-AI-OPERATING-MODEL.md) | Cách một Founder dùng Claude/Codex để phát triển có kiểm soát |
 | [08-EVALUATION-SECURITY-COMPLIANCE.md](08-EVALUATION-SECURITY-COMPLIANCE.md) | Eval, threat model, compliance, SLO và release gates |
-| [09-CLAUDE-CODE-MULTI-REPO-BOOTSTRAP-PROMPT.md](09-CLAUDE-CODE-MULTI-REPO-BOOTSTRAP-PROMPT.md) | Prompt có approval gate để Claude Code scaffold multi-repository an toàn |
+
+Tài liệu 09 (bootstrap prompt) đã chuyển thành migration runbook:
+[CLAUDE-CODE-MULTI-REPO-BOOTSTRAP.md](../migration/CLAUDE-CODE-MULTI-REPO-BOOTSTRAP.md) —
+nó là runbook, không phải tài liệu chiến lược.
 
 ## 4. Nhãn bằng chứng dùng trong bộ tài liệu
 

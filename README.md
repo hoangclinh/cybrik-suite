@@ -1,7 +1,9 @@
 # CYBRIK Suite — Meta / Control Repository
 
-> Status: `SCAFFOLD` — bootstrapped 2026-07-23. No contract, integration harness, or release
-> process in this repository has been accepted or implemented yet.
+> Status: repository/product implementation remains `SCAFFOLD` / `NOT IMPLEMENTED`
+> (bootstrapped 2026-07-23). Within it: `docs/strategy/README.md` and documents 01–08 are
+> **CANONICAL** (Founder decision 2026-07-23); ADRs are `PROPOSED — NOT DECIDED`; contracts,
+> integration harnesses, tests, and release manifests remain unimplemented.
 
 This is the **meta/control repository** for the CYBRIK Suite. It contains **no product source
 code**. It exists to hold what must be shared and governed across the product repositories:
@@ -23,8 +25,9 @@ use the repository-qualified form `repo-name:path/to/file`.
 
 ## Layout
 
-- `docs/` — strategy (draft-imported from SOC), architecture, ADRs, security, evaluation,
-  operations, releases, migration records. See `docs/README.md`.
+- `docs/` — strategy (**CANONICAL** — imported from SOC and canonicalized 2026-07-23),
+  architecture, ADRs (`PROPOSED` briefs), security, evaluation, operations, releases
+  (incl. the active `RELEASE-BLOCKERS` register), migration records. See `docs/README.md`.
 - `contracts/` — cross-product API/event/schema/MCP contracts. **Empty by design** until the
   first contract is proposed and accepted. See `contracts/README.md`.
 - `integration/` — cross-product integration composition and fixtures. Empty by design.

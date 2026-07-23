@@ -22,3 +22,6 @@ A formal disclosure policy has not been established. Until then, report suspecte
 vulnerabilities in any CYBRIK Suite component directly to the Founder (repository owner).
 Do not open public issues for security matters. This section must be replaced with a real
 policy (contact channel, SLA, safe-harbor statement) before any external release.
+
+External releases are blocked until a verified disclosure channel exists — see blocking
+decision RB-001 in `docs/releases/RELEASE-BLOCKERS.md`.
