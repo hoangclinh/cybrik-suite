@@ -1,0 +1,10 @@
+{
+  "_comment": "Example Claude Code project settings for cybrik-suite. Copy relevant parts into .claude/settings.local.json (gitignored). Use relative paths only; never enable permission bypass; read each target repository's CLAUDE.md/AGENTS.md before editing it.",
+  "permissions": {
+    "additionalDirectories": [
+      "../cybrik-soc-command-center",
+      "../cybrik-cyber-ai-platform",
+      "../cybrik-security-tool-fabric"
+    ]
+  }
+}

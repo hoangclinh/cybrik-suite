@@ -1,0 +1,56 @@
+# macOS
+.DS_Store
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+
+# Claude Code local config (machine-specific, never committed)
+.claude/settings.local.json
+
+# Editor / cache
+.idea/
+.vscode/
+*.swp
+*.swo
+.cache/
+
+# Build output
+dist/
+build/
+out/
+*.pyc
+__pycache__/
+
+# Dependency trees
+node_modules/
+.venv/
+venv/
+
+# Model weights
+*.gguf
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+
+# Raw data / captures / dumps
+*.pcap
+*.pcapng
+*.dump
+*.sql.gz
+*.log
+
+# Local integration volumes
+integration/**/volumes/
+integration/**/.data/
