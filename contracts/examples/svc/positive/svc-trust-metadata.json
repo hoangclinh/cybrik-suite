@@ -1,0 +1,16 @@
+{
+  "trust_domain": "soc.internal.cybrik",
+  "self_audience": "svc:cyber-ai-inference",
+  "accepted_issuers": ["spiffe://soc.internal.cybrik/mint/downstream"],
+  "jwks": "cybrik://soc.internal.cybrik/jwks/downstream-mint",
+  "accepted_algs": ["ES256", "EdDSA"],
+  "max_token_ttl_seconds": 120,
+  "clock_skew_seconds": 30,
+  "require_cnf": true,
+  "require_mtls": true,
+  "mint_authority": {
+    "issuer": "spiffe://soc.internal.cybrik/mint/downstream",
+    "signing_key_ref": { "scheme": "hsm", "ref": "hsm://slot/3/key/soc-mint-2026" },
+    "spiffe_id": "spiffe://soc.internal.cybrik/mint/downstream"
+  }
+}

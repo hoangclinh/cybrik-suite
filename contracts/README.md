@@ -28,13 +28,26 @@ token (no vendor/endpoint on the wire), and grants a model **no tool/agent/appro
 (disjoint from the accepted Tool-Fabric packet, ADR-0004; MCP out of scope). See
 `compatibility/cybrik-suite-inference-packet.v1.manifest.json`.
 
+The **W2-F internal service-delegation + workload-identity packet** (all `ACCEPTED FOR
+IMPLEMENTATION`, v0.1.0, not stable v1/GA; accepted at Gate W2-F — Codex under Founder delegation,
+2026-07-24) is **additive to, and disjoint from,** both packets. It governs the IDENTITY/DELEGATION
+seam in front of the W2-D inference operations (internal SOC → Cyber AI), realizing the ADR-0006
+E2/E3 two-layer trust seam per ADR-0008: transport mTLS workload identity (SPIFFE-compatible, not
+required) plus a short-lived (`<=120s`), asymmetric, certificate-bound (`cnf`) RFC 9068 delegation
+token. It introduces the `cybrik.svc-*` JSON Schemas under `json-schema/`, delegation →
+inference-operation mapping notes under `adapters/`, its own compatibility manifest under
+`compatibility/`, and fixtures under `examples/svc/`. It **reuses common-defs and data-marking by
+`$ref` without modifying them**, declares **no server/endpoint** and **no MCP/tool authority**, and
+keeps the external-authority (A05) boundary distinct (ADR-0007 OD-3). See
+`compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json`.
+
 | Directory | Will contain |
 |---|---|
 | `openapi/` | REST API contracts (OpenAPI) |
 | `asyncapi/` | Event/stream contracts (AsyncAPI) |
 | `json-schema/` | Shared data object schemas (JSON Schema) |
 | `mcp/` | MCP server/tool capability contracts |
-| `adapters/` | Provider-adapter mapping notes (wire/adapter boundary; W2-D inference packet) |
+| `adapters/` | Mapping notes (boundary docs): W2-D provider-adapter wire boundary; W2-F delegation → inference-operation mapping |
 | `compatibility/` | Version compatibility matrices between products |
 | `examples/` | Conformance fixtures (positive/negative) for the validators |
 

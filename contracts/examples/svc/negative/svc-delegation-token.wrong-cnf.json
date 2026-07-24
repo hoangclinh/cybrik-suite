@@ -1,0 +1,22 @@
+{
+  "header": { "alg": "ES256", "typ": "at+jwt", "kid": "soc-mint-2026-07" },
+  "claims": {
+    "iss": "spiffe://soc.internal.cybrik/mint/downstream",
+    "sub": "spiffe://soc.internal.cybrik/workload/alert-triage",
+    "aud": "svc:cyber-ai-inference",
+    "iat": 1899999960,
+    "nbf": 1899999960,
+    "exp": 1900000040,
+    "jti": "jti-soc-9f8e7d6c5b4a3210",
+    "cnf": { "x5t#S256": "too-short-not-a-sha256-thumbprint" },
+    "scope": "ai.inference:invoke",
+    "cybrik.tenant_id": "tenant-acme",
+    "cybrik.actor": {
+      "type": "service",
+      "id": "spiffe://soc.internal.cybrik/workload/alert-triage",
+      "tenant_id": "tenant-acme"
+    },
+    "cybrik.operation": { "name": "ai.inference.create", "max_risk_class": "R1" },
+    "cybrik.marking": { "classification": "confidential", "tlp": "TLP:AMBER" }
+  }
+}

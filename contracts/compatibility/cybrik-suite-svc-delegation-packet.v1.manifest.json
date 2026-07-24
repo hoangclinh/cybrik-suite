@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json",
+  "title": "CYBRIK Suite W2-F internal service-delegation + workload-identity contract packet — compatibility/version manifest",
+  "description": "Inventory and compatibility record for the W2-F cross-service identity + application-delegation contract packet (internal SOC → Cyber AI seam). ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet and the ACCEPTED W2-D inference packet: it introduces the cybrik.svc-* JSON Schema namespace and REUSES accepted primitives (common-defs, data-marking) by $ref without modifying them. It realizes the two-layer trust seam of ADR-0006 (E2 mTLS workload identity, E3 delegation) as detailed in ADR-0008. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-F (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "wire_scope": "NO SERVER / NO ENDPOINT. This packet declares no OpenAPI server, AsyncAPI channel, host, route, or operational URL. It is a set of JSON Schema validation contracts (token / request-validation / trust-metadata) plus a mapping note. The seam it governs is realized by each product's own transport (mTLS) and mint/validate code, contract-first against these schemas.",
+  "mcp_scope": "OUT OF SCOPE. This packet defines no MCP server/tool/action contract and grants no tool/function/agent authority. A delegation token authorizes a named AI inference/summarization operation only; tool execution remains governed by the accepted Tool-Fabric packet (ADR-0004).",
+  "adr_basis": [
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never a bundle tag." },
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "workload identity (E2) + delegation (E3): the two-layer trust seam. Transport = mTLS workload identity; application = short-lived certificate-bound delegation token. This packet is the contract realization of that accepted seam." },
+    { "id": "ADR-0008", "status": "ACCEPTED FOR IMPLEMENTATION (Gate W2-F)", "role": "internal service-delegation + workload-identity profile: two-layer mTLS (SPIFFE-compatible, not required) + asymmetric RFC 9068 delegation token (<=120s, cnf-bound, strict iss/aud/jti/time), SOC mint port, Cyber AI validate/re-authorize, A05 external boundary kept distinct. This packet is that ADR's contract realization." }
+  ],
+  "adr_out_of_scope": [
+    { "id": "ADR-0004", "reason": "Tool execution authority / capability registry / approval / the digest-bound cybrik.delegation-chain.v1 tool-grant — a SEPARATE accepted packet. This packet's application-delegation token is DISJOINT from that tool-grant chain: it may reference one (cybrik.delegation_ref) but never substitutes for it and grants no tool/action authority." },
+    { "id": "ADR-0007", "reason": "Org-hierarchy contract delta is PROPOSED — NOT APPLIED. org_scope here is opaque/advisory only and carries no authority; the A05 external-authority boundary (ADR-0007 OD-3) is kept a distinct trust context — its identities are never accepted at this internal seam." },
+    { "id": "ADR-0003", "reason": "Durable agent orchestration / bus choice — NOT decided here; this packet declares no servers, channels, or bindings." },
+    { "id": "ADR-0005", "reason": "Sandbox substrate — NOT decided here." }
+  ],
+  "reuses_accepted_unmodified": {
+    "note": "These accepted v0.1 members are referenced by $ref and are NOT modified, re-versioned, or re-stated by this packet. Backward compatibility of the accepted packet is preserved.",
+    "members": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json"
+    ]
+  },
+  "members": [
+    { "file": "json-schema/cybrik.svc-common-defs.v1.schema.json", "title": "Cross-service identity + delegation common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives" },
+    { "file": "json-schema/cybrik.svc-delegation-token.v1.schema.json", "title": "Internal service-delegation token (decoded)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.svc-delegation-request.v1.schema.json", "title": "Service-delegation request (validation view)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.svc-trust-metadata.v1.schema.json", "title": "Service-delegation trust metadata", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "adapters/cybrik-svc-delegation-mapping-notes.v1.md", "title": "Service-delegation → W2-D inference operation mapping notes", "contract_version": "0.1.0", "format": "adapter-notes", "kind": "adapter-notes" }
+  ],
+  "backward_compatibility": {
+    "additive": true,
+    "modifies_accepted_v0_1": false,
+    "namespace": "Disjoint: schema ids cybrik.svc-*. No accepted id, event type, or channel is redefined; the W2-D inference namespace (cybrik.model-*/cybrik.alert-summarization-*) is unchanged and only referenced by neutral operation tokens.",
+    "relation_to_w2d_inference": "This packet governs the IDENTITY/DELEGATION seam in front of the W2-D inference operations. A delegation token authorizes a neutral operation token (e.g. ai.inference.create, ai.summarization.create) that names a W2-D operation WITHOUT importing, modifying, or re-stating any W2-D schema. The two packets are additive and disjoint.",
+    "obligations_on_accepted_members": "none"
+  },
+  "trust_invariants": {
+    "note": "Fail-closed trust invariants. Some are STRUCTURAL (enforced by the JSON Schemas and exercised by fixtures, SI-*); others are RUNTIME-ONLY (the relying party MUST enforce; JSON Schema constrains shape only, SR-*). Both products MUST implement identical outcomes. The transport layer (E2 mTLS) is a deployment obligation; these contracts bind the application layer (E3) to it via cnf.",
+    "structural": [
+      "SI-1 Asymmetric-only signing: header.alg is a jwtAlg (ES*/PS*/RS*/EdDSA); no HS* symmetric and no 'none' is expressible (RFC 8725 §3.1/§3.2; RFC 9068 §4). A delegation token is verified against pinned public JWKS trust, never a shared secret.",
+      "SI-2 Explicit typing: header.typ is const 'at+jwt' (RFC 9068 §2.1); a token minted for a different purpose is not accepted as a delegation token.",
+      "SI-3 Replay key required: claims.jti is required, minLength 16 — every token carries an unguessable anti-replay id.",
+      "SI-4 Sender-constrained: claims.cnf (RFC 8705 x5t#S256, 43-char base64url) is required; a bearer token with no certificate binding, or a malformed thumbprint, is rejected.",
+      "SI-5 Complete authorization claim set: iss/sub/aud/iat/nbf/exp and the CYBRIK tenant/actor/operation/marking claims are all required — an under-specified token cannot authorize anything.",
+      "SI-6 Single strict audience: aud is a single value (not an array); the relying party matches it exactly to its own identity (confused-deputy defense).",
+      "SI-7 No static bearer: the request-validation view is additionalProperties:false — an inline static 'authorization' bearer has nowhere to live.",
+      "SI-8 No forwarded end-user token: the request-validation view is additionalProperties:false — an 'on_behalf_of_user_token' cannot be smuggled through; delegation is the RFC 8693 act/actor claim, not a forwarded user credential.",
+      "SI-9 Hard short-TTL ceiling: svc-trust-metadata.max_token_ttl_seconds is const 120; require_cnf and require_mtls are const true — the fail-closed defaults are not configurable open."
+    ],
+    "runtime_only": [
+      "SR-1 Time window: the relying party MUST reject a token whose nbf is in the future or whose exp is in the past (within a bounded clock_skew_seconds). JSON Schema cannot compare against wall-clock time.",
+      "SR-2 Short TTL enforced: the relying party MUST reject a token whose exp - iat exceeds max_token_ttl_seconds (120s) even if currently within its window.",
+      "SR-3 Audience match: token.aud MUST equal the relying party's own self_audience; a token for another audience MUST be rejected (RFC 9700 §2.3).",
+      "SR-4 Cross-tenant: authoritative tenant is the token's cybrik.tenant_id; a body tenant_id that differs MUST be rejected (advisory body never elevates).",
+      "SR-5 Org scope: an advisory body org_scope, when present, MUST match the token's cybrik.org_scope; it carries no authority on its own (ADR-0007 delta not applied).",
+      "SR-6 Operation binding: the requested operation.name MUST equal the token's cybrik.operation.name; a body requesting an unauthorized operation MUST be rejected (confused-deputy defense).",
+      "SR-7 Marking non-escalation: the request data_marking MUST be at or below the token's cybrik.marking on the classification/TLP lattice; a request above it MUST be rejected.",
+      "SR-8 Replay: the relying party MUST reject a second presentation of a jti already seen within its validity window (jti replay cache). Schema cannot track cross-request state.",
+      "SR-9 Proof-of-possession: the mTLS peer certificate thumbprint MUST equal token.cnf['x5t#S256']; a token presented without its bound client certificate MUST be rejected (RFC 8705).",
+      "SR-10 Issuer/key pinning: iss MUST be in the pinned accepted_issuers set and header.kid MUST resolve to a pinned JWKS key; verification MUST fail closed when trust cannot be resolved (offline/air-gapped included)."
+    ]
+  },
+  "cross_ref_integrity": {
+    "note": "Bindings the relying party MUST preserve (schema cannot enforce equality across artifacts / against transport state).",
+    "bindings": [
+      "svc-delegation-request.presented_token.claims.cnf['x5t#S256'] == svc-delegation-request.relying_party.peer_cert_thumbprint (mTLS proof-of-possession)",
+      "svc-delegation-request.presented_token.claims.aud == relying-party self_audience (svc-trust-metadata.self_audience)",
+      "svc-delegation-request.tenant_id == presented_token.claims['cybrik.tenant_id']; operation.name == presented_token.claims['cybrik.operation'].name; data_marking <= presented_token.claims['cybrik.marking']",
+      "svc-delegation-token.claims.iss ∈ svc-trust-metadata.accepted_issuers; header.alg ∈ svc-trust-metadata.accepted_algs; (exp - iat) <= svc-trust-metadata.max_token_ttl_seconds"
+    ]
+  },
+  "gate": {
+    "id": "W2-F",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-F (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "decisions_resolved": [
+      "G-W2F-1 ACCEPTED: the two-layer trust seam — transport mTLS workload identity (SPIFFE-compatible, SPIFFE not required, no SPIRE hard-dependency) + application-layer short-lived asymmetric certificate-bound delegation token — is the internal SOC → Cyber AI cross-service identity contract.",
+      "G-W2F-2 ACCEPTED: the delegation token is an RFC 9068 at+jwt, asymmetric-only, <=120s, cnf-bound, with strict iss/aud/jti/time validation and required tenant/org/actor/operation/marking authorization claims.",
+      "G-W2F-3 ACCEPTED: SOC mints downstream delegation tokens; Cyber AI validates AND re-authorizes the named operation (never trusts the caller body over the token, nor the token over the mTLS peer certificate).",
+      "G-W2F-4 ACCEPTED: the external-authority (A05) boundary is a DISTINCT trust context; internal delegation identities and external identities are never reused across it (ADR-0007 OD-3).",
+      "G-W2F-5 ACCEPTED: this packet is disjoint from the Tool-Fabric tool-grant chain (ADR-0004) and from MCP; it maps only to neutral W2-D inference operation tokens with no server/endpoint."
+    ],
+    "evidence_ref": "See acceptance.evidence[] and cybrik-suite:docs/releases/GATE-W2-F-SERVICE-DELEGATION-ACCEPTANCE-2026-07-24.md. A green validator/secret-scan run is a conformance signal; acceptance is the recorded Founder-delegated decision, not an inference from CI."
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-F",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-F (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "scope": "Products MAY now implement against the W2-F service-delegation packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. Runtime-only trust invariants (trust_invariants.runtime_only: SR-1..SR-10) and cross_ref_integrity bindings remain explicit and REQUIRED of every implementation; a green validator run proves standards conformance and fixture coverage, not runtime enforcement, and not the presence of an operational CA/mTLS deployment.",
+    "evidence": [
+      "Pinned standards validation green: JSON Schema 2020-12 compile/ref-resolution of the 4 svc schemas (reusing common-defs + data-marking unmodified), 3/3 positive + 7/7 negative-schema + 9/9 negative-semantic fixtures, and the SI-*/SR-* trust-invariant assertions each exercised by a fixture; git diff --check clean; gitleaks secret scan clean (no key material, CA, or secret is a wire field anywhere in the packet).",
+      "Independent post-validator security/compatibility review: packet internally coherent at v0.1.0, additive to and disjoint from the accepted v0.1 and W2-D packets, no tool/agent authority, external (A05) boundary kept distinct, and no operational endpoint or CA/secret introduced."
+    ],
+    "mechanics": "Acceptance-for-implementation was authorized by explicit Founder delegation of Gate W2-F to Codex and recorded with evidence in this commit (ADR-0001 D5). No approval was inferred from CI going green. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate (ADR-0001 D6)."
+  }
+}

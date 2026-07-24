@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.svc-trust-metadata.v1.schema.json",
+  "title": "CYBRIK internal service-delegation trust metadata v1",
+  "description": "The pinned trust configuration a relying party (Cyber AI) uses to validate W2-F delegation tokens, and the descriptor of the SOC downstream-mint authority that issues them (ADR-0006 E2/E3; ADR-0008). It fixes the fail-closed defaults as structural constants: sender-constrained (require_cnf) and mutually-authenticated (require_mtls) are const true; max_token_ttl_seconds is const 120 (a longer-lived delegation token is not a valid W2-F token); accepted_algs are asymmetric-only. Public trust (JWKS) is carried by REFERENCE only; no key material is inline, and no operational endpoint is declared. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-F (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trust_domain",
+    "self_audience",
+    "accepted_issuers",
+    "jwks",
+    "accepted_algs",
+    "max_token_ttl_seconds",
+    "require_cnf",
+    "require_mtls"
+  ],
+  "properties": {
+    "trust_domain": {
+      "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/trustDomain",
+      "description": "The internal trust domain this relying party belongs to. The external-authority (A05) boundary is a distinct trust context and its identities are never accepted here (ADR-0007 OD-3)."
+    },
+    "self_audience": {
+      "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/audienceId",
+      "description": "This relying party's own audience identifier. An incoming token whose aud is not exactly this value MUST be rejected (RFC 9700 §2.3 audience restriction; confused-deputy defense)."
+    },
+    "accepted_issuers": {
+      "type": "array",
+      "description": "The pinned set of SOC mint-authority issuer ids. A token whose iss is not in this set MUST be rejected (RFC 8725 §3.8 issuer pinning); an empty set trusts nothing (fail-closed).",
+      "items": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/issuerId" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "maxItems": 32
+    },
+    "jwks": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/jwksRef" },
+    "accepted_algs": {
+      "type": "array",
+      "description": "The asymmetric-only algorithm allow-list (RFC 8725 §3.1). Every entry is a jwtAlg (no HS*/none is expressible); a token whose header.alg is outside this list MUST be rejected.",
+      "items": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/jwtAlg" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "maxItems": 10
+    },
+    "max_token_ttl_seconds": {
+      "type": "integer",
+      "description": "Hard ceiling on token lifetime (exp - iat). Const 120: a W2-F delegation token is short-lived by construction; the relying party MUST reject a token whose lifetime exceeds this even if its signature verifies.",
+      "const": 120
+    },
+    "clock_skew_seconds": {
+      "type": "integer",
+      "description": "Permitted clock skew when evaluating nbf/exp. Bounded small; a large skew would defeat the short-TTL guarantee.",
+      "minimum": 0,
+      "maximum": 60,
+      "default": 30
+    },
+    "require_cnf": {
+      "type": "boolean",
+      "description": "Const true: a delegation token MUST be certificate-bound (RFC 8705 cnf). A bearer (non-sender-constrained) token is never accepted.",
+      "const": true
+    },
+    "require_mtls": {
+      "type": "boolean",
+      "description": "Const true: the transport MUST be mutually-authenticated mTLS (E2). The token's cnf is verified against the mTLS peer certificate.",
+      "const": true
+    },
+    "mint_authority": {
+      "type": "object",
+      "description": "OPTIONAL descriptor of the SOC downstream-mint side (the port that mints delegation tokens). Signing material is referenced, never inline (secretRef); a dev/test scheme MUST NOT hold a production signing key.",
+      "additionalProperties": false,
+      "required": ["issuer", "signing_key_ref"],
+      "properties": {
+        "issuer": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/issuerId" },
+        "signing_key_ref": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/secretRef" },
+        "spiffe_id": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/spiffeId" }
+      }
+    }
+  }
+}

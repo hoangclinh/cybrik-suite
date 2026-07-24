@@ -33,3 +33,14 @@ control-plane rule that rejects it.
 
 Validation is performed with no-install, standard-library tooling only (see the packet
 validation notes). Nothing here is executable product code.
+
+## Additive packet fixtures (disjoint namespaces)
+
+- `inference/` — W2-D AI model-inference + alert-summarization fixtures, driven by
+  `inference/examples-manifest.json` (validated by `validate-inference.mjs`).
+- `svc/` — W2-F internal service-delegation fixtures, driven by `svc/examples-manifest.json`
+  (validated by `validate-svc.mjs`): **3 positive**, **7 negative-schema** (asymmetric-only alg,
+  required `jti`/`cnf`, thumbprint pattern, no static bearer / forwarded user token), and **9
+  negative-semantic** (time window, over-TTL, audience, cross-tenant, org-scope, operation binding,
+  marking non-escalation, `jti` replay) — the negative-semantic cases are structurally valid and
+  rejected only by a relying-party trust invariant, against a fixed test clock.

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.svc-common-defs.v1.schema.json",
+  "title": "CYBRIK cross-service identity + delegation common definitions v1",
+  "description": "Provider-neutral shared primitives for the W2-F cross-service identity + application-delegation contract packet (internal SOC → Cyber AI seam). ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet and the ACCEPTED W2-D inference packet: this document REUSES the accepted cybrik.common-defs.v1 primitives (tenantId, actor, timestampUtc, sha256Digest, riskClass) and cybrik.data-marking.v1 by $ref and never redefines or modifies them. It realizes the two-layer trust seam accepted in ADR-0006 (E2 workload identity, E3 delegation) and detailed in ADR-0008: (1) a transport layer of mTLS workload identity (SPIFFE-style, SPIFFE-optional, no SPIRE hard-dependency), and (2) an application layer of short-lived, asymmetrically-signed, certificate-bound delegation access tokens (RFC 9068 JWT access-token profile; RFC 8705 certificate binding; RFC 8693 delegation semantics). No raw private key, secret, bearer, or forwarded user token is ever a wire field here. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-F (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-format-pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "$defs": {
+    "jwtAlg": {
+      "type": "string",
+      "description": "ASYMMETRIC-ONLY JWS signing algorithm (RFC 7518). Enum deliberately excludes every symmetric (HS*) algorithm and the unsecured 'none' algorithm: a delegation token is signed by the SOC mint authority's private key and verified by Cyber AI against pinned public trust (JWKS), so a shared-secret or unsecured token is structurally impossible (RFC 8725 §3.1/§3.2 reject 'none' + algorithm allow-listing; RFC 9068 §4 reject alg 'none').",
+      "enum": ["ES256", "ES384", "ES512", "PS256", "PS384", "PS512", "RS256", "RS384", "RS512", "EdDSA"]
+    },
+    "epochSeconds": {
+      "type": "integer",
+      "description": "NumericDate seconds since the Unix epoch (RFC 7519 §2). Used for iat/nbf/exp.",
+      "minimum": 0
+    },
+    "jti": {
+      "type": "string",
+      "description": "JWT ID (RFC 7519 §4.1.7). Unique per token; the anti-replay key. minLength 16 makes a trivially-guessable/short id structurally impossible.",
+      "minLength": 16,
+      "maxLength": 200
+    },
+    "certThumbprint": {
+      "type": "string",
+      "description": "Base64url-encoded (no padding, no whitespace) SHA-256 hash of the DER encoding of an X.509 certificate — the RFC 8705 §3.1 'x5t#S256' value. SHA-256 is 32 bytes → exactly 43 base64url chars.",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "cnfConfirmation": {
+      "type": "object",
+      "description": "RFC 8705 §3.1 certificate-thumbprint confirmation method. Binds the token to the presenter's mTLS client certificate (proof-of-possession): the relying party MUST compare the mTLS peer certificate's SHA-256 thumbprint to this value and reject on mismatch, so a stolen/exfiltrated token cannot be replayed without the bound private key (RFC 9700/BCP 240 sender-constrained tokens).",
+      "additionalProperties": false,
+      "required": ["x5t#S256"],
+      "properties": {
+        "x5t#S256": { "$ref": "#/$defs/certThumbprint" }
+      }
+    },
+    "spiffeId": {
+      "type": "string",
+      "description": "Optional SPIFFE ID (spiffe://<trust-domain>/<path>) per the SPIFFE-ID specification (spiffe/spiffe standards/SPIFFE-ID.md §2). The abstraction SUPPORTS SPIFFE IDs and SVIDs but does not require SPIFFE, and hard-depends on NO particular issuer runtime (SPIRE is one implementation, not mandated). A pragmatic RFC-3986 subset pattern.",
+      "pattern": "^spiffe://[a-z0-9._-]+(/[A-Za-z0-9._~%-]+)*$",
+      "minLength": 10,
+      "maxLength": 512
+    },
+    "trustDomain": {
+      "type": "string",
+      "description": "Per-deployment trust root (SPIFFE-ID §2.1 trust domain; ADR-0006 E2 per-deployment trust domain). An INTERNAL trust domain only; the external-authority (A05) boundary is a DISTINCT trust context and its identities are never accepted here (ADR-0007 OD-3: no credential reuse across the external boundary).",
+      "pattern": "^[a-z0-9._-]+$",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "issuerId": {
+      "type": "string",
+      "description": "Pinned identifier of the SOC downstream-token mint authority (RFC 7519 iss; RFC 9068 §2.2 REQUIRED). Cyber AI validates iss against a pinned trust set exactly (RFC 8725 §3.8); an unpinned issuer MUST be rejected. Vendor-neutral opaque string (e.g. a spiffe:// id or a urn:).",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "audienceId": {
+      "type": "string",
+      "description": "Intended internal relying party for a delegation token (RFC 7519 aud; RFC 9068 §2.2 REQUIRED; RFC 9700 §2.3 audience restriction). Single value (not an array) to keep the confused-deputy defense strict: a token presented to any audience other than the validating service MUST be rejected (RFC 8725 §3.9; ADR-0007 FC-8). MUST name an internal service; an external-peer audience is a distinct context and is refused (ADR-0007 OD-3).",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "scopeString": {
+      "type": "string",
+      "description": "OAuth 2.0 space-delimited scope string (RFC 6749 §3.3; carried per RFC 9068 §2.2.3). Fail-closed: an empty scope grants nothing. Scopes are coarse authorization tags; the specific operation the token authorizes is the structured `operation` claim, which the relying party MUST re-authorize.",
+      "pattern": "^[!-~]+( [!-~]+)*$",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "operationRef": {
+      "type": "object",
+      "description": "The specific operation a delegation token authorizes. The relying party (Cyber AI) MUST re-authorize this operation against the token's scope/tenant/marking rather than trusting the caller (confused-deputy defense; ADR-0006, ADR-0004 F3 risk classes reused as the neutral risk vocabulary).",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Vendor-neutral operation token, dotted form, e.g. 'ai.inference.create', 'ai.summarization.create'.",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "resource_pattern": {
+          "type": "string",
+          "description": "Optional server-resolvable resource scope pattern. Never a client-asserted target identity.",
+          "maxLength": 512
+        },
+        "max_risk_class": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+          "description": "Highest risk class this token authorizes for the operation. A downstream request above this class MUST be denied."
+        }
+      }
+    },
+    "actorClaim": {
+      "type": "object",
+      "description": "RFC 8693 §4.1 `act` (actor) claim: expresses that delegation has occurred and identifies the acting party. Delegation, not impersonation (RFC 8693 §1.1) — the acting party keeps its own identity. The outermost actor is the current actor; a nested `act` is a prior actor in the composite delegation chain. This is DISJOINT from the accepted cybrik.delegation-chain.v1 (ADR-0004/E3 digest-bound tool-execution grant chain): a token MAY reference such a chain via `cybrik.delegation_ref`, but the two are not the same artifact.",
+      "additionalProperties": false,
+      "required": ["sub"],
+      "properties": {
+        "sub": {
+          "type": "string",
+          "description": "Identifier of the acting party (typically the calling workload identity, e.g. a spiffe:// id).",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "act": { "$ref": "#/$defs/actorClaim" }
+      }
+    },
+    "secretRef": {
+      "type": "object",
+      "description": "Indirect reference to key material held OUTSIDE the contract (never inline). Private signing material is NEVER a wire field anywhere in this packet; a descriptor carries only a reference and a backing-store scheme. Aligned with the SOC SecretProvider `env:<NAME>` convention (cybrik-soc-command-center) and HSM/KMS-ready by design (ADR-0008 key lifecycle).",
+      "additionalProperties": false,
+      "required": ["scheme", "ref"],
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "description": "Backing store for the referenced material. 'hsm'/'kms' are hardware/managed-key backed; 'env'/'file' are dev/test conveniences and MUST NOT hold production private keys.",
+          "enum": ["env", "file", "kms", "hsm", "vault"]
+        },
+        "ref": {
+          "type": "string",
+          "description": "Opaque locator within the chosen scheme (e.g. 'env:CYBRIK_SVC_SIGNING_KEY', 'hsm://slot/3/key/soc-mint-2026'). NOT the material itself.",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "jwksRef": {
+      "type": "string",
+      "description": "Reference to the public JWKS (RFC 7517) the relying party pins/fetches to verify signatures. A REFERENCE only — public keys may be distributed, but this contract carries no key material inline. In an air-gapped/offline deployment this resolves to a locally-pinned trust bundle; verification MUST fail closed when the referenced trust cannot be resolved (ADR-0008).",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "orgNodeRef": {
+      "type": "string",
+      "description": "OPAQUE, ADVISORY organizational-node hint (ADR-0007 concept `org_node_id`). Carried for policy/scoping only; it carries NO authority and is NOT an authorization input. Kept intentionally opaque because ADR-0007's contract delta is PROPOSED — NOT APPLIED; this packet does not depend on that unapplied delta, and the authoritative org/tenant is derived from the caller credential, never from this hint (ADR-0007 FC-2).",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
