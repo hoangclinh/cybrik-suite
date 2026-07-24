@@ -1,5 +1,5 @@
 # CYBRIK Tool Fabric control-plane REST mapping notes v1
-# Status: PROPOSED — NOT ACCEPTED
+# Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) — Founder-delegated Gate W2-B, 2026-07-24
 # Format pin: OpenAPI 3.1.x (ADR-0001 D4); OpenAPI 3.1 uses JSON Schema 2020-12 natively.
 # These are MAPPING NOTES, not a deployable API description. Deliberately NO `servers` block:
 # no operational endpoints, hostnames, or secrets are declared (contract-lead constraint).
@@ -11,13 +11,14 @@ openapi: 3.1.1
 info:
   title: CYBRIK Tool Fabric control-plane (mapping notes)
   version: 0.1.0
-  summary: PROPOSED — NOT ACCEPTED. REST binding of the cross-product contract schemas.
+  summary: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). REST binding of the cross-product contract schemas.
   description: >-
-    Notes-only mapping of the packet's PROPOSED cross-product schemas onto REST resources. No servers,
-    no endpoints, no examples of real infrastructure. Products implement contract-first only
-    after Founder acceptance (ADR-0001 D5).
-  x-cybrik-status: PROPOSED
-  x-cybrik-not-accepted: true
+    Notes-only mapping of the packet's ACCEPTED FOR IMPLEMENTATION cross-product schemas onto REST
+    resources. No servers, no endpoints, no examples of real infrastructure. Accepted for
+    implementation contract-first under Founder-delegated Gate W2-B (ADR-0001 D5); this remains a
+    mapping-notes document and decides no deployment.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
 
 # No `servers:` — endpoints are intentionally omitted.
 

@@ -40,6 +40,32 @@ const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
 // ---------------------------------------------------------------------------
+// 0. Lifecycle state. Exactly TWO truthful states are permitted, and the
+//    compatibility manifest is the single source of truth. Neither state is a
+//    stable v1/GA and neither may be an immutable bundle tag (packet stays
+//    v0.1.0, is-bundle-tag=false). Every packet member MUST agree with the
+//    manifest: a half-flipped packet (some files ACCEPTED, some PROPOSED) is a
+//    consistency failure — which is exactly what checkLifecycle exists to catch.
+// ---------------------------------------------------------------------------
+const LIFECYCLE = {
+  'PROPOSED': { status: 'PROPOSED', notAccepted: true },
+  'ACCEPTED FOR IMPLEMENTATION': { status: 'ACCEPTED FOR IMPLEMENTATION', notAccepted: false },
+};
+const COMPAT_PATH = join(CONTRACTS, 'compatibility', 'cybrik-suite-contract-packet.v1.manifest.json');
+let EXPECTED_STATE = null;
+try {
+  const s = readJson(COMPAT_PATH)['x-cybrik-status'];
+  if (LIFECYCLE[s]) EXPECTED_STATE = s;
+  else fail(`compatibility manifest: x-cybrik-status must be one of ${Object.keys(LIFECYCLE).map((k) => `'${k}'`).join(' | ')} (got '${s}'); no stable/GA status is permitted at v${EXPECTED_VERSION}`);
+} catch (e) { fail(`compatibility manifest: cannot read to determine lifecycle state: ${e.message}`); }
+const LC = EXPECTED_STATE ? LIFECYCLE[EXPECTED_STATE] : null;
+const checkLifecycle = (label, obj) => {
+  if (!LC || !obj) return;
+  if (obj['x-cybrik-status'] !== LC.status) fail(`${label}: x-cybrik-status must be '${LC.status}' to match the manifest lifecycle (got '${obj['x-cybrik-status']}')`);
+  if (obj['x-cybrik-not-accepted'] !== LC.notAccepted) fail(`${label}: x-cybrik-not-accepted must be ${LC.notAccepted} to match the manifest lifecycle`);
+};
+
+// ---------------------------------------------------------------------------
 // 1. Load the 10 JSON Schema documents and register them with a single Ajv2020
 //    instance keyed by $id. Cross-file relative $refs resolve against $id.
 // ---------------------------------------------------------------------------
@@ -85,8 +111,7 @@ for (const name of SCHEMA_FILES) {
   if (doc.$schema !== DRAFT_2020) fail(`json-schema/${name}: $schema is not 2020-12 (${doc.$schema})`);
   if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
-  if (doc['x-cybrik-status'] !== 'PROPOSED') fail(`json-schema/${name}: x-cybrik-status must be PROPOSED (${doc['x-cybrik-status']})`);
-  if (doc['x-cybrik-not-accepted'] !== true) fail(`json-schema/${name}: x-cybrik-not-accepted must be true`);
+  checkLifecycle(`json-schema/${name}`, doc);
   if (doc['x-cybrik-contract-version'] !== EXPECTED_VERSION) fail(`json-schema/${name}: contract-version must be ${EXPECTED_VERSION}`);
   bump('schemas_loaded');
 }
@@ -119,8 +144,8 @@ let exManifest;
 try { exManifest = readJson(exManifestPath); } catch (e) { fail(`examples-manifest.json: parse error: ${e.message}`); }
 
 if (exManifest) {
-  if (exManifest['x-cybrik-status'] !== 'PROPOSED') fail('examples-manifest: status must be PROPOSED');
-  if (exManifest['x-cybrik-not-accepted'] !== true) fail('examples-manifest: not-accepted must be true');
+  checkLifecycle('examples-manifest', exManifest);
+  if (exManifest['x-cybrik-contract-version'] !== EXPECTED_VERSION) fail(`examples-manifest: x-cybrik-contract-version must be ${EXPECTED_VERSION}`);
   for (const ex of exManifest.examples || []) {
     const exPath = join(EXAMPLES_DIR, ex.file);
     if (!existsSync(exPath)) { fail(`example missing on disk: examples/${ex.file}`); continue; }
@@ -154,15 +179,31 @@ const compatPath = join(CONTRACTS, 'compatibility', 'cybrik-suite-contract-packe
 let compat;
 try { compat = readJson(compatPath); } catch (e) { fail(`compatibility manifest: parse error: ${e.message}`); }
 if (compat) {
-  if (compat['x-cybrik-status'] !== 'PROPOSED') fail('compatibility manifest: status must be PROPOSED');
-  if (compat['x-cybrik-not-accepted'] !== true) fail('compatibility manifest: not-accepted must be true');
+  checkLifecycle('compatibility manifest', compat);
   if (compat['x-cybrik-packet-version'] !== EXPECTED_VERSION) fail(`compatibility manifest: packet-version must be ${EXPECTED_VERSION}`);
-  if (compat['x-cybrik-is-bundle-tag'] !== false) fail('compatibility manifest: is-bundle-tag must be false (PROPOSED, never a bundle tag)');
-  if (!/NOT ACCEPTED/.test(compat.acceptance?.status || '')) fail('compatibility manifest: acceptance.status must state NOT ACCEPTED');
+  // is-bundle-tag stays false in BOTH states: v0.1.0 is never an immutable bundle tag / GA.
+  if (compat['x-cybrik-is-bundle-tag'] !== false) fail('compatibility manifest: is-bundle-tag must be false (v0.1.0 is never an immutable bundle tag / GA)');
+  const accStatus = compat.acceptance?.status || '';
+  if (EXPECTED_STATE === 'PROPOSED') {
+    if (!/NOT ACCEPTED/.test(accStatus)) fail('compatibility manifest: acceptance.status must state NOT ACCEPTED while PROPOSED');
+  } else {
+    // ACCEPTED FOR IMPLEMENTATION: acceptance must be affirmative, Founder-gated, and evidenced.
+    if (!/ACCEPTED FOR IMPLEMENTATION/.test(accStatus)) fail('compatibility manifest: acceptance.status must state ACCEPTED FOR IMPLEMENTATION');
+    if (/\bNOT ACCEPTED\b/.test(accStatus)) fail('compatibility manifest: acceptance.status must not still say NOT ACCEPTED once accepted');
+    const a = compat.acceptance || {};
+    if (!a.gate) fail('compatibility manifest: accepted packet must record acceptance.gate');
+    if (!a.decided_by) fail('compatibility manifest: accepted packet must record acceptance.decided_by (Founder-delegated; not agent-inferred)');
+    if (!a.decided_on) fail('compatibility manifest: accepted packet must record acceptance.decided_on');
+    if (!Array.isArray(a.evidence) || a.evidence.length === 0) fail('compatibility manifest: accepted packet must record acceptance.evidence[]');
+  }
   const pins = compat.format_pins || {};
   if (pins.jsonSchema !== '2020-12') fail('compatibility manifest: jsonSchema pin must be 2020-12');
   if (pins.openApi !== '3.1.x') fail('compatibility manifest: openApi pin must be 3.1.x');
   if (pins.asyncApi !== '3.0.0') fail('compatibility manifest: asyncApi pin must be 3.0.0');
+  // Checker-gap fix: the mcp pin is asserted here AND against common-defs x-cybrik-format-pins.
+  if (pins.mcp !== '2025-11-25') fail('compatibility manifest: mcp pin must be 2025-11-25');
+  const cdPins = schemas['cybrik.common-defs.v1.schema.json']?.doc?.['x-cybrik-format-pins'] || {};
+  if (cdPins.mcp !== '2025-11-25') fail('common-defs: x-cybrik-format-pins.mcp must be 2025-11-25');
   for (const m of compat.members || []) {
     const mp = join(CONTRACTS, m.file);
     if (!existsSync(mp)) fail(`compatibility manifest: member file missing: ${m.file}`);
@@ -183,6 +224,22 @@ const asyncapiPath = join(CONTRACTS, 'asyncapi', 'cybrik-suite-events.v1.asyncap
 let openapi, asyncapi;
 try { openapi = readYaml(openapiPath); } catch (e) { fail(`openapi YAML parse error: ${e.message}`); }
 try { asyncapi = readYaml(asyncapiPath); } catch (e) { fail(`asyncapi YAML parse error: ${e.message}`); }
+
+// Cross-file lifecycle consistency for the wire specs and the MCP notes, so a
+// partially-flipped packet cannot pass. OpenAPI/AsyncAPI carry the marker triple
+// in info; the MCP notes are markdown, so assert the header Status line textually.
+if (openapi?.info) checkLifecycle('openapi info', openapi.info);
+if (asyncapi?.info) checkLifecycle('asyncapi info', asyncapi.info);
+if (EXPECTED_STATE) {
+  try {
+    const mcpText = readFileSync(join(CONTRACTS, 'mcp', 'cybrik-mcp-mapping-notes.v1.md'), 'utf8');
+    if (EXPECTED_STATE === 'PROPOSED') {
+      if (!/Status:\s*`PROPOSED`\s*—\s*\*\*NOT ACCEPTED\*\*/.test(mcpText)) fail('mcp notes: header Status must read `PROPOSED` — **NOT ACCEPTED** to match the lifecycle');
+    } else if (!/Status:\s*\*\*ACCEPTED FOR IMPLEMENTATION\*\*/.test(mcpText)) {
+      fail('mcp notes: header Status must read **ACCEPTED FOR IMPLEMENTATION** to match the lifecycle');
+    }
+  } catch (e) { fail(`mcp notes: cannot read to check lifecycle: ${e.message}`); }
+}
 
 // Collect every $ref string recursively.
 const collectRefs = (node, acc) => {
@@ -288,6 +345,38 @@ for (const key of ['alertSnapshotCreated', 'invocationRequested', 'invocationCom
 }
 const kill = msgs.killSwitchChanged;
 H('9:kill', !!kill?.payload?.$ref && !kill?.payload?.allOf, 'AsyncAPI killSwitchChanged data must remain deferred (envelope-only, no data binding)');
+
+// #H1 (W2B-H1) — approval-decision.decided_by is constrained to a HUMAN. A schema-
+// enforceable human-in-the-loop control: decided_by.type MUST be const "user", so an
+// agent/service identity can never decide an approval (SoD alone would miss this).
+const apprDec = doc('cybrik.approval-decision.v1.schema.json')?.properties?.decided_by;
+const decidedByUserConst = Array.isArray(apprDec?.allOf) && apprDec.allOf.some((m) => m?.properties?.type?.const === 'user');
+H('H1', decidedByUserConst, 'approval-decision.decided_by MUST constrain type to const "user" (human-in-the-loop; no agent/service approver)');
+
+// #H2 (W2B-H2) — delegation min-ceiling / non-escalation is BOTH defined in the manifest
+// and exercised by the fixtures. Risk order R0<R1<R2<R3. chainEscalates() returns true iff
+// some grant[i>=1] exceeds the running minimum ceiling of its predecessors (an elevation).
+const RISK = { R0: 0, R1: 1, R2: 2, R3: 3 };
+const chainEscalates = (chain) => {
+  const grants = chain?.grants || [];
+  let runningMin = Infinity;
+  for (let i = 0; i < grants.length; i++) {
+    const cls = RISK[grants[i]?.scope?.max_risk_class];
+    if (cls === undefined) return false; // malformed shape is reported by schema validation
+    if (i >= 1 && cls > runningMin) return true; // grant[i] raises above min(predecessors) => escalation
+    runningMin = Math.min(runningMin, cls);
+  }
+  return false;
+};
+const ce = compat?.monotonicity_invariants?.chain_evaluation;
+const ceText = JSON.stringify(ce || {});
+H('H2a', !!ce && /MIN/i.test(ceText) && /MUST NOT/i.test(ceText) && /(approver_co_grant|co-grant)/i.test(ceText),
+  'manifest.monotonicity_invariants.chain_evaluation must define the MIN effective ceiling and that an approver co-grant MUST NOT elevate it');
+let posChain, negEscChain;
+try { posChain = readJson(join(EXAMPLES_DIR, 'positive/delegation-chain.json')); } catch { /* reported by example loop */ }
+try { negEscChain = readJson(join(EXAMPLES_DIR, 'negative/delegation-chain.privilege-escalation.json')); } catch { /* reported by example loop */ }
+H('H2b', !!posChain && !chainEscalates(posChain), 'positive delegation-chain fixture must be NON-escalating (no grant exceeds the running minimum ceiling)');
+H('H2c', !!negEscChain && chainEscalates(negEscChain), 'negative privilege-escalation fixture MUST actually escalate (a co-grant exceeding the root ceiling), proving the min-ceiling rule is exercised');
 
 // ---------------------------------------------------------------------------
 // Summary

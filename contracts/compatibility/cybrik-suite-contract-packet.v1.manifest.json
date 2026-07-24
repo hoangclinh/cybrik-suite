@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-contract-packet.v1.manifest.json",
   "title": "CYBRIK Suite cross-product contract packet v1 — compatibility/version manifest",
-  "description": "Inventory and compatibility record for the first cross-product contract packet. This is NOT an ADR-0001 immutable bundle tag: bundle tagging is a Founder-gated act reserved for ACCEPTED contracts, and every member here is PROPOSED. Pre-GA per ADR-0001 D2, no N-1 obligation attaches yet, but every future incompatibility MUST be recorded here — silence is a policy violation. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "description": "Inventory and compatibility record for the first cross-product contract packet. This is NOT an ADR-0001 immutable bundle tag: bundle tagging is a Founder-gated act reserved for a stable (v1/GA) packet version. Every member here is now ACCEPTED FOR IMPLEMENTATION at v0.1.0 (Founder-delegated Gate W2-B, 2026-07-24), but no bundle tag is created and x-cybrik-is-bundle-tag remains false. Pre-GA per ADR-0001 D2, no N-1 obligation attaches yet, but every future incompatibility MUST be recorded here — silence is a policy violation. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-packet-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
   "format_pins": {
@@ -60,8 +60,22 @@
   },
   "monotonicity_invariants": {
     "note": "Monotonic non-escalation / no-downgrade rules the control plane MUST enforce at runtime; JSON Schema constrains shape only and cannot enforce these ordering/comparison invariants.",
+    "chain_evaluation": {
+      "note": "Deterministic delegation-chain evaluation algorithm (resolves W2B-H2). Both products MUST implement identical outcomes. Risk order R0 < R1 < R2 < R3.",
+      "effective_risk_ceiling": "effective_risk_ceiling = MIN over ALL grants in the chain of scope.max_risk_class. An action at risk class Rk is authorized by the chain ONLY IF effective_risk_ceiling >= Rk — i.e. EVERY grant's max_risk_class >= Rk. Fail-closed: an empty/absent scope grants nothing.",
+      "non_elevation": "No grant may raise the effective ceiling above the running minimum of its predecessors. Formally, for every grant[i] with i>=1, scope.max_risk_class MUST be <= MIN(scope.max_risk_class of grant[0..i-1]); a grant that exceeds that minimum does NOT elevate authority and MUST cause the chain to be denied for any action above the true minimum. Delegation and approval can only ATTENUATE, never amplify, privilege.",
+      "grant_kinds": [
+        "re_delegation: grant[i].issuer == grant[i-1].subject. The subject passes a SUBSET of the authority it received downstream. scope.max_risk_class MUST be <= parent's; resource_patterns/capabilities MUST narrow, never widen.",
+        "approver_co_grant: grant[i].issuer is an INDEPENDENT approving authority (four-eyes / separation_of_duties), grant[i].subject is the acting agent, and grant[i].constraints.separation_of_duties is true. It records that a required human approver co-authorized a SPECIFIC narrowed action (typically max_uses=1 on a single resolved target). It MUST NOT set max_risk_class above the chain minimum; a co-grant is NEVER the source of an elevation."
+      ],
+      "r2_r3_gate": "An R2 or R3 (write/destructive) action additionally REQUIRES a valid cybrik.approval-decision.v1 whose decided_by.type == \"user\" (human-in-the-loop; W2B-H1) and whose delegation_ref binds this exact chain_digest. The human approval is a SEPARATE gate; it does not itself appear as, and cannot be substituted by, a chain grant that raises the ceiling. Therefore R3 authority requires an ORIGINAL R3 grant already present at/above the chain minimum PLUS the required human approval — never a later co-grant elevation.",
+      "worked_examples": {
+        "authorized": "examples/positive/delegation-chain.json: grant[0]=R3 (analyst standing containment authority), grant[1]=R3 approver co-grant (manager sam, SoD, max_uses=1, narrowed to one host). MIN(R3,R3)=R3 authorizes the R3 fabric.isolate_host; the co-grant narrows but does not elevate.",
+        "denied": "examples/negative/delegation-chain.privilege-escalation.json: grant[0]=R2, grant[1]=R3 approver co-grant. MIN(R2,R3)=R2 < R3, so the R3 action is DENIED; the co-grant's R3 does not elevate the R2 root."
+      }
+    },
     "rules": [
-      "Risk non-escalation: the effective risk of an action MUST NOT exceed the minimum scope.max_risk_class across the delegation chain; no downstream grant or request raises it (ADR-0004 F3).",
+      "Risk non-escalation: the effective risk of an action MUST NOT exceed the minimum scope.max_risk_class across the delegation chain; no downstream re-delegation, approver co-grant, or request raises it (ADR-0004 F3). See monotonicity_invariants.chain_evaluation for the deterministic algorithm and the authorized/denied worked examples.",
       "Isolation no-downgrade: policy MAY raise the executor isolation_profile above the capability floor but MUST NOT lower it; S0 is permitted only for R0 (ADR-0004 F3).",
       "Egress non-widening: network_policy is broker-enforced; resource_scope/resource_patterns narrow authority and never widen it beyond the delegation chain (ADR-0004 F5).",
       "No re-authorization after expiry: an idempotent replay or a decision arriving after grant/approval expiry MUST NOT re-authorize (strategy 05 §11.4).",
@@ -72,7 +86,7 @@
     {
       "id": "RB-001",
       "title": "SOC approval-ingress mapping",
-      "detail": "SOC has a SOAR four-eyes model (soar_approval_requests) but no Fabric-ingress mapping to cybrik.approval-request/decision.v1. Tracked as the ADR-0004 F9 open dependency / release blocker RB-001. Contract drafted here PROPOSED; mapping resolved contract-first before acceptance."
+      "detail": "SOC has a SOAR four-eyes model (soar_approval_requests) but no Fabric-ingress mapping to cybrik.approval-request/decision.v1. Tracked as the ADR-0004 F9 open dependency / release blocker RB-001. The contract interface is ACCEPTED FOR IMPLEMENTATION at v0.1.0 under Gate W2-B; the SOC-side Fabric-ingress mapping remains an OPEN release/integration follow-up (RB-001), NOT closed by this acceptance, to be resolved contract-first before release."
     },
     {
       "id": "MARK-001",
@@ -81,7 +95,19 @@
     }
   ],
   "acceptance": {
-    "status": "PROPOSED — NOT ACCEPTED",
-    "mechanics": "Acceptance requires explicit Founder authorization recorded with evidence links in a status-flip commit (ADR-0001 D5). No agent may infer approval. Until then no release manifest or bundle may reference any member (ADR-0001 D6)."
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-B",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-B (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "scope": "Products MAY now implement against contract packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. Runtime-only invariants recorded in monotonicity_invariants and cross_ref_integrity remain explicit and REQUIRED of every implementation.",
+    "evidence": [
+      "Pinned standards validation green: JSON Schema 2020-12 + OpenAPI 3.1.x + AsyncAPI 3.0.0, 21/21 security hardening assertions, 10/10 positive + 5/5 negative-schema + 6/6 negative-semantic fixtures, secret scan clean (baseline CI run 30075606003 at d176f4f; re-run at the status-flip commit head).",
+      "Independent post-validator security/compatibility review: no unresolved Critical/High schema or trust-boundary defect; packet internally coherent at v0.1.0."
+    ],
+    "mechanics": "Acceptance for implementation was authorized by explicit Founder delegation of Gate W2-B to Codex and recorded with evidence in this status-flip commit (ADR-0001 D5). No approval was inferred. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate; until such a bundle tag exists no release manifest may reference members as GA (ADR-0001 D6).",
+    "open_followups": [
+      "RB-001 (SOC approval-ingress mapping; ADR-0004 F9) remains an OPEN release/integration follow-up. Acceptance-for-implementation does NOT close it.",
+      "MARK-001 (SOC data-marking backfill) remains an OPEN forward requirement."
+    ]
   }
 }

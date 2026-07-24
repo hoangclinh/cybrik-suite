@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.common-defs.v1.schema.json",
   "title": "CYBRIK common definitions v1",
-  "description": "Shared vendor-neutral primitives referenced by the CYBRIK cross-product contract packet. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: PROPOSED — NOT ACCEPTED.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "description": "Shared vendor-neutral primitives referenced by the CYBRIK cross-product contract packet. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
   "x-cybrik-format-pins": {
     "jsonSchema": "2020-12",

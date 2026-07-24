@@ -1,10 +1,10 @@
 # CYBRIK MCP mapping notes v1
 
-- Status: `PROPOSED` — **NOT ACCEPTED**
+- Status: **ACCEPTED FOR IMPLEMENTATION** (v0.1.0; not stable v1/GA) — Founder-delegated Gate W2-B, 2026-07-24
 - Contract version: 0.1.0
 - Format pin: **MCP 2025-11-25** (ADR-0001 D4)
-- Scope: how the Model Context Protocol adapts onto the PROPOSED cross-product schemas in
-  this packet. Notes only — no server endpoints, no secrets, no transport addresses.
+- Scope: how the Model Context Protocol adapts onto the accepted-for-implementation cross-product
+  schemas in this packet. Notes only — no server endpoints, no secrets, no transport addresses.
 
 ## 1. Position (non-negotiable)
 
