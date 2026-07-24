@@ -8,7 +8,7 @@ import { dirname, resolve, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-// Accepted v0.1 control-plane mapping notes + the PROPOSED W2-D inference-plane mapping notes.
+// Accepted v0.1 control-plane mapping notes + the ACCEPTED W2-D inference-plane mapping notes.
 // Both are non-deployable, server-less mapping notes; lint each at fail-severity=error.
 const targets = [
   join(ROOT, 'contracts', 'openapi', 'cybrik-fabric-control-plane.v1.openapi.yaml'),

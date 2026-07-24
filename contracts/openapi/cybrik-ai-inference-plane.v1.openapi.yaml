@@ -1,11 +1,11 @@
 # CYBRIK AI model-inference plane REST mapping notes v1
-# Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No product may implement until a
-# separate Founder gate (Gate W2-D) accepts it. A green validator run is a conformance signal,
-# NOT acceptance.
+# Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-D
+# (Codex under Founder delegation, 2026-07-24). Acceptance authorizes contract-first
+# implementation at v0.1.0; it is NOT a stable v1/GA promotion and NOT an immutable bundle tag.
 # Format pin: OpenAPI 3.1.x (ADR-0001 D4); OpenAPI 3.1 uses JSON Schema 2020-12 natively.
 # These are MAPPING NOTES, not a deployable API description. Deliberately NO `servers` block:
 # no operational endpoints, hostnames, vendor URLs, or secrets are declared. Path templates only
-# bind this packet's PROPOSED provider-neutral inference schemas to REST verbs. The concrete
+# bind this packet's ACCEPTED provider-neutral inference schemas to REST verbs. The concrete
 # model/runtime is NEVER named on the wire (model_class is a policy-selected token resolved
 # server-side per ADR-0002 G3); vendor specifics (Ollama/vLLM/llama.cpp/OpenAI-envelope/Qwen)
 # are adapter metadata, described in ../adapters/cybrik-inference-adapter-notes.v1.md, never here.
@@ -17,14 +17,14 @@ openapi: 3.1.1
 info:
   title: CYBRIK AI model-inference plane (mapping notes)
   version: 0.1.0
-  summary: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). REST binding of the W2-D inference schemas.
+  summary: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). REST binding of the W2-D inference schemas.
   description: >-
-    Notes-only mapping of the PROPOSED W2-D provider-neutral inference schemas onto REST
+    Notes-only mapping of the ACCEPTED W2-D provider-neutral inference schemas onto REST
     resources. No servers, no endpoints, no vendor URLs, no examples of real infrastructure. This
     remains a mapping-notes document and decides no deployment. Model output is untrusted data and
     is never an authorization, approval, or action trigger.
-  x-cybrik-status: PROPOSED
-  x-cybrik-not-accepted: true
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
 
 # No `servers:` — endpoints are intentionally omitted.
 

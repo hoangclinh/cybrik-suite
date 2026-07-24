@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
   "title": "CYBRIK Suite W2-D model-inference + alert-summarization contract packet — compatibility/version manifest",
-  "description": "Inventory and compatibility record for the W2-D AI-inference contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (cybrik-suite-contract-packet.v1.manifest.json): it introduces a new cybrik.model-* / cybrik.ai.* namespace and REUSES accepted primitives (common-defs, data-marking, envelope) by $ref without modifying them. Every member here is PROPOSED — NOT ACCEPTED at v0.1.0. No product may implement any member until a separate Founder gate (Gate W2-D) accepts it; this document does NOT accept anything and is NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "description": "Inventory and compatibility record for the W2-D AI-inference contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (cybrik-suite-contract-packet.v1.manifest.json): it introduces a new cybrik.model-* / cybrik.ai.* namespace and REUSES accepted primitives (common-defs, data-marking, envelope) by $ref without modifying them. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-D (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — it is NOT a stable v1/GA promotion and is NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-packet-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
   "format_pins": {
@@ -14,7 +14,7 @@
   },
   "mcp_scope": "OUT OF SCOPE. This packet defines no MCP server/tool/action contract and grants a model no tool/function/agent authority. Tool execution remains governed by the accepted Tool-Fabric packet (ADR-0004); MCP mapping notes there are unchanged.",
   "adr_basis": [
-    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 PROPOSED and is never a bundle tag." },
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never a bundle tag." },
     { "id": "ADR-0002", "status": "ACCEPTED", "role": "model-runtime seam (G3): provider-neutral CYBRIK-owned adapter over Ollama/vLLM/llama.cpp; model gets no credential/database/tool/shell authority; constrained structured output + streaming. This packet is the contract realization of that accepted seam." },
     { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), conditional correlation (E6), naming (E7). Inference lifecycle events reuse the accepted envelope; identity/authority is never a model-populated field." }
   ],
@@ -84,19 +84,28 @@
   },
   "gate": {
     "id": "W2-D",
-    "status": "NOT OPENED — awaiting Founder decision",
-    "decisions_needed": [
-      "G-W2D-1: Accept the provider-neutral model_class abstraction (no vendor/model on the wire; Ollama/Qwen/OpenAI-envelope confined to adapter metadata) as the cross-product inference contract.",
-      "G-W2D-2: Accept the fail-closed redaction_policy (on_unresolved const 'deny') and marking non-downgrade (TR-1) as mandatory inference trust invariants.",
-      "G-W2D-3: Accept the disjointness stance — inference carries NO tool/agent/approval authority (TI-2) and MCP is out of scope — so this packet cannot become a tool-execution bypass.",
-      "G-W2D-4: Accept alert summarization consuming SOC alerts by digest-bound objectRef only (SOC remains owner of alert truth; no SOC schema change).",
-      "G-W2D-5: Confirm the AsyncAPI/OpenAPI deltas are additive mapping notes with no servers/endpoints, or defer them."
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-D (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "decisions_resolved": [
+      "G-W2D-1 ACCEPTED: the provider-neutral model_class abstraction (no vendor/model on the wire; Ollama/Qwen/OpenAI-envelope confined to adapter metadata) is the cross-product inference contract.",
+      "G-W2D-2 ACCEPTED: the fail-closed redaction_policy (on_unresolved const 'deny') and marking non-downgrade (TR-1) are mandatory inference trust invariants.",
+      "G-W2D-3 ACCEPTED: the disjointness stance — inference carries NO tool/agent/approval authority (TI-2) and MCP is out of scope — so this packet cannot become a tool-execution bypass.",
+      "G-W2D-4 ACCEPTED: alert summarization consumes SOC alerts by digest-bound objectRef only (SOC remains owner of alert truth; no SOC schema change).",
+      "G-W2D-5 ACCEPTED: the AsyncAPI/OpenAPI deltas are retained as additive mapping notes with no operational servers/endpoints."
     ],
-    "on_accept": "A separate Founder-gated status flip (per ADR-0001 D5) would move every member to ACCEPTED FOR IMPLEMENTATION and update this manifest's acceptance block with gate/decided_by/decided_on/evidence — exactly as Gate W2-B did for the v0.1 packet. Until then, silence is not acceptance."
+    "evidence_ref": "See acceptance.evidence[] and cybrik-suite:docs/releases/GATE-W2-D-INFERENCE-ACCEPTANCE-2026-07-24.md. A green validator/secret-scan run is a conformance signal; acceptance is the recorded Founder-delegated decision, not an inference from CI."
   },
   "acceptance": {
-    "status": "PROPOSED — NOT ACCEPTED",
-    "scope": "No product may implement any member. This is a standards-conformant, security-reviewed proposal only. A green validator/secret-scan run is a conformance signal, NOT acceptance.",
-    "mechanics": "Acceptance requires explicit Founder decision at Gate W2-D, recorded with evidence in a status-flip commit (ADR-0001 D5). No approval may be inferred from CI going green."
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-D",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-D (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "scope": "Products MAY now implement against the W2-D inference packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. Runtime-only trust invariants (trust_invariants.runtime_only: TR-1..TR-6) and cross_ref_integrity bindings remain explicit and REQUIRED of every implementation; a green validator run proves standards conformance and fixture coverage, not runtime enforcement.",
+    "evidence": [
+      "Pinned standards validation green: JSON Schema 2020-12 compile/ref-resolution of 8 inference schemas, 8/8 positive + 8/8 negative-schema + 4/4 negative-semantic fixtures, 39 trust-invariant assertions, 5/5 AsyncAPI messages data-bound; OpenAPI 3.1.x (Spectral oas, fail-severity=error) and AsyncAPI 3.0.0 (@asyncapi/parser) clean; gitleaks secret scan clean (Gate-cited CI run 30084152546 at e7d192b, 0 Critical/High; re-run at the status-flip commit head).",
+      "Independent post-validator security/compatibility review: 0 Critical / 0 High trust or schema defect; packet internally coherent at v0.1.0, disjoint from the accepted tool-execution packet (ADR-0004), MCP out of scope."
+    ],
+    "mechanics": "Acceptance-for-implementation was authorized by explicit Founder delegation of Gate W2-D to Codex and recorded with evidence in this status-flip commit (ADR-0001 D5). No approval was inferred from CI going green. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate (ADR-0001 D6)."
   }
 }

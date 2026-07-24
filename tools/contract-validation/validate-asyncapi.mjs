@@ -7,7 +7,7 @@ import { Parser, fromFile } from '@asyncapi/parser';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-// Accepted v0.1 cross-product event catalog + the PROPOSED W2-D AI-inference lifecycle events.
+// Accepted v0.1 cross-product event catalog + the ACCEPTED W2-D AI-inference lifecycle events.
 // Both are bus-agnostic (no servers/bindings); validate each against AsyncAPI 3.0.0.
 const targets = [
   join(ROOT, 'contracts', 'asyncapi', 'cybrik-suite-events.v1.asyncapi.yaml'),

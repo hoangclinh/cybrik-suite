@@ -1,8 +1,8 @@
 {
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
-  "description": "Conformance manifest for the W2-D AI model-inference + alert-summarization example fixtures (PROPOSED — NOT ACCEPTED). 'kind' drives the expected validation outcome: positive = MUST validate; negative-schema = MUST fail JSON Schema validation; negative-semantic = MUST validate structurally but MUST be rejected by a control-plane trust invariant a schema alone cannot enforce. Schema paths are relative to contracts/json-schema/; fixture paths are relative to contracts/examples/inference/. Validated by tools/contract-validation/validate-inference.mjs.",
+  "description": "Conformance manifest for the W2-D AI model-inference + alert-summarization example fixtures (ACCEPTED FOR IMPLEMENTATION — v0.1.0, not stable v1/GA). 'kind' drives the expected validation outcome: positive = MUST validate; negative-schema = MUST fail JSON Schema validation; negative-semantic = MUST validate structurally but MUST be rejected by a control-plane trust invariant a schema alone cannot enforce. Schema paths are relative to contracts/json-schema/; fixture paths are relative to contracts/examples/inference/. Validated by tools/contract-validation/validate-inference.mjs.",
   "examples": [
     { "file": "positive/model-inference-request.json", "schema": "cybrik.model-inference-request.v1.schema.json", "kind": "positive" },
     { "file": "positive/model-inference-result.completed.json", "schema": "cybrik.model-inference-result.v1.schema.json", "kind": "positive" },

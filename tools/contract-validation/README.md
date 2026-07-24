@@ -2,10 +2,11 @@
 
 Status: `SCAFFOLD` (validation tooling). It validates two disjoint packets under `contracts/`:
 the accepted v0.1 cross-product packet (**ACCEPTED FOR IMPLEMENTATION**) and the additive W2-D
-AI model-inference + alert-summarization packet, whose members are all **PROPOSED — NOT
-ACCEPTED**. A green run is a **standards-conformance signal only**; it does not accept any
-contract. Acceptance is a separate Founder gate (see the repository `CLAUDE.md` → "Approval
-gates"); for the inference packet that is Gate W2-D, not yet opened.
+AI model-inference + alert-summarization packet, whose members are now all **ACCEPTED FOR
+IMPLEMENTATION** (v0.1.0; not stable v1/GA) as of Gate W2-D (Codex under Founder delegation,
+2026-07-24). A green run is a **standards-conformance signal only**; it does not by itself accept
+any contract. Acceptance is a separate Founder gate (see the repository `CLAUDE.md` → "Approval
+gates"); for the inference packet that is Gate W2-D, now decided.
 
 This is **validation tooling only**. It is deliberately *not* a product runtime stack choice —
 no product source code lives in this repository (see repository `CLAUDE.md`).
@@ -31,8 +32,11 @@ Coverage counts printed by a green run:
   external resolved), 5 AsyncAPI messages data-bound, **39 trust-invariant assertions** (TI-1..TI-8
   structural + TR-1/TR-2/TR-5/grounding/cross-ref runtime, each exercised by a fixture).
 
-The inference packet is **PROPOSED — NOT ACCEPTED**; its validator asserts that status and the
-disjointness from the accepted tool-execution packet (no tool/agent/vendor authority on the wire).
+The inference packet is **ACCEPTED FOR IMPLEMENTATION** (v0.1.0; not stable v1/GA). Its validator
+accepts exactly two consistent whole-packet lifecycle states (`PROPOSED`/not-accepted or
+`ACCEPTED FOR IMPLEMENTATION`/accepted), derives the state from the compatibility manifest, and
+fails a half-flipped packet; it also asserts the disjointness from the accepted tool-execution
+packet (no tool/agent/vendor authority on the wire).
 
 ## Run it
 

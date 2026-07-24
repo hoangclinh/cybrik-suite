@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-common-defs.v1.schema.json",
   "title": "CYBRIK model-inference common definitions v1",
-  "description": "Provider-neutral shared primitives for the W2-D model-inference + alert-summarization contract packet. ADDITIVE to the accepted v0.1 cross-product packet: this document REUSES the accepted cybrik.common-defs.v1 primitives (tenantId, timestampUtc, traceparent, sha256Digest, objectRef, actor, semver) by $ref and never redefines or modifies them. It realizes the model-runtime seam accepted in ADR-0002 G3 (a thin CYBRIK-owned provider-neutral adapter over Ollama/vLLM/llama.cpp; a model receives no credential, database, tool, or shell authority). Vendor/runtime specifics (Ollama/Qwen/OpenAI-envelope) are adapter metadata, NEVER wire fields. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: PROPOSED — NOT ACCEPTED (v0.1.0). No product may implement until a separate Founder gate accepts it.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "description": "Provider-neutral shared primitives for the W2-D model-inference + alert-summarization contract packet. ADDITIVE to the accepted v0.1 cross-product packet: this document REUSES the accepted cybrik.common-defs.v1 primitives (tenantId, timestampUtc, traceparent, sha256Digest, objectRef, actor, semver) by $ref and never redefines or modifies them. It realizes the model-runtime seam accepted in ADR-0002 G3 (a thin CYBRIK-owned provider-neutral adapter over Ollama/vLLM/llama.cpp; a model receives no credential, database, tool, or shell authority). Vendor/runtime specifics (Ollama/Qwen/OpenAI-envelope) are adapter metadata, NEVER wire fields. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-D (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
   "x-cybrik-format-pins": {
     "jsonSchema": "2020-12",

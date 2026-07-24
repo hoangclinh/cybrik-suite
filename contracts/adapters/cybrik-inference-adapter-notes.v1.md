@@ -1,8 +1,8 @@
 # CYBRIK inference adapter mapping notes v1
 
-Status: `PROPOSED` — **NOT ACCEPTED** (v0.1.0; not stable v1/GA). No product may implement until a
-separate Founder gate (Gate W2-D) accepts it. A green validator/secret-scan run is a
-standards-conformance signal only; it is **not** acceptance.
+Status: **ACCEPTED FOR IMPLEMENTATION** (v0.1.0; not stable v1/GA). Accepted at Gate W2-D
+(Codex under Founder delegation, 2026-07-24). Acceptance authorizes contract-first implementation
+at v0.1.0; it is **not** a stable v1/GA promotion and **not** an ADR-0001 immutable bundle tag.
 
 Contract version: 0.1.0 · ADR basis: ADR-0002 G3 (model-runtime seam), ADR-0001 (versioning).
 

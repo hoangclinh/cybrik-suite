@@ -1,6 +1,8 @@
 // validate-inference.mjs — W2-D AI model-inference + alert-summarization packet validator.
 //
-// Scope: the PROPOSED — NOT ACCEPTED W2-D inference packet ONLY. It is ADDITIVE to, and
+// Scope: the W2-D inference packet ONLY (its whole-packet lifecycle flips between PROPOSED and
+// ACCEPTED FOR IMPLEMENTATION at v0.1.0, per the compatibility manifest as the single source of
+// truth). It is ADDITIVE to, and
 // DISJOINT from, the accepted v0.1 cross-product packet (validated by validate-schemas.mjs,
 // which this file does NOT touch). Here we:
 //   (1) load the accepted base primitives (common-defs, data-marking) UNMODIFIED so the
@@ -14,8 +16,9 @@
 //       here — cross-tenant, marking non-downgrade, fail-closed redaction, no tool/vendor pin,
 //       refusal-reason, grounded citations, capability limits;
 //   (4) assert manifest / examples-manifest / wire-doc lifecycle + integrity consistency:
-//       every member is PROPOSED — NOT ACCEPTED, the accepted base is reused unmodified, and
-//       the packet is not a bundle tag / GA.
+//       every member agrees with the manifest's single lifecycle state (a half-flipped packet —
+//       some members PROPOSED, some ACCEPTED — fails), the accepted base is reused unmodified,
+//       and the packet is never a bundle tag / GA.
 //
 // Zero external side effects. Exit 0 = all checks passed; exit 1 = at least one failure.
 
@@ -47,22 +50,35 @@ const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
 // ---------------------------------------------------------------------------
-// 0. Lifecycle. The inference packet has exactly ONE truthful state at v0.1.0:
-//    PROPOSED — NOT ACCEPTED. The compatibility manifest is the single source of
-//    truth; every member MUST agree. Acceptance is a separate Founder gate (W2-D);
-//    a green run here is a conformance signal only, NEVER acceptance.
+// 0. Lifecycle state. Exactly TWO truthful whole-packet states are permitted at
+//    v0.1.0, and the compatibility manifest is the single source of truth:
+//      PROPOSED (not-accepted) | ACCEPTED FOR IMPLEMENTATION (accepted).
+//    Neither state is a stable v1/GA and neither may be an immutable bundle tag
+//    (packet stays v0.1.0, is-bundle-tag=false). Every packet member MUST agree
+//    with the manifest: a half-flipped packet (some files ACCEPTED, some PROPOSED,
+//    or a member whose status/not-accepted pair is internally inconsistent) is a
+//    consistency failure — which is exactly what checkLifecycle exists to catch.
+//    Acceptance is a Founder gate (W2-D) recorded in the manifest with evidence; a
+//    green run here is a conformance signal only, NEVER acceptance by itself.
 // ---------------------------------------------------------------------------
+const LIFECYCLE = {
+  'PROPOSED': { status: 'PROPOSED', notAccepted: true },
+  'ACCEPTED FOR IMPLEMENTATION': { status: 'ACCEPTED FOR IMPLEMENTATION', notAccepted: false },
+};
 const COMPAT_PATH = join(CONTRACTS, 'compatibility', 'cybrik-suite-inference-packet.v1.manifest.json');
 let compat = null;
 try { compat = readJson(COMPAT_PATH); } catch (e) { fail(`inference compatibility manifest: cannot read: ${e.message}`); }
-if (compat && compat['x-cybrik-status'] !== 'PROPOSED') {
-  fail(`inference compatibility manifest: x-cybrik-status must be 'PROPOSED' at v${EXPECTED_VERSION} (got '${compat['x-cybrik-status']}'); this packet is NOT ACCEPTED`);
+let EXPECTED_STATE = null;
+if (compat) {
+  const s = compat['x-cybrik-status'];
+  if (LIFECYCLE[s]) EXPECTED_STATE = s;
+  else fail(`inference compatibility manifest: x-cybrik-status must be one of ${Object.keys(LIFECYCLE).map((k) => `'${k}'`).join(' | ')} at v${EXPECTED_VERSION} (got '${s}'); no stable/GA or half-flipped status is permitted`);
 }
-const LC = { status: 'PROPOSED', notAccepted: true };
+const LC = EXPECTED_STATE ? LIFECYCLE[EXPECTED_STATE] : null;
 const checkLifecycle = (label, obj) => {
-  if (!obj) return;
-  if (obj['x-cybrik-status'] !== LC.status) fail(`${label}: x-cybrik-status must be '${LC.status}' (got '${obj['x-cybrik-status']}')`);
-  if (obj['x-cybrik-not-accepted'] !== LC.notAccepted) fail(`${label}: x-cybrik-not-accepted must be ${LC.notAccepted}`);
+  if (!LC || !obj) return;
+  if (obj['x-cybrik-status'] !== LC.status) fail(`${label}: x-cybrik-status must be '${LC.status}' to match the manifest lifecycle (got '${obj['x-cybrik-status']}')`);
+  if (obj['x-cybrik-not-accepted'] !== LC.notAccepted) fail(`${label}: x-cybrik-not-accepted must be ${LC.notAccepted} to match the manifest lifecycle`);
 };
 
 // ---------------------------------------------------------------------------
@@ -187,11 +203,23 @@ if (compat) {
   if (pins.openApi !== '3.1.x') fail('inference manifest: openApi pin must be 3.1.x');
   if (pins.asyncApi !== '3.0.0') fail('inference manifest: asyncApi pin must be 3.0.0');
   const acc = compat.acceptance?.status || '';
-  if (!/NOT ACCEPTED/.test(acc)) fail('inference manifest: acceptance.status must state NOT ACCEPTED while PROPOSED');
-  // Gate W2-D must not be silently marked accepted/opened-into-acceptance.
   const gateStatus = compat.gate?.status || '';
   if (compat.gate?.id !== 'W2-D') fail("inference manifest: gate.id must be 'W2-D'");
-  if (!/NOT OPENED|awaiting/i.test(gateStatus)) fail('inference manifest: gate.status must record that Gate W2-D is not yet decided (NOT OPENED — awaiting Founder decision)');
+  if (EXPECTED_STATE === 'PROPOSED') {
+    if (!/NOT ACCEPTED/.test(acc)) fail('inference manifest: acceptance.status must state NOT ACCEPTED while PROPOSED');
+    // Gate W2-D must not be silently marked accepted/opened-into-acceptance.
+    if (!/NOT OPENED|awaiting/i.test(gateStatus)) fail('inference manifest: gate.status must record that Gate W2-D is not yet decided (NOT OPENED — awaiting Founder decision)');
+  } else {
+    // ACCEPTED FOR IMPLEMENTATION: acceptance + gate must be affirmative, Founder-gated, and evidenced.
+    if (!/ACCEPTED FOR IMPLEMENTATION/.test(acc)) fail('inference manifest: acceptance.status must state ACCEPTED FOR IMPLEMENTATION');
+    if (/\bNOT ACCEPTED\b/.test(acc)) fail('inference manifest: acceptance.status must not still say NOT ACCEPTED once accepted');
+    const a = compat.acceptance || {};
+    if (!a.gate) fail('inference manifest: accepted packet must record acceptance.gate');
+    if (!a.decided_by) fail('inference manifest: accepted packet must record acceptance.decided_by (Founder-delegated; not agent-inferred)');
+    if (!a.decided_on) fail('inference manifest: accepted packet must record acceptance.decided_on');
+    if (!Array.isArray(a.evidence) || a.evidence.length === 0) fail('inference manifest: accepted packet must record acceptance.evidence[]');
+    if (/NOT OPENED|awaiting/i.test(gateStatus)) fail('inference manifest: gate.status must record the Gate W2-D decision once accepted (must not still say NOT OPENED / awaiting)');
+  }
   // Disjointness from the accepted tool-execution packet is a load-bearing security stance.
   const oos = (compat.adr_out_of_scope || []).map((x) => x.id);
   if (!oos.includes('ADR-0004')) fail('inference manifest: ADR-0004 (tool execution authority) MUST be declared out of scope (inference/tool seams are disjoint)');
@@ -434,4 +462,4 @@ if (errors.length) {
   for (const e of errors) console.error('  - ' + e);
   process.exit(1);
 }
-console.log('\nOK — inference packet passes JSON Schema 2020-12 compile/ref-resolution, all fixtures, and every trust invariant (PROPOSED — NOT ACCEPTED).');
+console.log(`\nOK — inference packet passes JSON Schema 2020-12 compile/ref-resolution, all fixtures, and every trust invariant (lifecycle: ${EXPECTED_STATE || 'UNKNOWN'} at v${EXPECTED_VERSION}).`);

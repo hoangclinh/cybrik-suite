@@ -14,4 +14,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — accepted v0.1 packet + PROPOSED W2-D inference packet pass JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and their security/trust invariants.');
+console.log('ALL GREEN — accepted v0.1 packet + ACCEPTED-FOR-IMPLEMENTATION W2-D inference packet pass JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and their security/trust invariants.');

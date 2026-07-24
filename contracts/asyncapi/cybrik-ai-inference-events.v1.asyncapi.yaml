@@ -1,7 +1,7 @@
 # CYBRIK Suite W2-D AI model-inference lifecycle event bindings v1
-# Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No product may implement until a
-# separate Founder gate (Gate W2-D) accepts it. A green validator run is a conformance signal,
-# NOT acceptance.
+# Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-D
+# (Codex under Founder delegation, 2026-07-24). Acceptance authorizes contract-first
+# implementation at v0.1.0; it is NOT a stable v1/GA promotion and NOT an immutable bundle tag.
 # Format pin: AsyncAPI 3.0.0 (ADR-0001 D4).
 # ADDITIVE to the accepted v0.1 event catalog (cybrik-suite-events.v1.asyncapi.yaml): this
 # document REUSES the accepted cybrik.envelope.v1 by $ref and introduces only the disjoint
@@ -10,7 +10,7 @@
 # Bus-agnostic by decision (ADR-0003 still PROPOSED / ADR-0006 E4): this document declares NO
 # servers and NO protocol bindings — only channels, operations, and messages. Every message
 # payload is the accepted CloudEvents-style envelope; the concrete typed `data` payload for each
-# event is one of this packet's PROPOSED cybrik.model-* / cybrik.alert-summarization-* schemas,
+# event is one of this packet's ACCEPTED cybrik.model-* / cybrik.alert-summarization-* schemas,
 # identified by the envelope `dataschema` attribute.
 # Trust boundary (ADR-0002 G3): identity/tenant/authority envelope attributes are written ONLY by
 # authenticated service code; model output never populates them. No event here carries any tool,
@@ -20,13 +20,13 @@ info:
   title: CYBRIK Suite AI model-inference lifecycle events
   version: 0.1.0
   description: >-
-    PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). AI-inference lifecycle event catalog for
+    ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). AI-inference lifecycle event catalog for
     the W2-D packet. No secrets, no endpoints, no bus binding (the bus belongs to ADR-0003, still
     PROPOSED). Consumers MUST validate producer identity, envelope schema/version, tenant, and
     dedup on (source, id). Model output is untrusted data and can never populate envelope
     identity/authority attributes.
-  x-cybrik-status: PROPOSED
-  x-cybrik-not-accepted: true
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
 
 defaultContentType: application/cloudevents+json
 

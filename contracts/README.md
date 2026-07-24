@@ -15,8 +15,9 @@ mapping under `openapi/`; MCP mapping notes under `mcp/`; the inventory/compatib
 under `compatibility/`; and conformance fixtures under `examples/`. Format pins: OpenAPI 3.1.x,
 JSON Schema 2020-12, AsyncAPI 3.0.0, MCP 2025-11-25 (ADR-0001 D4).
 
-The **W2-D AI model-inference + alert-summarization packet** (all `PROPOSED — NOT ACCEPTED`,
-v0.1.0; Gate W2-D not yet opened) is **additive to, and disjoint from,** the v0.1 packet: it
+The **W2-D AI model-inference + alert-summarization packet** (all `ACCEPTED FOR IMPLEMENTATION`,
+v0.1.0, not stable v1/GA; accepted at Gate W2-D — Codex under Founder delegation, 2026-07-24) is
+**additive to, and disjoint from,** the v0.1 packet: it
 introduces the `cybrik.model-*` / `cybrik.alert-summarization-*` JSON Schemas under `json-schema/`,
 inference lifecycle events (`asyncapi/cybrik-ai-inference-events.v1.asyncapi.yaml`), an
 inference-plane REST mapping (`openapi/cybrik-ai-inference-plane.v1.openapi.yaml`), provider-adapter
