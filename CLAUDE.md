@@ -40,8 +40,9 @@ Explicit Founder approval is required for:
 
 - creating, deleting, moving, or renaming repositories or top-level directories;
 - accepting a contract (moving anything in `contracts/` out of `PROPOSED` status);
-- any commit, push, or remote configuration (no remotes exist and none may be created without
-  approval);
+- any commit, push, or remote configuration (an `origin` remote now exists —
+  `github.com/hoangclinh/cybrik-suite`; commits and pushes still require Founder approval, and no
+  additional remote may be created without approval);
 - any change inside `cybrik-soc-command-center` (including replacing its docs with pointers —
   that is a separate migration requiring its own approval);
 - dependency installation, database migration, deployment, or running formatters/auto-fixers

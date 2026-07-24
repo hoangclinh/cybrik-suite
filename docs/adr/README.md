@@ -2,9 +2,10 @@
 
 Status: catalog of ADRs. ADR-0001/ADR-0006 were `ACCEPTED` at GATE A2 and
 ADR-0002/ADR-0004 at GATE A3 on 2026-07-24. ADR-0003/ADR-0005 remain
-`PROPOSED — NOT DECIDED`; ADR-0007 (org hierarchy & external-authority boundary) is `PROPOSED`
-(W2-C0 packet). Accepted ADRs record architectural policy/model decisions only —
-no technical capability is implemented by their acceptance.
+`PROPOSED — NOT DECIDED`; ADR-0007 (org hierarchy & external-authority boundary) is `ACCEPTED`
+at GATE W2-C1 on 2026-07-24 (architectural model + open-decision constraints only; its contract
+delta stays `PROPOSED — NOT APPLIED`, a separate gate). Accepted ADRs record architectural
+policy/model decisions only — no technical capability is implemented by their acceptance.
 
 | ADR | Title | Status |
 |---|---|---|
@@ -14,7 +15,7 @@ no technical capability is implemented by their acceptance.
 | [ADR-0004](ADR-0004-tool-fabric-control-plane-executor-split.md) | Tool Fabric control-plane/executor split | `ACCEPTED` (2026-07-24) |
 | [ADR-0005](ADR-0005-sandbox-substrate.md) | Sandbox substrate | `PROPOSED` |
 | [ADR-0006](ADR-0006-cross-product-event-and-identity-model.md) | Cross-product event and identity model | `ACCEPTED` (2026-07-24) |
-| [ADR-0007](ADR-0007-org-hierarchy-and-external-authority-boundary.md) | Organizational hierarchy & external-authority boundary model | `PROPOSED` |
+| [ADR-0007](ADR-0007-org-hierarchy-and-external-authority-boundary.md) | Organizational hierarchy & external-authority boundary model | `ACCEPTED` (W2-C1, 2026-07-24) — model only; contract delta not applied |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder moves an
 ADR out of `PROPOSED`. Product repositories may not implement against a `PROPOSED` ADR.

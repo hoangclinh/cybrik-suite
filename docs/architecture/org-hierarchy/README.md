@@ -1,16 +1,22 @@
 # Organizational hierarchy & external-authority boundary — architecture packet
 
-- Status: `PROPOSED — NOT ACCEPTED` (research/architecture packet; decides nothing by itself)
+- Status: architectural model **ACCEPTED at Gate W2-C1** (2026-07-24) via
+  [`ADR-0007`](../../adr/ADR-0007-org-hierarchy-and-external-authority-boundary.md); the
+  [contract delta (05)](05-contract-delta-proposal.md) remains `PROPOSED — NOT APPLIED` (separate
+  Founder gate). The packet still decides nothing by itself — the ADR carries the decision.
 - Date: 2026-07-24
-- Gate: **W2-C0** (research/architecture only; Founder-delegated Codex decision 2026-07-24)
+- Gate: authored under **W2-C0** (research/architecture); model & open-decision constraints
+  accepted at **W2-C1** (Founder-delegated Codex decision 2026-07-24).
 - Owner concern: cross-product model — this repo (`cybrik-suite`). No product source code, no
   schema, and no contract is changed by this packet.
 - Aligns with: `ADR-0006` (cross-product event & identity model, `ACCEPTED`), `ADR-0001`
   (contract/versioning policy, `ACCEPTED`).
 
-> **Status honesty.** Every document here is a *proposal*. Nothing is implemented, accepted, or
-> wired to a schema. The accepted contract packet under `cybrik-suite:contracts/` is **not
-> edited** by this work — [05](05-contract-delta-proposal.md) is a *proposed, not applied* delta.
+> **Status honesty.** The **architectural model and open-decision constraints are accepted**
+> (Gate W2-C1, via ADR-0007) — as architecture/process, not as running capability. **Nothing here
+> is implemented or wired to a schema**, and the accepted contract packet under
+> `cybrik-suite:contracts/` is **not edited** by this work — [05](05-contract-delta-proposal.md)
+> stays a *proposed, not applied* delta gated separately.
 > The Vietnamese structure is the *motivating reference* for a **portable** model; the product
 > hard-codes none of it. Legal/authority claims are tagged `[CONFIRMED]` / `[INFERRED]` /
 > `[UNKNOWN]`; nothing invents legal authority.
@@ -26,19 +32,20 @@ gated?**
 
 | # | Document | Purpose | Status |
 |---|----------|---------|--------|
-| 01 | [Vietnam coordination evidence base](01-vietnam-coordination-evidence.md) | Sourced open-research evidence on A05, national cyber bodies, and the 2025 tier reforms; `[CONFIRMED]`/`[INFERRED]`/`[UNKNOWN]` tags | `PROPOSED — NOT ACCEPTED` |
-| 02 | [Org-hierarchy domain model](02-domain-model.md) | Portable `tenant`↔`org_node` model, tier ladder, scopes, edges, invariants INV-1/INV-2 | `PROPOSED — NOT ACCEPTED` |
-| 03 | [UX information architecture](03-ux-information-architecture.md) | Interaction *model* the domain implies (no mockups/visuals) | `PROPOSED — NOT ACCEPTED` |
-| 04 | [Threat model & open decisions](04-threat-model-and-open-decisions.md) | Security threat model for the hierarchy / A05 exchange: fail-closed access rules, abuse cases + mitigations, open decisions | `PROPOSED — NOT ACCEPTED` |
-| 05 | [Contract-gap assessment & delta proposal](05-contract-delta-proposal.md) | Gap vs accepted contract v0.1.0; proposed *future* delta only (not applied) | `PROPOSED — NOT ACCEPTED` |
+| 01 | [Vietnam coordination evidence base](01-vietnam-coordination-evidence.md) | Sourced open-research evidence on A05, national cyber bodies, and the 2025 tier reforms; `[CONFIRMED]`/`[INFERRED]`/`[UNKNOWN]` tags | Evidence base; `[UNKNOWN]`s remain open (W2-C1) |
+| 02 | [Org-hierarchy domain model](02-domain-model.md) | Portable `tenant`↔`org_node` model, tier ladder, scopes, edges, invariants INV-1/INV-2 | Model `ACCEPTED` (W2-C1, via ADR-0007) |
+| 03 | [UX information architecture](03-ux-information-architecture.md) | Interaction *model* the domain implies (no mockups/visuals) | Model `ACCEPTED` (W2-C1, via ADR-0007) |
+| 04 | [Threat model & open decisions](04-threat-model-and-open-decisions.md) | Security threat model for the hierarchy / A05 exchange: fail-closed access rules, abuse cases + mitigations, open decisions | Model `ACCEPTED`; OD-1..OD-6 **resolved** (W2-C1) |
+| 05 | [Contract-gap assessment & delta proposal](05-contract-delta-proposal.md) | Gap vs accepted contract v0.1.0; proposed *future* delta only (not applied) | `PROPOSED — NOT APPLIED` (separate gate) |
 
 Related, in this repo:
 
 - [UAT Gate Standard](../../uat/UAT-GATE-STANDARD.md) — persona matrix (each tier, A05 liaison,
   tenant admin, analyst) + bilingual/accessibility/responsive/evidence/Codex pass-fail rules that
-  any future UI wave surfacing hierarchy or A05 exchange must clear. `PROPOSED — NOT ACCEPTED`.
-- A `PROPOSED` suite ADR summarizing this model is filed under
-  [`docs/adr/`](../../adr/README.md) (see `ADR-0007`).
+  any future UI wave surfacing hierarchy or A05 exchange must clear. `ACCEPTED` as a suite process
+  standard (W2-C1); certifies no UI and claims no executed UAT.
+- The suite ADR that carries this model's decision, [`ADR-0007`](../../adr/README.md), is
+  `ACCEPTED` at Gate W2-C1 (architectural model + open-decision constraints only).
 
 ## Reading order
 
@@ -46,7 +53,9 @@ Related, in this repo:
 
 ## What this packet deliberately does NOT do
 
-- Does not accept a contract or ADR (Founder gate; see `cybrik-suite:CLAUDE.md` approval gates).
+- Does not accept or apply a **contract** (the ADR-0007 acceptance at W2-C1 is architecture/model
+  only; the [05](05-contract-delta-proposal.md) delta stays a separate Founder gate — see
+  `cybrik-suite:CLAUDE.md` approval gates).
 - Does not implement anything in any product repo, and touches no owned concern of
   `cybrik-soc-command-center`, `cybrik-security-tool-fabric`, or `cybrik-cyber-ai-platform`.
 - Does not hard-code Vietnamese tiers, agency names, unit codes, or legal duties.

@@ -1,10 +1,12 @@
 # Vietnamese Government & Cybersecurity Coordination — Evidence Base
 
-- Status: `PROPOSED — NOT ACCEPTED` (research/evidence packet; informs the domain model, decides
-  nothing by itself)
+- Status: evidence base (informs the model; decides nothing by itself). The model it informs is
+  `ACCEPTED` at W2-C1, but this evidence is **not** ratified as fact: the `[UNKNOWN]` /
+  secondary-sourced legal/authority claims remain **open** and gate only jurisdiction-specific
+  operational reliance (see §7 honesty flags).
 - Packet: [Organizational hierarchy & external-authority boundary](README.md)
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only)
+- Gate: W2-C0 (research/evidence); unknowns carried forward past W2-C1
 - Method: public open-source research via web search of official portals, primary legal texts
   (where retrievable), and reputable secondary analyses. No non-public system was accessed.
 - Evidence tags: **[CONFIRMED]** = backed by a cited source (URL + access date) · **[INFERRED]**

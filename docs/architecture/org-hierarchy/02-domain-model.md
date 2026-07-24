@@ -1,9 +1,10 @@
 # Org-Hierarchy Domain Model — CYBRIK Suite
 
-- Status: `PROPOSED — NOT ACCEPTED`
+- Status: `ACCEPTED` as architectural model at Gate W2-C1 (2026-07-24, via ADR-0007); no schema,
+  contract, code, or UI is accepted or implemented by this acceptance.
 - Packet: [Organizational hierarchy & external-authority boundary](README.md)
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only; Founder-delegated Codex decision 2026-07-24)
+- Gate: authored under W2-C0; model accepted at W2-C1 (Founder-delegated Codex decision 2026-07-24)
 - Owner concern: cross-product model (this repo). Implementation, if ever accepted, is split
   across `cybrik-soc-command-center`, `cybrik-security-tool-fabric`, and
   `cybrik-cyber-ai-platform` per the ownership boundaries in `cybrik-suite:CLAUDE.md`.

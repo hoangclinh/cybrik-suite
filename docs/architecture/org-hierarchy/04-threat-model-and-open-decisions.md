@@ -1,9 +1,10 @@
 # Org-Hierarchy Threat Model & Open Decisions — CYBRIK Suite
 
-- Status: `PROPOSED — NOT ACCEPTED`
+- Status: threat model `ACCEPTED` (W2-C1, via ADR-0007); **OD-1..OD-6 resolved** at W2-C1 (§6).
 - Packet: [Organizational hierarchy & external-authority boundary](README.md)
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only; Founder-delegated Codex decision 2026-07-24)
+- Gate: authored under W2-C0; open decisions resolved at W2-C1 (Founder-delegated Codex decision
+  2026-07-24)
 - Depends on: [02-domain-model.md](02-domain-model.md) (INV-1/INV-2, entities, edges),
   [01-vietnam-coordination-evidence.md](01-vietnam-coordination-evidence.md) (A05 as sovereign
   external authority), `ADR-0006` (cross-tenant reject, delegation chain, marking).
@@ -168,21 +169,36 @@ legal-compulsion tension; it makes them **loud, bounded, and accountable** rathe
 
 ---
 
-## 6. Open decisions (carried to a future Founder-gated ADR)
+## 6. Open decisions — RESOLVED at Gate W2-C1 (2026-07-24)
 
-- **OD-1 — tenant↔org_node cardinality default.** One-tenant-per-node (strict) vs
-  one-tenant-many-nodes (shared) vs hybrid. Trades isolation strength against operability
-  (AC-6). *Recommendation: default strict; shared is an explicit, audited opt-in.*
-- **OD-2 — small-cell / differential-privacy floor.** Whether `aggregate` needs a formal DP floor
-  vs suppression/banding (AC-2).
-- **OD-3 — external-exchange authorization type.** Reuse delegation-chain with an `external`
-  audience class, or a distinct exchange-grant type (02 §9).
-- **OD-4 — residency policy expression.** How jurisdiction/residency profiles are expressed
-  portably and how legal-compulsion overrides are governed and audited (AC-5).
-- **OD-5 — external-peer authentication strength.** How an inbound A05 directive is authenticated
-  before it even reaches the review queue (AC-4). `[UNKNOWN]` in the evidence base; must not be
-  assumed.
-- **OD-6 — break-glass scenario catalog.** Which scenarios/roles qualify, and the after-action
-  review process (AC-8).
+Decided under Founder delegation and recorded normatively in
+[`ADR-0007` §Gate W2-C1 decision log](../../adr/ADR-0007-org-hierarchy-and-external-authority-boundary.md#gate-w2-c1-decision-log--open-decisions-resolved-2026-07-24).
+Each is an **architectural constraint** on any future contract delta/implementation — not an
+implementation. Where a decision differs from a prior recommendation below, the **decision
+governs**.
 
-None of these is decided here. All require Founder gating before any implementation.
+- **OD-1 — tenant↔org_node cardinality: DECIDED = one-tenant-many-nodes.** One tenant MAY contain
+  many `org_node`s; each `org_node` is in **exactly one** tenant; **no cross-tenant hierarchy
+  edges**; an A05/external peer is not an `org_node`/tenant member (AC-6; INV-2).
+  *(Supersedes the prior "default strict" recommendation; strict stays a valid configuration.)*
+- **OD-2 — small-cell floor: DECIDED = suppression, not DP.** `aggregate` default applies
+  configurable small-cell **suppression (k = 5)** + time/category coarsening; **no differential
+  privacy** until separately evaluated; raw/unsuppressed detail needs a separate scoped grant
+  (AC-2; FC-4).
+- **OD-3 — external-exchange authorization type: DECIDED = distinct.** External-exchange
+  identity/auth context is **distinct** from internal user/service JWT/SSO; **no credential
+  reuse** (02 §9; FC-8).
+- **OD-4 — residency policy expression: DECIDED = policy-as-data, deny-by-default.** Allowed
+  processing/exchange zones + data marking, evaluated deny-by-default; legal-compulsion via an
+  **explicit governed, audited workflow**, never a hidden bypass (AC-5; FC-6).
+- **OD-5 — external-peer authentication strength: DECIDED = mTLS floor.** Minimum mTLS + signed
+  envelope + audience/nonce/timestamp/replay protection + rotation/revocation; hardware-backed
+  keys preferred/required where supported (AC-4). *(The peer's legal basis stays `[UNKNOWN]` and
+  does not lower this technical floor.)*
+- **OD-6 — break-glass catalog: DECIDED.** Explicit scenario catalog only; default read-only /
+  15 min; ≤ 60 min needs a second human approval; loud audit + notification, auto-revoke,
+  mandatory after-action review; write/action stays risk-class approval gated (AC-8; FC-7).
+
+These constraints are decided; the **contract delta that would encode them
+([05](05-contract-delta-proposal.md)) remains `PROPOSED — NOT APPLIED`** and is gated separately
+before any implementation.

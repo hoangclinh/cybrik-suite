@@ -1,17 +1,22 @@
 # UAT Gate Standard — CYBRIK Suite UI Waves
 
-- Status: `PROPOSED — NOT ACCEPTED`
+- Status: `ACCEPTED` (Gate W2-C1, 2026-07-24) — **suite process standard**. Accepting this
+  standard certifies **no UI**; it defines the bar future waves must clear.
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only; Founder-delegated Codex decision 2026-07-24)
-- Applies to: **every UI wave** across all suite products that surface organizational
-  hierarchy, tenancy, or external-authority (A05) exchange. Referenced by the org-hierarchy
-  packet ([architecture index](../architecture/org-hierarchy/README.md)).
+- Gate: accepted at **W2-C1** (Founder-delegated Codex decision 2026-07-24); authored under W2-C0
+- Applies to: **every UI/behavior wave** across all suite products (mandatory suite standard) —
+  and specifically any wave that surfaces organizational hierarchy, tenancy, or
+  external-authority (A05) exchange. Referenced by the org-hierarchy packet
+  ([architecture index](../architecture/org-hierarchy/README.md)).
 - Decision authority: **Codex decides pass/fail and reports the recommendation to the Founder.**
   A wave is not "done" until it passes this gate; Codex records evidence and the pass/fail call,
   the Founder ratifies.
 
-> **Status honesty.** This is a *standard proposal*. It gates future UI work; it does not certify
-> any existing UI. No UI is `IMPLEMENTED`, `VERIFIED`, or `PILOTED` by this document.
+> **Status honesty.** This is an **accepted process standard** (Gate W2-C1). Accepting the
+> *standard* gates future UI work; it does **not** certify any existing UI and does **not** claim
+> any UAT has been executed. **No UI is `IMPLEMENTED`, `VERIFIED`, `PILOTED`, or `GA` by this
+> document, and no UAT is claimed run.** Every UI/behavior wave still requires its own persona
+> matrix and a Codex pass/fail recommendation to the Founder before it is "done".
 
 ---
 

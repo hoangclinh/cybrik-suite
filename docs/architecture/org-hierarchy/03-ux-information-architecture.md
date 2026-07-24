@@ -1,9 +1,11 @@
 # Org-Hierarchy UX Information Architecture — CYBRIK Suite
 
-- Status: `PROPOSED — NOT ACCEPTED`
+- Status: `ACCEPTED` as interaction *model* at Gate W2-C1 (2026-07-24, via ADR-0007); no mockups,
+  visuals, components, or UI are accepted or implemented — any UI wave still clears the UAT Gate
+  Standard.
 - Packet: [Organizational hierarchy & external-authority boundary](README.md)
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only)
+- Gate: authored under W2-C0; interaction model accepted at W2-C1
 - Scope: information architecture and interaction *model* only. **No mockups, no visual design,
   no component implementation.** UI ownership is `cybrik-soc-command-center` (SOC surfaces) and
   the respective product repos; this repo only proposes the cross-product IA the domain model

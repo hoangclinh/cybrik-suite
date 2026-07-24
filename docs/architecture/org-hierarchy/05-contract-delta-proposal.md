@@ -1,9 +1,11 @@
 # Contract-Gap Assessment & Delta Proposal — Org Hierarchy vs Accepted v0.1.0
 
-- Status: `PROPOSED — NOT ACCEPTED` (assessment + *proposed, not applied* delta)
+- Status: `PROPOSED — NOT APPLIED` (assessment + *proposed, not applied* delta). Unchanged by
+  Gate W2-C1: the ADR-0007 acceptance is architecture/model only; this delta is a **separate**
+  Founder gate. The open decisions it depends on are now resolved (§6), but no schema is applied.
 - Packet: [Organizational hierarchy & external-authority boundary](README.md)
 - Date: 2026-07-24
-- Gate: W2-C0 (research/architecture only)
+- Gate: authored under W2-C0; remains contract-gated (not accepted) after W2-C1
 - Assessed against: the **accepted-for-implementation** contract packet v0.1.0 under
   `cybrik-suite:contracts/json-schema/` (per `x-cybrik-status: ACCEPTED FOR IMPLEMENTATION`,
   `x-cybrik-contract-version: 0.1.0`).
@@ -122,9 +124,20 @@ accepts any of this.
 - No Vietnam-specific enum, agency code, or tier name in any schema — those remain configuration
   and data (01 §5; 02 §8).
 
-## 6. Open items feeding the gate
+## 6. Open items feeding the gate — RESOLVED at W2-C1 (delta still NOT APPLIED)
 
-OD-1 (cardinality), OD-2 (DP floor for D-8), OD-3 (D-6 reuse vs distinct type), OD-4 (D-3
-residency expression + compulsion governance), OD-5 (external-peer auth) — all tracked in
-[04 §6](04-threat-model-and-open-decisions.md#6-open-decisions-carried-to-a-future-founder-gated-adr).
-Each must be decided before the corresponding delta is proposed for acceptance.
+The open decisions that shape this delta were **resolved at Gate W2-C1** (2026-07-24) and are now
+binding constraints on any future delta — recorded in
+[04 §6](04-threat-model-and-open-decisions.md#6-open-decisions--resolved-at-gate-w2-c1-2026-07-24)
+and normatively in
+[`ADR-0007` §Gate W2-C1 decision log](../../adr/ADR-0007-org-hierarchy-and-external-authority-boundary.md#gate-w2-c1-decision-log--open-decisions-resolved-2026-07-24):
+OD-1 = one-tenant-many-nodes (shapes D-1 `tenant_binding`); OD-2 = small-cell suppression k=5, no
+DP (shapes D-8); OD-3 = **distinct** external-exchange auth, no credential reuse (shapes D-6);
+OD-4 = residency policy-as-data, deny-by-default + governed legal-compulsion workflow (shapes
+D-3); OD-5 = mTLS + signed-envelope floor (shapes D-6 peer auth); OD-6 = break-glass catalog
+(shapes D-7).
+
+**Resolving the decisions does not apply the delta.** This document remains `PROPOSED — NOT
+APPLIED`: no schema is edited, no version bumped, no `x-cybrik-status` flipped. Each delta (D-1..
+D-8) is still a **separate Founder gate** with its own ADR-0001 SemVer treatment and validator run
+before acceptance.

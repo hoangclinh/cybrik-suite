@@ -1,8 +1,10 @@
 # ADR-0007 — Organizational hierarchy & external-authority boundary model
 
-- Status: `PROPOSED — NOT DECIDED`
+- Status: `ACCEPTED` (Gate W2-C1, 2026-07-24) — architectural model & open-decision constraints
+  only; **no contract, schema, code, or UI is accepted or implemented by this ADR**.
 - Date raised: 2026-07-24
-- Decider: Founder
+- Date accepted: 2026-07-24 (Gate W2-C1)
+- Decider: Founder (decision executed under explicit Founder delegation to Codex, Gate W2-C1)
 - Scope: cross-product model (this repo). Any future implementation splits across
   `cybrik-soc-command-center`, `cybrik-security-tool-fabric`, and `cybrik-cyber-ai-platform`
   per `cybrik-suite:CLAUDE.md` ownership boundaries.
@@ -13,10 +15,14 @@
   model (02), UX IA (03), threat model (04), contract-gap/delta (05); and the
   [UAT Gate Standard](../uat/UAT-GATE-STANDARD.md).
 
-> **Status honesty.** This ADR is `PROPOSED`. It decides nothing until the Founder gates it. No
-> product may implement against it (ADR README lifecycle rule). It edits no schema and accepts no
-> contract; the [contract delta](../architecture/org-hierarchy/05-contract-delta-proposal.md) is
-> proposed-not-applied.
+> **Status honesty.** This ADR is `ACCEPTED` as an **architectural model and a set of
+> open-decision constraints** (Gate W2-C1). Acceptance records decisions; it implements nothing.
+> It edits no schema and accepts no contract; the
+> [contract delta](../architecture/org-hierarchy/05-contract-delta-proposal.md) remains
+> `PROPOSED — NOT APPLIED` and is a **separate** Founder gate. No product may treat this ADR as
+> authorization to build the `org_node`/exchange surface — each delta and UI wave is gated on its
+> own. Legal/evidence unknowns flagged below remain `[UNKNOWN]`; they constrain operational
+> reliance, not this generic architecture.
 
 ## Context
 
@@ -32,7 +38,7 @@ MIC→MoST) precisely to argue tiers/authorities must be **configuration, not co
 authority is invented; several load-bearing legal claims rest on secondary sources and are flagged
 for primary-gazette confirmation.
 
-## Decision (proposed — to be ratified or revised by the Founder)
+## Decision (ACCEPTED at Gate W2-C1)
 
 Adopt, as a suite-level architectural model (not an implementation), the following:
 
@@ -43,8 +49,8 @@ Adopt, as a suite-level architectural model (not an implementation), the followi
 2. **`tenant` ↔ `org_node` separation.** The **tenant** stays the fail-closed isolation boundary
    (ADR-0006 cross-tenant reject). The **`org_node`** is a separate governance tree. `org_node`
    **never weakens** tenant isolation; cross-node data movement re-checks tenant. Deployments may
-   map one-tenant-per-node, one-tenant-many-nodes, or hybrid (default cardinality is an open
-   decision).
+   map one-tenant-per-node, one-tenant-many-nodes, or hybrid. **Default (OD-1, W2-C1):
+   one-tenant-many-nodes; each `org_node` in exactly one tenant; no cross-tenant hierarchy edges.**
 3. **A05 as an external trust boundary, not a tier.** An external national authority is an
    `external` exchange peer — never a `parent_id`, never tenant-admin/global-read, never an org
    root, and inbound directives never auto-execute (they enter the normal policy/approval/tool
@@ -78,13 +84,48 @@ Adopt, as a suite-level architectural model (not an implementation), the followi
   confirm against the official gazette before any operational reliance. Do not treat the reported
   10 Dec 2025 unified Cybersecurity Law as settled here.
 
-## Open decisions (must be resolved before implementation)
+## Gate W2-C1 decision log — open decisions resolved (2026-07-24)
 
-Carried from [04 §6](../architecture/org-hierarchy/04-threat-model-and-open-decisions.md#6-open-decisions-carried-to-a-future-founder-gated-adr):
-OD-1 tenant↔org_node cardinality default; OD-2 aggregate small-cell / DP floor; OD-3
-external-exchange authorization type (reuse vs distinct); OD-4 residency policy expression +
-legal-compulsion governance; OD-5 external-peer authentication strength; OD-6 break-glass scenario
-catalog.
+The six open decisions carried from
+[04 §6](../architecture/org-hierarchy/04-threat-model-and-open-decisions.md#6-open-decisions--resolved-at-gate-w2-c1-2026-07-24)
+are **decided** here as architectural constraints. Each binds any *future* contract delta and
+implementation; none is itself an implementation. Where a decision differs from a prior packet
+*recommendation*, the decision below governs.
+
+- **OD-1 — tenant↔org_node cardinality: DECIDED.** One tenant MAY contain many `org_node`s; each
+  `org_node` belongs to **exactly one** tenant. Hierarchy edges **across tenants are forbidden**
+  (FC-2 unchanged: `org_node` never weakens tenant isolation; cross-node moves re-check tenant).
+  An A05 / external peer is **not** an `org_node` and **not** a tenant member (reinforces INV-2).
+  *(This selects one-tenant-many-nodes as the default, superseding 04 §6's "default strict"
+  recommendation; strict one-node-per-tenant remains a valid deployment configuration.)*
+- **OD-2 — aggregate small-cell floor: DECIDED.** The cross-tier `aggregate` default applies
+  **configurable small-cell suppression (k = 5)** plus time/category coarsening. **No differential
+  privacy** is adopted until separately evaluated. Raw / unsuppressed detail requires a **separate
+  scoped grant** (never delivered by the aggregate path). Encodes FC-4 / AC-2.
+- **OD-3 — external-exchange authorization type: DECIDED (distinct).** External-exchange
+  identity/auth context is **distinct** from internal user/service JWT/SSO; **no credential
+  reuse** across the boundary. The `external` audience convention (FC-8) is carried by this
+  distinct context, not by an internal token.
+- **OD-4 — residency / jurisdiction expression: DECIDED.** Residency/jurisdiction is expressed as
+  **policy-as-data** — allowed processing/exchange zones plus data marking — evaluated
+  **deny-by-default** (FC-6 / FC-10). Legal compulsion is handled by an **explicit governed
+  workflow with audit**, never a hidden bypass or a standing grant (AC-5; INV-2).
+- **OD-5 — external-peer authentication strength: DECIDED (floor).** Minimum: **mTLS + signed
+  envelope + audience/nonce/timestamp/replay protection + key rotation/revocation.**
+  **Hardware-backed keys are preferred, and required where the deployment supports them.** Gates
+  inbound directives before they reach the review queue (AC-4). *(The concrete legal basis for a
+  given peer remains `[UNKNOWN]` per 01 and does not lower this technical floor.)*
+- **OD-6 — break-glass catalog: DECIDED.** Break-glass fires **only** from an explicit scenario
+  catalog; default **read-only, 15 minutes**; up to a **60-minute** maximum that **requires a
+  second human approval**. It is **loud** (high-severity audit + notification), **auto-revokes**,
+  and mandates an **after-action review**. Write/action access remains **risk-class approval
+  gated** (never granted by break-glass alone). Encodes AC-8 / FC-7.
+
+**Still `[UNKNOWN]` and explicitly not decided here** (do not block this generic architecture):
+the primary-gazette confirmation of the load-bearing Vietnamese legal/authority claims (01), the
+concrete legal basis/mandate of any specific external peer, and evidentiary/chain-of-custody legal
+requirements. These constrain *operational reliance and any jurisdiction-specific deployment*,
+not the portable model accepted here.
 
 ## Alternatives considered (rejected in the model, not by this ADR)
 
@@ -97,6 +138,13 @@ catalog.
 
 ## Decision record
 
-Not decided. Awaiting Founder gating. On acceptance, the status flip and any contract delta are
-applied only under explicit Founder authorization (ADR-0001 D5 mechanics; ADR-0006 precedent) — no
-agent infers approval.
+**ACCEPTED at Gate W2-C1 on 2026-07-24**, under explicit Founder delegation to Codex, on branch
+`codex/w2c-org-hierarchy-a05` (baseline `df86042`, CI green). The gate accepts the architectural
+model (§Decision) and the six open-decision constraints (§Gate W2-C1 decision log) as suite
+policy. It does **not** accept or apply any contract/schema, and authorizes no product code or UI
+— the [contract delta](../architecture/org-hierarchy/05-contract-delta-proposal.md) stays
+`PROPOSED — NOT APPLIED` and each delta/UI wave is a separate Founder gate (ADR-0001 D5 mechanics;
+ADR-0006 precedent). Legal/evidence `[UNKNOWN]`s remain open and gate only jurisdiction-specific
+operational reliance. See
+[`docs/releases/GATE-W2-C1-ORG-HIERARCHY-ACCEPTANCE-2026-07-24.md`](../releases/GATE-W2-C1-ORG-HIERARCHY-ACCEPTANCE-2026-07-24.md)
+for the gate record.
