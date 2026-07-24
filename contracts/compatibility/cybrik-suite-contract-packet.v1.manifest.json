@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-contract-packet.v1.manifest.json",
+  "title": "CYBRIK Suite cross-product contract packet v1 — compatibility/version manifest",
+  "description": "Inventory and compatibility record for the first cross-product contract packet. This is NOT an ADR-0001 immutable bundle tag: bundle tagging is a Founder-gated act reserved for ACCEPTED contracts, and every member here is PROPOSED. Pre-GA per ADR-0001 D2, no N-1 obligation attaches yet, but every future incompatibility MUST be recorded here — silence is a policy violation. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0",
+    "mcp": "2025-11-25"
+  },
+  "adr_basis": [
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6)" },
+    { "id": "ADR-0004", "status": "ACCEPTED", "role": "control-plane/executor split; F5 credential/egress, F6 receipt signing, F7 mandatory bounds, F9 approval-ingress gap" },
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), delegation chain (E3), conditional correlation (E6), naming (E7), MCP-not-a-trust-boundary" }
+  ],
+  "adr_out_of_scope": [
+    { "id": "ADR-0003", "reason": "durable agent orchestration / bus choice — NOT decided by this packet; AsyncAPI declares no servers or bindings (ADR-0006 E4)." },
+    { "id": "ADR-0005", "reason": "sandbox substrate — NOT decided by this packet; isolation profiles S0–S3 are referenced abstractly only." }
+  ],
+  "members": [
+    { "file": "json-schema/cybrik.common-defs.v1.schema.json", "title": "Common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives" },
+    { "file": "json-schema/cybrik.data-marking.v1.schema.json", "title": "Data marking", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.envelope.v1.schema.json", "title": "Cross-product envelope", "contract_version": "0.1.0", "format": "json-schema", "kind": "envelope" },
+    { "file": "json-schema/cybrik.capability.v1.schema.json", "title": "Capability registry entry", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.tool-execution-request.v1.schema.json", "title": "Tool execution request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.tool-execution-result.v1.schema.json", "title": "Tool execution result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.delegation-chain.v1.schema.json", "title": "Delegation chain", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.execution-receipt.v1.schema.json", "title": "Execution receipt", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.approval-request.v1.schema.json", "title": "Approval request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.approval-decision.v1.schema.json", "title": "Approval decision", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "asyncapi/cybrik-suite-events.v1.asyncapi.yaml", "title": "Cross-product event bindings", "contract_version": "0.1.0", "format": "asyncapi", "kind": "events" },
+    { "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml", "title": "Fabric control-plane REST mapping notes", "contract_version": "0.1.0", "format": "openapi", "kind": "rest-mapping" },
+    { "file": "mcp/cybrik-mcp-mapping-notes.v1.md", "title": "MCP mapping notes", "contract_version": "0.1.0", "format": "mcp-notes", "kind": "adapter-notes" }
+  ],
+  "event_correlation_semantics": {
+    "note": "Per-event-class correlation rules (ADR-0006 E6): correlation is conditional, not a mandatory triple.",
+    "classes": [
+      { "type": "cybrik.soc.alert_snapshot.created.v1", "root": true, "causationid": "absent", "investigationid": "optional" },
+      { "type": "cybrik.fabric.invocation.requested.v1", "root": false, "causationid": "required", "investigationid": "required-if-investigation-scoped" },
+      { "type": "cybrik.fabric.invocation.completed.v1", "root": false, "causationid": "required", "investigationid": "required-if-investigation-scoped" },
+      { "type": "cybrik.fabric.approval.required.v1", "root": false, "causationid": "required", "investigationid": "optional" },
+      { "type": "cybrik.fabric.approval.decided.v1", "root": false, "causationid": "required", "investigationid": "optional" },
+      { "type": "cybrik.fabric.kill_switch.changed.v1", "root": true, "causationid": "absent", "investigationid": "absent" }
+    ]
+  },
+  "cross_ref_integrity": {
+    "note": "Digest-bound cross-artifact links that the control plane MUST enforce (schema cannot).",
+    "bindings": [
+      "envelope.delegationref == delegation-chain.chain_digest == tool-execution-request.delegation_ref == execution-receipt.delegation_ref",
+      "approval-request.resolved_arguments_digest == approval-decision.resolved_arguments_digest == execution-receipt.resolved_arguments_digest",
+      "approval-request.capability_digest == approval-decision.capability_digest == capability.digest == tool-execution-request.capability.digest",
+      "approval-request.resolved_target_digest == approval-decision.resolved_target_digest == execution-receipt.side_effect.target_digest",
+      "tool-execution-result.receipt_id -> execution-receipt.receipt_id (signed control-side; ADR-0004 F6)"
+    ]
+  },
+  "forward_compatibility_gaps": [
+    {
+      "id": "RB-001",
+      "title": "SOC approval-ingress mapping",
+      "detail": "SOC has a SOAR four-eyes model (soar_approval_requests) but no Fabric-ingress mapping to cybrik.approval-request/decision.v1. Tracked as the ADR-0004 F9 open dependency / release blocker RB-001. Contract drafted here PROPOSED; mapping resolved contract-first before acceptance."
+    },
+    {
+      "id": "MARK-001",
+      "title": "SOC data-marking backfill",
+      "detail": "SOC canonical Alert/Case/Audit tables carry no TLP/classification field; a three-level sensitivity exists only in the SOC UEBA module. Mapping SOC objects onto cybrik.data-marking.v1 is a forward requirement."
+    }
+  ],
+  "acceptance": {
+    "status": "PROPOSED — NOT ACCEPTED",
+    "mechanics": "Acceptance requires explicit Founder authorization recorded with evidence links in a status-flip commit (ADR-0001 D5). No agent may infer approval. Until then no release manifest or bundle may reference any member (ADR-0001 D6)."
+  }
+}

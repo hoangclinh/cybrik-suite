@@ -1,0 +1,37 @@
+{
+  "action_id": "act-INC-4821-isolate-0007",
+  "idempotency_key": "idem-8f2c1a90-INC4821-isolate-19",
+  "investigation_id": "inv-INC-4821",
+  "tenant_id": "tenant-acme",
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:manager:sam" },
+  "purpose": "incident_containment",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "capability": {
+    "name": "fabric.isolate_host",
+    "version": "1.0.0",
+    "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"
+  },
+  "arguments": {
+    "host_ref": "HR-LAPTOP-19",
+    "reason": "confirmed C2 beacon"
+  },
+  "resource_scope": {
+    "case_ref": {
+      "type": "soc.case",
+      "id": "INC-4821",
+      "version": "etag-17",
+      "digest": "sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "locator": "cybrik://soc/case/INC-4821"
+    },
+    "resource_patterns": ["case:INC-4821/host/HR-LAPTOP-19"]
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER",
+    "handling": ["no-export"]
+  },
+  "execution": {
+    "mode": "execute",
+    "deadline_seconds": 90
+  }
+}

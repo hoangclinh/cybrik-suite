@@ -1,0 +1,28 @@
+{
+  "name": "fabric.isolate_host",
+  "version": "1.0.0",
+  "publisher": "cybrik.fabric",
+  "license": "LicenseRef-cybrik-proprietary",
+  "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
+  "signature_ref": "sigstore-bundle://capability/fabric.isolate_host@1.0.0",
+  "description": "Isolate an endpoint from the network via the EDR broker. Destructive, four-eyes gated.",
+  "risk_class": "R3",
+  "side_effects": "destructive",
+  "idempotency": "idempotent",
+  "isolation_profile": "S3",
+  "network_policy": "broker_allowlist",
+  "input_schema_ref": "cybrik.fabric.isolate_host.input.v1.schema.json",
+  "output_schema_ref": "cybrik.fabric.isolate_host.output.v1.schema.json",
+  "required_scopes": ["fabric.endpoint.isolate"],
+  "supported_purposes": ["incident_containment"],
+  "limits": {
+    "timeout_seconds": 120,
+    "max_input_bytes": 16384,
+    "max_output_bytes": 65536,
+    "max_egress_bytes": 0
+  },
+  "evidence": {
+    "output_can_be_evidence": true,
+    "integrity_receipt": "required"
+  }
+}

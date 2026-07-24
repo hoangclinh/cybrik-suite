@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.envelope.v1.schema.json",
+  "title": "CYBRIK CloudEvents-style cross-product envelope v1",
+  "description": "CloudEvents 1.0-style envelope with CYBRIK extension attributes (ADR-0006 E1/E6/E7). Extension attributes are SCALAR per the CloudEvents type system (String/Integer/Boolean/URI/Timestamp); structured data marking and delegation detail live in the typed `data` payload, while scalar routing/filtering copies live as extension attributes. Envelope identity/tenant/marking attributes are written ONLY by authenticated service code; model output can never populate them (ADR-0006). Status: PROPOSED — NOT ACCEPTED.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specversion", "id", "source", "type", "tenantid", "time"],
+  "properties": {
+    "specversion": {
+      "type": "string",
+      "description": "CloudEvents spec version. Pinned to 1.0 for this envelope profile.",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "description": "CloudEvents id. Unique per (source, id). Consumers dedup on (source,id) for idempotency (strategy 05 §7).",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "description": "CloudEvents source (URI-reference). Identifies the producing context, e.g. '/cybrik/soc' or '/cybrik/fabric/control-plane'. Not an operational endpoint.",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "description": "CloudEvents type. MUST follow CYBRIK naming: cybrik.<product>.<entity>.<action>.v<major> (ADR-0006 E7).",
+      "pattern": "^cybrik\\.(soc|ai|fabric|content|eval)\\.[a-z0-9_]+\\.[a-z0-9_]+\\.v[1-9][0-9]*$"
+    },
+    "subject": {
+      "type": "string",
+      "description": "CloudEvents subject. Primary entity the event concerns within source scope."
+    },
+    "time": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "CloudEvents time (occurrence time, UTC)."
+    },
+    "datacontenttype": {
+      "type": "string",
+      "description": "CloudEvents datacontenttype of `data`.",
+      "default": "application/json"
+    },
+    "dataschema": {
+      "type": "string",
+      "description": "CloudEvents dataschema: identifier ($id) of the JSON Schema that `data` conforms to. Enables version negotiation (ADR-0001)."
+    },
+    "tenantid": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "CYBRIK extension (scalar). Advisory tenant tag for routing/partitioning; the authoritative tenant is derived from the producer's authenticated identity. Consumers MUST reject cross-tenant mismatch (ADR-0006; strategy 05 §11.1)."
+    },
+    "marking": {
+      "type": "string",
+      "description": "CYBRIK extension (scalar). Compact handling label mirroring the structured marking in `data`, e.g. 'TLP:AMBER/internal'. The authoritative, structured marking is cybrik.data-marking in the payload; this scalar exists only for bus-level filtering.",
+      "maxLength": 64
+    },
+    "traceparent": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent",
+      "description": "CYBRIK extension = CloudEvents Distributed Tracing extension. Required for operational cross-product workflow events; created at the boundary when absent (ADR-0006 E6)."
+    },
+    "tracestate": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tracestate",
+      "description": "CYBRIK extension = CloudEvents Distributed Tracing extension."
+    },
+    "correlationid": {
+      "type": "string",
+      "description": "CYBRIK extension (scalar). Correlation semantics are defined per event class (ADR-0006 E6); presence rules are enforced by each event's payload schema, not globally."
+    },
+    "causationid": {
+      "type": "string",
+      "description": "CYBRIK extension (scalar). Id of the event/request that directly caused this one. Required for derived events; absent for legitimate root events (ADR-0006 E6)."
+    },
+    "investigationid": {
+      "type": "string",
+      "description": "CYBRIK extension (scalar). Required ONLY for investigation-scoped events; absent/optional otherwise (ADR-0006 E6)."
+    },
+    "delegationref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "CYBRIK extension (scalar). Digest reference to the digest-bound delegation chain authorizing this event's action (ADR-0006 E3). The full chain is NOT inlined in the envelope; it is resolved control-side and embedded in receipts."
+    },
+    "data": {
+      "description": "CloudEvents data. The versioned CYBRIK payload; its schema is identified by `dataschema` and `type`.",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    }
+  }
+}

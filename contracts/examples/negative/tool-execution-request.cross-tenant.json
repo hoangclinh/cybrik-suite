@@ -1,0 +1,15 @@
+{
+  "action_id": "act-cross-tenant-1",
+  "idempotency_key": "idem-cross-tenant-000001",
+  "tenant_id": "tenant-globex",
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+  "purpose": "incident_containment",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "capability": {
+    "name": "fabric.isolate_host",
+    "version": "1.0.0",
+    "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"
+  },
+  "arguments": { "host_ref": "GLOBEX-DB-01" },
+  "execution": { "mode": "execute" }
+}

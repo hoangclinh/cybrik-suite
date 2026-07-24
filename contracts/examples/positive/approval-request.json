@@ -1,0 +1,28 @@
+{
+  "approval_id": "apr-INC-4821-isolate-0007",
+  "action_id": "act-INC-4821-isolate-0007",
+  "tenant_id": "tenant-acme",
+  "status": "pending",
+  "requested_by": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+  "requested_for": { "actor_id": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
+  "capability_digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
+  "policy_decision_id": "pd-2026-07-24-6613",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "resolved_target_digest": "sha256:d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+  "resolved_arguments_digest": "sha256:b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
+  "expected_impact": { "summary": "Isolate HR-LAPTOP-19 from all networks except EDR broker." },
+  "rollback_plan": { "summary": "Re-enable network via fabric.release_host within 24h." },
+  "evidence_refs": [
+    {
+      "type": "soc.alert",
+      "id": "ALR-99213",
+      "digest": "sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+    }
+  ],
+  "obligations": {
+    "approver_roles": ["soc_manager", "tenant_admin"],
+    "minimum_approvers": 1,
+    "separation_of_duties": true
+  },
+  "expires_at": "2026-07-24T10:45:00Z"
+}

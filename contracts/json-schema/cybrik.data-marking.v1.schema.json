@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.data-marking.v1.schema.json",
+  "title": "CYBRIK data marking v1",
+  "description": "Structured, authoritative data-handling marking carried inside typed payloads (the envelope `marking` scalar is only a filtering copy of this). Vendor-neutral. NOTE (compatibility): the SOC canonical Alert/Case/Audit tables do not yet carry a TLP/classification field; a three-level sensitivity marking exists only in the SOC UEBA module. Mapping SOC objects into this marking is a forward requirement recorded in the compatibility manifest. Status: PROPOSED — NOT ACCEPTED.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["classification", "tlp"],
+  "properties": {
+    "classification": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/classification" },
+    "tlp": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tlpMarking" },
+    "handling": {
+      "type": "array",
+      "description": "Additional handling caveats (vendor-neutral tokens), e.g. 'no-export', 'pii', 'legal-hold'.",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "default": []
+    },
+    "origin_marking": {
+      "type": "string",
+      "description": "Optional opaque source-native marking preserved for provenance (e.g. a product-local sensitivity label), carried without reinterpretation."
+    }
+  }
+}

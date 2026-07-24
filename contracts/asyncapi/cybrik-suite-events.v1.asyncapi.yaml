@@ -1,0 +1,137 @@
+# CYBRIK Suite cross-product event bindings v1
+# Status: PROPOSED — NOT ACCEPTED
+# Format pin: AsyncAPI 3.0.0 (ADR-0001 D4).
+# Bus-agnostic by decision (ADR-0006 E4): the event BUS is out of scope of ADR-0006 and
+# belongs to ADR-0003 (still PROPOSED). This document therefore declares NO servers and NO
+# protocol bindings — only channels, operations, and messages. Every message payload is the
+# CloudEvents-style CYBRIK envelope (ADR-0006 E1); the concrete `data` payload schema for each
+# event is identified by the envelope `dataschema` attribute and named per event below.
+# Event-type naming follows cybrik.<product>.<entity>.<action>.v<major> (ADR-0006 E7).
+asyncapi: 3.0.0
+info:
+  title: CYBRIK Suite cross-product events
+  version: 0.1.0
+  description: >-
+    PROPOSED — NOT ACCEPTED. Cross-product event catalog (subset) for the first contract
+    packet. No secrets, no endpoints, no bus binding. Consumers MUST validate producer
+    identity, envelope schema/version, tenant, and dedup on (source, id) (strategy 05 §7).
+  x-cybrik-status: PROPOSED
+  x-cybrik-not-accepted: true
+
+defaultContentType: application/cloudevents+json
+
+channels:
+  alertSnapshotCreated:
+    address: cybrik.soc.alert_snapshot.created
+    description: SOC publishes an immutable, digest-bound alert snapshot for cross-product use.
+    messages:
+      alertSnapshotCreated:
+        $ref: '#/components/messages/alertSnapshotCreated'
+  invocationRequested:
+    address: cybrik.fabric.invocation.requested
+    description: Cyber AI/SOC requests a capability invocation (async path).
+    messages:
+      invocationRequested:
+        $ref: '#/components/messages/invocationRequested'
+  invocationCompleted:
+    address: cybrik.fabric.invocation.completed
+    description: Fabric reports invocation completion; references the signed receipt.
+    messages:
+      invocationCompleted:
+        $ref: '#/components/messages/invocationCompleted'
+  approvalRequired:
+    address: cybrik.fabric.approval.required
+    description: >-
+      Fabric requests human approval (ADR-0004 F9 / RB-001 approval-ingress gap).
+    messages:
+      approvalRequired:
+        $ref: '#/components/messages/approvalRequired'
+  approvalDecided:
+    address: cybrik.fabric.approval.decided
+    description: SOC delivers an authenticated approval decision back to Fabric.
+    messages:
+      approvalDecided:
+        $ref: '#/components/messages/approvalDecided'
+  killSwitchChanged:
+    address: cybrik.fabric.kill_switch.changed
+    description: Fabric admin broadcasts a kill-switch state change; consumers fail closed.
+    messages:
+      killSwitchChanged:
+        $ref: '#/components/messages/killSwitchChanged'
+
+operations:
+  publishAlertSnapshotCreated:
+    action: send
+    channel:
+      $ref: '#/channels/alertSnapshotCreated'
+    description: SOC → Cyber AI. Root event; causationid absent by design (ADR-0006 E6).
+  onAlertSnapshotCreated:
+    action: receive
+    channel:
+      $ref: '#/channels/alertSnapshotCreated'
+  requestInvocation:
+    action: send
+    channel:
+      $ref: '#/channels/invocationRequested'
+    description: Cyber AI/SOC → Fabric. Derived event; causationid required (ADR-0006 E6).
+  onInvocationCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/invocationCompleted'
+  requestApproval:
+    action: send
+    channel:
+      $ref: '#/channels/approvalRequired'
+  decideApproval:
+    action: send
+    channel:
+      $ref: '#/channels/approvalDecided'
+  broadcastKillSwitch:
+    action: send
+    channel:
+      $ref: '#/channels/killSwitchChanged'
+
+components:
+  messages:
+    alertSnapshotCreated:
+      name: cybrik.soc.alert_snapshot.created.v1
+      title: Alert snapshot created
+      summary: Immutable alert snapshot reference (data = objectRef to soc.alert + marking).
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+    invocationRequested:
+      name: cybrik.fabric.invocation.requested.v1
+      title: Invocation requested
+      summary: data = cybrik.tool-execution-request.v1.
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+    invocationCompleted:
+      name: cybrik.fabric.invocation.completed.v1
+      title: Invocation completed
+      summary: data = cybrik.tool-execution-result.v1 (receipt referenced by receipt_id).
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+    approvalRequired:
+      name: cybrik.fabric.approval.required.v1
+      title: Approval required
+      summary: data = cybrik.approval-request.v1.
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+    approvalDecided:
+      name: cybrik.fabric.approval.decided.v1
+      title: Approval decided
+      summary: data = cybrik.approval-decision.v1.
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+    killSwitchChanged:
+      name: cybrik.fabric.kill_switch.changed.v1
+      title: Kill switch changed
+      summary: Fail-closed control signal; data payload schema defined in a later packet.
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '../json-schema/cybrik.envelope.v1.schema.json'

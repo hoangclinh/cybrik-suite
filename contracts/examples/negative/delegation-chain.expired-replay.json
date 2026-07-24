@@ -1,0 +1,23 @@
+{
+  "chain_digest": "sha256:c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+  "tenant_id": "tenant-acme",
+  "grants": [
+    {
+      "grant_id": "grant-expired-0001",
+      "grant_digest": "sha256:a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+      "parent_digest": null,
+      "issuer": { "type": "user", "id": "soc:manager:sam" },
+      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+      "audience": "cybrik.fabric.control-plane",
+      "purpose": "incident_containment",
+      "scope": {
+        "capabilities": ["fabric.isolate_host"],
+        "resource_patterns": ["case:INC-4821/host/HR-LAPTOP-19"],
+        "max_risk_class": "R3"
+      },
+      "constraints": { "max_uses": 1 },
+      "issued_at": "2026-07-23T08:00:00Z",
+      "expires_at": "2026-07-23T08:30:00Z"
+    }
+  ]
+}

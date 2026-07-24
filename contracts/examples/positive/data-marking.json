@@ -1,0 +1,6 @@
+{
+  "classification": "confidential",
+  "tlp": "TLP:AMBER",
+  "handling": ["pii", "no-export"],
+  "origin_marking": "soc-ueba:sensitivity=high"
+}

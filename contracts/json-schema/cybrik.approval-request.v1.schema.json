@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.approval-request.v1.schema.json",
+  "title": "CYBRIK approval request v1",
+  "description": "A Fabric-originated request for human approval of a gated action, delivered to SOC (strategy 05 §5.4). This contract is the durable, digest-bound approval-ingress interface that ADR-0004 F9 records as an OPEN dependency and that suite release blocker RB-001 tracks; it is drafted here PROPOSED and remains NOT ACCEPTED. The request binds capability digest, resolved target snapshot, resolved arguments, policy decision, and delegation chain so that an approval cannot be re-bound to a different action. SOC currently has a SOAR four-eyes approval model (soar_approval_requests) but no Fabric-ingress mapping; that mapping is recorded in the compatibility manifest. Status: PROPOSED — NOT ACCEPTED.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "action_id",
+    "tenant_id",
+    "status",
+    "requested_by",
+    "requested_for",
+    "capability_digest",
+    "policy_decision_id",
+    "delegation_ref",
+    "resolved_target_digest",
+    "resolved_arguments_digest",
+    "obligations",
+    "expires_at"
+  ],
+  "properties": {
+    "approval_id": { "type": "string", "minLength": 1 },
+    "action_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "status": { "type": "string", "const": "pending" },
+    "requested_by": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "The agent/service requesting approval."
+    },
+    "requested_for": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_id", "tenant_id"],
+      "description": "The principal on whose behalf the action would run.",
+      "properties": {
+        "actor_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" }
+      }
+    },
+    "capability_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "delegation_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "chain_digest of the delegation chain the action would run under."
+    },
+    "resolved_target_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest of the server-resolved target snapshot. The approver decides against THIS snapshot."
+    },
+    "resolved_arguments_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+    "expected_impact": {
+      "type": "object",
+      "description": "Human-readable, bounded summary of what the action would do. Advisory display only."
+    },
+    "rollback_plan": { "type": "object" },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "default": []
+    },
+    "obligations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_approvers", "separation_of_duties"],
+      "description": "Approval obligations from the policy decision (strategy 05 §5.3).",
+      "properties": {
+        "approver_roles": {
+          "type": "array",
+          "description": "Roles permitted to approve. Vendor-neutral role tokens; SOC maps these to its role set (e.g. soc_manager, tenant_admin).",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        },
+        "minimum_approvers": { "type": "integer", "minimum": 1 },
+        "separation_of_duties": {
+          "type": "boolean",
+          "description": "If true, no approver may be the requesting actor or the on-behalf-of actor."
+        }
+      }
+    },
+    "expires_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "Approval validity horizon. A decision arriving after expiry MUST NOT authorize execution (stale-approval defense)."
+    }
+  }
+}

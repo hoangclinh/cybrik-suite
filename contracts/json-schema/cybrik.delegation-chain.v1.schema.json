@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.delegation-chain.v1.schema.json",
+  "title": "CYBRIK digest-bound delegation chain v1",
+  "description": "An ordered chain of digest-bound delegation grants (ADR-0006 E3), e.g. analyst→agent then approver→agent-for-action. Each grant is bound to its predecessor by digest, so the chain cannot be reordered, truncated, or spliced without detection. This descriptor carries NO raw token or credential (ADR-0004 F5); executors never receive it (only single-use scoped credentials). The chain is referenced from envelopes via the scalar `delegationref` (its chain_digest) and embedded/summarized in execution receipts. Status: PROPOSED — NOT ACCEPTED.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["chain_digest", "tenant_id", "grants"],
+  "properties": {
+    "chain_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest over the ordered list of grant_digest values. This is the value referenced by the envelope `delegationref` and by receipts."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Tenant the entire chain is scoped to. Every grant MUST share this tenant; cross-tenant grants are invalid."
+    },
+    "grants": {
+      "type": "array",
+      "description": "Ordered grants, index 0 = root delegation. grant[n].parent_digest MUST equal grant[n-1].grant_digest; grant[0].parent_digest MUST be null.",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/grant" }
+    }
+  },
+  "$defs": {
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant_id",
+        "grant_digest",
+        "parent_digest",
+        "issuer",
+        "subject",
+        "audience",
+        "purpose",
+        "scope",
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "grant_id": { "type": "string", "minLength": 1 },
+        "grant_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "Digest over this grant's canonical content (all fields except grant_digest itself)."
+        },
+        "parent_digest": {
+          "description": "grant_digest of the preceding grant, or null for the root grant.",
+          "oneOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+            { "type": "null" }
+          ]
+        },
+        "issuer": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        "subject": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+          "description": "Actor receiving delegated authority."
+        },
+        "audience": {
+          "type": "string",
+          "description": "Intended relying party that may accept this grant, e.g. 'cybrik.fabric.control-plane'. A grant presented to any other audience MUST be rejected (confused-deputy defense).",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Bound purpose, e.g. 'incident_investigation'. Authority is valid only for this purpose.",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "What the subject may do under this grant. Empty arrays mean 'nothing granted at this level' (fail-closed), not 'everything'.",
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "description": "Capability names (optionally digest-pinned) the subject may invoke.",
+              "items": { "type": "string", "minLength": 1 },
+              "default": []
+            },
+            "resource_patterns": {
+              "type": "array",
+              "description": "Server-resolvable resource scope patterns. Never client-asserted target identity.",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "max_risk_class": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+              "description": "Highest risk class this grant authorizes. A downstream request above this class MUST be denied."
+            }
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_uses": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Optional cap on how many times this grant may authorize an action."
+            },
+            "separation_of_duties": {
+              "type": "boolean",
+              "description": "If true, subject actor MUST differ from the acting/approving actor elsewhere in the flow."
+            }
+          }
+        },
+        "issued_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "not_before": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "expires_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+          "description": "Hard expiry. Idempotent replay after expiry MUST NOT re-authorize (strategy 05 §11.4)."
+        }
+      }
+    }
+  }
+}

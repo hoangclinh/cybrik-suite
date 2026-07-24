@@ -1,0 +1,40 @@
+{
+  "receipt_id": "rcpt-INC-4821-isolate-0007",
+  "action_id": "act-INC-4821-isolate-0007",
+  "tenant_id": "tenant-acme",
+  "status": "completed",
+  "capability": {
+    "name": "fabric.isolate_host",
+    "version": "1.0.0",
+    "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"
+  },
+  "executor": {
+    "id": "spiffe://cybrik/tenant-acme/fabric/executor/disposable-77f3",
+    "version": "executor-2026.07",
+    "isolation_profile": "S3"
+  },
+  "policy_decision_id": "pd-2026-07-24-6613",
+  "approval_id": "apr-INC-4821-isolate-0007",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "credential_lease_id_hash": "sha256:1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+  "resolved_arguments_digest": "sha256:b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
+  "started_at": "2026-07-24T10:22:05Z",
+  "finished_at": "2026-07-24T10:22:11Z",
+  "input_artifact_digests": [],
+  "output_artifacts": [
+    {
+      "locator": "cybrik://fabric/artifact/rcpt-INC-4821-isolate-0007/report",
+      "digest": "sha256:f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+      "media_type": "application/json"
+    }
+  ],
+  "side_effect": {
+    "performed": true,
+    "target_digest": "sha256:d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+    "expires_at": "2026-07-25T10:22:11Z",
+    "rollback_handle": "rbk-INC-4821-isolate-0007"
+  },
+  "logs_digest": "sha256:2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+  "receipt_digest": "sha256:e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "signature": "control-plane-sig://receipt/rcpt-INC-4821-isolate-0007"
+}

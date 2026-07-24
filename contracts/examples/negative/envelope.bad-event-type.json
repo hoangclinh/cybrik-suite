@@ -1,0 +1,8 @@
+{
+  "specversion": "1.0",
+  "id": "evt-bad-type-1",
+  "source": "/cybrik/soc",
+  "type": "cybrik.soc.alert.snapshot.created.v1",
+  "time": "2026-07-24T09:58:00Z",
+  "tenantid": "tenant-acme"
+}

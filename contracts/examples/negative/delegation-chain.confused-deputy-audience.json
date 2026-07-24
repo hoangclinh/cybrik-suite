@@ -1,0 +1,22 @@
+{
+  "chain_digest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+  "tenant_id": "tenant-acme",
+  "grants": [
+    {
+      "grant_id": "grant-confused-0001",
+      "grant_digest": "sha256:a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "parent_digest": null,
+      "issuer": { "type": "user", "id": "soc:analyst:jordan" },
+      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+      "audience": "cybrik.soc.notifications",
+      "purpose": "incident_investigation",
+      "scope": {
+        "capabilities": ["fabric.isolate_host"],
+        "resource_patterns": ["case:INC-4821/*"],
+        "max_risk_class": "R3"
+      },
+      "issued_at": "2026-07-24T09:00:00Z",
+      "expires_at": "2026-07-24T13:00:00Z"
+    }
+  ]
+}
