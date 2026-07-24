@@ -14,12 +14,17 @@ The manifest now also records the monotonic non-escalation / no-downgrade runtim
 Pre-GA, no N-1 obligation attaches yet (ADR-0001 D2), but every future incompatibility MUST be
 recorded here.
 
-`cybrik-suite-inference-packet.v1.manifest.json` (W2-D AI model-inference + alert-summarization)
-and `cybrik-suite-svc-delegation-packet.v1.manifest.json` (W2-F internal service-delegation +
-workload-identity) are **additive, disjoint** packets, each `ACCEPTED FOR IMPLEMENTATION` at v0.1.0
-(not stable v1/GA, not bundle tags; Gate W2-D / Gate W2-F, 2026-07-24). Each is the single source
-of truth for its own whole-packet lifecycle state, records its ADR basis and out-of-scope ADRs, its
-member inventory, the accepted primitives it reuses unmodified, and its structural + runtime-only
-trust invariants. The W2-F manifest additionally declares `wire_scope: NO SERVER / NO ENDPOINT` and
-`mcp_scope: OUT OF SCOPE`, and asserts disjointness from ADR-0004 (tool-grant chain) and ADR-0007
-(org delta / A05 boundary).
+`cybrik-suite-inference-packet.v1.manifest.json` (W2-D AI model-inference + alert-summarization),
+`cybrik-suite-svc-delegation-packet.v1.manifest.json` (W2-F internal service-delegation +
+workload-identity), and `cybrik-suite-org-hierarchy-packet.v1.manifest.json` (W2-G
+organizational-hierarchy + external-authority-boundary) are **additive, disjoint** packets, each
+`ACCEPTED FOR IMPLEMENTATION` at v0.1.0 (not stable v1/GA, not bundle tags; Gate W2-D / Gate W2-F /
+Gate W2-G, 2026-07-24). Each is the single source of truth for its own whole-packet lifecycle state,
+records its ADR basis and out-of-scope ADRs, its member inventory, the accepted primitives it reuses
+unmodified, and its structural + runtime-only trust invariants. The W2-F and W2-G manifests each
+declare `wire_scope: NO SERVER / NO ENDPOINT` and `mcp_scope: OUT OF SCOPE`. The W2-G manifest is the
+contract realization of ADR-0007 (org model) per ADR-0009, records per-member SHA-256 integrity and
+the D-1..D-8 → schema traceability, asserts disjointness from ADR-0004 (tool-grant chain) and
+ADR-0008 (the service-delegation seam, where `org_scope` is opaque/advisory), and records the
+feature-flag-OFF / backfill / rollback compatibility stance for the (separately gated, `NOT
+IMPLEMENTED`) SOC surface.

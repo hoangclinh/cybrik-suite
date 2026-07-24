@@ -1,0 +1,34 @@
+{
+  "exchange_id": "ex-in-1",
+  "direction": "inbound-directive",
+  "external_peer": {
+    "org_node_id": "on-a05",
+    "tenant_binding": "tenant-external-a05",
+    "boundary_kind": "external",
+    "tier": 0
+  },
+  "tenant_id": "tenant-acme",
+  "authorization": {
+    "auth_context": "external-distinct",
+    "audience": "a05.national.authority",
+    "purpose": "authority tasking review",
+    "mtls": true,
+    "signed_envelope": true,
+    "replay_protection": true
+  },
+  "marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  },
+  "minimization": {
+    "mode": "aggregate"
+  },
+  "auto_execute": false,
+  "review_queue_ref": "rq-inbound-77",
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:ex-in-1"
+  }
+}

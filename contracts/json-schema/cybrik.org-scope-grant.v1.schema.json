@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-scope-grant.v1.schema.json",
+  "title": "CYBRIK org scope grant v1 (D-4, D-7)",
+  "description": "The hierarchical authorization object that encodes INV-1 in the schema (ADR-0007 D-4; 02 §2.2). scope_kind selects reach; subject_relationship is the INV-1 hinge. raw_scope and aggregate_scope are DISJOINT: an ancestor's default cross-tier reach ('ancestor-governance') carries GOVERNANCE ONLY (aggregate, never automatic raw); raw descendant access requires an 'explicit-descendant-grant' with a NON-EMPTY raw_scope + need-to-know (a missing/empty raw scope denies, never fail-opens). An 'aggregate' grant may NEVER carry raw_scope. mechanism='break-glass' is the loud, self-revoking OD-6 emergency path (read-only default, 15-min default / 60-min max requiring a second approval, mandatory oversight + high-severity audit). tenant/RBAC/RLS remain AND-composed with this grant at runtime. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["grant_id", "tenant_id", "subject", "target_node", "scope_kind", "subject_relationship", "mechanism", "temporal"],
+  "properties": {
+    "grant_id": {
+      "type": "string",
+      "description": "Opaque grant id. Revocation targets this id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "The tenant this grant is evaluated in. MUST equal subject.tenant_id and target_node.tenant_binding (cross-tenant grants are rejected at runtime; OD-1). AND-composed with tenant isolation + RBAC + RLS."
+    },
+    "grantor": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Who issued the grant. Under separation_of_duties MUST be distinct from subject (runtime)."
+    },
+    "subject": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "The grantee actor."
+    },
+    "target_node": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "The node / subtree this grant reaches. A relying party MUST verify the subject's tree relationship to this node matches subject_relationship (a sibling or unrelated node is not a valid descendant/own target)."
+    },
+    "scope_kind": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/scopeKind" },
+    "subject_relationship": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/subjectRelationship" },
+    "mechanism": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/grantMechanism" },
+    "raw_scope": {
+      "type": "object",
+      "description": "Explicit raw-record reach. Present ONLY for own-node / explicit-descendant-grant / delegated-object. patterns is NON-EMPTY (minItems 1): a missing/empty raw scope denies (fail-closed), it never means grant-all. need_to_know is the object-level predicate (INV-1; 02 §2.5).",
+      "additionalProperties": false,
+      "required": ["patterns", "need_to_know"],
+      "properties": {
+        "patterns": {
+          "type": "array",
+          "description": "Explicit resource patterns the raw grant covers (e.g. named cases/assets). Non-empty by construction.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "need_to_know": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/needToKnow" }
+      }
+    },
+    "aggregate_scope": {
+      "type": "object",
+      "description": "De-identified aggregate reach over the subtree — the default cross-tier visibility. Carries NO raw records and NO objectRef: only dimensions + the small-cell floor. Disjoint from raw_scope.",
+      "additionalProperties": false,
+      "required": ["small_cell_floor", "dimensions"],
+      "properties": {
+        "small_cell_floor": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/smallCellFloor" },
+        "dimensions": {
+          "type": "array",
+          "description": "The metric dimensions rolled up (e.g. 'severity', 'category'). No raw identifiers.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      }
+    },
+    "break_glass": {
+      "type": "object",
+      "description": "Required when mechanism='break-glass' (ADR-0007 OD-6). Fires only from a declared scenario; loud, self-revoking, after-action-reviewed. Default read-only; up to 3600s but any duration over the 900s default requires a second human approval. Never granted write/action authority by break-glass alone.",
+      "additionalProperties": false,
+      "required": ["scenario", "access_mode", "max_duration_seconds", "oversight_notification", "high_severity_audit", "after_action_review"],
+      "properties": {
+        "scenario": {
+          "type": "string",
+          "description": "The declared break-glass scenario from the catalog (OD-6). Free-form break-glass is not permitted operationally.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "access_mode": {
+          "type": "string",
+          "description": "Default 'read-only' (OD-6). 'write' remains risk-class approval gated and is NEVER granted by break-glass alone; a relying party MUST additionally enforce that gate.",
+          "enum": ["read-only", "write"],
+          "default": "read-only"
+        },
+        "max_duration_seconds": {
+          "type": "integer",
+          "description": "Self-revoke ceiling. Default 900 (15 min); maximum 3600 (60 min). Any value over 900 requires second_approval (OD-6).",
+          "minimum": 60,
+          "maximum": 3600
+        },
+        "oversight_notification": {
+          "type": "boolean",
+          "description": "Const true: break-glass is loud — the owning node and oversight are notified (OD-6).",
+          "const": true
+        },
+        "high_severity_audit": {
+          "type": "boolean",
+          "description": "Const true: a high-severity audit event is raised (OD-6).",
+          "const": true
+        },
+        "after_action_review": {
+          "type": "boolean",
+          "description": "Const true: an after-action review is mandated (OD-6).",
+          "const": true
+        },
+        "second_approval": {
+          "type": "object",
+          "description": "A second distinct human approval, REQUIRED when max_duration_seconds > 900 (OD-6).",
+          "additionalProperties": false,
+          "required": ["approver", "approved_at"],
+          "properties": {
+            "approver": {
+              "allOf": [
+                { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+                { "required": ["tenant_id"] },
+                { "properties": { "type": { "const": "user" } } }
+              ],
+              "description": "The second approver MUST be a human (type='user')."
+            },
+            "approved_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "OD-6: a break-glass over the 15-minute default requires a second human approval.",
+          "if": { "properties": { "max_duration_seconds": { "exclusiveMinimum": 900 } }, "required": ["max_duration_seconds"] },
+          "then": { "required": ["second_approval"] }
+        }
+      ]
+    },
+    "temporal": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/grantTemporal",
+      "description": "Expiry + revocation envelope. audit_ref is required for any grant reaching raw data (runtime)."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "INV-1: an ancestor's default cross-tier reach is GOVERNANCE ONLY — aggregate, never automatic raw. ancestor-governance forbids raw_scope and forces aggregate.",
+      "if": { "properties": { "subject_relationship": { "const": "ancestor-governance" } }, "required": ["subject_relationship"] },
+      "then": {
+        "properties": {
+          "scope_kind": { "const": "aggregate" },
+          "raw_scope": false
+        },
+        "required": ["aggregate_scope"]
+      }
+    },
+    {
+      "$comment": "aggregate scope carries NO raw records: raw_scope is forbidden and aggregate_scope required.",
+      "if": { "properties": { "scope_kind": { "const": "aggregate" } }, "required": ["scope_kind"] },
+      "then": {
+        "properties": { "raw_scope": false },
+        "required": ["aggregate_scope"]
+      }
+    },
+    {
+      "$comment": "INV-1 raw descendant access requires an EXPLICIT descendant grant + a non-empty raw_scope (empty scope denies, never fail-opens).",
+      "if": { "properties": { "scope_kind": { "const": "descendant" } }, "required": ["scope_kind"] },
+      "then": {
+        "properties": { "subject_relationship": { "const": "explicit-descendant-grant" } },
+        "required": ["raw_scope"]
+      }
+    },
+    {
+      "$comment": "own-node raw is permitted within tenant + need-to-know.",
+      "if": { "properties": { "scope_kind": { "const": "own-node" } }, "required": ["scope_kind"] },
+      "then": {
+        "properties": { "subject_relationship": { "const": "own-node" } },
+        "required": ["raw_scope"]
+      }
+    },
+    {
+      "$comment": "delegated reaches only the specific delegated object, time-boxed.",
+      "if": { "properties": { "scope_kind": { "const": "delegated" } }, "required": ["scope_kind"] },
+      "then": {
+        "properties": { "subject_relationship": { "const": "delegated-object" } },
+        "required": ["raw_scope"]
+      }
+    },
+    {
+      "$comment": "break-glass mechanism requires the break_glass oversight block.",
+      "if": { "properties": { "mechanism": { "const": "break-glass" } }, "required": ["mechanism"] },
+      "then": { "required": ["break_glass"] }
+    }
+  ]
+}

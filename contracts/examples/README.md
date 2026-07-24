@@ -44,3 +44,11 @@ validation notes). Nothing here is executable product code.
   negative-semantic** (time window, over-TTL, audience, cross-tenant, org-scope, operation binding,
   marking non-escalation, `jti` replay) — the negative-semantic cases are structurally valid and
   rejected only by a relying-party trust invariant, against a fixed test clock.
+- `org/` — W2-G organizational-hierarchy fixtures, driven by `org/examples-manifest.json`
+  (validated by `validate-org.mjs`): **21 positive**, **10 negative-schema** (string tier,
+  external-with-parent, external membership, external-as-ancestor edge, ancestor-raw escalation,
+  empty raw-scope, sub-k=5 cell, raw `object_refs` in an aggregate, internal token on the external
+  boundary, hard-`delete` lifecycle), and **6 negative-semantic** (cross-tenant edge, cycle,
+  sibling access, marking downgrade, expiry, revocation) — the negative-semantic cases are
+  structurally valid and rejected only by a relying-party invariant (tree walk / wall-clock /
+  marking-vs-source), against a fixed test clock (NOW=1899635200 = 2030-03-13T12:26:40Z).

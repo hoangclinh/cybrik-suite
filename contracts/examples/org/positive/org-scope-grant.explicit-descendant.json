@@ -1,0 +1,45 @@
+{
+  "grant_id": "gr-desc-1",
+  "tenant_id": "tenant-acme",
+  "grantor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "subject": {
+    "type": "user",
+    "id": "soc:coordinator:minh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-commune",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 3
+  },
+  "scope_kind": "descendant",
+  "subject_relationship": "explicit-descendant-grant",
+  "mechanism": "standard",
+  "raw_scope": {
+    "patterns": [
+      "soc.case:case-991"
+    ],
+    "need_to_know": {
+      "purpose": "authorized cross-tier investigation support",
+      "case_refs": [
+        {
+          "type": "soc.case",
+          "id": "case-991",
+          "digest": "sha256:a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4"
+        }
+      ]
+    }
+  },
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:gr-desc-1",
+    "separation_of_duties": true
+  }
+}

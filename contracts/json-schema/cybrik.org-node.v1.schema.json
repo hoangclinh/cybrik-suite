@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-node.v1.schema.json",
+  "title": "CYBRIK org_node v1 (D-1)",
+  "description": "A node in the deployment's governance tree (ADR-0007 D-1; 02 §1.2). A TREE, not a DAG: at most one governance parent_id (nullable, null only for a deployment root); cross-branch relationships are exchange edges, never a second parent. Each node belongs to exactly ONE tenant (OD-1). tier is an ordinal into a configured ladder — the product ships NO fixed tier names. status has no 'deleted' value: a referenced node is archived, never hard-deleted. An 'external' boundary node (A05) has no parent_id and is not in the internal tier ladder (INV-2). $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["org_node_id", "parent_id", "tier", "tenant_binding", "boundary_kind", "status", "labels"],
+  "properties": {
+    "org_node_id": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeId" },
+    "parent_id": {
+      "oneOf": [
+        { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeId" },
+        { "type": "null" }
+      ],
+      "description": "The single governance parent. null ONLY for a deployment root. Tree, not DAG: exactly one parent (02 §1.2, §8). The parent MUST be in the same tenant and MUST be an internal node (cross-tenant edges and external ancestors are rejected — enforced structurally by cybrik.org-edge.v1 and at runtime; a node's own parent_id cannot be resolved against itself here)."
+    },
+    "tier": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/tierOrdinal",
+      "description": "Ordinal depth into the configured tier ladder. An administrative NAME (e.g. 'province') is NOT a valid value — tiers are data, expressed as an integer ordinal only (02 §2.1)."
+    },
+    "tenant_binding": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "The single tenant this node belongs to (OD-1: exactly one tenant per node). org_node never weakens tenant isolation; cross-node data movement re-checks tenant (FC-2)."
+    },
+    "boundary_kind": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/boundaryKind" },
+    "status": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeStatus" },
+    "labels": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/labels",
+      "description": "Locale-catalog KEY for this node's display name (resolved VI/EN by the UI). No hard-coded administrative string is stored."
+    },
+    "jurisdiction": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/jurisdiction",
+      "description": "Optional residency/jurisdiction policy-as-data for this node (deny-by-default; OD-4)."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "INV-2 / boundary: an external (A05) node is not in the internal tier ladder and never has a governance parent — it is an exchange peer, never a child/ancestor of internal nodes.",
+      "if": {
+        "properties": { "boundary_kind": { "const": "external" } },
+        "required": ["boundary_kind"]
+      },
+      "then": {
+        "properties": { "parent_id": { "type": "null" } }
+      }
+    }
+  ]
+}

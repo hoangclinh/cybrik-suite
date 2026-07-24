@@ -38,3 +38,31 @@ accepted at Gate W2-F (2026-07-24). They **reuse** `cybrik.common-defs.v1` and
 
 Inventory: `../compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json`. Fixtures:
 `../examples/svc/`. No server/endpoint, no MCP/tool authority, no inline key material.
+
+## W2-G organizational-hierarchy packet (additive; `ACCEPTED FOR IMPLEMENTATION`, v0.1.0)
+
+Disjoint `cybrik.org-*` schemas realizing the ADR-0007 org-hierarchy & external-authority model
+(ADR-0009), accepted at Gate W2-G (2026-07-24). They **reuse** `cybrik.common-defs.v1` and
+`cybrik.data-marking.v1` by `$ref`, unmodified:
+
+- `cybrik.org-common-defs.v1` — shared org primitives (`tierOrdinal`, `labels`/`labelKey`,
+  `orgNodeStatus`, `jurisdiction`/`residencyZone` policy-as-data, `smallCellFloor` const 5,
+  `grantTemporal` expiry/revocation/`audit_ref` envelope).
+- `cybrik.org-node.v1` / `cybrik.org-node-lifecycle.v1` (D-1) — governance-tree node (tier is DATA,
+  no fixed tier names; tree not DAG; external node has null `parent_id`) + governed lifecycle
+  (`suspend|reactivate|archive|restore`, no hard-delete; backfill only on archive).
+- `cybrik.org-membership.v1` (D-2) — actor → internal node → role; `node_boundary_kind` const
+  `internal`, `confers_descendant_raw` const `false`.
+- `cybrik.org-scope-grant.v1` (D-4, D-7) — the INV-1 raw/aggregate split (ancestor-governance is
+  aggregate-only; descendant raw requires an explicit-descendant-grant + non-empty `raw_scope`) +
+  the loud, self-revoking break-glass block (k=900s default, 3600s ceiling, second approval).
+- `cybrik.org-edge.v1` (D-5) — typed governance/exchange edge; `parent`/`tasking` never confer raw
+  read; external is never a `parent` ancestor.
+- `cybrik.org-external-exchange.v1` (D-6) — A05 crossing: distinct `external-distinct` auth (no
+  internal token), mTLS + signed-envelope + replay floor, `auto_execute` const `false`, inbound
+  lands in a review queue.
+- `cybrik.org-aggregate-request.v1` / `cybrik.org-aggregate-result.v1` (D-8) — de-identified roll-up;
+  request `scope_kind` const `aggregate`; result cells `count` `minimum:5`, no raw `object_refs`.
+
+Inventory: `../compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`. Fixtures:
+`../examples/org/`. No server/endpoint, no MCP/tool authority, no inline key material.

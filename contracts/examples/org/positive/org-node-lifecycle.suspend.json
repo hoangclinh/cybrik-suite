@@ -1,0 +1,15 @@
+{
+  "transition_id": "tr-susp-1",
+  "tenant_id": "tenant-acme",
+  "org_node_id": "on-commune",
+  "operation": "suspend",
+  "resulting_status": "suspended",
+  "actor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "reason": "temporary suspension pending investigation",
+  "recorded_at": "2030-03-13T10:00:00Z",
+  "audit_ref": "audit:tr-susp-1"
+}

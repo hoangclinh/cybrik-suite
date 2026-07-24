@@ -1,0 +1,45 @@
+{
+  "grant_id": "gr-bg-1",
+  "tenant_id": "tenant-acme",
+  "grantor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "subject": {
+    "type": "user",
+    "id": "soc:coordinator:minh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-commune",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 3
+  },
+  "scope_kind": "descendant",
+  "subject_relationship": "explicit-descendant-grant",
+  "mechanism": "break-glass",
+  "raw_scope": {
+    "patterns": [
+      "soc.case:on-commune/*"
+    ],
+    "need_to_know": {
+      "purpose": "active critical incident emergency access"
+    }
+  },
+  "break_glass": {
+    "scenario": "active-critical-incident",
+    "access_mode": "read-only",
+    "max_duration_seconds": 900,
+    "oversight_notification": true,
+    "high_severity_audit": true,
+    "after_action_review": true
+  },
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:gr-bg-1"
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json",
+  "title": "CYBRIK Suite W2-G organizational-hierarchy + external-authority-boundary contract packet — compatibility/version manifest",
+  "description": "Inventory and compatibility record for the W2-G organizational-hierarchy + external-authority-boundary contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet, the ACCEPTED W2-D inference packet, and the ACCEPTED W2-F service-delegation packet: it introduces the cybrik.org-* JSON Schema namespace and REUSES accepted primitives (common-defs, data-marking) by $ref without modifying them. It is the contract realization of the ADR-0007 org-hierarchy model (ACCEPTED at Gate W2-C1) as detailed in ADR-0009 (contract delta D-1..D-8). Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-G (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "wire_scope": "NO SERVER / NO ENDPOINT. This packet declares no OpenAPI server, AsyncAPI channel, host, route, or operational URL. It is a set of JSON Schema validation contracts (org_node / lifecycle / membership / scope-grant / edge / external-exchange / aggregate request+result) plus a mapping note. There is NO OPERATIONAL SERVER: the SOC migration (illustrative 0022), API, and UI it maps onto are owned and separately gated by cybrik-soc-command-center and are NOT built here.",
+  "mcp_scope": "OUT OF SCOPE. This packet defines no MCP server/tool/action contract and grants no tool/function/agent authority. Hierarchy is authority routing and de-identified visibility, never tool execution; tool execution remains governed by the accepted Tool-Fabric packet (ADR-0004).",
+  "adr_basis": [
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy; this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never a bundle tag." },
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "cross-product event & identity model: tenant is the fail-closed isolation boundary; actor identity; objectRef digest-binding; delegation temporal/SoD primitives reused by grantTemporal." },
+    { "id": "ADR-0007", "status": "ACCEPTED (Gate W2-C1)", "role": "organizational-hierarchy & external-authority-boundary MODEL + open-decision constraints OD-1..OD-6. This packet is the contract realization of that accepted model; it applies the model, it does not re-decide it." },
+    { "id": "ADR-0009", "status": "ACCEPTED FOR IMPLEMENTATION (Gate W2-G)", "role": "org-hierarchy + external-authority contract profile: the contract delta D-1..D-8 (org_node/tier-as-data, membership, scope_kind + INV-1 raw/aggregate split, typed edges, external exchange, break-glass, aggregate roll-up), invariants INV-1/INV-2 + FC-1..FC-10. This packet is that ADR's contract realization." }
+  ],
+  "adr_out_of_scope": [
+    { "id": "ADR-0004", "reason": "Tool execution authority / capability registry / approval / the digest-bound cybrik.delegation-chain.v1 tool-grant — a SEPARATE accepted packet. This packet grants no tool/action/agent authority; hierarchy is authority routing + de-identified visibility only. An escalated/delegated object references objectRef but confers no tool grant." },
+    { "id": "ADR-0008", "reason": "Internal service-delegation + workload-identity seam (W2-F). org_scope on that seam is opaque/advisory only; this packet defines the authoritative org model but does not run at, or depend on, that transport seam." },
+    { "id": "ADR-0003", "reason": "Durable agent orchestration / bus choice — NOT decided here; this packet declares no servers, channels, or bindings." },
+    { "id": "ADR-0005", "reason": "Sandbox substrate — NOT decided here." }
+  ],
+  "reuses_accepted_unmodified": {
+    "note": "These accepted v0.1 members are referenced by $ref and are NOT modified, re-versioned, or re-stated by this packet. Backward compatibility of the accepted packet is preserved.",
+    "members": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json"
+    ]
+  },
+  "members": [
+    { "file": "json-schema/cybrik.org-common-defs.v1.schema.json", "title": "Organizational-hierarchy common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": [], "sha256": "07733f5e0b2f18ffc7ee82b2219db65ae3a0c66e4c2dcd64b485b4da3df8ab40" },
+    { "file": "json-schema/cybrik.org-node.v1.schema.json", "title": "org_node (governance-tree node)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-1"], "sha256": "7a843ca1e2c6487a45fc2cdc0ecfdfe13e77899a2772957165db26e10a93b1af" },
+    { "file": "json-schema/cybrik.org-node-lifecycle.v1.schema.json", "title": "org_node governed lifecycle transition", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-1"], "sha256": "91889cf817aa9af8aae621a5a409927b74f9c4746cc38d9aa69e52d6efbf4909" },
+    { "file": "json-schema/cybrik.org-membership.v1.schema.json", "title": "org_membership (actor -> internal node -> role)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-2"], "sha256": "d450fc30fb2a76efbb30c2713451664f84bfd32a22dc829bd60a786e533756cb" },
+    { "file": "json-schema/cybrik.org-scope-grant.v1.schema.json", "title": "org scope grant (INV-1 raw/aggregate split + break-glass)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-4", "D-7"], "sha256": "558c2f29c1184ab8316e19d177793a37a62c0737ad6fdf00139e6cdba1b42953" },
+    { "file": "json-schema/cybrik.org-edge.v1.schema.json", "title": "typed governance/exchange edge", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-5"], "sha256": "2ea067c3e2c908350d5102df7f33bca36bb54d02981d49bb8cb1cfe10cc014a8" },
+    { "file": "json-schema/cybrik.org-external-exchange.v1.schema.json", "title": "external-authority (A05) exchange crossing", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-6"], "sha256": "2eff4fa0a47d02ca2ad804d36389f8dc6f88b32e3686cbd688c936a2913e71ad" },
+    { "file": "json-schema/cybrik.org-aggregate-request.v1.schema.json", "title": "de-identified aggregate roll-up request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-8"], "sha256": "be6068a572a596c5f45f4d6d9c7aeef91a31b9d142f7f3871b361948c244308a" },
+    { "file": "json-schema/cybrik.org-aggregate-result.v1.schema.json", "title": "de-identified aggregate roll-up result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-8"], "sha256": "fd3614558651f0774d300628b64c1267e32c165e06ef88ab802baa2a43a6de0c" },
+    { "file": "adapters/cybrik-org-hierarchy-mapping-notes.v1.md", "title": "org-hierarchy -> SOC migration/API/UI mapping notes (NO operational server)", "contract_version": "0.1.0", "format": "adapter-notes", "kind": "adapter-notes", "status": "ACCEPTED FOR IMPLEMENTATION", "not_ga": true, "delta": ["D-1", "D-2", "D-4", "D-5", "D-6", "D-7", "D-8"], "sha256": "5f5b7e84390406f8da63799005f9df0a95e657ed462d56e42a90129732ca6436" }
+  ],
+  "examples_manifest": "examples/org/examples-manifest.json",
+  "contract_delta_traceability": {
+    "note": "The ADR-0007 §Consequences / 05-contract-delta-proposal.md D-1..D-8 sketch, APPLIED as accepted schemas at Gate W2-G. Each delta was PROPOSED (05 §4) and is now ACCEPTED FOR IMPLEMENTATION as the named schema(s). Applying the delta does NOT implement it in any product.",
+    "deltas": [
+      { "id": "D-1", "concept": "org_node / tier structure + governed lifecycle (tier is DATA, no fixed tier names; tree not DAG; no hard-delete of referenced nodes)", "schemas": ["json-schema/cybrik.org-node.v1.schema.json", "json-schema/cybrik.org-node-lifecycle.v1.schema.json"], "invariants": ["INV-2", "FC-2", "FC-10"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-2", "concept": "org_membership: actor -> internal org_node -> role archetype; confers node capability, never descendant raw", "schemas": ["json-schema/cybrik.org-membership.v1.schema.json"], "invariants": ["INV-1", "INV-2", "FC-1"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-3", "concept": "jurisdiction / data-residency policy-as-data, deny-by-default", "schemas": ["json-schema/cybrik.org-common-defs.v1.schema.json"], "invariants": ["FC-6", "FC-10"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION) — realized as the shared jurisdiction/residencyZone $defs in org-common-defs and referenced by org-node and org-external-exchange; the accepted cybrik.data-marking.v1 is REUSED UNMODIFIED (no minor bump applied to it)." },
+      { "id": "D-4", "concept": "scope_kind + subject_relationship: the INV-1 raw/aggregate split encoded in the schema", "schemas": ["json-schema/cybrik.org-scope-grant.v1.schema.json"], "invariants": ["INV-1", "FC-1", "FC-3", "FC-4"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-5", "concept": "typed org edges: parent / escalation / tasking / case-delegation / exchange (parent+tasking never confer raw read)", "schemas": ["json-schema/cybrik.org-edge.v1.schema.json"], "invariants": ["INV-1", "INV-2", "FC-2", "FC-3"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-6", "concept": "external-exchange: distinct external-auth context, explicit direction, inbound never auto-executes", "schemas": ["json-schema/cybrik.org-external-exchange.v1.schema.json"], "invariants": ["INV-2", "FC-5", "FC-6", "FC-8", "FC-9"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-7", "concept": "break-glass grant variant: loud, role-gated, read-only default, 15-min default / 60-min max requiring second approval, self-revoking", "schemas": ["json-schema/cybrik.org-scope-grant.v1.schema.json"], "invariants": ["INV-1", "FC-7"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" },
+      { "id": "D-8", "concept": "aggregate roll-up request+result: de-identified, small-cell floor k=5, never carries a raw record/objectRef", "schemas": ["json-schema/cybrik.org-aggregate-request.v1.schema.json", "json-schema/cybrik.org-aggregate-result.v1.schema.json"], "invariants": ["INV-1", "FC-4"], "status": "APPLIED (ACCEPTED FOR IMPLEMENTATION)" }
+    ]
+  },
+  "invariants": {
+    "note": "The load-bearing invariants realized by this packet. INV-1/INV-2 are the ADR-0007 hard invariants; FC-1..FC-10 are the 04-threat-model fail-closed properties. Some are STRUCTURAL (enforced by the JSON Schemas and exercised by fixtures); others are RUNTIME-ONLY (the relying party MUST enforce; JSON Schema constrains shape only). Both are REQUIRED of every implementation.",
+    "hard": [
+      "INV-1 Hierarchy implies no raw-data access: ancestry grants governance only (task, de-identified aggregate roll-up, policy). Raw descendant records require a SEPARATE explicit grant PLUS object-level need-to-know. Structurally: subject_relationship='ancestor-governance' forbids raw_scope and forces scope_kind='aggregate'; scope_kind='descendant' forces an explicit-descendant-grant with a non-empty raw_scope; parent/tasking edges force confers_raw_read=false.",
+      "INV-2 External authority is never super-admin: an 'external' (A05) node is an exchange peer, never a parent/ancestor (org-node external -> parent_id null; org-edge 'parent' from_node const internal), never an org_node member (org-membership node_boundary_kind const internal), never reuses an internal token (org-external-exchange authorization additionalProperties:false, auth_context const 'external-distinct'), and an inbound directive never auto-executes (auto_execute const false)."
+    ],
+    "structural": [
+      "FC-3 (INV-1) Hierarchy != read: ancestor-governance is aggregate-only (raw_scope:false); parent/tasking edges confers_raw_read const false.",
+      "FC-4 Aggregate is de-identified: aggregate grants/requests/results carry no raw_scope and no objectRef; every unsuppressed cell count minimum 5 (small-cell floor const 5).",
+      "FC-5 (INV-2) External is exchange-only: external node never a parent/member; inbound directive never auto-executes.",
+      "FC-8 Confused-deputy defense on exchange: external authorization.audience binds to the external peer; auth_context const 'external-distinct'.",
+      "D-1 no-hard-delete: org-node status enum has no 'deleted'; org-node-lifecycle operation enum is suspend|reactivate|archive|restore (a 'delete' is not expressible)."
+    ],
+    "runtime_only": [
+      "FC-1 Default deny: absent an explicit, unexpired, in-scope grant, every read/action is denied; an aggregate request without a matching, unexpired aggregate grant is denied. AND-composed with tenant RLS + RBAC. An empty raw_scope denies (never grant-all).",
+      "FC-2 Tenant first (OD-1): authoritative tenant derives from the caller credential; org_node never weakens tenant isolation. The relying party MUST reject a cross-tenant hierarchy edge (from_node.tenant_binding != to_node.tenant_binding) and a cross-tenant grant. Backfill stays same-tenant + internal.",
+      "ACYCLICITY: the relying party MUST reject an edge whose endpoints form a cycle (including from_node == to_node); tree, not DAG (a schema cannot walk the graph).",
+      "TREE-RELATIONSHIP: the relying party MUST verify the subject's tree relationship to target_node matches subject_relationship (a sibling/unrelated node is not a valid descendant target).",
+      "FC-6 Marking/residency gate (AC-9): marking is re-checked on every crossing and is NEVER downgraded relative to origin_marking; residency is deny-by-default (a zone not in allowed_zones is denied).",
+      "FC-7 Grants expire and revoke immediately: an expired (expires_at < now) or revoked grant re-authorizes nothing on idempotent replay; break-glass self-revokes at max_duration_seconds.",
+      "FC-9 Availability never widens authority: external unreachability queues the exchange; it never elevates authority.",
+      "FC-10 Fail-closed on ambiguity: unknown tier config, missing jurisdiction, or an unresolved relationship denies.",
+      "D-8 dimension subset: aggregate-request.dimensions MUST be a subset of the authorizing grant's aggregate_scope.dimensions; tenant/target/floor MUST match the grant.",
+      "SoD: under separation_of_duties the grantor/approver MUST be distinct from the subject (self-authorization rejected)."
+    ]
+  },
+  "backward_compatibility": {
+    "additive": true,
+    "modifies_accepted_v0_1": false,
+    "namespace": "Disjoint: schema ids cybrik.org-*. No accepted id, event type, or channel is redefined; the W2-D inference (cybrik.model-*/cybrik.alert-summarization-*) and W2-F service-delegation (cybrik.svc-*) namespaces are unchanged and untouched.",
+    "relation_to_w2f_service_delegation": "The W2-F seam treats org_scope as opaque/advisory (ADR-0008 D4). This packet defines the AUTHORITATIVE org model. The two are additive and disjoint: this packet imports, modifies, and re-states no W2-F schema, and grants no delegation-token / transport authority.",
+    "feature_flag_default_off": "The implementing (SOC) surface ships behind a feature flag that defaults OFF; with it off the product behaves as the accepted v0.1 single-tier surface (backward compatible). See the mapping notes 'Feature flag & rollback'.",
+    "obligations_on_accepted_members": "none"
+  },
+  "compatibility_and_backfill": {
+    "note": "Reorg-churn (AC-11) and rollback handling, contract-first. These are obligations on the implementation, not proven by a green validator.",
+    "sunset": "This is v0.1.0 ACCEPTED FOR IMPLEMENTATION, not GA. There is no N-1 back-compat obligation pre-GA (ADR-0001 D2). Any future incompatible change MUST be recorded here with its SemVer treatment; a superseded org schema is DEPRECATED with a recorded sunset, never silently removed.",
+    "backfill": "On reorg churn a node is ARCHIVED (never hard-deleted, D-1); its live memberships/edges MAY be reassigned to a SAME-TENANT INTERNAL successor via org-node-lifecycle.backfill (never cross-tenant / external). Stable opaque org_node_id + editable label metadata absorb tier renames without breaking references (AC-11).",
+    "rollback": "Rollback = clear the feature flag (surface reverts to flat v0.1) and reverse the additive migration; audit history is never hard-deleted."
+  },
+  "gate": {
+    "id": "W2-G",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-G (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "decisions_resolved": [
+      "G-W2G-1 ACCEPTED: the ADR-0007 org-hierarchy model contract delta D-1..D-8 is APPLIED as the accepted cybrik.org-* JSON Schema packet (v0.1.0), additive to and disjoint from the accepted v0.1 / W2-D / W2-F packets.",
+      "G-W2G-2 ACCEPTED: INV-1 (hierarchy != raw read) is encoded structurally in org-scope-grant and org-edge; raw descendant access requires an explicit-descendant-grant with a non-empty raw_scope + need-to-know; ancestor reach is aggregate-only.",
+      "G-W2G-3 ACCEPTED: INV-2 (external authority never super-admin) is encoded structurally across org-node/org-edge/org-membership/org-external-exchange; an external peer is never an ancestor/member/internal-token, and an inbound directive never auto-executes.",
+      "G-W2G-4 ACCEPTED: tiers are DATA (ordinal + locale label keys; no fixed tier names), aggregates apply a k=5 small-cell floor and never carry raw records, external crossings are marked/residency-gated (deny-by-default) and never downgrade marking, and referenced nodes are archived (no hard-delete).",
+      "G-W2G-5 ACCEPTED: the packet declares NO operational server/endpoint and grants NO tool/agent/MCP authority; the SOC migration (illustrative 0022) / API / UI it maps onto are owned + separately gated by cybrik-soc-command-center and are NOT IMPLEMENTED here; the surface ships feature-flag-OFF with a documented rollback/backfill."
+    ],
+    "evidence_ref": "See acceptance.evidence[] and cybrik-suite:docs/releases/GATE-W2-G-ORG-HIERARCHY-ACCEPTANCE-2026-07-24.md. A green validator/secret-scan run is a conformance signal; acceptance is the recorded Founder-delegated decision, not an inference from CI."
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-G",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-G (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "scope": "Products MAY now implement against the W2-G org-hierarchy packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. The runtime-only invariants (invariants.runtime_only: FC-1/FC-2/FC-6/FC-7/FC-9/FC-10 + acyclicity/tree-relationship/dimension-subset/SoD) remain explicit and REQUIRED of every implementation; a green validator run proves standards conformance and fixture coverage, not runtime enforcement, and not the existence of any migration/API/UI. NOTHING IS IMPLEMENTED, VERIFIED, PILOTED, OR GA.",
+    "evidence": [
+      "Pinned standards validation green: JSON Schema 2020-12 compile/ref-resolution of the 9 org schemas (reusing common-defs + data-marking unmodified), 21/21 positive + 10/10 negative-schema + 6/6 negative-semantic fixtures, per-member SHA256 integrity verified against this manifest, and the INV-1/INV-2 + FC-* invariant assertions each exercised by a fixture; git diff --check clean; gitleaks secret scan clean (no credential/key material is a wire field anywhere in the packet).",
+      "Independent post-validator security/compatibility review: packet internally coherent at v0.1.0, additive to and disjoint from the accepted v0.1 / W2-D / W2-F packets, no tool/agent authority, external (A05) boundary kept distinct (never ancestor/member/internal-token/auto-execute), no operational endpoint / migration / server introduced, feature-flag-OFF with documented rollback/backfill."
+    ],
+    "mechanics": "Acceptance-for-implementation was authorized by explicit Founder delegation of Gate W2-G to Codex and recorded with evidence in this commit (ADR-0001 D5). No approval was inferred from CI going green. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate (ADR-0001 D6)."
+  }
+}

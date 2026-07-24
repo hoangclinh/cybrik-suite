@@ -1,0 +1,38 @@
+{
+  "grant_id": "gr-bad-rev",
+  "tenant_id": "tenant-acme",
+  "grantor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "subject": {
+    "type": "user",
+    "id": "soc:analyst:linh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-commune",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 3
+  },
+  "scope_kind": "own-node",
+  "subject_relationship": "own-node",
+  "mechanism": "standard",
+  "raw_scope": {
+    "patterns": [
+      "soc.case:on-commune/*"
+    ],
+    "need_to_know": {
+      "purpose": "revoked-grant reuse attempt"
+    }
+  },
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "revoked": true,
+    "audit_ref": "audit:grant-rev"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "exchange_id": "ex-out-1",
+  "direction": "outbound-submission",
+  "external_peer": {
+    "org_node_id": "on-a05",
+    "tenant_binding": "tenant-external-a05",
+    "boundary_kind": "external",
+    "tier": 0
+  },
+  "tenant_id": "tenant-acme",
+  "authorization": {
+    "auth_context": "external-distinct",
+    "audience": "a05.national.authority",
+    "purpose": "mandatory incident report",
+    "mtls": true,
+    "signed_envelope": true,
+    "replay_protection": true
+  },
+  "marking": {
+    "classification": "restricted",
+    "tlp": "TLP:AMBER+STRICT",
+    "handling": [
+      "legal-hold"
+    ],
+    "origin_marking": "restricted"
+  },
+  "jurisdiction": {
+    "residency_zone": "VN",
+    "allowed_zones": [
+      "VN"
+    ]
+  },
+  "minimization": {
+    "mode": "minimized-record",
+    "object_ref": {
+      "type": "soc.case",
+      "id": "case-991",
+      "digest": "sha256:a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4"
+    }
+  },
+  "auto_execute": false,
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:ex-out-1"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "grant_id": "gr-bad-exp",
+  "tenant_id": "tenant-acme",
+  "grantor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "subject": {
+    "type": "user",
+    "id": "soc:analyst:linh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-commune",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 3
+  },
+  "scope_kind": "own-node",
+  "subject_relationship": "own-node",
+  "mechanism": "standard",
+  "raw_scope": {
+    "patterns": [
+      "soc.case:on-commune/*"
+    ],
+    "need_to_know": {
+      "purpose": "expired-grant replay attempt"
+    }
+  },
+  "temporal": {
+    "issued_at": "2030-02-28T00:00:00Z",
+    "not_before": "2030-02-28T00:00:00Z",
+    "expires_at": "2030-03-01T00:00:00Z",
+    "audit_ref": "audit:grant-exp"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "transition_id": "tr-arch-1",
+  "tenant_id": "tenant-acme",
+  "org_node_id": "on-district-old",
+  "operation": "archive",
+  "resulting_status": "archived",
+  "actor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "reason": "2030 administrative reorg: district merged into region",
+  "backfill": {
+    "successor_node_id": "on-district",
+    "reassign_memberships": true
+  },
+  "recorded_at": "2030-03-13T09:00:00Z",
+  "audit_ref": "audit:tr-arch-1"
+}

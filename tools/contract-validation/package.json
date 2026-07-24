@@ -13,6 +13,7 @@
     "validate:schemas": "node validate-schemas.mjs",
     "validate:inference": "node validate-inference.mjs",
     "validate:svc": "node validate-svc.mjs",
+    "validate:org": "node validate-org.mjs",
     "validate:openapi": "node validate-openapi.mjs",
     "validate:asyncapi": "node validate-asyncapi.mjs"
   },

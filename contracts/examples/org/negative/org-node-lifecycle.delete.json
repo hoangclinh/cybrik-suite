@@ -1,0 +1,15 @@
+{
+  "transition_id": "tr-bad-del",
+  "tenant_id": "tenant-acme",
+  "org_node_id": "on-commune",
+  "operation": "delete",
+  "resulting_status": "archived",
+  "actor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "reason": "attempted hard-delete of a referenced node",
+  "recorded_at": "2030-03-13T09:00:00Z",
+  "audit_ref": "audit:tr-bad-del"
+}

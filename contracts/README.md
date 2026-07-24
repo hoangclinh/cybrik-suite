@@ -41,13 +41,27 @@ inference-operation mapping notes under `adapters/`, its own compatibility manif
 keeps the external-authority (A05) boundary distinct (ADR-0007 OD-3). See
 `compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json`.
 
+The **W2-G organizational-hierarchy + external-authority-boundary packet** (all `ACCEPTED FOR
+IMPLEMENTATION`, v0.1.0, not stable v1/GA; accepted at Gate W2-G — Codex under Founder delegation,
+2026-07-24) is **additive to, and disjoint from,** all three packets above. It is the contract
+realization of the ADR-0007 org-hierarchy model (accepted at Gate W2-C1) per ADR-0009 — applying
+the contract delta D-1..D-8. It introduces the `cybrik.org-*` JSON Schemas under `json-schema/`
+(org_node / lifecycle / membership / scope-grant / edge / external-exchange / aggregate
+request+result + shared defs), org → SOC mapping notes under `adapters/`, its own compatibility
+manifest under `compatibility/`, and fixtures under `examples/org/`. It **reuses common-defs and
+data-marking by `$ref` without modifying them**, encodes INV-1 (hierarchy ≠ raw read) and INV-2
+(external authority never super-admin) structurally, declares **no server/endpoint** and **no
+MCP/tool authority**, and keeps the A05 boundary distinct. The SOC migration/API/UI it maps onto are
+owned + separately gated by `cybrik-soc-command-center` and are `NOT IMPLEMENTED`. See
+`compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`.
+
 | Directory | Will contain |
 |---|---|
 | `openapi/` | REST API contracts (OpenAPI) |
 | `asyncapi/` | Event/stream contracts (AsyncAPI) |
 | `json-schema/` | Shared data object schemas (JSON Schema) |
 | `mcp/` | MCP server/tool capability contracts |
-| `adapters/` | Mapping notes (boundary docs): W2-D provider-adapter wire boundary; W2-F delegation → inference-operation mapping |
+| `adapters/` | Mapping notes (boundary docs): W2-D provider-adapter wire boundary; W2-F delegation → inference-operation mapping; W2-G org-hierarchy → SOC migration/API/UI mapping |
 | `compatibility/` | Version compatibility matrices between products |
 | `examples/` | Conformance fixtures (positive/negative) for the validators |
 

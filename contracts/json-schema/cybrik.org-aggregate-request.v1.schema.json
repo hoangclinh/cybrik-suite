@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-aggregate-request.v1.schema.json",
+  "title": "CYBRIK org aggregate roll-up request v1 (D-8)",
+  "description": "A request for a DE-IDENTIFIED subtree roll-up — the concrete INV-1 cross-tier visibility mechanism (ADR-0007 D-8; 02 §2.2). scope_kind is const 'aggregate': this object can only ever ask for counts/metrics over a subtree, NEVER raw records. It carries no objectRef and no raw resource pattern (additionalProperties:false makes a raw-records field structurally impossible), so an ancestor cannot smuggle a raw read through the aggregate path. It names the authorizing scope grant (grant_ref) whose aggregate_scope AND-composes with this request at runtime; the tenant, target subtree, and small-cell floor (const 5, OD-2) MUST match that grant. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "tenant_id", "requester", "target_node", "scope_kind", "grant_ref", "small_cell_floor", "dimensions", "purpose"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Opaque request id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "The tenant this roll-up is evaluated in. MUST equal requester.tenant_id, target_node.tenant_binding and the authorizing grant's tenant (cross-tenant roll-ups are rejected at runtime; OD-1)."
+    },
+    "requester": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "The actor asking for the roll-up. Model output can never populate an actor (ADR-0006)."
+    },
+    "target_node": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "The subtree root to roll up over. An 'external' boundary node is never a valid aggregate target (INV-2)."
+    },
+    "scope_kind": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/scopeKind",
+      "description": "Const 'aggregate': this request is ONLY ever a de-identified roll-up; it can never ask for own-node / descendant / delegated raw reach.",
+      "const": "aggregate"
+    },
+    "grant_ref": {
+      "type": "string",
+      "description": "The grant_id of the org-scope-grant (aggregate_scope) that authorizes this roll-up. AND-composed with tenant isolation + RBAC + RLS at runtime; a request without a matching, unexpired aggregate grant is denied (FC-1).",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "small_cell_floor": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/smallCellFloor",
+      "description": "Const 5: the small-cell suppression floor requested must be the OD-2 floor; a smaller floor (weaker suppression) is not expressible."
+    },
+    "dimensions": {
+      "type": "array",
+      "description": "The metric dimensions to roll up (e.g. 'severity', 'category'). No raw identifiers; MUST be a subset of the authorizing grant's aggregate_scope.dimensions (runtime).",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Bounded purpose of the roll-up (audited).",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}

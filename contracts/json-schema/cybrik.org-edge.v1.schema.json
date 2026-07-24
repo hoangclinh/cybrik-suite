@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-edge.v1.schema.json",
+  "title": "CYBRIK org edge v1 (D-5)",
+  "description": "A typed governance/exchange edge between two nodes (ADR-0007 D-5; 02 §5-§6). Every edge is explicitly created, individually authorized, marking-/residency-checked where it moves data, time-bounded, revocable, and audited. Directional semantics: 'parent' (up->down governance, NO raw read, INV-1), 'escalation' (down->up object transfer/share), 'tasking' (up->down authority-to-direct, NO read), 'case-delegation' (peer scoped object share), 'exchange' (across the external trust boundary). from_node/to_node self-carry tenant + boundary so cross-tenant edges (OD-1) and external-as-ancestor (INV-2) are checkable. A 'parent' edge's parent (from_node) MUST be internal — an external authority can never be an ancestor. Same-tenant and acyclicity are enforced at runtime (a schema cannot compare two field values or walk a graph). $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edge_id", "edge_type", "from_node", "to_node", "confers_raw_read", "temporal"],
+  "properties": {
+    "edge_id": {
+      "type": "string",
+      "description": "Opaque edge id. Revocation targets this id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "edge_type": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/edgeType" },
+    "from_node": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "Source endpoint. For 'parent' this is the parent (ancestor); for 'escalation' the lower node; for 'tasking' the tasking (upper) node. The relying party MUST reject an edge whose from_node.tenant_binding differs from to_node.tenant_binding (no cross-tenant hierarchy edge, OD-1) and any edge whose endpoints form a cycle (including from_node == to_node)."
+    },
+    "to_node": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "Destination endpoint."
+    },
+    "confers_raw_read": {
+      "type": "boolean",
+      "description": "Whether this edge grants raw read of the counterpart's records. 'parent' and 'tasking' edges MUST be false (governance/authority-to-direct, not read; INV-1). Raw access is only ever the specific escalated/delegated/exchanged object, via a scope grant."
+    },
+    "object_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+      "description": "For escalation / case-delegation / exchange: the specific object transferred or shared, digest-bound. 'the higher node's access is exactly what was escalated, nothing more' (02 §5.2)."
+    },
+    "marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking that travels with a data-moving edge. Marking/residency are re-checked on the crossing and never downgraded (runtime)."
+    },
+    "temporal": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/grantTemporal",
+      "description": "Every edge is time-bounded, revocable, audited (02 §6)."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "INV-2 / external-as-ancestor: a 'parent' (tier) edge's parent (from_node) MUST be an internal node. An external authority (A05) is never an ancestor of an internal node.",
+      "if": { "properties": { "edge_type": { "const": "parent" } }, "required": ["edge_type"] },
+      "then": {
+        "properties": {
+          "from_node": { "properties": { "boundary_kind": { "const": "internal" } } },
+          "confers_raw_read": { "const": false }
+        }
+      }
+    },
+    {
+      "$comment": "INV-1: tasking carries authority-to-direct, not authority-to-read.",
+      "if": { "properties": { "edge_type": { "const": "tasking" } }, "required": ["edge_type"] },
+      "then": { "properties": { "confers_raw_read": { "const": false } } }
+    }
+  ]
+}
