@@ -1,14 +1,17 @@
 # ADR Decision Sprint — 2026-07
 
 - Status: `DRAFT` (operating plan; decides nothing by itself)
-- Date: 2026-07-23 · updated 2026-07-24 (Wave 0 gate closed)
+- Date: 2026-07-23 · updated 2026-07-24 (Wave 0 and Wave 1 gates closed; Wave 2 read-ahead evidence prepared)
 - Owner: Founder (decider) · AI agents (research/evidence/drafting only)
 - Scope: the six suite ADRs in `docs/adr/`; no product code, no contract acceptance
 - Progress: **GATE A2 CLOSED 2026-07-24** — the Founder answered the Wave 0 packet;
   [ADR-0001](ADR-0001-suite-contract-versioning-policy.md) and
   [ADR-0006](ADR-0006-cross-product-event-and-identity-model.md) are `ACCEPTED`.
-  **Wave 1 is NOT STARTED** and does not start without separate Founder authorization
-  (GATE A3 work authorization). RB-001 remains `BLOCKING — OPEN`.
+  **GATE A3 CLOSED 2026-07-24** — the Founder approved all recommended G1–G7/F1–F9 answers;
+  [ADR-0002](ADR-0002-cyber-ai-implementation-stack.md) and
+  [ADR-0004](ADR-0004-tool-fabric-control-plane-executor-split.md) are `ACCEPTED`.
+  **Wave 2 read-ahead evidence for ADR-0003/ADR-0005 is drafted; GATE A4 is NOT OPEN and no
+  Wave 2 decision packet/status flip exists.** RB-001 remains `BLOCKING — OPEN`.
 
 ## 1. Objective
 
@@ -64,11 +67,12 @@ Dependency here means *decision ordering*, not waterfall implementation ordering
 | Wave | ADRs | Sprint output | Founder gate |
 |---|---|---|---|
 | 0 | ADR-0001, ADR-0006 | [ADR-0001 evidence](evidence/ADR-0001-EVIDENCE.md), [ADR-0006 evidence](evidence/ADR-0006-EVIDENCE.md), [Founder decision packet Wave 0](FOUNDER-DECISION-PACKET-WAVE-0.md) | GATE A2 — **CLOSED 2026-07-24**: Founder answered D1–D7 / E1–E7; both ADRs `ACCEPTED` |
-| 1 | ADR-0002, ADR-0004 | Evidence packets + decision packet Wave 1 | GATE A3 |
-| 2 | ADR-0003, ADR-0005 | Evidence packets + decision packet Wave 2 | GATE A4 |
+| 1 | ADR-0002, ADR-0004 | [ADR-0002 evidence](evidence/ADR-0002-EVIDENCE.md), [ADR-0004 evidence](evidence/ADR-0004-EVIDENCE.md), [Founder decision packet Wave 1](FOUNDER-DECISION-PACKET-WAVE-1.md) | GATE A3 — **CLOSED 2026-07-24**: Founder approved G1–G7/F1–F9; both ADRs `ACCEPTED` |
+| 2 | ADR-0003, ADR-0005 | [ADR-0003 evidence](evidence/ADR-0003-EVIDENCE.md), [ADR-0005 evidence](evidence/ADR-0005-EVIDENCE.md); decision packet Wave 2 still owed | GATE A4 — **NOT OPEN** |
 
-Wave 1 and Wave 2 work does not start until the previous gate is answered, **except**
-read-only research, which may run ahead at any time (it produces evidence, not decisions).
+Wave 1 is decided and closed. Wave 2 evidence is read-ahead research; it **recommends, it does
+not decide**. ADR-0003/ADR-0005 stay `PROPOSED — NOT DECIDED` until a Wave 2 decision packet
+exists and the Founder explicitly answers at GATE A4.
 
 ## 4. Exit criteria per wave
 
@@ -121,7 +125,8 @@ Per `../strategy/07-SOLO-FOUNDER-AI-OPERATING-MODEL.md` §6 and §10:
 
 ## 7. Out of scope for this sprint
 
-- Any change to ADR statuses (all remain `PROPOSED — NOT DECIDED` until the Founder acts).
+- Any ADR status change without explicit Founder authorization under ADR-0001 D5. ADR-0001,
+  ADR-0002, ADR-0004, and ADR-0006 are accepted; ADR-0003/ADR-0005 remain proposed.
 - Any file under `contracts/` (contract-first means contracts follow accepted ADRs, not
   precede them).
 - Any edit in `cybrik-soc-command-center`, `cybrik-cyber-ai-platform`, or

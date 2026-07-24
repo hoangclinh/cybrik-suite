@@ -40,4 +40,8 @@ Each packet is one file, `ADR-XXXX-EVIDENCE.md`, with these sections in order:
 | Packet | Backs | Status |
 |---|---|---|
 | [ADR-0001-EVIDENCE.md](ADR-0001-EVIDENCE.md) | [ADR-0001](../ADR-0001-suite-contract-versioning-policy.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
+| [ADR-0002-EVIDENCE.md](ADR-0002-EVIDENCE.md) | [ADR-0002](../ADR-0002-cyber-ai-implementation-stack.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
+| [ADR-0003-EVIDENCE.md](ADR-0003-EVIDENCE.md) | [ADR-0003](../ADR-0003-durable-agent-orchestration.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR remains `PROPOSED` |
+| [ADR-0004-EVIDENCE.md](ADR-0004-EVIDENCE.md) | [ADR-0004](../ADR-0004-tool-fabric-control-plane-executor-split.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
+| [ADR-0005-EVIDENCE.md](ADR-0005-EVIDENCE.md) | [ADR-0005](../ADR-0005-sandbox-substrate.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR remains `PROPOSED` |
 | [ADR-0006-EVIDENCE.md](ADR-0006-EVIDENCE.md) | [ADR-0006](../ADR-0006-cross-product-event-and-identity-model.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
