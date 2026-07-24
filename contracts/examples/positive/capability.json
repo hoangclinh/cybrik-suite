@@ -19,7 +19,7 @@
     "timeout_seconds": 120,
     "max_input_bytes": 16384,
     "max_output_bytes": 65536,
-    "max_egress_bytes": 0
+    "max_egress_bytes": 1048576
   },
   "evidence": {
     "output_can_be_evidence": true,

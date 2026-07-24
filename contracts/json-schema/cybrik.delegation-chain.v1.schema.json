@@ -54,11 +54,8 @@
             { "type": "null" }
           ]
         },
-        "issuer": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
-        "subject": {
-          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
-          "description": "Actor receiving delegated authority."
-        },
+        "issuer": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "Grant issuer. tenant_id required: cross-tenant authorization is evaluated on this actor." },
+        "subject": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "Actor receiving delegated authority. tenant_id required: cross-tenant authorization is evaluated on this actor." },
         "audience": {
           "type": "string",
           "description": "Intended relying party that may accept this grant, e.g. 'cybrik.fabric.control-plane'. A grant presented to any other audience MUST be rejected (confused-deputy defense).",
@@ -73,6 +70,7 @@
           "type": "object",
           "additionalProperties": false,
           "description": "What the subject may do under this grant. Empty arrays mean 'nothing granted at this level' (fail-closed), not 'everything'.",
+          "required": ["max_risk_class"],
           "properties": {
             "capabilities": {
               "type": "array",

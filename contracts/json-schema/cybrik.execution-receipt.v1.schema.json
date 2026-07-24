@@ -108,7 +108,11 @@
           "type": "string",
           "description": "Opaque rollback handle; not a credential."
         }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "performed": { "const": true } }, "required": ["performed"] },
+          "then": { "required": ["target_digest"] } }
+      ]
     },
     "logs_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
     "receipt_digest": {

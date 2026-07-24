@@ -9,5 +9,7 @@ Founder-gated act reserved for `ACCEPTED` contracts, and every member of this pa
 `PROPOSED`. The manifest records format pins, ADR basis and out-of-scope ADRs (0003/0005),
 member inventory, per-event correlation semantics (ADR-0006 E6), cross-artifact digest bindings,
 and forward-compatibility gaps (RB-001 approval-ingress, MARK-001 SOC marking backfill).
+The manifest now also records the monotonic non-escalation / no-downgrade runtime invariants
+(risk, isolation, egress, expiry, SemVer) the control plane MUST enforce and that JSON Schema cannot.
 Pre-GA, no N-1 obligation attaches yet (ADR-0001 D2), but every future incompatibility MUST be
 recorded here.

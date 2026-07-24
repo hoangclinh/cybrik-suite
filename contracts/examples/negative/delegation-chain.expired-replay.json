@@ -6,8 +6,8 @@
       "grant_id": "grant-expired-0001",
       "grant_digest": "sha256:a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
       "parent_digest": null,
-      "issuer": { "type": "user", "id": "soc:manager:sam" },
-      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+      "issuer": { "type": "user", "id": "soc:manager:sam", "tenant_id": "tenant-acme" },
+      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "tenant_id": "tenant-acme" },
       "audience": "cybrik.fabric.control-plane",
       "purpose": "incident_containment",
       "scope": {

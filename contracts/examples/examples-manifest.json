@@ -17,7 +17,7 @@
 
     { "file": "negative/envelope.bad-event-type.json", "schema": "cybrik.envelope.v1.schema.json", "kind": "negative-schema", "invariant": "type MUST match cybrik.<product>.<entity>.<action>.v<major> (ADR-0006 E7); the five-segment name is rejected by the pattern." },
     { "file": "negative/envelope.model-injected-attr.json", "schema": "cybrik.envelope.v1.schema.json", "kind": "negative-schema", "invariant": "additionalProperties=false rejects model-injected authority/approval attributes; identity/authority is never carried as free envelope fields (ADR-0006)." },
-    { "file": "negative/tool-execution-request.short-idempotency-key.json", "schema": "cybrik.tool-execution-request.v1.schema.json", "kind": "negative-schema", "invariant": "idempotency_key minLength=8 (replay/idempotency; strategy 05 §2.1)." },
+    { "file": "negative/tool-execution-request.short-idempotency-key.json", "schema": "cybrik.tool-execution-request.v1.schema.json", "kind": "negative-schema", "invariant": "idempotency_key minLength=16 (replay/idempotency; strategy 05 §2.1)." },
     { "file": "negative/tool-execution-result.approval-required-missing-id.json", "schema": "cybrik.tool-execution-result.v1.schema.json", "kind": "negative-schema", "invariant": "status=approval_required requires approval_id (allOf/if-then); no approval-bypass via missing correlation." },
     { "file": "negative/capability.missing-limits.json", "schema": "cybrik.capability.v1.schema.json", "kind": "negative-schema", "invariant": "limits is required — registration MUST fail closed without execution bounds (ADR-0004 F7)." },
 

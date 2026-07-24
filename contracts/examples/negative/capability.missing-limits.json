@@ -9,6 +9,7 @@
   "side_effects": "destructive",
   "idempotency": "idempotent",
   "isolation_profile": "S3",
+  "network_policy": "none",
   "input_schema_ref": "cybrik.fabric.isolate_host.input.v1.schema.json",
   "output_schema_ref": "cybrik.fabric.isolate_host.output.v1.schema.json",
   "required_scopes": ["fabric.endpoint.isolate"],

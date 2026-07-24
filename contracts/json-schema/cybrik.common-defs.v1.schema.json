@@ -83,7 +83,8 @@
         "delegated_by": {
           "type": ["string", "null"],
           "description": "Optional id of the actor that delegated authority to this actor. Full authorization is the digest-bound delegation chain, not this hint."
-        }
+        },
+        "tenant_id": { "$ref": "#/$defs/tenantId", "description": "Tenant this actor belongs to. Advisory in payloads (authoritative tenant derives from the credential); REQUIRED at contract sites where cross-tenant authorization is evaluated." }
       }
     },
     "objectRef": {

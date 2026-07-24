@@ -58,6 +58,16 @@
       "tool-execution-result.receipt_id -> execution-receipt.receipt_id (signed control-side; ADR-0004 F6)"
     ]
   },
+  "monotonicity_invariants": {
+    "note": "Monotonic non-escalation / no-downgrade rules the control plane MUST enforce at runtime; JSON Schema constrains shape only and cannot enforce these ordering/comparison invariants.",
+    "rules": [
+      "Risk non-escalation: the effective risk of an action MUST NOT exceed the minimum scope.max_risk_class across the delegation chain; no downstream grant or request raises it (ADR-0004 F3).",
+      "Isolation no-downgrade: policy MAY raise the executor isolation_profile above the capability floor but MUST NOT lower it; S0 is permitted only for R0 (ADR-0004 F3).",
+      "Egress non-widening: network_policy is broker-enforced; resource_scope/resource_patterns narrow authority and never widen it beyond the delegation chain (ADR-0004 F5).",
+      "No re-authorization after expiry: an idempotent replay or a decision arriving after grant/approval expiry MUST NOT re-authorize (strategy 05 §11.4).",
+      "SemVer non-escalation: a patch/minor MUST NOT increase side_effects severity, risk_class, or change input semantics — that is a major change (ADR-0001; strategy 05 §9)."
+    ]
+  },
   "forward_compatibility_gaps": [
     {
       "id": "RB-001",

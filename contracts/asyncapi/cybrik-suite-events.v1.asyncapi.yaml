@@ -99,39 +99,76 @@ components:
       summary: Immutable alert snapshot reference (data = objectRef to soc.alert + marking).
       contentType: application/cloudevents+json
       payload:
-        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                additionalProperties: false
+                required: [alert_ref, marking]
+                properties:
+                  alert_ref:
+                    $ref: '../json-schema/cybrik.common-defs.v1.schema.json#/$defs/objectRef'
+                  marking:
+                    $ref: '../json-schema/cybrik.data-marking.v1.schema.json'
     invocationRequested:
       name: cybrik.fabric.invocation.requested.v1
       title: Invocation requested
       summary: data = cybrik.tool-execution-request.v1.
       contentType: application/cloudevents+json
       payload:
-        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.tool-execution-request.v1.schema.json'
     invocationCompleted:
       name: cybrik.fabric.invocation.completed.v1
       title: Invocation completed
       summary: data = cybrik.tool-execution-result.v1 (receipt referenced by receipt_id).
       contentType: application/cloudevents+json
       payload:
-        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.tool-execution-result.v1.schema.json'
     approvalRequired:
       name: cybrik.fabric.approval.required.v1
       title: Approval required
       summary: data = cybrik.approval-request.v1.
       contentType: application/cloudevents+json
       payload:
-        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.approval-request.v1.schema.json'
     approvalDecided:
       name: cybrik.fabric.approval.decided.v1
       title: Approval decided
       summary: data = cybrik.approval-decision.v1.
       contentType: application/cloudevents+json
       payload:
-        $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.approval-decision.v1.schema.json'
     killSwitchChanged:
       name: cybrik.fabric.kill_switch.changed.v1
       title: Kill switch changed
-      summary: Fail-closed control signal; data payload schema defined in a later packet.
+      summary: Fail-closed control signal; per-message data payload schema deferred to a later packet (NOT bound here).
       contentType: application/cloudevents+json
       payload:
         $ref: '../json-schema/cybrik.envelope.v1.schema.json'

@@ -3,7 +3,7 @@
   "action_id": "act-INC-4821-isolate-0007",
   "tenant_id": "tenant-acme",
   "status": "pending",
-  "requested_by": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator" },
+  "requested_by": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "tenant_id": "tenant-acme" },
   "requested_for": { "actor_id": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
   "capability_digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
   "policy_decision_id": "pd-2026-07-24-6613",

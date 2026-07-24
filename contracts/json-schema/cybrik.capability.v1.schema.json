@@ -19,6 +19,7 @@
     "side_effects",
     "idempotency",
     "isolation_profile",
+    "network_policy",
     "input_schema_ref",
     "output_schema_ref",
     "required_scopes",
@@ -109,5 +110,9 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    { "if": { "properties": { "network_policy": { "const": "broker_allowlist" } }, "required": ["network_policy"] },
+      "then": { "properties": { "limits": { "required": ["max_egress_bytes"] } } } }
+  ]
 }

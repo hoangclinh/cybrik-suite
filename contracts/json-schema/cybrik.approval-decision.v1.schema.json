@@ -18,7 +18,8 @@
     "capability_digest",
     "resolved_target_digest",
     "resolved_arguments_digest",
-    "policy_decision_id"
+    "policy_decision_id",
+    "delegation_ref"
   ],
   "properties": {
     "approval_id": { "type": "string", "minLength": 1 },
@@ -28,10 +29,7 @@
       "type": "string",
       "enum": ["approved", "denied"]
     },
-    "decided_by": {
-      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
-      "description": "Authenticated approver. MUST satisfy the request's obligations (role, minimum_approvers, separation_of_duties). For separation_of_duties, MUST differ from requested_by and requested_for.actor_id."
-    },
+    "decided_by": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "Authenticated approver. tenant_id required (cross-tenant authorization). MUST satisfy the request's obligations (role, minimum_approvers, separation_of_duties). For separation_of_duties, MUST differ from requested_by and requested_for.actor_id." },
     "decided_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
     "reason_code": { "type": "string" },
     "comment": { "type": "string" },
@@ -50,6 +48,10 @@
     "policy_decision_id": {
       "type": "string",
       "description": "MUST equal the approval request's policy_decision_id."
+    },
+    "delegation_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "chain_digest of the delegation chain the action runs under. MUST equal the approval request's delegation_ref; binds the decision to the exact authority (confused-deputy / re-bind defense)."
     }
   }
 }

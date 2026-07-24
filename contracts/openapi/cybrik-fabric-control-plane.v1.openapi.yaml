@@ -30,7 +30,7 @@ components:
       description: Mandatory for create/invoke (strategy 05 §2.1). Not replay authority after expiry.
       schema:
         type: string
-        minLength: 8
+        minLength: 16
     Traceparent:
       name: traceparent
       in: header

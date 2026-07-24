@@ -8,9 +8,13 @@
   "x-cybrik-contract-version": "0.1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["action_id", "status"],
+  "required": ["action_id", "tenant_id", "status"],
   "properties": {
     "action_id": { "type": "string", "minLength": 1 },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Advisory tenant of this result; the control plane derives the authoritative tenant from the credential. MUST equal the originating request's tenant_id (consistent cross-tenant binding)."
+    },
     "status": {
       "type": "string",
       "enum": [

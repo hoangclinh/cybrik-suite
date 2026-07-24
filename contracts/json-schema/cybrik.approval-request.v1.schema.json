@@ -28,10 +28,7 @@
     "action_id": { "type": "string", "minLength": 1 },
     "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
     "status": { "type": "string", "const": "pending" },
-    "requested_by": {
-      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
-      "description": "The agent/service requesting approval."
-    },
+    "requested_by": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "The agent/service requesting approval. tenant_id required (cross-tenant authorization)." },
     "requested_for": {
       "type": "object",
       "additionalProperties": false,

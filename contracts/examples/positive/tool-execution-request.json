@@ -3,7 +3,7 @@
   "idempotency_key": "idem-8f2c1a90-INC4821-isolate-19",
   "investigation_id": "inv-INC-4821",
   "tenant_id": "tenant-acme",
-  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:manager:sam" },
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:manager:sam", "tenant_id": "tenant-acme" },
   "purpose": "incident_containment",
   "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
   "capability": {

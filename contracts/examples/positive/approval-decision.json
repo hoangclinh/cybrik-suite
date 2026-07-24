@@ -3,12 +3,13 @@
   "action_id": "act-INC-4821-isolate-0007",
   "tenant_id": "tenant-acme",
   "decision": "approved",
-  "decided_by": { "type": "user", "id": "soc:manager:sam" },
+  "decided_by": { "type": "user", "id": "soc:manager:sam", "tenant_id": "tenant-acme" },
   "decided_at": "2026-07-24T10:22:00Z",
   "reason_code": "containment_justified",
   "comment": "C2 confirmed; isolate approved against the presented snapshot.",
   "capability_digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
   "resolved_target_digest": "sha256:d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
   "resolved_arguments_digest": "sha256:b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
-  "policy_decision_id": "pd-2026-07-24-6613"
+  "policy_decision_id": "pd-2026-07-24-6613",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
 }

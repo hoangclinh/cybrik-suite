@@ -17,6 +17,7 @@
     "delegation_ref",
     "capability",
     "arguments",
+    "data_marking",
     "execution"
   ],
   "properties": {
@@ -28,14 +29,14 @@
     "idempotency_key": {
       "type": "string",
       "description": "Mandatory for invoke/mutation (strategy 05 §2.1). Same key + same resolved request = same outcome, never a second side effect.",
-      "minLength": 8
+      "minLength": 16
     },
     "investigation_id": {
       "type": "string",
       "description": "Present only for investigation-scoped invocations (ADR-0006 E6)."
     },
     "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
-    "actor": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+    "actor": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "Advisory actor; the control plane derives authoritative actor/tenant from the caller credential. tenant_id required because cross-tenant authorization is evaluated here." },
     "purpose": { "type": "string", "minLength": 1 },
     "delegation_ref": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
