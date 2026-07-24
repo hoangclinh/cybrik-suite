@@ -11,10 +11,11 @@
 - Depends on / aligns with: `ADR-0006` (cross-product event & identity model, `ACCEPTED`),
   `ADR-0001` (contract/versioning policy, `ACCEPTED`).
 
-> **Status honesty.** This is a *model proposal only*. Nothing here is implemented, accepted,
-> or wired to any schema. No contract is edited by this packet (see
-> [05-contract-delta-proposal.md](05-contract-delta-proposal.md) for a *proposed, not applied*
-> delta). Every concept below is a candidate for a future Founder-gated ADR.
+> **Status honesty.** The **model is `ACCEPTED` as suite architecture** (Gate W2-C1, via
+> ADR-0007) — but nothing here is implemented or wired to any schema. No contract is edited by
+> this packet (see [05-contract-delta-proposal.md](05-contract-delta-proposal.md) for a
+> *proposed, not applied* delta). Each concept below still requires its own Founder-gated contract
+> delta before any implementation.
 
 ---
 

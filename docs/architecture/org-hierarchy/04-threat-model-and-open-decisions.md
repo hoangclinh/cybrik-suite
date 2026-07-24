@@ -9,7 +9,7 @@
   [01-vietnam-coordination-evidence.md](01-vietnam-coordination-evidence.md) (A05 as sovereign
   external authority), `ADR-0006` (cross-tenant reject, delegation chain, marking).
 
-> **Status honesty.** This is a *threat model for a proposed model*. No control here is
+> **Status honesty.** This is a *threat model for the accepted model*. No control here is
 > implemented or verified. "MUST/MUST NOT" states a **design requirement** on any future
 > implementation, not an existing property. Nothing certifies a mitigation as effective.
 
