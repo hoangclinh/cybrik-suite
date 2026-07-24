@@ -1,0 +1,10 @@
+{
+  "model_class": "chat.general",
+  "contract_version": "0.1.0",
+  "modalities": { "input": ["text"], "output": ["text"] },
+  "supported_features": ["structured_output"],
+  "tool_calling": "disabled",
+  "structured_output": "best_effort",
+  "data_residency": "local",
+  "default_health": "unavailable"
+}

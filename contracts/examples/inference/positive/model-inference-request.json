@@ -1,0 +1,34 @@
+{
+  "request_id": "inf-INC-4821-triage-0001",
+  "idempotency_key": "idem-inf-8f2c1a90-INC4821-triage-01",
+  "tenant_id": "tenant-acme",
+  "org_scope": { "org_id": "org-acme-soc", "org_path": "acme/soc/tier1" },
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
+  "purpose": "alert_triage_summary",
+  "model_class": "chat.general",
+  "prompt_template": {
+    "id": "soc.alert.triage_assistant",
+    "version": "1.2.0",
+    "digest": "sha256:11111111111111111111111111111111111111111111111111111111111111ab"
+  },
+  "inputs": { "question": "What is the likely root cause of this alert cluster?" },
+  "context_refs": [
+    {
+      "type": "soc.alert_snapshot",
+      "id": "ALRT-99821",
+      "version": "snap-3",
+      "digest": "sha256:22222222222222222222222222222222222222222222222222222222222222cd",
+      "locator": "cybrik://soc/alert_snapshot/ALRT-99821"
+    }
+  ],
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER", "handling": ["no-export"] },
+  "redaction_policy": { "profile": "soc.pii_strip", "on_unresolved": "deny", "strip_categories": ["pii", "secret"] },
+  "output_contract": { "schema_ref": "cybrik.alert-summarization-result.v1.schema.json", "strict": true },
+  "requested_features": ["structured_output"],
+  "response_mode": "complete",
+  "limits": { "max_input_tokens": 8000, "max_output_tokens": 1024, "max_context_tokens": 16000 },
+  "deadline_seconds": 60,
+  "sampling": { "temperature": 0.2, "top_p": 0.9 },
+  "correlation": { "correlation_id": "corr-INC-4821", "causation_id": "evt-alert-snap-ALRT-99821", "investigation_id": "inv-INC-4821" },
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+}

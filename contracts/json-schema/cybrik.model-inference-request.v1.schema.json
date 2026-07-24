@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-inference-request.v1.schema.json",
+  "title": "CYBRIK model inference request v1",
+  "description": "Provider-neutral request from Cyber AI (or SOC) to the CYBRIK model-runtime seam (ADR-0002 G3). Tenant/actor/org fields are ADVISORY: the platform derives authoritative tenant/actor/org from the caller credential and rejects cross-tenant mismatch. The model receives NO credential, database, tool, or shell authority, and this request carries NONE — there is deliberately no capability, delegation_ref, approval_id, tool, mcp, or action-authorization field. The concrete vendor/model is never named: model_class is a policy-selected class resolved server-side. Idempotency key prevents replay; it is not authority. Status: PROPOSED — NOT ACCEPTED (v0.1.0).",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "tenant_id",
+    "actor",
+    "purpose",
+    "model_class",
+    "prompt_template",
+    "data_marking",
+    "redaction_policy",
+    "limits",
+    "deadline_seconds",
+    "correlation"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Caller-assigned logical request id (e.g. 'inf_…'). Correlates request → result/error → audit/eval telemetry.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Mandatory. Same key + same resolved request = same result, never a second billed/side-effecting inference. Not replay authority after the correlated authorization/deadline expires.",
+      "minLength": 16,
+      "maxLength": 200
+    },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "actor": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Advisory actor; the platform derives authoritative actor/tenant from the credential. tenant_id required because cross-tenant authorization is evaluated here."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Declared processing purpose (purpose-limitation for data handling), e.g. 'alert_triage_summary'.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "model_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass" },
+    "prompt_template": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/promptTemplateRef" },
+    "inputs": {
+      "type": "object",
+      "description": "Template variables bound into the governed prompt_template. Validated server-side against the template's own input schema. Free-form; treated as UNTRUSTED content and subject to redaction_policy before reaching any runtime.",
+      "default": {}
+    },
+    "context_refs": {
+      "type": "array",
+      "description": "Digest-bound references to product-owned objects (e.g. soc.alert, soc.case, soc.alert_snapshot) that supply grounding context. Referenced, not inlined, so the platform dereferences through the owner's authorized API under the caller's authority and applies marking/redaction. Client-asserted content is never trusted over the owner's copy.",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "maxItems": 256,
+      "default": []
+    },
+    "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+    "redaction_policy": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/redactionPolicy" },
+    "output_contract": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/outputContract" },
+    "requested_features": {
+      "type": "array",
+      "description": "Optional requested inference features (subset of the resolved model class's capability.supported_features). A feature not advertised by the resolved class MUST fail closed (error_class 'unsupported_feature'); unknown features are never silently ignored.",
+      "items": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/featureToken" },
+      "uniqueItems": true,
+      "default": []
+    },
+    "response_mode": {
+      "type": "string",
+      "description": "Transport shape of the response. 'complete' returns one aggregate result; 'stream' streams tokens with the SAME typed result as the final aggregate (streaming framing is adapter metadata, not a wire-schema change).",
+      "enum": ["complete", "stream"],
+      "default": "complete"
+    },
+    "limits": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/tokenLimits" },
+    "deadline_seconds": {
+      "type": "integer",
+      "description": "Caller deadline; the platform clamps to the resolved model class's own timeout and never above it.",
+      "minimum": 1,
+      "maximum": 3600
+    },
+    "sampling": {
+      "type": "object",
+      "description": "Optional provider-neutral decoding controls. Bounded, vendor-agnostic; a runtime maps these to its native knobs in adapter metadata.",
+      "additionalProperties": false,
+      "properties": {
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "top_p": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stop_sequences": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "maxItems": 8,
+          "default": []
+        },
+        "seed": { "type": "integer", "description": "Optional determinism seed; honored only if the resolved class advertises the 'seeded' feature." }
+      }
+    },
+    "correlation": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/correlation" },
+    "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+  }
+}

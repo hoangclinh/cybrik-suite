@@ -1,0 +1,157 @@
+# CYBRIK Suite W2-D AI model-inference lifecycle event bindings v1
+# Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No product may implement until a
+# separate Founder gate (Gate W2-D) accepts it. A green validator run is a conformance signal,
+# NOT acceptance.
+# Format pin: AsyncAPI 3.0.0 (ADR-0001 D4).
+# ADDITIVE to the accepted v0.1 event catalog (cybrik-suite-events.v1.asyncapi.yaml): this
+# document REUSES the accepted cybrik.envelope.v1 by $ref and introduces only the disjoint
+# cybrik.ai.<entity>.<action>.v<major> event namespace (ADR-0006 E7; the accepted envelope
+# `type` pattern already admits the `ai` product). No accepted event type or channel is redefined.
+# Bus-agnostic by decision (ADR-0003 still PROPOSED / ADR-0006 E4): this document declares NO
+# servers and NO protocol bindings — only channels, operations, and messages. Every message
+# payload is the accepted CloudEvents-style envelope; the concrete typed `data` payload for each
+# event is one of this packet's PROPOSED cybrik.model-* / cybrik.alert-summarization-* schemas,
+# identified by the envelope `dataschema` attribute.
+# Trust boundary (ADR-0002 G3): identity/tenant/authority envelope attributes are written ONLY by
+# authenticated service code; model output never populates them. No event here carries any tool,
+# capability, delegation, or approval authority — inference and tool-execution seams are disjoint.
+asyncapi: 3.0.0
+info:
+  title: CYBRIK Suite AI model-inference lifecycle events
+  version: 0.1.0
+  description: >-
+    PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). AI-inference lifecycle event catalog for
+    the W2-D packet. No secrets, no endpoints, no bus binding (the bus belongs to ADR-0003, still
+    PROPOSED). Consumers MUST validate producer identity, envelope schema/version, tenant, and
+    dedup on (source, id). Model output is untrusted data and can never populate envelope
+    identity/authority attributes.
+  x-cybrik-status: PROPOSED
+  x-cybrik-not-accepted: true
+
+defaultContentType: application/cloudevents+json
+
+channels:
+  inferenceRequested:
+    address: cybrik.ai.inference.requested
+    description: Cyber AI (or SOC) requests a provider-neutral model inference (async path).
+    messages:
+      inferenceRequested:
+        $ref: '#/components/messages/inferenceRequested'
+  inferenceCompleted:
+    address: cybrik.ai.inference.completed
+    description: The model-runtime seam reports a runtime that responded (completed/refused/filtered).
+    messages:
+      inferenceCompleted:
+        $ref: '#/components/messages/inferenceCompleted'
+  inferenceFailed:
+    address: cybrik.ai.inference.failed
+    description: >-
+      The inference produced NO result (runtime failure, unavailability, budget/redaction/policy
+      denial). Distinct from a refusal/filter, which are successful runtime responses.
+    messages:
+      inferenceFailed:
+        $ref: '#/components/messages/inferenceFailed'
+  summarizationRequested:
+    address: cybrik.ai.summarization.requested
+    description: Cyber AI (or SOC) requests an alert-summarization inference over digest-bound SOC alerts.
+    messages:
+      summarizationRequested:
+        $ref: '#/components/messages/summarizationRequested'
+  summarizationCompleted:
+    address: cybrik.ai.summarization.completed
+    description: Alert-summarization result; the summary is untrusted, advisory analyst-support content.
+    messages:
+      summarizationCompleted:
+        $ref: '#/components/messages/summarizationCompleted'
+
+operations:
+  requestInference:
+    action: send
+    channel:
+      $ref: '#/channels/inferenceRequested'
+    description: Cyber AI/SOC → model-runtime seam. Derived event; causationid required (ADR-0006 E6).
+  onInferenceCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/inferenceCompleted'
+  onInferenceFailed:
+    action: receive
+    channel:
+      $ref: '#/channels/inferenceFailed'
+  requestSummarization:
+    action: send
+    channel:
+      $ref: '#/channels/summarizationRequested'
+    description: Cyber AI/SOC → model-runtime seam. Derived event; causationid required (ADR-0006 E6).
+  onSummarizationCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/summarizationCompleted'
+
+components:
+  messages:
+    inferenceRequested:
+      name: cybrik.ai.inference.requested.v1
+      title: Inference requested
+      summary: data = cybrik.model-inference-request.v1 (provider-neutral; model_class only, no vendor).
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.model-inference-request.v1.schema.json'
+    inferenceCompleted:
+      name: cybrik.ai.inference.completed.v1
+      title: Inference completed
+      summary: data = cybrik.model-inference-result.v1 (completed/refused/filtered; output is untrusted).
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.model-inference-result.v1.schema.json'
+    inferenceFailed:
+      name: cybrik.ai.inference.failed.v1
+      title: Inference failed
+      summary: data = cybrik.model-inference-error.v1 (typed, sanitized; no result produced).
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.model-inference-error.v1.schema.json'
+    summarizationRequested:
+      name: cybrik.ai.summarization.requested.v1
+      title: Alert summarization requested
+      summary: data = cybrik.alert-summarization-request.v1 (alerts by digest-bound objectRef; SOC owns truth).
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.alert-summarization-request.v1.schema.json'
+    summarizationCompleted:
+      name: cybrik.ai.summarization.completed.v1
+      title: Alert summarization completed
+      summary: data = cybrik.alert-summarization-result.v1 (advisory summary; citations bind grounding).
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.alert-summarization-result.v1.schema.json'

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.alert-summarization-request.v1.schema.json",
+  "title": "CYBRIK alert-summarization request v1",
+  "description": "Task-specialized inference profile: summarize one or more SOC alerts for triage/executive/technical consumption. SOC-native compatibility: alerts are referenced by DIGEST-BOUND objectRef (soc.alert / soc.alert_snapshot — the accepted cybrik.soc.alert_snapshot.created payload), never inlined, so the platform dereferences through the SOC-owned authorized API under the caller's authority and applies marking/redaction. SOC remains the owner of alert truth (repository boundary preserved). Carries no tool/agent/action authority. Status: PROPOSED — NOT ACCEPTED (v0.1.0).",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "tenant_id",
+    "actor",
+    "purpose",
+    "model_class",
+    "prompt_template",
+    "alert_refs",
+    "summary_style",
+    "data_marking",
+    "redaction_policy",
+    "limits",
+    "deadline_seconds",
+    "correlation"
+  ],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "idempotency_key": { "type": "string", "minLength": 16, "maxLength": 200 },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "actor": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Advisory actor; authoritative actor/tenant derive from the credential. tenant_id required (cross-tenant authorization site)."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Declared purpose, e.g. 'alert_triage_summary'.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "model_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass" },
+    "prompt_template": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/promptTemplateRef" },
+    "alert_refs": {
+      "type": "array",
+      "description": "Digest-bound references to the SOC alerts/snapshots to summarize. SOC owns the objects; they are dereferenced, not inlined. At least one is required — an empty set is not summarizable (fail-closed).",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "minItems": 1,
+      "maxItems": 200
+    },
+    "case_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+      "description": "Optional SOC case the summary is scoped to."
+    },
+    "summary_style": {
+      "type": "string",
+      "description": "Audience/shape of the summary.",
+      "enum": ["triage", "executive", "technical"]
+    },
+    "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+    "redaction_policy": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/redactionPolicy" },
+    "output_contract": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/outputContract" },
+    "requested_features": {
+      "type": "array",
+      "items": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/featureToken" },
+      "uniqueItems": true,
+      "default": []
+    },
+    "limits": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/tokenLimits" },
+    "deadline_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+    "correlation": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/correlation" },
+    "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "model_class": "summarization.soc_alert",
+  "state": "degraded",
+  "observed_at": "2026-07-24T18:20:00Z",
+  "reason": "capacity_saturated",
+  "capacity": { "queue_depth": 7, "concurrency_available": 1 }
+}

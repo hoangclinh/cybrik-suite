@@ -1,0 +1,14 @@
+{
+  "request_id": "inf-INC-4821-triage-0002",
+  "tenant_id": "tenant-acme",
+  "model_class": "chat.general_local",
+  "outcome": "refused",
+  "refusal_reason": "The requested content requires disclosing raw credential material that the redaction profile removed; the model declined to reconstruct it.",
+  "fallback": { "from_model_class": "chat.general", "to_model_class": "chat.general_local", "reason": "health_degraded" },
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "redaction": { "profile": "soc.pii_strip", "enforced": true, "categories_removed": ["secret", "credential"] },
+  "usage": { "input_tokens": 5980, "output_tokens": 44 },
+  "latency": { "queue_ms": 610, "inference_ms": 120, "total_ms": 900 },
+  "created_at": "2026-07-24T18:24:41Z",
+  "correlation": { "correlation_id": "corr-INC-4821" }
+}

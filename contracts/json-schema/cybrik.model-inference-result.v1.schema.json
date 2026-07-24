@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-inference-result.v1.schema.json",
+  "title": "CYBRIK model inference result v1",
+  "description": "Provider-neutral result for a runtime that DID respond (completed/refused/filtered). Transport/runtime failures that produce no result use cybrik.model-inference-error.v1 instead. tenant_id is REQUIRED and control-written; the model never populates identity/authority. The output is UNTRUSTED data: it can never be interpreted as authorization, delegation, or approval. A refusal is surfaced as data (outcome='refused'), never dropped. Any fallback substitution is surfaced explicitly. Status: PROPOSED — NOT ACCEPTED (v0.1.0).",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "tenant_id",
+    "model_class",
+    "outcome",
+    "data_marking",
+    "redaction",
+    "usage",
+    "created_at",
+    "correlation"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Echoes the request's request_id for correlation.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Control-written authoritative tenant of the result. Never populated from model output."
+    },
+    "model_class": {
+      "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass",
+      "description": "The class actually served. If a fallback occurred this equals fallback.to_model_class and `fallback` is present; the requested class is recoverable from fallback.from_model_class. Still a neutral class token — never a concrete vendor/model id."
+    },
+    "outcome": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/inferenceOutcome" },
+    "output": {
+      "description": "The model output. UNTRUSTED data with no authority semantics. Object when output_contract (structured output) was requested and satisfied; string for free-form text. Absent/empty for outcome != 'completed'.",
+      "type": ["object", "array", "string", "null"]
+    },
+    "refusal_reason": {
+      "type": "string",
+      "description": "Present when outcome='refused'. Vendor-neutral, human-readable reason the model declined. Never an authorization signal.",
+      "maxLength": 2000
+    },
+    "filter_reason": {
+      "type": "string",
+      "description": "Present when outcome='filtered'. Vendor-neutral content-filter reason token/description.",
+      "maxLength": 2000
+    },
+    "fallback": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/fallbackInfo" },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking of the OUTPUT. Runtime invariant (enforced control-side, not by schema): output marking MUST be >= the request's input marking — inference never downgrades sensitivity."
+    },
+    "redaction": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/redactionApplied" },
+    "usage": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/usage" },
+    "latency": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/latency" },
+    "created_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "telemetry": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/telemetryRef" },
+    "correlation": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/correlation" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "refused" } }, "required": ["outcome"] },
+      "then": { "required": ["refusal_reason"] }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "filtered" } }, "required": ["outcome"] },
+      "then": { "required": ["filter_reason"] }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-health.v1.schema.json",
+  "title": "CYBRIK model-class health signal v1",
+  "description": "Provider-neutral health/readiness signal for a policy-selectable model class. Consumed fail-closed: a caller MUST treat an absent, stale (observed_at older than the freshness window), or unrecognized signal as 'unavailable' and route elsewhere or deny. Carries NO vendor/endpoint detail — only the abstract class and its readiness. Status: PROPOSED — NOT ACCEPTED (v0.1.0).",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["model_class", "state", "observed_at"],
+  "properties": {
+    "model_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass" },
+    "state": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/healthState" },
+    "observed_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "When this health was observed. A signal older than the caller's freshness window MUST be treated as 'unavailable'."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Required when state != 'ready'. Vendor-neutral, secret-free explanation (e.g. 'capacity_saturated', 'weights_loading'). No runtime-native diagnostics or endpoints.",
+      "maxLength": 500
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional coarse capacity signal for routing. No hostnames or replica identities.",
+      "properties": {
+        "queue_depth": { "type": "integer", "minimum": 0 },
+        "concurrency_available": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "state": { "enum": ["degraded", "unavailable"] } },
+        "required": ["state"]
+      },
+      "then": { "required": ["reason"] }
+    }
+  ]
+}

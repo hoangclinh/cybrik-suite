@@ -11,6 +11,7 @@
   "scripts": {
     "validate": "node validate.mjs",
     "validate:schemas": "node validate-schemas.mjs",
+    "validate:inference": "node validate-inference.mjs",
     "validate:openapi": "node validate-openapi.mjs",
     "validate:asyncapi": "node validate-asyncapi.mjs"
   },
