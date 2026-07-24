@@ -1,0 +1,24 @@
+{
+  "name": "cybrik-contract-validation",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Isolated, reproducible validation toolchain for the CYBRIK cross-product contract packet (all members PROPOSED — NOT ACCEPTED). This is validation tooling ONLY; it is deliberately not a product runtime stack choice (see README).",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "validate": "node validate.mjs",
+    "validate:schemas": "node validate-schemas.mjs",
+    "validate:openapi": "node validate-openapi.mjs",
+    "validate:asyncapi": "node validate-asyncapi.mjs"
+  },
+  "dependencies": {
+    "@asyncapi/parser": "3.6.0",
+    "@stoplight/spectral-cli": "6.16.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "yaml": "2.9.0"
+  }
+}

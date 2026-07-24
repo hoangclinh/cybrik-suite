@@ -1,0 +1,52 @@
+# contract-validation — CYBRIK Suite standards validator
+
+Status: `SCAFFOLD` (validation tooling). It validates the Wave 2 cross-product contract packet
+under `contracts/`, whose members are all **PROPOSED — NOT ACCEPTED**. A green run is a
+**standards-conformance signal only**; it does not accept any contract. Acceptance is a separate
+Founder gate (see the repository `CLAUDE.md` → "Approval gates").
+
+This is **validation tooling only**. It is deliberately *not* a product runtime stack choice —
+no product source code lives in this repository (see repository `CLAUDE.md`).
+
+## What it checks
+
+| Layer | Standard | Official validator | Exact version |
+|---|---|---|---|
+| JSON Schema documents, examples, packet integrity, 10 security hardenings | JSON Schema 2020-12 | `ajv` (`ajv/dist/2020`) + `ajv-formats` | `ajv` 8.20.0, `ajv-formats` 3.0.1 |
+| Control-plane wire spec | OpenAPI 3.1.x | Stoplight **Spectral** CLI, built-in `oas` ruleset | `@stoplight/spectral-cli` 6.16.2 |
+| Event spec | AsyncAPI 3.0.0 | Official **`@asyncapi/parser`** | `@asyncapi/parser` 3.6.0 |
+| YAML parsing (ref resolution) | — | `yaml` | 2.9.0 |
+
+Coverage counts printed by a green run (current packet): 10 schemas loaded/compiled, 10 positive
+examples pass, 5 negative-schema fixtures rejected, 6 negative-semantic fixtures structurally
+valid, 13 manifest members, 47 wire `$ref`s (18 external resolved), **21 hardening assertions**.
+
+## Run it
+
+```bash
+cd tools/contract-validation
+npm ci            # reproducible install from package-lock.json (lockfileVersion 3)
+npm run validate  # all three validators; exit 0 only if every layer passes
+```
+
+Individual layers: `npm run validate:schemas` · `npm run validate:openapi` · `npm run validate:asyncapi`.
+
+Requires Node.js `>=20` (see `package.json` `engines`). CI pins Node 20.18.1.
+
+## Reproducibility & supply-chain posture
+
+- **Exact versions.** Every dependency is pinned to an exact version (no `^`/`~`). `.npmrc` sets
+  `save-exact=true`; `package-lock.json` (lockfileVersion 3) carries `resolved` + `integrity`
+  (SRI) for all 266 packages. Use `npm ci`, never `npm install`, in CI.
+- **No install-time code execution.** `.npmrc` sets `ignore-scripts=true`, so no dependency
+  pre/post-install lifecycle scripts run. None of the pinned validators need them.
+- **Licenses.** The installed tree is entirely permissive (MIT / Apache-2.0 / BSD-2/3-Clause /
+  ISC / 0BSD / Unlicense / Python-2.0). No copyleft (GPL/LGPL/AGPL).
+- **Generated artifacts are not committed.** `node_modules/` and `*.log` are gitignored
+  (`.gitignore` here and at repo root). Only source + the lockfile ship.
+
+## CI
+
+`.github/workflows/contracts.yml` runs this validator (`contracts` job) plus a `gitleaks` 8.30.1
+secret scan (`secret-scan` job) on every push and pull request. See that file and the repo-root
+`.gitleaks.toml` for the secret-scan configuration.

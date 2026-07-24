@@ -1,0 +1,8 @@
+# Spectral ruleset for the OpenAPI 3.1.x control-plane mapping notes.
+# Uses Stoplight's built-in, vendor-maintained `oas` ruleset, which supports OpenAPI 3.1
+# (JSON Schema 2020-12 dialect). We gate CI on ERROR severity only: the packet is deliberately
+# a NON-deployable mapping note with no `servers`, no tags, and no contact/license block, so the
+# oas ruleset's style WARNINGS (operation-tags, info-contact, info-license, oas3-*-server) are
+# expected and non-fatal. Structural/spec ERRORS must be zero.
+extends:
+  - "spectral:oas"
