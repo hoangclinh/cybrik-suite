@@ -50,6 +50,21 @@ accepted tool-execution packet (no tool/agent/vendor authority on the wire). `va
 additionally asserts the manifest's `NO SERVER / NO ENDPOINT` and `MCP OUT OF SCOPE` scope and the
 ADR-0004/ADR-0007 out-of-scope declarations.
 
+The W0-I01 Investigation/Claim/Evidence/Bundle packet is also **ACCEPTED FOR IMPLEMENTATION** at
+v0.1.0 (not stable v1/GA) by explicit Founder Option A with G-W0I01-1..5 `yes` on 2026-07-26.
+Its `validate-investigation.mjs` validator remains deliberately **standalone** and is not invoked
+by `validate.mjs` or `npm run validate`. Run it directly from the suite repository root:
+
+```bash
+node tools/contract-validation/validate-investigation.mjs
+```
+
+It loads 5 packet schemas (4 payload schemas), verifies 9 positive, 8 negative-schema, and 9
+negative-semantic fixtures, checks 45 declared fixture-verifiable invariants, and reports TR-5 as
+`declared_runtime_only` rather than verified. A green standalone run proves contract/fixture
+conformance only; it proves no product consumer, runtime authorization path, endpoint, or
+transport binding.
+
 ## Run it
 
 ```bash

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation.v1.schema.json",
+  "title": "CYBRIK investigation v1",
+  "description": "An investigation record: the unit of correlation for the Claim/Evidence/Bundle triple below it (ADR-0006 E6: investigation_id is required for investigation-scoped payloads). Opened either from a SOC alert (source_ref present; a derived, non-root record) or manually (source_ref absent; a legitimate root record — ADR-0006 E6). identity/tenant fields are written only by authenticated service code; a model can never populate opened_by or tenant_id (ADR-0006). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["investigation_id", "tenant_id", "status", "opened_by", "opened_at", "data_marking"],
+  "properties": {
+    "investigation_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid" },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "status": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/investigationStatus" },
+    "objective": {
+      "type": "string",
+      "description": "Optional declared scope/purpose of the investigation (purpose-limitation), e.g. 'triage suspected lateral movement on host X'.",
+      "maxLength": 500
+    },
+    "source_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+      "description": "Digest-bound reference to the SOC alert/case that triggered this investigation, if any. Dereferenced through SOC's authorized API, never inlined (strategy 05 §4.5). Absent for a manually opened (root) investigation."
+    },
+    "opened_by": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Authenticated actor (analyst, service, or agent) that opened the investigation. Written only by authenticated service code."
+    },
+    "opened_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "closed_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "abstention_reason": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/abstentionReason" },
+    "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+    "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "abstained" } }, "required": ["status"] },
+      "then": { "required": ["abstention_reason"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "closed" } }, "required": ["status"] },
+      "then": { "required": ["closed_at"] }
+    }
+  ]
+}

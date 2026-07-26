@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-contract-packet.v1.manifest.json",
   "title": "CYBRIK Suite cross-product contract packet v1 — compatibility/version manifest",
-  "description": "Inventory and compatibility record for the first cross-product contract packet. This is NOT an ADR-0001 immutable bundle tag: bundle tagging is a Founder-gated act reserved for a stable (v1/GA) packet version. Every member here is now ACCEPTED FOR IMPLEMENTATION at v0.1.0 (Founder-delegated Gate W2-B, 2026-07-24), but no bundle tag is created and x-cybrik-is-bundle-tag remains false. Pre-GA per ADR-0001 D2, no N-1 obligation attaches yet, but every future incompatibility MUST be recorded here — silence is a policy violation. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "description": "Inventory and compatibility record for the first cross-product contract packet. Snapshot 0.1.1 is a mutable pre-GA packet revision, NOT an ADR-0001 immutable bundle tag and NOT stable v1/GA. Every member remains ACCEPTED FOR IMPLEMENTATION: the capability member is patched to contract version 0.1.1 for cross-runtime lexical consistency, while the other twelve members remain at contract version 0.1.0. The exact snapshot 0.1.0 bytes remain retained rollback evidence. x-cybrik-is-bundle-tag remains false. Pre-GA per ADR-0001 D2, no N-1 obligation attaches yet, but every incompatibility MUST be recorded here — silence is a policy violation. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
   "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
   "x-cybrik-not-accepted": false,
-  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-packet-version": "0.1.1",
   "x-cybrik-is-bundle-tag": false,
   "format_pins": {
     "jsonSchema": "2020-12",
@@ -23,19 +23,31 @@
     { "id": "ADR-0005", "reason": "sandbox substrate — NOT decided by this packet; isolation profiles S0–S3 are referenced abstractly only." }
   ],
   "members": [
-    { "file": "json-schema/cybrik.common-defs.v1.schema.json", "title": "Common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives" },
-    { "file": "json-schema/cybrik.data-marking.v1.schema.json", "title": "Data marking", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.envelope.v1.schema.json", "title": "Cross-product envelope", "contract_version": "0.1.0", "format": "json-schema", "kind": "envelope" },
-    { "file": "json-schema/cybrik.capability.v1.schema.json", "title": "Capability registry entry", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.tool-execution-request.v1.schema.json", "title": "Tool execution request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.tool-execution-result.v1.schema.json", "title": "Tool execution result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.delegation-chain.v1.schema.json", "title": "Delegation chain", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.execution-receipt.v1.schema.json", "title": "Execution receipt", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.approval-request.v1.schema.json", "title": "Approval request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.approval-decision.v1.schema.json", "title": "Approval decision", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
-    { "file": "asyncapi/cybrik-suite-events.v1.asyncapi.yaml", "title": "Cross-product event bindings", "contract_version": "0.1.0", "format": "asyncapi", "kind": "events" },
-    { "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml", "title": "Fabric control-plane REST mapping notes", "contract_version": "0.1.0", "format": "openapi", "kind": "rest-mapping" },
-    { "file": "mcp/cybrik-mcp-mapping-notes.v1.md", "title": "MCP mapping notes", "contract_version": "0.1.0", "format": "mcp-notes", "kind": "adapter-notes" }
+    { "file": "json-schema/cybrik.common-defs.v1.schema.json", "title": "Common definitions", "contract_version": "0.1.0", "sha256": "cecc415ca472eb841985517504fdc721ab303f977f0a2fa1998c37c3514116c0", "format": "json-schema", "kind": "shared-primitives" },
+    { "file": "json-schema/cybrik.data-marking.v1.schema.json", "title": "Data marking", "contract_version": "0.1.0", "sha256": "f0ee58c940f7c865ba8aa620949fb5836ee739ede6afe0c6d6618bc2b7735250", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.envelope.v1.schema.json", "title": "Cross-product envelope", "contract_version": "0.1.0", "sha256": "81328364a365998b74ccf157fdfe3d0cafc10f81b79aba8413e82c8f8e1e4630", "format": "json-schema", "kind": "envelope" },
+    { "file": "json-schema/cybrik.capability.v1.schema.json", "title": "Capability registry entry", "contract_version": "0.1.1", "sha256": "7858dc758e078a0507096cfa742eb61a1cdf1531de89e76b48e1e22649cc6155", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.tool-execution-request.v1.schema.json", "title": "Tool execution request", "contract_version": "0.1.0", "sha256": "acd5fdd6ef286f4e8bc7a292a92e1a9c23603ed3dae7abcfe7cd36fedc8d477b", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.tool-execution-result.v1.schema.json", "title": "Tool execution result", "contract_version": "0.1.0", "sha256": "7cc2ab0d050e43d5a2faab829cdb87194626660843228a2a53bb132cabf551e2", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.delegation-chain.v1.schema.json", "title": "Delegation chain", "contract_version": "0.1.0", "sha256": "8e678f54a94bb0a35672a07b8efd680f83eb5a710fdfa2a06cea26b70290bed3", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.execution-receipt.v1.schema.json", "title": "Execution receipt", "contract_version": "0.1.0", "sha256": "423ce118ae1ddabb0b3d1f13a65526e761356b9f14aa9974555976812cc0839d", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.approval-request.v1.schema.json", "title": "Approval request", "contract_version": "0.1.0", "sha256": "a6b9a1b609c731a4d483e2bfe4e036ab7ec335d70dd7abd1107c63d6707b27fd", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.approval-decision.v1.schema.json", "title": "Approval decision", "contract_version": "0.1.0", "sha256": "f0a344daea81dbdba85ef4f3ff310bb3390a0733709da080537fa0e62c816710", "format": "json-schema", "kind": "payload" },
+    { "file": "asyncapi/cybrik-suite-events.v1.asyncapi.yaml", "title": "Cross-product event bindings", "contract_version": "0.1.0", "sha256": "eb5eec8cced0c8e63f52c514d84f98c98d4d2346bc58dcfa00419cb74c3fee7f", "format": "asyncapi", "kind": "events" },
+    { "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml", "title": "Fabric control-plane REST mapping notes", "contract_version": "0.1.0", "sha256": "fdaecfa3aa2c7fe2ccdf1d89069bc5250d0d9cc95adbcfa295f327d2c42e130c", "format": "openapi", "kind": "rest-mapping" },
+    { "file": "mcp/cybrik-mcp-mapping-notes.v1.md", "title": "MCP mapping notes", "contract_version": "0.1.0", "sha256": "165bfdfc5bb388e15615db01a172c0ea22abda7bb1f6a13a05b112fbddaf7502", "format": "mcp-notes", "kind": "adapter-notes" }
+  ],
+  "snapshot_history": [
+    {
+      "packet_version": "0.1.0",
+      "status": "RETAINED ROLLBACK SNAPSHOT",
+      "note": "Exact pre-tightening member bytes remain the content-addressed rollback target. Rollback selects this snapshot; it never trims, lowercases or rewrites rejected capability names."
+    },
+    {
+      "packet_version": "0.1.1",
+      "status": "CURRENT MUTABLE PRE-GA SNAPSHOT",
+      "note": "Capability contract version 0.1.1 adds the cross-runtime disallowed-character guard; the other twelve member contract versions remain 0.1.0. This snapshot is not an immutable bundle tag or stable v1/GA."
+    }
   ],
   "event_correlation_semantics": {
     "note": "Per-event-class correlation rules (ADR-0006 E6): correlation is conditional, not a mandatory triple.",
@@ -99,12 +111,13 @@
     "gate": "W2-B",
     "decided_by": "Codex, under explicit Founder delegation of Gate W2-B (not agent-inferred)",
     "decided_on": "2026-07-24",
-    "scope": "Products MAY now implement against contract packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. Runtime-only invariants recorded in monotonicity_invariants and cross_ref_integrity remain explicit and REQUIRED of every implementation.",
+    "scope": "Products MAY implement against mutable pre-GA packet snapshot 0.1.1: capability contract version 0.1.1 plus twelve unchanged member contract versions 0.1.0. This is implementation authorization only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. x-cybrik-is-bundle-tag remains false. Runtime-only invariants recorded in monotonicity_invariants and cross_ref_integrity remain explicit and REQUIRED of every implementation.",
     "evidence": [
       "Pinned standards validation green: JSON Schema 2020-12 + OpenAPI 3.1.x + AsyncAPI 3.0.0, 21/21 security hardening assertions, 10/10 positive + 5/5 negative-schema + 6/6 negative-semantic fixtures, secret scan clean (baseline CI run 30075606003 at d176f4f; re-run at the status-flip commit head).",
-      "Independent post-validator security/compatibility review: no unresolved Critical/High schema or trust-boundary defect; packet internally coherent at v0.1.0."
+      "Independent post-validator security/compatibility review: no unresolved Critical/High schema or trust-boundary defect in the original v0.1.0 snapshot.",
+      "Founder Bundle B Option A plus the recorded hash correction authorize snapshot 0.1.1. Validation recomputes all 13 member hashes, requires capability member 0.1.1 and all 12 unchanged members 0.1.0, and preserves the v0.1.0 rollback snapshot."
     ],
-    "mechanics": "Acceptance for implementation was authorized by explicit Founder delegation of Gate W2-B to Codex and recorded with evidence in this status-flip commit (ADR-0001 D5). No approval was inferred. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate; until such a bundle tag exists no release manifest may reference members as GA (ADR-0001 D6).",
+    "mechanics": "Acceptance for implementation was authorized by explicit Founder delegation of Gate W2-B and the capability patch/snapshot refresh by explicit Founder Bundle B Option A plus its recorded digest correction (ADR-0001 D5). No approval was inferred. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate; until such a bundle tag exists no release manifest may reference members as GA (ADR-0001 D6).",
     "open_followups": [
       "RB-001 (SOC approval-ingress mapping; ADR-0004 F9) remains an OPEN release/integration follow-up. Acceptance-for-implementation does NOT close it.",
       "MARK-001 (SOC data-marking backfill) remains an OPEN forward requirement."

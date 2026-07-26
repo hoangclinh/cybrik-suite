@@ -66,3 +66,38 @@ Disjoint `cybrik.org-*` schemas realizing the ADR-0007 org-hierarchy & external-
 
 Inventory: `../compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`. Fixtures:
 `../examples/org/`. No server/endpoint, no MCP/tool authority, no inline key material.
+
+## W0-I01 Investigation/Claim/Evidence/Bundle packet (additive; `ACCEPTED FOR IMPLEMENTATION`, v0.1.0)
+
+Disjoint `cybrik.investigation-*` / `cybrik.claim.*` / `cybrik.evidence.*` /
+`cybrik.investigation-bundle.*` schemas closing the roadmap Week 0 schema gap ("Investigation/
+Claim/Evidence/Capability/Receipt schemas v0"; Capability and Receipt already exist above).
+Explicit Founder Option A with G-W0I01-1..5 `yes` accepted this packet for implementation on
+2026-07-26; this is not a stable v1/GA promotion and creates no runtime consumer or transport
+binding. The packet **reuses** `cybrik.common-defs.v1` and `cybrik.data-marking.v1` by `$ref`,
+unmodified:
+
+- `cybrik.investigation-common-defs.v1` — shared enums (`investigationStatus`, `claimStatus`,
+  `evidenceKind`, `confidenceLevel`, `abstentionReason`).
+- `cybrik.investigation.v1` — the investigation record; `investigation_id` is the correlation
+  anchor every other member below requires (ADR-0006 E6). `status='abstained'` requires
+  `abstention_reason`; `status='closed'` requires `closed_at`.
+- `cybrik.claim.v1` — a grounded assertion or an honest abstention. `status='asserted'` requires
+  `confidence` and a non-empty `evidence_refs` (a claim can never assert with zero cited
+  evidence); `status='abstained'` requires `abstention_reason` and forbids `confidence`.
+  `statement`/`confidence` are untrusted advisory output and MUST NOT be consumed as an
+  authorization, approval, or action trigger (TR-5) — that is a downstream-consumer invariant, not
+  a wire-shape one, so it cannot be fixture-verified here; see the compatibility manifest's
+  `runtime_only_declared_not_fixture_verifiable` for the required future consumer/authz gate.
+- `cybrik.evidence.v1` — a digest-bound reference (`source_ref`) to a product-owned object,
+  never an inlined copy; `excerpt` is a short, bounded pointer only.
+- `cybrik.investigation-bundle.v1` — the SOC-facing response: a digest manifest of `claims`
+  (`minItems: 1` — no silent-empty bundle) and `evidence`, plus its own content `digest` for
+  structural replay.
+
+None of the four carries a capability, delegation, approval, tool, or MCP field (disjoint from
+ADR-0004). Inventory: `../compatibility/cybrik-suite-investigation-packet.v1.manifest.json`.
+Fixtures: `../examples/investigation/`. Validator (standalone, not wired into the shared
+orchestrator): `../../tools/contract-validation/validate-investigation.mjs`. No server/endpoint,
+no MCP/tool authority. TR-5 remains `declared_runtime_only` until a future real-consumer
+authorization gate proves advisory-only consumption.

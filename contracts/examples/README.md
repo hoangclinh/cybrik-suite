@@ -52,3 +52,22 @@ validation notes). Nothing here is executable product code.
   sibling access, marking downgrade, expiry, revocation) — the negative-semantic cases are
   structurally valid and rejected only by a relying-party invariant (tree walk / wall-clock /
   marking-vs-source), against a fixed test clock (NOW=1899635200 = 2030-03-13T12:26:40Z).
+- `investigation/` — W0-I01 Investigation/Claim/Evidence/Bundle fixtures, driven by
+  `investigation/examples-manifest.json` (validated by the standalone
+  `validate-investigation.mjs`, not wired into the shared orchestrator): **9 positive**, **8
+  negative-schema** (asserted claim with empty evidence_refs, abstained claim missing
+  abstention_reason, abstained claim carrying confidence, abstained investigation missing
+  abstention_reason, bundle with an empty claims array, a claim with an `approval_id` field,
+  evidence missing investigation_id, an evidence source_ref missing its digest), and **9
+  negative-semantic** (bundle marking downgrade below its referenced evidence — including a
+  mixed-axis case where classification rises while TLP falls, a claim asserted under a
+  mismatched tenant, an evidence entry collected under a mismatched tenant, a claim citing a
+  digest matching no real evidence entry anywhere, a claim citing a REAL evidence digest that
+  belongs to a different investigation, a bundle whose claims[]/evidence[] are REAL digests that
+  belong to a different investigation, evidence collected after its investigation closed, and a
+  claim created after its investigation closed) — the negative-semantic cases are structurally
+  valid and rejected only by a relying-party invariant (marking lattice per-axis / credential
+  tenant / citation dereference and investigation partition / lifecycle ordering) the schema
+  alone cannot express. This packet is `ACCEPTED FOR IMPLEMENTATION` at v0.1.0 (not stable v1/GA)
+  by explicit Founder Option A with G-W0I01-1..5 `yes` on 2026-07-26. Its validator remains
+  standalone and proves fixture/contract conformance, not product runtime enforcement.

@@ -1,0 +1,20 @@
+{
+  "claim_id": "6bc3facd-889b-483f-bfb1-fbc341108d7d",
+  "claim_digest": "sha256:0ea1ab4d4bce3f88b90cb47b7cc4ddd4d85390a0c010323215cc842bfaf6d134",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "abstained",
+  "statement": "Cannot determine whether the SRV-DC01 access was interactive or scripted — no EDR process-tree telemetry was available for that host in the collection window.",
+  "evidence_refs": [],
+  "abstention_reason": "insufficient-evidence",
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-25T09:26:00Z"
+}

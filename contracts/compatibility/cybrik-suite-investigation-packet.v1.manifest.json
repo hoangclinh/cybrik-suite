@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-investigation-packet.v1.manifest.json",
+  "title": "CYBRIK Suite W0-I01 Investigation/Claim/Evidence/Bundle contract packet — compatibility/version manifest",
+  "description": "Inventory and compatibility record for the W0-I01 Investigation/Claim/Evidence/Bundle packet — the roadmap Week 0 schema slice ('Investigation/Claim/Evidence/Capability/Receipt schemas v0'; Capability and Receipt already ACCEPTED FOR IMPLEMENTATION under the v0.1 packet). ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet and the ACCEPTED FOR IMPLEMENTATION W2-D/W2-F/W2-G packets: it introduces a new cybrik.investigation-*/cybrik.claim.*/cybrik.evidence.*/cybrik.investigation-bundle.* namespace and REUSES accepted primitives (common-defs, data-marking) by $ref without modifying them. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26; products MAY implement contract-first against this exact packet after its separately authorized integration into the canonical suite repository. This acceptance creates no server, endpoint, transport binding, MCP surface, runtime consumer, stable bundle tag, or release certification. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12"
+  },
+  "wire_scope": "NO SERVER / NO ENDPOINT. This packet defines JSON Schema payloads only — no OpenAPI/AsyncAPI/MCP delta is proposed here. Transport bindings for these payloads (e.g. an investigation-events AsyncAPI channel, an investigation-plane REST mapping) are a SEPARATE, later contract change.",
+  "mcp_scope": "OUT OF SCOPE. This packet defines no MCP server/tool/action contract and grants no tool/agent/action authority through any of its four schemas.",
+  "adr_basis": [
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never an immutable bundle tag." },
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "E6 (conditional correlation): investigation_id is required only for investigation-scoped payloads, and correlation semantics 'must be defined per event class and enforced by accepted schemas later' — this packet is that later definition (Investigation/Claim/Evidence/Bundle are, by construction, investigation-scoped and each require investigation_id). E1 (envelope) and the actor/tenant-writer-only stance also apply." }
+  ],
+  "adr_out_of_scope": [
+    { "id": "ADR-0004", "reason": "Tool execution authority / capability registry / approval — a SEPARATE accepted packet. Claim and Evidence carry no capability, delegation, approval, tool, or action-authorization field; a claim/evidence entry is descriptive analyst-support data, never itself an execution-authority grant or action trigger." },
+    { "id": "ADR-0002", "reason": "Model-runtime seam / AI implementation stack — a SEPARATE accepted packet (W2-D). This packet does not depend on, and does not modify, the W2-D inference schemas; a claim's evidence MAY reference an inference/summarization result by digest (via cybrik.evidence.v1.source_ref) but this packet defines no inference wire shape of its own." },
+    { "id": "ADR-0003", "reason": "Durable agent orchestration / bus choice / Investigation Graph storage — NOT decided here. This packet defines the wire shape of Investigation/Claim/Evidence/Bundle only; it takes no position on how a product persists or orchestrates them." },
+    { "id": "ADR-0007", "reason": "Org-hierarchy scope — NOT depended on. tenant_id here is the same opaque, credential-derived primitive used by every other packet; no org_scope field is introduced." }
+  ],
+  "reuses_accepted_unmodified": {
+    "note": "These accepted v0.1 members are referenced by $ref and are NOT modified, re-versioned, or re-stated by this packet. Backward compatibility of the accepted packet is preserved.",
+    "members": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json"
+    ]
+  },
+  "members": [
+    { "file": "json-schema/cybrik.investigation-common-defs.v1.schema.json", "title": "Investigation-packet common enums", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives" },
+    { "file": "json-schema/cybrik.investigation.v1.schema.json", "title": "Investigation record", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.claim.v1.schema.json", "title": "Investigation claim (grounded assertion or abstention)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.evidence.v1.schema.json", "title": "Investigation evidence (digest-bound reference)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.investigation-bundle.v1.schema.json", "title": "Investigation evidence bundle (digest manifest)", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" }
+  ],
+  "backward_compatibility": {
+    "additive": true,
+    "modifies_accepted_v0_1": false,
+    "namespace": "Disjoint: schema ids cybrik.investigation-*/cybrik.claim.*/cybrik.evidence.*/cybrik.investigation-bundle.*. No accepted id or field is redefined.",
+    "soc_native_compatibility": "An investigation MAY reference the alert/case that triggered it by DIGEST-BOUND objectRef (cybrik.investigation.v1.source_ref) into SOC-owned truth. SOC remains the owner of alerts/cases (repository boundary preserved); no SOC schema is changed. No new obligation is placed on any accepted member.",
+    "obligations_on_accepted_members": "none"
+  },
+  "trust_invariants": {
+    "note": "Fail-closed trust invariants, in THREE evidence classes — do not read any of them as equally 'proven'. (1) STRUCTURAL (TI-*): enforced by the JSON Schemas themselves and exercised by positive/negative-schema fixtures — a violation is a JSON Schema validation failure. (2) RUNTIME-ONLY, FIXTURE-EXERCISED (TR-1..TR-4): JSON Schema cannot enforce these — the platform MUST — but validate-investigation.mjs asserts, against concrete negative-semantic/positive fixture pairs, that each fixture actually violates (or actually satisfies) the stated rule; a regression that silently relaxes the RULE AS DOCUMENTED HERE fails CI, even though this validator proves nothing about whether any real platform code enforces it at runtime. (3) RUNTIME-ONLY, DECLARED ONLY, NOT FIXTURE-VERIFIABLE (TR-5): see runtime_only_declared_not_fixture_verifiable below — this class cannot be exercised by any JSON Schema fixture at all, by construction, and is reported by the validator as declared_runtime_only rather than counted alongside passed/verified invariants. Every implementing product MUST preserve the required outcomes for every class. ACCEPTED FOR IMPLEMENTATION authorizes contract-first implementation only; it does not prove that a product runtime, consumer, endpoint, or transport exists.",
+    "structural": [
+      "TI-1 Grounded assertion: an 'asserted' claim requires confidence and a non-empty evidence_refs (minItems 1) — a claim can never assert something with zero cited evidence.",
+      "TI-2 Honest abstention: an 'abstained' claim requires abstention_reason and MUST NOT carry confidence — abstention is a required, first-class output, not a silently-dropped case (roadmap Week 2).",
+      "TI-3 Honest abstention (investigation): an investigation with status='abstained' requires abstention_reason.",
+      "TI-4 No silent-empty bundle: cybrik.investigation-bundle.v1.claims has minItems 1 — an investigation with no grounded findings still yields at least one (possibly 'abstained') claim.",
+      "TI-5 No tool/agent/action authority: additionalProperties=false on Claim and Evidence, and no capability/delegation_ref/approval_id/tool/mcp/action field exists on either. Asserting a claim or collecting evidence grants no execution authority through this seam (disjoint from ADR-0004).",
+      "TI-6 Investigation-scoped correlation: investigation_id is a required field on Claim, Evidence, and Bundle (ADR-0006 E6 realized).",
+      "TI-7 Digest-bound references only: source_ref (Evidence), evidence_refs (Claim), and claims/evidence (Bundle) are all cybrik.common-defs objectRef — every reference carries a digest; content is dereferenced through the owner's API, never inlined."
+    ],
+    "runtime_only_fixture_exercised": [
+      "TR-1 Marking non-downgrade: a bundle's data_marking MUST be >= the union of the markings of every claim/evidence it references, independently on the classification axis and the TLP axis (a rise on one axis never excuses a fall on the other). Schema cannot compare marking lattices; the platform MUST.",
+      "TR-2 Authoritative resolution / cross-tenant guard: tenant/actor come from credential + policy, not the advisory body; a claim/evidence whose tenant_id differs from its investigation's authoritative tenant MUST be rejected.",
+      "TR-3 Citation dereference / investigation partition: every digest in a claim's evidence_refs, and every digest in an investigation-bundle's claims[]/evidence[], MUST match a real cybrik.claim.v1/cybrik.evidence.v1 entry belonging to the SAME investigation_id — an unknown/foreign digest MUST be rejected, and a digest that is genuine but belongs to a DIFFERENT investigation MUST be rejected just the same (grounding does not leak across investigation boundaries; roadmap Week 2 'citation dereference và digest').",
+      "TR-4 Lifecycle ordering: evidence.collected_at and claim.created_at MUST fall within the parent investigation's open window (on/after opened_at, and — once the investigation is 'closed' — on/before closed_at); evidence/claims MUST NOT be attached to a closed investigation."
+    ],
+    "runtime_only_declared_not_fixture_verifiable": [
+      {
+        "id": "TR-5",
+        "statement": "Output is not authority: claim.statement/confidence is untrusted analyst-support data and MUST NOT be consumed as an authorization, approval, or action trigger (same stance as the accepted W2-D inference packet's summary_text).",
+        "why_not_fixture_verifiable": "TR-1..TR-4 each constrain a relationship BETWEEN payloads that a fixture can embody (a bundle's marking vs. its referenced evidence's marking, a claim's tenant vs. its investigation's tenant, a citation's digest vs. a real evidence entry, a timestamp vs. a lifecycle boundary) — so a negative-semantic fixture can be constructed that concretely violates the rule, and validate-investigation.mjs can assert that violation. TR-5 instead constrains how a DOWNSTREAM CONSUMER (not-yet-written product code that reads a cybrik.claim.v1 payload) is permitted to USE the statement/confidence fields. No JSON payload — however constructed — can, by its shape or values alone, prove or disprove what a future consumer does with it; that is a property of the consumer's own code path, not of the wire payload. There is therefore no fixture this validator could add whose pass/fail would exercise TR-5 the way TR-1..TR-4 are exercised, and inventing one would be a FALSE static gate — evidence of nothing.",
+        "closure_gate": "CONSUMER-AUTHZ-GATE (working name — NOT YET OPENED; no such gate exists today). Required scope once opened: identify the first product that implements a downstream consumer of cybrik.claim.v1 (candidates per the roadmap: the Cyber AI investigation workspace, or the SOC bundle/claim viewer), and add a test — in THAT product's own test suite, against its REAL consumer code path, not this contract packet — asserting that claim.statement/confidence is read as advisory-only and is never dereferenced as an authorization decision, an approval, or an action trigger. Must be recorded and evidenced the same way every other gate in this suite is (Founder-recorded decision + reproducible evidence, per ADR-0001 D5) before TR-5 may be reported as verified anywhere.",
+        "validator_status": "declared_runtime_only",
+        "note": "validate-investigation.mjs reports this id's status verbatim as 'declared_runtime_only' in its own output — it is intentionally NOT counted among invariants_checked/invariants_ok, so a green validator run can never be misread as having verified TR-5."
+      }
+    ]
+  },
+  "cross_ref_integrity": {
+    "note": "Correlation bindings the platform MUST preserve across the investigation lifecycle (schema cannot enforce equality/lookup across artifacts).",
+    "bindings": [
+      "claim.investigation_id == evidence.investigation_id == investigation-bundle.investigation_id == investigation.investigation_id for every artifact in the same investigation.",
+      "claim.evidence_refs[*].digest MUST match the evidence_digest of some evidence.evidence_id in the same investigation (TR-3).",
+      "investigation-bundle.claims[*].digest == claim.claim_digest and investigation-bundle.evidence[*].digest == evidence.evidence_digest for every referenced artifact, where that claim/evidence's own investigation_id equals the bundle's investigation_id (structural replay + TR-3 partition — roadmap W2).",
+      "investigation-bundle.digest is a content digest over its own (claims, evidence, status, generated_at) tuple, enabling replay verification independent of storage."
+    ]
+  },
+  "gate": {
+    "id": "W0-I01",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+    "decided_by": "Founder (explicit W0 Bundle A answer; not agent-inferred)",
+    "decided_on": "2026-07-26",
+    "decisions_resolved": [
+      "G-W0I01-1 ACCEPTED: investigation_id is required on every investigation-scoped artifact, realizing ADR-0006 E6 for Investigation/Claim/Evidence/Bundle.",
+      "G-W0I01-2 ACCEPTED: grounded assertion and honest abstention are mandatory structural invariants; a claim cannot assert with zero cited evidence and an investigation/claim can abstain rather than force a verdict.",
+      "G-W0I01-3 ACCEPTED: Claim and Evidence carry no tool, agent, approval, or action authority, so this packet cannot become a tool-execution or approval bypass.",
+      "G-W0I01-4 ACCEPTED: product-owned content is referenced by digest-bound objectRef only and is never inlined.",
+      "G-W0I01-5 ACCEPTED: OpenAPI, AsyncAPI, and MCP bindings are deferred to a separate later contract change; this packet declares NO SERVER / NO ENDPOINT."
+    ],
+    "evidence_ref": "See acceptance.evidence[], cybrik-suite:docs/adr/FOUNDER-DECISION-QUEUE-W0.md, and cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W0-I01.md. A green validator is a conformance signal; acceptance is the explicit Founder decision, not an inference from CI."
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W0-I01",
+    "decided_by": "Founder (explicit W0 Bundle A answer; not agent-inferred)",
+    "decided_on": "2026-07-26",
+    "scope": "Products MAY implement against the exact W0-I01 Investigation/Claim/Evidence/Bundle packet v0.1.0 after it is integrated into the canonical suite repository. This is implementation authorization only: no server, endpoint, transport binding, MCP surface, product runtime consumer, stable v1/GA promotion, immutable bundle tag, or release certification is created. TR-1..TR-4 remain runtime obligations; TR-5 remains declared_runtime_only and requires the future CONSUMER-AUTHZ-GATE against a real downstream consumer before it may be reported as verified.",
+    "evidence": [
+      "Founder decision recorded on 2026-07-26: W0-I01 Option A with G-W0I01-1..5=yes in cybrik-suite:docs/adr/FOUNDER-DECISION-QUEUE-W0.md and cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W0-I01.md.",
+      "Standalone standards validation: JSON Schema 2020-12 compile/ref-resolution of 5 packet schemas and 4 payload schemas; 9/9 positive fixtures, 8/8 negative-schema fixtures, 9/9 structurally-valid negative-semantic fixtures, 45/45 declared fixture-verifiable invariants, and 4/4 derivation self-checks. TR-5 remains reported as declared_runtime_only and is not counted as verified.",
+      "Independent pre-decision security/compatibility review recorded no P0-P3 finding; the packet is additive and disjoint, reuses accepted common-defs/data-marking unmodified, grants no tool/agent/action authority, and declares no OpenAPI/AsyncAPI/MCP binding."
+    ],
+    "mechanics": "Acceptance-for-implementation was authorized by the Founder's exact W0 Bundle A answer and applied as this separate evidence-linked lifecycle change under ADR-0001 D5. No approval was inferred from CI going green. Canonical integration, commit, merge, push, release, and any stable v1/GA or immutable bundle-tag promotion remain separately gated."
+  }
+}

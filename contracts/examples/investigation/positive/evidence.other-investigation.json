@@ -1,0 +1,23 @@
+{
+  "evidence_id": "624daf0e-6ae1-41a2-b9ab-af7f4dd0de5a",
+  "evidence_digest": "sha256:bc549e06b5c7e5a5f358406bd16a37b95112ef17ae27ef35bfb9270b931905ef",
+  "investigation_id": "3150799b-b9d3-48d3-903c-f8777e4b29a7",
+  "tenant_id": "tenant-acme",
+  "kind": "log-excerpt",
+  "source_ref": {
+    "type": "ocsf.event",
+    "id": "evt-2026-07-20-334455",
+    "digest": "sha256:57c706893f184b336a6bd5bd4b7131f4fe55e180f4ff9d6b4926216da16bf0cb"
+  },
+  "excerpt": "Scheduled task Updater.exe ran under the built-in SYSTEM account (benign, matches vendor baseline).",
+  "collected_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-01",
+    "tenant_id": "tenant-acme"
+  },
+  "collected_at": "2026-07-20T08:45:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-bundle.v1.schema.json",
+  "title": "CYBRIK investigation evidence bundle v1",
+  "description": "The response SOC receives for an investigation (roadmap W0 demo: 'SOC gửi một investigation request giả lập và nhận bundle schema-valid'; ADR-0002 'Investigation Graph/Bundle'). A manifest of digest-bound references to the investigation's cybrik.claim.v1 and cybrik.evidence.v1 entries plus its own content digest — never an inlined copy of their content — so a bundle can be replayed/verified from its `digest` alone (roadmap W2: 'Structural replay từ bundle/version/digests'). `claims` MUST be non-empty: an investigation with nothing to assert MUST still surface at least one 'abstained' claim (roadmap Week 2 'Abstention/missing-evidence output') rather than an empty, silent bundle. A runtime invariant (schema cannot express it) additionally requires data_marking to be >= the union of the markings of every referenced claim/evidence (marking non-downgrade — same TR-1 stance as the accepted W2-D inference packet). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bundle_id", "investigation_id", "tenant_id", "status", "claims", "generated_by", "generated_at", "data_marking", "digest"],
+  "properties": {
+    "bundle_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid" },
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Parent cybrik.investigation.v1.investigation_id. Required — a bundle is always investigation-scoped (ADR-0006 E6)."
+    },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "status": {
+      "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/investigationStatus",
+      "description": "Snapshot of the parent investigation's status at bundle-generation time."
+    },
+    "claims": {
+      "type": "array",
+      "description": "Digest-bound references to this investigation's cybrik.claim.v1 entries. MUST be non-empty — an investigation with no grounded findings still yields at least one 'abstained' claim, never a silent empty bundle.",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "minItems": 1,
+      "maxItems": 500
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Digest-bound references to this investigation's cybrik.evidence.v1 entries.",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "maxItems": 500,
+      "default": []
+    },
+    "limitations": {
+      "type": "string",
+      "description": "Free-text scope/coverage gaps for this bundle (evidence-first triage instead of summary prose — roadmap Week 2).",
+      "maxLength": 4000
+    },
+    "generated_by": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Authenticated actor (typically a service) that generated the bundle. Written only by authenticated service code."
+    },
+    "generated_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking of the bundle. MUST be >= the union of the markings of every referenced claim/evidence (control-enforced non-downgrade)."
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Content digest of this bundle's own (claims, evidence, status, generated_at) tuple, enabling structural replay/integrity verification (roadmap W2)."
+    }
+  }
+}

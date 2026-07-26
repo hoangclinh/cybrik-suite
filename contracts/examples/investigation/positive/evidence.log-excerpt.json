@@ -1,0 +1,23 @@
+{
+  "evidence_id": "3c859ff3-8942-444b-b9d8-8b9819284ba3",
+  "evidence_digest": "sha256:947d8135a30447350e3211c52182862c7c53bc2ba9b58151b48672fcf8bc10f3",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "kind": "log-excerpt",
+  "source_ref": {
+    "type": "ocsf.event",
+    "id": "evt-2026-07-25-778812",
+    "digest": "sha256:9c75176dc5b1ab7c608d8c9096c47988c00a543c37e76f99ed1512cbd3c1a96d"
+  },
+  "excerpt": "2026-07-25T09:12:03Z WKS-0042 psexec.exe spawned by SYSTEM, target \\\\SRV-DC01\\ADMIN$",
+  "collected_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "collected_at": "2026-07-25T09:12:30Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

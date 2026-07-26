@@ -1,0 +1,16 @@
+{
+  "investigation_id": "f8a4c538-c8aa-44d2-aa95-b4abf390a86d",
+  "tenant_id": "tenant-acme",
+  "status": "abstained",
+  "objective": "Determine root cause of repeated VPN auth failures for user jdoe.",
+  "opened_by": {
+    "type": "user",
+    "id": "soc-membership-analyst-042",
+    "tenant_id": "tenant-acme"
+  },
+  "opened_at": "2026-07-25T10:00:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

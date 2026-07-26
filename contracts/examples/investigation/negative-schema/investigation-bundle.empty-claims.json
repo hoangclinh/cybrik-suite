@@ -1,0 +1,19 @@
+{
+  "bundle_id": "40dffb1e-58c4-4b99-ba23-9be1587cd273",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "in_progress",
+  "claims": [],
+  "evidence": [],
+  "generated_by": {
+    "type": "service",
+    "id": "spiffe://cybrik/tenant-acme/ai/worker/bundle-generator",
+    "tenant_id": "tenant-acme"
+  },
+  "generated_at": "2026-07-25T09:27:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "digest": "sha256:31a4fc21d48710b8aaecd28f1e05d884755fcb404c644eeb7e56ed81e578fd3e"
+}

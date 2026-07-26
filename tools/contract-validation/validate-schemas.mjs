@@ -12,6 +12,7 @@
 // Zero external side effects. Exit 0 = all checks passed; exit 1 = at least one failure.
 
 import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, basename, sep } from 'node:path';
 import AjvModule from 'ajv/dist/2020.js';
@@ -29,6 +30,9 @@ const JSON_SCHEMA_DIR = join(CONTRACTS, 'json-schema');
 const DRAFT_2020 = 'https://json-schema.org/draft/2020-12/schema';
 const ID_PREFIX = 'https://contracts.cybrik.example/';
 const EXPECTED_VERSION = '0.1.0';
+const EXPECTED_PACKET_VERSION = '0.1.1';
+const CAPABILITY_VERSION = '0.1.1';
+const CAPABILITY_FILE = 'json-schema/cybrik.capability.v1.schema.json';
 
 const errors = [];
 const notes = [];
@@ -42,8 +46,8 @@ const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 // ---------------------------------------------------------------------------
 // 0. Lifecycle state. Exactly TWO truthful states are permitted, and the
 //    compatibility manifest is the single source of truth. Neither state is a
-//    stable v1/GA and neither may be an immutable bundle tag (packet stays
-//    v0.1.0, is-bundle-tag=false). Every packet member MUST agree with the
+//    stable v1/GA and neither may be an immutable bundle tag (mutable snapshot
+//    v0.1.1, is-bundle-tag=false). Every packet member MUST agree with the
 //    manifest: a half-flipped packet (some files ACCEPTED, some PROPOSED) is a
 //    consistency failure — which is exactly what checkLifecycle exists to catch.
 // ---------------------------------------------------------------------------
@@ -112,7 +116,12 @@ for (const name of SCHEMA_FILES) {
   if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
   checkLifecycle(`json-schema/${name}`, doc);
-  if (doc['x-cybrik-contract-version'] !== EXPECTED_VERSION) fail(`json-schema/${name}: contract-version must be ${EXPECTED_VERSION}`);
+  const expectedContractVersion = name === 'cybrik.capability.v1.schema.json'
+    ? CAPABILITY_VERSION
+    : EXPECTED_VERSION;
+  if (doc['x-cybrik-contract-version'] !== expectedContractVersion) {
+    fail(`json-schema/${name}: contract-version must be ${expectedContractVersion}`);
+  }
   bump('schemas_loaded');
 }
 
@@ -180,9 +189,13 @@ let compat;
 try { compat = readJson(compatPath); } catch (e) { fail(`compatibility manifest: parse error: ${e.message}`); }
 if (compat) {
   checkLifecycle('compatibility manifest', compat);
-  if (compat['x-cybrik-packet-version'] !== EXPECTED_VERSION) fail(`compatibility manifest: packet-version must be ${EXPECTED_VERSION}`);
-  // is-bundle-tag stays false in BOTH states: v0.1.0 is never an immutable bundle tag / GA.
-  if (compat['x-cybrik-is-bundle-tag'] !== false) fail('compatibility manifest: is-bundle-tag must be false (v0.1.0 is never an immutable bundle tag / GA)');
+  if (compat['x-cybrik-packet-version'] !== EXPECTED_PACKET_VERSION) {
+    fail(`compatibility manifest: packet-version must be ${EXPECTED_PACKET_VERSION}`);
+  }
+  // is-bundle-tag stays false in BOTH states: snapshot v0.1.1 is not immutable or stable v1/GA.
+  if (compat['x-cybrik-is-bundle-tag'] !== false) {
+    fail('compatibility manifest: is-bundle-tag must be false (snapshot v0.1.1 is never an immutable bundle tag / GA)');
+  }
   const accStatus = compat.acceptance?.status || '';
   if (EXPECTED_STATE === 'PROPOSED') {
     if (!/NOT ACCEPTED/.test(accStatus)) fail('compatibility manifest: acceptance.status must state NOT ACCEPTED while PROPOSED');
@@ -206,8 +219,20 @@ if (compat) {
   if (cdPins.mcp !== '2025-11-25') fail('common-defs: x-cybrik-format-pins.mcp must be 2025-11-25');
   for (const m of compat.members || []) {
     const mp = join(CONTRACTS, m.file);
-    if (!existsSync(mp)) fail(`compatibility manifest: member file missing: ${m.file}`);
-    if (m.contract_version !== EXPECTED_VERSION) fail(`compatibility manifest: member ${m.file} contract_version must be ${EXPECTED_VERSION}`);
+    const expectedMemberVersion = m.file === CAPABILITY_FILE ? CAPABILITY_VERSION : EXPECTED_VERSION;
+    if (!existsSync(mp)) {
+      fail(`compatibility manifest: member file missing: ${m.file}`);
+    } else {
+      const expectedHash = createHash('sha256').update(readFileSync(mp)).digest('hex');
+      if (m.sha256 !== expectedHash) {
+        fail(`compatibility manifest: member ${m.file} sha256 must be ${expectedHash}`);
+      } else {
+        bump('manifest_member_hashes_verified');
+      }
+    }
+    if (m.contract_version !== expectedMemberVersion) {
+      fail(`compatibility manifest: member ${m.file} contract_version must be ${expectedMemberVersion}`);
+    }
     bump('manifest_members');
   }
   // Hardening #10: monotonicity invariants recorded as runtime obligations.

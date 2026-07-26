@@ -1,0 +1,42 @@
+{
+  "bundle_id": "349164db-1b63-49a9-ac44-b5340778d5bb",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "in_progress",
+  "claims": [
+    {
+      "type": "cybrik.claim",
+      "id": "ee9671a0-0bac-4f17-893b-7513b6550bec",
+      "digest": "sha256:01aa8fdd72d5637786b31cb04be569615672f938ce616fd0b237e7e05a71037e"
+    },
+    {
+      "type": "cybrik.claim",
+      "id": "6bc3facd-889b-483f-bfb1-fbc341108d7d",
+      "digest": "sha256:0ea1ab4d4bce3f88b90cb47b7cc4ddd4d85390a0c010323215cc842bfaf6d134"
+    }
+  ],
+  "evidence": [
+    {
+      "type": "cybrik.evidence",
+      "id": "3c859ff3-8942-444b-b9d8-8b9819284ba3",
+      "digest": "sha256:947d8135a30447350e3211c52182862c7c53bc2ba9b58151b48672fcf8bc10f3"
+    },
+    {
+      "type": "cybrik.evidence",
+      "id": "24365f31-e256-42d5-93e1-4d94fc9f5aa2",
+      "digest": "sha256:6541fb80d276bc28a023e778975dfe86f81b7e1766eb17aea21506cd21df6f3d"
+    }
+  ],
+  "limitations": "No EDR process-tree telemetry was available for SRV-DC01 in the collection window; interactivity of the access could not be determined (see the abstained claim).",
+  "generated_by": {
+    "type": "service",
+    "id": "spiffe://cybrik/tenant-acme/ai/worker/bundle-generator",
+    "tenant_id": "tenant-acme"
+  },
+  "generated_at": "2026-07-25T09:27:00Z",
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  },
+  "digest": "sha256:31a4fc21d48710b8aaecd28f1e05d884755fcb404c644eeb7e56ed81e578fd3e"
+}
