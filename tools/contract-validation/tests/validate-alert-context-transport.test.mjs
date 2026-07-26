@@ -1,17 +1,23 @@
 // Standalone test suite for the W1 `soc.get_alert_context` transport-binding
-// packet validator. The packet it exercises is PROPOSED — NOT ACCEPTED.
+// packet validator. The packet it exercises is ACCEPTED FOR IMPLEMENTATION on
+// 2026-07-27 and NOT IMPLEMENTED.
 //
-// The suite holds exactly 30 adversarial rejection cases plus 3 positive checks.
+// The suite holds exactly 32 adversarial rejection cases plus 3 positive checks.
 // Several adversarial cases are table-driven over multiple mutations; every
 // mutation must be rejected. `POSITIVE_CASES[0]` asserts that the compatibility
 // manifest's declared `verification.test_case_counts` still equals the real
 // case-array lengths, so the declared wording cannot drift from the suite.
 //
-// Passing proves static binding-packet integrity only: no endpoint, no OpenAPI /
-// AsyncAPI / MCP surface, no capability-registry entry, no Fabric invocation
-// grant, no CI wiring, no runtime authorization, no kill-switch behavior and no
-// acceptance. The bound-receipt profile is exercised here against synthesized
-// receipt documents because the packet deliberately ships no receipt fixture.
+// Passing proves static binding-packet integrity and lifecycle coherence only.
+// Acceptance is a recorded contract decision, not evidence: passing implements
+// no endpoint, adds no OpenAPI / AsyncAPI / MCP surface, registers no
+// capability, grants no Fabric invocation, wires no CI, deploys nothing, tags no
+// Bundle, and proves no runtime authorization or kill-switch behavior. TR-4…TR-8
+// stay open runtime obligations and the suite fails closed if the packet tries
+// to close them, half-flip the lifecycle, keep stale proposal language, or turn
+// W2-F inference delegation into Fabric tool authority. The bound-receipt
+// profile is exercised here against synthesized receipt documents because the
+// packet deliberately ships no receipt fixture.
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -68,7 +74,26 @@ const TENANT_MISMATCH = 'examples/alert-context-transport/negative-semantic/'
 const W2F_AS_DELEGATION = 'examples/alert-context-transport/negative-semantic/'
   + 'bound-request.w2f-token-as-delegation-ref.json';
 
-const PROPOSED_STATUS_TOKEN = 'PROPOSED_—_NOT_ACCEPTED_NOT_ACCEPTED_FLAG=true';
+// Derived by the validator from the real manifest bytes, never asserted by it:
+// a lifecycle regression or half-flip prints a token that differs from this one.
+const ACCEPTED_STATUS_TOKEN = 'ACCEPTED_FOR_IMPLEMENTATION_NOT_ACCEPTED_FLAG=false';
+const ACCEPTED_ON = '2026-07-27';
+const GATE_DOC = 'docs/releases/GATE-W1-C1-TRANSPORT-BINDING.md';
+const OPEN_RUNTIME_OBLIGATIONS = ['TR-4', 'TR-5', 'TR-6', 'TR-7', 'TR-8'];
+// The acceptance is bounded: each of these must stay an explicitly declared
+// non-claim, so no later reader can mistake the recorded decision for a runtime,
+// transport, registry, grant, deployment, CI, Bundle or release gate.
+const EXPECTED_NON_CLAIMS = [
+  'no runtime implementation or runtime behavior is accepted, verified or demonstrated',
+  'no endpoint, path, operation, queue, AsyncAPI channel or MCP transport surface is accepted',
+  'no capability-registry entry is accepted or registered',
+  'no Fabric tool-execution grant is accepted or minted, and W2-F inference delegation is '
+    + 'never Fabric tool authority',
+  'no deployment, environment rollout or operational enablement is accepted',
+  'no CI wiring or pipeline registration is accepted',
+  'no Bundle v0.1.1 membership or bundle tag is accepted',
+  'no merge, push, release or release certification is accepted',
+];
 
 // Independent expectation of which canonical trust invariant each negative
 // fixture witnesses. The compatibility manifest owns the label text; the
@@ -237,7 +262,7 @@ const syntheticReceipt = (contracts, overrides = {}) => {
 };
 
 // ---------------------------------------------------------------------------
-// 30 adversarial rejection cases
+// 32 adversarial rejection cases
 // ---------------------------------------------------------------------------
 
 const REJECTION_CASES = [
@@ -688,21 +713,23 @@ const REJECTION_CASES = [
     });
   }],
 
-  ['rejects premature acceptance, lifecycle half-flips and supersession claims', () => {
+  ['rejects lifecycle regressions, half-flips and supersession claims', () => {
     withPacketCopy((contracts) => {
+      // A full regression back to the proposal lifecycle is refused: the
+      // recorded decision may not be silently withdrawn by editing bytes.
       mutateJson(contracts, COMPATIBILITY, (manifest) => {
-        manifest['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
-        manifest['x-cybrik-not-accepted'] = false;
+        manifest['x-cybrik-status'] = 'PROPOSED — NOT ACCEPTED';
+        manifest['x-cybrik-not-accepted'] = true;
       });
       const result = validate(contracts);
-      expectFailure(result, /must stay 'PROPOSED — NOT ACCEPTED'/i);
-      assert.notEqual(result.status, PROPOSED_STATUS_TOKEN);
+      expectFailure(result, /must be 'ACCEPTED FOR IMPLEMENTATION'/i);
+      assert.notEqual(result.status, ACCEPTED_STATUS_TOKEN);
     });
     runTable([
       {
         file: SCHEMA,
-        mutate: (schema) => { schema['x-cybrik-not-accepted'] = false; },
-        pattern: /x-cybrik-not-accepted must stay true/i,
+        mutate: (schema) => { schema['x-cybrik-not-accepted'] = true; },
+        pattern: /x-cybrik-not-accepted must be false/i,
       },
       {
         file: EXAMPLES_MANIFEST,
@@ -710,38 +737,134 @@ const REJECTION_CASES = [
         pattern: /x-cybrik-contract-version must be 0\.1\.0/i,
       },
       {
+        // Half-flip: one lifecycle document is left behind at the proposal
+        // state while the other two carry the acceptance.
         file: SCHEMA,
         mutate: (schema) => {
-          schema['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
-          schema['x-cybrik-not-accepted'] = false;
+          schema['x-cybrik-status'] = 'PROPOSED — NOT ACCEPTED';
+          schema['x-cybrik-not-accepted'] = true;
         },
-        pattern: /lifecycle half-flip|premature acceptance/i,
+        pattern: /lifecycle half-flip|stale proposal lifecycle text/i,
       },
       {
         file: EXAMPLES_MANIFEST,
         mutate: (manifest) => {
-          manifest.description = `${manifest.description} ACCEPTED FOR IMPLEMENTATION.`;
+          manifest['x-cybrik-status'] = 'PROPOSED — NOT ACCEPTED';
+          manifest['x-cybrik-not-accepted'] = true;
         },
-        pattern: /premature acceptance text must not appear/i,
+        pattern: /lifecycle half-flip|stale proposal lifecycle text/i,
+      },
+    ]);
+  }],
+
+  ['rejects stale proposal language surviving the acceptance flip', () => runTable([
+    {
+      file: EXAMPLES_MANIFEST,
+      mutate: (manifest) => {
+        manifest.description = `${manifest.description} Status: PROPOSED.`;
+      },
+      pattern: /stale proposal lifecycle text/i,
+    },
+    {
+      file: SCHEMA,
+      mutate: (schema) => { schema.description = `${schema.description} NOT ACCEPTED.`; },
+      pattern: /stale proposal lifecycle text/i,
+      after: resignBoundResults,
+    },
+    {
+      file: COMPATIBILITY,
+      mutate: (manifest) => {
+        manifest.description = `${manifest.description} This is a proposal-only packet.`;
+      },
+      pattern: /stale proposal lifecycle text/i,
+    },
+    {
+      file: COMPATIBILITY,
+      mutate: (manifest) => {
+        manifest.description = `${manifest.description} It records no acceptance.`;
+      },
+      pattern: /stale proposal lifecycle text/i,
+    },
+    {
+      file: COMPATIBILITY,
+      mutate: (manifest) => {
+        manifest.description = `${manifest.description} This packet supersedes the C1 packet.`;
+      },
+      pattern: /supersession claim must not appear/i,
+    },
+  ])],
+
+  ['rejects a missing, drifting or half-flipped acceptance record', () => {
+    runTable([
+      {
+        file: COMPATIBILITY,
+        mutate: (manifest) => { delete manifest.acceptance; },
+        pattern: /missing key 'acceptance'/i,
+      },
+      {
+        // Half-flip: the acceptance block disagrees with the declared lifecycle.
+        file: COMPATIBILITY,
+        mutate: (manifest) => {
+          manifest.acceptance.status = 'PROPOSED — NOT ACCEPTED';
+        },
+        pattern: /lifecycle half-flip|stale proposal lifecycle text/i,
+      },
+      {
+        file: COMPATIBILITY,
+        mutate: (manifest) => { manifest.acceptance.accepted_on = '2026-07-26'; },
+        pattern: /accepted_on must be 2026-07-27/i,
+      },
+      {
+        // The acceptance must remain traceable to its gate record.
+        file: COMPATIBILITY,
+        mutate: (manifest) => {
+          manifest.acceptance.decision_record = 'Accepted by the W1 coordinator.';
+        },
+        pattern: /decision_record must cite the gate record/i,
+      },
+      {
+        file: COMPATIBILITY,
+        mutate: (manifest) => { manifest.acceptance.non_claims.pop(); },
+        pattern: /acceptance\.non_claims must match the independent exact/i,
       },
       {
         file: COMPATIBILITY,
         mutate: (manifest) => {
-          manifest.description = `${manifest.description} This packet supersedes the C1 packet.`;
+          manifest.acceptance.non_claims[3] =
+            'W2-F delegation may stand in for a Fabric tool grant.';
         },
-        pattern: /supersession claim must not appear/i,
+        pattern: /acceptance\.non_claims must match the independent exact/i,
       },
       {
+        file: COMPATIBILITY,
+        mutate: (manifest) => { manifest.acceptance.settled_checklist = []; },
+        pattern: /settled_checklist must record at least one settled question/i,
+      },
+      {
+        // Acceptance settles contract shape, never runtime behavior: TR-4…TR-8
+        // must all stay open inside the acceptance record itself.
         file: COMPATIBILITY,
         mutate: (manifest) => {
-          manifest.acceptance = { status: 'ACCEPTED FOR IMPLEMENTATION' };
+          manifest.acceptance.open_runtime_obligations =
+            manifest.acceptance.open_runtime_obligations.filter((label) => label !== 'TR-5');
         },
-        pattern: /unexpected key 'acceptance'|premature acceptance/i,
+        pattern: /acceptance\.open_runtime_obligations must be exactly/i,
       },
       {
+        // The acceptance record and the packet-level obligation list may not
+        // drift apart, in either direction.
         file: COMPATIBILITY,
-        mutate: (manifest) => { manifest.proof_limits.accepted_for_implementation = true; },
-        pattern: /accepted_for_implementation must stay false/i,
+        mutate: (manifest) => {
+          manifest.acceptance.open_runtime_obligations = [...OPEN_RUNTIME_OBLIGATIONS, 'TR-9'];
+        },
+        pattern: /acceptance\.open_runtime_obligations must be exactly/i,
+      },
+      {
+        // Lifecycle coherence in the other direction: the proof limit may not
+        // stay at the proposal value once the lifecycle is accepted.
+        file: COMPATIBILITY,
+        mutate: (manifest) => { manifest.proof_limits.accepted_for_implementation = false; },
+        pattern: /accepted_for_implementation must be true|lifecycle half-flip/i,
       },
       {
         file: COMPATIBILITY,
@@ -757,6 +880,7 @@ const REJECTION_CASES = [
       },
     ]);
   }],
+
 
   ['rejects manifest claim, verification-command and source-pin drift', () => {
     withPacketCopy((contracts) => {
@@ -1408,13 +1532,14 @@ const REJECTION_CASES = [
 // ---------------------------------------------------------------------------
 
 const POSITIVE_CASES = [
-  ['current packet is closed, coherently PROPOSED — NOT ACCEPTED, and valid', () => {
+  ['current packet is closed, coherently ACCEPTED FOR IMPLEMENTATION, and valid', () => {
     withPacketCopy((contracts) => {
       const result = validate(contracts);
       assert.equal(result.ok, true, result.errors.join('\n'));
-      assert.equal(result.status, PROPOSED_STATUS_TOKEN);
+      assert.equal(result.status, ACCEPTED_STATUS_TOKEN);
       assert.equal(result.implementationStatus, 'NOT IMPLEMENTED');
-      assert.equal(result.acceptedForImplementation, false);
+      assert.equal(result.acceptedForImplementation, true);
+      assert.equal(result.acceptedOn, ACCEPTED_ON);
       assert.equal(result.runtimeAuthorizationProven, false);
       assert.equal(result.killSwitchRuntimeProven, false);
       assert.deepEqual(result.counts, {
@@ -1466,22 +1591,38 @@ const POSITIVE_CASES = [
       memberSetDigest(manifest.members),
     );
 
-    // The packet is a proposal only: nothing about acceptance, implementation, CI
-    // or runtime proof is claimed.
-    assert.equal(manifest['x-cybrik-status'], 'PROPOSED — NOT ACCEPTED');
-    assert.equal(manifest['x-cybrik-not-accepted'], true);
+    // The lifecycle is accepted and coherent across all three lifecycle
+    // documents, and the acceptance is bounded: implementation, transport, CI,
+    // Bundle, release and every runtime proof stay unclaimed.
+    const schemaDocument = readJson(join(SOURCE_CONTRACTS, SCHEMA));
+    const examplesManifest = readJson(join(SOURCE_CONTRACTS, EXAMPLES_MANIFEST));
+    for (const document of [manifest, schemaDocument, examplesManifest]) {
+      assert.equal(document['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION');
+      assert.equal(document['x-cybrik-not-accepted'], false);
+      assert.equal(document['x-cybrik-contract-version'], '0.1.0');
+      // No stale proposal lifecycle assertion survives the flip.
+      assert.doesNotMatch(
+        JSON.stringify(document),
+        /\bPROPOSED\b|\bNOT ACCEPTED\b|proposal-only|records no acceptance/,
+      );
+    }
     assert.equal(manifest['x-cybrik-is-bundle-tag'], false);
     assert.equal(manifest['x-cybrik-packet-version'], '0.1.0');
-    assert.equal('acceptance' in manifest, false);
-    assert.equal(manifest.proof_limits.accepted_for_implementation, false);
+    assert.equal(manifest.acceptance.status, 'ACCEPTED FOR IMPLEMENTATION');
+    assert.equal(manifest.acceptance.accepted_on, ACCEPTED_ON);
+    assert.ok(manifest.acceptance.decision_record.includes(GATE_DOC));
+    assert.deepEqual(manifest.acceptance.non_claims, EXPECTED_NON_CLAIMS);
+    assert.ok(manifest.acceptance.settled_checklist.length > 0);
+    assert.deepEqual(manifest.acceptance.open_runtime_obligations, OPEN_RUNTIME_OBLIGATIONS);
+    assert.equal(manifest.proof_limits.accepted_for_implementation, true);
     assert.equal(manifest.proof_limits.endpoint_or_transport_implemented, false);
+    assert.equal(manifest.proof_limits.runtime_authorization_proven, false);
+    assert.equal(manifest.proof_limits.policy_completion_runtime_proven, false);
+    assert.equal(manifest.proof_limits.kill_switch_runtime_proven, false);
     assert.equal(manifest.proof_limits.release_ready, false);
     assert.equal(manifest.capability_scope.implementation_status, 'NOT IMPLEMENTED');
     assert.match(manifest.verification.ci_wiring, /^NOT WIRED\./);
-    assert.deepEqual(
-      manifest.open_runtime_obligations,
-      ['TR-4', 'TR-5', 'TR-6', 'TR-7', 'TR-8'],
-    );
+    assert.deepEqual(manifest.open_runtime_obligations, OPEN_RUNTIME_OBLIGATIONS);
 
     // The reused W2-B envelope, C1 source packet and W2-F witness anchor are
     // pinned to the bytes actually on disk, so this packet cannot drift from the

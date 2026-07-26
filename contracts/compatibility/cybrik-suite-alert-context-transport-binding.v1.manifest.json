@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json",
-  "title": "CYBRIK Suite W1 soc.get_alert_context invocation transport-binding proposal packet manifest",
-  "description": "Inventory, provenance, boundary and compatibility record for the proposed transport binding that carries the accepted W1 C1 soc.get_alert_context business payload inside the already-accepted W2-B tool-execution request, result and receipt envelopes. The packet is restriction-only: it reuses the accepted envelope schemas and the accepted Fabric control-plane OpenAPI operations byte-unchanged and narrows them for exactly one capability. It is additive to every accepted packet, changes none of their bytes or identifiers, and places no obligation on any existing accepted member. It defines no endpoint, path, operation, parameter, header, queue, AsyncAPI channel or MCP tool, registers no capability, grants no Fabric invocation, wires no CI and proves no runtime behavior. Status: PROPOSED — NOT ACCEPTED; implementation has not started and no lifecycle decision is recorded here.",
-  "x-cybrik-status": "PROPOSED — NOT ACCEPTED",
-  "x-cybrik-not-accepted": true,
+  "title": "CYBRIK Suite W1 soc.get_alert_context invocation transport-binding packet manifest",
+  "description": "Inventory, provenance, boundary and compatibility record for the transport binding that carries the accepted W1 C1 soc.get_alert_context business payload inside the already-accepted W2-B tool-execution request, result and receipt envelopes. The packet is restriction-only: it reuses the accepted envelope schemas and the accepted Fabric control-plane OpenAPI operations byte-unchanged and narrows them for exactly one capability. It is additive to every accepted packet, changes none of their bytes or identifiers, and places no obligation on any existing accepted member. It defines no endpoint, path, operation, parameter, header, queue, AsyncAPI channel or MCP tool, registers no capability, grants no Fabric invocation, wires no CI and proves no runtime behavior. Status: ACCEPTED FOR IMPLEMENTATION on 2026-07-27 and NOT IMPLEMENTED; the lifecycle decision recorded in acceptance is a contract decision rather than evidence, implementation has not started, and every gate listed under acceptance.non_claims stays closed.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
   "x-cybrik-packet-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
@@ -26,7 +26,7 @@
     "envelope_request": "json-schema/cybrik.tool-execution-request.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
     "envelope_result": "json-schema/cybrik.tool-execution-result.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
     "envelope_receipt": "json-schema/cybrik.execution-receipt.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
-    "envelope_openapi": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml, reused byte-unchanged and pinned by sha256 as positive evidence that no transport surface is proposed: the already-accepted invocation-creation and receipt-retrieval operations are reused exactly as they stand.",
+    "envelope_openapi": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml, reused byte-unchanged and pinned by sha256 as positive evidence that this packet adds no transport surface: the already-accepted invocation-creation and receipt-retrieval operations are reused exactly as they stand.",
     "business_request_channel": "The accepted C1 business request is split across the envelope and one closed capability-specific argument object, so no field has two competing wire homes. idempotency_key, tenant_id, actor, purpose, capability and data_marking stay envelope-owned; request_id, org_scope, clearance, alert_ref, policy_digest, requested_at and the optional traceparent travel in arguments. traceparent is conditional in both directions: it is optional on the caller side, and the reconstruction carries it only when the caller asserted it. A business result may omit traceparent, because the accepted C1 result contract leaves it optional, but any value it does carry must be exactly the caller-asserted one; when the caller asserted none, a result-side traceparent has been minted rather than carried and fails closed. Trace context is carried, never minted. Two envelope string bounds are narrowed to the accepted C1 business-request bounds so that no envelope-valid bound request can reconstruct into a C1 business request the accepted C1 contract rejects: purpose to 1..200 and idempotency_key to 16..200. The accepted W2-B envelope declares only a lower bound on both fields, so without this narrowing the round trip would not be total. The boundary itself stays inside the profile: exactly 200 characters is valid on both fields and 201 is outside it.",
     "business_result_channel": "The accepted C1 business result document is carried verbatim as output.data inside envelope status=completed, with truncated=false and an output_digest over the declared bound-output projection. The reconstruction back into the accepted C1 business request is lossless: its target is the C1 business request document itself rather than a digest projection, every field is carried rather than re-derived, and it adds only the two C1 capability-profile constants risk_class=R0 and side_effects=false.",
     "artifact_channel": "none. Output artifacts are bounded to zero items on both the bound result and the receipt, and receipt input artifact digests are bounded to zero items, so the digest-bound business payload has exactly one wire home.",
@@ -115,7 +115,7 @@
     "conflict": "Same tenant plus same idempotency key with a different binding digest rejects before target lookup as the C1 business outcome idempotency_conflict, with idempotency_disposition=conflict and code=idempotency_binding_conflict, carried inside envelope status=completed. It returns no alert_ref, context or context_digest and reveals no cached or target-derived state."
   },
   "receipt_binding": {
-    "requirement": "A Fabric execution receipt is required for every completed invocation of this capability: a bound result with envelope status=completed must carry receipt_id, and the referenced receipt must satisfy this profile's bound-receipt restriction branch. The accepted generic W2-B tool-execution-result envelope does not itself require a receipt on completed, so this capability-specific obligation intentionally strengthens the generic envelope at the obligation layer, for this capability only. It is a restriction over the instance set this profile's schema admits and it makes no claim that W2-B generally requires a receipt on completed; the accepted W2-B bytes are reused byte-unchanged and no accepted contract or accepted packet member acquires an obligation from this proposal.",
+    "requirement": "A Fabric execution receipt is required for every completed invocation of this capability: a bound result with envelope status=completed must carry receipt_id, and the referenced receipt must satisfy this profile's bound-receipt restriction branch. The accepted generic W2-B tool-execution-result envelope does not itself require a receipt on completed, so this capability-specific obligation intentionally strengthens the generic envelope at the obligation layer, for this capability only. It is a restriction over the instance set this profile's schema admits and it makes no claim that W2-B generally requires a receipt on completed; the accepted W2-B bytes are reused byte-unchanged and no accepted contract or accepted packet member acquires an obligation from this packet.",
     "required_fields": "receipt_id, action_id, tenant_id, status, capability, executor, delegation_ref, resolved_arguments_digest, started_at, finished_at, side_effect, receipt_digest and signature. side_effect is required here although the accepted envelope leaves it optional, because an R0 read must state positively that it performed none. action_id, tenant_id, delegation_ref and the capability descriptor must equal the bound request exactly, receipt_id must equal the completed bound result receipt_id, and resolved_arguments_digest must equal the constrained-JCS resolved-arguments projection of the bound request. Receipt status is restricted to completed, failed and timed_out.",
     "side_effect": "side_effect.performed=false is exact and structural: an R0 read that reports a performed side effect is rejected. Both receipt artifact channels are bounded to zero items because the business payload is inline and digest-bound.",
     "signature": "The receipt carries an opaque non-empty signature reference and nothing more. The signing and attestation envelope stays deferred and is owned by Fabric; this profile invents no signature format, key material, algorithm or verification rule, and a deferred envelope is an open obligation rather than a satisfied one.",
@@ -126,7 +126,7 @@
     "modifies_existing_packet_bytes": false,
     "modifies_existing_ids": false,
     "stable_v1_or_ga": false,
-    "obligations_on_existing_accepted_members": "none. No accepted packet member is edited, re-versioned or re-pinned, and no accepted contract acquires a runtime obligation from this proposal. The completed-receipt rule recorded in receipt_binding binds only the instances admitted by this profile's own schema.",
+    "obligations_on_existing_accepted_members": "none. No accepted packet member is edited, re-versioned or re-pinned, and no accepted contract acquires a runtime obligation from this packet or from its acceptance. The completed-receipt rule recorded in receipt_binding binds only the instances admitted by this profile's own schema.",
     "reuses_accepted_unmodified": [
       "json-schema/cybrik.common-defs.v1.schema.json",
       "json-schema/cybrik.data-marking.v1.schema.json",
@@ -198,7 +198,7 @@
         "sha256": "884bcaff9c7f90fecd4b598a9bc638f790ee871daee7f686521f8174f57e6e2a"
       }
     ],
-    "reuse_statement": "This proposal builds on the accepted W1 C1 soc.get_alert_context packet without changing any of its bytes, identifiers, lifecycle or status, and without claiming any standing over it. All 13 accepted C1 members are pinned by sha256 here and re-verified against both the bytes on disk and the accepted C1 manifest declaration, so drift in either place fails closed. The accepted C1 available-result projection is reused verbatim rather than restated, and the packet fails closed if this copy drifts from the accepted declaration."
+    "reuse_statement": "This packet builds on the accepted W1 C1 soc.get_alert_context packet without changing any of its bytes, identifiers, lifecycle or status, and without claiming any standing over it. All 13 accepted C1 members are pinned by sha256 here and re-verified against both the bytes on disk and the accepted C1 manifest declaration, so drift in either place fails closed. The accepted C1 available-result projection is reused verbatim rather than restated, and the packet fails closed if this copy drifts from the accepted declaration."
   },
   "reused_unmodified": [
     {
@@ -274,19 +274,25 @@
       "TR-8 Runtime must carry trace context rather than mint it, keep the unavailable response class, timing budget and audit behavior indistinguishable for absent, unauthorized and policy-filtered alerts, and record policy, capability and payload digests in the audit trail without exposing context to unauthorized callers. Timing and audit behavior lie outside static evidence entirely."
     ]
   },
-  "open_runtime_obligations": ["TR-4", "TR-5", "TR-6", "TR-7", "TR-8"],
+  "open_runtime_obligations": [
+    "TR-4",
+    "TR-5",
+    "TR-6",
+    "TR-7",
+    "TR-8"
+  ],
   "members": [
     {
       "file": "json-schema/cybrik.soc-alert-context-invocation-binding.v1.schema.json",
       "kind": "json-schema",
       "contract_version": "0.1.0",
-      "sha256": "d44571485b05980821ef231d639f37804b9f78530d81d314eeb884946dc3da1f"
+      "sha256": "8e7c0c67daa793e575b1c879643c92721733851f61a027b24ac1b36974d3eb98"
     },
     {
       "file": "examples/alert-context-transport/examples-manifest.json",
       "kind": "example-manifest",
       "contract_version": "0.1.0",
-      "sha256": "6c399a2978d46c3d01ea6fd4b6b0daf970b46bed38089a96ad64a5215f9d3d6a"
+      "sha256": "70e621eb65cd5631216f05a28de34309eadbfc05c9dbed593ca5594e956ce3bb"
     },
     {
       "file": "examples/alert-context-transport/positive/bound-request.json",
@@ -370,28 +376,28 @@
   "member_set_integrity": {
     "algorithm": "MEMBER-SET-SHA256/v1: reduce every entry of members[] to exactly {file, kind, contract_version, sha256}, sort the reduced entries by file in Unicode code point order, serialize that array as constrained RFC 8785 (JCS) canonical JSON, and render member_set_digest as sha256:<lowercase hex SHA-256 over those UTF-8 bytes>. The digest input is derived from members[] only: member_set_integrity itself and every other manifest key are excluded, so the aggregate is non-circular and is recomputed without reading its own declared value.",
     "member_count": 15,
-    "member_set_digest": "sha256:8a1082ca166f12545b7f2ab0db6af4c43c93611aee9ced3fb88a49080a90d8b1"
+    "member_set_digest": "sha256:144821eea67ef4778e14a1285fbd67cbde263a9cee057e6fd454956a2d258fa7"
   },
   "verification": {
-    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context-transport.test.mjs holds 30 adversarial rejection cases plus 3 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves binding-packet, schema, fixture, correlation, reuse-pin, member-hash and member-set integrity only: no endpoint, transport surface, capability registration, Fabric grant, W2-F delegation authority, policy completion, kill-switch behavior, runtime enforcement, CI wiring or acceptance is demonstrated.",
+    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context-transport.test.mjs holds 32 adversarial rejection cases plus 3 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves binding-packet, schema, fixture, correlation, reuse-pin, member-hash and member-set integrity plus lifecycle coherence only: no endpoint, transport surface, capability registration, Fabric grant, W2-F delegation authority, policy completion, kill-switch behavior, runtime enforcement, deployment, CI wiring, bundle tag or release readiness is demonstrated, and the lifecycle acceptance the packet carries is a recorded decision rather than evidence.",
     "standalone_validator_command": "node tools/contract-validation/validate-alert-context-transport.mjs",
     "standalone_test_command": "node --test tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
     "standalone_coverage_command": "node --test --experimental-test-coverage tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
     "dependency_root_override_env": "CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=<directory whose node_modules already provides ajv 8.20.0 and ajv-formats 3.0.1>. All three commands run from the repository root, install nothing and require no network.",
     "coverage_floor": "Branch coverage of tools/contract-validation/validate-alert-context-transport.mjs must stay at or above 80% under the declared standalone coverage command.",
     "test_case_counts": {
-      "adversarial_rejection_cases": 30,
+      "adversarial_rejection_cases": 32,
       "positive_cases": 3,
-      "total_cases": 33
+      "total_cases": 35
     },
-    "ci_wiring": "NOT WIRED. Canonical CI wiring (npm script registration in tools/contract-validation/package.json plus pipeline invocation) is deliberately out of scope for this proposal and belongs to a later integration gate. This packet adds no tracked file to any existing validator entry point and modifies none."
+    "ci_wiring": "NOT WIRED. Canonical CI wiring (npm script registration in tools/contract-validation/package.json plus pipeline invocation) is deliberately outside this acceptance and belongs to a later integration gate. This packet adds no tracked file to any existing validator entry point and modifies none."
   },
   "provenance": {
     "repository": "cybrik-suite",
-    "base_commit": "3a2c71555a423465855ffaddcb663c8b704dbfbd",
-    "worktree": "w1-i01-alert-context-transport-binding-r1",
-    "source_decision": "W1 rolling read-ahead proposal lane W1-I01, transport-binding slice",
-    "generated_on": "2026-07-26",
+    "base_commit": "4d5fb4b701f79194313975302cc0a63e0dd2a8ea",
+    "worktree": "w1-c1-transport-acceptance-r1",
+    "source_decision": "W1 lifecycle acceptance decision for the transport-binding slice, applied by logical lane W0-I01/T01.",
+    "generated_on": "2026-07-27",
     "validator": "tools/contract-validation/validate-alert-context-transport.mjs",
     "network_required": false
   },
@@ -401,8 +407,43 @@
     "policy_completion_runtime_proven": false,
     "kill_switch_runtime_proven": false,
     "endpoint_or_transport_implemented": false,
-    "accepted_for_implementation": false,
+    "accepted_for_implementation": true,
     "release_ready": false
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION",
+    "accepted_on": "2026-07-27",
+    "decision_record": "W1 coordinator lifecycle decision under delegated Founder authority, recorded in docs/releases/GATE-W1-C1-TRANSPORT-BINDING.md and applied by logical lane W0-I01/T01 in cybrik-suite worktree w1-c1-transport-acceptance-r1 against base commit 4d5fb4b701f79194313975302cc0a63e0dd2a8ea.",
+    "scope_of_acceptance": "Accepts the transport-binding profile shape at v0.1.0 as the basis for implementation: the restriction-only reuse of the accepted W2-B request, result and receipt envelopes; the closed caller-argument channel; the capability pin; the restricted envelope status set and outcome mapping; the constrained RFC 8785/JCS projections and the lossless reconstruction back into the accepted C1 business request; the bound-receipt profile; and the static packet-integrity evidence. Acceptance is a recorded contract decision, not evidence: it changes no runtime behavior and demonstrates none.",
+    "non_claims": [
+      "no runtime implementation or runtime behavior is accepted, verified or demonstrated",
+      "no endpoint, path, operation, queue, AsyncAPI channel or MCP transport surface is accepted",
+      "no capability-registry entry is accepted or registered",
+      "no Fabric tool-execution grant is accepted or minted, and W2-F inference delegation is never Fabric tool authority",
+      "no deployment, environment rollout or operational enablement is accepted",
+      "no CI wiring or pipeline registration is accepted",
+      "no Bundle v0.1.1 membership or bundle tag is accepted",
+      "no merge, push, release or release certification is accepted"
+    ],
+    "settled_checklist": [
+      "B1 The accepted W2-B request, result and receipt envelopes and the accepted Fabric control-plane OpenAPI surface are reused byte-unchanged; this profile can only narrow them.",
+      "B2 The capability pin is exact soc.get_alert_context@0.1.0 with risk_class=R0 and side_effects=false, over an opaque registry-owned descriptor digest held under exact equality across the envelope request, the completed business binding and the receipt.",
+      "B3 The caller-argument channel is closed and can never carry authorization_binding; Fabric completes the credential- and policy-derived binding after authorization and before dispatch.",
+      "B4 The envelope status set is restricted to completed, denied, unavailable, failed and budget_exceeded, approval_id is forbidden, and dispatch is execute-only.",
+      "B5 Envelope status=unavailable and the C1 business outcome=unavailable are distinct meanings and must never be conflated; every business outcome travels inside envelope status=completed.",
+      "B6 The two narrowed string bounds (purpose 1..200, idempotency_key 16..200) make every envelope-valid bound request reconstructible into a C1-valid business request.",
+      "B7 The constrained RFC 8785/JCS projections are non-circular, and the reconstruction into the accepted C1 business request is lossless and byte-identical under constrained JCS.",
+      "B8 A completed invocation of this capability requires a conforming execution receipt with side_effect.performed=false and zero artifacts; the signing envelope stays deferred and is owned by Fabric.",
+      "B9 W2-F inference delegation is never Fabric tool authority for this capability, and the negative-semantic witness keeps that confusion a named, testable rejection.",
+      "B10 All static schema, fixture, correlation, reuse-pin, member-hash and member-set checks pass from a clean checkout under the declared standalone commands."
+    ],
+    "open_runtime_obligations": [
+      "TR-4",
+      "TR-5",
+      "TR-6",
+      "TR-7",
+      "TR-8"
+    ]
   },
   "residual_questions": [
     "Should the capability descriptor digest stay fully opaque at v0.1.0, or must the capability registry publish a computable descriptor projection before this binding can be implemented against a real registry entry?",
@@ -412,6 +453,6 @@
     "Which signing and attestation envelope will bind the receipt signature, and must it cover resolved_arguments_digest and receipt_digest before a first implementation is attempted?",
     "Should the completed-receipt obligation eventually be lifted into the generic W2-B envelope for all R0 read capabilities, or remain a per-capability restriction as it is here?",
     "Does the bound-output projection need to cover output.truncated if truncated or streamed payloads ever become possible for this capability, and how would such a projection stay non-circular?",
-    "Which integration gate wires this validator into the canonical pipeline, and does CI wiring belong before or after a lifecycle decision on this proposal?"
+    "Which integration gate wires this validator into the canonical pipeline, now that the lifecycle decision is recorded and CI wiring is still explicitly outside it?"
   ]
 }

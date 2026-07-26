@@ -1,14 +1,17 @@
 // Standalone static validator for the W1 `soc.get_alert_context` invocation
-// transport-binding packet, which is PROPOSED — NOT ACCEPTED.
+// transport-binding packet, ACCEPTED FOR IMPLEMENTATION on 2026-07-27 and
+// NOT IMPLEMENTED.
 //
 // Exit 0 proves binding-packet, schema, fixture, correlation, reuse-pin,
-// member-hash and member-set integrity only. It implements no endpoint, adds no
-// OpenAPI/AsyncAPI/MCP surface, registers no capability, authorizes no Fabric
-// invocation, wires no CI and proves no runtime authorization, policy
-// completion or kill-switch behavior. TR-4…TR-8 stay open runtime obligations
-// and the validator fails closed if the packet tries to close them, claim
-// acceptance, claim supersession over the accepted C1 packet, or drift from the
-// accepted W2-B envelope and C1 bytes it reuses unchanged.
+// member-hash and member-set integrity plus lifecycle coherence only.
+// Acceptance is a recorded contract decision, not evidence: exit 0 implements no
+// endpoint, adds no OpenAPI/AsyncAPI/MCP surface, registers no capability,
+// authorizes no Fabric invocation, deploys nothing, wires no CI, tags no Bundle
+// and proves no runtime authorization, policy completion or kill-switch
+// behavior. TR-4…TR-8 stay open runtime obligations and the validator fails
+// closed if the packet tries to close them, half-flip the lifecycle, keep stale
+// proposal language, claim supersession over the accepted C1 packet, or drift
+// from the accepted W2-B envelope and C1 bytes it reuses unchanged.
 //
 // The bound-receipt profile is enforced here as library rules (`checkBoundReceipt`
 // plus the `boundReceipt` schema branch) and is exercised by the standalone test
@@ -82,13 +85,94 @@ const REUSED_UNMODIFIED_FILES = Object.freeze([
   W2F_TOKEN_FILE,
 ]);
 
-const EXPECTED_STATUS = 'PROPOSED — NOT ACCEPTED';
-const EXPECTED_NOT_ACCEPTED = true;
+// Two-state lifecycle table. Exactly one state is expected at a time and every
+// lifecycle rule is read from it, so the packet can only ever be coherently in
+// one state: a document left behind in the other state is a half-flip, and text
+// asserting the other state is stale lifecycle language. Both are fail-closed
+// rejections rather than warnings.
+//
+//   PROPOSED  — the packet is a proposal; the accepted-lifecycle token may not
+//               appear anywhere in a lifecycle document and no acceptance record
+//               may exist.
+//   ACCEPTED  — the lifecycle decision is recorded; no proposal lifecycle
+//               assertion may survive and the acceptance record is mandatory.
+const LIFECYCLE = Object.freeze({
+  PROPOSED: Object.freeze({
+    status: 'PROPOSED — NOT ACCEPTED',
+    notAccepted: true,
+    acceptedForImplementation: false,
+    requiresAcceptanceRecord: false,
+    // Stale/premature lifecycle assertions for this state, as [pattern, reason].
+    staleLifecycleText: Object.freeze([
+      Object.freeze([
+        /ACCEPTED FOR IMPLEMENTATION/,
+        'premature acceptance text must not appear in a proposal-only packet',
+      ]),
+    ]),
+  }),
+  ACCEPTED: Object.freeze({
+    status: 'ACCEPTED FOR IMPLEMENTATION',
+    notAccepted: false,
+    acceptedForImplementation: true,
+    requiresAcceptanceRecord: true,
+    staleLifecycleText: Object.freeze([
+      Object.freeze([
+        /\bPROPOSED\b/,
+        "stale proposal lifecycle text 'PROPOSED' must not survive the acceptance flip",
+      ]),
+      Object.freeze([
+        /\bNOT ACCEPTED\b/,
+        "stale proposal lifecycle text 'NOT ACCEPTED' must not survive the acceptance flip",
+      ]),
+      Object.freeze([
+        /proposal-only/i,
+        "stale proposal lifecycle text 'proposal-only' must not survive the acceptance flip",
+      ]),
+      Object.freeze([
+        /records no acceptance/i,
+        "stale proposal lifecycle text 'records no acceptance' must not survive the "
+        + 'acceptance flip',
+      ]),
+    ]),
+  }),
+});
+
+// The single lifecycle state this validator enforces. An unknown value leaves
+// `LC` null and every lifecycle check below fails closed rather than passing by
+// default.
+const EXPECTED_STATE = 'ACCEPTED';
+const LC = LIFECYCLE[EXPECTED_STATE] || null;
+
 const EXPECTED_VERSION = '0.1.0';
-// A proposal-only packet may never carry the accepted-lifecycle token, and it may
-// never claim to replace the packet it builds on.
-const PREMATURE_ACCEPTANCE_TEXT = /ACCEPTED FOR IMPLEMENTATION/;
+const EXPECTED_ACCEPTED_ON = '2026-07-27';
+const EXPECTED_GATE_RECORD = 'docs/releases/GATE-W1-C1-TRANSPORT-BINDING.md';
+// This packet builds on the accepted C1 packet and never replaces it, in either
+// lifecycle state.
 const SUPERSESSION_TEXT = /supersed/i;
+
+const ACCEPTANCE_KEYS = Object.freeze([
+  'status',
+  'accepted_on',
+  'decision_record',
+  'scope_of_acceptance',
+  'non_claims',
+  'settled_checklist',
+  'open_runtime_obligations',
+]);
+// Independent exact allowlist of what this acceptance deliberately does NOT
+// accept. Acceptance settles the contract shape and the static evidence; every
+// gate below stays closed and needs its own separate decision.
+const EXPECTED_NON_CLAIMS = Object.freeze([
+  'no runtime implementation or runtime behavior is accepted, verified or demonstrated',
+  'no endpoint, path, operation, queue, AsyncAPI channel or MCP transport surface is accepted',
+  'no capability-registry entry is accepted or registered',
+  'no Fabric tool-execution grant is accepted or minted, and W2-F inference delegation is '
+    + 'never Fabric tool authority',
+  'no deployment, environment rollout or operational enablement is accepted',
+  'no CI wiring or pipeline registration is accepted',
+  'no Bundle v0.1.1 membership or bundle tag is accepted',
+  'no merge, push, release or release certification is accepted',
+]);
 
 const EXPECTED_SOURCE_COMMIT = '3a2c71555a423465855ffaddcb663c8b704dbfbd';
 const EXPECTED_SOURCE_MEMBER_COUNT = 13;
@@ -261,6 +345,7 @@ const COMPATIBILITY_KEYS = Object.freeze([
   'verification',
   'provenance',
   'proof_limits',
+  'acceptance',
   'residual_questions',
 ]);
 
@@ -348,20 +433,22 @@ const TEST_CASE_COUNT_KEYS = Object.freeze([
   'total_cases',
 ]);
 const EXPECTED_TEST_CASE_COUNTS = Object.freeze({
-  adversarial_rejection_cases: 30,
+  adversarial_rejection_cases: 32,
   positive_cases: 3,
-  total_cases: 33,
+  total_cases: 35,
 });
 const EXPECTED_VERIFICATION_TEXT = Object.freeze({
   scope: 'Standalone static evidence only. The suite in '
     + 'tools/contract-validation/tests/validate-alert-context-transport.test.mjs '
-    + 'holds 30 adversarial rejection cases plus 3 positive checks; several '
+    + 'holds 32 adversarial rejection cases plus 3 positive checks; several '
     + 'adversarial cases are table-driven over multiple mutations and every '
     + 'mutation must fail closed. It proves binding-packet, schema, fixture, '
-    + 'correlation, reuse-pin, member-hash and member-set integrity only: no '
-    + 'endpoint, transport surface, capability registration, Fabric grant, W2-F '
-    + 'delegation authority, policy completion, kill-switch behavior, runtime '
-    + 'enforcement, CI wiring or acceptance is demonstrated.',
+    + 'correlation, reuse-pin, member-hash and member-set integrity plus '
+    + 'lifecycle coherence only: no endpoint, transport surface, capability '
+    + 'registration, Fabric grant, W2-F delegation authority, policy completion, '
+    + 'kill-switch behavior, runtime enforcement, deployment, CI wiring, bundle '
+    + 'tag or release readiness is demonstrated, and the lifecycle acceptance '
+    + 'the packet carries is a recorded decision rather than evidence.',
   standalone_validator_command:
     'node tools/contract-validation/validate-alert-context-transport.mjs',
   standalone_test_command:
@@ -377,9 +464,9 @@ const EXPECTED_VERIFICATION_TEXT = Object.freeze({
     + 'at or above 80% under the declared standalone coverage command.',
   ci_wiring: 'NOT WIRED. Canonical CI wiring (npm script registration in '
     + 'tools/contract-validation/package.json plus pipeline invocation) is '
-    + 'deliberately out of scope for this proposal and belongs to a later '
-    + 'integration gate. This packet adds no tracked file to any existing '
-    + 'validator entry point and modifies none.',
+    + 'deliberately outside this acceptance and belongs to a later integration '
+    + 'gate. This packet adds no tracked file to any existing validator entry '
+    + 'point and modifies none.',
 });
 
 const sha256Bytes = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -730,23 +817,32 @@ export function validateAlertContextTransportBindingPacket({
     [EXAMPLES_MANIFEST_FILE, examplesManifest],
     [COMPATIBILITY_FILE, compatibility],
   ];
+  if (!LC) {
+    fail(
+      `lifecycle state '${EXPECTED_STATE}' is not one of the declared states `
+      + `${Object.keys(LIFECYCLE).join(', ')}; the packet cannot be validated fail-closed`,
+    );
+  }
   for (const [label, document] of lifecycleDocuments) {
-    if (!document) continue;
-    if (document['x-cybrik-status'] !== EXPECTED_STATUS) {
-      fail(`${label}: x-cybrik-status must stay '${EXPECTED_STATUS}'`);
+    if (!document || !LC) continue;
+    if (document['x-cybrik-status'] !== LC.status) {
+      fail(`${label}: x-cybrik-status must be '${LC.status}'`);
     }
-    if (document['x-cybrik-not-accepted'] !== EXPECTED_NOT_ACCEPTED) {
-      fail(`${label}: x-cybrik-not-accepted must stay true`);
+    if (document['x-cybrik-not-accepted'] !== LC.notAccepted) {
+      fail(`${label}: x-cybrik-not-accepted must be ${LC.notAccepted}`);
     }
     if (document['x-cybrik-contract-version'] !== EXPECTED_VERSION) {
       fail(`${label}: x-cybrik-contract-version must be ${EXPECTED_VERSION}`);
     }
     const text = JSON.stringify(document);
-    if (PREMATURE_ACCEPTANCE_TEXT.test(text)) {
-      fail(`${label}: premature acceptance text must not appear in a proposal-only packet`);
+    for (const [pattern, reason] of LC.staleLifecycleText) {
+      if (pattern.test(text)) fail(`${label}: ${reason}`);
     }
     if (SUPERSESSION_TEXT.test(text)) {
-      fail(`${label}: supersession claim must not appear in a proposal-only packet`);
+      fail(
+        `${label}: supersession claim must not appear; this packet builds on the accepted C1 `
+        + 'packet and never replaces it',
+      );
     }
   }
   const lifecycleSignatures = new Set(
@@ -1427,6 +1523,11 @@ export function validateAlertContextTransportBindingPacket({
       ],
       fail,
     );
+    if (LC?.requiresAcceptanceRecord) {
+      exactKeys('acceptance', compatibility.acceptance, ACCEPTANCE_KEYS, fail);
+    } else if ('acceptance' in compatibility) {
+      fail("acceptance: unexpected key 'acceptance' outside the accepted lifecycle state");
+    }
     exactKeys(
       'member_set_integrity',
       compatibility.member_set_integrity,
@@ -1465,13 +1566,53 @@ export function validateAlertContextTransportBindingPacket({
         || compatibility.capability_scope?.side_effects !== false) {
       fail('capability_scope must stay R0 with side_effects=false');
     }
+    // The acceptance record. It exists only in the accepted state, must agree
+    // with the declared lifecycle rather than half-flipping against it, must
+    // stay traceable to its gate record, and must keep every non-claim and every
+    // open runtime obligation explicit.
+    if (LC?.requiresAcceptanceRecord) {
+      const acceptance = compatibility.acceptance || {};
+      if (acceptance.status !== compatibility['x-cybrik-status']) {
+        fail(
+          'lifecycle half-flip: acceptance.status must equal the declared x-cybrik-status, '
+          + `got '${acceptance.status}' vs '${compatibility['x-cybrik-status']}'`,
+        );
+      }
+      if (acceptance.status !== LC.status) {
+        fail(`acceptance.status must be ${LC.status}`);
+      }
+      if (acceptance.accepted_on !== EXPECTED_ACCEPTED_ON) {
+        fail(`acceptance.accepted_on must be ${EXPECTED_ACCEPTED_ON}`);
+      }
+      if (typeof acceptance.decision_record !== 'string'
+          || !acceptance.decision_record.includes(EXPECTED_GATE_RECORD)) {
+        fail(`acceptance.decision_record must cite the gate record ${EXPECTED_GATE_RECORD}`);
+      }
+      if (!same(acceptance.non_claims, EXPECTED_NON_CLAIMS)) {
+        fail(
+          'acceptance.non_claims must match the independent exact list of gates this '
+          + 'acceptance does not open',
+        );
+      }
+      if (!Array.isArray(acceptance.settled_checklist) || acceptance.settled_checklist.length === 0) {
+        fail('acceptance.settled_checklist must record at least one settled question');
+      }
+      // Acceptance closes no runtime obligation: the record must carry exactly
+      // the same open set the packet declares.
+      if (!same(acceptance.open_runtime_obligations, EXPECTED_OPEN_RUNTIME_OBLIGATIONS)) {
+        fail(
+          'acceptance.open_runtime_obligations must be exactly '
+          + EXPECTED_OPEN_RUNTIME_OBLIGATIONS.join(', '),
+        );
+      }
+    }
+
     const proof = compatibility.proof_limits || {};
     for (const field of [
       'runtime_authorization_proven',
       'policy_completion_runtime_proven',
       'kill_switch_runtime_proven',
       'endpoint_or_transport_implemented',
-      'accepted_for_implementation',
       'release_ready',
     ]) {
       if (proof[field] !== false) fail(`proof_limits.${field} must stay false`);
@@ -1479,9 +1620,15 @@ export function validateAlertContextTransportBindingPacket({
     if (proof.static_packet_integrity_proven !== true) {
       fail('proof_limits.static_packet_integrity_proven must be true');
     }
-    if (proof.accepted_for_implementation !== (compatibility['x-cybrik-not-accepted'] !== true)) {
+    if (LC && proof.accepted_for_implementation !== LC.acceptedForImplementation) {
       fail(
-        'lifecycle coherence: proof_limits.accepted_for_implementation must agree with '
+        `proof_limits.accepted_for_implementation must be ${LC.acceptedForImplementation} in `
+        + `lifecycle state ${EXPECTED_STATE}`,
+      );
+    }
+    if (proof.accepted_for_implementation !== (compatibility['x-cybrik-not-accepted'] === false)) {
+      fail(
+        'lifecycle half-flip: proof_limits.accepted_for_implementation must agree with '
         + 'x-cybrik-not-accepted',
       );
     }
@@ -1622,8 +1769,8 @@ export function validateAlertContextTransportBindingPacket({
         fail(`compatibility manifest contains forbidden claim ${forbiddenClaim}`);
       }
     }
-    if (!manifestText.includes(EXPECTED_STATUS)) {
-      fail(`compatibility manifest must carry the declared '${EXPECTED_STATUS}' lifecycle value`);
+    if (LC && !manifestText.includes(LC.status)) {
+      fail(`compatibility manifest must carry the declared '${LC.status}' lifecycle value`);
     }
 
     // Accepted-artifact reuse pins.
@@ -1808,8 +1955,8 @@ export function validateAlertContextTransportBindingPacket({
     }
   }
 
-  // Derived from the real bytes, never asserted: a premature acceptance flip
-  // prints a lifecycle pair that differs from the proposal-only one.
+  // Derived from the real bytes, never asserted: a lifecycle regression or
+  // half-flip prints a pair that differs from the expected state's pair.
   const status = compatibility
     ? `${String(compatibility['x-cybrik-status'] ?? 'MISSING').replace(/\s+/g, '_')}`
       + `_NOT_ACCEPTED_FLAG=${compatibility['x-cybrik-not-accepted']}`
@@ -1819,8 +1966,10 @@ export function validateAlertContextTransportBindingPacket({
     errors,
     counts,
     status,
+    lifecycleState: EXPECTED_STATE,
     implementationStatus: compatibility?.capability_scope?.implementation_status,
     acceptedForImplementation: compatibility?.proof_limits?.accepted_for_implementation,
+    acceptedOn: compatibility?.acceptance?.accepted_on,
     runtimeAuthorizationProven: compatibility?.proof_limits?.runtime_authorization_proven,
     killSwitchRuntimeProven: compatibility?.proof_limits?.kill_switch_runtime_proven,
   };
@@ -1842,9 +1991,11 @@ if (isMain) {
     console.log('ALERT-CONTEXT TRANSPORT-BINDING VALIDATION: PASS');
     console.log(JSON.stringify(result.counts, null, 2));
   }
+  console.log(`LIFECYCLE_STATE=${result.lifecycleState}`);
   console.log(`STATUS=${result.status}`);
   console.log(`IMPLEMENTATION_STATUS=${result.implementationStatus}`);
   console.log(`ACCEPTED_FOR_IMPLEMENTATION=${result.acceptedForImplementation}`);
+  console.log(`ACCEPTED_ON=${result.acceptedOn}`);
   console.log(`RUNTIME_AUTHORIZATION_PROVEN=${result.runtimeAuthorizationProven}`);
   console.log(`KILL_SWITCH_RUNTIME_PROVEN=${result.killSwitchRuntimeProven}`);
 }
