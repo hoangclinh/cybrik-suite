@@ -215,6 +215,43 @@ read-only from the Fabric repository; full packet:
   `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no task 49, and all
   dates are unchanged. Full bounded record: §14.13.
 
+### 1.6 Fabric W0-I07 remediation grant — 2026-07-27, fifth same-day record
+
+Recorded later again on 2026-07-27 under the three-path bounded authority in §14.14, as the
+**fresh prospective bounded grant** that §1.5 and the disposition packet §5 require before any
+future action on the paused Fabric W0-I07 tree. Full grant text:
+`docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`.
+
+- **Verified:** worktree `w1-i07-fabric-r0-domain-r1` re-verified live and read-only — still at
+  base `87b4cf388038c6dd2e1a74e13f4131306a80ba92`, branch tip equal to base, exactly 30 dirty
+  `-uall` paths matching the packet §1 enumeration path-for-path, zero staged — unchanged since
+  §1.5.
+- **Basis, as reported:** the **W0-R04A reassessment** of the same dirty tree — no P0–P2;
+  **117 targeted tests green** (supersedes the earlier `113` targeted figure; dated history
+  stands); the three W0-R04 P3 findings re-characterized as one **blocking** (idempotency
+  record-before-outcome ordering compounded by nested returned-document aliasing), one cosmetic
+  (S105 rename of the W2F TOKEN DIGEST constant) and one optional (shallow-freeze docstring
+  caveat) — the grant's §1 table is the explicit P3 disposition packet §5 item 3 requires.
+- **Grant, in brief:** grantee is the same immutable task **W0-I07**; writer is **Opus 5 in a
+  brand-new session** — the exhausted session `5da9e0a9` is never resumed; runtime is one
+  initial 600 s cycle plus at most one healthy 600 s extension under §15; product edits are
+  limited to **five already-dirty paths** (`invocation/service.py`, the two
+  `test_r0_invocation_*` test files, and optional **docstring-only** caveats in
+  `invocation/models.py`/`invocation/ports.py`); permitted behavior is exactly RED-first tests
+  proving a failed post-condition leaves the store empty/key reusable and that returned-document
+  mutation cannot affect replay, then moving `store.record` after the successful
+  complete/validated outcome with deterministic deep copy at record and replay, the S105 rename,
+  and the optional one-sentence caveats; the other 25 dirty paths stay read-only until staging
+  and the dirty set must remain exactly the same 30 paths; the writer **stops before commit**
+  for an independent Fable pre-commit review, and only after **GO with no P0–P2** may the same
+  new session stage exactly all 30 paths and make one status-honest `SCAFFOLD` local commit,
+  followed by a **fresh post-commit Fable review** before anything counts as product evidence.
+- **Nothing moves on this grant alone:** the tree stays `PAUSED — UNCOMMITTED` and not product
+  evidence until the writer completes under the grant and both reviews pass; no push, merge,
+  release or install; G2/G3 stay closed, W1 integration/live shadow stays `HOLD`/`NO-GO`,
+  `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no task 49, and all
+  dates are unchanged. Full bounded record: §14.14.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -240,7 +277,7 @@ read-only from the Fabric repository; full packet:
 | W0-I04 | SOC `shadow_remote` client/flag, correlation and rollback-compatible embedded path | SOC Copilot | `HOLD` on W0-I02 and transport acceptance |
 | W0-I05 | Pure Cyber AI job/checkpoint/cancel state-machine and ports | Cyber AI orchestration | `HOLD` on ADR-0003/explicit bounded authority |
 | W0-I06 | Cyber AI investigation producer and W2-D/W2-F relying-party composition | Cyber AI API/worker | `HOLD` on lifecycle/transport contracts and runtime trust gates; the bounded W1-I06C HTTP ingress attempt in worktree `w1-i06c-http-ingress-r2` (gate reopened at `866b7db9…`) is `PAUSED — UNCOMMITTED` after the §15 hard stop and is reviewed **NO-GO** by W0-R03 (P1 static gates, P2 evidence packaging) — **not** product evidence (§1.4) |
-| W0-I07 | Fabric R0 registry/invocation for `soc.get_alert_context` | Fabric control plane | `HOLD` on product runtime authority; the bounded R0 domain attempt in worktree `w1-i07-fabric-r0-domain-r1` (base `87b4cf3…`) is `PAUSED — UNCOMMITTED` under the hard-timeout policy — audited technically GREEN by the W0-R04 read-only audit but **not** product evidence until committed and reviewed (§1.3). The former "`HOLD` on W0-I01" wording in this row was removed only because that dependency was **discharged** — W1-C1 accepted 2026-07-26 and W1-G1 closed 2026-07-27 — not because it was erased historically (§14.12.4). Disposition recorded 2026-07-27 (§1.5, §14.13, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`): `HOLD` — commit and replacement writer **refused** for the exhausted attempt; future action needs a fresh prospective bounded grant, resolution or explicit disposition of the three W0-R04 P3 findings, and a fresh post-commit independent review |
+| W0-I07 | Fabric R0 registry/invocation for `soc.get_alert_context` | Fabric control plane | `HOLD` on product runtime authority; the bounded R0 domain attempt in worktree `w1-i07-fabric-r0-domain-r1` (base `87b4cf3…`) is `PAUSED — UNCOMMITTED` under the hard-timeout policy — audited technically GREEN by the W0-R04 read-only audit but **not** product evidence until committed and reviewed (§1.3). The former "`HOLD` on W0-I01" wording in this row was removed only because that dependency was **discharged** — W1-C1 accepted 2026-07-26 and W1-G1 closed 2026-07-27 — not because it was erased historically (§14.12.4). Disposition recorded 2026-07-27 (§1.5, §14.13, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`): `HOLD` — commit and replacement writer **refused** for the exhausted attempt; future action needs a fresh prospective bounded grant, resolution or explicit disposition of the three W0-R04 P3 findings, and a fresh post-commit independent review. That fresh prospective bounded grant was recorded later on 2026-07-27 (§1.6, §14.14, `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`), based on the W0-R04A reassessment, with the P3 disposition inside it; the tree stays `PAUSED — UNCOMMITTED` and not product evidence until the granted writer completes and both its pre- and post-commit reviews pass |
 | W0-I08 | Fabric receipt/idempotency/kill-switch domain and storage ports | Fabric control plane | `HOLD` on receipt-envelope/runtime decisions |
 | W0-I09 | SOC Investigation Bundle viewer and human accept/edit/reject seam | SOC portal | `HOLD` on accepted read API and service-seeded fixture |
 | W0-I10 | Durable Cyber AI persistence/outbox/relay | Cyber AI worker/store | `HOLD` on ADR-0003 and real-store authority |
@@ -271,7 +308,7 @@ read-only from the Fabric repository; full packet:
 | W0-R01 | Cross-product W1 contract/ownership architecture review | `ACTIVE READ-ONLY` |
 | W0-R02 | SOC authz/runtime/PostgreSQL and UI-E2E evidence review | `ACTIVE READ-ONLY` |
 | W0-R03 | Cyber AI state/model/runtime correctness review | `ACTIVE READ-ONLY`; completed the 2026-07-27 technical review of the paused W1-I06C HTTP dirty tree — **NO-GO**: P1 static-gate failures (`ruff` 7 findings, format 4 files, `mypy` 9 errors) and P2 RED-first evidence packaging, while targeted `138` and full `696` tests pass at `97.43%` coverage; still **not** product evidence (§1.4) |
-| W0-R04 | Fabric control-plane/executor/trust-boundary review | `ACTIVE READ-ONLY`; completed the 2026-07-27 read-only audit of the paused W0-I07 worktree — technically GREEN, no P0–P2, three P3, still **not** product evidence (§1.3); that audit result now feeds the recorded W0-I07 disposition (§1.5, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`), and it does **not** carry over as the fresh post-commit review any future grant requires |
+| W0-R04 | Fabric control-plane/executor/trust-boundary review | `ACTIVE READ-ONLY`; completed the 2026-07-27 read-only audit of the paused W0-I07 worktree — technically GREEN, no P0–P2, three P3, still **not** product evidence (§1.3); that audit result now feeds the recorded W0-I07 disposition (§1.5, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`), and it does **not** carry over as the fresh post-commit review any future grant requires; the lane's later **W0-R04A reassessment** of the same dirty tree (no P0–P2, `117` targeted green, three P3 re-characterized: one blocking, one cosmetic, one optional) is the reported basis of the 2026-07-27 remediation grant (§1.6, `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`) and likewise does **not** carry over as either of that grant's required reviews |
 | W0-R05 | OpenAPI/AsyncAPI/schema compatibility and supersession review | `ACTIVE READ-ONLY` |
 | W0-R06 | Claim-to-evidence and lifecycle wording review | `ACTIVE READ-ONLY` for review; the tool-side gate it held in §14.8.4 was repaired and **closed 2026-07-26** under the bounded write authority recorded in §14.9 (validator `PASS`, `tests 77 · pass 77 · fail 0`, manual only, **CI: NOT WIRED**); the wording residual in §14.8.3 stays open |
 
@@ -1463,6 +1500,121 @@ claimed.
 - The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
   residual named in §14.13.1 is recorded, not fixed; this record opened no authority over
   either.
+
+### 14.14 W0-D04 Fabric W0-I07 remediation-grant record — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, the fifth same-day record after §14.13, under
+**coordinator-delegated Founder authority** scoped to documentation and **exactly one bounded
+local commit**. Owner: logical task **W0-D04** (prospective-grant author). This section records
+the **fresh prospective bounded grant for the Fabric W0-I07 remediation** — the grant that
+§1.5/§14.13 and the disposition packet §5 require before any future action on the paused tree —
+and does nothing else: it accepts no packet, flips no ADR, contract or gate status, promotes no
+gate in §1, opens no product or runtime writer **now** (the granted writer runs later, only
+under the grant's own terms), and creates no task identity.
+
+#### 14.14.1 Exact write allowlist — three paths
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md` | **new** prospective grant |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register |
+
+Everything else is outside this allowlist and was not edited: all of `tools/operations/`
+(including `validate-w1-control.mjs` and its test suite), all of `contracts/`, all of
+`docs/adr/`, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`,
+`docs/operations/README.md`, `docs/README.md`, the root `README.md` and
+`docs/strategy/06-ROADMAP-2026-2029.md`. That roadmap file still carries its **pre-existing,
+unrelated dirty working-copy edit**, which was left exactly as found — byte-for-byte — and was
+**not staged**; its fixed release dates are unchanged. No path was added outside the allowlist,
+none was renamed, merged, pushed or deleted, and no product repository was written to — every
+Fabric fact below was **read** from live Git, read-only. `docs/operations/README.md` is outside
+this allowlist, so its index lists neither the disposition packet nor the new grant; that
+remains a known, bounded residual, recorded and not silently fixed outside a grant.
+
+Like §14.11–§14.13, this authority ends with **exactly one authorized local commit** of the
+three allowlisted paths in this control worktree — subject
+`docs(control): grant Fabric R0 remediation` — and nothing else: no push, no merge, no remote
+change, no release, no dependency install, no formatter.
+
+**Allowlist history, in order.** §14.1 eight docs-only paths → §14.4.1 five paths → §14.5.1
+seven docs-only paths → §14.6.1 twelve paths → §14.7.1 nineteen paths → §14.8.1 nine docs-only
+paths → §14.9.1 eight paths → §14.10.1 two docs-only paths → §14.11.1 two docs-only paths →
+§14.12.1 two docs-only paths → §14.13.1 three docs-only paths → §14.14.1 three docs-only paths
+(this record). Each set was bounded separately; none widened an earlier one, and every earlier
+record stands unedited as provenance.
+
+#### 14.14.2 Basis evidence — 2026-07-27, worktree re-read live; reassessment as reported
+
+- **Worktree state, verified.** `w1-i07-fabric-r0-domain-r1`, branch
+  `codex/w1-i07-fabric-r0-domain-r1`, HEAD/base `87b4cf388038c6dd2e1a74e13f4131306a80ba92`;
+  branch tip equals base — still no commit on the attempt. Dirty with exactly **30 `-uall`
+  paths, zero staged**, compared path-for-path against the disposition-packet §1 enumeration —
+  the tree has not drifted since §14.13.2.
+- **Reassessment, as reported.** The **W0-R04A reassessment** by the W0-R04 review lane, not
+  re-executed from this control worktree: no P0–P2; **117 targeted tests green** (supersedes
+  the earlier `113` targeted figure, which stands in dated history); the three W0-R04 P3
+  findings re-characterized — **blocking**: idempotency `store.record`-before-outcome ordering
+  compounded by nested returned-document aliasing; **cosmetic**: S105 rename of the W2F TOKEN
+  DIGEST constant; **optional**: shallow-freeze docstring caveat.
+
+#### 14.14.3 Grant recorded
+
+The full grant text is `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`; §1.6 carries the
+board summary. In brief: grantee **W0-I07** (same immutable identity); writer **Opus 5 in a
+brand-new session**, never resuming exhausted session `5da9e0a9`; runtime one initial 600 s
+cycle plus at most one healthy 600 s extension under §15; product edit allowlist of exactly
+**five already-dirty paths** with the other 25 read-only until staging and the dirty set held
+at exactly 30 paths; permitted behavior exactly RED-first post-condition/aliasing tests, the
+`store.record` move after successful complete/validated outcome, deterministic deep copy at
+record and replay, the S105 rename and optional one-sentence docstring caveats; writer stops
+before commit; independent Fable pre-commit review must return **GO with no P0–P2** before the
+same session stages exactly all 30 paths and makes one status-honest `SCAFFOLD` local commit;
+a fresh post-commit Fable review follows before anything counts as product evidence. Exact
+STOP conditions are enumerated in the grant §6.
+
+#### 14.14.4 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `3d79deb841c67e245cbfd1ace29a97b04ad5e339`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after
+the three documents were written:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0` |
+
+The validator and its test suite were **not modified** by this record; both commands are
+**manual** and **static/documentary only** — **CI: NOT WIRED** for both, and no CI result is
+claimed.
+
+#### 14.14.5 What this record did not change and did not grant
+
+- Beyond the single authorized local commit named in §14.14.1, nothing was staged, committed,
+  merged, pushed, deployed or released; no branch or remote was created or configured; no
+  dependency was installed; no database, container, microVM, netns or broker was started; no
+  formatter or auto-fixer was run; and no product repository was written to.
+- **No status flip of any kind.** GATE A4 and the W1-C1/C2 contract gate stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, and G2/G3 stay
+  closed — no gate beyond W1-G1 opens or advances.
+- **The grant is prospective and promotes nothing now.** The Fabric W0-I07 tree stays
+  `PAUSED — UNCOMMITTED` and not product evidence; the §1.5 refusals against the exhausted
+  attempt stand — the granted writer is a **new** bounded attempt under the same immutable
+  identity, and no writer session was opened by this record.
+- The queued Cyber AI W1-I06C remediation remains **queued only** — nothing about it is
+  decided, granted or scheduled by this record.
+- W1 product implementation and integration/live shadow stay `HOLD`; W1 runtime writers,
+  delegated routine integration and external release stay `NO-GO`; `W0 COMPLETE=0` and W0
+  closure `NO-GO`; the §11 exit criteria remain unmet and the four live-shadow blockers in
+  §1.3 are unchanged.
+- The 48 immutable task identities are unchanged; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4; no task 49 exists and no replacement identity was created.
+- W1 formal dates 2026-08-01 → 2026-08-23, all W0–W6 dates and the 2026-12-21 → 2026-12-31
+  release window are unchanged; the pre-existing dirty edit in
+  `docs/strategy/06-ROADMAP-2026-2029.md` was preserved untouched and left unstaged.
+- The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
+  residual named in §14.13.1/§14.14.1 is recorded, not fixed; this record opened no authority
+  over either.
 
 ## 15. Coordinator runtime rule — bounded single extension
 
