@@ -413,6 +413,10 @@ ran from `/tmp` and is **not** a permanent CI job"). The decision basis is the *
 decision** (a coordinator-delegated decision label, not a roster task identity). Full grant
 text: `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`.
 
+The granted writer subsequently ran and **hard-stopped later on 2026-07-27**: §1.11 records
+that hard-stop outcome as the tenth same-day record. This section stands unedited as dated
+history.
+
 - **Verified:** the SOC lane's clean reviewed base was re-verified live and read-only —
   worktree `w1-i03-soc-context-runtime-r1`, branch `codex/w1-i03-soc-context-runtime-r1`, tip
   `f4d234bba09ae1bea7a63b3348be3640a701065d` (subject `test(org): advance Alembic head guard`,
@@ -456,6 +460,61 @@ text: `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`.
   merge, release or install; G2/G3 stay closed, W1 integration/live shadow stays
   `HOLD`/`NO-GO`, `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no
   task 49, and all dates are unchanged. Full bounded record: §14.18.
+
+### 1.11 SOC W1-I03B hard-stop evidence — 2026-07-27, tenth same-day record
+
+Recorded later again on 2026-07-27 under the three-path bounded authority in §14.19. The
+granted W1-I03B writer (§1.10) ran and **hard-stopped** at the §15 runtime bound before the
+grant §6 review-and-commit protocol could complete. The attempt worktree facts were re-verified
+live and read-only from the SOC repository; the test, check and review figures are **as
+reported** by the lane and its independent W0-R02B review. Full record:
+`docs/operations/W1-I03B-ROUTE-DB-HARD-STOP-EVIDENCE.md`.
+
+- **Verified:** the granted **new** worktree/branch exist —
+  `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`, branch
+  `codex/w1-i03b-route-db-permanence-r1`, HEAD at exactly the grant base
+  `f4d234bba09ae1bea7a63b3348be3640a701065d`, branch tip equal to base — **no commit
+  produced**; exactly **two dirty `-uall` paths, zero staged** — precisely the grant §3
+  allowlist (NEW `services/api/tests/integration/test_alert_context_route_db.py` untracked;
+  `.github/workflows/ci.yml` modified) and nothing else; the workflow diff is **purely
+  additive** — the base's **392 lines byte-identical** (`66 insertions, 0 deletions`) with the
+  appended **66-line `alert-context-route-db` job block hard-gated `if: false` at job level**,
+  and zero existing-job edits.
+- **Session:** the granted writer, **Opus 5** session
+  `2aa3bab1-bf56-4161-ac04-b4f67810691c`, consumed the initial 600 s cycle plus **exactly
+  one** healthy 600 s extension under §15, then **hard-stopped — no third cycle**; the session
+  is exhausted and must **never be resumed**. The grant §6.3 same-writer commit authority
+  expired with it, so the attempt's commit path is closed.
+- **Review, as reported:** independent **W0-R02B** review of the two-path dirty tree —
+  **technical GO, no P0–P2**, with **three P3** (writer transcript absent, so the test-first
+  RED evidence is unverifiable by citation; `mypy`/`actionlint` unavailable without a
+  forbidden install, so those checks are deferred to CI, which is NOT WIRED; runner missing
+  `cryptography`, causing a pre-existing sandbox-only collection failure outside the diff) —
+  **disposition `PAUSED — UNCOMMITTED`, not product evidence**, because the same-writer
+  commit authority expired.
+- **Executed evidence, as reported:** skip-clean without a database — **9 skipped**, no
+  failure or import error; against real **PostgreSQL 16.14** — the new module **9/9 passed**,
+  asserting the `NOBYPASSRLS`/`FORCE ROW LEVEL SECURITY` posture, cross-tenant denial with
+  non-disclosure, digest/idempotency, a **true multi-connection lock proof** on two live
+  connections, and org-flag-ON fail-closed `org_context_incomplete`; integration directory
+  **503 passed / 5 skipped**; available backend slice **2740 passed / 6 skipped / 1
+  pre-existing environment failure**; `ruff`/format/compile clean; synthetic data only; the
+  throwaway PostgreSQL container was removed after the run.
+- **Decision effects, recorded truthfully:** none — no gate flips and nothing is promoted.
+  The CI job block stays **strictly static CI wiring, CI: NOT WIRED**, never "permanent"
+  without push plus remote green (push stays `NO-GO`); the §1.3 route-against-DB residual is
+  **not closed**; **live-shadow blocker 3 stands in full** — `shadow_remote`, real org
+  mapping, TTL and the live bundle path stay open; the latest committed SOC lane state
+  remains `f4d234b…` with W0-R02 `PASS`.
+- **Queued, not decided:** landing the two-path tree — or any re-attempt — requires a **fresh
+  prospective bounded grant** recorded before work, no resumption of the exhausted session
+  and no task-identity reuse or minting to evade the §15 timeout, resolution or explicit
+  disposition of the three P3 findings, and the new grant's own pre-commit and post-commit
+  reviews; neither the W0-R02B review nor this record's re-verification carries over. **No
+  new writer and no commit is opened by this record.**
+- **Nothing else moves:** G2/G3 stay closed, W1 integration/live shadow stays `HOLD`/`NO-GO`,
+  `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no task 49, and all
+  dates are unchanged. Full bounded record: §14.19.
 
 ## 2. Capacity and ownership
 
@@ -2375,6 +2434,155 @@ claimed.
   hash-pinned in §14.18.4.
 - The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
   residual named in §14.13.1–§14.18.1 is recorded, not fixed; this record opened no authority
+  over either.
+- The Fabric W0-I07 lane (§1.7) and the Cyber AI W0-I06 lane (§1.9) are untouched.
+
+### 14.19 W0-D04 SOC W1-I03B hard-stop evidence record — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, the tenth same-day record after §14.18, under
+**coordinator-delegated Founder authority** scoped to documentation and **exactly one bounded
+local commit**. Owner: logical task **W0-D04** (hard-stop evidence reconciler). This section
+records the **outcome of the §14.18 grant**: the granted W1-I03B writer ran on the new
+branch/worktree at exactly the grant base, produced exactly the two allowlisted dirty paths,
+and **hard-stopped** at the §15 runtime bound before the grant §6 review-and-commit protocol
+could complete — and does nothing else: it accepts no packet, flips no ADR, contract or gate
+status, promotes no gate in §1, closes no residual, opens no writer (any future action is
+queued behind a fresh prospective bounded grant), and creates no task identity.
+
+#### 14.19.1 Exact write allowlist — three paths
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I03B-ROUTE-DB-HARD-STOP-EVIDENCE.md` | **new** hard-stop evidence record |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register |
+
+Everything else is outside this allowlist and was not edited: all of `tools/operations/`
+(including `validate-w1-control.mjs` and its test suite), all of `contracts/`, all of
+`docs/adr/`, every other file under `docs/operations/` — including the consumed grant
+`docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`, which stands unedited as dated
+history — `docs/README.md`, the root `README.md` and
+`docs/strategy/06-ROADMAP-2026-2029.md`. That roadmap file still carries its **pre-existing,
+unrelated dirty working-copy edit**, which was left exactly as found — byte-for-byte,
+hash-pinned in §14.19.4 — and was **not staged**; its fixed release dates are unchanged. No
+path was added outside the allowlist, none was renamed, merged, pushed or deleted, and no
+product repository was written to — every SOC fact below was obtained **read-only** (live Git
+reads and read-only file inspection of the attempt worktree). `docs/operations/README.md` is
+outside this allowlist, so its index residual named in §14.13.1–§14.18.1 persists and now
+also omits this record; that remains a known, bounded residual, recorded and not silently
+fixed outside a grant.
+
+Like §14.11–§14.18, this authority ends with **exactly one authorized local commit** of the
+three allowlisted paths in this control worktree — subject
+`docs(control): record SOC route-DB hard stop` — and nothing else: no push, no merge, no
+remote change, no release, no dependency install, no formatter.
+
+**Allowlist history, in order.** §14.1 eight docs-only paths → §14.4.1 five paths → §14.5.1
+seven docs-only paths → §14.6.1 twelve paths → §14.7.1 nineteen paths → §14.8.1 nine docs-only
+paths → §14.9.1 eight paths → §14.10.1 two docs-only paths → §14.11.1 two docs-only paths →
+§14.12.1 two docs-only paths → §14.13.1 three docs-only paths → §14.14.1 three docs-only paths
+→ §14.15.1 three docs-only paths → §14.16.1 three docs-only paths → §14.17.1 three docs-only
+paths → §14.18.1 three docs-only paths → §14.19.1 three docs-only paths (this record). Each
+set was bounded separately; none widened an earlier one, and every earlier record stands
+unedited as provenance.
+
+#### 14.19.2 Verified attempt evidence — 2026-07-27, re-verified read-only
+
+- **Attempt state, verified.** `cybrik-soc-command-center`, **new** worktree
+  `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`, **new** branch
+  `codex/w1-i03b-route-db-permanence-r1`, HEAD at exactly the grant base
+  `f4d234bba09ae1bea7a63b3348be3640a701065d`; branch tip equal to base — **no commit
+  produced**; exactly **two dirty `-uall` paths, zero staged** — precisely the grant §3
+  allowlist and nothing else: NEW (untracked)
+  `services/api/tests/integration/test_alert_context_route_db.py` and modified
+  `.github/workflows/ci.yml`.
+- **Workflow bytes, verified.** The `ci.yml` diff against the base is purely additive —
+  `66 insertions, 0 deletions` in a single hunk appended after the final base line, leaving
+  the base's **392 lines byte-identical**; the appended **66-line `alert-context-route-db`
+  job block** carries **`if: false` at job level** and self-labels as
+  `STATIC CI WIRING, NOT WIRED`; **zero existing-job edits**.
+- **Session and runtime, as reported.** Writer **Opus 5**, brand-new session
+  `2aa3bab1-bf56-4161-ac04-b4f67810691c`; initial 600 s cycle plus exactly one healthy 600 s
+  extension under §15; then a hard stop with no third cycle. The session is exhausted and is
+  never resumed; the grant §6.3 same-writer commit authority expired with it.
+- **Review, as reported.** Independent **W0-R02B** review of the dirty tree: **technical GO,
+  no P0–P2, three P3** — (1) writer transcript absent, so the grant §4.1 test-first RED
+  evidence is unverifiable by citation; (2) `mypy`/`actionlint` unavailable without a
+  forbidden install, so those checks are deferred to CI, which is NOT WIRED; (3) runner
+  missing `cryptography`, causing a pre-existing sandbox-only collection failure outside the
+  diff — disposition **`PAUSED — UNCOMMITTED`, not product evidence**.
+- **Executed evidence, as reported.** Skip-clean without a database: **9 skipped**. Against
+  real **PostgreSQL 16.14**: the new module **9/9 passed** — `NOBYPASSRLS`/`FORCE ROW LEVEL
+  SECURITY` posture, cross-tenant denial with non-disclosure, digest/idempotency, a true
+  multi-connection lock proof on two live connections, and org-flag-ON fail-closed
+  `org_context_incomplete`. Integration directory: **503 passed / 5 skipped**. Available
+  backend slice: **2740 passed / 6 skipped / 1 pre-existing environment failure**.
+  `ruff`/format/compile clean. Synthetic data only; no network egress; no secret; the
+  throwaway PostgreSQL container was removed after the run.
+
+#### 14.19.3 Disposition recorded
+
+Full record text: `docs/operations/W1-I03B-ROUTE-DB-HARD-STOP-EVIDENCE.md`; §1.11 carries the
+board summary. In brief: the attempt is **`PAUSED — UNCOMMITTED` and not product evidence**;
+the technical GO cannot mature into a commit because the grant §6.3 binds staging and commit
+to the same writer session within its remaining §15 time, which is zero. The latest committed
+SOC lane state remains `f4d234b…` with W0-R02 `PASS`. Future action is **queued, not decided
+and not granted**: it requires a fresh prospective bounded grant recorded before work, no
+resumption of the exhausted session `2aa3bab1…` and no task-identity reuse or minting to
+evade the §15 timeout, resolution or explicit disposition of the three W0-R02B P3 findings,
+and the new grant's own independent pre-commit and post-commit reviews; neither the W0-R02B
+review nor this record's control-side re-verification carries over as either future review.
+The classification duties of grant §5 stand: the CI job block is strictly static CI wiring,
+**CI: NOT WIRED**, no CI result claimed, never "permanent" without push plus remote-green
+evidence (push stays `NO-GO`); the §1.3 route-against-DB residual is not closed; live-shadow
+blocker 3 stands in full.
+
+#### 14.19.4 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `1a94a3e813830902c5695fe6ec3dab4297974b5c`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after
+the three documents were written:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — **before** this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — **after** this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, still unstaged |
+
+The validator and its test suite were **not modified** by this record; both commands are
+**manual** and **static/documentary only** — **CI: NOT WIRED** for both, and no CI result is
+claimed.
+
+#### 14.19.5 What this record did not change and did not grant
+
+- Beyond the single authorized local commit named in §14.19.1, nothing was staged, committed,
+  merged, pushed, deployed or released; no branch or remote was created or configured; no
+  dependency was installed; no database, container, microVM, netns or broker was started; no
+  formatter or auto-fixer was run in any repository; and no product repository was written to
+  — the attempt worktree was inspected **read-only** and left exactly as found: two dirty
+  paths, zero staged, uncommitted.
+- **No status flip of any kind.** GATE A4 and the W1-C1/C2 contract gate stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, and G2/G3 stay
+  closed — no gate opens or advances.
+- **Nothing is promoted.** The two-path dirty tree stays `PAUSED — UNCOMMITTED` and not
+  product evidence; every §1.3 SOC residual stays open exactly as dated — including "not a
+  permanent CI job", whose closure additionally requires push plus remote-green evidence that
+  stays `NO-GO`; live-shadow blocker 3 stands in full (`shadow_remote`, real org mapping, TTL
+  and the live bundle path untouched); no writer session was opened by this record and the
+  exhausted session is never resumed.
+- W1 product implementation and integration/live shadow stay `HOLD`; W1 runtime writers,
+  delegated routine integration and external release stay `NO-GO`; `W0 COMPLETE=0` and W0
+  closure `NO-GO`; the §11 exit criteria remain unmet, and live-shadow blockers 1–4 stand
+  exactly as §1.9/§1.10 record them.
+- The 48 immutable task identities are unchanged; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4; no task 49 exists and no replacement identity was created.
+- W1 formal dates 2026-08-01 → 2026-08-23, all W0–W6 dates and the 2026-12-21 → 2026-12-31
+  release window are unchanged; the pre-existing dirty edit in
+  `docs/strategy/06-ROADMAP-2026-2029.md` was preserved untouched and left unstaged,
+  hash-pinned in §14.19.4.
+- The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
+  residual named in §14.13.1–§14.19.1 is recorded, not fixed; this record opened no authority
   over either.
 - The Fabric W0-I07 lane (§1.7) and the Cyber AI W0-I06 lane (§1.9) are untouched.
 

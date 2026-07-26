@@ -15,6 +15,7 @@
 - **Cyber AI W1-I06C remediation grant:** 2026-07-27, seventh same-day record — see §11
 - **Cyber AI W1-I06C post-commit evidence:** 2026-07-27, eighth same-day record — see §12
 - **SOC W1-I03B route-DB permanence grant:** 2026-07-27, ninth same-day record — see §13
+- **SOC W1-I03B hard-stop evidence:** 2026-07-27, tenth same-day record — see §14
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
@@ -40,7 +41,11 @@ unmerged/unpushed `SCAFFOLD` evidence toward the live-shadow blocker-2 HTTP tran
 prerequisite, is not product evidence, and promotes nothing else; §13 records the ninth
 same-day record — the fresh prospective bounded grant for the SOC W1-I03B route-DB permanence
 lane — which authorizes one future bounded writer attempt under its own terms and promotes
-nothing by itself.
+nothing by itself; §14 records the tenth same-day record — the granted W1-I03B writer's hard
+stop: a two-path dirty tree at the grant base, reviewed **technical GO, no P0–P2** by the
+independent W0-R02B review but dispositioned `PAUSED — UNCOMMITTED` because the grant's
+same-writer commit authority expired with the exhausted session — which is **not product
+evidence** and promotes nothing.
 
 ## 1. Current evidence
 
@@ -732,6 +737,9 @@ repository was written to. Full grant text:
 authorizes one future bounded writer attempt under its own terms; it promotes nothing by
 itself, and no writer session was opened by this record.
 
+The granted writer subsequently ran and **hard-stopped later on 2026-07-27**: §14 carries
+that tenth same-day record. This section stands unedited as dated history.
+
 ### 13.1 Verified basis and recorded grant
 
 | Item | Verified / reported state | Recorded grant |
@@ -765,4 +773,54 @@ itself, and no writer session was opened by this record.
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   byte-for-byte untouched and unstaged — hash-pinned before and after at
   `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.18.4); the formal W1 dates
+  2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 14. SOC W1-I03B hard-stop evidence — 2026-07-27, tenth same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.19, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **outcome of the §13
+grant**: the granted W1-I03B writer ran on the new branch/worktree at exactly the grant base,
+produced exactly the two allowlisted dirty paths, and **hard-stopped** at the board §15
+runtime bound before the grant §6 review-and-commit protocol could complete. The attempt
+worktree state was **re-verified read-only against the SOC repository** on 2026-07-27; the
+session, test, check and review figures are **as reported by the lane and its independent
+W0-R02B review** and were not re-executed from this control worktree; no product repository
+was written to. Full record: `docs/operations/W1-I03B-ROUTE-DB-HARD-STOP-EVIDENCE.md`; board
+summary: board §1.11. This section records evidence and one already-taken pause disposition —
+it accepts nothing, promotes no writer, opens no writer session and moves no gate.
+
+### 14.1 Verified evidence and recorded disposition
+
+| Item | Verified / reported state | Recorded disposition |
+|---|---|---|
+| SOC — W1-I03B route-DB permanence attempt | **re-verified 2026-07-27, read-only:** **new** worktree `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`, **new** branch `codex/w1-i03b-route-db-permanence-r1`, HEAD at exactly the grant base `f4d234bba09ae1bea7a63b3348be3640a701065d`; branch tip equals base — **no commit produced**; exactly **two dirty `-uall` paths, zero staged** — precisely the grant §3 allowlist: NEW (untracked) `services/api/tests/integration/test_alert_context_route_db.py`, modified `.github/workflows/ci.yml`; workflow diff **purely additive** — base **392 lines byte-identical** (`66 insertions, 0 deletions`), appended **66-line `alert-context-route-db` job block hard-gated `if: false` at job level**, zero existing-job edits. **As reported:** writer **Opus 5**, brand-new session `2aa3bab1-bf56-4161-ac04-b4f67810691c`; initial 600 s cycle plus **exactly one** healthy 600 s extension under board §15, then **hard stop — no third cycle**; the session is exhausted and is never resumed. Independent **W0-R02B** review: **technical GO, no P0–P2, three P3** — writer transcript absent (test-first RED evidence unverifiable by citation); `mypy`/`actionlint` unavailable without a forbidden install (deferred to CI, which is NOT WIRED); runner missing `cryptography` (pre-existing sandbox-only collection failure outside the diff). Executed evidence, as reported: skip-clean without DB **9 skipped**; real **PostgreSQL 16.14** — new module **9/9 passed** asserting `NOBYPASSRLS`/`FORCE ROW LEVEL SECURITY`, cross-tenant denial with non-disclosure, digest/idempotency, a true multi-connection lock proof on two live connections, and org-flag-ON fail-closed `org_context_incomplete`; integration **503 passed / 5 skipped**; available backend slice **2740 passed / 6 skipped / 1 pre-existing environment failure**; `ruff`/format/compile clean; synthetic data only; throwaway PostgreSQL container removed | **`PAUSED — UNCOMMITTED` — not product evidence.** The technical GO cannot mature into a commit: the grant §6.3 binds staging/commit to the same writer session within its remaining §15 time, which is zero — the same-writer commit authority expired with the hard stop. The latest committed SOC lane state remains `f4d234b…` with W0-R02 `PASS`. Future action is **queued, not decided**: it requires a fresh prospective bounded grant recorded before work, no resumption of exhausted session `2aa3bab1…` and no identity reuse/minting, resolution or explicit disposition of the three P3 findings, and the new grant's own pre-commit and post-commit reviews; neither the W0-R02B review nor this record's re-verification carries over. The CI job block stays **strictly static CI wiring, CI: NOT WIRED**, never "permanent" without push plus remote green (push stays `NO-GO`); the §6/board §1.3 route-against-DB residual is **not closed**; live-shadow blocker 3 stands in full |
+| Control — this repository | `HEAD` before this record `1a94a3e813830902c5695fe6ec3dab4297974b5c` | control validator `PASS`; `77/77` tests — re-run unchanged against the current dirty control worktree after the three documents were written; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged (board §14.19.4) |
+
+### 14.2 Synthesis
+
+- **Which §13 cells this supersedes.** The SOC W1-I03B cell only, and only as to attempt
+  state: the grant's one authorized attempt has now **run and hard-stopped** — the granted
+  branch/worktree exist at the grant base with the two-path dirty tree above, and the grant's
+  runtime and same-writer commit authority are consumed. The §13 grant terms stand as dated
+  history; no second attempt exists under them.
+- **Nothing is promoted.** A technically GO-reviewed dirty tree is an audit observation, not
+  product evidence — the same discipline applied to the Fabric W0-I07 pause (§8) and the
+  Cyber AI W1-I06C pause (§7). Every §6/board §1.3 SOC residual stays open exactly as dated;
+  the "permanent CI job" half additionally requires push plus remote-green evidence, which
+  stays `NO-GO`.
+- **Live-shadow blocker 3 stands in full** — `shadow_remote`, real org mapping, TTL and the
+  live bundle path are untouched by this attempt; blockers 1, 2 and 4 stand exactly as §12.2
+  records them, so **W1 integration/live shadow stays `HOLD`/`NO-GO`**.
+- The three W0-R02B P3 findings are recorded open; no remediation of them is scheduled or
+  granted by this record.
+- No gate opens or closes: W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed;
+  `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the board §11 exit criteria remain unmet.
+- Nothing is pushed, merged or released; no dependency is installed; no secret is read; no
+  status is promoted beyond the §14.1 disposition; **CI: NOT WIRED** for every lane above.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  byte-for-byte untouched and unstaged — hash-pinned before and after at
+  `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.19.4); the formal W1 dates
   2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
