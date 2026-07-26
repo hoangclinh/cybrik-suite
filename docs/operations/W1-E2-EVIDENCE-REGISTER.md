@@ -6,9 +6,12 @@
   lifecycle contract and FAB-C0 provenance containment
 - **Authority:** no push, merge, dependency install, database/container, deployment,
   release or release-date authority
+- **Product-evidence reconciliation:** 2026-07-27 — see §5
 
 This register records exact current evidence without promoting a product runtime or release claim.
-W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`.
+W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
+control- and contract-scoped; §5 records reviewed local **product** commit evidence added on
+2026-07-27 and promotes nothing.
 
 ## 1. Current evidence
 
@@ -201,6 +204,7 @@ unedited as provenance.
 | 5 | Contract-acceptance current-state reconciliation | 19 paths | same board §14.7 |
 | 6 | W0-D03 index and current-state reconciliation, docs only | 9 docs paths | same board §14.8 |
 | 7 | **W0-R06 tool-side repair** — control validator, its test suite and the claim wording that had gone stale against the measured state | 8 paths, incl. `tools/operations/validate-w1-control.mjs` and its test suite | same board §14.9 (allowlist §14.9.1; measured evidence §14.9.3) |
+| 8 | **W0-D02 product-evidence reconciliation, 2026-07-27** — record reviewed local product commits and correct control wording that had gone stale against them | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.10 (allowlist §14.10.1; measured evidence §14.10.3) |
 
 Set **2a** is placed here because board §14.5.2 records it as **already landed on disk on
 2026-07-26** before set 3. Its position relative to sets 1 and 2 is **not recorded** anywhere, and
@@ -213,8 +217,12 @@ additionally excluded all of `contracts/`, all of `tools/operations/` and
 `docs/strategy/06-ROADMAP-2026-2029.md`, all of `contracts/`,
 `docs/adr/FOUNDER-DECISION-PACKET-W1-C1-C2.md`, the two ADR files, the two ADR status-flip
 applications, `docs/adr/W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md`, `docs/adr/README.md`,
-`docs/README.md` and the root `README.md`. No set staged, committed, merged, pushed, deployed or
-released anything, and none installed a dependency or reached a database, container or network.
+`docs/README.md` and the root `README.md`. Set 8 excluded all of `tools/operations/` — the control
+validator and its test suite were re-run unchanged, not edited — as well as all of `contracts/`,
+all of `docs/adr/`, `docs/operations/README.md`, `docs/README.md`, the root `README.md` and
+`docs/strategy/06-ROADMAP-2026-2029.md`, whose pre-existing unrelated dirty edit was left exactly
+as found. No set staged, committed, merged, pushed, deployed or released anything, none installed a
+dependency or reached a database, container or network, and none wrote to a product repository.
 
 ### 4.3 CI and posture
 
@@ -234,3 +242,39 @@ released anything, and none installed a dependency or reached a database, contai
   routine integration and external release remain `NO-GO`.
 - W1 formal dates (2026-08-01 → 2026-08-23), all W0–W6 dates and the 2026-12-21 → 2026-12-31
   release window are **unchanged**; no release claim is made.
+
+## 5. Product-evidence reconciliation — 2026-07-27
+
+Added on 2026-07-27 under the two-path documentation authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.10. Every commit SHA, parent, path count and
+branch below was **verified directly against the product repository** on 2026-07-27. The test,
+coverage and review figures are **as reported by each product lane** and were not re-executed from
+this control worktree; no product dependency, database, container or network was reached to obtain
+them. This section records evidence only — it accepts nothing, promotes no writer and moves no gate.
+
+### 5.1 Reviewed local product commits
+
+| Lane | Verified commit evidence | Reported lane evidence | Verified boundary — what it does not prove |
+|---|---|---|---|
+| Suite — W1 alert-context transport binding | `4d5fb4b701f79194313975302cc0a63e0dd2a8ea`, parent `3a2c71555a423465855ffaddcb663c8b704dbfbd`, exact 18 paths, branch `codex/w1-i01-alert-context-transport-binding-r1` | standalone validator `PASS`; `33/33` tests; `88.27%` branch coverage; final Fable review `PASS`, no open P0–P3 | packet manifest reads `PROPOSED — NOT ACCEPTED` (`x-cybrik-not-accepted: true`); **static only** — no endpoint, no capability-registry entry, no Fabric invocation grant, no runtime, no CI wiring, no acceptance |
+| Cyber AI — W1 lifecycle producer | docs gate `e14d6312eabf2e1bc7d9d826ecff323a7c390fb7`; producer `c9530b9623c68fec3b35f63bf41720d34a28cea3`, parented on that gate commit; branch `codex/w1-i05-orchestration-foundation-r1` | `611` tests; `97.46%` full coverage, service and checkpoints at 100%; `ruff`, format and `mypy` green; final reviews `PASS`, no open P0–P2 | `docs/contracts/W1-C2-LIFECYCLE-MAPPING.md` remains `DRAFT`; **in-process only** — no transport, no database, no durability, no delivery, no attempt lineage, no TR-8 evidence |
+| SOC — alert-context idempotency binding | `87e95cd2add7233176ca442bb5870b5913fdd0eb`, parent `51e2106e0c7e3a4c0637ef31983cfdfe16edc0e5`, exact 7 paths, branch `codex/w1-i03-marking-floor-r1` | current offline `191` alert-context unit/contract tests `PASS` using the existing environment; independent review `PASS`, no open P0–P2 | explicitly **no PostgreSQL, no RLS, no HTTP, no runtime proof**; a durable atomic put-if-absent/CAS remains **mandatory** and unimplemented |
+| Fabric — W1 exchange binding | `87b4cf388038c6dd2e1a74e13f4131306a80ba92`, parent `1789480be4774d014a94227bc4436357d2e4b674`, exact 3 paths, branch `codex/w0-i07b-apply-r1` | full suite `318` tests `PASS`; independent review `PASS`, no open P0–P2 | no R0 live registry entry and no invocation runtime yet |
+| Control — this repository | `HEAD` before this reconciliation `b8181ff8389a58f0ca61011006d1469a27c1d5b6` | control validator `PASS`; `77/77` tests; branch `92.93%` — manually re-run against the current dirty control worktree after the two documents were edited | documentary consistency check over control documents only; the validator and its test suite were **not modified**; **CI: NOT WIRED** |
+
+### 5.2 Synthesis
+
+- Product evidence advanced on four lanes. Nothing about W0 or W1 disposition moved with it:
+  `W0 COMPLETE=0` and W0 closure stays `NO-GO`; W1 runtime and live integration stay
+  `HOLD`/`NO-GO`; **CI: NOT WIRED** for every lane in §5.1.
+- **No product writer is promoted by any row in §5.1.** Reviewed local commits are evidence, not
+  authority. Each writer still needs its own exact repo/base/path/test/reviewer authority.
+- Nothing above is pushed, merged or released, and the Suite C1, C2 and transport-binding commits
+  are still **sibling commits that have not been integrated into one canonical root**.
+- The live-shadow blockers are unchanged and remain open: the SOC `shadow_remote` route, the Fabric
+  R0 registry/invocation surface, and integration authority together with CI wiring.
+- **Test evidence is not runtime proof.** Offline suites, an in-process producer, contract
+  validators and a static transport packet do not demonstrate the live SOC→AI→Fabric→SOC path; the
+  W1 Investigation Spine exit criteria in board §11 remain unmet.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  untouched, and the fixed W0–W6 and 2026-12-21 → 2026-12-31 release dates are unchanged.
