@@ -9,6 +9,7 @@
 - **Product-evidence reconciliation:** 2026-07-27 — see §5
 - **Runtime-evidence reconciliation:** 2026-07-27, later same day — see §6
 - **HTTP-evidence reconciliation:** 2026-07-27, third same-day record — see §7
+- **Fabric W0-I07 disposition:** 2026-07-27, fourth same-day record — see §8
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
@@ -17,7 +18,9 @@ control- and contract-scoped; §5 records reviewed local **product** commit evid
 including the 2026-07-27 W1-C1 transport-binding acceptance — and likewise promotes nothing beyond
 recording that acceptance; §7 records the third same-day HTTP-evidence reconciliation — a reopened
 docs-only gate, a hard-stopped uncommitted implementation attempt and an adverse independent
-technical review — and promotes nothing at all.
+technical review — and promotes nothing at all; §8 records the fourth same-day record — the
+delegated coordinator disposition of the paused Fabric W0-I07 attempt — and likewise promotes
+nothing.
 
 ## 1. Current evidence
 
@@ -213,6 +216,7 @@ unedited as provenance.
 | 8 | **W0-D02 product-evidence reconciliation, 2026-07-27** — record reviewed local product commits and correct control wording that had gone stale against them | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.10 (allowlist §14.10.1; measured evidence §14.10.3) |
 | 9 | **W0-D02 runtime-evidence reconciliation, 2026-07-27, later same day** — record the W1-C1 transport-binding acceptance, Cyber AI/SOC runtime-adjacent evidence and the paused Fabric W0-I07 attempt with its W0-R04 audit result; ends with exactly one authorized local commit | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.11 (allowlist §14.11.1; measured evidence §14.11.3) |
 | 10 | **W0-D03 HTTP-evidence reconciliation, 2026-07-27, third same-day record** — record the reopened W1-I06C HTTP ingress gate, the hard-stopped Opus R2 attempt (13-path dirty tree, uncommitted) and its adverse W0-R03 NO-GO technical review; close the W0-I07 admission-wording P3 transparently; ends with exactly one authorized local commit | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.12 (allowlist §14.12.1; measured evidence §14.12.3) |
+| 11 | **W0-D04 Fabric W0-I07 disposition, 2026-07-27, fourth same-day record** — record the delegated coordinator disposition of the paused Fabric W0-I07 attempt: `HOLD`, commit and replacement writer refused within the exhausted attempt, tree stays `PAUSED — UNCOMMITTED` and not product evidence; queue (not decide) the Cyber AI W1-I06C remediation; ends with exactly one authorized local commit | 3 docs-only paths: `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md` (new), this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.13 (allowlist §14.13.1; measured evidence §14.13.4) |
 
 Set **2a** is placed here because board §14.5.2 records it as **already landed on disk on
 2026-07-26** before set 3. Its position relative to sets 1 and 2 is **not recorded** anywhere, and
@@ -238,7 +242,11 @@ else; the roadmap's pre-existing dirty edit stayed unstaged and untouched. Set 1
 exact two-path scope, exclusions and single-commit termination — subject
 `docs(control): record W1 HTTP hard stop` — with the control validator and its test suite once more
 re-run unchanged, not edited, and the roadmap's pre-existing dirty edit again left unstaged and
-untouched.
+untouched. Set 11 widens the scope by exactly one **new** docs path — the disposition packet
+`docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md` — alongside the same two control documents,
+keeps every exclusion of sets 9–10, terminates in exactly one authorized local commit — subject
+`docs(control): queue Fabric disposition` — and again re-runs the control validator and its test
+suite unchanged, with the roadmap's pre-existing dirty edit left unstaged and untouched.
 
 ### 4.3 CI and posture
 
@@ -415,6 +423,42 @@ promotes no writer and moves no gate.
 - Nothing in §7.1 is pushed, merged or released; no product or runtime writer is promoted;
   `W0 COMPLETE=0` and W0 closure stays `NO-GO`; W1 integration/live shadow stays `HOLD`/`NO-GO`;
   **CI: NOT WIRED** for every lane in §7.1; the fixed roster of 48 stands with no task 49.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 8. Fabric W0-I07 disposition — 2026-07-27, fourth same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.13, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records a **delegated coordinator
+decision already taken** under the Founder delegation granted to the coordinator — not a request
+for a user decision. The worktree facts were **re-verified read-only against the Fabric
+repository** on 2026-07-27; the audit figures are **as reported by W0-R04** and were not
+re-executed from this control worktree; no product repository was written to. Full decision
+text: `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`; board summary: board §1.5.
+
+### 8.1 Verified evidence and recorded disposition
+
+| Item | Verified / reported state | Recorded disposition |
+|---|---|---|
+| Fabric — W0-I07 R0 domain attempt | **re-verified 2026-07-27, read-only:** worktree `w1-i07-fabric-r0-domain-r1`, branch `codex/w1-i07-fabric-r0-domain-r1`, HEAD/base `87b4cf388038c6dd2e1a74e13f4131306a80ba92` (parent `1789480be4774d014a94227bc4436357d2e4b674`); branch tip equals base — no commit produced; exactly **30 dirty paths, zero staged** (3 tracked modified unstaged + 27 untracked, enumerated in packet §1) — unchanged since §6.1. **As reported by W0-R04:** technically GREEN — `388` full + `113` targeted tests passing; `ruff`, format, `mypy`, `bandit`, Go green; no P0–P2; **three P3** (count/severity recorded here; itemized content held by the W0-R04 lane report; unresolved and undispositioned). Attempt ended at the hard 1200 s timeout; its runtime grant is consumed | `HOLD` — the tree stays `PAUSED — UNCOMMITTED` and **not product evidence**; commit and replacement writer **refused** within the exhausted logical attempt; latest committed Fabric state remains `87b4cf3…`. Future action requires all of: a fresh prospective bounded grant recorded before work; no resumption of the exhausted Claude session and no task-identity reuse or minting to evade the board §15 timeout; resolution or explicit disposition of the three P3 findings; a fresh independent review after any commit before the result may count as product evidence |
+| Cyber AI — W1-I06C remediation | `PAUSED — UNCOMMITTED` with the adverse W0-R03 `NO-GO` review outstanding, exactly as §7 records | **queued, not decided** — requires its own fresh bounded grant; nothing about it is granted or scheduled here |
+| Control — this repository | `HEAD` before this record `b0e21cbfc1ca25e96243835c6b3f443ed032d331` | control validator `PASS`; `77/77` tests — re-run unchanged against the current dirty control worktree after the three documents were written; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED** |
+
+### 8.2 Synthesis
+
+- This record decides the disposition of one paused attempt and nothing else. No gate opens or
+  closes: W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, and G2/G3 stay closed; W1 integration/live
+  shadow stays `HOLD`/`NO-GO`; `W0 COMPLETE=0` and W0 closure stays `NO-GO`.
+- **The refusals are effective now:** no commit of the W0-I07 dirty tree and no replacement
+  writer inside the exhausted attempt. A technically GREEN dirty tree remains an audit
+  observation, not product evidence, and the completed W0-R04 audit does **not** carry over as
+  the fresh post-commit review a future grant requires.
+- Nothing is pushed, merged or released; no dependency is installed; no secret is read; no
+  status is promoted; no implementation authority follows.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4.
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
