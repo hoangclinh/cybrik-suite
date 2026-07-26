@@ -4,7 +4,18 @@
   informs a decision, it does not make one. Nothing in the suite is implemented, verified, or
   piloted; `cybrik-security-tool-fabric` is a documentation-only scaffold and no sandbox,
   substrate, executor, or isolation control plane exists in any repository.
-- Date: 2026-07-24
+- Date: 2026-07-24 · corrected 2026-07-26 — **executor-lifecycle wording only**: every earlier claim
+  that S4 may be pooled is removed and aligned with accepted **ADR-0004 F3** and the governing
+  **GATE A4 J2** wording (only policy-approved S0/R0 metadata workers may be pooled; S4 and all
+  R1/R2/R3 execution are per-invocation disposable). **No recommended isolation floor, ADR status,
+  dependency choice or release date is changed by that correction**; it changed no decision and
+  opened no gate. *As of that correction GATE A4 had not been answered.* GATE A4 was subsequently
+  closed on 2026-07-26 with ADR-0003 and ADR-0005 `ACCEPTED` as decisions only — see
+  [../README.md](../README.md), which is authoritative on ADR status, and
+  [../FOUNDER-DECISION-PACKET-WAVE-2.md](../FOUNDER-DECISION-PACKET-WAVE-2.md). This packet remains
+  dated `DRAFT` read-ahead research and decides nothing; the rest of its body still reads as
+  pre-closure and is the wording residual tracked in
+  `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.8.3.
 - Backs: [ADR-0005](../ADR-0005-sandbox-substrate.md)
 - Wave / gate: **Wave 2**; feeds **GATE A4** (see [ADR-DECISION-SPRINT-2026-07.md](../ADR-DECISION-SPRINT-2026-07.md)
   §3 wave board). **GATE A4 is NOT open.** This is read-ahead Wave 2 research. GATE A3 closed
@@ -56,7 +67,7 @@ these.
 | SB-C3 | Default-deny egress + network isolation | Egress is deny-by-default and broker-mediated; S3 runs in a separate network namespace with no route to management/production networks; DNS/IP/redirect/metadata attacks are blocked at the broker, not the tool (`03 §7.3` S3, `08 §5` egress row, `08 §6.4`). |
 | SB-C4 | Host/kernel attack-surface reduction & escape resistance | The substrate must reduce the host-kernel syscall surface reachable by the workload and resist the escape suite (`08 §5` sandbox-escape row, `08 §6.4` no privileged / read-only root / non-root / seccomp/AppArmor). |
 | SB-C5 | Fail-closed when required isolation is unavailable | If a profile's required substrate cannot be provisioned (kernel/KVM/hypervisor absent, jailer unavailable), the invocation must **deny**, never silently down-tier to weaker isolation (`03 §13`, `08 §6.2` deny-by-default). |
-| SB-C6 | Startup latency / density / teardown cost | Per-invocation disposal costs cold-start and scheduling; the substrate mix must keep cheap S0/S4 paths hot while paying isolation cost only where hostility requires it (ADR-0004 F-C6; `08 §8` R0 p95 ≤2 s, receipt ≤5 s). |
+| SB-C6 | Startup latency / density / teardown cost | Per-invocation disposal costs cold-start and scheduling; the substrate mix must keep the cheap, policy-approved S0/R0 pooled path hot and the disposable S4 path light, while paying isolation cost only where hostility requires it (ADR-0004 F-C6/F3; `08 §8` R0 p95 ≤2 s, receipt ≤5 s). |
 | SB-C7 | Portability T0→T2 incl. on-prem K8s & air-gap | Same security semantics from a single-host T0 to conformant-Kubernetes T1 to air-gapped T2 — no profile that only works in a managed cloud (`03 §10`, `08 §8` T2 offline; `07 §5` minimal-tech). |
 | SB-C8 | License / supply-chain / offline verify | Every substrate shipped into an air-gapped customer must be permissively licensed, offline-installable, and offline-verifiable (SBOM/provenance) (`02 §9`, `08 §6.5`, `03 §10` T2). |
 | SB-C9 | Resource caps & bounded execution | Hard CPU/RAM/PID/time/disk/output caps per invocation, enforced by the substrate + scheduler, so a runaway or hostile tool cannot amplify effect (`08 §6.4`, `03 §7.1` Execution Scheduler). |
@@ -112,6 +123,15 @@ these.
   ([ADR-0004-EVIDENCE.md](ADR-0004-EVIDENCE.md) §2.4, §8.4) explicitly defers the substrate
   choice to ADR-0005 and requires a disposable per-invocation boundary for untrusted classes.
   This packet supplies the substrate recommendation and does not re-open ADR-0004's split.
+- FACT — Accepted **ADR-0004 F3 (risk-tiered executor lifecycle)** fixes the *lifecycle* question
+  this packet may not re-decide: "Disposable per-invocation isolation is mandatory for
+  untrusted-input classes R1/R2/R3 and sandbox profiles S1/S2/S3. Pooled long-lived S0 workers are
+  permitted for R0 read-metadata capabilities only when policy permits."
+  INFERENCE — therefore **only policy-approved S0/R0 metadata workers may be pooled**; **S4 is an
+  R3 (reversible mutation) class and is per-invocation disposable**, as are all R1/R2/R3 execution.
+  Substrate **floor** and executor **lifecycle** are separate questions: sharing the hardened
+  rootless OCI floor with S0 does **not** give S4 S0's pooling permission. This is also the
+  governing GATE A4 J2 wording (§15.1).
 - INFERENCE — Two things are therefore fixed *around* ADR-0005, not by it: (a) the credential,
   egress, policy, approval and receipt-signing brokers stay **control-side** (accepted ADR-0004 +
   ADR-0006 E5), so **the substrate never holds a signing key or a long-lived secret** — it runs
@@ -151,7 +171,7 @@ straying into decisions it does not own.
 | Neighbouring ADR | Owns | ADR-0005 (this) owns | Interface / non-overlap |
 |---|---|---|---|
 | **ADR-0006** (`ACCEPTED`) | Identity **model** (SPIFFE-style mTLS), receipt-signing side (control plane signs, executor attests), delegation-as-digest-bound-grants. | Nothing about identity or signing. | The substrate must let the launching executor present an mTLS workload identity; the substrate is **not** a trust boundary substitute for control-side signing. A microVM does **not** move signing into the guest (E5 unchanged). |
-| **ADR-0004** (`ACCEPTED` 2026-07-24) | The process/trust **boundary** (control plane vs. executor tier), executor lifecycle *policy* (pooled vs. disposable), where brokers live. | *Which isolation technology* provides each sandbox profile the lifecycle demands, and the per-profile network/artifact/fail-closed posture. | ADR-0004 says "a disposable per-invocation boundary must exist"; ADR-0005 says "for S2 that boundary is a Firecracker microVM," etc. The substrate mapping implements the accepted boundary without re-opening it. |
+| **ADR-0004** (`ACCEPTED` 2026-07-24) | The process/trust **boundary** (control plane vs. executor tier), executor lifecycle *policy* (F3: pooled only for policy-approved S0/R0; disposable per-invocation for R1/R2/R3 and S1/S2/S3, hence for S4), where brokers live. | *Which isolation technology* provides each sandbox profile the lifecycle demands, and the per-profile network/artifact/fail-closed posture. | ADR-0004 says "a disposable per-invocation boundary must exist"; ADR-0005 says "for S2 that boundary is a Firecracker microVM," etc. The substrate mapping implements the accepted boundary without re-opening it. |
 | **ADR-0003** (`PROPOSED`, Wave 2 sibling) | Durable **agent-orchestration** runtime/state machine/checkpoint (Cyber AI side). | The **tool-execution sandbox** substrate (Tool Fabric side). | Disjoint: the orchestrator (ADR-0003) requests capabilities via the Fabric Gateway and **never runs tools in-process** (`03 §6.2` "Tool call chỉ qua Fabric"). Orchestration state is not sandbox state; no coupling. |
 
 - INFERENCE — The clean statement: **ADR-0005 chooses the isolation floor per sandbox profile and
@@ -274,11 +294,11 @@ profile binding is a Capability Registry / PDP policy decision owed to ADR-0004 
 
 | Profile | Primary risk class | Untrusted input | **Substrate floor (PROPOSAL)** | Lifecycle | Network | Rationale (labelled) |
 |---|---|---|---|---|---|---|
-| **S0** API-only | R0 read metadata | none | **Hardened rootless OCI** (non-root, read-only rootfs, default-deny seccomp, no-new-privileges, dropped caps) | **Pooled** long-lived allowed **only when policy permits** | Egress via broker only | INFERENCE §4.4 — no untrusted code/file runs; shared kernel acceptable; pooling buys SB-C6 latency at no SB-C1 cost. |
+| **S0** API-only | R0 read metadata | none | **Hardened rootless OCI** (non-root, read-only rootfs, default-deny seccomp, no-new-privileges, dropped caps) | **Pooled** long-lived allowed **only for policy-approved S0/R0 metadata workers** (accepted ADR-0004 F3) | Egress via broker only | INFERENCE §4.4 + FACT §2.2 (ADR-0004 F3) — no untrusted code/file runs; shared kernel acceptable; policy-approved pooling buys SB-C6 latency at no SB-C1 cost. |
 | **S1** restricted container | R1 analyse artifact (reviewed parser/scanner over hostile *data*) | data only | **gVisor `runsc`** (systrap default), **no-network**, **disposable** | **Per-invocation disposable** | **None** (netstack, no host net) | FACT §4.1 — user-space kernel removes direct host-syscall passthrough for a reviewed parser handling hostile bytes; SB-C2/SB-C4. |
 | **S2** microVM | R2 (hostile *code/binary* detonation) | executable code | **Firecracker microVM (via jailer)**, disposable; gVisor allowed as **defense-in-depth inside**, **never the sole boundary** | **Per-invocation disposable** | **None by default** | FACT §4.2 — dedicated guest kernel + KVM boundary for the most hostile tier; PROPOSAL that gVisor-only is insufficient here (see §6, §7). |
 | **S3** controlled network lab | R2/R3 (PCAP replay / active observation over attacker-controlled traffic) | network traffic | **Firecracker microVM + separate netns + control-side Egress Broker** | **Per-invocation disposable** | **Broker-mediated allowlist only**; **no route to mgmt/prod** | FACT §4.2 (Firecracker "does not perform network traffic filtering") ⇒ microVM boundary **plus** netns+broker; SB-C3. |
-| **S4** response executor | R3 reversible mutation | none (typed vendor API, no file) | **Hardened rootless OCI** | **Pooled** allowed | Broker egress to the approved vendor API | INFERENCE §4.4 — no file/code detonates; the risk is *authority/side-effect*, handled control-side by policy/approval/credential broker (ADR-0004), not by heavier isolation. |
+| **S4** response executor | R3 reversible mutation | none (typed vendor API, no file) | **Hardened rootless OCI** | **Per-invocation disposable — never pooled** (S4 is R3; accepted ADR-0004 F3) | Broker egress to the approved vendor API | INFERENCE §4.4 + FACT §2.2 (ADR-0004 F3) — no file/code detonates, so the *floor* stays hardened rootless OCI; the risk is *authority/side-effect*, handled control-side by policy/approval/credential broker (ADR-0004), not by heavier isolation — but the R3 lifecycle is disposable, and sharing S0's floor does not give S4 S0's pooling permission. |
 | — | **R4** destructive | — | **DENIED to agents in 1.x** (`03 §7.2`) — no substrate provisioned | — | — | RESEARCH `03 §7.2` — hard deny; not a substrate question. |
 
 Deployment-tier portability (SB-C7):
@@ -349,8 +369,10 @@ are already accepted and are not re-opened.
 1. **Adopt the risk-tiered substrate mapping of §5**, not a single substrate: the isolation floor
    rises with input hostility (S0/S4 → hardened rootless OCI; S1 → gVisor `runsc`; S2 → Firecracker
    microVM; S3 → Firecracker microVM + netns + Egress Broker; R4 denied).
-2. **Hardened rootless OCI for S0/R0 (pooled, API-only) and S4/R3 (typed response executor, no file
-   input)** — non-root, read-only rootfs, default-deny seccomp, no-new-privileges, dropped caps.
+2. **Hardened rootless OCI as the substrate floor for S0/R0 (API-only) and S4/R3 (typed response
+   executor, no file input)** — non-root, read-only rootfs, default-deny seccomp,
+   no-new-privileges, dropped caps. On lifecycle: **only policy-approved S0/R0 metadata workers may
+   be pooled, while S4 remains per-invocation disposable under accepted ADR-0004 F3** (S4 is R3).
 3. **gVisor `runsc` for S1/R1** reviewed parsers/scanners, **disposable per-invocation, no-network
    by default**.
 4. **Firecracker microVM as the mandatory floor for S2/R2 hostile code/binary detonation**; gVisor
@@ -415,7 +437,12 @@ kernels, the VMM, and the container runtime patched to a security **version floo
   benchmarked security boundary. macOS is dev-loop-only.
 - **Pooled (non-disposable) executors for S1/S2/S3 — rejected** (SB-C2): cross-invocation residue
   in a shared worker is the untrusted-input risk disposal exists to remove (mirrors
-  ADR-0004-EVIDENCE §7). Pooling is permitted only for S0/S4.
+  ADR-0004-EVIDENCE §7).
+- **Pooled (non-disposable) executors for S4 — rejected/foreclosed** by accepted **ADR-0004 F3**:
+  S4 is an R3 (reversible mutation) class, and F3 makes disposable per-invocation isolation
+  mandatory for R1/R2/R3. **Pooling is permitted only for policy-approved S0/R0 read-metadata
+  workers.** S4 sharing S0's hardened rootless OCI *floor* does not give it S0's *lifecycle*; this
+  is a foreclosed alternative, not an open question.
 
 ## 9. Artifact handling (SB-C11 — PROPOSAL; ILLUSTRATIVE, NOT A CONTRACT)
 
@@ -464,8 +491,10 @@ IMPLEMENTED`.
 
 - **Cold-start / density / memory / teardown (SB-C6/SB-C9).** Measure per-invocation cold-start,
   achievable density, memory footprint, and teardown time for rootless OCI, gVisor `runsc`
-  (systrap and KVM), and Firecracker (direct + via Kata) on a Linux benchmark host; confirm S0/S4
-  pooled paths meet `08 §8` (R0 p95 ≤2 s, receipt ≤5 s) and the tiered cut is justified by data.
+  (systrap and KVM), and Firecracker (direct + via Kata) on a Linux benchmark host; confirm the
+  policy-approved **S0/R0 pooled** path meets `08 §8` (R0 p95 ≤2 s, receipt ≤5 s), that the
+  **disposable S4** path meets its own budget without pooling (accepted ADR-0004 F3), and that the
+  tiered cut is justified by data. **No benchmark may assume or introduce a pooled S4 path.**
 - **Escape suite (SB-C4).** Malformed file, fork/zip bomb, disk/device/symlink, resource
   exhaustion, and **substrate-specific escape** attempts per profile; assert no host mount, no
   cross-invocation residue on disposable profiles, and that an S2/S3 guest-kernel compromise does
@@ -521,6 +550,7 @@ IMPLEMENTED`.
 | SR-8 | Substrate choice accidentally re-opens or violates the accepted ADR-0004 split | Low / Med | Mapping implements the accepted executor lifecycle behind control-side brokers; substrate swaps behind that boundary (§3). |
 | SR-9 | Capability→profile binding under-specified (S2↔R2 imperfect fit) | Med / Med | Flagged UNKNOWN (§15); the exact binding is a Capability Registry / PDP policy owed to ADR-0004; profile is an isolation **floor** policy may only raise. |
 | SR-10 | Air-gap substrate install/verify not exercised | Med / Med | Offline-install + offline SBOM/provenance verify in validation §12; SB-C8. |
+| SR-11 | Pooled S4 re-enters a downstream doc, spike or benchmark by inheriting S0's floor | Med / High (R3 side-effect authority reused across invocations) | S4 lifecycle pinned disposable in §2.2/§5/§7.1/§8/§12/§15 against accepted ADR-0004 F3; floor ≠ lifecycle stated explicitly; `tools/operations/validate-w1-control.mjs` rejects GATE A4 wording that permits pooled S4. |
 
 ## 15. GATE A4 — decision questions (exact) + draft acceptance text
 
@@ -532,7 +562,7 @@ Posed for a **future** GATE A4; **this packet does not open or close that gate**
 | # | Question | Form | Recommended |
 |---|---|---|---|
 | **J1** | Adopt the **risk-tiered substrate mapping** (§5): the isolation floor rises with input hostility across S0–S4, rather than a single substrate for all profiles? | yes/no | **yes** |
-| **J2** | **Hardened rootless OCI** as the floor for **S0/R0** (pooled, API-only) and **S4/R3** (typed response executor, **no file input**)? | yes/no | **yes** |
+| **J2** | **Hardened rootless OCI** as the substrate **floor** for **S0/R0** (API-only) and **no-file S4/R3** (typed response executor), with **only policy-approved S0/R0 metadata workers pooled while S4 remains per-invocation disposable under accepted ADR-0004 F3**? | yes/no | **yes** |
 | **J3** | **gVisor `runsc`** for **S1/R1** reviewed parsers/scanners, **disposable per-invocation, no-network by default**? | yes/no | **yes** |
 | **J4** | **Firecracker microVM** as the **mandatory floor for S2/R2** hostile code/binary detonation, with gVisor allowed only as **defense-in-depth inside**, **never the sole S2 boundary**? | yes/no | **yes** |
 | **J5** | **Firecracker microVM + separate netns + control-side Egress Broker** for **S3/R2** controlled network / PCAP isolated lab (no route to management/production)? | yes/no | **yes** |
@@ -553,7 +583,9 @@ ADR-0002/ADR-0004 are not re-opened.
 
 > *(DRAFT — do not apply without a Founder gate; GATE A4 is not open.)* "ADR-0005 is `ACCEPTED`.
 > The Founder decided J1–J10 at GATE A4 (Wave 2) on `<DATE>`: adopt a risk-tiered substrate
-> mapping (J1); hardened rootless OCI for S0/R0 and S4/R3 with no file input (J2); gVisor `runsc`
+> mapping (J1); hardened rootless OCI as the substrate floor for S0/R0 and no-file S4/R3, with only
+> policy-approved S0/R0 metadata workers pooled and S4 per-invocation disposable under accepted
+> ADR-0004 F3 (J2); gVisor `runsc`
 > disposable no-network for S1/R1 (J3); Firecracker microVM as the mandatory S2/R2 floor with
 > gVisor defense-in-depth only, never the sole boundary (J4); Firecracker microVM + netns +
 > Egress Broker for S3/R2 (J5); R4 denied (J6); Kata `RuntimeClass` as the K8s portability wrapper

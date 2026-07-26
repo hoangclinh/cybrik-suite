@@ -1,7 +1,7 @@
 # docs/adr/evidence — ADR evidence packets
 
 - Status: `DRAFT` (process document + catalog)
-- Date: 2026-07-23
+- Date: 2026-07-23 · catalog rows refreshed 2026-07-26 after GATE A4 closed
 
 An **evidence packet** is the research artifact backing one ADR. It informs the Founder's
 decision; it never makes the decision. Packets may contain a `RECOMMENDATION`, but an ADR's
@@ -41,7 +41,7 @@ Each packet is one file, `ADR-XXXX-EVIDENCE.md`, with these sections in order:
 |---|---|---|
 | [ADR-0001-EVIDENCE.md](ADR-0001-EVIDENCE.md) | [ADR-0001](../ADR-0001-suite-contract-versioning-policy.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
 | [ADR-0002-EVIDENCE.md](ADR-0002-EVIDENCE.md) | [ADR-0002](../ADR-0002-cyber-ai-implementation-stack.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
-| [ADR-0003-EVIDENCE.md](ADR-0003-EVIDENCE.md) | [ADR-0003](../ADR-0003-durable-agent-orchestration.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR remains `PROPOSED` |
+| [ADR-0003-EVIDENCE.md](ADR-0003-EVIDENCE.md) | [ADR-0003](../ADR-0003-durable-agent-orchestration.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR since `ACCEPTED` (GATE A4, 2026-07-26 — decision only). This packet's own body still carries pre-closure `GATE A4 unopened` wording (open residual, board §14.8.3); the ADR catalog is authoritative |
 | [ADR-0004-EVIDENCE.md](ADR-0004-EVIDENCE.md) | [ADR-0004](../ADR-0004-tool-fabric-control-plane-executor-split.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
-| [ADR-0005-EVIDENCE.md](ADR-0005-EVIDENCE.md) | [ADR-0005](../ADR-0005-sandbox-substrate.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR remains `PROPOSED` |
+| [ADR-0005-EVIDENCE.md](ADR-0005-EVIDENCE.md) | [ADR-0005](../ADR-0005-sandbox-substrate.md) | `DRAFT` — Wave 2 read-ahead recommendation; ADR since `ACCEPTED` (GATE A4, 2026-07-26 — decision only). Repaired for the S4-pooling rule on 2026-07-26, but its header/§7/§15/§17 still carry pre-closure `GATE A4 is not open` wording (open residual, board §14.8.3); the ADR catalog is authoritative |
 | [ADR-0006-EVIDENCE.md](ADR-0006-EVIDENCE.md) | [ADR-0006](../ADR-0006-cross-product-event-and-identity-model.md) | `DRAFT` — recommendation made; ADR since `ACCEPTED` (2026-07-24) |
