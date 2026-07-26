@@ -226,6 +226,7 @@ unedited as provenance.
 | 11 | **W0-D04 Fabric W0-I07 disposition, 2026-07-27, fourth same-day record** — record the delegated coordinator disposition of the paused Fabric W0-I07 attempt: `HOLD`, commit and replacement writer refused within the exhausted attempt, tree stays `PAUSED — UNCOMMITTED` and not product evidence; queue (not decide) the Cyber AI W1-I06C remediation; ends with exactly one authorized local commit | 3 docs-only paths: `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md` (new), this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.13 (allowlist §14.13.1; measured evidence §14.13.4) |
 | 12 | **W0-D04 Fabric W0-I07 remediation grant, 2026-07-27, fifth same-day record** — record the fresh prospective bounded grant the disposition packet §5 requires: same immutable task W0-I07, Opus 5 in a brand-new session (never resuming exhausted session `5da9e0a9`), five-path product edit allowlist inside the unchanged 30-path dirty set, RED-first idempotency/aliasing remediation, stop-before-commit with independent Fable pre-commit review, one status-honest `SCAFFOLD` product commit only after GO with no P0–P2, fresh post-commit Fable review; ends with exactly one authorized local commit | 3 docs-only paths: `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md` (new), this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.14 (allowlist §14.14.1; measured evidence §14.14.4) |
 | 13 | **W0-D04 Fabric W0-I07 post-commit evidence, 2026-07-27, sixth same-day record** — record the granted writer's completed local Fabric commit `d38f910a44d6454285b393cb89df4a6ade4eb855` (parent `87b4cf3…`, exactly the 30 paths, clean tree, no upstream, not pushed) and its fresh post-commit W0-R04C review (`PASS`, no P0–P2, five P3), with the targeted-count discrepancy recorded honestly; classify it strictly as local, independently reviewed, unmerged/unpushed `SCAFFOLD` product evidence toward live-shadow blocker 1 only; ends with exactly one authorized local commit | 3 docs-only paths: `docs/operations/W1-I07-FABRIC-POST-COMMIT-EVIDENCE.md` (new), this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.15 (allowlist §14.15.1; measured evidence §14.15.4) |
+| 14 | **W0-D04 Cyber AI W1-I06C remediation grant, 2026-07-27, seventh same-day record** — record the fresh prospective bounded grant that board §1.4 requires before any resumption of the paused W1-I06C HTTP tree, on the basis of the W0-IR08 decision: same immutable task W0-I06 (sub-lane W1-I06C), Opus 5 in a brand-new session (never resuming exhausted session `06a2c154-50c7-4525-851c-ee9ecfd47219`), edit allowlist exactly the 13 already-dirty gate-manifest paths, behavior-preserving static-gate remediation only (7 `ruff` fixes, 4 files formatted, 9 `mypy` strict resolutions; no API/schema/OpenAPI/provenance/dependency behavior change), P2 evidence packaged by citation to the inspected exhausted-session transcript, stop-before-commit with independent Fable pre-commit review, one status-honest `SCAFFOLD` product commit only after GO with no P0–P2, fresh post-commit Fable review; ends with exactly one authorized local commit | 3 docs-only paths: `docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md` (new), this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.16 (allowlist §14.16.1; measured evidence §14.16.4) |
 
 Set **2a** is placed here because board §14.5.2 records it as **already landed on disk on
 2026-07-26** before set 3. Its position relative to sets 1 and 2 is **not recorded** anywhere, and
@@ -267,7 +268,14 @@ documents; every exclusion of sets 9–12 kept (neither the disposition packet n
 edited); exactly one authorized local commit — subject
 `docs(control): record reviewed Fabric R0 scaffold` — the control validator and its test suite
 once more re-run unchanged, and the roadmap's pre-existing dirty edit again left byte-for-byte
-untouched and unstaged.
+untouched and unstaged. Set 14 repeats set 13's shape exactly — one **new** docs path,
+`docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`, alongside the same two control documents;
+every exclusion of sets 9–13 kept (no Fabric packet, grant or evidence record was edited);
+exactly one authorized local commit — subject `docs(control): grant Cyber HTTP remediation` —
+the control validator and its test suite once more re-run unchanged, and the roadmap's
+pre-existing dirty edit again left byte-for-byte untouched and unstaged; every product-side
+fact it records was obtained read-only, with the product dirty set re-confirmed at exactly
+13 paths / zero staged afterwards.
 
 ### 4.3 CI and posture
 
@@ -533,6 +541,9 @@ same-day post-commit evidence record. This section stands unedited as dated hist
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   byte-for-byte untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+- The Cyber AI W1-I06C remediation, queued here, was subsequently **granted later on
+  2026-07-27**: §11 carries that seventh same-day record. This section stands unedited as
+  dated history.
 
 ## 10. Fabric W0-I07 post-commit evidence — 2026-07-27, sixth same-day record
 
@@ -573,6 +584,57 @@ re-executed from this control worktree; no product repository was written to. Fu
   status is promoted beyond the §10.1 classification; **CI: NOT WIRED** for every lane above.
 - The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
   B 5 · IR 4 · D 4.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  byte-for-byte untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 11. Cyber AI W1-I06C remediation grant — 2026-07-27, seventh same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.16, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **fresh prospective
+bounded grant** that board §1.4 requires before any resumption of the paused W1-I06C HTTP
+tree, on the basis of the **W0-IR08 decision** (a coordinator-delegated decision label, not a
+roster task identity), which moves the remediation from the `queued, not decided` state of
+§8/§10 to granted. The worktree facts and all three P1 static-gate figures were **re-verified
+or re-executed read-only against the Cyber AI repository** on 2026-07-27, and the
+exhausted-session transcript was inspected read-only; the NO-GO classification and full-suite
+figures are **as reported by W0-R03**; no product repository was written to and the product
+dirty set was re-confirmed at exactly 13 paths / zero staged afterwards. Full grant text:
+`docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`; board summary: board §1.8. The grant
+authorizes one future bounded writer attempt under its own terms; it promotes nothing by
+itself, and no writer session was opened by this record.
+
+### 11.1 Verified basis and recorded grant
+
+| Item | Verified / reported state | Recorded grant |
+|---|---|---|
+| Cyber AI — W1-I06C HTTP remediation | **re-verified 2026-07-27, read-only:** worktree `w1-i06c-http-ingress-r2`, branch `codex/w1-i06c-http-ingress-r2`, HEAD/base `866b7db91d9352a9a0d2bd74618d642dfef0493b`; branch tip equals base — still no commit; exactly **13 dirty `-uall` paths, zero staged**, matching the gate §C manifest path-for-path — unchanged since §7.1. **Re-executed read-only, reproducing the W0-R03 P1 figures exactly:** `ruff` **7** findings (`E501` `investigations/api.py:124/256/328/338`, `test_lifecycle_http.py:351`; `SIM300` `test_lifecycle_http_conformance.py:366/374`); format-check **4** files (`app.py`, `investigations/api.py`, `test_lifecycle_http.py`, `test_lifecycle_http_conformance.py`); `mypy` strict **9** errors in 4 files (optional-port `arg-type` `transport_security.py:107`; six missing `model_construct` fields for the empty bundle-refusal placeholder `investigations/api.py:124`; implicit re-export of `INGRESS_STATE_ATTRIBUTE` at `test_lifecycle_http.py:45`; frozen-model mutation typing `test_transport_security.py:188`); targeted tests **`138 passed`** exactly. **Inspected read-only:** exhausted-session transcript `06a2c154-50c7-4525-851c-ee9ecfd47219.jsonl` contains observed RED/GREEN evidence (labeled RED rounds A/B/C, observed failing runs with named tests, final full suite `696 passed` at `97.43%`). **As reported by W0-R03:** NO-GO — P1 static gates, P2 RED-first evidence packaging; full `696` / `97.43%` not re-executed from the control side | prospective bounded grant recorded (grant §1–§10): grantee the same immutable task **W0-I06**, sub-lane **W1-I06C**; writer **Opus 5 in a brand-new session**, never resuming exhausted session `06a2c154…`; runtime one initial 600 s cycle plus at most one healthy 600 s extension under board §15; product edit allowlist **exactly the 13 already-dirty gate-manifest paths**, dirty set held at exactly 13 / zero staged, with `pyproject.toml`, `uv.lock`, the vendored OpenAPI member, `provenance.json` and `test_lifecycle_provenance.py` landing byte-as-is; permitted behavior **behavior-preserving remediation only** — the 7 `ruff` fixes, formatting of exactly the four named files (manual or **one** scoped `ruff format` invocation; no bulk formatter), the 9 `mypy` strict resolutions — with no API/schema/OpenAPI/provenance/dependency behavior change and the accepted OpenAPI sha256 `22cd7d71…`, five-path route surface, default-deny, bundle refusal and token non-consumption preserved; P2 evidence packaged **by citation to the inspected transcript**, no fabricated chronology, one deletable out-of-repo `mktemp` reproduction labeled `RECONSTRUCTED` only if the transcript is insufficient for a specific claim; writer **stops before commit** with zero staged; independent Fable pre-commit review must return **GO with no P0–P2** before the same session stages exactly all 13 paths and makes **one status-honest `SCAFFOLD` local commit**; a **fresh post-commit Fable review** follows before anything counts as product evidence; exact STOP conditions in grant §7 |
+| Control — this repository | `HEAD` before this record `cabbe8e227a4f042d3637b075e57e3a3821ced40` | control validator `PASS`; `77/77` tests — re-run unchanged against the current dirty control worktree after the three documents were written; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED** |
+
+### 11.2 Synthesis
+
+- This record grants one future bounded remediation attempt and nothing else. The resumption
+  preconditions board §1.4 states are addressed as follows: the fresh bounded grant by this
+  record itself; the open W0-R03 P1 findings by the grant's exact behavior-preserving
+  remediation scope; the open P2 finding by the transcript-citation packaging duty; the
+  consumed prior grant and the never-resume rule by the brand-new-session binding on the same
+  immutable identity.
+- **Nothing is promoted now.** The tree stays `PAUSED — UNCOMMITTED` and **not product
+  evidence**; the W0-R03 `NO-GO` stands outstanding until a writer completes under the grant
+  and both of the grant's reviews pass; the latest committed Cyber AI state remains the
+  docs-only gate lineage ending at `866b7db9…`. Neither the W0-R03 review nor this record's
+  control-side re-verification carries over as either of the grant's required reviews.
+- The tasking clause allowing a cosmetic fix of stale `W0-IR08` forward-pointer wording in the
+  board or register applied only if directly encountered; a full-text search found no such
+  wording, so nothing was changed under that clause and no dated evidence was altered.
+- No gate opens or closes: W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed; W1
+  integration/live shadow stays `HOLD`/`NO-GO`; `W0 COMPLETE=0` and W0 closure stays `NO-GO`;
+  live-shadow blockers 2–4 stand open exactly as §10.2 records them.
+- Nothing is pushed, merged or released; no dependency is installed; no secret is read; no
+  status is promoted; the Fabric W0-I07 lane (§10) is untouched.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4 — `W0-IR08` names a decision, not a task.
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   byte-for-byte untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.

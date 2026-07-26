@@ -164,6 +164,10 @@ owning repository; the gate-review, session, test, coverage, lint and review fig
 reported by the lane and its independent reviewers** and were not re-executed from this control
 worktree. Register §7 carries the matching evidence table.
 
+The fresh bounded grant this section requires for any resumption was subsequently recorded
+**later on 2026-07-27**: §1.8 carries that seventh same-day record. This section stands
+unedited as dated history.
+
 | Lane | Verified current state | What it does not prove |
 |---|---|---|
 | Cyber AI — W1-I06C HTTP ingress gate and attempt | docs-only gate lineage on branch `codex/w1-i06c-http-ingress-r2`: original gate `c568045b1794eaefc34eed717c2ce94959d929a4` (parent `42133a5224d51b2c3e2cc6deccdf0d41ac831d9c`), amendment `b33b73e9aa0e873409edc858804e6898ac2302b2`, review closure `de41faa316c56740aca7e366618b3408e5c028bc`, and **gate-reopen commit `866b7db91d9352a9a0d2bd74618d642dfef0493b`** (parent `de41faa3…`, exactly 1 docs path), recorded after a prior implementation attempt's correct gate-§I.5 STOP and clean rollback to `de41faa3…`. Reported: independent Fable review of the reopened docs-only gate **GO**, no P0–P2; Opus R2 implementation session `06a2c154-50c7-4525-851c-ee9ecfd47219` ran the initial 600 s cycle plus **exactly one** healthy 600 s extension under §15, then **hard-stopped — no third cycle**. Worktree `w1-i06c-http-ingress-r2` at HEAD `866b7db9…` is dirty with **exactly the 13 gate-manifest paths, zero staged — uncommitted**. Independent **W0-R03 technical review of that dirty tree: NO-GO** — P1 static-gate failures (`ruff` 7 findings, format 4 files, `mypy` 9 errors) and P2 RED-first evidence packaging — while targeted tests report `138 passed` and the full pytest suite `696 passed` at `97.43%` coverage | `PAUSED — UNCOMMITTED` and **not product evidence**: green test counts inside a NO-GO-reviewed, uncommitted dirty tree promote nothing; the latest committed Cyber AI state is the docs-only gate lineage ending at `866b7db9…`, which contains no transport code; no HTTP transport, durability, bundle-delivery or Fabric tool-execution claim advances |
@@ -291,6 +295,63 @@ Fabric repository; review and execution figures are **as reported**. Full record
   `HOLD`/`NO-GO`**. G2/G3 stay closed, `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of
   48 stands with no task 49, and all dates are unchanged. Full bounded record: §14.15.
 
+### 1.8 Cyber AI W1-I06C remediation grant — 2026-07-27, seventh same-day record
+
+Recorded later again on 2026-07-27 under the three-path bounded authority in §14.16, as the
+**fresh prospective bounded grant** that §1.4 requires before any resumption of the paused
+W1-I06C HTTP tree — the prior reopened-gate grant was consumed by the §15 hard stop and the
+adverse W0-R03 `NO-GO` review is outstanding. The decision basis is the **W0-IR08 decision**
+(a coordinator-delegated decision label, not a roster task identity), which moves the
+remediation from the `queued, not decided` state of §1.5 to granted. Full grant text:
+`docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`.
+
+- **Verified:** worktree `w1-i06c-http-ingress-r2` re-verified live and read-only — still at
+  base `866b7db91d9352a9a0d2bd74618d642dfef0493b`, branch `codex/w1-i06c-http-ingress-r2`,
+  branch tip equal to base, exactly **13 dirty `-uall` paths matching the gate §C manifest
+  path-for-path, zero staged** — unchanged since §1.4. The three W0-R03 P1 static-gate figures
+  were **re-executed read-only** from the attempt worktree and reproduce exactly: `ruff`
+  **7** findings (`E501` × 5 — `investigations/api.py` lines 124/256/328/338 and
+  `test_lifecycle_http.py` line 351; `SIM300` × 2 — `test_lifecycle_http_conformance.py`
+  lines 366/374), format-check **4** files (`app.py`, `investigations/api.py`,
+  `test_lifecycle_http.py`, `test_lifecycle_http_conformance.py`), `mypy` strict **9** errors
+  in 4 files (optional-port `arg-type` in `transport_security.py:107`; six missing
+  `model_construct` fields for the empty bundle-refusal placeholder at
+  `investigations/api.py:124`; implicit re-export of `INGRESS_STATE_ATTRIBUTE`; frozen-model
+  mutation typing in `test_transport_security.py:188`); targeted tests re-executed:
+  **`138 passed`** exactly. The exhausted-session transcript
+  `06a2c154-50c7-4525-851c-ee9ecfd47219.jsonl` was inspected read-only and **contains observed
+  RED/GREEN evidence** (labeled RED rounds A/B/C, observed failing runs, final full suite
+  `696 passed` at `97.43%`), so the P2 packaging remediation can proceed by citation without
+  reconstruction.
+- **Basis, as reported:** the W0-R03 review's **NO-GO** classification (P1 static gates, P2
+  RED-first evidence packaging) and the full-suite `696 passed` / `97.43%` coverage figures
+  stand as reported; the full suite was not re-executed from this control worktree.
+- **Grant, in brief:** grantee is the same immutable task **W0-I06** (sub-lane W1-I06C);
+  writer is **Opus 5 in a brand-new session** — the exhausted session `06a2c154…` is never
+  resumed; runtime is one initial 600 s cycle plus at most one healthy 600 s extension under
+  §15; the product edit allowlist is **exactly the 13 already-dirty paths** with the dirty set
+  held at exactly 13 and zero staged, and rows 1–2/9–11 of the grant §1 table
+  (`pyproject.toml`, `uv.lock`, the vendored OpenAPI member, `provenance.json`,
+  `test_lifecycle_provenance.py`) frozen as-is; permitted behavior is **behavior-preserving
+  remediation only** — fix exactly the 7 `ruff` findings, format exactly the four named files
+  (manual or **one** `ruff format` invocation scoped exactly to those four; no bulk
+  formatter), resolve exactly the 9 `mypy` strict errors — with **no
+  API/schema/OpenAPI/provenance/dependency behavior change** and the accepted OpenAPI sha256
+  `22cd7d71…`, the five-path route surface, default-deny, bundle refusal and token
+  non-consumption preserved; P2 evidence is packaged **by citation to the inspected
+  transcript** with no fabricated chronology (one deletable out-of-repo `mktemp` scratch
+  reproduction, labeled `RECONSTRUCTED`, only if the transcript is insufficient for a specific
+  claim); the writer **stops before commit** with zero staged for an independent Fable
+  pre-commit review, and only after **GO with no P0–P2** may the same new session stage
+  exactly all 13 paths and make one status-honest `SCAFFOLD` local commit, followed by a
+  **fresh post-commit Fable review** before anything counts as product evidence; exact STOP
+  conditions in grant §7.
+- **Nothing moves on this grant alone:** the tree stays `PAUSED — UNCOMMITTED` and not product
+  evidence until the writer completes under the grant and both reviews pass; no push, merge,
+  release or install; G2/G3 stay closed, W1 integration/live shadow stays `HOLD`/`NO-GO`,
+  `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no task 49, and all
+  dates are unchanged. Full bounded record: §14.16.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -315,7 +376,7 @@ Fabric repository; review and execution figures are **as reported**. Full record
 | W0-I03 | Scoped SOC alert-context read API and authorization seam | SOC Alert | `HOLD` on W0-I01 acceptance and exact product authority |
 | W0-I04 | SOC `shadow_remote` client/flag, correlation and rollback-compatible embedded path | SOC Copilot | `HOLD` on W0-I02 and transport acceptance |
 | W0-I05 | Pure Cyber AI job/checkpoint/cancel state-machine and ports | Cyber AI orchestration | `HOLD` on ADR-0003/explicit bounded authority |
-| W0-I06 | Cyber AI investigation producer and W2-D/W2-F relying-party composition | Cyber AI API/worker | `HOLD` on lifecycle/transport contracts and runtime trust gates; the bounded W1-I06C HTTP ingress attempt in worktree `w1-i06c-http-ingress-r2` (gate reopened at `866b7db9…`) is `PAUSED — UNCOMMITTED` after the §15 hard stop and is reviewed **NO-GO** by W0-R03 (P1 static gates, P2 evidence packaging) — **not** product evidence (§1.4) |
+| W0-I06 | Cyber AI investigation producer and W2-D/W2-F relying-party composition | Cyber AI API/worker | `HOLD` on lifecycle/transport contracts and runtime trust gates; the bounded W1-I06C HTTP ingress attempt in worktree `w1-i06c-http-ingress-r2` (gate reopened at `866b7db9…`) is `PAUSED — UNCOMMITTED` after the §15 hard stop and is reviewed **NO-GO** by W0-R03 (P1 static gates, P2 evidence packaging) — **not** product evidence (§1.4). A fresh prospective bounded grant for its behavior-preserving remediation was recorded later on 2026-07-27 (§1.8, §14.16, `docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`), based on the W0-IR08 decision, with the exhausted session `06a2c154…` never to be resumed; the tree stays `PAUSED — UNCOMMITTED` and not product evidence until a writer completes under that grant and both of its reviews pass |
 | W0-I07 | Fabric R0 registry/invocation for `soc.get_alert_context` | Fabric control plane | `HOLD` on product runtime authority; the bounded R0 domain attempt in worktree `w1-i07-fabric-r0-domain-r1` (base `87b4cf3…`) is `PAUSED — UNCOMMITTED` under the hard-timeout policy — audited technically GREEN by the W0-R04 read-only audit but **not** product evidence until committed and reviewed (§1.3). The former "`HOLD` on W0-I01" wording in this row was removed only because that dependency was **discharged** — W1-C1 accepted 2026-07-26 and W1-G1 closed 2026-07-27 — not because it was erased historically (§14.12.4). Disposition recorded 2026-07-27 (§1.5, §14.13, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`): `HOLD` — commit and replacement writer **refused** for the exhausted attempt; future action needs a fresh prospective bounded grant, resolution or explicit disposition of the three W0-R04 P3 findings, and a fresh post-commit independent review. That fresh prospective bounded grant was recorded later on 2026-07-27 (§1.6, §14.14, `docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`), based on the W0-R04A reassessment, with the P3 disposition inside it. The granted writer then **completed** later on 2026-07-27: local commit `d38f910…` (parent `87b4cf3…`, exactly the 30 paths, clean tree, no upstream) with fresh post-commit review **W0-R04C `PASS`, no P0–P2, five P3** — countable **only** as local, independently reviewed, unmerged/unpushed `SCAFFOLD` product evidence toward live-shadow blocker 1 (§1.7, §14.15, `docs/operations/W1-I07-FABRIC-POST-COMMIT-EVIDENCE.md`); the admission stays `HOLD` on product runtime authority and no runtime, transport, registry or HTTP claim advances |
 | W0-I08 | Fabric receipt/idempotency/kill-switch domain and storage ports | Fabric control plane | `HOLD` on receipt-envelope/runtime decisions |
 | W0-I09 | SOC Investigation Bundle viewer and human accept/edit/reject seam | SOC portal | `HOLD` on accepted read API and service-seeded fixture |
@@ -1774,6 +1835,156 @@ claimed.
   `docs/strategy/06-ROADMAP-2026-2029.md` was preserved untouched and left unstaged.
 - The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
   residual named in §14.13.1–§14.15.1 is recorded, not fixed; this record opened no authority
+  over either.
+
+### 14.16 W0-D04 Cyber AI W1-I06C remediation-grant record — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, the seventh same-day record after §14.15, under
+**coordinator-delegated Founder authority** scoped to documentation and **exactly one bounded
+local commit**. Owner: logical task **W0-D04** (prospective-grant author). This section records
+the **fresh prospective bounded grant for the Cyber AI W1-I06C HTTP remediation** — the grant
+that §1.4 requires before any resumption of the paused 13-path dirty tree, moving the
+remediation from the `queued, not decided` state of §1.5/§14.13 to granted on the basis of the
+**W0-IR08 decision** (a coordinator-delegated decision label, not a roster task identity) —
+and does nothing else: it accepts no packet, flips no ADR, contract or gate status, promotes no
+gate in §1, opens no product or runtime writer **now** (the granted writer runs later, only
+under the grant's own terms), and creates no task identity.
+
+#### 14.16.1 Exact write allowlist — three paths
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md` | **new** prospective grant |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register |
+
+Everything else is outside this allowlist and was not edited: all of `tools/operations/`
+(including `validate-w1-control.mjs` and its test suite), all of `contracts/`, all of
+`docs/adr/`, `docs/operations/W1-I07-FABRIC-DISPOSITION-PACKET.md`,
+`docs/operations/W1-I07-FABRIC-REMEDIATION-GRANT.md`,
+`docs/operations/W1-I07-FABRIC-POST-COMMIT-EVIDENCE.md`, `docs/operations/README.md`,
+`docs/README.md`, the root `README.md` and `docs/strategy/06-ROADMAP-2026-2029.md`. That
+roadmap file still carries its **pre-existing, unrelated dirty working-copy edit**, which was
+left exactly as found — byte-for-byte — and was **not staged**; its fixed release dates are
+unchanged. No path was added outside the allowlist, none was renamed, merged, pushed or
+deleted, and no product repository was written to — every Cyber AI fact below was obtained
+**read-only** (live Git reads, read-only `ruff`/`mypy`/targeted-pytest re-execution whose
+caches are gitignored, and a read-only transcript inspection), with the product dirty set
+re-confirmed at exactly 13 paths / zero staged afterwards. `docs/operations/README.md` is
+outside this allowlist, so its index lists neither the Fabric records nor the new grant; that
+remains a known, bounded residual, recorded and not silently fixed outside a grant.
+
+Like §14.11–§14.15, this authority ends with **exactly one authorized local commit** of the
+three allowlisted paths in this control worktree — subject
+`docs(control): grant Cyber HTTP remediation` — and nothing else: no push, no merge, no remote
+change, no release, no dependency install, no formatter.
+
+**Allowlist history, in order.** §14.1 eight docs-only paths → §14.4.1 five paths → §14.5.1
+seven docs-only paths → §14.6.1 twelve paths → §14.7.1 nineteen paths → §14.8.1 nine docs-only
+paths → §14.9.1 eight paths → §14.10.1 two docs-only paths → §14.11.1 two docs-only paths →
+§14.12.1 two docs-only paths → §14.13.1 three docs-only paths → §14.14.1 three docs-only paths
+→ §14.15.1 three docs-only paths → §14.16.1 three docs-only paths (this record). Each set was
+bounded separately; none widened an earlier one, and every earlier record stands unedited as
+provenance.
+
+#### 14.16.2 Basis evidence — 2026-07-27, worktree and findings re-verified read-only
+
+- **Worktree state, verified.** `w1-i06c-http-ingress-r2`, branch
+  `codex/w1-i06c-http-ingress-r2`, HEAD/base `866b7db91d9352a9a0d2bd74618d642dfef0493b`;
+  branch tip equals base — still no commit on the attempt. Dirty with exactly **13 `-uall`
+  paths, zero staged**, compared path-for-path against the gate §C manifest — the tree has not
+  drifted since §14.12.2.
+- **Static-gate findings, re-executed read-only.** All three W0-R03 P1 figures reproduce
+  exactly from the attempt worktree: `ruff check` **7** findings — `E501`
+  `services/ai-api/src/cybrik_ai_api/investigations/api.py:124/256/328/338` and
+  `tests/ai_api/test_lifecycle_http.py:351`, `SIM300`
+  `tests/contract/test_lifecycle_http_conformance.py:366/374`; `ruff format --check` — exactly
+  **4** files would be reformatted (`app.py`, `investigations/api.py`,
+  `test_lifecycle_http.py`, `test_lifecycle_http_conformance.py`); `mypy` strict — **9**
+  errors in 4 files (optional-port `arg-type` at `transport_security.py:107`; six missing
+  `model_construct` fields for the deliberately empty bundle-refusal placeholder at
+  `investigations/api.py:124`; implicit re-export of `INGRESS_STATE_ATTRIBUTE` consumed at
+  `test_lifecycle_http.py:45`; frozen-model mutation typing at
+  `test_transport_security.py:188`). Targeted tests over the five dirty test files:
+  **`138 passed`** exactly.
+- **Transcript, inspected read-only.** The exhausted-session transcript
+  `06a2c154-50c7-4525-851c-ee9ecfd47219.jsonl` **contains observed RED/GREEN evidence** —
+  labeled RED rounds A (transport-security seam), B (HTTP route layer) and C (vendored-bytes
+  conformance) with observed failing runs (`ModuleNotFoundError` collection failures,
+  `2 failed, 26 passed`, `3 failed, 15 passed`, with named failing tests) and observed passing
+  runs up to the final full suite `696 passed, 5 warnings` at `97.43%` coverage — so the P2
+  packaging remediation proceeds by citation, with reconstruction only as a labeled,
+  bounded fallback.
+- **Review, as reported.** The W0-R03 **NO-GO** classification (P1 static gates, P2 RED-first
+  evidence packaging) and the full-suite `696` / `97.43%` figures stand as reported; the full
+  suite was not re-executed from this control worktree.
+- **W0-IR08 forward-pointer clause.** The tasking authorized a cosmetic fix of any stale
+  `W0-IR08` forward-pointer wording in the board or register **if directly encountered**; a
+  full-text search of both documents found no such wording, so nothing was changed under that
+  clause and no dated evidence was altered.
+
+#### 14.16.3 Grant recorded
+
+The full grant text is `docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`; §1.8 carries the
+board summary. In brief: grantee **W0-I06**, sub-lane **W1-I06C** (same immutable identity);
+writer **Opus 5 in a brand-new session**, never resuming exhausted session `06a2c154…`;
+runtime one initial 600 s cycle plus at most one healthy 600 s extension under §15; product
+edit allowlist of exactly the **13 already-dirty paths** with the dirty set held at exactly 13
+and zero staged, and the five contract-frozen rows (`pyproject.toml`, `uv.lock`, vendored
+OpenAPI member, `provenance.json`, `test_lifecycle_provenance.py`) landing byte-as-is;
+permitted behavior exactly the **behavior-preserving** static-gate remediation — the 7 `ruff`
+fixes, formatting of exactly the four named files (manual or one scoped `ruff format`
+invocation; no bulk formatter), the 9 `mypy` strict resolutions — with no
+API/schema/OpenAPI/provenance/dependency behavior change and the `22cd7d71…` OpenAPI pin,
+route surface, default-deny, bundle refusal and token non-consumption preserved; P2 evidence
+packaged by citation to the inspected transcript, never fabricated, with one deletable
+out-of-repo `mktemp` reproduction labeled `RECONSTRUCTED` only if the transcript is
+insufficient; writer stops before commit; independent Fable pre-commit review must return
+**GO with no P0–P2** before the same session stages exactly all 13 paths and makes one
+status-honest `SCAFFOLD` local commit; a fresh post-commit Fable review follows before
+anything counts as product evidence. Exact STOP conditions are enumerated in the grant §7.
+
+#### 14.16.4 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `cabbe8e227a4f042d3637b075e57e3a3821ced40`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after
+the three documents were written:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0` |
+
+The validator and its test suite were **not modified** by this record; both commands are
+**manual** and **static/documentary only** — **CI: NOT WIRED** for both, and no CI result is
+claimed.
+
+#### 14.16.5 What this record did not change and did not grant
+
+- Beyond the single authorized local commit named in §14.16.1, nothing was staged, committed,
+  merged, pushed, deployed or released; no branch or remote was created or configured; no
+  dependency was installed; no database, container, microVM, netns or broker was started; no
+  formatter or auto-fixer was run in any repository; and no product repository was written to.
+- **No status flip of any kind.** GATE A4 and the W1-C1/C2 contract gate stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, and G2/G3 stay
+  closed — no gate beyond W1-G1 opens or advances.
+- **The grant is prospective and promotes nothing now.** The W1-I06C tree stays
+  `PAUSED — UNCOMMITTED` and not product evidence; the W0-R03 `NO-GO` review stands
+  outstanding against it until a writer completes under the grant and both of the grant's
+  reviews pass; no writer session was opened by this record, and the exhausted session
+  `06a2c154…` stays never-resumable.
+- W1 product implementation and integration/live shadow stay `HOLD`; W1 runtime writers,
+  delegated routine integration and external release stay `NO-GO`; `W0 COMPLETE=0` and W0
+  closure `NO-GO`; the §11 exit criteria remain unmet, and live-shadow blockers 2–4 stand
+  open exactly as §1.7 records them.
+- The 48 immutable task identities are unchanged; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4; no task 49 exists and no replacement identity was created —
+  `W0-IR08` names a decision, not a task.
+- W1 formal dates 2026-08-01 → 2026-08-23, all W0–W6 dates and the 2026-12-21 → 2026-12-31
+  release window are unchanged; the pre-existing dirty edit in
+  `docs/strategy/06-ROADMAP-2026-2029.md` was preserved untouched and left unstaged.
+- The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
+  residual named in §14.13.1–§14.16.1 is recorded, not fixed; this record opened no authority
   over either.
 
 ## 15. Coordinator runtime rule — bounded single extension
