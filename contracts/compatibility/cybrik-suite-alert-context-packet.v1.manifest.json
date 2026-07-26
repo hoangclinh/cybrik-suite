@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json",
+  "title": "CYBRIK Suite W1 soc.get_alert_context R0 accepted contract packet manifest",
+  "description": "Inventory, provenance and compatibility record for the smallest W1 capability-specific contract for soc.get_alert_context. It is additive to existing accepted packets and changes none of their bytes. This contract defines business payload shape only: no endpoint, transport binding, capability registry entry, Fabric invocation grant, runtime implementation, stable bundle tag or release certification. Status: ACCEPTED FOR IMPLEMENTATION on 2026-07-26; implementation has not started, CI is not wired, and no runtime behavior is proven.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12"
+  },
+  "capability_scope": {
+    "name": "soc.get_alert_context",
+    "risk_class": "R0",
+    "side_effects": false,
+    "owner_of_truth": "cybrik-soc-command-center",
+    "contract_owner": "cybrik-suite",
+    "execution_authority_owner": "cybrik-security-tool-fabric",
+    "implementation_status": "NOT IMPLEMENTED"
+  },
+  "wire_scope": "BUSINESS PAYLOAD ONLY. No OpenAPI, AsyncAPI, MCP, endpoint, queue, transport or service discovery surface is proposed by this packet.",
+  "authority_boundaries": {
+    "fabric": "Fabric tool-grant authority remains exclusively in the separately accepted capability/delegation/policy/approval/execution-receipt chain. A capability name/version/digest pin identifies requested behavior but is not an invocation grant. This business payload contains no execution grant, approval, delegation chain, token, credential or receipt.",
+    "w2f": "W2-F inference delegation is the internal SOC-to-Cyber-AI inference trust seam. It cannot authorize a Fabric tool invocation, cannot widen SOC tenant/org/clearance scope, and cannot be presented as a tool grant for soc.get_alert_context.",
+    "soc": "SOC derives authoritative tenant, org scope, actor, clearance and alert visibility from authenticated policy. Body fields are advisory copies that must match authoritative values; a mismatch fails closed.",
+    "ai": "Cyber AI may consume an authorized, digest-bound result as untrusted analysis context. The result grants no planning, response, approval or execution authority."
+  },
+  "data_and_privacy_boundary": {
+    "digest_binding": "Request and available result both bind the SOC alert by sha256 digest; runtime must reject a mismatch, stale substitution or cross-object replay.",
+    "clearance": "Result data_marking must not exceed request clearance on either classification or TLP axis. Runtime enforcement is mandatory and is not proven by schema validation.",
+    "no_existence_leak": "Unavailable covers absent, unauthorized and policy-filtered resources with the single alert_context_unavailable code and no resource reference, context, reason or existence bit.",
+    "org_scope": "Result tenant/org scope and authorized actor must match the authoritative request scope, including include_descendants and full actor type/id/tenant/delegated_by identity. include_descendants is a request, never self-authorizing.",
+    "safe_internal_refs": "Alert/event/entity/case references are closed type/id/version/digest objects with additionalProperties=false and no locator field. Resolution occurs only inside the authenticated SOC boundary; caller-supplied URL/locator fetching is forbidden."
+  },
+  "canonicalization": {
+    "standard": "RFC 8785 JSON Canonicalization Scheme (JCS), UTF-8 bytes, SHA-256, lowercase hex rendered as sha256:<64-hex>.",
+    "owner": "The authenticated SOC capability implementation produces request input, authorization binding and available-result context digests after credential authorization and field-level redaction. Fabric may verify/receipt them but does not redefine the projections.",
+    "request_input_projection": [
+      "schema = cybrik.soc-get-alert-context.request-input@0.1.0",
+      "idempotency_key",
+      "purpose",
+      "data_marking",
+      "alert_ref = exact closed type/id/version?/digest object",
+      "requested_at"
+    ],
+    "authorization_binding_projection": [
+      "schema = cybrik.soc-get-alert-context.authorization-binding@0.1.0",
+      "tenant_id = credential-derived",
+      "org_scope = exact org_id/include_descendants authorized scope",
+      "actor = exact type/id/tenant_id/delegated_by? identity",
+      "capability = exact name/version/digest/risk_class/side_effects pin",
+      "schema_digest = SHA-256 of exact capability schema bytes",
+      "input_digest = SHA-256(JCS(request_input_projection))",
+      "policy_digest = exact evaluated policy revision"
+    ],
+    "available_result_projection": [
+      "schema = cybrik.soc-get-alert-context.available-result@0.1.0",
+      "request_id",
+      "idempotency_key",
+      "authorization_binding_digest",
+      "tenant_id",
+      "org_scope",
+      "authorized_actor",
+      "clearance",
+      "capability",
+      "alert_ref",
+      "context",
+      "data_marking",
+      "policy_digest"
+    ]
+  },
+  "idempotency_semantics": {
+    "order": "Validate credential -> derive authoritative tenant/org/full actor/clearance -> authorize capability and alert scope -> compute schema/input/policy/binding digests -> only then perform a tenant-partitioned idempotency/cache lookup. Authorization-before-cache is mandatory.",
+    "cache_partition": "Partition by authoritative tenant plus idempotency_key; a cache hit is usable only when the stored authorization_binding.binding_digest equals the freshly computed binding digest.",
+    "replay": "Same tenant + same idempotency_key + exact same binding digest returns the exact stored result bytes and marks idempotency_disposition=replayed. Authorization is still recomputed before lookup.",
+    "conflict": "Same tenant + same idempotency_key + different binding digest rejects before target lookup as outcome=idempotency_conflict, idempotency_disposition=conflict, code=idempotency_binding_conflict, retryable=false; it returns no alert_ref/context/context_digest and reveals no cached or target-derived state.",
+    "unavailable_derivation": "Unavailable response fields derive only from the request plus credential-derived authorization/policy metadata. They never derive from target existence, denial reason, stored context or cache contents; timing/observable equivalence remains a runtime-only obligation."
+  },
+  "compatibility": {
+    "additive": true,
+    "modifies_existing_packet_bytes": false,
+    "modifies_existing_ids": false,
+    "stable_v1_or_ga": false,
+    "obligations_on_existing_accepted_members": "none",
+    "reuses_accepted_unmodified": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json"
+    ]
+  },
+  "trust_invariants": {
+    "structural": [
+      "TI-1 Capability identity is pinned to soc.get_alert_context, R0 and side_effects=false.",
+      "TI-2 Request/result tenant, org, actor, clearance/data-marking and digest-bearing fields are explicit and additionalProperties=false.",
+      "TI-3 Fabric execution-grant fields and W2-F delegation-token fields are rejected from the business payload.",
+      "TI-4 Unavailable results expose exactly one generic caller-visible code and prohibit alert_ref, context and context_digest.",
+      "TI-5 Every alert/event/entity/case reference is a digest-bound objectRef; no arbitrary public URL or inline raw telemetry field is introduced."
+    ],
+    "runtime_only_fixture_exercised": [
+      "TR-1 Credential-derived actor tenant must equal request tenant; the structurally valid cross-tenant actor fixture must be rejected.",
+      "TR-2 Result tenant/org/actor scope must equal authoritative request scope; the structurally valid cross-org result fixture must be rejected.",
+      "TR-3 Result marking must be no higher than request clearance on both classification and TLP axes; the structurally valid clearance-exceeded fixture must be rejected.",
+      "TR-4 Available result full alert_ref type/id/version/digest and context alert_id/alert_digest must equal the request; the structurally valid mismatch fixture must be rejected.",
+      "TR-5 Authorization binding must match tenant, full org scope, full actor identity, capability/schema/input/policy digests; the result must echo request idempotency key and exact binding.",
+      "TR-6 context_digest must equal SHA-256(JCS(available_result_projection)) produced by SOC after authorization/redaction."
+    ],
+    "runtime_only_declared": [
+      "TR-7 Runtime must produce the identical unavailable response class, timing budget and observable audit behavior for absent, unauthorized and policy-filtered resources to avoid side-channel existence leakage. Static schema fixtures prove only the response shape, not timing or operational behavior.",
+      "TR-8 Runtime must resolve org hierarchy and membership from SOC-owned authoritative state and must never trust include_descendants from the request body as an authorization decision.",
+      "TR-9 Runtime audit must record policy/capability/input/output digests without exposing sensitive context to unauthorized callers."
+    ]
+  },
+  "members": [
+    {
+      "file": "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
+      "kind": "json-schema",
+      "contract_version": "0.1.0",
+      "sha256": "dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f"
+    },
+    {
+      "file": "examples/alert-context/examples-manifest.json",
+      "kind": "example-manifest",
+      "contract_version": "0.1.0",
+      "sha256": "a01f3e249ec7314ec765fe96939b9e5f9c01b67eb83eac9cc7eecdbb5ec86091"
+    },
+    {
+      "file": "examples/alert-context/negative-schema/request.alert-ref-missing-digest.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "4ff40e3fa7e7ec256d6e88c923720b5d6f527403c5315146929a84b2668da147"
+    },
+    {
+      "file": "examples/alert-context/negative-schema/request.execution-grant-in-body.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "8fa44ca8583711e09b0125577a0c6e51b5fe90d5109f71e4436197a90f43dffa"
+    },
+    {
+      "file": "examples/alert-context/negative-schema/request.w2f-delegation-as-tool-grant.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "efb3f88db7aba903ae5e0cffe8e7a6c87d6f3613626705deab91c7e7646ebadd"
+    },
+    {
+      "file": "examples/alert-context/negative-schema/result.existence-leak.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "edbc95782b8159eee5a7c0b0a365fb3e31045d41d00bb575bb4fe02a38f9fe26"
+    },
+    {
+      "file": "examples/alert-context/negative-semantic/request.cross-tenant-actor.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "4f1b14c3d61815c7c7c55db9a69d443710da0cd290a9f91e786cc1e383fafa52"
+    },
+    {
+      "file": "examples/alert-context/negative-semantic/result.clearance-exceeded.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "af35112dd318f99efb45c982ad0da003a223e4a61c1b45961cd4391f95d5f6a8"
+    },
+    {
+      "file": "examples/alert-context/negative-semantic/result.cross-org.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "80c3180697300ae86924df622e0b536076bcc30c0a2e75ad07cca07df4422dc8"
+    },
+    {
+      "file": "examples/alert-context/negative-semantic/result.digest-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "2ea20a811459283f0df85eee0386e8afdc203944f47b1c9d10748c9593c83c06"
+    },
+    {
+      "file": "examples/alert-context/positive/request.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "c6bb223b50a0c384f04f0fefce10f9635b0bb2738faff3ecfcd05d43bbfeb51a"
+    },
+    {
+      "file": "examples/alert-context/positive/result.available.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "56b069b048feada20eb47f3ad43d2f740d5981685cc0d8c91799986c35a01644"
+    },
+    {
+      "file": "examples/alert-context/positive/result.unavailable.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "884bcaff9c7f90fecd4b598a9bc638f790ee871daee7f686521f8174f57e6e2a"
+    }
+  ],
+  "member_set_integrity": {
+    "algorithm": "MEMBER-SET-SHA256/v1: reduce every entry of members[] to exactly {file, kind, contract_version, sha256}, sort the reduced entries by file in Unicode code point order, serialize that array as RFC 8785 (JCS) canonical JSON, and render member_set_digest as sha256:<lowercase hex SHA-256 over those UTF-8 bytes>. The digest input is derived from members[] only: member_set_integrity itself and every other manifest key are excluded, so the aggregate is non-circular and is recomputed without reading its own declared value.",
+    "member_count": 13,
+    "member_set_digest": "sha256:e4cfbf8c6f6ccfe545a91d63b0bee6de4c616a28e3f1a61c320f8fde747e1d35"
+  },
+  "verification": {
+    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context.test.mjs holds 19 adversarial rejection cases plus 2 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves packet, schema, fixture, authorization-binding, lifecycle-coherence, member-hash and member-set integrity only: no endpoint, Fabric grant, W2-F delegation, runtime enforcement or release certification is demonstrated, and lifecycle acceptance is a recorded decision rather than evidence.",
+    "standalone_validator_command": "node tools/contract-validation/validate-alert-context.mjs",
+    "standalone_test_command": "node --test tools/contract-validation/tests/validate-alert-context.test.mjs",
+    "standalone_coverage_command": "node --test --experimental-test-coverage tools/contract-validation/tests/validate-alert-context.test.mjs",
+    "dependency_root_override_env": "CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=<directory whose node_modules already provides ajv 8.20.0 and ajv-formats 3.0.1>. All three commands run from the repository root, install nothing and require no network.",
+    "coverage_floor": "Branch coverage of tools/contract-validation/validate-alert-context.mjs must stay at or above 80% under the declared standalone coverage command.",
+    "test_case_counts": {
+      "adversarial_rejection_cases": 19,
+      "positive_cases": 2,
+      "total_cases": 21
+    },
+    "ci_wiring": "NOT WIRED. Canonical CI wiring (npm script registration in tools/contract-validation/package.json plus pipeline invocation) is deliberately out of scope for this acceptance and belongs to a later integration gate. This packet adds no tracked file and modifies none."
+  },
+  "provenance": {
+    "repository": "cybrik-suite",
+    "base_commit": "3ef8e0536f8210f2739c6fa0e32e37f8dc27d619",
+    "worktree": "w1-i01-alert-context-proposal-r1",
+    "source_decision": "W1 rolling read-ahead proposal lane W0-I01/T01",
+    "generated_on": "2026-07-26",
+    "validator": "tools/contract-validation/validate-alert-context.mjs",
+    "network_required": false
+  },
+  "proof_limits": {
+    "static_packet_integrity_proven": true,
+    "runtime_authorization_proven": false,
+    "no_existence_leak_runtime_proven": false,
+    "endpoint_or_transport_implemented": false,
+    "accepted_for_implementation": true,
+    "release_ready": false
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION",
+    "accepted_on": "2026-07-26",
+    "decision_record": "W1 coordinator lifecycle decision, applied by logical agent W0-I01 in cybrik-suite worktree w1-i01-alert-context-proposal-r1 against base commit 3ef8e0536f8210f2739c6fa0e32e37f8dc27d619.",
+    "scope_of_acceptance": "Accepts the business payload shape, the RFC 8785/JCS projections and the static packet integrity evidence as the basis for implementation. It does not open the transport/endpoint, capability-registry, Fabric invocation-grant, consumer-integration, CI-wiring or release-certification gates; each of those remains a separate gate requiring its own explicit approval. Acceptance changes no runtime behavior and proves none.",
+    "settled_checklist": [
+      "A1 SOC owns alert truth and the exact alert-context field projection.",
+      "A2 Tenant/org/actor/clearance derive from authenticated SOC policy; body values are advisory copies only.",
+      "A3 The available result marking must never exceed request clearance on either axis.",
+      "A4 Unavailable behavior must be indistinguishable for absent, unauthorized and filtered resources, including timing and audit side channels; this stays an unproven runtime obligation, tracked as TR-7.",
+      "A5 Fabric tool-grant authority remains in the accepted Fabric execution chain and W2-F inference delegation cannot authorize this capability.",
+      "A6 Capability pin name/version/digest, R0 classification and side_effects=false are exact and fixed.",
+      "A7 All static schema, fixture, authorization-binding, semantic-witness, member-hash and member-set checks pass from a clean checkout under the declared standalone commands.",
+      "A8 Authorization-before-cache, tenant-partitioned replay, exact binding match and fail-closed conflict rejection are the required runtime semantics.",
+      "A9 SOC owns the RFC 8785/JCS projections and context_digest production after authorization and redaction.",
+      "A10 The separate transport/endpoint/registry and consumer implementation gates are NOT opened by this acceptance and each remains deferred to its own gate."
+    ],
+    "open_runtime_obligations": ["TR-7", "TR-8", "TR-9"]
+  },
+  "residual_questions": [
+    "Should the first implementation return only digest-bound related-object references, as proposed, or a separately bounded field-level snapshot profile?",
+    "Which SOC permission is authoritative for include_descendants and should R0 v0.1.0 prohibit descendant aggregation until that permission contract is accepted?",
+    "What constant-time or bounded-jitter target is required for unavailable responses to make no-existence-leak operationally testable?",
+    "Which signing/attestation key and receipt field, if any, should bind the SOC-produced context_digest beyond its SHA-256 integrity anchor?",
+    "Does the first transport bind this business payload to the existing Fabric tool-execution envelope, or does a separate read-capability binding need proposal and acceptance?"
+  ]
+}

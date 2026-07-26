@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.soc-get-alert-context.v1.schema.json",
+  "title": "CYBRIK SOC get-alert-context capability contract v1",
+  "description": "Capability-specific business payload for the read-only R0 capability soc.get_alert_context. SOC remains authoritative for alert truth, tenant/org scope, analyst identity, clearance and data marking. The payload is digest-bound and intentionally carries no approval, delegation, execution-grant or tool-execution authority. Fabric invocation authorization stays outside this payload. W2-F internal SOC-to-Cyber-AI inference delegation is a separate trust seam and is never a Fabric tool grant. An unavailable result deliberately collapses absent, unauthorized and policy-filtered outcomes into one generic caller-visible shape to prevent resource-existence leakage. Status: ACCEPTED FOR IMPLEMENTATION on 2026-07-26; implementation status NOT IMPLEMENTED — no endpoint, registry entry, runtime implementation or release claim.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/result" }
+  ],
+  "$defs": {
+    "capabilityPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest", "risk_class", "side_effects"],
+      "properties": {
+        "name": { "const": "soc.get_alert_context" },
+        "version": { "const": "0.1.0" },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "risk_class": { "const": "R0" },
+        "side_effects": { "const": false }
+      }
+    },
+    "orgScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["org_id", "include_descendants"],
+      "properties": {
+        "org_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque SOC-owned organization node identifier. Advisory in the body; authoritative scope derives from authenticated policy."
+        },
+        "include_descendants": {
+          "type": "boolean",
+          "description": "Requested hierarchy expansion. The runtime may only honor it when the authenticated actor has the corresponding aggregate scope."
+        }
+      }
+    },
+    "safeInternalObjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "digest"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      },
+      "description": "Closed, digest-bound owner-internal reference. Unlike the generic objectRef, this capability profile deliberately has no locator field: implementations resolve type/id/version inside the authenticated SOC boundary and never fetch caller-supplied URLs or locators."
+    },
+    "alertRef": {
+      "allOf": [
+        { "$ref": "#/$defs/safeInternalObjectRef" },
+        {
+          "properties": {
+            "type": { "enum": ["soc.alert", "soc.alert_snapshot"] }
+          }
+        }
+      ]
+    },
+    "alertContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alert_id",
+        "alert_digest",
+        "title",
+        "severity",
+        "status",
+        "observed_at",
+        "event_refs",
+        "entity_refs",
+        "case_refs"
+      ],
+      "properties": {
+        "alert_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "alert_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "severity": { "type": "string", "enum": ["informational", "low", "medium", "high", "critical"] },
+        "status": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "observed_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "event_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeInternalObjectRef" },
+          "maxItems": 200
+        },
+        "entity_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeInternalObjectRef" },
+          "maxItems": 200
+        },
+        "case_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeInternalObjectRef" },
+          "maxItems": 50
+        }
+      }
+    },
+    "unavailableFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryable"],
+      "properties": {
+        "code": {
+          "const": "alert_context_unavailable",
+          "description": "Single caller-visible code for absent, unauthorized and policy-filtered resources. No reason or existence bit is exposed."
+        },
+        "retryable": {
+          "const": false,
+          "description": "Unavailable is a terminal caller-visible result. Operational transport failures use their own transport error seam and must not be overloaded here."
+        }
+      }
+    },
+    "idempotencyConflictFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryable"],
+      "properties": {
+        "code": {
+          "const": "idempotency_binding_conflict",
+          "description": "The same idempotency key was previously used with a different credential-derived binding. The runtime rejects before target lookup and reveals no target-derived state."
+        },
+        "retryable": { "const": false }
+      }
+    },
+    "authorizationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "org_scope",
+        "actor",
+        "capability",
+        "schema_digest",
+        "input_digest",
+        "policy_digest",
+        "binding_digest"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+        "org_scope": { "$ref": "#/$defs/orgScope" },
+        "actor": {
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            { "required": ["tenant_id"] }
+          ]
+        },
+        "capability": { "$ref": "#/$defs/capabilityPin" },
+        "schema_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 of the exact capability-specific schema bytes used for validation."
+        },
+        "input_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SOC/Fabric gateway-produced SHA-256 over the RFC 8785 request-input projection declared by the compatibility manifest."
+        },
+        "policy_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "binding_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 over the RFC 8785 authorization-binding projection declared by the compatibility manifest. Computed only after credential validation and authorization."
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "request_id",
+        "idempotency_key",
+        "capability",
+        "tenant_id",
+        "org_scope",
+        "actor",
+        "purpose",
+        "clearance",
+        "data_marking",
+        "alert_ref",
+        "policy_digest",
+        "authorization_binding",
+        "requested_at"
+      ],
+      "properties": {
+        "message_type": { "const": "request" },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "idempotency_key": { "type": "string", "minLength": 16, "maxLength": 200 },
+        "capability": { "$ref": "#/$defs/capabilityPin" },
+        "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+        "org_scope": { "$ref": "#/$defs/orgScope" },
+        "actor": {
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            { "required": ["tenant_id"] }
+          ],
+          "description": "Advisory body copy of the authenticated actor. The runtime derives authoritative actor and tenant from credentials and fails closed on mismatch."
+        },
+        "purpose": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "clearance": {
+          "$ref": "cybrik.data-marking.v1.schema.json",
+          "description": "Maximum marking authorized for this request. Runtime comparison is mandatory on both classification and TLP axes."
+        },
+        "data_marking": {
+          "$ref": "cybrik.data-marking.v1.schema.json",
+          "description": "Handling marking for this request artifact; it is not a substitute for actor clearance."
+        },
+        "alert_ref": { "$ref": "#/$defs/alertRef" },
+        "policy_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "authorization_binding": { "$ref": "#/$defs/authorizationBinding" },
+        "requested_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message_type",
+        "request_id",
+        "idempotency_key",
+        "capability",
+        "tenant_id",
+        "org_scope",
+        "authorized_actor",
+        "clearance",
+        "authorization_binding",
+        "idempotency_disposition",
+        "outcome",
+        "data_marking",
+        "policy_digest",
+        "completed_at"
+      ],
+      "properties": {
+        "message_type": { "const": "result" },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "idempotency_key": { "type": "string", "minLength": 16, "maxLength": 200 },
+        "capability": { "$ref": "#/$defs/capabilityPin" },
+        "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+        "org_scope": { "$ref": "#/$defs/orgScope" },
+        "authorized_actor": {
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            { "required": ["tenant_id"] }
+          ]
+        },
+        "clearance": {
+          "$ref": "cybrik.data-marking.v1.schema.json",
+          "description": "Authoritative clearance applied to this read. It must equal the credential-derived clearance used for policy evaluation, never a self-asserted expansion."
+        },
+        "authorization_binding": { "$ref": "#/$defs/authorizationBinding" },
+        "idempotency_disposition": {
+          "type": "string",
+          "enum": ["fresh", "replayed", "conflict"],
+          "description": "fresh = first successful binding; replayed = same key and exact same binding returned byte-identically; conflict = same key with a different binding, rejected before target lookup."
+        },
+        "outcome": { "type": "string", "enum": ["available", "unavailable", "idempotency_conflict"] },
+        "alert_ref": { "$ref": "#/$defs/alertRef" },
+        "context": { "$ref": "#/$defs/alertContext" },
+        "context_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SOC-produced SHA-256 over the exact RFC 8785/JCS available-result projection declared by the compatibility manifest, after authorization and redaction."
+        },
+        "failure": {
+          "oneOf": [
+            { "$ref": "#/$defs/unavailableFailure" },
+            { "$ref": "#/$defs/idempotencyConflictFailure" }
+          ]
+        },
+        "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+        "policy_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "completed_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "available" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "idempotency_disposition": { "enum": ["fresh", "replayed"] }
+            },
+            "required": ["alert_ref", "context", "context_digest"],
+            "not": { "required": ["failure"] }
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome": { "const": "unavailable" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "idempotency_disposition": { "enum": ["fresh", "replayed"] },
+              "failure": { "$ref": "#/$defs/unavailableFailure" }
+            },
+            "required": ["failure"],
+            "not": {
+              "anyOf": [
+                { "required": ["alert_ref"] },
+                { "required": ["context"] },
+                { "required": ["context_digest"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome": { "const": "idempotency_conflict" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "idempotency_disposition": { "const": "conflict" },
+              "failure": { "$ref": "#/$defs/idempotencyConflictFailure" }
+            },
+            "required": ["failure"],
+            "not": {
+              "anyOf": [
+                { "required": ["alert_ref"] },
+                { "required": ["context"] },
+                { "required": ["context_digest"] }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

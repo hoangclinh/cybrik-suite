@@ -1,0 +1,51 @@
+{
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Closed-set conformance fixtures for the W1 R0 soc.get_alert_context capability-specific packet, accepted for implementation on 2026-07-26 and not implemented. Positive fixtures must validate, negative-schema fixtures must be rejected structurally, and negative-semantic fixtures must validate structurally while demonstrating a runtime policy violation. The standalone validator independently pins every filename, checks there are no missing/orphan/duplicate fixtures, recomputes every fixture authorization binding against the live schema bytes, recomputes RFC 8785/JCS context digests, and verifies manifest member hashes. This is static evidence only; it proves no endpoint, Fabric grant, W2-F delegation, runtime enforcement or release readiness, and the lifecycle acceptance it carries is a recorded decision rather than evidence.",
+  "examples": [
+    { "file": "positive/request.json", "kind": "positive" },
+    { "file": "positive/result.available.json", "kind": "positive" },
+    { "file": "positive/result.unavailable.json", "kind": "positive" },
+    {
+      "file": "negative-schema/request.execution-grant-in-body.json",
+      "kind": "negative-schema",
+      "invariant": "TI-3 Fabric tool-grant authority is outside the capability business payload; additionalProperties=false rejects execution_grant."
+    },
+    {
+      "file": "negative-schema/request.w2f-delegation-as-tool-grant.json",
+      "kind": "negative-schema",
+      "invariant": "TI-3 W2-F inference delegation is not Fabric tool authorization; additionalProperties=false rejects delegation_token."
+    },
+    {
+      "file": "negative-schema/request.alert-ref-missing-digest.json",
+      "kind": "negative-schema",
+      "invariant": "TI-5 The requested SOC alert reference must be digest-bound."
+    },
+    {
+      "file": "negative-schema/result.existence-leak.json",
+      "kind": "negative-schema",
+      "invariant": "TI-4 Absent, unauthorized and policy-filtered resources share the single generic alert_context_unavailable response code."
+    },
+    {
+      "file": "negative-semantic/request.cross-tenant-actor.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-1 Actor and tenant are structurally valid but disagree with the credential-derived authorization binding; authorization happens before cache lookup and runtime must reject."
+    },
+    {
+      "file": "negative-semantic/result.cross-org.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-2 Result org_id/include_descendants differs from the credential-derived request authorization binding; runtime must reject rather than widen hierarchy access."
+    },
+    {
+      "file": "negative-semantic/result.clearance-exceeded.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-3 Result marking exceeds request clearance on classification and TLP axes; runtime must fail closed."
+    },
+    {
+      "file": "negative-semantic/result.digest-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-4 Returned alert digest differs from the digest-pinned request; runtime must reject stale/substituted context."
+    }
+  ]
+}
