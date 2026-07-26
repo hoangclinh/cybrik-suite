@@ -35,6 +35,7 @@ Therefore:
 | W1-C1 — alert-context capability-specific contract proposal | `ACCEPTED — CLOSED 2026-07-26` | `ACCEPTED FOR IMPLEMENTATION v0.1.0` as the local commit `3a2c715...` only; not pushed, not merged, no endpoint/registry/product/runtime authority |
 | W1-C2 — investigation lifecycle/create/status/cancel/bundle-read contract proposal | `ACCEPTED — CLOSED 2026-07-26` | `ACCEPTED FOR IMPLEMENTATION v0.1.0` as the local commit `ed95e51...` only; Cyber AI producer / SOC consumer ownership preserved; Bundle v0.1.1 adoption, v0.1.0 supersession and consumer migration each still separately gated |
 | GATE A4 — ADR-0003/ADR-0005 evidence and decision packet | `ACCEPTED — CLOSED 2026-07-26` | ADR-0003 and ADR-0005 `ACCEPTED` as decisions only; no implementation, dependency or substrate selection follows |
+| W1-G1 — alert-context transport-binding acceptance | `ACCEPTED — CLOSED 2026-07-27` | `ACCEPTED FOR IMPLEMENTATION` (packet v0.1.0, not stable v1/GA, `NOT IMPLEMENTED`) as the local commit `a976a205…` only, parent `4d5fb4b…`, exact 6 paths, branch tip `codex/w1-c1-transport-acceptance-r1`; static contract decision only — TR-4..TR-8 runtime evidence, an endpoint, a live capability-registry entry, a Fabric invocation grant, CI wiring and Bundle adoption each remain open; not pushed, not merged (§1.3, §14.11) |
 | W1 product implementation | `HOLD` | Requires exact repo/base/path/acceptance/test/commit authority |
 | W1 integration/live shadow | `HOLD` | Requires accepted contracts, product revisions and explicit integration authority |
 | Routine delegated integration | `NO-GO` | Hosted enforcement and Founder delegation remain absent |
@@ -73,6 +74,10 @@ Verified from live Git on 2026-07-27. Every commit, parent and path count below 
 product repository itself; the per-lane test, coverage and review figures are **as reported by each
 product lane** and were not re-executed from this control worktree. Full record: §14.10.
 
+Reviewed evidence advanced again **later the same day**: §1.3 records the 2026-07-27
+runtime-evidence reconciliation and names exactly which cells below it supersedes. The table below
+stands unedited as dated history.
+
 | Lane | Verified current state | What it does not prove |
 |---|---|---|
 | Suite — W1 alert-context transport binding | local commit `4d5fb4b701f79194313975302cc0a63e0dd2a8ea`, parent `3a2c71555a423465855ffaddcb663c8b704dbfbd`, exact 18 paths, branch `codex/w1-i01-alert-context-transport-binding-r1`; status `PROPOSED — NOT ACCEPTED`; standalone validator `PASS`, `33/33` tests, `88.27%` branch coverage; final Fable review `PASS`, no open P0–P3 | static only: no acceptance, no endpoint, no capability-registry entry, no Fabric invocation grant, no runtime and no CI wiring |
@@ -99,6 +104,54 @@ shadow blockers are unchanged: the SOC `shadow_remote` route, the Fabric R0 regi
 surface, and integration authority with CI. Test evidence above is test evidence — it is not
 runtime proof and does not satisfy the §11 exit criteria.
 
+### 1.3 Runtime-evidence reconciliation — 2026-07-27, second same-day record
+
+Verified from live Git later on 2026-07-27 under the two-path bounded authority recorded in §14.11.
+Every commit, parent, path count, branch tip and worktree state below was re-read from the owning
+repository; the per-lane test, coverage and review figures are **as reported by each product lane**
+and were not re-executed from this control worktree. Register §6 carries the matching evidence
+table.
+
+| Lane | Verified current state | What it does not prove |
+|---|---|---|
+| Suite — W1-C1 transport-binding acceptance (G1) | accepted local commit `a976a205601de22dae59e5112e37ae29707fda0e`, parent `4d5fb4b701f79194313975302cc0a63e0dd2a8ea`, exact 6 paths, branch tip `codex/w1-c1-transport-acceptance-r1`; flips the transport-binding packet to `ACCEPTED FOR IMPLEMENTATION` (packet v0.1.0, not stable v1/GA, `NOT IMPLEMENTED`); reported: standalone validator `PASS`, `35` tests, `88.09%` branch coverage; final independent review W0-R05 `PASS`, no open P0–P2 | **static contract decision only** — TR-4..TR-8 runtime evidence, an endpoint, a live capability-registry entry, a Fabric invocation grant, CI wiring and Bundle adoption each remain open; not pushed, not merged |
+| Cyber AI — W1 relying-party composition | code commit `35ad17e39ae1c7b0d9a80b3c9a082d0e7769fa5e`, parent `c9530b9623c68fec3b35f63bf41720d34a28cea3`; reported `636` tests with `ruff`, format and `mypy` green; independent review W0-R03 `PASS` with one P2 governance finding; docs record `42133a5224d51b2c3e2cc6deccdf0d41ac831d9c`, parent `35ad17e…`, exactly 2 paths, branch tip `codex/w1-i06-relying-correlation-r1`, records that P2 closed | still **in-process only** — no HTTP transport, no durability, no bundle delivery and no Fabric tool-execution authority |
+| SOC — scoped alert-context runtime | runtime commit `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6`, parent `87e95cd2add7233176ca442bb5870b5913fdd0eb`; remediation `f4d234bba09ae1bea7a63b3348be3640a701065d`, parent `ff1aec3…`, branch tip `codex/w1-i03-soc-context-runtime-r1`; independent W0-R02 review: initial P1, then re-review `PASS`. Reported real-PostgreSQL evidence at exact `f4d234b…`: PostgreSQL 16.14; runtime roles `NOBYPASSRLS`; migration 0023 single head with upgrade→downgrade→upgrade plus base roundtrip; `FORCE ROW LEVEL SECURITY`; grants limited to SELECT+INSERT; `10` focused + `58` migration/RLS + `258` alert-context + `6` temporary ASGI route probes; full backend `3016 passed` with `5` Redis skips; obtained with **no repository write** | explicit residuals stay open: the route-against-DB probe ran from `/tmp` and is **not** a permanent CI job; the org-enabled route stays inert and fail-closed; TTL enforcement and a true multi-connection race proof remain open; no `shadow_remote` and no live bundle path |
+| Fabric — W0-I07 R0 domain attempt | **not a commit and not promotable**: worktree `w1-i07-fabric-r0-domain-r1` at base `87b4cf388038c6dd2e1a74e13f4131306a80ba92` remains dirty with exactly 30 authorized paths, zero staged, after the hard 1200 s timeout. The completed **W0-R04 read-only audit** finds the dirty tree **technically GREEN** — reported `388` full tests plus `113` targeted tests passing; `ruff`, format, `mypy`, `bandit` and Go checks green; no P0–P2 findings; three P3 | `PAUSED — UNCOMMITTED` under the hard-timeout policy: a technically GREEN dirty tree is **not product evidence** until it lands as a reviewed commit under its own bounded writer authority; promotes nothing; the latest committed Fabric state remains `87b4cf3…` (§1.2) |
+
+**Which §1.2 cells this supersedes.** The Suite transport-binding cell is superseded **only as to
+acceptance**: `PROPOSED — NOT ACCEPTED` became `ACCEPTED FOR IMPLEMENTATION` at `a976a205…`; every
+other boundary in that cell — no endpoint, no capability-registry entry, no Fabric invocation
+grant, no runtime, no CI wiring — stands. The Cyber AI cell's `611`-test figure at `c9530b9…` is
+superseded by the reported `636`-test child commit above, and the P2 governance finding raised
+against it is recorded closed by the two-path docs commit; the in-process-only boundary stands
+unchanged. The SOC cell's "no PostgreSQL, no RLS, no HTTP and no runtime proof" is superseded
+**only as far as the reported evidence reaches** — real-PostgreSQL RLS/migration proof and six
+temporary ASGI route probes at `f4d234b…` — while the named residuals stay open. The §1.2 SOC
+claim that a durable atomic put-if-absent/CAS "remains mandatory and unimplemented" is also
+superseded: the durable atomic implementation is **committed and real-PG tested** at the commits
+above; only **true multi-connection contention evidence** remains open. The Fabric cell is **not
+superseded**: the I07 attempt is uncommitted — audited technically GREEN by W0-R04 but still not
+product evidence — and the latest committed Fabric state remains `87b4cf3…`.
+
+**Decision effects, recorded truthfully.** The W1-C1 transport contract gate is now
+`ACCEPTED — CLOSED 2026-07-27` (§1 table, W1-G1 row) as a static contract decision. W1
+integration/live shadow and the §11 W1 Investigation Spine outcome stay `HOLD`/`NO-GO`, and W0
+closure stays `NO-GO` with `W0 COMPLETE=0`. The critical live-shadow blockers are now:
+
+1. **Fabric** — a committed, independently reviewed R0 domain (the paused I07 attempt is audited
+   technically GREEN but uncommitted, so it is not yet product evidence), followed later by an
+   authenticated HTTP surface and a live registry entry;
+2. **Cyber AI** — HTTP transport, durability and bundle delivery (G2);
+3. **SOC** — the `shadow_remote` route, a permanent route-against-DB CI job and real org mapping;
+4. **Canonical integration** — integration authority on one canonical root together with CI
+   wiring.
+
+Nothing in this subsection promotes any writer or gate beyond the W1-G1 row above: none of these
+commits is pushed, merged or released, the dirty canonical roots stay untouched, the fixed roster
+of 48 stands with no task 49, and the formal W1 dates and the 2026-12-21 → 2026-12-31 release
+window are unchanged. Full bounded record: §14.11.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -124,7 +177,7 @@ runtime proof and does not satisfy the §11 exit criteria.
 | W0-I04 | SOC `shadow_remote` client/flag, correlation and rollback-compatible embedded path | SOC Copilot | `HOLD` on W0-I02 and transport acceptance |
 | W0-I05 | Pure Cyber AI job/checkpoint/cancel state-machine and ports | Cyber AI orchestration | `HOLD` on ADR-0003/explicit bounded authority |
 | W0-I06 | Cyber AI investigation producer and W2-D/W2-F relying-party composition | Cyber AI API/worker | `HOLD` on lifecycle/transport contracts and runtime trust gates |
-| W0-I07 | Fabric R0 registry/invocation for `soc.get_alert_context` | Fabric control plane | `HOLD` on W0-I01 and product runtime authority |
+| W0-I07 | Fabric R0 registry/invocation for `soc.get_alert_context` | Fabric control plane | `HOLD` on product runtime authority; the bounded R0 domain attempt in worktree `w1-i07-fabric-r0-domain-r1` (base `87b4cf3…`) is `PAUSED — UNCOMMITTED` under the hard-timeout policy — audited technically GREEN by the W0-R04 read-only audit but **not** product evidence until committed and reviewed (§1.3) |
 | W0-I08 | Fabric receipt/idempotency/kill-switch domain and storage ports | Fabric control plane | `HOLD` on receipt-envelope/runtime decisions |
 | W0-I09 | SOC Investigation Bundle viewer and human accept/edit/reject seam | SOC portal | `HOLD` on accepted read API and service-seeded fixture |
 | W0-I10 | Durable Cyber AI persistence/outbox/relay | Cyber AI worker/store | `HOLD` on ADR-0003 and real-store authority |
@@ -155,7 +208,7 @@ runtime proof and does not satisfy the §11 exit criteria.
 | W0-R01 | Cross-product W1 contract/ownership architecture review | `ACTIVE READ-ONLY` |
 | W0-R02 | SOC authz/runtime/PostgreSQL and UI-E2E evidence review | `ACTIVE READ-ONLY` |
 | W0-R03 | Cyber AI state/model/runtime correctness review | `ACTIVE READ-ONLY` |
-| W0-R04 | Fabric control-plane/executor/trust-boundary review | `ACTIVE READ-ONLY` |
+| W0-R04 | Fabric control-plane/executor/trust-boundary review | `ACTIVE READ-ONLY`; completed the 2026-07-27 read-only audit of the paused W0-I07 worktree — technically GREEN, no P0–P2, three P3, still **not** product evidence (§1.3) |
 | W0-R05 | OpenAPI/AsyncAPI/schema compatibility and supersession review | `ACTIVE READ-ONLY` |
 | W0-R06 | Claim-to-evidence and lifecycle wording review | `ACTIVE READ-ONLY` for review; the tool-side gate it held in §14.8.4 was repaired and **closed 2026-07-26** under the bounded write authority recorded in §14.9 (validator `PASS`, `tests 77 · pass 77 · fail 0`, manual only, **CI: NOT WIRED**); the wording residual in §14.8.3 stays open |
 
@@ -979,6 +1032,129 @@ unchanged after the two documents above were edited. All three commands are **ma
   preserved untouched.
 - Both accepted local contract commits remain unpushed, unmerged and unreleased; Bundle v0.1.1
   remains a proposed successor and v0.1.0 remains the authoritative Bundle contract.
+- The §14.8.3 wording residual stays **open** for the files listed there; this record opened no
+  authority over any of them.
+
+### 14.11 W1-D04 runtime-evidence reconciliation record — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, later the same day as §14.10, under **coordinator-delegated Founder
+authority** scoped to documentation and **exactly one bounded local commit**. Owner: logical task
+**W0-D02** (claim-to-evidence ledger and live-vs-offline wording guard). The task ran as one
+logical session with **one** bounded 600-second extension under §15, granted on evidenced progress
+(new bytes inside the allowlist) and used to incorporate the completed W0-R04 Fabric audit; no
+second extension was requested. This section records the 2026-07-27 W1-C1 transport-binding
+acceptance as an already-taken lifecycle decision, records reviewed product runtime-adjacent
+evidence, marks the paused Fabric W0-I07 attempt as non-evidence, and corrects control wording
+that had gone stale against all of it. It accepts nothing itself, flips no other status, promotes
+no writer, and creates no task identity.
+
+#### 14.11.1 Exact write allowlist — two paths
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board |
+| 2 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register |
+
+Everything else is outside this allowlist and was not edited: all of `tools/operations/`
+(including `validate-w1-control.mjs` and its test suite), all of `contracts/`, all of `docs/adr/`,
+`docs/operations/README.md`, `docs/README.md`, the root `README.md` and
+`docs/strategy/06-ROADMAP-2026-2029.md`. That roadmap file still carries its **pre-existing,
+unrelated dirty working-copy edit**, which was left exactly as found and was **not staged**; its
+fixed release dates are unchanged. No path was added, renamed, merged, pushed or deleted, and no
+product repository was written to.
+
+Unlike §14.1–§14.10, this authority ends with **exactly one authorized local commit** of the two
+allowlisted paths in this control worktree — subject `docs(control): reconcile W1 runtime
+evidence` — and nothing else: no push, no merge, no remote change, no release, no dependency
+install, no formatter.
+
+**Allowlist history, in order.** §14.1 eight docs-only paths → §14.4.1 five paths → §14.5.1 seven
+docs-only paths → §14.6.1 twelve paths → §14.7.1 nineteen paths → §14.8.1 nine docs-only paths →
+§14.9.1 eight paths → §14.10.1 two docs-only paths → §14.11.1 two docs-only paths (this record).
+Each set was bounded separately; none widened an earlier one, and every earlier record stands
+unedited as provenance.
+
+#### 14.11.2 Verified evidence — 2026-07-27
+
+Commits, parents, path counts, branch tips and the Fabric worktree state below were **verified
+from live Git** on 2026-07-27 from this session; the test, coverage, lint and review figures are
+**as reported by each lane** and were not re-executed from this control worktree. The full
+per-lane table is §1.3; register §6 carries the matching evidence table.
+
+- **Suite — W1-C1 transport binding (G1).** Local commit
+  `a976a205601de22dae59e5112e37ae29707fda0e`, parent `4d5fb4b701f79194313975302cc0a63e0dd2a8ea`,
+  exact 6 paths, branch tip `codex/w1-c1-transport-acceptance-r1`, flips the packet to
+  `ACCEPTED FOR IMPLEMENTATION` (packet v0.1.0, not stable v1/GA, `NOT IMPLEMENTED`); reported:
+  standalone validator `PASS`, `35` tests, `88.09%` branch coverage; final independent review
+  W0-R05 `PASS`, no open P0–P2. Static contract decision only — TR-4..TR-8 runtime evidence,
+  endpoint, live registry, Fabric invocation grant, CI wiring and Bundle adoption remain open.
+- **Cyber AI.** Code commit `35ad17e39ae1c7b0d9a80b3c9a082d0e7769fa5e`, parent
+  `c9530b9623c68fec3b35f63bf41720d34a28cea3`; reported `636` tests with `ruff`, format and `mypy`
+  green; independent review W0-R03 `PASS` with one P2 governance finding; docs record
+  `42133a5224d51b2c3e2cc6deccdf0d41ac831d9c`, parent `35ad17e…`, exactly 2 paths, branch tip
+  `codex/w1-i06-relying-correlation-r1`, records that P2 closed. Still in-process only.
+- **SOC.** Runtime commit `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6`, parent
+  `87e95cd2add7233176ca442bb5870b5913fdd0eb`, plus remediation
+  `f4d234bba09ae1bea7a63b3348be3640a701065d`, parent `ff1aec3…`, branch tip
+  `codex/w1-i03-soc-context-runtime-r1`; W0-R02 initial P1, then re-review `PASS`; reported
+  real-PostgreSQL evidence at `f4d234b…` as itemized in §1.3, obtained with no repository write.
+  The durable atomic put-if-absent implementation is committed and real-PG tested; only true
+  multi-connection contention evidence remains open, alongside the other §1.3 residuals.
+- **Fabric — W0-I07 attempt.** Not a commit: worktree `w1-i07-fabric-r0-domain-r1` dirty at base
+  `87b4cf388038c6dd2e1a74e13f4131306a80ba92` with exactly 30 authorized paths, zero staged, after
+  the hard 1200 s timeout. The completed W0-R04 read-only audit reports the dirty tree technically
+  GREEN — `388` full tests plus `113` targeted, `ruff`/format/`mypy`/`bandit`/Go green, no P0–P2,
+  three P3 — and it stays `PAUSED — UNCOMMITTED` and **not product evidence** under the
+  hard-timeout policy until it lands as a reviewed commit under its own bounded writer authority.
+
+#### 14.11.3 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this reconciliation: `2cb80c7052534304f616a8c6db2a49553b92132b`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after the
+two documents were edited:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0` |
+| `node --test --experimental-test-coverage tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`; `validate-w1-control.mjs` branch `92.93%` |
+
+The validator and its test suite were **not modified** by this reconciliation; all three commands
+are **manual** and **static/documentary only** — **CI: NOT WIRED** for every one of them, and no
+CI result is claimed.
+
+#### 14.11.4 What this reconciliation corrected
+
+- The §1 gate table gained the dated W1-G1 row recording the 2026-07-27 transport-binding
+  acceptance; no other §1 disposition moved.
+- §1.2 is marked as the earlier same-day snapshot and stands unedited; the new §1.3 records the
+  verified later state and names exactly which §1.2 cells it supersedes — including withdrawing
+  the stale claim that the SOC durable atomic put-if-absent/CAS is unimplemented.
+- The §3 W0-I07 admission and the §5 W0-R04 assignment now carry the paused-attempt disposition:
+  audited technically GREEN, `PAUSED — UNCOMMITTED`, not product evidence.
+- The evidence register gained the matching header pointer, the ninth row of its
+  bounded-authority table and the dated §6 runtime-evidence section.
+
+#### 14.11.5 What this reconciliation did not change and did not grant
+
+- Beyond the single authorized local commit named in §14.11.1, nothing was staged, committed,
+  merged, pushed, deployed or released; no branch or remote was created or configured; no
+  dependency was installed; no database, container, microVM, netns or broker was started; no
+  formatter or auto-fixer was run; and no product repository was written to.
+- No status flip beyond recording the already-taken W1-G1 transport acceptance. GATE A4 and the
+  W1-C1/C2 contract gate stay `ACCEPTED — CLOSED 2026-07-26`, all four applications stay
+  `APPLIED 2026-07-26`, and Bundle v0.1.1 remains a proposed successor with v0.1.0 authoritative.
+- **The paused Fabric W0-I07 attempt is promoted nowhere.** A technically GREEN dirty tree under
+  the hard-timeout policy is an audit observation, not product evidence, and opens no writer.
+- **Test evidence is not runtime proof.** The §11 exit criteria remain unmet; the live-shadow
+  blockers are exactly the four listed in §1.3.
+- The 48 immutable task identities are unchanged; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4; no task 49 exists and no replacement identity was created.
+- `W0 COMPLETE=0` and W0 closure `NO-GO`; W1 product implementation and integration/live shadow
+  `HOLD`; W1 runtime writers, delegated routine integration and external release `NO-GO`.
+- W1 formal dates 2026-08-01 → 2026-08-23, all W0–W6 dates and the 2026-12-21 → 2026-12-31 release
+  window are unchanged; the pre-existing dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was
+  preserved untouched and left unstaged.
 - The §14.8.3 wording residual stays **open** for the files listed there; this record opened no
   authority over any of them.
 

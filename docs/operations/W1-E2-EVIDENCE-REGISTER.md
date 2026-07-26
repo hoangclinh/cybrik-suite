@@ -7,11 +7,14 @@
 - **Authority:** no push, merge, dependency install, database/container, deployment,
   release or release-date authority
 - **Product-evidence reconciliation:** 2026-07-27 — see §5
+- **Runtime-evidence reconciliation:** 2026-07-27, later same day — see §6
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
 control- and contract-scoped; §5 records reviewed local **product** commit evidence added on
-2026-07-27 and promotes nothing.
+2026-07-27 and promotes nothing; §6 records the later-same-day runtime-evidence reconciliation —
+including the 2026-07-27 W1-C1 transport-binding acceptance — and likewise promotes nothing beyond
+recording that acceptance.
 
 ## 1. Current evidence
 
@@ -205,6 +208,7 @@ unedited as provenance.
 | 6 | W0-D03 index and current-state reconciliation, docs only | 9 docs paths | same board §14.8 |
 | 7 | **W0-R06 tool-side repair** — control validator, its test suite and the claim wording that had gone stale against the measured state | 8 paths, incl. `tools/operations/validate-w1-control.mjs` and its test suite | same board §14.9 (allowlist §14.9.1; measured evidence §14.9.3) |
 | 8 | **W0-D02 product-evidence reconciliation, 2026-07-27** — record reviewed local product commits and correct control wording that had gone stale against them | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.10 (allowlist §14.10.1; measured evidence §14.10.3) |
+| 9 | **W0-D02 runtime-evidence reconciliation, 2026-07-27, later same day** — record the W1-C1 transport-binding acceptance, Cyber AI/SOC runtime-adjacent evidence and the paused Fabric W0-I07 attempt with its W0-R04 audit result; ends with exactly one authorized local commit | 2 docs-only paths: this register and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | same board §14.11 (allowlist §14.11.1; measured evidence §14.11.3) |
 
 Set **2a** is placed here because board §14.5.2 records it as **already landed on disk on
 2026-07-26** before set 3. Its position relative to sets 1 and 2 is **not recorded** anywhere, and
@@ -223,6 +227,10 @@ all of `docs/adr/`, `docs/operations/README.md`, `docs/README.md`, the root `REA
 `docs/strategy/06-ROADMAP-2026-2029.md`, whose pre-existing unrelated dirty edit was left exactly
 as found. No set staged, committed, merged, pushed, deployed or released anything, none installed a
 dependency or reached a database, container or network, and none wrote to a product repository.
+Set 9 repeated set 8's exact two-path scope and exclusions — the control validator and its test
+suite were again re-run unchanged, not edited — with one difference recorded in board §14.11.1: its
+authority ends with exactly one authorized local commit of the two allowlisted paths, and nothing
+else; the roadmap's pre-existing dirty edit stayed unstaged and untouched.
 
 ### 4.3 CI and posture
 
@@ -252,6 +260,9 @@ coverage and review figures are **as reported by each product lane** and were no
 this control worktree; no product dependency, database, container or network was reached to obtain
 them. This section records evidence only — it accepts nothing, promotes no writer and moves no gate.
 
+Evidence advanced again **later on 2026-07-27**: §6 records the second reconciliation and names
+exactly which §5.1 cells it supersedes. This section stands unedited as dated history.
+
 ### 5.1 Reviewed local product commits
 
 | Lane | Verified commit evidence | Reported lane evidence | Verified boundary — what it does not prove |
@@ -278,3 +289,63 @@ them. This section records evidence only — it accepts nothing, promotes no wri
   W1 Investigation Spine exit criteria in board §11 remain unmet.
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   untouched, and the fixed W0–W6 and 2026-12-21 → 2026-12-31 release dates are unchanged.
+
+## 6. Runtime-evidence reconciliation — 2026-07-27, second same-day record
+
+Added later on 2026-07-27 under the two-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.11, which ends with exactly one authorized
+local commit of the two allowlisted paths. Every commit SHA, parent, path count, branch tip and
+worktree state below was **verified directly against the owning repository** on 2026-07-27; the
+test, coverage, lint and review figures are **as reported by each lane** and were not re-executed
+from this control worktree; no product repository was written to and no product dependency,
+database, container or network was reached from this worktree to obtain them. This section records
+evidence and one already-taken lifecycle decision — the 2026-07-27 W1-C1 transport-binding
+acceptance — and promotes nothing else.
+
+### 6.1 Verified evidence
+
+| Lane | Verified commit evidence | Reported lane evidence | Verified boundary — what it does not prove |
+|---|---|---|---|
+| Suite — W1-C1 transport-binding acceptance (G1) | `a976a205601de22dae59e5112e37ae29707fda0e`, parent `4d5fb4b701f79194313975302cc0a63e0dd2a8ea`, exact 6 paths, branch tip `codex/w1-c1-transport-acceptance-r1`; flips the packet to `ACCEPTED FOR IMPLEMENTATION` (packet v0.1.0, not stable v1/GA, `NOT IMPLEMENTED`) | standalone validator `PASS`; `35` tests; `88.09%` branch coverage; final independent review W0-R05 `PASS`, no open P0–P2 | **static contract decision only** — TR-4..TR-8 runtime evidence, an endpoint, a live capability-registry entry, a Fabric invocation grant, CI wiring and Bundle adoption each remain open; not pushed, not merged |
+| Cyber AI — W1 relying-party composition | code `35ad17e39ae1c7b0d9a80b3c9a082d0e7769fa5e`, parent `c9530b9623c68fec3b35f63bf41720d34a28cea3`; docs record `42133a5224d51b2c3e2cc6deccdf0d41ac831d9c`, parent `35ad17e…`, exactly 2 paths; branch tip `codex/w1-i06-relying-correlation-r1` | `636` tests; `ruff`, format and `mypy` green; independent review W0-R03 `PASS` with one P2 governance finding, recorded closed by the two-path docs record | still **in-process only** — no HTTP transport, no durability, no bundle delivery, no Fabric tool-execution authority |
+| SOC — scoped alert-context runtime | runtime `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6`, parent `87e95cd2add7233176ca442bb5870b5913fdd0eb`; remediation `f4d234bba09ae1bea7a63b3348be3640a701065d`, parent `ff1aec3…`; branch tip `codex/w1-i03-soc-context-runtime-r1` | independent W0-R02 review: initial P1, then re-review `PASS`. Real PostgreSQL at exact `f4d234b…`: PostgreSQL 16.14; runtime roles `NOBYPASSRLS`; migration 0023 single head, upgrade→downgrade→upgrade plus base roundtrip; `FORCE ROW LEVEL SECURITY`; grants SELECT+INSERT only; `10` focused + `58` migration/RLS + `258` alert-context + `6` temporary ASGI route probes; full backend `3016 passed`, `5` Redis skips; **no repository write**. The durable atomic put-if-absent implementation is committed and real-PG tested | residuals stay open: the `/tmp` route-against-DB probe is not a permanent CI job; the org-enabled route stays inert and fail-closed; TTL enforcement and **true multi-connection contention evidence** remain open; no `shadow_remote`, no live bundle path |
+| Fabric — W0-I07 R0 domain attempt | **not a commit**: worktree `w1-i07-fabric-r0-domain-r1`, base `87b4cf388038c6dd2e1a74e13f4131306a80ba92`, dirty with exactly 30 authorized paths, zero staged, after the hard 1200 s timeout | completed W0-R04 read-only audit: dirty tree **technically GREEN** — `388` full tests plus `113` targeted passing; `ruff`, format, `mypy`, `bandit` and Go checks green; no P0–P2; three P3 | `PAUSED — UNCOMMITTED` under the hard-timeout policy; a technically GREEN dirty tree is **not product evidence** until committed and reviewed under its own bounded writer authority; latest committed Fabric state remains `87b4cf3…` |
+| Control — this repository | `HEAD` before this reconciliation `2cb80c7052534304f616a8c6db2a49553b92132b` | control validator `PASS`; `77/77` tests; branch `92.93%` — re-run unchanged against the current dirty control worktree after the two documents were edited | documentary consistency check over control documents only; the validator and its test suite were **not modified**; **CI: NOT WIRED** |
+
+### 6.2 Which §5.1 cells this supersedes
+
+- **Suite transport binding** — superseded **only as to acceptance**: the packet-manifest state
+  `PROPOSED — NOT ACCEPTED` recorded in §5.1 became `ACCEPTED FOR IMPLEMENTATION` at `a976a205…`;
+  every other §5.1 boundary in that cell (no endpoint, no capability-registry entry, no Fabric
+  invocation grant, no runtime, no CI wiring) stands.
+- **Cyber AI** — the `611`-test figure at `c9530b9…` is superseded by the reported `636`-test
+  child commit; the in-process-only boundary stands unchanged.
+- **SOC** — "no PostgreSQL, no RLS, no HTTP, no runtime proof" is superseded **only as far as the
+  reported evidence reaches** (real-PostgreSQL RLS/migration proof and six temporary ASGI route
+  probes at `f4d234b…`), and the claim that a durable atomic put-if-absent/CAS is "unimplemented"
+  is withdrawn: the implementation is committed and real-PG tested, with only true
+  multi-connection contention evidence still open alongside the other named residuals.
+- **Fabric** — **not superseded**: the W0-I07 attempt is uncommitted; `87b4cf3…` remains the
+  latest committed Fabric state.
+
+### 6.3 Synthesis
+
+- The W1-C1 transport contract gate is `ACCEPTED — CLOSED 2026-07-27` as a static contract
+  decision at `a976a205…` only. W1 integration/live shadow and the board §11 W1 Investigation
+  Spine outcome remain `HOLD`/`NO-GO`; `W0 COMPLETE=0` and W0 closure stays `NO-GO`;
+  **CI: NOT WIRED** for every lane in §6.1.
+- The critical live-shadow blockers are now: a committed, independently reviewed Fabric R0 domain
+  (then an authenticated HTTP surface and a live registry entry); Cyber AI HTTP transport,
+  durability and bundle delivery (G2); the SOC `shadow_remote` route plus a permanent
+  route-against-DB CI job and real org mapping; and canonical integration authority together with
+  CI wiring.
+- **The paused Fabric W0-I07 attempt is promoted nowhere.** Its technically GREEN audit result is
+  an observation about an uncommitted dirty tree, not product evidence, and opens no writer.
+- **No product writer is promoted by any row in §6.1.** Reviewed local commits are evidence, not
+  authority; each future writer still needs its own exact repo/base/path/test/reviewer authority.
+- Nothing in §6.1 is pushed, merged or released; the dirty canonical roots stay untouched; the
+  fixed roster of 48 stands with no task 49.
+- **Test evidence is not runtime proof.** The board §11 exit criteria remain unmet.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
