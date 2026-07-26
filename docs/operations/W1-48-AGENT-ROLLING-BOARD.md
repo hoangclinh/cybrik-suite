@@ -404,6 +404,59 @@ record: `docs/operations/W1-I06C-HTTP-POST-COMMIT-EVIDENCE.md`.
   `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no task 49, and all
   dates are unchanged. Full bounded record: §14.17.
 
+### 1.10 SOC W1-I03B route-DB permanence grant — 2026-07-27, ninth same-day record
+
+Recorded later again on 2026-07-27 under the three-path bounded authority in §14.18, as a
+**fresh prospective bounded grant** opening exactly one bounded W1-I03B attempt at the SOC
+route-against-DB permanence residual that §1.3 records as open ("the route-against-DB probe
+ran from `/tmp` and is **not** a permanent CI job"). The decision basis is the **W0-IR10
+decision** (a coordinator-delegated decision label, not a roster task identity). Full grant
+text: `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`.
+
+- **Verified:** the SOC lane's clean reviewed base was re-verified live and read-only —
+  worktree `w1-i03-soc-context-runtime-r1`, branch `codex/w1-i03-soc-context-runtime-r1`, tip
+  `f4d234bba09ae1bea7a63b3348be3640a701065d` (subject `test(org): advance Alembic head guard`,
+  parent `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6`), working tree clean, zero staged.
+  Repository conventions at the base re-verified read-only: the integration `conftest.py`
+  `CYBRIK_TEST_DB=1` skip gating; the `org_context_incomplete` fail-closed refusal reason in
+  the alert-context `authorize.py`/`wire.py`; the `api`-job `postgres:16-alpine` service
+  precedent with its `NOBYPASSRLS` role bootstrap in `.github/workflows/ci.yml`; and the
+  absence at the base of both allowlisted artifacts
+  (`services/api/tests/integration/test_alert_context_route_db.py`; any
+  `alert-context-route-db` job).
+- **Basis, as reported:** the W0-R02 re-review **`PASS`** and the real-PostgreSQL 16.14
+  evidence figures at `f4d234b…` stand as §1.3/§14.11 record them; nothing was re-executed
+  from the control side.
+- **Grant, in brief:** grantee is the same immutable task **W0-I03**, sub-lane **W1-I03B**;
+  writer is **Opus 5 in a brand-new session** on a **new** branch/worktree
+  `codex/w1-i03b-route-db-permanence-r1` / `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`
+  at exactly the base `f4d234b…`; runtime is one initial 600 s cycle plus at most one healthy
+  600 s extension under §15; the product edit allowlist is **exactly two paths** — NEW
+  `services/api/tests/integration/test_alert_context_route_db.py` and MODIFY
+  `.github/workflows/ci.yml` with **one new `alert-context-route-db` job block appended and
+  zero existing-job edits** — no `src/` path and no third path; permitted behavior is
+  **test-first** only: an in-process ASGI route test against real local PostgreSQL 16
+  (`CYBRIK_TEST_DB=1`/`CYBRIK_DATABASE_URL`) that skips cleanly without a DB and asserts the
+  `NOBYPASSRLS`/`FORCE ROW LEVEL SECURITY` posture, cross-tenant denial with non-disclosure,
+  digest/idempotency, **two true concurrent connections**, and org-flag-ON fail-closed
+  `org_context_incomplete` — synthetic data only, no network, no secrets; the CI block is
+  modeled on the existing Postgres service precedent and **hard-gated `if: false`**,
+  classified **strictly static CI wiring, CI: NOT WIRED**, and never called "permanent" until
+  push plus remote-green evidence exists (push stays `NO-GO`); the writer **stops before
+  commit** with zero staged for an independent Fable pre-commit review, and only after **GO
+  with no P0–P2** may the same session stage exactly the two paths and make one status-honest
+  `SCAFFOLD` local commit, followed by a **fresh post-commit Fable review**; exact STOP
+  conditions in grant §7 (any source-edit need, missing PostgreSQL/image/tool requiring an
+  install, any third path, any existing-job modification, any real data, timeout, any remote
+  action).
+- **Nothing moves on this grant alone:** the §1.3 SOC residuals stay open — the
+  route-against-DB residual is addressed only if a writer completes under the grant and both
+  reviews pass, and its "permanent CI job" half **cannot close from local work at all**;
+  `shadow_remote` and real org mapping stay open, so live-shadow blocker 3 stands; no push,
+  merge, release or install; G2/G3 stay closed, W1 integration/live shadow stays
+  `HOLD`/`NO-GO`, `W0 COMPLETE=0` with W0 closure `NO-GO`, the roster of 48 stands with no
+  task 49, and all dates are unchanged. Full bounded record: §14.18.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -425,7 +478,7 @@ record: `docs/operations/W1-I06C-HTTP-POST-COMMIT-EVIDENCE.md`.
 |---|---|---|---|
 | W0-I01 | Alert-context capability-specific schemas, descriptor fixture and compatibility proposal | Suite contracts | `ACCEPTED FOR IMPLEMENTATION v0.1.0 — LOCAL COMMIT ONLY`; 16-path packet at `3a2c715...`; no push, merge, endpoint, registry, product or runtime authority |
 | W0-I02 | Investigation create/status/checkpoint/cancel/bundle-read wire proposal | Suite contracts | `ACCEPTED FOR IMPLEMENTATION v0.1.0 — LOCAL COMMIT ONLY`; 32-path packet at `ed95e51...`; no push, merge, server, transport, product or runtime authority |
-| W0-I03 | Scoped SOC alert-context read API and authorization seam | SOC Alert | `HOLD` on W0-I01 acceptance and exact product authority |
+| W0-I03 | Scoped SOC alert-context read API and authorization seam | SOC Alert | `HOLD` on W0-I01 acceptance and exact product authority; the W1-I03 runtime lane holds W0-R02 re-review `PASS` evidence at the clean reviewed base `f4d234b…` with the §1.3 residuals open. A fresh prospective bounded grant for sub-lane **W1-I03B** (route-DB permanence: one permanent in-repo route-against-DB integration test plus one hard-gated static CI job block, two paths only, off a new branch/worktree at `f4d234b…`) was recorded on 2026-07-27 (§1.10, §14.18, `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`), based on the W0-IR10 decision; it opens no writer now, closes no residual by itself, and the "permanent CI job" half of the residual cannot close without push plus remote-green evidence, which stays `NO-GO` |
 | W0-I04 | SOC `shadow_remote` client/flag, correlation and rollback-compatible embedded path | SOC Copilot | `HOLD` on W0-I02 and transport acceptance |
 | W0-I05 | Pure Cyber AI job/checkpoint/cancel state-machine and ports | Cyber AI orchestration | `HOLD` on ADR-0003/explicit bounded authority |
 | W0-I06 | Cyber AI investigation producer and W2-D/W2-F relying-party composition | Cyber AI API/worker | `HOLD` on lifecycle/transport contracts and runtime trust gates; the bounded W1-I06C HTTP ingress attempt in worktree `w1-i06c-http-ingress-r2` (gate reopened at `866b7db9…`) is `PAUSED — UNCOMMITTED` after the §15 hard stop and is reviewed **NO-GO** by W0-R03 (P1 static gates, P2 evidence packaging) — **not** product evidence (§1.4). A fresh prospective bounded grant for its behavior-preserving remediation was recorded later on 2026-07-27 (§1.8, §14.16, `docs/operations/W1-I06C-HTTP-REMEDIATION-GRANT.md`), based on the W0-IR08 decision, with the exhausted session `06a2c154…` never to be resumed. The granted writer then **completed** later on 2026-07-27: local commit `2baba72…` (parent `866b7db9…`, exactly the 13 paths, clean tree, no upstream) with pre-commit review **W0-R03D GO, no P0–P2** and fresh post-commit review **W0-R03E `PASS`, no P0–P2, two P3** — countable **only** as local, independently reviewed, unmerged/unpushed `SCAFFOLD` evidence toward the live-shadow blocker-2 **HTTP transport prerequisite** (§1.9, §14.17, `docs/operations/W1-I06C-HTTP-POST-COMMIT-EVIDENCE.md`); it is **not product evidence** and not real transport security, runtime, deployment, durability, bundle-delivery or release evidence; the durability/delivery portions of blocker 2 stay open, G2/G3 stay closed, and the admission stays `HOLD` on lifecycle/transport contracts and runtime trust gates |
@@ -2178,6 +2231,152 @@ claimed.
 - The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
   residual named in §14.13.1–§14.17.1 is recorded, not fixed; this record opened no authority
   over either.
+
+### 14.18 W0-D04 SOC W1-I03B route-DB permanence-grant record — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, the ninth same-day record after §14.17, under
+**coordinator-delegated Founder authority** scoped to documentation and **exactly one bounded
+local commit**. Owner: logical task **W0-D04** (prospective-grant author). This section records
+the **fresh prospective bounded grant for the SOC W1-I03B route-DB permanence lane** — opening
+exactly one bounded attempt at the §1.3 residual "the route-against-DB probe ran from `/tmp`
+and is **not** a permanent CI job", on the basis of the **W0-IR10 decision** (a
+coordinator-delegated decision label, not a roster task identity) — and does nothing else: it
+accepts no packet, flips no ADR, contract or gate status, promotes no gate in §1, closes no
+residual, opens no product or runtime writer **now** (the granted writer runs later, only
+under the grant's own terms), and creates no task identity.
+
+#### 14.18.1 Exact write allowlist — three paths
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md` | **new** prospective grant |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register |
+
+Everything else is outside this allowlist and was not edited: all of `tools/operations/`
+(including `validate-w1-control.mjs` and its test suite), all of `contracts/`, all of
+`docs/adr/`, every other file under `docs/operations/`, `docs/README.md`, the root `README.md`
+and `docs/strategy/06-ROADMAP-2026-2029.md`. That roadmap file still carries its
+**pre-existing, unrelated dirty working-copy edit**, which was left exactly as found —
+byte-for-byte, hash-pinned in §14.18.4 — and was **not staged**; its fixed release dates are
+unchanged. No path was added outside the allowlist, none was renamed, merged, pushed or
+deleted, and no product repository was written to — every SOC fact below was obtained
+**read-only** (live Git reads and read-only file inspection of the base worktree).
+`docs/operations/README.md` is outside this allowlist, so its index residual named in
+§14.13.1–§14.16.1 persists and now also omits this grant; that remains a known, bounded
+residual, recorded and not silently fixed outside a grant.
+
+Like §14.11–§14.17, this authority ends with **exactly one authorized local commit** of the
+three allowlisted paths in this control worktree — subject
+`docs(control): grant SOC route-DB permanence` — and nothing else: no push, no merge, no
+remote change, no release, no dependency install, no formatter.
+
+**Allowlist history, in order.** §14.1 eight docs-only paths → §14.4.1 five paths → §14.5.1
+seven docs-only paths → §14.6.1 twelve paths → §14.7.1 nineteen paths → §14.8.1 nine docs-only
+paths → §14.9.1 eight paths → §14.10.1 two docs-only paths → §14.11.1 two docs-only paths →
+§14.12.1 two docs-only paths → §14.13.1 three docs-only paths → §14.14.1 three docs-only paths
+→ §14.15.1 three docs-only paths → §14.16.1 three docs-only paths → §14.17.1 three docs-only
+paths → §14.18.1 three docs-only paths (this record). Each set was bounded separately; none
+widened an earlier one, and every earlier record stands unedited as provenance.
+
+#### 14.18.2 Basis evidence — 2026-07-27, base and conventions re-verified read-only
+
+- **Base state, verified.** `cybrik-soc-command-center`, worktree
+  `w1-i03-soc-context-runtime-r1`, branch `codex/w1-i03-soc-context-runtime-r1`, tip
+  `f4d234bba09ae1bea7a63b3348be3640a701065d` — subject
+  `test(org): advance Alembic head guard`, parent
+  `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6` — working tree **clean, zero staged**. This is
+  the W0-R02 re-reviewed `PASS` remediation commit of §1.3.
+- **Conventions at the base, verified.** The integration `conftest.py` gates the directory on
+  `CYBRIK_TEST_DB != "1"` with a clean skip; `org_context_incomplete` is the established
+  fail-closed refusal reason in the alert-context `authorize.py`/`wire.py`; the `api` job in
+  `.github/workflows/ci.yml` is the Postgres service precedent (`postgres:16-alpine`,
+  `pg_isready` health checks, `NOBYPASSRLS` role bootstrap with throwaway `ci-only-password`
+  credentials, `CYBRIK_TEST_DB: "1"`/`CYBRIK_DATABASE_URL` env); **neither allowlisted
+  artifact exists at the base** — no
+  `services/api/tests/integration/test_alert_context_route_db.py`, no
+  `alert-context-route-db` job.
+- **Residuals, as recorded.** The §1.3 SOC residuals stand as dated: route-against-DB probe
+  not a permanent CI job; true multi-connection race proof open; org-enabled route inert and
+  fail-closed; TTL, `shadow_remote` and live bundle path open. The W0-R02 `PASS`
+  classification and the PostgreSQL 16.14 figures at `f4d234b…` are **as reported**; nothing
+  was re-executed from the control side.
+
+#### 14.18.3 Grant recorded
+
+The full grant text is `docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`; §1.10 carries
+the board summary. In brief: grantee **W0-I03**, sub-lane **W1-I03B** (same immutable
+identity, no task 49); writer **Opus 5 in a brand-new session** on a **new** branch/worktree
+`codex/w1-i03b-route-db-permanence-r1` /
+`cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1` at exactly the clean reviewed base
+`f4d234b…`; runtime one initial 600 s cycle plus at most one healthy 600 s extension under
+§15; product edit allowlist **exactly two paths** — the new route-DB integration test and one
+appended `alert-context-route-db` job block in `.github/workflows/ci.yml` with zero
+existing-job edits, no `src/` path, no third path; permitted behavior **test-first** only —
+in-process ASGI against real local PostgreSQL 16 via `CYBRIK_TEST_DB=1`/`CYBRIK_DATABASE_URL`,
+skip-clean without a DB, asserting `NOBYPASSRLS`/`FORCE ROW LEVEL SECURITY`, cross-tenant
+denial with non-disclosure, digest/idempotency, two true concurrent connections, and
+org-flag-ON fail-closed `org_context_incomplete`, on synthetic data with no network and no
+secrets; the CI block modeled on the existing Postgres service precedent, **hard-gated
+`if: false`**, classified **strictly static CI wiring, CI: NOT WIRED**, never "permanent"
+without push plus remote green; writer stops before commit; independent Fable pre-commit
+review must return **GO with no P0–P2** before the same session stages exactly the two paths
+and makes one status-honest `SCAFFOLD` local commit; a fresh post-commit Fable review follows
+before anything counts as product evidence. Exact STOP conditions are enumerated in the grant
+§7: any source-edit need, missing PostgreSQL/image/tool requiring an install, any third path,
+any existing-job modification, any real data, timeout, any remote action.
+
+#### 14.18.4 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `c3d9477ee66046d64ab719a62077a97dc48d50ce`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after
+the three documents were written:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — **before** this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — **after** this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, still unstaged |
+
+The two roadmap hash rows close the **W0-IR10 auditor-note evidence gap**: earlier records
+(§14.11–§14.17) asserted the pre-existing unrelated roadmap edit was preserved byte-for-byte
+but did not hash-pin it; from this record on the preservation claim is measured, not asserted.
+The validator and its test suite were **not modified** by this record; both commands are
+**manual** and **static/documentary only** — **CI: NOT WIRED** for both, and no CI result is
+claimed.
+
+#### 14.18.5 What this record did not change and did not grant
+
+- Beyond the single authorized local commit named in §14.18.1, nothing was staged, committed,
+  merged, pushed, deployed or released; no branch or remote was created or configured; no
+  dependency was installed; no database, container, microVM, netns or broker was started; no
+  formatter or auto-fixer was run in any repository; and no product repository was written to
+  — the new SOC branch/worktree named in the grant does **not exist yet** and is created only
+  by the granted writer under the grant's own terms.
+- **No status flip of any kind.** GATE A4 and the W1-C1/C2 contract gate stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, and G2/G3 stay
+  closed — no gate beyond W1-G1 opens or advances.
+- **The grant is prospective and promotes nothing now.** Every §1.3 SOC residual stays open
+  exactly as dated — including "not a permanent CI job", whose closure additionally requires
+  push plus remote-green evidence that stays `NO-GO`; live-shadow blocker 3 stands in full
+  (`shadow_remote` and real org mapping untouched); no writer session was opened by this
+  record.
+- W1 product implementation and integration/live shadow stay `HOLD`; W1 runtime writers,
+  delegated routine integration and external release stay `NO-GO`; `W0 COMPLETE=0` and W0
+  closure `NO-GO`; the §11 exit criteria remain unmet, and live-shadow blockers 1–4 stand
+  exactly as §1.9 records them.
+- The 48 immutable task identities are unchanged; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4; no task 49 exists and no replacement identity was created —
+  `W0-IR10` names a decision, not a task.
+- W1 formal dates 2026-08-01 → 2026-08-23, all W0–W6 dates and the 2026-12-21 → 2026-12-31
+  release window are unchanged; the pre-existing dirty edit in
+  `docs/strategy/06-ROADMAP-2026-2029.md` was preserved untouched and left unstaged,
+  hash-pinned in §14.18.4.
+- The §14.8.3 wording residual stays **open**, and the `docs/operations/README.md` index
+  residual named in §14.13.1–§14.18.1 is recorded, not fixed; this record opened no authority
+  over either.
+- The Fabric W0-I07 lane (§1.7) and the Cyber AI W0-I06 lane (§1.9) are untouched.
 
 ## 15. Coordinator runtime rule — bounded single extension
 

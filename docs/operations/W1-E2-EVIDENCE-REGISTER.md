@@ -14,6 +14,7 @@
 - **Fabric W0-I07 post-commit evidence:** 2026-07-27, sixth same-day record — see §10
 - **Cyber AI W1-I06C remediation grant:** 2026-07-27, seventh same-day record — see §11
 - **Cyber AI W1-I06C post-commit evidence:** 2026-07-27, eighth same-day record — see §12
+- **SOC W1-I03B route-DB permanence grant:** 2026-07-27, ninth same-day record — see §13
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
@@ -36,7 +37,10 @@ promotes nothing by itself; §12 records the eighth same-day record — the gran
 completed local Cyber AI commit `2baba72…` with its W0-R03D pre-commit GO and fresh
 post-commit W0-R03E review — which counts only as local, independently reviewed,
 unmerged/unpushed `SCAFFOLD` evidence toward the live-shadow blocker-2 HTTP transport
-prerequisite, is not product evidence, and promotes nothing else.
+prerequisite, is not product evidence, and promotes nothing else; §13 records the ninth
+same-day record — the fresh prospective bounded grant for the SOC W1-I03B route-DB permanence
+lane — which authorizes one future bounded writer attempt under its own terms and promotes
+nothing by itself.
 
 ## 1. Current evidence
 
@@ -710,3 +714,55 @@ dated section body was altered.
 - The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
   byte-for-byte untouched and unstaged; the formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 13. SOC W1-I03B route-DB permanence grant — 2026-07-27, ninth same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.18, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **fresh prospective
+bounded grant** opening exactly one bounded W1-I03B attempt at the SOC route-against-DB
+permanence residual that §6 and board §1.3 record as open ("the route-against-DB probe ran
+from `/tmp` and is **not** a permanent CI job"), on the basis of the **W0-IR10 decision** (a
+coordinator-delegated decision label, not a roster task identity). The clean reviewed base and
+the repository conventions the grant relies on were **re-verified read-only against the SOC
+repository** on 2026-07-27; the W0-R02 `PASS` classification and the PostgreSQL 16.14
+evidence figures at `f4d234b…` are **as reported** in §6 and board §1.3/§14.11; no product
+repository was written to. Full grant text:
+`docs/operations/W1-I03B-ROUTE-DB-PERMANENCE-GRANT.md`; board summary: board §1.10. The grant
+authorizes one future bounded writer attempt under its own terms; it promotes nothing by
+itself, and no writer session was opened by this record.
+
+### 13.1 Verified basis and recorded grant
+
+| Item | Verified / reported state | Recorded grant |
+|---|---|---|
+| SOC — W1-I03B route-DB permanence | **re-verified 2026-07-27, read-only:** worktree `w1-i03-soc-context-runtime-r1`, branch `codex/w1-i03-soc-context-runtime-r1`, tip `f4d234bba09ae1bea7a63b3348be3640a701065d` (subject `test(org): advance Alembic head guard`, parent `ff1aec3e591283ac00cb6665f3f4bb57ccb68ff6`), working tree clean, zero staged; integration `conftest.py` gates the directory on `CYBRIK_TEST_DB != "1"` with a clean skip; `org_context_incomplete` is the established fail-closed refusal reason in the alert-context `authorize.py`/`wire.py`; the `api` job in `.github/workflows/ci.yml` is the Postgres service precedent (`postgres:16-alpine`, `pg_isready` health checks, `NOBYPASSRLS` role bootstrap, `CYBRIK_TEST_DB: "1"`/`CYBRIK_DATABASE_URL` env); neither allowlisted artifact exists at the base — no `services/api/tests/integration/test_alert_context_route_db.py`, no `alert-context-route-db` job. **As reported (§6; board §1.3/§14.11):** W0-R02 re-review `PASS`; PostgreSQL 16.14 runtime-role/RLS/migration/test figures at `f4d234b…`; residuals open — route-against-DB probe not a permanent CI job, true multi-connection race proof, inert fail-closed org route, TTL, `shadow_remote`, live bundle path | prospective bounded grant recorded (grant §1–§10): grantee the same immutable task **W0-I03**, sub-lane **W1-I03B**; writer **Opus 5 in a brand-new session** on a **new** branch/worktree `codex/w1-i03b-route-db-permanence-r1` / `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1` at exactly the clean reviewed base `f4d234b…`; runtime one initial 600 s cycle plus at most one healthy 600 s extension under board §15; product edit allowlist **exactly two paths** — NEW `services/api/tests/integration/test_alert_context_route_db.py`, MODIFY `.github/workflows/ci.yml` with one new `alert-context-route-db` job block appended and **zero existing-job edits** — no `src/` path, no third path; permitted behavior **test-first** only: in-process ASGI route against real local PostgreSQL 16 (`CYBRIK_TEST_DB=1`/`CYBRIK_DATABASE_URL`), skip-clean without a DB, asserting `NOBYPASSRLS`/`FORCE ROW LEVEL SECURITY`, cross-tenant denial with non-disclosure, digest/idempotency, **two true concurrent connections**, org-flag-ON fail-closed `org_context_incomplete`; synthetic data only, no network, no secrets; CI block modeled on the existing Postgres service precedent and **hard-gated `if: false`** — classified **strictly static CI wiring, CI: NOT WIRED**, never "permanent" without push plus remote green; writer **stops before commit** with zero staged; independent Fable pre-commit review must return **GO with no P0–P2** before the same session stages exactly the two paths and makes **one status-honest `SCAFFOLD` local commit**; a **fresh post-commit Fable review** follows before anything counts as product evidence; exact STOP conditions in grant §7 (any source-edit need, missing PostgreSQL/image/tool requiring an install, any third path, any existing-job modification, any real data, timeout, any remote action) |
+| Control — this repository | `HEAD` before this record `c3d9477ee66046d64ab719a62077a97dc48d50ce` | control validator `PASS`; `77/77` tests — re-run unchanged against the current dirty control worktree after the three documents were written; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged — closing the **W0-IR10 auditor-note evidence gap** (board §14.18.4) |
+
+### 13.2 Synthesis
+
+- This record grants one future bounded W1-I03B attempt and nothing else. It addresses only
+  the route-against-DB permanence residual of §6/board §1.3 — and even a completed,
+  twice-reviewed commit under the grant would count only as local, independently reviewed,
+  unmerged/unpushed `SCAFFOLD` evidence toward the **route-against-DB portion of live-shadow
+  blocker 3**, with the CI job block classified **strictly static CI wiring, CI: NOT WIRED**;
+  the residual's "permanent CI job" half additionally requires push plus remote-green
+  evidence, which stays `NO-GO` outside this grant.
+- **Nothing is promoted now.** Every §6 SOC residual stays open exactly as dated; blocker 3
+  stands in full — `shadow_remote` and real org mapping are untouched by this grant; the
+  latest committed SOC lane state remains `f4d234b…` with W0-R02 `PASS`. Neither the W0-R02
+  review nor this record's control-side re-verification carries over as either of the grant's
+  required reviews.
+- No gate opens or closes: W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed; W1
+  integration/live shadow stays `HOLD`/`NO-GO`; `W0 COMPLETE=0` and W0 closure stays `NO-GO`;
+  live-shadow blockers 1–4 stand exactly as §12.2 records them.
+- Nothing is pushed, merged or released; no dependency is installed; no secret is read; no
+  status is promoted; the Fabric W0-I07 lane (§10) and the Cyber AI W0-I06 lane (§12) are
+  untouched; the new SOC branch/worktree named in the grant does not exist yet and is created
+  only by the granted writer under the grant's own terms.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4 — `W0-IR10` names a decision, not a task.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  byte-for-byte untouched and unstaged — hash-pinned before and after at
+  `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.18.4); the formal W1 dates
+  2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
