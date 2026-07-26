@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
+  "title": "CYBRIK investigation evidence bundle strict-compatible proposal v1",
+  "description": "PROPOSED v0.1.1 strict-compatible revision of the accepted cybrik.investigation-bundle.v1 v0.1.0 shape. It preserves the accepted required fields, properties, limits, references, and runtime marking obligations exactly. The accepted v0.1.0 is fully JSON Schema 2020-12 conformant and is NOT being corrected for spec validity: its generated_by.allOf[1] is the bare subschema {\"required\":[\"tenant_id\"]}, which the 2020-12 specification permits and which only Ajv's optional strict mode rejects (strictRequired/strictTypes house style, not a specification requirement). The single semantic-neutral change here adds an explicit \"type\": \"object\" to generated_by.allOf[1] and writes a local \"properties\".\"tenant_id\" subschema into that same branch. That tenant_id subschema did not previously exist in allOf[1]; it is newly written here and is semantically redundant, because allOf[0]'s actor $ref already constrains tenant_id to the identical cybrik.common-defs.v1 tenantId primitive. The revision therefore narrows, widens, and removes nothing, and satisfies only the stricter Ajv strict-mode house style. It does not modify, replace, deprecate, or status-flip the accepted v0.1.0 bytes. Adoption/supersession requires a separate explicit Founder acceptance decision. NOT ACCEPTED, NOT IMPLEMENTED.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "investigation_id",
+    "tenant_id",
+    "status",
+    "claims",
+    "generated_by",
+    "generated_at",
+    "data_marking",
+    "digest"
+  ],
+  "properties": {
+    "bundle_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid"
+    },
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Parent cybrik.investigation.v1.investigation_id. Required — a bundle is always investigation-scoped (ADR-0006 E6)."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "status": {
+      "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/investigationStatus",
+      "description": "Snapshot of the parent investigation's status at bundle-generation time."
+    },
+    "claims": {
+      "type": "array",
+      "description": "Digest-bound references to this investigation's cybrik.claim.v1 entries. MUST be non-empty — an investigation with no grounded findings still yields at least one 'abstained' claim, never a silent empty bundle.",
+      "items": {
+        "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef"
+      },
+      "minItems": 1,
+      "maxItems": 500
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Digest-bound references to this investigation's cybrik.evidence.v1 entries.",
+      "items": {
+        "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef"
+      },
+      "maxItems": 500,
+      "default": []
+    },
+    "limitations": {
+      "type": "string",
+      "description": "Free-text scope/coverage gaps for this bundle (evidence-first triage instead of summary prose — roadmap Week 2).",
+      "maxLength": 4000
+    },
+    "generated_by": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ],
+      "description": "Authenticated actor (typically a service) that generated the bundle. Written only by authenticated service code."
+    },
+    "generated_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking of the bundle. MUST be >= the union of the markings of every referenced claim/evidence (control-enforced non-downgrade)."
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Content digest of this bundle's own (claims, evidence, status, generated_at) tuple, enabling structural replay/integrity verification (roadmap W2)."
+    }
+  }
+}

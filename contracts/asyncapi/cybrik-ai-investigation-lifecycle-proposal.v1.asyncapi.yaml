@@ -1,0 +1,162 @@
+# CYBRIK W1 investigation lifecycle events v1
+# Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.
+# The referenced cybrik.investigation-bundle.strict-compatible.v1 v0.1.1 schema remains PROPOSED —
+# NOT ACCEPTED: it is bound only as the validation-profile expression of the semantically identical
+# accepted cybrik.investigation-bundle.v1 v0.1.0 shape, which remains authoritative and byte-unchanged.
+# Cyber AI is the sole producer of the lifecycle and bundle-production events in this packet.
+# SOC is an authenticated consumer/viewer. There are deliberately no servers or protocol bindings:
+# the event bus/transport remains undecided. W2-D remains the sole existing inference-path owner.
+# W2-F internal inference delegation is not Fabric tool-execution authority, and these events carry
+# no capability, delegation, approval, receipt, tool, MCP, action, or credential grant.
+asyncapi: 3.0.0
+info:
+  title: CYBRIK AI investigation lifecycle event proposal
+  version: 0.1.0
+  description: >-
+    ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2) — NOT IMPLEMENTED, CI NOT WIRED. Bus-agnostic Cyber AI lifecycle notifications for
+    SOC/observability consumers. Every event is investigation-scoped, tenant-partitioned,
+    marking-preserving, producer-authenticated, and deduplicated on (source,id). Model output
+    cannot populate envelope identity/authority fields and cannot trigger an action.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
+
+defaultContentType: application/cloudevents+json
+
+channels:
+  investigationCreated:
+    address: cybrik.ai.investigation.created
+    messages:
+      investigationCreated:
+        $ref: '#/components/messages/investigationCreated'
+  investigationStatusChanged:
+    address: cybrik.ai.investigation.status_changed
+    messages:
+      investigationStatusChanged:
+        $ref: '#/components/messages/investigationStatusChanged'
+  investigationCheckpointed:
+    address: cybrik.ai.investigation.checkpointed
+    messages:
+      investigationCheckpointed:
+        $ref: '#/components/messages/investigationCheckpointed'
+  investigationCompleted:
+    address: cybrik.ai.investigation.completed
+    messages:
+      investigationCompleted:
+        $ref: '#/components/messages/investigationCompleted'
+  investigationCancelled:
+    address: cybrik.ai.investigation.cancelled
+    messages:
+      investigationCancelled:
+        $ref: '#/components/messages/investigationCancelled'
+  investigationBundlePublished:
+    address: cybrik.ai.investigation_bundle.published
+    messages:
+      investigationBundlePublished:
+        $ref: '#/components/messages/investigationBundlePublished'
+
+operations:
+  onInvestigationCreated:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationCreated'
+  onInvestigationStatusChanged:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationStatusChanged'
+  onInvestigationCheckpointed:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationCheckpointed'
+  onInvestigationCompleted:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationCompleted'
+  onInvestigationCancelled:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationCancelled'
+  onInvestigationBundlePublished:
+    action: receive
+    channel:
+      $ref: '#/channels/investigationBundlePublished'
+
+components:
+  messages:
+    investigationCreated:
+      name: cybrik.ai.investigation.created.v1
+      title: Investigation created
+      summary: Cyber AI accepted/replayed creation; data is cybrik.investigation-status.v1.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-status.v1.schema.json'
+    investigationStatusChanged:
+      name: cybrik.ai.investigation.status_changed.v1
+      title: Investigation status changed
+      summary: Authoritative state transition; data is cybrik.investigation-status.v1.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-status.v1.schema.json'
+    investigationCheckpointed:
+      name: cybrik.ai.investigation.checkpointed.v1
+      title: Investigation checkpointed
+      summary: Immutable checkpoint; data is cybrik.investigation-checkpoint.v1.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-checkpoint.v1.schema.json'
+    investigationCompleted:
+      name: cybrik.ai.investigation.completed.v1
+      title: Investigation completed
+      summary: Terminal completed/partial/abstained status; data is cybrik.investigation-status.v1.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-status.v1.schema.json'
+    investigationCancelled:
+      name: cybrik.ai.investigation.cancelled.v1
+      title: Investigation cancelled
+      summary: Cancellation won the compare-and-set race; data is cybrik.investigation-status.v1.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-status.v1.schema.json'
+    investigationBundlePublished:
+      name: cybrik.ai.investigation_bundle.published.v1
+      title: Investigation bundle published
+      summary: Cyber AI produced an immutable digest-bound bundle; data is the PROPOSED strict-compatible v0.1.1 bundle revision.
+      contentType: application/cloudevents+json
+      payload:
+        allOf:
+          - $ref: '../json-schema/cybrik.envelope.v1.schema.json'
+          - type: object
+            required: [data, traceparent, correlationid, investigationid, causationid]
+            properties:
+              data:
+                $ref: '../json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json'

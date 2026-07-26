@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
+  "title": "CYBRIK investigation bundle read result v1",
+  "description": "Authorized Cyber-AI-to-SOC bundle-read response. Cyber AI remains the bundle producer/authority; SOC receives and displays the PROPOSED strict-compatible v0.1.1 Investigation Bundle successor under the authenticated tenant/org/actor read scope. The accepted v0.1.0 bytes remain unchanged unless the Founder explicitly accepts and supersedes them. The wrapper marking cannot be lower than the bundle marking at runtime. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED; the referenced strict-compatible v0.1.1 successor itself remains PROPOSED — NOT ACCEPTED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "investigation_id",
+    "tenant_id",
+    "org_scope",
+    "served_to",
+    "bundle",
+    "read_at",
+    "data_marking",
+    "etag"
+  ],
+  "properties": {
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "org_scope": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/orgScopeRef"
+    },
+    "served_to": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ]
+    },
+    "bundle": {
+      "$ref": "cybrik.investigation-bundle.strict-compatible.v1.schema.json"
+    },
+    "read_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json"
+    },
+    "etag": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+    }
+  }
+}

@@ -1,0 +1,209 @@
+# CYBRIK W1 investigation lifecycle REST mapping v1
+# Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.
+# The referenced cybrik.investigation-bundle.strict-compatible.v1 v0.1.1 schema remains PROPOSED —
+# NOT ACCEPTED: it is bound only as the validation-profile expression of the semantically identical
+# accepted cybrik.investigation-bundle.v1 v0.1.0 shape, which remains authoritative and byte-unchanged.
+# Mapping notes only. There is deliberately no `servers` block, deployment, runtime endpoint,
+# credential, or transport selection. Cyber AI owns investigation lifecycle and bundle production;
+# SOC is an authenticated consumer/viewer. W2-D remains the sole existing inference-path owner.
+# W2-F service delegation covers the internal SOC → Cyber AI identity seam only; it is not Fabric
+# tool-execution authority. This document adds no Fabric registry, invocation, approval, receipt,
+# broker, MCP, action, or credential surface.
+openapi: 3.1.1
+info:
+  title: CYBRIK AI investigation lifecycle plane proposal
+  version: 0.1.0
+  summary: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2) — NOT IMPLEMENTED, CI NOT WIRED. REST mapping for create/status/checkpoint/cancel/bundle-read.
+  description: >-
+    Serverless, contract-only mapping notes for the Cyber AI investigation lifecycle seam.
+    Authoritative tenant, org, and actor are derived from authenticated identity and policy; body
+    and response fields are correlation/audit copies and never grant access. Unknown and
+    unauthorized investigation ids use the same sanitized 404 response shape. No implementation,
+    deployment, transport selection, or product authority is created by this document.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
+
+# No `servers:` — this packet chooses no operational address or deployment.
+
+components:
+  parameters:
+    InvestigationId:
+      name: investigation_id
+      in: path
+      required: true
+      schema:
+        $ref: '../json-schema/cybrik.common-defs.v1.schema.json#/$defs/uuid'
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context; Cyber AI creates one at the authenticated boundary when absent.
+      schema:
+        $ref: '../json-schema/cybrik.common-defs.v1.schema.json#/$defs/traceparent'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Must equal the body idempotency_key; same principal/key/body returns the same outcome.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 200
+  schemas:
+    InvestigationCreateRequest:
+      $ref: '../json-schema/cybrik.investigation-create-request.v1.schema.json'
+    InvestigationStatus:
+      $ref: '../json-schema/cybrik.investigation-status.v1.schema.json'
+    InvestigationCheckpoint:
+      $ref: '../json-schema/cybrik.investigation-checkpoint.v1.schema.json'
+    InvestigationCancelRequest:
+      $ref: '../json-schema/cybrik.investigation-cancel-request.v1.schema.json'
+    InvestigationBundleReadResult:
+      $ref: '../json-schema/cybrik.investigation-bundle-read-result.v1.schema.json'
+    InvestigationLifecycleError:
+      $ref: '../json-schema/cybrik.investigation-lifecycle-error.v1.schema.json'
+  responses:
+    NoExistenceLeak:
+      description: >-
+        Unknown and unauthorized identifiers are intentionally indistinguishable: HTTP 404 with
+        error_class=not_found_or_not_authorized and the same sanitized body/timing policy.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InvestigationLifecycleError'
+    VersionConflict:
+      description: Cancellation lost a compare-and-set race; fetch current status before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InvestigationLifecycleError'
+
+paths:
+  /api/v1/investigations:
+    post:
+      operationId: createInvestigation
+      summary: Create an asynchronous Cyber AI investigation from digest-bound SOC context.
+      description: >-
+        Cyber AI resolves authoritative tenant/org/actor from authenticated identity, rejects
+        mismatches, deduplicates on principal plus Idempotency-Key plus normalized body, and
+        returns the same status for a replay. The request grants no tool-execution authority.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvestigationCreateRequest'
+      responses:
+        '202':
+          description: Created or replayed; status is queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationStatus'
+        '409':
+          description: Same idempotency key was reused with a different normalized body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationLifecycleError'
+        '422':
+          description: Invalid request or tenant/org/actor mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationLifecycleError'
+  /api/v1/investigations/{investigation_id}:
+    get:
+      operationId: getInvestigationStatus
+      summary: Read the current authoritative lifecycle status.
+      description: >-
+        Returns Cyber AI's current versioned state only after tenant/org/actor authorization.
+        Unknown and unauthorized identifiers use the same sanitized 404 response.
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Authorized status view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationStatus'
+        '404':
+          $ref: '#/components/responses/NoExistenceLeak'
+  /api/v1/investigations/{investigation_id}/checkpoints:
+    get:
+      operationId: listInvestigationCheckpoints
+      summary: List immutable checkpoints for the authorized investigation.
+      description: >-
+        Results are ordered by attempt_number then sequence. A retry is a new attempt linked by
+        previous_attempt_id; no prior checkpoint or receipt is rewritten.
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Authorized checkpoint sequence.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 1000
+                items:
+                  $ref: '#/components/schemas/InvestigationCheckpoint'
+        '404':
+          $ref: '#/components/responses/NoExistenceLeak'
+  /api/v1/investigations/{investigation_id}:cancel:
+    post:
+      operationId: cancelInvestigation
+      summary: Request compare-and-set cancellation of the current attempt.
+      description: >-
+        Body and path investigation_id must match. expected_version is the linearization boundary.
+        A stale version returns 409. If completion/cancellation already won, Cyber AI returns the
+        current terminal status and never rewrites history or drops prior checkpoints/receipts.
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvestigationCancelRequest'
+      responses:
+        '200':
+          description: Cancelled, or already terminal with the authoritative current status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationStatus'
+        '404':
+          $ref: '#/components/responses/NoExistenceLeak'
+        '409':
+          $ref: '#/components/responses/VersionConflict'
+  /api/v1/investigations/{investigation_id}/bundle:
+    get:
+      operationId: readInvestigationBundle
+      summary: Read the PROPOSED strict-compatible v0.1.1 Investigation Bundle revision through Cyber AI.
+      description: >-
+        Cyber AI is the bundle producer/authority. SOC is an authorized viewer of the PROPOSED
+        strict-compatible v0.1.1 successor; it cannot alter the bundle or derive authority from
+        claims/model output. The accepted v0.1.0 bytes remain unchanged unless the Founder
+        explicitly accepts and supersedes them. Wrapper marking must be at least the bundle
+        marking. Unknown and unauthorized ids remain indistinguishable.
+      parameters:
+        - $ref: '#/components/parameters/InvestigationId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Authorized immutable bundle view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationBundleReadResult'
+        '404':
+          $ref: '#/components/responses/NoExistenceLeak'

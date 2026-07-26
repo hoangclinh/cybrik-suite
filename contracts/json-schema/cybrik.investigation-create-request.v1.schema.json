@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-create-request.v1.schema.json",
+  "title": "CYBRIK investigation create request v1",
+  "description": "SOC-to-Cyber-AI request to create an asynchronous investigation from digest-bound SOC context. Tenant/org/actor fields are advisory and must match authenticated authority. Idempotency prevents duplicate creation but grants no authority. No capability, delegation, approval, tool, MCP, action, or credential field exists: Fabric execution remains a separate authority seam, and W2-F inference delegation is not Fabric execution authority. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "tenant_id",
+    "org_scope",
+    "actor",
+    "objective",
+    "context_refs",
+    "budget",
+    "data_marking"
+  ],
+  "properties": {
+    "request_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/requestId"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Same authenticated principal + same key + same normalized body returns the same investigation; key reuse with different content is rejected.",
+      "minLength": 16,
+      "maxLength": 200
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "org_scope": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/orgScopeRef"
+    },
+    "actor": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "context_refs": {
+      "type": "array",
+      "description": "Digest-bound SOC-owned alert/case/snapshot references. Cyber AI dereferences them through SOC under the caller's effective read scope.",
+      "items": {
+        "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef"
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deadline_seconds",
+        "max_model_calls",
+        "max_tool_calls",
+        "max_retrieved_bytes"
+      ],
+      "properties": {
+        "deadline_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "max_model_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max_tool_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "max_retrieved_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 104857600
+        }
+      }
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json"
+    },
+    "traceparent": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent"
+    }
+  }
+}

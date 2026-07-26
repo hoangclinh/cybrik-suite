@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
+  "title": "CYBRIK W1 investigation lifecycle and transport proposal v1",
+  "description": "Additive packet for create/status/checkpoint/cancel/bundle-read REST mapping and Cyber AI lifecycle events. It reuses the accepted W0-I01 artifact packet without changing its bytes or lifecycle, leaves W2-D as the sole existing inference-path owner, and treats W2-F only as an identity/delegation seam in front of SOC-to-Cyber-AI inference operations — never as Fabric tool-execution authority. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED — except json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1, which remains a PROPOSED — NOT ACCEPTED successor candidate member only. The accepted cybrik.investigation-bundle.v1 v0.1.0 remains authoritative and byte-unchanged; adoption of v0.1.1, supersession of v0.1.0, and consumer migration remain three separate future Founder decisions.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "collision_status_map": {
+    "audited_base": "3ef8e0536f8210f2739c6fa0e32e37f8dc27d619",
+    "new_namespace": "cybrik.investigation-lifecycle-* plus create/status/checkpoint/cancel/bundle-read payload names and the proposed cybrik.investigation-bundle.strict-compatible.v1 revision; no existing schema id, path file, event type, or operationId is overwritten.",
+    "existing_boundaries": [
+      {
+        "packet": "W0-I01 Investigation/Claim/Evidence/Bundle",
+        "status": "ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA",
+        "collision_result": "none",
+        "treatment": "Accepted primitives are reused by $ref. The accepted bundle bytes remain untouched; this packet adds a distinct PROPOSED v0.1.1 strict-compatible bundle revision with a unique $id and semantic-equivalent shape. No accepted W0-I01 member, status, gate record, validator, or fixture is modified. G-W0I01-5 remains preserved because this packet is the separate later contract change it anticipated, accepted under W1-C2 while the v0.1.1 bundle revision member remains PROPOSED — NOT ACCEPTED."
+      },
+      {
+        "packet": "W2-D model-inference and alert-summarization",
+        "status": "ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA",
+        "collision_result": "none",
+        "treatment": "Remains the sole existing inference-path owner. This proposal defines lifecycle orchestration transport only and adds no model-runtime request/result or provider adapter."
+      },
+      {
+        "packet": "W2-F internal service delegation and workload identity",
+        "status": "ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA",
+        "collision_result": "none",
+        "treatment": "May authenticate the internal SOC-to-Cyber-AI seam after separate implementation. It grants no Fabric capability, invocation, approval, receipt, broker, MCP, action, or credential authority."
+      },
+      {
+        "packet": "Tool Fabric control/execution packet",
+        "status": "ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA",
+        "collision_result": "none",
+        "treatment": "Disjoint. Any tool call later planned by Cyber AI must traverse the separate Fabric-owned contract and policy/approval path; no such authority is carried here."
+      }
+    ]
+  },
+  "ownership": {
+    "cyber_ai": "Sole lifecycle state authority, checkpoint/event producer, retry/cancel race arbiter, and Investigation Bundle producer.",
+    "soc": "Authorized requestor, consumer, and viewer of lifecycle status/checkpoints/bundles under SOC-owned analyst/tenant/org truth. SOC cannot mint lifecycle state or rewrite a bundle.",
+    "fabric": "No member of this packet is Fabric execution authority. Fabric remains sole owner of capability registry, invocation, policy/approval, credential/egress broker, sandbox and execution receipts.",
+    "suite": "Owns this cross-product PROPOSED packet and its compatibility/conformance evidence only."
+  },
+  "members": [
+    {
+      "file": "json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json",
+      "format": "json-schema",
+      "kind": "shared-primitives",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-create-request.v1.schema.json",
+      "format": "json-schema",
+      "kind": "create",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-status.v1.schema.json",
+      "format": "json-schema",
+      "kind": "status",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-checkpoint.v1.schema.json",
+      "format": "json-schema",
+      "kind": "checkpoint",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-cancel-request.v1.schema.json",
+      "format": "json-schema",
+      "kind": "cancel",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
+      "format": "json-schema",
+      "kind": "strict-compatible-bundle-revision",
+      "contract_version": "0.1.1",
+      "status": "PROPOSED — NOT ACCEPTED"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
+      "format": "json-schema",
+      "kind": "bundle-read",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-lifecycle-error.v1.schema.json",
+      "format": "json-schema",
+      "kind": "sanitized-error",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml",
+      "format": "openapi",
+      "kind": "rest-mapping",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    },
+    {
+      "file": "asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml",
+      "format": "asyncapi",
+      "kind": "events",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
+    }
+  ],
+  "reuses_unmodified": [
+    "json-schema/cybrik.common-defs.v1.schema.json",
+    "json-schema/cybrik.data-marking.v1.schema.json",
+    "json-schema/cybrik.envelope.v1.schema.json",
+    "json-schema/cybrik.investigation-common-defs.v1.schema.json",
+    "json-schema/cybrik.investigation.v1.schema.json",
+    "json-schema/cybrik.investigation-bundle.v1.schema.json"
+  ],
+  "supersession_mapping": {
+    "accepted_current": {
+      "file": "json-schema/cybrik.investigation-bundle.v1.schema.json",
+      "contract_version": "0.1.0",
+      "status": "ACCEPTED FOR IMPLEMENTATION — authoritative — byte-unchanged",
+      "sha256": "501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1"
+    },
+    "proposed_successor": {
+      "file": "json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
+      "contract_version": "0.1.1",
+      "status": "PROPOSED — NOT ACCEPTED"
+    },
+    "compatibility": "Semantic shape is preserved. The accepted v0.1.0 is and remains fully JSON Schema 2020-12 conformant; nothing in it is spec-invalid and nothing in it is being repaired. Its generated_by.allOf[1] is the bare subschema {\"required\":[\"tenant_id\"]}, which the 2020-12 specification permits and which is rejected only by Ajv's optional strict-mode house style (strictRequired/strictTypes), never by the specification itself. The PROPOSED v0.1.1 successor changes only proposal metadata plus generated_by.allOf[1], where it adds an explicit \"type\": \"object\" and a local \"properties\": {\"tenant_id\": {\"$ref\": \"cybrik.common-defs.v1.schema.json#/$defs/tenantId\"}} subschema. That tenant_id subschema is newly written into allOf[1] — it was not present there before — and it is semantically redundant, because allOf[0]'s actor $ref already constrains tenant_id to the identical tenantId primitive. The successor therefore narrows, widens, and removes nothing; it only satisfies the stricter Ajv strict-mode house style.",
+    "transport_binding_rule": "The accepted OpenAPI bundle-read result and AsyncAPI bundle publication reference the strict-compatible v0.1.1 expression only as the validation-profile rendering of the semantically identical accepted v0.1.0 shape (this packet validator enforces that identity: v0.1.1 may differ from v0.1.0 only by proposal metadata and the one semantically redundant generated_by annotation). That reference confers no acceptance, adoption, supersession, or migration authority on v0.1.1.",
+    "pending_founder_decisions": [
+      "Adopt cybrik.investigation-bundle.strict-compatible.v1 v0.1.1 (accept it for implementation).",
+      "Supersede accepted cybrik.investigation-bundle.v1 v0.1.0 with v0.1.1.",
+      "Authorize consumer migration from v0.1.0 to v0.1.1."
+    ],
+    "adoption_rule": "No automatic supersession, and W1-C2 acceptance of this packet accepts nothing about v0.1.1. The accepted v0.1.0 remains authoritative and byte-unchanged until each pending Founder decision above is separately and explicitly recorded."
+  },
+  "operation_contract": {
+    "operations": [
+      "createInvestigation",
+      "getInvestigationStatus",
+      "listInvestigationCheckpoints",
+      "cancelInvestigation",
+      "readInvestigationBundle"
+    ],
+    "no_operational_servers": true,
+    "no_product_implementation": true
+  },
+  "event_contract": {
+    "producer": "Cyber AI",
+    "consumer": "SOC and authorized observability/evaluation consumers",
+    "events": [
+      "cybrik.ai.investigation.created.v1",
+      "cybrik.ai.investigation.status_changed.v1",
+      "cybrik.ai.investigation.checkpointed.v1",
+      "cybrik.ai.investigation.completed.v1",
+      "cybrik.ai.investigation.cancelled.v1",
+      "cybrik.ai.investigation_bundle.published.v1"
+    ],
+    "no_bus_binding": true
+  },
+  "state_machine": {
+    "note": "run_status is a transport/orchestrator view, not a redefinition of the accepted investigation record status.",
+    "allowed_transitions": {
+      "queued": [
+        "running",
+        "cancelled",
+        "denied",
+        "failed"
+      ],
+      "running": [
+        "waiting_approval",
+        "completed",
+        "partial",
+        "abstained",
+        "cancelled",
+        "failed"
+      ],
+      "waiting_approval": [
+        "running",
+        "cancelled",
+        "denied",
+        "failed"
+      ],
+      "completed": [],
+      "partial": [],
+      "abstained": [],
+      "denied": [],
+      "cancelled": [],
+      "failed": []
+    },
+    "record_status_mapping": {
+      "queued": "open",
+      "running": "in_progress",
+      "waiting_approval": "in_progress",
+      "completed": "completed",
+      "partial": "closed",
+      "abstained": "abstained",
+      "denied": "closed",
+      "cancelled": "closed",
+      "failed": "closed"
+    }
+  },
+  "runtime_invariants": [
+    {
+      "id": "TR-1",
+      "statement": "Authoritative tenant and actor derive from authenticated identity; any body/actor/credential tenant mismatch is rejected."
+    },
+    {
+      "id": "TR-2",
+      "statement": "Authoritative org scope derives from identity plus policy; advisory org_scope never expands visibility and a mismatch is rejected."
+    },
+    {
+      "id": "TR-3",
+      "statement": "Idempotency is scoped to authenticated principal plus key plus normalized body. Same triple returns the same result; same principal/key with different content returns idempotency_conflict."
+    },
+    {
+      "id": "TR-4",
+      "statement": "Cancellation is compare-and-set on expected_version. A stale version loses; exactly one state transition wins a cancellation/checkpoint/completion race."
+    },
+    {
+      "id": "TR-5",
+      "statement": "Terminal attempts are immutable. Late cancellation/checkpoints return or observe current truth and never rewrite state, drop checkpoints, or discard Fabric receipts."
+    },
+    {
+      "id": "TR-6",
+      "statement": "Checkpoint sequence is strictly increasing per attempt. Retry creates a fresh attempt_id linked to the prior attempt and starts sequence at one; no prior attempt is mutated."
+    },
+    {
+      "id": "TR-7",
+      "statement": "Status, checkpoint, event, and bundle-read markings never downgrade authoritative input/artifact markings on either classification or TLP axis."
+    },
+    {
+      "id": "TR-8",
+      "statement": "Unknown and unauthorized investigation ids are indistinguishable in HTTP class, JSON shape, sanitized message policy, and timing policy; no existence, owner, tenant, org, grant, or policy detail leaks. The positive not-found plus negative existence-leak fixtures verify only the static shape/message/no-target-identifier portion; timing indistinguishability remains an explicit runtime-only obligation and is not claimed as fixture-verified."
+    }
+  ],
+  "authority_invariants": [
+    "No schema permits capability, delegation, approval, tool, MCP, action, credential, provider, or endpoint authority fields.",
+    "W2-F inference delegation is never treated as Fabric tool-execution authority.",
+    "Claims/model output remain advisory and cannot transition lifecycle state or authorize an action.",
+    "Any future Cyber AI tool use must invoke the separate Fabric-owned contract under its own policy, approval, receipt, and credential boundaries."
+  ],
+  "open_decisions": [
+    {
+      "id": "OD-W1IL-1",
+      "question": "Accept the exact ten-member packet, including the PROPOSED strict-compatible Investigation Bundle v0.1.1 successor, for product implementation?",
+      "current": "RESOLVED (W1-C2, 2026-07-26) — the packet is ACCEPTED FOR IMPLEMENTATION at v0.1.0 except the strict-compatible v0.1.1 member, which remains PROPOSED — NOT ACCEPTED; see supersession_mapping.pending_founder_decisions for the three decisions that remain open."
+    },
+    {
+      "id": "OD-W1IL-2",
+      "question": "Choose the durable orchestration and event-bus substrate without changing these provider-neutral contracts?",
+      "current": "OPEN — no server or binding is declared"
+    },
+    {
+      "id": "OD-W1IL-3",
+      "question": "Set retention, pagination/cursor, and retry-count limits for production after workload evidence?",
+      "current": "OPEN — defaults intentionally not promoted to runtime policy"
+    },
+    {
+      "id": "OD-W1IL-4",
+      "question": "Open a product implementation gate for Cyber AI producer and SOC consumer after contract acceptance?",
+      "current": "OPEN — no product implementation authorized by this proposal"
+    }
+  ],
+  "verification_commands": {
+    "workspace": "tools/contract-validation",
+    "workspace_note": "Every command below is run with tools/contract-validation as the working directory, in a checkout whose already-pinned validation dependencies (@asyncapi/parser 3.6.0, @stoplight/spectral-cli 6.16.2, ajv 8.20.0, ajv-formats 3.0.1) are installed. This packet installs nothing, adds no dependency, and reaches no network.",
+    "ci_wiring": "NOT WIRED — these commands are declared for reproducible manual and reviewer execution only. Registering them in the canonical validation orchestrator (tools/contract-validation/validate.mjs, package.json scripts) and in CI is a later integration gate that is deliberately out of scope for this packet, and no CI result is claimed here.",
+    "standalone_validator": "node validate-investigation-lifecycle-proposal.mjs",
+    "tests": "node --test tests/validate-investigation-lifecycle-proposal.test.mjs",
+    "tests_branch_coverage": "node --experimental-test-coverage --test tests/validate-investigation-lifecycle-proposal.test.mjs",
+    "ajv_strict": "node --test --test-name-pattern \"official Ajv 2020-12 strict mode\" tests/validate-investigation-lifecycle-proposal.test.mjs",
+    "spectral_openapi": "node_modules/.bin/spectral lint --ruleset .spectral.yaml --fail-severity error --format stylish ../../contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml",
+    "asyncapi": "node --input-type=module --eval \"import { Parser, fromFile } from '@asyncapi/parser'; const target = '../../contracts/asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml'; const { document, diagnostics } = await fromFile(new Parser(), target).parse(); const errors = (diagnostics ?? []).filter((d) => d.severity === 0); for (const d of errors) console.error('ERROR ' + d.message); if (!document || errors.length > 0) process.exit(1); console.log('OK AsyncAPI 3.0.0 errors=0');\""
+  },
+  "x-cybrik-packet-integrity": {
+    "algorithm": "sha256",
+    "member_count": 30,
+    "path_root": "contracts/",
+    "file_digest_rule": "Every member except this manifest is digested as the lowercase hex SHA-256 of the exact on-disk UTF-8 bytes of '<path_root><file>'.",
+    "self_digest_rule": "This manifest's own member digest is deliberately NOT taken over its on-disk bytes. It is the lowercase hex SHA-256 of the UTF-8 encoding of JSON.stringify(this manifest parsed as JSON with the top-level 'x-cybrik-packet-integrity' key removed). Because the hashed input excludes the integrity block, no digest input ever contains a digest, which is what makes the self entry and the aggregate below non-circular and independently reproducible. Consequence, stated deliberately: for this one member the digest pins the JSON value, not the on-disk byte formatting.",
+    "aggregate_algorithm": "Sort all 30 member entries ascending by 'file' using JavaScript default string comparison, render each entry as the line '<sha256>  <file>' (two spaces), join the lines with a single '\\n' and no trailing newline, then take the lowercase hex SHA-256 of the UTF-8 encoding of that string. The aggregate consumes only the 30 member digests, so it never depends on its own value.",
+    "member_digests": [
+      {
+        "file": "json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json",
+        "sha256": "faca466b76d3df84a4b745d592fbb4c4f0f41cfe42a4d4f339710ba713412628"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-create-request.v1.schema.json",
+        "sha256": "4cfe118bb2b2e7c8e51a70ce86e8f9cbc06cbe1621105efcd7400fd2bfbe46fd"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-status.v1.schema.json",
+        "sha256": "83e2ea1f74bc12333d7a954bfd9ede18b22386be16dee339b31bbeb149b86ca1"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-checkpoint.v1.schema.json",
+        "sha256": "ee226b9f4c1ff47a8e0a5a2514aa831504de5ee195ac5538de18085889615414"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-cancel-request.v1.schema.json",
+        "sha256": "a236c0d819d9b6e97b88802ebc805483544554c90982f53960ad3d8f1abc7e70"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
+        "sha256": "ce2e255eb52e3f5122d304ec9162fe02b2d35012b4bf0a92747989281f32eea9"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
+        "sha256": "64d6600feda4f0bf6dfefc01ddeda38d324404eda616fe2b5183a3a7c1fb7246"
+      },
+      {
+        "file": "json-schema/cybrik.investigation-lifecycle-error.v1.schema.json",
+        "sha256": "1d1a467e70c7e9824d0bd615b1fad7797b1c03f4a6e64ba18c0c77297fc8b31f"
+      },
+      {
+        "file": "openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml",
+        "sha256": "22cd7d71f89bd5c287b79e87015a28dd27fdbd124fd3a073e56346a4de3c318d"
+      },
+      {
+        "file": "asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml",
+        "sha256": "c55ca124a193e2406b875af139e463e0e02e8b807c2a6baef616b63fe2f20fe4"
+      },
+      {
+        "file": "compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
+        "sha256": "5aaa272ca3e5facdaa8292f972d63d3113aa17366aea235354b46b49b26cbd03"
+      },
+      {
+        "file": "examples/investigation-lifecycle/examples-manifest.json",
+        "sha256": "9928bca0c79c91007cd864706348ccf7ddfb6c10bce3adf1d85e4a671f6be5bf"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-create-request.json",
+        "sha256": "1c5f7861c019a894ff911239cf7f96eb25946bd2718876c8d294b990bd5e851a"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-status.cancelled.json",
+        "sha256": "9dea079f3f2d0a2c572e1ccbfa1f154e1c5cc57b10970b8fb1a65efd26aa45fe"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-checkpoint.json",
+        "sha256": "60005580ac7866aea88ef4df851d566a8f28d5db1e3d9e12c69839bb43a4d085"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-cancel-request.json",
+        "sha256": "9a485fcc2274985ac575bf63b805fe2addebf7fd04af00f338b4238c1191f172"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-bundle-read-result.json",
+        "sha256": "d49df5e0c611f767ba79de036e2362d9762ed89b9380226973ba97065cd2366f"
+      },
+      {
+        "file": "examples/investigation-lifecycle/positive/investigation-lifecycle-error.not-found.json",
+        "sha256": "ec7443e18b33b52765881dac6494f2b8d6b9957fd168a4fd607b45357343e9a5"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-schema/investigation-create-request.short-idempotency.json",
+        "sha256": "50b6f19424c09fe3e7719266f292b630cdaa586732eb8174e60c317213441ca7"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-schema/investigation-create-request.tool-authority.json",
+        "sha256": "6fa4d527e7c58006d1d11e27868ff73a60d51dd31314ce6c045f9464ea3838fc"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-schema/investigation-cancel-request.missing-version.json",
+        "sha256": "80094dc8472767d4cf258a1d7fbf4c656cd9bd56a21d4bf027cec110b99376df"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-schema/investigation-checkpoint.sequence-zero.json",
+        "sha256": "22162a4c399f271a1406a217160d4052018d1bbf258e31fd9197aa3932756083"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-schema/investigation-lifecycle-error.existence-leak.json",
+        "sha256": "1fc323c02fb5412b654669ddaaa6ee423eecb1e60808874347ef3f27ef8a1fda"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-create-request.cross-tenant.json",
+        "sha256": "0dd06dabe62f30687547e5df5f7b614f7d831572737424e6f5d30831dbe1909d"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-status.org-mismatch.json",
+        "sha256": "ed5421987652dc89a4207e07d3512a0a0ade996951df2182a5cc7c94cd519017"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-create-request.idempotency-conflict.json",
+        "sha256": "a366cd94786e02d0239c62065b83ed1c2491e6785a7a01e1932cf29c2626f2dd"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-cancel-request.stale-version.json",
+        "sha256": "00e998d08b040ae959054ba9a1e629baabd2b2528e323bba8d07d58eba2b9e7c"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-cancel-request.terminal-race.json",
+        "sha256": "ec1369bd959a169efb404a71883fe3913eba43b00384b1f3b15dbd33590acd4b"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-checkpoint.retry-mutates-terminal-attempt.json",
+        "sha256": "54614a6e3e266e7d5607d24a862f03340064e07fb97f1f677040cbf9e6e94416"
+      },
+      {
+        "file": "examples/investigation-lifecycle/negative-semantic/investigation-bundle-read-result.marking-downgrade.json",
+        "sha256": "667371ba664dcfc3bebb4555cfe3e2e2e94dd29ae7cc22a4b80086297ad9f659"
+      }
+    ],
+    "aggregate_sha256": "0fcac6ede9b2c3712bb7e989c227c91c6bd37c115a2bce4cb41996587f24b42e"
+  },
+  "gate": {
+    "id": "W1-INVESTIGATION-LIFECYCLE-PROPOSAL",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; W1-C2; not stable v1/GA)",
+    "decision": "W1-C2 coordinator decision, applied 2026-07-26: the lifecycle/transport packet is ACCEPTED FOR IMPLEMENTATION at v0.1.0. Its member json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1 is carved out and remains a PROPOSED successor candidate member only. The accepted cybrik.investigation-bundle.v1 v0.1.0 remains authoritative and byte-unchanged (sha256-pinned in supersession_mapping.accepted_current). Adoption of v0.1.1, supersession of v0.1.0, and consumer migration remain three separate future Founder decisions. Acceptance authorizes contract-first implementation only: CI remains NOT WIRED, and no runtime, dependency, database, container, endpoint server, bus binding, deploy, or release authority is created."
+  },
+  "acceptance_record": [
+    "W1-C2 (2026-07-26): the coordinator decision applying Founder authority accepted this packet FOR IMPLEMENTATION at v0.1.0, explicitly excluding the strict-compatible Investigation Bundle v0.1.1 member, which remains a PROPOSED successor candidate; no supersession of the accepted v0.1.0 bundle was decided or implied.",
+    "Acceptance was not inferred from green validation; the validator, tests, Ajv strict, Spectral, and AsyncAPI checks remain conformance evidence only.",
+    "Compatibility constraint preserved: zero accepted W0-I01, W2-D, W2-F, W2-G, ADR, roadmap, or product bytes changed; the accepted cybrik.investigation-bundle.v1 v0.1.0 digest is pinned in supersession_mapping.accepted_current.sha256.",
+    "Cyber AI remains sole lifecycle/checkpoint/bundle producer; SOC remains requestor/consumer/viewer; Fabric execution authority is untouched and W2-F is not an execution grant.",
+    "Product implementation, canonical CI wiring, commit, merge, push, deploy, release, stable v1/GA promotion, and any v0.1.1 adoption/supersession/migration remain separately gated future decisions."
+  ]
+}
