@@ -1,0 +1,57 @@
+{
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Closed-set conformance fixtures for the W1 soc.get_alert_context invocation transport-binding profile, which is PROPOSED — NOT ACCEPTED. Positive fixtures must validate against the binding schema, negative-schema fixtures must be rejected structurally, and negative-semantic fixtures must stay structurally valid while witnessing a runtime trust obligation that no schema can decide. The standalone validator independently pins every filename and kind, rejects missing, orphan, symlinked and duplicate fixtures, recomputes every inline bound-output digest and every reused C1 available-result context digest under constrained RFC 8785/JCS, reconstructs the accepted C1 business request from the bound request and compares it byte-for-byte with the accepted C1 request fixture, and verifies every manifest member hash. Each negative row cites a canonical trust-invariant label that the compatibility manifest owns, so a fixture cannot be relabelled into an untraceable claim. This is static evidence only: it demonstrates no endpoint, no transport or MCP surface, no capability-registry entry, no Fabric invocation grant, no W2-F delegation authority, no policy completion, no kill-switch behavior, no CI wiring and no runtime enforcement, and it records no acceptance.",
+  "examples": [
+    { "file": "positive/bound-request.json", "kind": "positive" },
+    { "file": "positive/bound-result.available.json", "kind": "positive" },
+    { "file": "positive/bound-result.unavailable.json", "kind": "positive" },
+    { "file": "positive/bound-result.kill-switch-denied.json", "kind": "positive" },
+    {
+      "file": "negative-schema/bound-request.authorization-binding-asserted.json",
+      "kind": "negative-schema",
+      "invariant": "TB-3 The caller may never assert the credential- and policy-derived authorization binding; the closed caller-argument channel rejects an authorization_binding the caller supplied for itself."
+    },
+    {
+      "file": "negative-schema/bound-request.capability-pin-mismatch.json",
+      "kind": "negative-schema",
+      "invariant": "TB-2 The capability pin is exact soc.get_alert_context@0.1.0 over an opaque registry-owned descriptor digest; a drifting version is rejected structurally before any correlation check runs."
+    },
+    {
+      "file": "negative-schema/bound-result.approval-required.json",
+      "kind": "negative-schema",
+      "invariant": "TB-4 approval_required and approval_id are outside this synchronous non-approval-gated R0 read profile; the restricted envelope status set rejects them."
+    },
+    {
+      "file": "negative-schema/bound-result.output-artifact-locator.json",
+      "kind": "negative-schema",
+      "invariant": "TB-8 The business result travels inline inside output.data only; an artifact-locator side channel is rejected so the digest-bound payload has exactly one wire home."
+    },
+    {
+      "file": "negative-schema/bound-result.unavailable-with-output.json",
+      "kind": "negative-schema",
+      "invariant": "TB-6 Envelope status=unavailable is transport-level unavailability and must carry no business payload; the C1 business outcome=unavailable is a different meaning that travels inside envelope status=completed."
+    },
+    {
+      "file": "negative-schema/bound-result.completed-without-receipt.json",
+      "kind": "negative-schema",
+      "invariant": "TB-7 A completed bound result must carry receipt_id; a completed invocation that returns a business payload without a receipt reference is rejected."
+    },
+    {
+      "file": "negative-semantic/bound-request.idempotency-key-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-1 The idempotency key must be identical in all four bound positions; this structurally valid fixture rebinds the envelope key away from the bound business key and must fail closed at runtime."
+    },
+    {
+      "file": "negative-semantic/bound-request.tenant-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-2 The envelope actor tenant must equal the credential-derived authoritative envelope tenant; this structurally valid cross-tenant fixture must fail closed at runtime."
+    },
+    {
+      "file": "negative-semantic/bound-request.w2f-token-as-delegation-ref.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-3 A W2-F internal service delegation token is never a Fabric tool grant; this structurally valid fixture presents the constrained-JCS digest of the accepted W2-F token as delegation_ref and must fail closed at runtime."
+    }
+  ]
+}

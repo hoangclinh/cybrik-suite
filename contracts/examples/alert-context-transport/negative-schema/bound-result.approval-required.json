@@ -1,0 +1,7 @@
+{
+  "action_id": "act-alert-context-0001",
+  "tenant_id": "tenant-acme",
+  "status": "approval_required",
+  "approval_id": "appr-alert-context-0001",
+  "policy_decision_id": "pdec-alert-context-0001"
+}
