@@ -1193,12 +1193,15 @@ returned **commit audit PASS** and **post-commit verdict PASS with no P0–P2, t
   post-commit verification run created `services/api/src/cybrik_soc/__pycache__/`, absent at that
   session's start and not deleted because the review is read-only — both are recorded, neither is
   cleaned up by this record.
-- **Writer transcript gap, disclosed.** The writer session cited by the commit body and both
-  reviews, `2ceadba6-e72e-4ae6-b201-8d213d2425ea`, is **not present on disk** at its cited
-  transcript path or anywhere else searched under `~/.claude/projects` at the time of this
-  record. Its existence and content are corroborated only through the two reviewers'
-  transcript-line quotations, not through this record's own direct reading — an open provenance
-  gap, not papered over.
+- **Writer transcript gap, corrected — see §1.21/§14.29.** The writer session cited by the commit
+  body and both reviews, `2ceadba6-e72e-4ae6-b201-8d213d2425ea`, was originally recorded as **not
+  present on disk**, because this record searched only the personal-pool shorthand path quoted in
+  the product commit body rather than the actual work-pool path. **That absence finding was
+  false.** The transcript is confirmed present and was directly read, read-only, at the actual
+  work-pool path by a fresh correction authority on 2026-07-27; its existence and content are now
+  corroborated both through the two reviewers' transcript-line quotations and through this
+  correction's own direct reading — the prior open provenance gap is **closed**. Full detail:
+  §14.29.
 - **Carry-forward discipline.** W0-R03G's seven P3s and W0-R03H's three new P3s (H1–H3) are
   recorded **separately** from each other and from the four W0-R03F P3s and the §7.5
   grant-originated finding named in §1.16/§14.24 — none is folded into another.
@@ -1209,6 +1212,29 @@ returned **commit audit PASS** and **post-commit verdict PASS with no P0–P2, t
   **unwired** — no gateway, router, app factory or lifespan registration, and CI does not run it.
   The roster stays at exactly **48** with **no task 49**. W1 dates and the release window are
   unchanged. This record opens no writer, wires nothing, closes no residual and promotes no gate.
+
+### 1.21 SOC writer transcript provenance correction — 2026-07-27, twentieth same-day record
+
+Recorded on **2026-07-27**, after §1.20/§14.28, by a fresh, separate correction authority (task
+**W0-D04K**) under the same coordinator-delegated Founder authority. Pre-correction control
+`HEAD`: `1bf79fbe023eeab62946ab39df5afe3b9cefbc69`. This record corrects exactly one factual error
+in `1bf79fb`: that commit recorded writer session transcript
+`2ceadba6-e72e-4ae6-b201-8d213d2425ea` as **absent from disk**, because it searched only the
+personal-pool shorthand path quoted in the product commit body. **That absence finding was
+false.** The transcript exists and is directly readable at the actual work-pool path
+`/Users/hoanglinh/.claude-accounts/work-dir/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`
+— measured **845793 bytes**, mtime **2026-07-27 11:47** local, **217** newline-delimited records
+(labeled a newline count, not asserted line-safe, given literal U+2028 bytes in the file), uniform
+`sessionId` `2ceadba6-e72e-4ae6-b201-8d213d2425ea` across all 217 occurrences checked. `1bf79fb`'s
+own bytes stand unedited as dated history; this record and its bounded detail (§14.29) correct the
+false absence statements in evidence-file §2/§7/§11, this board's §1.20/§14.28.2/§14.28.3 item 9,
+and register §23.1/§23's P3 summary — each corrected passage now cross-references this section.
+**Nothing else changes:** no hash pin, commit, gate, `W0 COMPLETE` value, UAT/release date,
+classification or blocker status is touched; the SOC product commit
+`74f9774bfb5a6816cd9f0ddc230673a181a4cfd6` and both independent reviews stand exactly as §1.20
+already records them. W0-R03H's separate transcript-derived pre-fix-bytes caveat (§14.28.3 item
+H2) is unchanged by this correction. Full bounded record: §14.29; standalone evidence correction:
+evidence file §12; register §24.
 
 ## 2. Capacity and ownership
 
@@ -5035,11 +5061,15 @@ no merge, no remote change, no release, no dependency install, no formatter.
   (`test_shadow_remote.py`), `28f0d03e36f2ef2909595536fdeeecac63d3470326477d7f483c522424e391d6`
   (`test_shadow_remote_contract.py`) — all **byte-identical** to the W0-R03G/W0-R03H pins. 3101
   lines total (`+3101 / −0`).
-- **Session and runtime, corroborated through reviewer transcripts.** Writer session
-  `2ceadba6-e72e-4ae6-b201-8d213d2425ea` is named by the commit body and both reviews, which
-  quote specific transcript lines. **That transcript file was not found on disk** at its cited
-  path or anywhere else searched under `~/.claude/projects` at the time of this record — an
-  open provenance gap, disclosed rather than papered over. W0-R03G's own review, issued before
+- **Session and runtime, corroborated through reviewer transcripts and, as of §14.29, directly.**
+  Writer session `2ceadba6-e72e-4ae6-b201-8d213d2425ea` is named by the commit body and both
+  reviews, which quote specific transcript lines. **That transcript file was originally recorded
+  as not found on disk** at its cited path or anywhere else searched under
+  `~/.claude/projects` — a false finding, because this record searched only the personal-pool
+  shorthand path quoted in the product commit body rather than the actual work-pool path. The
+  transcript is confirmed present at the work-pool path and was directly read by a fresh
+  correction authority (§14.29); the prior open provenance gap is **closed**, not merely
+  disclosed. W0-R03G's own review, issued before
   the commit existed, records the writer stopped before staging with the initial 600 s cycle's
   work captured and reported, finds "the extension is unused" at that point, and grants explicit
   **YES** for the same session to draw its single grant §3.3 extension to stage exactly the four
@@ -5121,7 +5151,7 @@ no merge, no remote change, no release, no dependency install, no formatter.
 | **H2** | Commit body's "line 395" for the pre-existing fixture is the post-edit line number; pinned-bytes line is 394 | Raised by W0-R03H; substantive claim confirmed true |
 | **H3** | Writer asserted the fixture's pre-existence without a probe capable of establishing it | Raised by W0-R03H; conclusion correct but reached without evidence at time of writing |
 | 8 | Gitleaks CI-side behavior on these fixtures is untested | Raised by W0-R03H; becomes a real gate before CI/merge |
-| 9 | Writer session transcript `2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl` absent from disk at cited path | Raised by this record; writer session corroborated only through reviewers' quotations |
+| 9 | Writer session transcript `2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl` originally recorded absent from disk at cited path — a false finding from a personal-pool/work-pool path confusion; present and directly read at the work-pool path, gap closed | Raised by this record; corrected 2026-07-27 by a fresh correction authority — see §14.29 |
 | 10 | Review-side cache residue: `.ruff_cache` (writer-created) plus `cybrik_soc/__pycache__` (W0-R03H-created) | Both disclosed; neither cleaned by this record |
 | 11 | The control validator does **not** machine-enforce this §14.28, board §1.20, register §23 or the grant's terms | Its `PASS` is a documentary consistency check only; unchanged pattern from §14.24.8/§14.25.6/§14.26.7/§14.27.8 item 2 |
 | 12 | `actionlint` still absent from `PATH` and the venv | Open, unchanged; not re-measured by this docs-only record |
@@ -5179,6 +5209,143 @@ closes** — live-shadow blocker 3 and blocker 4 remain open, and the **W0-I04 a
 stays quarantined byte-for-byte, unstaged and unedited. The 48 immutable task identities and
 category counts are unchanged. The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC
 W1-I03B lane are untouched.
+
+## 14.29 SOC writer transcript provenance correction — bounded record, 2026-07-27
+
+This section is authored by a fresh, separate correction authority (task **W0-D04K**), under the
+same coordinator-delegated Founder authority chain as §14.24–§14.28, scoped to correcting exactly
+one factual error recorded by `1bf79fb` (§1.20/§14.28 above): the false statement that writer
+session transcript `2ceadba6-e72e-4ae6-b201-8d213d2425ea` is absent from disk. **`1bf79fb`'s own
+bytes stand unedited as dated history** — this record does not rewrite that commit; it corrects
+the false statements this record's own three-path allowlist covers, each disclosed, in place,
+cross-referencing this section.
+
+#### 14.29.1 Exact write allowlist — the same three paths, no fourth
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I04A-SHADOW-REMOTE-POST-COMMIT-EVIDENCE.md` | **corrected** — false absence/not-found/provenance-gap statements at §2, §7 item 9, §11, corrected in place; new §12 appended |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board (§1.21, §14.29 only — no edit to §1.20 or §14.28's own prose beyond the disclosed false-statement corrections named above) |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register (§24, plus the disclosed §23.1/§23 P3-summary correction) |
+
+No fourth path was created, and no path outside this list was written.
+`docs/strategy/06-ROADMAP-2026-2029.md` is **not** in this allowlist; its pre-existing, unrelated
+dirty working-copy edit is left exactly as found, hash-pinned unchanged below, **not staged**.
+Product commit `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6` is read-only and unchanged.
+
+Pre-correction control `HEAD`: `1bf79fbe023eeab62946ab39df5afe3b9cefbc69`. Expected commit subject
+for this record's single authorized local commit: `docs(control): correct SOC writer transcript
+provenance`. **No backdating:** this correction is dated and authored 2026-07-27, strictly after
+`1bf79fb`, and does not claim the corrected fact was known at `1bf79fb`'s own authoring time.
+
+#### 14.29.2 The error and its cause
+
+`1bf79fb` (§1.20/§14.28.2, evidence file §2/§7/§11) recorded writer session transcript
+`2ceadba6-e72e-4ae6-b201-8d213d2425ea` as **not present on disk / not found**, searched only
+under the personal-pool shorthand path quoted by the product commit body,
+`~/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`.
+**That finding was false.** The transcript was never absent — it exists under a different pool
+root than the one `1bf79fb` searched.
+
+#### 14.29.3 Direct verification, this correction
+
+The transcript is confirmed present and was read directly, read-only, at the actual work-pool
+path:
+
+`/Users/hoanglinh/.claude-accounts/work-dir/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`
+
+| Field | Measured, this correction, 2026-07-27 |
+|---|---|
+| File presence | **confirmed present** |
+| Size | **845793 bytes** (re-measured; not assumed stable from any prior report) |
+| Modified time | **2026-07-27 11:47** local |
+| Newline count (`wc -l`) | **217** — labeled a newline count, not asserted as a safe record count, because the file contains literal U+2028 (Unicode line separator) bytes that can affect naive `splitlines()`-based counting |
+| `sessionId` occurrences | **217**, every occurrence the identical value `2ceadba6-e72e-4ae6-b201-8d213d2425ea` — uniform where checked by direct substring count |
+
+This transcript was also read directly, earlier, by **W0-R03G** and **W0-R03H** for their own
+quoted transcript-line chronology (§14.28.2/§14.28.3 above already cite specific lines) and by the
+coordinator. This correction is the first record in this lane to state that it, too, has read the
+writer transcript directly at the corrected path, rather than relying solely on the two reviewers'
+quotations. The chronology named in §14.28.2 is now **transcript-citable** by this correction's
+own direct reading, and the prior open provenance gap is **closed by direct location**, not
+through reviewer quotations alone.
+
+#### 14.29.4 What is corrected and what is not
+
+**Corrected, in place, each cross-referencing this section:**
+
+- Evidence file §2 ("Disclosed gap, not papered over" bullet), §7 P3 item 9, §11 provenance.
+- This board's §1.20 "Writer transcript gap" bullet, §14.28.2 "Session and runtime" bullet,
+  §14.28.3 P3 item 9.
+- Register §23.1 "Writer transcript gap" bullet, §23's carried-P3 summary line.
+
+**Not corrected, and unchanged by this record:**
+
+- `1bf79fb`'s own commit bytes — dated history, stands unedited.
+- **W0-R03H's separate transcript-derived caveat** (§14.28.3 item H2 / evidence §7 item H2): the
+  pre-fix pinned-bytes line number (line 394, for the line-395 fixture) remains established from
+  the writer transcript's own pre-edit `Read` capture, **because the four SOC files were
+  originally untracked** at pre-commit review time and so carried no independent `git` history of
+  their own — that reasoning and finding stand exactly as previously recorded, **not touched by
+  this correction**.
+- Every hash pin, the commit `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`, both review verdicts, the
+  `SCAFFOLD` classification, every gate (`GATE A4`, `G2`, `G3`), `W0 COMPLETE=0`, the `HOLD`
+  admission, every UAT/release date, and every blocker/residual status named in §1.20/§14.28.
+
+#### 14.29.5 Ceiling and status — unchanged, binding even on this correction
+
+This correction changes **no** hash, commit, gate, classification, date or disposition substance —
+only the false absence/not-found/provenance-gap wording named in §14.29.4, corrected in place and
+disclosed. GATE A4 and W1-C1/C2 stay `ACCEPTED — CLOSED 2026-07-26`; W1-G1 stays
+`ACCEPTED — CLOSED 2026-07-27`; **G2/G3 stay closed**; `W0 COMPLETE=0` and W0 closure stays
+`NO-GO`; the **W0-I04 admission stays `HOLD`**; **no blocker closes** — live-shadow blocker 3 and
+blocker 4 remain open; **no UAT milestone is reached and no instance is authorized**; the client
+stays **unwired**. The roster stands at exactly **48** with **no task 49**; W1 dates
+**2026-08-01 → 2026-08-23** and the release window **2026-12-21 → 2026-12-31** are unchanged. This
+record opens no writer, wires nothing, closes no residual and promotes no gate.
+
+#### 14.29.6 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `1bf79fbe023eeab62946ab39df5afe3b9cefbc69`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree, before
+any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, still **unstaged** |
+| Control changed paths for this record | **exactly three**, per §14.29.1 |
+| `command -v actionlint` | **absent** — unchanged, no tooling installed |
+
+**Disclosed validator limitation, mandatory.** The validator and its test suite were **not
+modified** by this record; both commands are **manual** and **static/documentary only** —
+**CI: NOT WIRED** for both. **The validator does not machine-enforce this §14.29, board §1.21,
+register §24, the transcript metadata above or the reviewer-separation rule.** Its `PASS` and the
+`77/77` count confirm only that this control repository's own pinned rows remain internally
+consistent after these writes. Same standing **P3** as
+§14.24.7/§14.25.6/§14.26.7/§14.27.8 item 2/§14.28.4, carried forward unchanged.
+
+#### 14.29.7 P3 findings recorded — no new P0–P2 in this control record
+
+| # | P3 | Standing |
+|---|---|---|
+| 1 | The control validator does **not** machine-enforce this §14.29, §1.21, register §24 or the transcript metadata | Its `PASS` is a documentary consistency check only; unchanged pattern from §14.24.8/§14.25.6/§14.26.7/§14.27.8 item 2/§14.28.3 item 11 |
+| 2 | `actionlint` still absent from `PATH` and the venv | Open, unchanged; not re-measured by this docs-only record |
+| 3 | Placeholder Git author identity in this control repository (`Your Name <your@email.com>`) | Unchanged provenance weakness of the control record |
+| 4 | `docs/operations/README.md` index omission | Persistent; outside §14.29.1, so it now also omits this record |
+
+#### 14.29.8 What this record did not change and did not grant
+
+Beyond the single authorized local commit named in §14.29.1, nothing was staged, committed,
+merged, pushed, deployed or released; no branch, worktree or remote was created or configured; no
+history was rewritten, reset, checked out, stashed or rebased; no dependency was installed; no
+database, container, microVM, netns or broker was started; no formatter or auto-fixer was run in
+any repository; no secret was read; and **no product repository was written to**. **No writer of
+any kind is opened by this record.** **Nothing is promoted.** All gates, classifications, dates
+and blocker/residual statuses named in §14.29.5 are unchanged. The Fabric W0-I07 lane, the Cyber
+AI W0-I06 lane and the SOC W1-I03B lane are untouched.
 
 ## 15. Coordinator runtime rule — bounded single extension
 

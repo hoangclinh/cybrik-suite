@@ -62,22 +62,25 @@ total (`+3101 / −0`), matching the commit's own `--stat`. All four hashes are 
 to the W0-R03G pre-commit pins and to the W0-R03H post-commit re-measurement; no byte changed
 between pre-commit review and commit.
 
-## 2. Writer session and runtime — corroborated through reviewer transcripts, not read directly
+## 2. Writer session and runtime — corroborated through reviewer transcripts and directly confirmed
 
 - **Writer session, as named by the commit body and both reviews:** Opus 5, session
   `2ceadba6-e72e-4ae6-b201-8d213d2425ea`, cited transcript path
   `~/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`.
-- **Disclosed gap, not papered over.** At the time this record was authored, that transcript
-  file **does not exist** at the cited path, nor anywhere else this record searched under
-  `~/.claude/projects`. The only files present in that project directory are the two **review**
-  transcripts, `ff4de3ce-596c-42e9-9a5d-5bd10b06e28b.jsonl` (W0-R03G) and
-  `2cd8f307-b798-4edf-b1b3-93ad91172e49.jsonl` (W0-R03H). Both reviews quote specific writer
-  transcript lines (e.g. L42, L57, L60–86, L91–92, L101–102, L108, L140, L144, L157–158, L160,
-  L163–164, L180, L203) and both independently re-derive the writer's session UUID from those
-  quotations, so the writer session's **existence and content are corroborated through two
-  independent reviewer readings of it**, not through this record reading the writer's transcript
-  itself. This record does not claim to have read `2ceadba6…` directly, and flags its current
-  absence from disk as an open provenance gap.
+- **Provenance gap closed by correction — see §12.** At the time this record was originally
+  authored, it searched only the personal-pool shorthand path quoted in the product commit body,
+  `~/.claude/projects/...`, and found no transcript file there — the personal-pool project
+  directory contains only the two **review** transcripts,
+  `ff4de3ce-596c-42e9-9a5d-5bd10b06e28b.jsonl` (W0-R03G) and
+  `2cd8f307-b798-4edf-b1b3-93ad91172e49.jsonl` (W0-R03H). **That absence finding was false**: the
+  writer transcript exists at the actual work-pool path (not the personal-pool shorthand quoted in
+  the product commit body) and was directly located and read there by a fresh correction authority
+  on 2026-07-27 — see §12 for the exact path, measured size and record count. Both reviews also
+  quote specific writer transcript lines (e.g. L42, L57, L60–86, L91–92, L101–102, L108, L140,
+  L144, L157–158, L160, L163–164, L180, L203) and both independently re-derive the writer's session
+  UUID from those quotations, so the writer session's **existence and content are corroborated
+  both through two independent reviewer readings of it and through this correction's own direct
+  reading of the transcript itself** (§12). The prior open-provenance-gap finding is **closed**.
 - **Runtime discipline, as corroborated by W0-R03G (session `ff4de3ce…`).** Grant §3.3 permits
   **one initial 600 s cycle plus at most one healthy 600 s extension**, no third cycle. W0-R03G's
   own review — issued mid-lane, before the commit existed — states the writer had stopped **before
@@ -90,10 +93,12 @@ between pre-commit review and commit.
   post-commit audit found no evidence of any further edit, staging attempt or session beyond
   that single extension. **On that basis**, this record accepts that the writer's initial 600 s
   cycle ended at its designed stop-before-stage point and that the single permitted extension was
-  used only to stage the reviewed hashes and commit — but, per the gap above, this conclusion
-  rests on the two reviewers' quotations and findings, not on this record's own reading of the
-  writer's transcript, because that transcript is not present on disk to re-verify directly.
-  No third cycle is claimed or evidenced anywhere.
+  used only to stage the reviewed hashes and commit. This conclusion rested, at the time of
+  original authoring, on the two reviewers' quotations and findings only, because this record had
+  not yet located the writer's own transcript (a false absence finding, corrected at §12) — the
+  transcript is now directly locatable and confirmed present, closing that gap, though this
+  record's own review scope was not re-opened to re-derive the runtime chronology line-by-line
+  from it. No third cycle is claimed or evidenced anywhere.
 - **The grant is now terminal and consumed.** It authorized exactly one commit, that commit
   exists, and its authority ends there. No further W0-D04 prospective grant exists or may be
   issued for this remediation scope.
@@ -246,7 +251,7 @@ No P0, P1 or P2 finding was raised at any point across W0-R03G or W0-R03H, or by
 | **H2** | Commit body's "line 395" for the pre-existing fixture is the post-edit line number; the pinned-bytes line is 394 | Raised by W0-R03H; substantive pre-existence claim confirmed true by transcript-derived measurement; recorded distinctly |
 | **H3** | Writer asserted the fixture's pre-existence without a probe capable of establishing it (empty `git stash list` plus `sed` on the already-edited file) | Raised by W0-R03H; conclusion happened to be correct but was reached without evidence at time of writing; recorded distinctly |
 | 8 | Gitleaks CI-side behavior on these fixtures is untested | Raised by W0-R03H; becomes a real gate before this branch approaches CI or merge; not resolved here |
-| 9 | Writer session transcript `2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl` is absent from disk at the cited path at the time of this record | Raised by this record (§2 above); the writer's session and content are corroborated only through the two reviewers' quotations, not by this record's own direct reading |
+| 9 | Writer session transcript `2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl` was originally recorded as absent from disk at the cited path — a false finding caused by searching the personal-pool shorthand path instead of the actual work-pool path; the transcript is present and directly readable at the work-pool path, corrected 2026-07-27 | Raised by this record (§2 above); corrected by a fresh correction authority — see §12 |
 | 10 | Review-side cache residue: `services/api/.ruff_cache` (writer-created, disclosed in the commit body) plus `services/api/src/cybrik_soc/__pycache__` (created by W0-R03H's own read-only verification run, not deleted) | Both disclosed here; neither cleaned by this record, which is read-only toward the product repository |
 | 11 | Control validator does **not** machine-enforce this record, board §1.20/§14.28, register §23, the grant's terms, the hash pins or the reviewer-separation rule | Its `PASS` is a documentary consistency check only over pinned control rows — see §9 below |
 | 12 | Placeholder Git author identity in this control repository (`Your Name <your@email.com>`) | Unchanged provenance weakness of the control record; the SOC commit `74f9774b…` does not share it (author/committer `Hoang Chi Linh <linhhc.eco@gmail.com>`) |
@@ -315,7 +320,65 @@ this lane is `IMPLEMENTED`, `VERIFIED`, `PILOTED` or `GA`.
   §18).
 - Transcripts read read-only for this record: W0-R03G `ff4de3ce-596c-42e9-9a5d-5bd10b06e28b`,
   W0-R03H `2cd8f307-b798-4edf-b1b3-93ad91172e49`. The writer transcript
-  `2ceadba6-e72e-4ae6-b201-8d213d2425ea` was **not** found on disk and was **not** read directly
-  by this record (§2).
+  `2ceadba6-e72e-4ae6-b201-8d213d2425ea` was originally recorded as **not** found on disk and
+  **not** read directly by this record (§2) — a false finding caused by a personal-pool/work-pool
+  path confusion, corrected at §12, where the transcript is confirmed present and was directly
+  read at the actual work-pool path.
 - The reviewed base this lane builds on: commit `6464cfbfc99ecf2109988dff0e6164c8cac6b10a`,
   parent `f4d234bba09ae1bea7a63b3348be3640a701065d`.
+
+## 12. Correction — writer transcript provenance (2026-07-27, fresh correction authority)
+
+- **Pre-correction state.** Before this correction, control `HEAD` was
+  `1bf79fbe023eeab62946ab39df5afe3b9cefbc69` (subject: `docs(control): record SOC shadow remote
+  scaffold evidence`) — the commit that originally recorded §2, §7 item 9 and §11 above. That
+  commit's own bytes stand unedited as dated history; this section is authored by a fresh,
+  separate correction authority (task **W0-D04K**) under the same coordinator-delegated Founder
+  authority chain, expected commit subject `docs(control): correct SOC writer transcript
+  provenance`, writing to exactly the same three docs-only paths in this lane's allowlist — this
+  file, `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` (§1.21/§14.29) and
+  `docs/operations/W1-E2-EVIDENCE-REGISTER.md` (§24) — no fourth path. **No backdating:** this
+  correction is dated and authored 2026-07-27, after `1bf79fb`, and does not claim the corrected
+  fact was known at `1bf79fb`'s own authoring time.
+- **The error.** `1bf79fb` searched only the personal-pool shorthand path quoted in the product
+  commit body,
+  `~/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`,
+  found nothing there, and recorded the writer transcript as absent/not found — an open
+  provenance gap. **That absence finding was false.** The transcript was never absent; it exists,
+  and always existed, under a different pool root than the one `1bf79fb` (and the product commit
+  body it quoted) searched.
+- **Direct verification, this correction.** The transcript is confirmed present and was read
+  directly, read-only, at the actual work-pool path:
+  `/Users/hoanglinh/.claude-accounts/work-dir/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`.
+  Measured at correction time: **845793 bytes**, mtime **2026-07-27 11:47** local (re-measured by
+  this correction, not assumed stable from an earlier report). Newline count (`wc -l`) is **217**
+  — labeled as a newline count, not a record count, because the file contains literal U+2028
+  (Unicode line separator) bytes that can affect a naive `splitlines()`-based record count.
+  `sessionId` occurs **217** times in the file and every occurrence is the identical value
+  `2ceadba6-e72e-4ae6-b201-8d213d2425ea`, i.e. uniform where checked by direct substring count.
+  This transcript was also directly read earlier, for chronology, by **W0-R03G** and **W0-R03H**
+  (whose transcript-line quotations §2/§3 above already cite) and by the coordinator; this
+  correction is the first record in this evidence file's own text to state that it, too, has read
+  the writer transcript directly, at the corrected path, rather than relying solely on the two
+  reviewers' quotations.
+- **What is corrected, precisely.** The false `absent`/`not found`/open-provenance-gap statements
+  at §2, the §7 P3 item 9 row, and §11 above are corrected in place (each now cross-references
+  this section). The correction is a **path-of-search fix, not a content change** to what the
+  reviewers already quoted or to the commit's own hash pins, classification or gates. **W0-R03H's
+  separate caveat is unchanged and NOT altered by this correction:** the pre-fix pinned-bytes line
+  number (line 394 for the line-395 fixture, §7 item H2) remains **transcript-derived**, because
+  the four SOC files were originally **untracked** at pre-commit review time and so had no `git`
+  history of their own to establish pre-existence independent of the transcript's own captured
+  `Read` output — that finding and its reasoning stand exactly as §7/§14.28.3 already record them.
+- **What this correction does not change.** No hash pin, no commit, no gate (`GATE A4`, `G2`,
+  `G3`), no `W0 COMPLETE` value, no UAT/release date, no classification (`SCAFFOLD`), no blocker
+  status, and no product byte. The SOC product commit `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`
+  remains exactly as §1/§3 above record it, read-only and unchanged. This correction opens no
+  writer, authorizes no next lane, and closes no residual or blocker beyond the single provenance
+  finding named above.
+- **Control-side measured evidence, this correction.** `node
+  tools/operations/validate-w1-control.mjs` → **PASS**; `node --test
+  tools/operations/tests/validate-w1-control.test.mjs` → **GREEN, tests 77 · pass 77 · fail 0**;
+  `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` unchanged at
+  `4ed13159a7afc104694dea8b2f2773003cdf8831` before and after this correction's writes, still
+  unstaged and untouched. Full detail: board §14.29.6; register §24.3.

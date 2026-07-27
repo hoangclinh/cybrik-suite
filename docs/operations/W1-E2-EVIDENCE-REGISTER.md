@@ -1630,11 +1630,13 @@ local commit at the four already-dirty, grant-pinned paths; independent **W0-R03
   This record additionally discloses W0-R03H's own read-only post-commit run created
   `services/api/src/cybrik_soc/__pycache__/`, not deleted because that review is read-only. Both
   recorded, neither cleaned up here.
-- **Writer transcript gap.** Session `2ceadba6-e72e-4ae6-b201-8d213d2425ea` is named by the
-  commit body and both reviews but was **not found on disk** at its cited path or anywhere else
-  searched under `~/.claude/projects` at the time of this record. Its content is corroborated
-  only through the two reviewers' transcript-line quotations, not through this record's own
-  direct reading — an open provenance gap, disclosed rather than papered over.
+- **Writer transcript gap, corrected — see §24.** Session `2ceadba6-e72e-4ae6-b201-8d213d2425ea`
+  is named by the commit body and both reviews. This record originally recorded it as **not found
+  on disk**, having searched only the personal-pool shorthand path quoted in the product commit
+  body rather than the actual work-pool path. **That absence finding was false.** The transcript
+  is confirmed present and was directly read, read-only, at the actual work-pool path by a fresh
+  correction authority on 2026-07-27; the prior open provenance gap is **closed** — see §24 for
+  the bounded correction record.
 
 ### 23.2 Carry-forward discipline
 
@@ -1678,10 +1680,90 @@ consistent after this record's writes. **CI: NOT WIRED**; no CI result is claime
   rebased; no dependency is installed; no formatter is run; no secret is read; **CI: NOT WIRED**.
   The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC W1-I03B lane are untouched.
 - **P3s of this control record:** carried in full at board §14.28.3 (W0-R03G's seven, W0-R03H's
-  three new H1–H3, the writer-transcript absence, the review-side cache residue, the persistent
+  three new H1–H3, the writer-transcript provenance item (corrected 2026-07-27 at §24 — the
+  transcript is present, not absent), the review-side cache residue, the persistent
   `docs/operations/README.md` index omission now also omitting this record, the control validator
   non-enforcement, `actionlint` absence, the borrowed-venv/interpreter caveat, and the placeholder
   Git author identity in this control repository).
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 24. Correction — SOC writer transcript provenance — 2026-07-27, twentieth same-day record
+
+Recorded immediately after §23, by a fresh, separate correction authority (task **W0-D04K**)
+under the same coordinator-delegated Founder authority chain. Pre-correction control `HEAD`:
+`1bf79fbe023eeab62946ab39df5afe3b9cefbc69`. This section corrects exactly one factual error
+recorded by that commit at §23.1 above (and at board §1.20/§14.28.2/§14.28.3 item 9, and evidence
+file §2/§7 item 9/§11): the false statement that writer session transcript
+`2ceadba6-e72e-4ae6-b201-8d213d2425ea` is absent from disk. Full bounded record: board §14.29;
+standalone evidence correction: evidence file §12.
+
+### 24.1 The error and its correction
+
+`1bf79fb` searched only the personal-pool shorthand path quoted in the product commit body,
+`~/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`,
+found nothing there, and recorded the transcript as absent/not found. **That finding was false.**
+The transcript is confirmed present and was directly read, read-only, at the actual work-pool
+path:
+
+`/Users/hoanglinh/.claude-accounts/work-dir/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/2ceadba6-e72e-4ae6-b201-8d213d2425ea.jsonl`
+
+Measured this correction: **845793 bytes**, mtime **2026-07-27 11:47** local (re-measured, not
+assumed stable), **217** newline-delimited records (labeled a newline count, not a
+`splitlines()`-safe record count, given literal U+2028 bytes present in the file), uniform
+`sessionId` `2ceadba6-e72e-4ae6-b201-8d213d2425ea` across all 217 occurrences checked. This
+transcript was also read directly, earlier, by W0-R03G and W0-R03H for their own quoted
+transcript-line chronology, and by the coordinator; this correction is the first record in this
+lane to state it, too, has read the writer transcript directly, at the corrected path. The
+chronology named at §23.1 is now **transcript-citable** by this correction's own direct reading,
+and the prior open provenance gap is **closed by direct location**, not through reviewer
+quotations alone.
+
+### 24.2 What is corrected and what is not
+
+**Corrected, in place, cross-referencing this section:** evidence file §2/§7 item 9/§11; board
+§1.20/§14.28.2/§14.28.3 item 9; this register's own §23.1 bullet and §23 P3-summary line.
+
+**Not corrected, unchanged by this record:** `1bf79fb`'s own commit bytes stand unedited as dated
+history. **W0-R03H's separate transcript-derived caveat is unchanged** — the pre-fix pinned-bytes
+line number (line 394 for the line-395 fixture) remains established from the writer transcript's
+own pre-edit `Read` capture, because the four SOC files were originally **untracked** at
+pre-commit review time. Every hash pin, the commit `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`,
+both review verdicts, the `SCAFFOLD` classification, every gate, `W0 COMPLETE=0`, the `HOLD`
+admission, and every UAT/release date and blocker/residual status named in §23 are unchanged.
+
+### 24.3 Control-side measured evidence — 2026-07-27
+
+Measured after this record's three writes (this section, board §1.21/§14.29), against the current
+— deliberately dirty — control tree, before any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged |
+| Control `HEAD` before this record | `1bf79fbe023eeab62946ab39df5afe3b9cefbc69` |
+| Control changed paths for this record | **exactly three** |
+| `command -v actionlint` | **absent** — unchanged, no tooling installed |
+
+**Disclosed coverage limitation, mandatory.** Unchanged pattern from
+§19.4/§20.3/§21.3/§22.4/§23.3: the validator is a **documentary consistency check only**;
+**CI: NOT WIRED**; no CI result is claimed.
+
+### 24.4 Synthesis
+
+- **What this section supersedes.** Nothing rewritten — `1bf79fb` and §23 stand as dated history;
+  this section corrects, in place and disclosed, the specific false absence statements named in
+  §24.2, each now cross-referencing this section.
+- **Nothing is promoted.** The commit `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6` still counts
+  **only** as local, independently reviewed, unmerged and unpushed `SCAFFOLD` evidence toward the
+  `shadow_remote` portion of live-shadow blocker 3. **No blocker closes**; **G2/G3 stay closed**;
+  `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the **W0-I04 admission stays `HOLD`**; **no UAT
+  milestone is reached and no instance is authorized**; the client stays **unwired**.
+- Nothing is pushed, merged or released; no history is rewritten, reset, checked out, stashed or
+  rebased; no dependency is installed; no formatter is run; no secret is read; **CI: NOT WIRED**.
+  The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC W1-I03B lane are untouched.
 - The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
   S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
