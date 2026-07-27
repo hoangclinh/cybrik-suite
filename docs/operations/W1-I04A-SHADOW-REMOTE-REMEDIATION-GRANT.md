@@ -18,8 +18,32 @@
   §1.5/§14.24.2 without a fresh read, but `92f26be`/this correction **independently re-measured**
   the product tree read-only and confirmed all four hashes byte-identical, exactly as board
   §14.26.2 and register §21.1 record
-- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, TWICE-CORRECTED — LOCAL DOCS ONLY, NOT PUSHED —
-  NO WRITER OPENED BY THIS RECORD OR EITHER CORRECTION`
+- **Corrected (third):** 2026-07-27, same-day, commit `a796f93bfcdaa67caa64e4a0f0c59441391b22cb`,
+  subject `docs(control): close SOC grant provenance review`, applying an independent **W0-R06G**
+  Opus review's **P2** provenance finding and four **P3** hygiene fixes, before any product writer
+  opened against this grant. **Two honest disclosures about that commit, stated here rather than
+  by editing it:** (a) unlike the first amendment and the second correction, `a796f93` **edited
+  previously dated bytes in place** instead of superseding them from a new section — it rewrote
+  the tail of the "Corrected (second)" bullet immediately above, rewrote grant §10.2 step 2's
+  reviewer-exclusion clause, added the `actionlint` **P3** bullet inside grant §13, and rewrote
+  three citations inside board §1.18 and board §14.26.4 row 9 — a **departure from the
+  `not a history rewrite` discipline** that board §14.26 binds itself to; and (b) `a796f93`
+  carried **no contemporaneous board or register authority record of its own**. Both were found by
+  an independent **W0-R06H** Opus review (session `7fbfbabf-09ee-49df-b217-ec39a2177335`), which
+  returned **commit audit FAIL** and **effective grant NO-GO** on exactly **two P2s** for those
+  two reasons. The **current** authoritative authority, acknowledgement and correction covering
+  `a796f93` is board **§1.19/§14.27** and register **§22** — recorded **after the fact**, and
+  explicitly **not** a claim that any such record existed when `a796f93` was made
+- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, THREE FOLLOW-ON CORRECTIONS AFTER THE ORIGINAL
+  GRANT (d228522, 92f26be, a796f93) — LOCAL DOCS ONLY, NOT PUSHED — NO WRITER OPENED BY THE
+  ORIGINAL GRANT OR BY ANY OF THE THREE FOLLOW-ON CORRECTIONS`
+- **Header-field note, exact.** The two bullets immediately above are **current-state header
+  fields**, updated by the board §1.19/§14.27 authority to describe the chain as it actually
+  stands; every dated narrative section of this document, and every prior commit in the chain,
+  keeps its own bytes as visible history. In particular the "Corrected (second)" bullet above
+  **already contains W0-R06G text written into it by `a796f93`** — that in-place edit is disclosed,
+  not reversed, and §14's provenance list is deliberately left byte-unchanged, with the missing
+  links supplied prospectively by board §14.27.2 instead
 - **Grant author:** logical task **W0-D04** (prospective-grant document implementer), under the
   coordinator-delegated Founder authority recorded in
   `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.24

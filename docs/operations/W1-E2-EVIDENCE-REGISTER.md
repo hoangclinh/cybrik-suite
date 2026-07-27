@@ -1435,3 +1435,151 @@ grant document), against the current — deliberately dirty — control tree, be
 `pass` count, are **not** evidence that the corrected grant's terms, findings or reviewer
 discipline hold — they only confirm this control repository's own pinned rows remain internally
 consistent after this record's writes. **CI: NOT WIRED**; no CI result is claimed.
+
+## 22. SOC W1-I04A `shadow_remote` grant correction-chain authorization — 2026-07-27, eighteenth same-day record
+
+Added later again on 2026-07-27, **after** commit
+`a796f93bfcdaa67caa64e4a0f0c59441391b22cb`, under a **fresh, prospective coordinator-delegated
+Founder authority** scoped to **exactly one** further bounded local docs-only commit with expected
+subject `docs(control): authorize SOC grant correction chain`, over **exactly three pre-existing
+paths** — `docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md`,
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` and this register — **no fourth or new path**, and
+**no push, merge, remote change, release, product write, install, migration, deployment or
+formatter**. Board record: §1.19/§14.27. This section closes the **two P2** findings of the
+independent **W0-R06H** Opus review, session `7fbfbabf-09ee-49df-b217-ec39a2177335`, which
+returned **commit audit FAIL** on `a796f93` and **effective writer-facing grant NO-GO** — on
+**exactly two P2s**, no P0 and no P1, both documentary provenance/authority rather than mechanics.
+This is an **authorization and correction record, not an exercised grant**: **no product writer is
+opened**, no product byte is written, and the facts below are a direct re-read of the current
+control documents, an **independent read-only re-measurement** of the four-path SOC attempt tree
+(§22.1), or an after-the-fact authorization of already-committed bytes (§22.2). `39881cf`,
+`d228522`, `92f26be`, `a796f93` and the dated text of §17–§21 keep their bytes as **visible
+history**; none is edited here. Where `a796f93` itself edited dated bytes, this record
+**discloses that precisely and does not claim the old bytes were unchanged** (§22.3).
+
+### 22.1 Basis, independent re-measurement and W0-R06H disposition
+
+| Item | Verified / measured state, post-`a796f93` | Record |
+|---|---|---|
+| W0-R06H review basis | **verified 2026-07-27, read-only.** Independent Opus session `7fbfbabf-09ee-49df-b217-ec39a2177335` audited `a796f93` and returned **A — commit audit FAIL** and **B — effective writer-facing grant NO-GO**, on **exactly two P2 findings**, no P0, no P1. It independently confirmed the commit's mechanics (parent `92f26be`, exactly two changed paths, roadmap `M`/unstaged at `4ed1315…`, product tree `6464cfb` with 0 ahead / 0 staged / four `??` paths at their pinned hashes, validator `PASS`, `77/77`) and confirmed W0-R06G's own P2 was genuinely fixed and that all four P3 hygiene fixes were correct | The FAIL/NO-GO were on **documentary provenance and authority only** — not mechanics, and not the grant's substantive writer-facing terms, which W0-R06H found byte-unchanged and sound |
+| P2-1 — binding term changed under no recorded authority | Board §14.26.1 bound its authority to "exactly one authorized local commit" under subject `docs(control): correct SOC shadow_remote grant audit`. `a796f93` was a **second** commit into two of those paths under a different subject, with **no board §1.19, no board §14.27 and no register §22** in existence and **no W0-R06G record anywhere** in the board or register — so the new binding reviewer-exclusion clause rested on no recorded control authority | **Closed by §22.2 and board §14.27.2/§14.27.3** |
+| P2-2 — in-place rewrite of dated records, stale self-description | `a796f93` **edited the bytes** of previously dated records rather than superseding them from a new section, departing from §14.26's own binding `not a history rewrite` discipline; and left the grant `Status` line reading `TWICE-CORRECTED … EITHER CORRECTION` though the bytes were thrice-modified | **Closed by §22.3 and board §14.27.4**, plus the grant's corrected current-state header |
+| Independent product re-measurement | **read-only, 2026-07-27, post-`a796f93`.** Worktree `w1-i04a-shadow-remote-r1`, branch `codex/w1-i04a-shadow-remote-r1`, `HEAD` `6464cfbfc99ecf2109988dff0e6164c8cac6b10a`, `git rev-list --count 6464cfb..HEAD` = **0**, **zero** staged, **exactly four** dirty `-uall` paths all untracked, SHA-256 **byte-identical** to §19.1: `shadow_remote.py` `ca351c05190ab0b26ac7aedebd0bd35a44b2421303d669b233c4e8ccbe14c2b5`, `shadow_remote_contract.py` `8df05e5fe041ef670bfc81f7c3ee8d6bfe27b65ca0436784fb2ffa582dec9bfc`, `test_shadow_remote.py` `8645e7592c9822b276bbe1d3aa29645fb073588e5f6a44b1999296b1f06540d7`, `test_shadow_remote_contract.py` `54c8b92db3e470757ae651f7dfdd927cbce6bd5e2f24f91d931e797c4404a565` | **No write of any kind** to any product repository; nothing pushed, fetched, merged, tagged or configured. Tree stays `PAUSED — UNCOMMITTED` and **not product evidence** |
+| Control — this repository | `HEAD` before this record `a796f93bfcdaa67caa64e4a0f0c59441391b22cb`, parent `92f26be`; exactly three changed paths, all pre-existing | Validator and test-suite figures in §22.4, measured **after** this record's three writes and **before** any staging; validator and suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, dirty, **unstaged**, never `git add`-ed |
+
+### 22.2 P2-1 closure — `a796f93`'s committed changes authorized and corroborated as historical evidence
+
+The four substantive changes `a796f93` actually committed are **explicitly authorized and
+corroborated here, after the fact, as historical evidence**, each independently verified as
+substantively correct by W0-R06H:
+
+| # | Change | Corroboration | Disposition |
+|---|---|---|---|
+| 1 | **Provenance preamble correction** — retracting the grant's false claim that the tree pin was "not independently re-measured a second time by either amendment," and stating instead that `d228522` carried the pin forward without a fresh read while `92f26be` **independently re-measured** it and confirmed all four hashes byte-identical | Matches board §14.26.2 and §21.1 exactly; no residue of the false claim | **Authorized, corroborated, retained** |
+| 2 | **Reviewer-exclusion clause (f)** in grant §10.2 step 2 naming the W0-R06G session `82cfaa02-a702-4477-8e20-5f2326992de5`, catch-all retained verbatim | Strictly **tightens**; widens no authority | **Authorized, corroborated, retained** |
+| 3 | **`actionlint` P3** added to grant §13 | All three cited anchors land on actionlint rows; `command -v actionlint` re-confirms it genuinely absent | **Authorized, corroborated, retained** — open, not fixed |
+| 4 | **Three board citation fixes** — §1.18 `§14.26.5`→`§14.26.2` and `§14.26.3`→`§14.26.4`; §14.26.4 row 9 `§14.26.6`→`§14.26.7` | Each corrected anchor verified to point at its true target section | **Authorized, corroborated, retained** |
+
+**The honest limit.** `a796f93` **previously lacked its own contemporaneous board or register
+authority record.** Board §1.19/§14.27 and this §22 are the **current** authoritative
+acknowledgement, authorization and correction, written **after the fact**. Nothing here claims
+such authority existed when `a796f93` was made, or that §14.26.1's one-commit boundary was not
+exceeded — it was.
+
+**Current effective reviewer-exclusion list, forward-looking.** Full table: board §14.27.3. For
+any future product pre-commit or post-commit reviewer the excluded set is: the future writer
+itself; the exhausted writer `c173b76f-25b5-4bbc-8660-d5fe9a9792c8`; the exhausted W0-R03F
+reviewer `e650bda1-abfd-4b0e-ac79-69138716e4c6`; any **W0-IR13** decision author; any author of
+this grant document in **any** state, including this authorization record; **W0-R06E**;
+**W0-R06F**; **W0-R06G** session `82cfaa02-a702-4477-8e20-5f2326992de5`; **W0-R06H** session
+`7fbfbabf-09ee-49df-b217-ec39a2177335`; **every other past or present grant author or grant
+reviewer** by role; and the future pre-commit and post-commit reviewers must be **mutually
+distinct** from each other and from all of the above. §19–§21 and grant §10.2 keep their own dated
+bytes — **they are not rewritten to pretend they already said this**; the grant's retained
+catch-all already reaches the sessions they do not enumerate. **No exclusion is relaxed; the list
+only grows.**
+
+### 22.3 P2-2 closure — precise disclosure of `a796f93`'s in-place edits
+
+`a796f93` **edited previously dated bytes**, contrary to §14.26's binding `not a history rewrite`
+discipline. This is the reason W0-R06H's **commit audit returned FAIL**. Stated exactly, and not
+papered over:
+
+| # | Dated bytes edited in place | What changed |
+|---|---|---|
+| 1 | **Board §1.18** (dated `92f26be` text) | **two citations** rewritten |
+| 2 | **Board §14.26.4 row 9** (dated `92f26be` text) | **one citation** rewritten |
+| 3 | **Grant preamble / provenance** — the dated "Corrected (second)" bullet | closing clause replaced with the W0-R06G provenance correction |
+| 4 | **Grant §10.2 step 2** — dated reviewer exclusions | old clause (f) rewritten and re-lettered (g); new (f) inserted |
+| 5 | **Grant §13** — dated P3 list | `actionlint` P3 bullet added inside the existing section |
+
+**Consequences and disposition.** The grant `Status` line's stale `TWICE-CORRECTED … EITHER
+CORRECTION` wording is **corrected in this record as a current-state header field only** — the
+chain is now described accurately as the original grant plus **three follow-on corrections**
+(`d228522`, `92f26be`, `a796f93`), with **no writer opened by the original grant or by any of the
+three**. Board §14.26.1 row 1 / §14.26.3's "four P2 … nine folded P3" description of the grant
+path, and §14.26.6/§21.3's control figures measured at `HEAD` `d22852232a96c93418bfa9101c8fc76e7468878f`
+(which **predate `a796f93`'s writes entirely**), were accurate **for `92f26be`** and are left
+byte-unchanged as dated history; §22.1/§22.4 and board §14.27.5/§14.27.6 **supersede them
+prospectively** by re-measuring current post-`a796f93` state instead of editing them.
+
+### 22.4 Control-side measured evidence — 2026-07-27, post-`a796f93`
+
+Measured after this record's three writes (this section, board §1.19/§14.27, and the grant's
+current-state header), against the current — deliberately dirty — control tree, before any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` — recorded exactly as executed, see board §14.27.6 |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo — recorded exactly as executed, see board §14.27.6 |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged |
+| Control `HEAD` before this record / its parent | `a796f93bfcdaa67caa64e4a0f0c59441391b22cb` / `92f26be` |
+| Control changed paths for this record | **exactly three**, all pre-existing |
+| `command -v actionlint` | **absent** — unchanged, no tooling installed |
+
+**Disclosed coverage limitation, mandatory.** Unchanged from §19.4/§20.3/§21.3: the validator is a
+**documentary consistency check only**, and its `PASS` together with the `77/77` Node test-suite
+`pass` count are **not** evidence that the grant's terms, the fresh authority's terms, the hash
+pins, the reviewer-exclusion list or the ceiling hold — they only confirm this control
+repository's own pinned rows remain internally consistent after this record's writes. The
+validator and suite were **not modified**; both commands are manual. **CI: NOT WIRED**; no CI
+result is claimed.
+
+### 22.5 Synthesis
+
+- **Which §19–§21 cells this supersedes.** The SOC W1-I04A remediation-grant cell only, and only as
+  to (a) the recorded authority for `a796f93` and its four committed changes, (b) the current
+  effective reviewer-exclusion membership, (c) the honest disclosure of `a796f93`'s in-place edits,
+  (d) the grant's current-state header wording, and (e) the current post-`a796f93` control and
+  product measurements. §19, §20 and §21 stand as dated history, unedited. **No second grant
+  exists**; any future writer or reviewer acts under the grant document's own terms.
+- **Nothing is promoted.** This is an **authorization and correction record, not an exercise of a
+  grant** — the four-path tree stays `PAUSED — UNCOMMITTED` and **not product evidence**. The
+  product writer named in §19 **remains NOT OPEN** and may open only after a **fresh, independent
+  Opus review returns GO with no P0–P2** against the resulting text, from a reviewer excluded under
+  every row of board §14.27.3. **W0-R06H returned NO-GO, not GO; this record cannot and does not
+  substitute for the required GO.** Same identity, §3.3 runtime, four hash pins, four-path
+  allowlist, STOP rules and §12 ceiling as §19 — **no security, test, allowlist or runtime
+  requirement is changed by this record**.
+- **No product byte has been written toward the P1, two P2s, four P3s or the grant-originated
+  finding** by this record or any predecessor in the chain.
+- **No gate opens or closes.** GATE A4 and W1-C1/C2 stay `ACCEPTED — CLOSED 2026-07-26`; W1-G1
+  stays `ACCEPTED — CLOSED 2026-07-27`; **G2/G3 stay closed**; `W0 COMPLETE=0` and W0 closure stays
+  `NO-GO`; the board §11 exit criteria remain unmet; the **W0-I04 admission stays `HOLD`**.
+  **No blocker closes** — live-shadow blocker 3 and blocker 4 remain open, and the W0-IR12 P1 dirty
+  roadmap file and W0-IR12 P2 blocker-4 roots are untouched, unedited and unresolved. **No UAT
+  milestone is reached and no instance is authorized.**
+- Nothing is pushed, merged or released; no history is rewritten, reset, checked out, stashed or
+  rebased; no dependency is installed; no formatter is run; no secret is read; **CI: NOT WIRED**.
+  The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC W1-I03B lane are untouched.
+- **P3s of this control record:** the persistent **`docs/operations/README.md` index omission**, now
+  also omitting this record; the **control validator not machine-enforcing** this section or board
+  §1.19/§14.27; **`actionlint` still absent**; the **borrowed-venv dependency and interpreter
+  caveat** (unchanged, not re-measured by this docs-only record); the **placeholder Git author
+  identity** in this control repository; and the enumerated exclusion clauses in grant §10.2 and
+  board §1.18/§14.26.4 row 2 not themselves naming W0-R06H — non-blocking, as W0-R06H itself rated
+  it, since the retained catch-all and §22.2/board §14.27.3 close the authority gap, and **not
+  fixed by rewriting those dated sections**.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
