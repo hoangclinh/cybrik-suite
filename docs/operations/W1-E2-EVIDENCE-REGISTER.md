@@ -1583,3 +1583,105 @@ result is claimed.
 - The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
   S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 23. SOC W1-I04A `shadow_remote` post-commit evidence — 2026-07-27, nineteenth same-day record
+
+Recorded immediately after §22, under coordinator-delegated Founder authority scoped to
+documentation and exactly one bounded local commit. This section records the **completed
+outcome** of the remediation grant chain (§19–§22): the granted writer produced exactly one
+local commit at the four already-dirty, grant-pinned paths; independent **W0-R03G** returned
+**GO, no P0–P2, seven P3s**; independent **W0-R03H** returned **commit audit PASS** and
+**post-commit verdict PASS, no P0–P2, three new P3s (H1–H3)**. Full bounded record: board
+§14.28/§1.20; standalone evidence document:
+`docs/operations/W1-I04A-SHADOW-REMOTE-POST-COMMIT-EVIDENCE.md`.
+
+### 23.1 Verified evidence and recorded disposition
+
+- **Commit.** `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`, parent
+  `6464cfbfc99ecf2109988dff0e6164c8cac6b10a`, subject
+  `feat(copilot): add reviewed shadow remote scaffold`; one commit above base; clean tree, zero
+  staged, no upstream, nothing pushed. Exactly four added paths, independently re-hashed to
+  `718175e8…`/`e71d79ce…`/`e37377484f…`/`28f0d03e…` — byte-identical to both reviews' pins.
+- **Reviews.** W0-R03G pre-commit (session `ff4de3ce-596c-42e9-9a5d-5bd10b06e28b`) — **GO, no
+  P0–P2, seven P3s**, and an explicit **YES** that the writer session could draw its single grant
+  §3.3 extension to stage and commit. W0-R03H post-commit (session
+  `2cd8f307-b798-4edf-b1b3-93ad91172e49`) — **commit audit PASS**; **verdict PASS, no P0–P2**,
+  independently re-measuring the committed bytes, plus an explicit **YES** to recording this
+  commit as local, independently reviewed, unmerged/unpushed `SCAFFOLD` evidence. Five distinct
+  sessions (writer, exhausted prior writer/reviewer, these two reviews) satisfy reviewer
+  separation.
+- **Test-first chronology.** Baseline 81 collected; one pytest invocation against pinned pre-fix
+  bytes returned 43 failed, 88 passed (88 = 81 pre-existing + 7 measured `PRE-EXISTING GREEN`
+  guards); source edits followed only after that RED; final 131 passed; bounded regression 39
+  passed; `ruff`/`ast`/`mypy 2.3.0` all green — independently re-run by W0-R03H against the
+  committed bytes with matching figures and seven mutation probes confirming each fixed assertion
+  is load-bearing.
+- **`ECC_SKIP_PRECOMMIT=1` bypass.** Commit body names three synthetic SOSIM fixtures the local
+  hook flagged (lines 395, 523, 536); W0-R03H independently found a **fourth** (line 559),
+  undisclosed due to the hook's own `head -n 3` output truncation (**P3-H1**). The line-395
+  fixture's pre-existence claim is substantively true, established by W0-R03H from the writer
+  transcript's own pre-edit capture (fixture at pre-edit line 394), not from the writer's
+  inadequate probe of an empty `git stash list` plus a `sed` read of the already-edited file
+  (**P3-H2**, **P3-H3**). Severity, independently determined: **P3, acceptable, not a P0–P2
+  blocker** — no high-signal secret pattern, no grant §11 STOP tripped, renaming foreclosed by
+  the already-issued hash-pinned GO. The repository's CI-side `gitleaks` behavior on these
+  fixtures remains untested and becomes a real gate before this branch approaches CI or merge.
+- **Cache honesty.** The writer's `.ruff_cache` residue (disclosed in the commit body) persists.
+  This record additionally discloses W0-R03H's own read-only post-commit run created
+  `services/api/src/cybrik_soc/__pycache__/`, not deleted because that review is read-only. Both
+  recorded, neither cleaned up here.
+- **Writer transcript gap.** Session `2ceadba6-e72e-4ae6-b201-8d213d2425ea` is named by the
+  commit body and both reviews but was **not found on disk** at its cited path or anywhere else
+  searched under `~/.claude/projects` at the time of this record. Its content is corroborated
+  only through the two reviewers' transcript-line quotations, not through this record's own
+  direct reading — an open provenance gap, disclosed rather than papered over.
+
+### 23.2 Carry-forward discipline
+
+W0-R03G's seven P3s and W0-R03H's three new P3s (H1–H3) are recorded **separately** from each
+other and from the four W0-R03F P3s named in §19.1 and the §7.5 grant-originated finding — none
+is folded into another.
+
+### 23.3 Control-side measured evidence — 2026-07-27
+
+Measured after this record's three writes (this section, board §1.20/§14.28), against the
+current — deliberately dirty — control tree, before any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged |
+| Control `HEAD` before this record / its parent | `845c7a8b93976bb01c8cf023b182950a7106476f` / `a796f93bfcdaa67caa64e4a0f0c59441391b22cb` |
+| Control changed paths for this record | **exactly three**, one new |
+| `command -v actionlint` | **absent** — unchanged, no tooling installed |
+
+**Disclosed coverage limitation, mandatory.** Unchanged from §19.4/§20.3/§21.3/§22.4: the
+validator is a **documentary consistency check only**, and its `PASS` together with the `77/77`
+test-suite `pass` count are **not** evidence that the grant's terms, the review findings or the
+ceiling hold — they only confirm this control repository's own pinned rows remain internally
+consistent after this record's writes. **CI: NOT WIRED**; no CI result is claimed.
+
+### 23.4 Synthesis
+
+- **What this section supersedes.** Nothing — §19–§22 stand as dated history, unedited. This
+  section is the current authoritative record of the remediation grant's **completed, reviewed
+  outcome**.
+- **Nothing is promoted.** The commit counts **only** as local, independently reviewed, unmerged
+  and unpushed `SCAFFOLD` evidence toward the `shadow_remote` portion of live-shadow blocker 3.
+  **No blocker closes** — blocker 3 stands open as a whole, blocker 4 unchanged. **G2/G3 stay
+  closed**; `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the board §11 exit criteria remain
+  unmet; the **W0-I04 admission stays `HOLD`**. **No UAT milestone is reached and no instance is
+  authorized.** The client remains **unwired** — no gateway, router, app factory or lifespan
+  registration, and CI does not run it.
+- Nothing is pushed, merged or released; no history is rewritten, reset, checked out, stashed or
+  rebased; no dependency is installed; no formatter is run; no secret is read; **CI: NOT WIRED**.
+  The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC W1-I03B lane are untouched.
+- **P3s of this control record:** carried in full at board §14.28.3 (W0-R03G's seven, W0-R03H's
+  three new H1–H3, the writer-transcript absence, the review-side cache residue, the persistent
+  `docs/operations/README.md` index omission now also omitting this record, the control validator
+  non-enforcement, `actionlint` absence, the borrowed-venv/interpreter caveat, and the placeholder
+  Git author identity in this control repository).
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
