@@ -897,3 +897,78 @@ and no writer session was opened by this record.
   byte-for-byte untouched and unstaged — hash-pinned before and after at
   `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.20.4); the formal W1 dates
   2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 16. SOC W1-I03B route-DB post-commit evidence — 2026-07-27, twelfth same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.21, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **completed cycle-2
+outcome of the §15 landing grant**: the granted writer landed the `PAUSED — UNCOMMITTED`
+two-path W1-I03B tree as **exactly one local commit with zero product byte edits**, and the
+independent **W0-R02D** post-commit review returned **PASS with no P0–P2**. The commit object,
+its bytes, the hash pins, the tree state and the three lane transcripts were **re-verified live
+and read-only** against the SOC repository on 2026-07-27; **no product repository was written
+to**. Full record: `docs/operations/W1-I03B-ROUTE-DB-POST-COMMIT-EVIDENCE.md`; board summary:
+board §1.13. This section records evidence and one already-taken classification — it accepts
+nothing, promotes no writer, opens no writer session, authorizes no next lane and moves no gate.
+
+### 16.1 Verified evidence and recorded classification
+
+| Item | Verified / reported state | Recorded classification |
+|---|---|---|
+| SOC — W1-I03B route-DB landing, cycle 2 | **re-verified 2026-07-27, read-only:** worktree `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`, branch `codex/w1-i03b-route-db-permanence-r1`; commit **`6464cfbfc99ecf2109988dff0e6164c8cac6b10a`**, parent exactly **`f4d234bba09ae1bea7a63b3348be3640a701065d`**, subject byte-exact `test(soc): add alert-context route-DB test + gated CI block (SCAFFOLD)`; **exactly 1 commit above base**; `git status --porcelain -uall` **empty**, **zero staged**, no stash; **no upstream, nothing pushed, no tag**; the pre-existing `origin` remote untouched. **Bytes:** exactly **two paths, `+641 / −0`** — `.github/workflows/ci.yml` `+66 / −0`, `services/api/tests/integration/test_alert_context_route_db.py` `+575 / −0`, no third path; `HEAD`-tree blobs equal the grant pins `25e22c765c599fe832457715c12ab0790fd53fd0` and `386075950bb5c5d910d67ca9af99a937fbc65e53`; `ci.yml` **base blob** `97724c6ffb53df4389942b865bbd5c0f6c61a923`, and a byte comparison against lines 1–392 of the committed file returns **identical** — base **392 lines byte-unchanged**, 458 total, one appended hunk, appended `alert-context-route-db` job **`if: false` at job level**, self-labelled `STATIC CI WIRING, NOT WIRED`, **zero existing-job edits**; test module **575 lines, exactly 9 tests, synthetic data only**. The landed bytes are **byte-identical** to the bytes pinned while dirty. **Session/runtime:** writer **Opus 5**, session `ee417d7b-9f89-46ca-85a9-a06d86e55f4e`, uniform across all 151 transcript lines, **both phases in one session**; wrapper-measured **551 s + 41 s = 592 s ≤ the 600 s initial cycle**, **no extension requested or used** (transcript spans 550.1 s / 39.4 s and the writer's own 487 s self-report are recorded alongside; the conclusion holds on all three); exhausted cycle-1 session `2aa3bab1-bf56-4161-ac04-b4f67810691c` **never resumed**. **Reviews:** **W0-R02C** pre-commit **GO, no P0–P2** (session `e0523704-0212-4977-b1dd-5aba59ee1728`, issued **before** staging) and **W0-R02D** post-commit **PASS, no P0–P2** (session `551047a5-e20f-42f7-bbf8-eee1560bd080`); writer, W0-R02B (`ae278ef3-f77b-44be-8a04-3f2285fe4217`), W0-R02C and W0-R02D are **four distinct sessions**, neither reviewer being W0-R02B or W0-IR11. **Executed locally in phase 1 by the writer, not CI:** **9/9 passed** against real **PostgreSQL 16.14**; whole `tests/integration` **503 passed / 5 skipped**; skip-clean **9 skipped**; `ruff check` and `ruff format --check` clean (**check modes only**) plus byte-compile, with W0-R02D independently re-running the `ruff` check modes and `ast.parse` on the committed bytes; throwaway container **and** its anonymous volume removed; synthetic data only, no egress, no secret | **`SCAFFOLD` — local, independently reviewed, unmerged and unpushed product evidence toward the route-against-DB portion of live-shadow blocker 3, and nothing more.** Explicitly **not** runtime, CI, deployment or release evidence; nothing here is `IMPLEMENTED`, `VERIFIED`, `PILOTED` or `GA`. The landing grant is now **terminal and consumed** — one commit produced, **no third W0-D04 prospective grant** for this landing scope. The CI block stays **strictly static CI wiring, CI: NOT WIRED**, never permanent/wired/running/green; the **route-DB permanence residual is NOT closed** — permanence requires **push plus observed remote green**, and push remains `NO-GO`; **blocker 3 stands open as a whole** (`shadow_remote`, real org mapping, TTL, live bundle path). All figures above carry the **borrowed-venv caveat**: a pre-existing main-repo venv (CPython 3.12.13) was borrowed with **no install**, `PYTHONPATH` forced and probe-verified to this worktree's source, but **dependency versions did not come from this base's pins** — this taints the evidentiary weight of the local runs only, never the hash-pinned bytes |
+| Control — this repository | `HEAD` before this record `ffac71eef6925d02e9102ade88ba7daf175f1c06` | control validator `PASS` — `tasks=48`, categories `I 12 · T 12 · R 6 · S 5 · B 5 · IR 4 · D 4`; `77/77` tests (0 failed) — run against the current dirty control worktree; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. The validator **does not machine-enforce** this record's new sections, board §14.20/§14.21, board §15 or the grant terms, so its `PASS` is not evidence that the governance held. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged (board §14.21.4) |
+
+### 16.2 Synthesis
+
+- **Which §15 cells this supersedes.** The SOC W1-I03B cell only, and only as to **grant
+  status**: the prospective landing grant §15 recorded has now been **exercised once and is
+  consumed**. The §15 grant terms, the §14 hard-stop facts and the §13 cycle-1 grant terms all
+  stand **byte-unchanged** as dated history.
+- **The zero-byte-edit rule held.** The committed blobs equal the grant's hash pins exactly, the
+  base's 392 `ci.yml` lines are byte-unchanged, and the diff is exactly two paths at `+641 / −0`
+  with no third path — the whole permitted mutation was one index update and one commit object.
+- **Correction of the writer's report, recorded.** W0-R02C found the writer's phase-1 claim of
+  "no `__pycache__` written into the repo" **incorrect**: the grant-authorized byte-compile did
+  create `services/api/tests/integration/__pycache__/test_alert_context_route_db.cpython-314.pyc`
+  (`py_compile` writes regardless of `PYTHONDONTWRITEBYTECODE`; the writer's residue probe failed
+  silently on BSD `find`). The file is **gitignored, untracked, not staged and not deleted**, and
+  could not enter the commit object. **The incorrect claim is retired and is not repeated.**
+- **Open caveats travel with the evidence.** `mypy`/`actionlint` remain unavailable without a
+  forbidden install, so that finding is an **open-ended deferral to a CI that is NOT WIRED**; the
+  **RED/test-first chronology is permanently unverifiable** and is cited **as reported only**,
+  with **no claim of verified TDD or verified RED→GREEN**; the cycle-1 `cryptography` caveat is
+  **retained** on the `2740 passed / 6 skipped / 1 environment failure` figure.
+- **P3 findings recorded, none blocking, and no P0–P2 anywhere in cycle 2:** the permanent RED
+  gap; the `mypy`/`actionlint` deferral; the cycle-1 `cryptography` caveat; cosmetics at test
+  lines 78 and 97 plus the persistent **`docs/operations/README.md` index omission** (outside the
+  board §14.21.1 allowlist, so it persists and now also omits this record); the borrowed-venv
+  dependency caveat; the `.pyc` correction and residue; the **session self-attribution gap**,
+  resolved through the uniform internal `sessionId` across all 151 transcript lines plus the
+  dispatch record, with the caveat persisting because the writer could not self-attest; the
+  whole-integration run **beyond the grant's strict §7.4 enumeration**; the trivial empty
+  `PYTEST_EXIT` alongside a definitive `9 passed` summary line; the **control validator not
+  machine-enforcing** board §14.20/§14.21, §15 or the grant; **W0-IR11 having no standalone
+  artifact**; and the **placeholder Git author identity**, which — measured honestly — applies to
+  **this control repository** (`Your Name <your@email.com>`) and **not** to SOC commit `6464cfb`,
+  whose author and committer are a real identity.
+- **Live-shadow blocker 3 stands in full** — `shadow_remote`, real org mapping, TTL enforcement
+  and the live bundle path are untouched; blockers 1, 2 and 4 stand exactly as §12.2 records
+  them, so **W1 integration/live shadow stays `HOLD`/`NO-GO`**.
+- **The next lane is NOT authorized by this record.** Any follow-on — push, remote-green pursuit,
+  un-gating the CI job, `shadow_remote`, real org mapping, TTL, the live bundle path, disposal of
+  the branch or folding it into the formal W1 window — is **queued for a fresh Fable decision and
+  a prospective grant**, several additionally requiring an explicit **Founder decision**. No
+  product authority is opened.
+- No gate opens or closes: GATE A4 and W1-C1/C2 stay `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays
+  `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed; `W0 COMPLETE=0` and W0 closure stays
+  `NO-GO`; the board §11 exit criteria remain unmet.
+- Nothing is pushed, merged or released; no dependency is installed; no formatter is run; no
+  secret is read; no status is promoted beyond the §16.1 classification; the Fabric W0-I07 lane
+  (§10) and the Cyber AI W0-I06 lane (§12) are untouched.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4 — `W0-IR11`, `W0-R02C` and `W0-R02D` name reviews and decisions, not tasks.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  byte-for-byte untouched and unstaged — hash-pinned before and after at
+  `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.21.4); the formal W1 dates
+  2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
