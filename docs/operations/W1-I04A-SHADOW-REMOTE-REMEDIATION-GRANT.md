@@ -1,13 +1,21 @@
 # W1-I04A `shadow_remote` remediation — prospective bounded grant
 
 - **Prepared:** 2026-07-27, fifteenth same-day control record
-- **Amended:** 2026-07-27, same-day, applying independent **W0-R06E** Opus NO-GO corrections
-  before any product writer opened against this grant. Amendment record: board §1.17/§14.25,
-  register §20. This amendment corrects wording, cross-references and test-first satisfiability
-  only — it fixes no product byte, flips no gate, and **the four-path attempt tree stays exactly
-  as re-verified in §1.5, untouched by this amendment**
-- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, AMENDED — LOCAL DOCS ONLY, NOT PUSHED — NO
-  WRITER OPENED BY THIS RECORD OR ITS AMENDMENT`
+- **Amended (first):** 2026-07-27, same-day, applying independent **W0-R06E** Opus NO-GO
+  corrections before any product writer opened against this grant. Amendment record:
+  board §1.17/§14.25, register §20. This amendment corrects wording, cross-references and
+  test-first satisfiability only — it fixes no product byte, flips no gate, and **the four-path
+  attempt tree stays exactly as re-verified in §1.5, untouched by this amendment**
+- **Corrected (second):** 2026-07-27, same-day, applying an independent **W0-R06F** Opus review's
+  mandatory P2 corrections and folded P3 hardening to the first amendment above, before any
+  product writer opened against this grant. This is a **follow-on correction, not a history
+  rewrite** — the first amendment's own text stands unedited as dated history (board §1.17/§14.25,
+  register §20); this correction record is board §1.18/§14.26, register §21. It fixes no product
+  byte, flips no gate, and **the four-path attempt tree stays exactly as re-verified in §1.5,
+  untouched by this correction** — the tree pin is carried forward from §1.5/§14.24.2, not
+  independently re-measured a second time by either amendment (board §14.26.2)
+- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, TWICE-CORRECTED — LOCAL DOCS ONLY, NOT PUSHED —
+  NO WRITER OPENED BY THIS RECORD OR EITHER CORRECTION`
 - **Grant author:** logical task **W0-D04** (prospective-grant document implementer), under the
   coordinator-delegated Founder authority recorded in
   `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.24
@@ -106,7 +114,7 @@ directly from writer transcript
   for **one run**, containing **two** `ERROR collecting …` blocks — one `ModuleNotFoundError` for
   each test module failing to import its (not-yet-written) source module. This is **one pytest
   invocation producing two collection errors**, not two separate runs.
-- **Transcript line 77** (`01:23:30.449Z`) is the writer's **reasoning-only** entry for that
+- **Transcript line 77** (`01:23:28.914Z`) is the writer's **reasoning-only** entry for that
   turn — an internal deliberation block, not rendered narration text — and is **not** a second
   tool call, **not** a second `pytest` invocation, and carries no independently observable RED
   evidence of its own.
@@ -118,7 +126,11 @@ directly from writer transcript
   section, which described "lines 77–78" together as one undifferentiated "assistant text
   message," is imprecise about which line carries the narration and is corrected here — line 77
   is reasoning-only, line 78 is the narration. No RED-run evidence exists at either line beyond,
-  respectively, reasoning about and narration of line 76.
+  respectively, reasoning about and narration of line 76. **W0-R06F correction:** the prior wording
+  of this bullet mis-assigned line 78's timestamp (`01:23:30.449Z`) to line 77; the two transcript
+  lines carry two distinct timestamps — line 77 at `01:23:28.914Z`, line 78 at `01:23:30.449Z` —
+  and the line 77/reasoning-only vs line 78/rendered-narration distinction above is unchanged by
+  this timestamp correction.
 
 **Corrected standing.** The genuine test-first chronology is unchanged in substance — both test
 modules were written first (lines 61, 66), the target-source environment probe ran next (72–73),
@@ -198,11 +210,20 @@ injection (10,962 characters observed, embedded newlines forging additional log 
 2. **Defense-in-depth — bound `message_safe` at the point it is constructed.** Independently of
    fix 1, every `message_safe` value assembled inside `shadow_remote.py` (the `_quarantined`
    call sites in `_run`, `shadow_remote.py:285-439`) must be capped at **no more than 200
-   characters** and must have **all CR (`\r`), LF (`\n`) and other C0 control characters removed
-   or rejected** before it is stored in `ShadowFailureRecord.message_safe` or passed to
-   `_LOGGER.warning`. This is a second, independent bound — it must hold even if a future
-   caller of `_reject_unknown` or any other validator regresses fix 1, and it is what closes the
-   newline-injection/log-forging half of the P1 specifically.
+   characters** and must have **all of the following removed or rejected** before it is stored in
+   `ShadowFailureRecord.message_safe` or passed to `_LOGGER.warning`: CR (`\r`), LF (`\n`) and
+   every other **C0 control character** (`U+0000`–`U+001F`); **DEL** (`U+007F`); and the
+   **Unicode line and paragraph separators** `U+2028` (LINE SEPARATOR) and `U+2029` (PARAGRAPH
+   SEPARATOR). **W0-R06F security rider, exact:** the prior wording named only "CR, LF and other
+   C0 control characters," which does not, on its face, cover `U+007F` (DEL, formally neither C0
+   nor printable) or `U+2028`/`U+2029` (Unicode separators outside the C0 range entirely, capable
+   of forging additional log lines in renderers that treat them as line breaks even though a naive
+   C0-only filter would pass them through). This is a second, independent bound — it must hold
+   even if a future caller of `_reject_unknown` or any other validator regresses fix 1, and it is
+   what closes the newline-injection/log-forging half of the P1 specifically. **Test-first status:**
+   the pinned pre-fix bytes filter, at most, CR/LF; a new assertion that DEL/`U+2028`/`U+2029`
+   are stripped from `message_safe` is **genuine RED** against those bytes — it is not eligible for
+   the §9 `PRE-EXISTING GREEN` carve-out and must show honest RED before the source edit.
 
 Both layers are required; neither alone satisfies the finding. The module's own stated invariant
 at `shadow_remote.py:18-20` ("failure text is built only from category, operation name and field
@@ -226,8 +247,18 @@ outbound call (`shadow_remote.py:338-344`) sends only the correlation header.
 1. For **`create_investigation`** and **`cancel_investigation`** only, extract `idempotency_key`
    from `request_body` before the transport call.
 2. **Validate** it: must be a `str` with length **16–200 inclusive** (matching the same bounding
-   discipline as the rest of the contract surface). Missing, wrong-typed, too-short or too-long
-   all count as **invalid**.
+   discipline as the rest of the contract surface), and must contain **no control characters** —
+   at minimum, no C0 control character (`U+0000`–`U+001F`), no DEL (`U+007F`), and no Unicode line
+   or paragraph separator (`U+2028`, `U+2029`). Missing, wrong-typed, too-short, too-long, or
+   containing any forbidden control character all count as **invalid**. **W0-R06F security rider:**
+   the prior wording of this item validated only type and length; a header value built from an
+   unvalidated `idempotency_key` could otherwise carry a CR/LF or Unicode separator into the
+   outbound `Idempotency-Key` header text, mirroring the same class of injection risk the P1 (§4)
+   closes for `message_safe` — this control-character check is added for the same reason and is
+   part of this item's required validation, not a separate finding. This is a brand-new
+   extraction/validation path with no pre-fix behavior to compare against, so every assertion of
+   it, including the control-character rejection, is ordinary new-feature RED — no
+   `PRE-EXISTING GREEN` carve-out applies.
 3. **Invalid ⇒** the operation resolves to `ShadowFailureCategory.SCHEMA_INVALID`, quarantined,
    with **`attempts=0`** and **zero transport calls** — the same "never even attempt the
    transport" discipline `_run` already applies to a contract-pin mismatch
@@ -250,15 +281,27 @@ the JSON/key-parsing path the P1 lives in is never exercised. The existing schem
 value in **value** position, which was already safe by construction; no existing test places an
 attacker-controlled string in **key** position.
 
-**Required fix:** this is disposed of by the §5.3/§6 test additions below — a dedicated
-key-position test is mandatory and is not satisfied by any existing test.
+**Required fix:** this is disposed of by the §6 items 1–2 test additions below — a dedicated
+key-position test is mandatory and is not satisfied by any existing test. **W0-R06F correction:**
+the prior wording of this line cited a nonexistent `§5.3`; this grant has no `§5.3` — §5 contains
+only §5.1 and §5.2. Corrected to cite §6 items 1–2 by their actual anchor.
 
 ---
 
 ## 6. Mandatory P2 test additions — exact required assertions
 
 All of the following are **new** test functions inside the two existing test files
-(`test_shadow_remote.py`, `test_shadow_remote_contract.py`) — no new file, no fifth path (§8):
+(`test_shadow_remote.py`, `test_shadow_remote_contract.py`) — no new file, no fifth path (§8).
+**W0-R06F correction — bounded helper/stub edits permitted:** "new test functions" names the
+required *additions*; it does not forbid the **bounded** edits, inside those same two already-
+allowlisted files, needed to make the new functions possible — most notably extending the existing
+`RecordingShadowApp` test-stub class (`test_shadow_remote.py:82`) to capture/serve whatever the
+new assertions above need (e.g. the `Idempotency-Key`/`idempotency-key` header capture for items
+3–4, or the spoofed/absent `Content-Length` alongside an actual oversized body for §7.2's test).
+Any such helper edit stays **inside the two existing test files only**, must not touch either
+source module beyond what §4/§5/§7 already require, and remains subject to every other §8/§11
+bound — it is not license to add a fifth path, a new file, or a change unrelated to enabling these
+required assertions.
 
 1. **HTTP 200 credential-shaped key leak.** Serve a well-formed `200` response body (reaching the
    validator, unlike the existing `500` test) whose JSON object contains one **unknown key**
@@ -266,10 +309,14 @@ All of the following are **new** test functions inside the two existing test fil
    *key*, not a value). Assert the credential-shaped string is absent from `message_safe`, the
    quarantine record's `repr`, and the captured log text — closing exactly the gap named in §5.2.
 2. **Many-key / newline-bearing injection, bounded.** Serve a `200` body with a large number of
-   unknown keys (at least one containing an embedded newline). Assert: `message_safe` is **no
-   longer than 200 characters**; `message_safe` contains **no `\r` or `\n`** and no other C0
-   control character; no offending key text or secret-shaped substring survives in
-   `message_safe`, the quarantine record or the captured log.
+   unknown keys (at least one containing an embedded newline, at least one containing DEL
+   (`U+007F`), and at least one containing a Unicode line/paragraph separator (`U+2028`/`U+2029`)).
+   Assert: `message_safe` is **no longer than 200 characters**; `message_safe` contains **no
+   `\r` or `\n`**, no other C0 control character, no DEL (`U+007F`), and no `U+2028`/`U+2029`; no
+   offending key text or secret-shaped substring survives in `message_safe`, the quarantine record
+   or the captured log. **W0-R06F security rider (§4 item 2):** the DEL and Unicode-separator
+   assertions are **genuine RED** against the pinned pre-fix bytes, which strip at most CR/LF —
+   not eligible for the §9 `PRE-EXISTING GREEN` carve-out.
 3. **`Idempotency-Key` present and equal on create/cancel.** For both `create_investigation` and
    `cancel_investigation` with a valid 16–200-character `idempotency_key` in the request body,
    assert the stub observes an `Idempotency-Key` header **equal to** the body value, alongside
@@ -286,10 +333,11 @@ All of the following are **new** test functions inside the two existing test fil
    before the source edit, then re-run after the fix as a regression guard, not contrived into a
    RED it cannot produce.
 5. **Invalid `idempotency_key` ⇒ zero transport calls.** For create/cancel with a missing,
-   wrong-typed, too-short (< 16) or too-long (> 200) `idempotency_key`, assert: the outcome
-   category is `SCHEMA_INVALID`; `attempts == 0`; the stub's call counter is **unchanged** (zero
-   calls for that invocation) — mirroring the existing contract-pin-mismatch zero-call assertion
-   pattern already in the suite.
+   wrong-typed, too-short (< 16), too-long (> 200), or **control-character-bearing** (at least one
+   case each for a C0 control character, DEL `U+007F`, and `U+2028`/`U+2029`, per §5.1 item 2)
+   `idempotency_key`, assert: the outcome category is `SCHEMA_INVALID`; `attempts == 0`; the
+   stub's call counter is **unchanged** (zero calls for that invocation) — mirroring the existing
+   contract-pin-mismatch zero-call assertion pattern already in the suite.
 
 ---
 
@@ -333,7 +381,12 @@ body in process memory** to produce `response.content`/`response.json()`; this c
 allocation** `httpx` itself performs while reading the response. **True streaming enforcement is
 explicitly deferred** to a future gateway-wiring lane, which is the layer that would own the
 transport's read-size configuration — this pure-domain-slice client does not own or configure the
-injected `httpx.AsyncClient`'s transport (original grant §5, out-of-scope item 2). This body-
+injected `httpx.AsyncClient`'s transport (original grant §5, out-of-scope bullet **"No runtime
+wiring"** — nothing is registered into the gateway, router, app factory, lifespan or any existing
+call path, so the client cannot own that call path's transport configuration either).
+**W0-R06F correction:** the prior wording cited this as "out-of-scope item 2," an ordinal against
+an unordered bulleted list in the original grant §5 — ambiguous and non-reproducible; corrected
+here to a stable semantic anchor naming the bullet's own text instead of counting it. This body-
 measurement discipline and its mandatory disclosure are mirrored in acceptance §10.3's commit-body
 requirement.
 
@@ -346,11 +399,23 @@ strings (e.g. no `-`/`:` separators). Add a strict pattern check —
 `datetime.fromisoformat` calendar-validity check, which is **retained** (still catches impossible
 calendar dates such as month 13 or February 30 that the regex alone would not). **Tests:** one
 case that is calendar-valid but basic-format (rejected by the new regex) and one case with a
-fractional-second component (`.123456789Z`) that is accepted by both the regex and the calendar
-check. **The fractional-second accept case is `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED
-EXPECTED`** (§9): the current permissive parser already accepts a fractional-second RFC3339
-string, so this assertion cannot RED and must not be contrived into one; only the basic-format
-reject case is a genuine new RED requirement.
+fractional-second component (`.123456789Z`) that is **expected** to be accepted by both the new
+regex and the retained calendar check. **W0-R06F correction — interpreter-conditional, not an
+assumed fact:** whether the fractional-second case is actually `PRE-EXISTING GREEN` against the
+pinned pre-fix bytes depends on `datetime.fromisoformat`'s fractional-second/`Z`-suffix handling
+in the **actual interpreter the writer runs against** (§10.1 already discloses this venv's
+interpreter as **CPython 3.12.13** against a declared `python_version = "3.11"`, and
+`fromisoformat`'s ISO-8601 support has changed across CPython versions). The writer **must
+actually run** this specific case against the pinned pre-fix bytes and **honestly label the
+measured result** — `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED` only if it is
+observed to pass, or ordinary genuine RED if it is observed to fail. **No `PRE-EXISTING GREEN`
+label may be asserted without having actually run the case against the pinned bytes in this
+venv**; the prior wording stated the green result as if interpreter-independent, which this
+corrects. The **strict new regex plus the retained calendar-validity check remain required
+exactly as specified above, regardless of which label this case receives** — this correction
+affects only the RED-vs-green bookkeeping of that one assertion, not the fix itself. The
+basic-format reject case is unaffected by this correction and remains a genuine new RED
+requirement in every interpreter.
 
 ### 7.4 P3 — `traceparent` — DEFER, not fixed
 
@@ -438,16 +503,23 @@ those pinned bytes — because the current, unfixed code already happens to exhi
 behavior — no RED is possible for that specific assertion, and none may be manufactured. Such an
 assertion must instead be run and its result preserved in-transcript labeled exactly
 **`PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED`**, before any source edit, and re-run
-after the fix to confirm it still passes as a regression guard. **At minimum, this applies to:**
-§6 item 4 (GET operations already omit `Idempotency-Key`, since no operation currently sends the
-header at all); §7.1's 512-character `org_path` accept case (already accepted, since no
-`max_length` is currently enforced); and §7.3's fractional-second RFC3339 accept case (already
-accepted by the current permissive `fromisoformat`-based parser). Every **other** new assertion in
-§6/§7 — including the 513-character `org_path` reject, the basic-format timestamp reject, and
-every P1/P2 assertion — has no pre-existing-green carve-out and **must** show a genuine, honest
-RED against the pinned pre-fix bytes before any source edit. **Contriving a failure where none
-exists, relabeling an already-green result as RED, or silently omitting a required
-`PRE-EXISTING GREEN` guard result is itself a §11 item 11 P0**, exactly as a fabricated RED
+after the fix to confirm it still passes as a regression guard. **At minimum, this applies
+unconditionally to:** §6 item 4 (GET operations already omit `Idempotency-Key`, since no
+operation currently sends the header at all) and §7.1's 512-character `org_path` accept case
+(already accepted, since no `max_length` is currently enforced) — both pass identically regardless
+of interpreter. **§7.3's fractional-second RFC3339 accept case is conditional, not automatic**
+(§7.3 W0-R06F correction): it is `PRE-EXISTING GREEN` **only if actually observed to pass** when
+run against the pinned pre-fix bytes in the writer's own venv; if the writer's measured run shows
+it failing instead, it is genuine RED and must be captured and labeled as such, never forced into
+`PRE-EXISTING GREEN` to match this document's expectation. Every **other** new assertion in §6/§7
+— including the 513-character `org_path` reject, the basic-format timestamp reject, the P3-4
+DEL/`U+2028`/`U+2029` sanitization assertions (§4 item 2, §6 item 2), the idempotency-key
+control-character-rejection assertions (§5.1 item 2, §6 item 5), and every other P1/P2 assertion —
+has no pre-existing-green carve-out and **must** show a genuine, honest RED against the pinned
+pre-fix bytes before any source edit. **Contriving a failure where none exists, relabeling an
+already-green result as RED, forcing a `PRE-EXISTING GREEN` label without having actually run the
+case, or silently omitting a required `PRE-EXISTING GREEN` guard result is itself a §11 item 11
+P0**, exactly as a fabricated RED
 chronology is — the carve-out authorizes honest labeling of an unavoidable green, never a shortcut
 around evidencing a genuine RED where one is achievable.
 
@@ -495,10 +567,17 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
 
 1. **Writer stops before staging**, with **zero paths staged** and a dirty tree of exactly the
    four §8 paths, and reports its evidence.
-2. A **fresh, independent Opus 5** session performs the **pre-commit** review. It must be a
-   **distinct session** from the remediation writer, from the exhausted original writer
-   `c173b76f…`, from the W0-R03F reviewer `e650bda1…`, and from any session that authored the
-   W0-IR13 decision or this grant. It must return **GO with no P0–P2**.
+2. A **fresh, independent Opus 5** session performs the **pre-commit** review. **W0-R06F
+   correction — exact, exhaustive exclusion list, by role:** it must be a **distinct session**
+   from: (a) the future remediation writer itself; (b) the exhausted original writer session
+   `c173b76f…`; (c) the exhausted W0-R03F pre-commit reviewer session `e650bda1…`; (d) any session
+   that authored the **W0-IR13** decision; (e) any session that authored this grant document, in
+   any of its states — the original prospective grant (register §19), the **W0-R06E**
+   amendment-review/authoring session (board §1.17/§14.25, register §20), and the **W0-R06F**
+   correction-review/authoring session (board §1.18/§14.26, register §21); and (f) distinct from
+   every other reviewer named in this list and in step 4 below. No grant-authoring or
+   grant-review session of any kind — past or present — may double as the future product
+   pre-commit or post-commit reviewer. It must return **GO with no P0–P2**.
 3. **Only then**, the **same remediation writer session** resumes **within its remaining §3.3
    runtime** and: stages **exactly the four paths** (`git add` of those four paths only, never
    `git add -A`); makes **exactly one** local, status-honest **`SCAFFOLD`** commit. **Runtime-
@@ -507,7 +586,19 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
    during a review it is not performing. When the writer resumes to stage and commit, it may act
    only **within whatever runtime it had genuinely left** at the point it stopped before staging;
    the reviewer's pause neither extends nor grants a fresh allowance, and does not authorize
-   treating the resumed step as a new cycle.
+   treating the resumed step as a new cycle. **W0-R06F correction — staging dead-end, exact:** this
+   scheme has a failure mode the prior wording left unaddressed — if the writer's genuinely
+   remaining runtime at the point it stopped before staging is **zero, or too little to plausibly
+   complete staging and one commit**, resuming under this clause is a **dead end**, not a viable
+   path. In that case the writer **must not** resume, must not stage, must not commit, and must
+   not attempt any workaround to obtain more runtime — no replacement session, no identity
+   substitution, no reclassification of the remaining step as a "new" cycle, and no treating the
+   pre-commit review's `GO` as authority to extend runtime it does not itself grant. The writer
+   **STOPs uncommitted**, reports the exhausted allowance and the pre-commit `GO` already obtained
+   as partial evidence, and the lane returns to `PAUSED — UNCOMMITTED`; staging and commit under
+   this already-reviewed state require a **new, explicit grant of runtime** (a fresh bounded
+   authorization, board §15-style, naming this exact state) before any further action — never a
+   silent substitute for one.
 4. A **fresh, distinct Opus 5** session — distinct from the pre-commit reviewer of step 2 and
    from every session named in step 2 — performs the **post-commit** review and must return
    **PASS with no P0–P2** before anything counts as product evidence.
@@ -521,8 +612,14 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
 
 The one authorized commit's body must disclose, at minimum: which of the P1, two P2s, four
 W0-R03F P3s (§7.1–§7.4) and the one grant-originated finding (§7.5) were **fixed** under this
-grant and which (per §7.4 only — `traceparent` — no other item is deferred) were **explicitly
-deferred** and why; the RED chronology's evidentiary basis (§9), including which assertions were
+grant and which were **explicitly deferred** and why — naming both deferrals by anchor:
+**§7.4** (`traceparent`, deferred entirely, not fixed) and **§7.2's true-streaming enforcement**
+(the byte cap itself is fixed; only the deeper streaming-at-the-transport-layer enforcement is
+deferred to a future gateway-wiring lane, per §7.2's disclosed residual). **W0-R06F correction:**
+the prior wording of this line — "per §7.4 only … no other item is deferred" — omitted the §7.2
+true-streaming deferral and is corrected here; no other W0-R03F/grant finding beyond these two
+named deferrals (§7.4 and §7.2's true-streaming residual) is deferred. The RED chronology's
+evidentiary basis (§9), including which assertions were
 honest RED and which were labeled `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED` under
 the §9 satisfiable-RED carve-out; the borrowed-venv dependency-version caveat (§10.1); the §7.2
 residual-buffering disclosure (`httpx` already buffers the full body before the new size cap
@@ -532,6 +629,18 @@ change" disclosure that **full request-body schema validation stays out of scope
 body-derived field touched by this grant being the `idempotency_key` extraction of §5.1/§6; and
 cache-residue honesty (§10.1). It must **not** claim runtime, CI, live-shadow or blocker-closure
 evidence of any kind.
+
+**W0-R06F correction — future writer transcript, a mandatory post-run field, not a pre-cited
+path.** No writer session exists yet under this grant, so no session UUID or transcript file path
+for it can be named by this document — any future reference to "the remediation writer's
+transcript" is, as of this grant, a **placeholder for a mandatory post-run evidence field**, to be
+populated with the actual session UUID/transcript filename **only once that session exists and
+produces one**. The commit body, the pre-commit review, the post-commit review and any control
+record citing this grant's execution must each **pin the writer's own session transcript by its
+real, resulting UUID/filename at the time they are written** — never a fixed, pre-guessed, or
+templated path asserted before that session exists. This is distinct from, and does not alter,
+§14's citation of the **past** writer/reviewer transcripts (`c173b76f…`, `e650bda1…`), which
+already exist and are correctly pinned by their real UUIDs.
 
 ---
 
@@ -624,6 +733,9 @@ sub-lane, a decision and a correction, **not tasks**.
 - This grant's own bounded control-authoring authority and control-side measured evidence: board
   §14.24; board summary §1.16.
 - Matching register entry: `docs/operations/W1-E2-EVIDENCE-REGISTER.md` §19.
+- First amendment (W0-R06E corrections): board §1.17/§14.25; register §20.
+- Second correction (W0-R06F corrections and folded P3 hardening, this document's current state):
+  board §1.18/§14.26; register §21.
 - Source transcripts re-read read-only for §2's corrections: writer
   `c173b76f-25b5-4bbc-8660-d5fe9a9792c8.jsonl` (lines 75–78) and reviewer
   `e650bda1-abfd-4b0e-ac79-69138716e4c6.jsonl` (line 121).

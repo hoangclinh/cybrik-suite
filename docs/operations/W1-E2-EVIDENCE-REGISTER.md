@@ -1352,3 +1352,86 @@ grant document), against the current — deliberately dirty — control tree, be
 `pass` count, are **not** evidence that the amended grant's terms, findings or reviewer discipline
 hold — they only confirm this control repository's own pinned rows remain internally consistent
 after this record's writes. **CI: NOT WIRED**; no CI result is claimed.
+
+## 21. SOC W1-I04A `shadow_remote` remediation-grant correction — 2026-07-27, seventeenth same-day record
+
+Added later again on 2026-07-27 under the same three-path bounded authority, re-scoped for
+**exactly one further authorized local commit**, recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.26. This section records an independent
+**W0-R06F** Opus review's mandatory **four P2** corrections and its **nine folded P3** hardenings
+applied to the still-prospective `docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md` —
+**before any product writer opened under it**. It is a **correction to a grant record, not an
+exercised grant**: **no product writer was opened**, no product byte was written, and the facts
+below are either a direct re-read of the corrected grant document, an **independent read-only
+re-measurement** of the four-path SOC attempt tree (§21.1), or an audit-side correction of two
+specific pieces of imprecise wording in `d228522`'s commit message and in register §20's own
+preamble — **neither prior commit nor register §19/§20 is edited; both keep their existing
+wording byte-unchanged as dated history.** Full corrected record:
+`docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md`; board summary: board §1.18/§14.26.
+This section accepts nothing, promotes no writer, opens no writer session, authorizes no lane
+beyond the one already granted in §19, and moves no gate.
+
+### 21.1 Basis and exact corrections applied
+
+| Item | Verified / measured state | Correction recorded |
+|---|---|---|
+| W0-R06F review basis and independent re-measurement | **verified 2026-07-27, read-only.** The grant corrected here had, at review time, **opened no writer and produced no product byte**. Unlike register §20 (which carried the §19.1/board §14.24.2 pin forward without a fresh read), this record's author **independently re-measured** the four-path SOC attempt tree: worktree `w1-i04a-shadow-remote-r1`, `HEAD` `6464cfbfc99ecf2109988dff0e6164c8cac6b10a`, `git rev-list --count 6464cfb..HEAD` = **0**, zero staged, exactly four dirty `-uall` paths, all untracked, SHA-256 **byte-identical** to register §19.1: `shadow_remote.py` `ca351c05190ab0b26ac7aedebd0bd35a44b2421303d669b233c4e8ccbe14c2b5`, `shadow_remote_contract.py` `8df05e5fe041ef670bfc81f7c3ee8d6bfe27b65ca0436784fb2ffa582dec9bfc`, `test_shadow_remote.py` `8645e7592c9822b276bbe1d3aa29645fb073588e5f6a44b1999296b1f06540d7`, `test_shadow_remote_contract.py` `54c8b92db3e470757ae651f7dfdd927cbce6bd5e2f24f91d931e797c4404a565`. An independent Opus review (**W0-R06F**) of the still-prospective document returned findings against **four P2-tier** defects and **nine non-blocking P3s** — none a P0 or P1, none touching a hash, a commit, a gate or a classification | No finding, severity, hash, commit or gate changes; only the grant document's own wording, structure, cross-references, reviewer-exclusion precision and test-first/evidentiary discipline are corrected, directly in that document; two specific prior-record wording imprecisions are corrected here, audit-side, without editing either prior record |
+| Correction 1 — commit-message accuracy (`d228522`) | `d228522`'s body states `§14.24/§19 stand unedited as dated history`; register §19 genuinely was unedited (its diff contains only additions to the register — the new §20), but board §14.24 was edited at exactly one line inside §14.24.6 (the roadmap-hash cross-reference), a change `d228522`'s own diff discloses and its own §14.25.1 table names as authorized | **No history rewritten.** `d228522` keeps its wording byte-unchanged. This section is the authoritative audit-side statement: register §19 stands unedited; board §14.24 was edited only at §14.24.6's one authorized cross-reference line, already disclosed in `d228522`'s own diff and §14.25.1 table |
+| Correction 2 — nonexistent cross-reference (grant §5.2) | Grant §5.2 cited "the §5.3/§6 test additions below"; the grant has no §5.3 — §5 contains only §5.1–§5.2 | Corrected to cite "the §6 items 1–2 test additions below," the real anchor for the key-position and many-key/newline tests that dispose of §5.2's finding |
+| Correction 3 — transcript timestamp misattribution (grant §2.1) | Grant §2.1 cited transcript **line 77** at `01:23:30.449Z` — line 78's own timestamp | Corrected: line 77 at `01:23:28.914Z`, line 78 unchanged at `01:23:30.449Z`; the line 77 reasoning-only vs line 78 rendered-narration distinction is unaffected |
+| Correction 4 — provenance-wording contradiction (register §20 preamble vs board §14.25.7) | Register §20's preamble described its facts as including "a re-verification that the four-path SOC attempt tree is unchanged," while board §14.25.7 states the same record "made no further SOC-side read" — substantively consistent (the pin was carried forward from §14.24.2, not independently re-measured during `d228522`) but contradictory on its face | **Corrected, precisely, without editing either prior record:** the product pins carried in `d228522`/§14.25/§20 were carried forward from §14.24.2's read, not independently re-measured during that commit's authoring; this §21 record independently re-measured the same tree (§21.1 above) and confirms it unchanged, read-only, untouched |
+| Nine folded P3s | Full text and per-item mapping: board §14.26.4 | Folded directly into the grant document (§4, §5.1, §6, §7.2, §7.3, §9, §10.2, §10.3) — wording/structure/precision only, no product-scope widening |
+| Control — this repository | `HEAD` before this record `d22852232a96c93418bfa9101c8fc76e7468878f` | control validator and test-suite figures recorded in §21.3 below, measured after this record's three writes; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged |
+
+### 21.2 Synthesis
+
+- **Which §19/§20 cells this supersedes.** The SOC W1-I04A remediation-grant cell only, and only as
+  to the grant document's wording, structure, cross-references, reviewer-exclusion precision and
+  test-first/evidentiary discipline, plus the two audit-side wording corrections of §21.1 items 1
+  and 4: §19 and §20 stand as dated history unedited; this section adds a **further, narrower**
+  correction on top of them. **No second grant exists**; any future writer or reviewer acts under
+  the corrected grant document's terms.
+- **Nothing is promoted.** This is a **correction to a grant, not an exercise of one** — the
+  four-path tree stays `PAUSED — UNCOMMITTED` and **not product evidence**; the product writer
+  named in §19 **remains not open**, and now additionally requires a **fresh Opus re-review
+  returning GO with no P0–P2 against the twice-corrected text** before it may open. Same identity,
+  runtime, four hash pins, four-path allowlist and STOP rules as §19 — unchanged by this
+  correction.
+- **No product byte has been written toward the P1, two P2s, four P3s or the grant-originated
+  finding by this record or its predecessors.** Only the grant document's description of them, and
+  the audit-side accuracy of two prior records' own wording, are corrected.
+- **Live-shadow blocker 3, blocker 4 and every other lane stand exactly as §19.3 records them** —
+  untouched by this correction. No gate opens or closes: GATE A4 and W1-C1/C2 stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed;
+  `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the board §11 exit criteria remain unmet; the
+  **W0-I04 admission itself stays `HOLD`**. **No UAT milestone is reached and no instance is
+  authorized.**
+- Nothing is pushed, merged or released; no dependency is installed; no formatter is run; no
+  secret is read; **CI: NOT WIRED**. The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC
+  W1-I03B lane are untouched.
+- **P3s of this control record:** the persistent **`docs/operations/README.md` index omission**,
+  now also omitting this correction record; the **control validator not machine-enforcing** this
+  section, board §1.18/§14.26 or the correction's terms; **`actionlint` still absent**; the
+  **borrowed-venv dependency and interpreter caveat** (unchanged, not re-measured by this
+  docs-only correction); and the **placeholder Git author identity** in **this control
+  repository**.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+### 21.3 Control-side measured evidence — 2026-07-27
+
+Measured after this record's three writes (this section, board §1.18/§14.26, and the corrected
+grant document), against the current — deliberately dirty — control tree, before any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` — recorded exactly as executed, see board §14.26.6 |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo — recorded exactly as executed, see board §14.26.6 |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged |
+
+**Disclosed coverage limitation, mandatory.** Unchanged from §19.4/§20.3: the validator is a
+**documentary consistency check only** and its `PASS`, together with the `77/77` Node test-suite
+`pass` count, are **not** evidence that the corrected grant's terms, findings or reviewer
+discipline hold — they only confirm this control repository's own pinned rows remain internally
+consistent after this record's writes. **CI: NOT WIRED**; no CI result is claimed.
