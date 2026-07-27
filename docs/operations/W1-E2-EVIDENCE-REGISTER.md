@@ -1273,3 +1273,82 @@ language above. Its `PASS` — and the accompanying `77/77` Node test-suite `pas
 **not** evidence that the W1-I04A remediation grant's terms, findings or reviewer discipline
 hold; they only confirm this control repository's own pinned rows remain internally consistent
 after this record's writes. **CI: NOT WIRED** for both commands; no CI result is claimed.
+
+## 20. SOC W1-I04A `shadow_remote` remediation-grant amendment — 2026-07-27, sixteenth same-day record
+
+Added later again on 2026-07-27 under the same three-path bounded authority, re-scoped for
+**exactly one further authorized local commit**, recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.25. This section records an independent
+**W0-R06E** Opus **NO-GO** review's mandatory P2 corrections applied to the still-prospective
+`docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md` — **before any product writer opened
+under it**. It is a **correction to a grant record, not an exercised grant**: **no product writer
+was opened**, no product byte was written, and every fact below is either a direct re-read of the
+amended grant document or a re-verification that the four-path SOC attempt tree is unchanged from
+register §19.1/board §14.24.2. Full amended record:
+`docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md`; board summary: board §1.17/§14.25.
+This section accepts nothing, promotes no writer, opens no writer session, authorizes no lane
+beyond the one already granted in §19, and moves no gate.
+
+### 20.1 Basis and exact corrections applied
+
+| Item | Verified / measured state | Correction recorded |
+|---|---|---|
+| W0-R06E review basis | **verified 2026-07-27, read-only.** The grant amended here had, at review time, **opened no writer and produced no product byte**; the four-path SOC attempt tree remains byte-identical to register §19.1/board §14.24.2, untouched by this amendment. An independent Opus review (**W0-R06E**) of the still-prospective document returned **NO-GO** against **five P2-tier findings** — none a P0 or P1, none touching a hash, a commit, a gate or a classification | No finding, severity, hash, commit or gate changes; only the grant document's own wording, structure, cross-references and test-first satisfiability are corrected, directly in that document |
+| Correction 1 — P3 attribution/count | Grant §7 previously titled "all four, exact" while its own fifth numbered item (the cause-chain `from None` fix) was never a W0-R03F finding — it originated from this grant-author's own read-only source re-read | Retitled "the four W0-R03F P3s, plus one grant-originated finding"; restructured into `### 7.1`–`### 7.5`; §7.5 explicitly marked as grant-originated, never attributable to W0-R03F; §2.2's authoritative-disposition anchor corrected from the wrong `(§6)` to `(§7.1–§7.4)` plus `(§7.5)` named separately |
+| Correction 2 — satisfiable test-first rule | Grant §9 previously required genuine RED for every new assertion without accounting for assertions that already pass against the pinned pre-fix bytes (§6 item 4 GET-omits-header; §7.1's 512-character `org_path` accept; §7.3's fractional-second RFC3339 accept) | Added a **satisfiable-RED carve-out**: genuine RED required only where the pinned pre-fix bytes can actually fail; a pre-existing-passing assertion must be labeled `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED` in-transcript, never contrived into a fabricated RED; contriving, relabeling or omitting such a label remains the existing §11 item 11 **P0** |
+| Correction 3 — body measurement | Grant §7.2's response-body cap left the measurement method ambiguous, risking a `Content-Length`-header short-circuit a lying remote peer could defeat | §7.2 now requires measuring **`len(response.content)`** (the actual received byte count) and explicitly forbids using the remote `Content-Length` header as the measured value or as a short-circuit; a new mandatory test serves a spoofed small/absent `Content-Length` alongside an actual >1 MiB body; mirrored into the §10.3 commit-body disclosure requirement |
+| Correction 4 — cross-references | Grant §7 (item 2) cited "grant §5, out-of-scope item 5" instead of item 2; grant §10.1 cited the **39**-test regression count to the original grant §8.1, which names only five regression files, not a count; grant §2.1 described "lines 77–78" as one undifferentiated assistant-text-message bullet; this board's own §14.24.6 cited the roadmap-hash re-pin as "§14.24.3 below" instead of §14.24.7 | Out-of-scope citation corrected to "item 2"; regression count re-attributed to hard-stop evidence §4, with the original grant §8.1's five file names named explicitly; §2.1 now distinguishes **line 77** (a reasoning-only entry, not rendered narration) from **line 78** (the actual assistant-text narration) — neither is a second tool call, invocation or observed failure; board §14.24.6 corrected to cite §14.24.7 |
+| Correction 5 — riders added | Three operational points were implicit rather than explicit in the grant | Header assertions must read the captured **lowercase** `idempotency-key` key; the pre-commit reviewer's pause does not consume the writer's §3.3 runtime, and the writer may resume only within whatever allowance genuinely remained when it stopped before staging; the commit body must explicitly disclose that full request-body schema validation stays out of scope beyond the `idempotency_key` extraction |
+| Control — this repository | `HEAD` before this record `39881cf9ba0f17268ed3126b43ea36eb55ff1398` | control validator and test-suite figures recorded in §20.3 below, measured after this record's three writes; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged |
+
+### 20.2 Synthesis
+
+- **Which §19 cells this supersedes.** The SOC W1-I04A remediation-grant cell only, and only as to
+  the grant document's wording, structure, cross-references and test-first satisfiability: §19
+  stands as dated history unedited (its own line-77/78 wording is preserved byte-unchanged as the
+  original W0-R06D correction's record); this section adds a **further, narrower** amendment on
+  top of it. **No second grant exists**; any future writer or reviewer acts under the amended
+  grant document's terms.
+- **Nothing is promoted.** This is a **correction to a grant, not an exercise of one** — the
+  four-path tree stays `PAUSED — UNCOMMITTED` and **not product evidence**; the product writer
+  named in §19 **remains not open**, and now additionally requires a **fresh Opus re-review
+  returning GO with no P0–P2 against the amended text** before it may open. Same identity,
+  runtime, four hash pins, four-path allowlist and STOP rules as §19 — unchanged by this
+  amendment.
+- **No product byte has been written toward the P1, two P2s, four P3s or the grant-originated
+  finding by this record or its predecessor.** Only the grant document's description of them is
+  corrected.
+- **Live-shadow blocker 3, blocker 4 and every other lane stand exactly as §19.3 records them** —
+  untouched by this amendment. No gate opens or closes: GATE A4 and W1-C1/C2 stay
+  `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed;
+  `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the board §11 exit criteria remain unmet; the
+  **W0-I04 admission itself stays `HOLD`**. **No UAT milestone is reached and no instance is
+  authorized.**
+- Nothing is pushed, merged or released; no dependency is installed; no formatter is run; no
+  secret is read; **CI: NOT WIRED**. The Fabric W0-I07 lane, the Cyber AI W0-I06 lane and the SOC
+  W1-I03B lane are untouched.
+- **P3s of this control record:** the persistent **`docs/operations/README.md` index omission**,
+  now also omitting this amendment record; the **control validator not machine-enforcing** this
+  section, board §1.17/§14.25 or the amendment's terms; the **borrowed-venv dependency and
+  interpreter caveat** (unchanged, not re-measured by this docs-only amendment); and the
+  **placeholder Git author identity** in **this control repository**.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+### 20.3 Control-side measured evidence — 2026-07-27
+
+Measured after this record's three writes (this section, board §1.17/§14.25, and the amended
+grant document), against the current — deliberately dirty — control tree, before any staging:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` — recorded exactly as executed, see board §14.25.5 |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo — recorded exactly as executed, see board §14.25.5 |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged |
+
+**Disclosed coverage limitation, mandatory.** Unchanged from §19.4: the validator is a
+**documentary consistency check only** and its `PASS`, together with the `77/77` Node test-suite
+`pass` count, are **not** evidence that the amended grant's terms, findings or reviewer discipline
+hold — they only confirm this control repository's own pinned rows remain internally consistent
+after this record's writes. **CI: NOT WIRED**; no CI result is claimed.

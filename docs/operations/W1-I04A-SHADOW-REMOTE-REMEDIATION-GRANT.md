@@ -1,8 +1,13 @@
 # W1-I04A `shadow_remote` remediation — prospective bounded grant
 
 - **Prepared:** 2026-07-27, fifteenth same-day control record
-- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT — LOCAL DOCS ONLY, NOT PUSHED — NO WRITER OPENED
-  BY THIS RECORD`
+- **Amended:** 2026-07-27, same-day, applying independent **W0-R06E** Opus NO-GO corrections
+  before any product writer opened against this grant. Amendment record: board §1.17/§14.25,
+  register §20. This amendment corrects wording, cross-references and test-first satisfiability
+  only — it fixes no product byte, flips no gate, and **the four-path attempt tree stays exactly
+  as re-verified in §1.5, untouched by this amendment**
+- **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, AMENDED — LOCAL DOCS ONLY, NOT PUSHED — NO
+  WRITER OPENED BY THIS RECORD OR ITS AMENDMENT`
 - **Grant author:** logical task **W0-D04** (prospective-grant document implementer), under the
   coordinator-delegated Founder authority recorded in
   `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.24
@@ -101,10 +106,19 @@ directly from writer transcript
   for **one run**, containing **two** `ERROR collecting …` blocks — one `ModuleNotFoundError` for
   each test module failing to import its (not-yet-written) source module. This is **one pytest
   invocation producing two collection errors**, not two separate runs.
-- **Transcript lines 77–78** (`01:23:30.449Z`) are the writer's **assistant text message**
-  narrating that result ("RED observed and preserved above: `ModuleNotFoundError` for **both**
-  modules-under-test…") — **not a second tool call, not a second `pytest` invocation, and not a
-  second observed failure**. No RED-run evidence exists at line 78 beyond narration of line 76.
+- **Transcript line 77** (`01:23:30.449Z`) is the writer's **reasoning-only** entry for that
+  turn — an internal deliberation block, not rendered narration text — and is **not** a second
+  tool call, **not** a second `pytest` invocation, and carries no independently observable RED
+  evidence of its own.
+- **Transcript line 78** (`01:23:30.449Z`) is the writer's **assistant text message** — the
+  narration actually visible to a transcript reader ("RED observed and preserved above:
+  `ModuleNotFoundError` for **both** modules-under-test…") — describing the single result already
+  captured at line 76. **W0-R06E correction, exact:** neither line 77 nor line 78 is a second
+  tool call, a second `pytest` invocation, or a second observed failure; the prior wording of this
+  section, which described "lines 77–78" together as one undifferentiated "assistant text
+  message," is imprecise about which line carries the narration and is corrected here — line 77
+  is reasoning-only, line 78 is the narration. No RED-run evidence exists at either line beyond,
+  respectively, reasoning about and narration of line 76.
 
 **Corrected standing.** The genuine test-first chronology is unchanged in substance — both test
 modules were written first (lines 61, 66), the target-source environment probe ran next (72–73),
@@ -132,9 +146,13 @@ correctly as **"one P1 and two P2 findings"** with **four P3s**; only the review
 sentence undercounted. **This grant records that discrepancy explicitly** so no future record
 re-derives "one P2" from the headline sentence in isolation.
 
-**Authoritative disposition, restated exactly:** **one P1** (§4), **two P2s** (§5), **four P3s**
-(§6). This matches every prior control record's body text; nothing here changes a finding, a
-severity or a disposition — it only names and closes the headline/body wording gap at its source.
+**Authoritative disposition, restated exactly:** **one P1** (§4), **two P2s** (§5), **four W0-R03F
+P3s** (§7.1–§7.4) — the anchor is §7, not §6, which is the P2 test-addition section. This matches
+every prior control record's body text as to the W0-R03F disposition; nothing here changes a
+finding, a severity or a disposition — it only names and closes the headline/body wording gap at
+its source. **This grant separately grants one further, grant-originated finding (§7.5)** that is
+**not** part of the W0-R03F disposition restated above and must never be folded into "four P3s" —
+see §7's heading and §7.5 for its exact provenance.
 
 ---
 
@@ -255,10 +273,18 @@ All of the following are **new** test functions inside the two existing test fil
 3. **`Idempotency-Key` present and equal on create/cancel.** For both `create_investigation` and
    `cancel_investigation` with a valid 16–200-character `idempotency_key` in the request body,
    assert the stub observes an `Idempotency-Key` header **equal to** the body value, alongside
-   the existing correlation header.
+   the existing correlation header. **Clarifier:** the ASGI/`httpx` transport stub normalizes
+   header names to lowercase in its captured headers mapping; assertions must access the captured
+   header via its **lowercase** key `idempotency-key`, not the mixed-case `Idempotency-Key`
+   spelling used only for the value actually **sent** on the wire.
 4. **`Idempotency-Key` absent on GET operations.** For `get_investigation_status`,
    `list_investigation_checkpoints` and `read_investigation_bundle`, assert the stub never
-   observes an `Idempotency-Key` header.
+   observes an `Idempotency-Key` header (checked via the same lowercase `idempotency-key` key as
+   item 3). **This assertion is `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED`** (§9):
+   no operation, GET or otherwise, currently sends this header at all, so the absence-on-GET
+   check already passes against the pinned pre-fix bytes; it must be run and observed passing
+   before the source edit, then re-run after the fix as a regression guard, not contrived into a
+   RED it cannot produce.
 5. **Invalid `idempotency_key` ⇒ zero transport calls.** For create/cancel with a missing,
    wrong-typed, too-short (< 16) or too-long (> 200) `idempotency_key`, assert: the outcome
    category is `SCHEMA_INVALID`; `attempts == 0`; the stub's call counter is **unchanged** (zero
@@ -267,60 +293,102 @@ All of the following are **new** test functions inside the two existing test fil
 
 ---
 
-## 7. P3 dispositions — all four, exact
+## 7. P3 dispositions — the four W0-R03F P3s, plus one grant-originated finding
 
-1. **`org_path` `maxLength` 512 — FIX.** `_parse_org_scope`
-   (`shadow_remote_contract.py:464-474`) currently calls `_require_str(org_path, ...,
-   min_length=0)` with no `max_length`, so the declared 512-character bound is unenforced. Add
-   `max_length=512` to that call. **Tests:** one boundary case at exactly 512 characters (accept)
-   and one at 513 (reject with `ContractValidationError`).
-2. **Response-body size cap — FIX, `MAX_RESPONSE_BODY_BYTES = 1_048_576`.** In `_run`
-   (`shadow_remote.py:285-439`), after the status-code checks (`shadow_remote.py:364-394`) and
-   **before** `response.json()` is called (`shadow_remote.py:396-406`), measure the response body
-   size and reject anything **larger than `1_048_576` bytes** as
-   `ShadowFailureCategory.MALFORMED_BODY`, quarantined, without attempting JSON decode.
-   **Disclosed residual, mandatory on every citation of this fix:** by the time this check runs,
-   `httpx` (used without streaming) has **already buffered the complete response body in
-   process memory** to produce `response.content`/`response.json()`; this cap bounds what is
-   **parsed and retained downstream** of that point, and is **not** a bound on the **peak memory
-   allocation** `httpx` itself performs while reading the response. **True streaming enforcement
-   is explicitly deferred** to a future gateway-wiring lane, which is the layer that would own
-   the transport's read-size configuration — this pure-domain-slice client does not own or
-   configure the injected `httpx.AsyncClient`'s transport (grant §5, out-of-scope item 5).
-3. **Strict RFC3339 timestamps — FIX.** `_require_timestamp_utc`
-   (`shadow_remote_contract.py:423-431`) currently accepts anything `datetime.fromisoformat`
-   parses provided it ends in `Z`, which admits non-RFC3339 basic-format strings (e.g. no `-`/`:`
-   separators). Add a strict pattern check —
-   `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$` — applied **before** the existing
-   `datetime.fromisoformat` calendar-validity check, which is **retained** (still catches
-   impossible calendar dates such as month 13 or February 30 that the regex alone would not).
-   **Tests:** one case that is calendar-valid but basic-format (rejected by the new regex) and
-   one case with a fractional-second component (`.123456789Z`) that is accepted by both the
-   regex and the calendar check.
-4. **`traceparent` — DEFER, not fixed.** The contract declares `traceparent` as an **optional**
-   header; this client's boundary (`ROUTE_BY_OPERATION`/`_run`) creates it **absent**, and the
-   client is otherwise **unwired** — it has no real W3C trace context to propagate, because no
-   gateway or caller in this pure-domain-slice constructs one. This grant **explicitly forbids**
-   synthesizing a fake `traceparent` from `correlation_id` or any other module-local value, which
-   would be a dishonest trace and worse than omission. **Revisit only at a future gateway-wiring
-   lane** that has a real trace context to hand the client. No test is required for a
-   deliberately absent, undeployed feature; the existing custom
-   `SHADOW_CORRELATION_HEADER` stays as the module-local substitute it already is.
-5. **Cause-chain leak — FIX.** `_require_enum` (`shadow_remote_contract.py:434-439`) and
-   `_require_timestamp_utc` (`shadow_remote_contract.py:423-431`) both re-raise with `from exc`.
-   The underlying `ValueError`s they chain **do** embed the offending remote value in their own
-   message text — `StrEnum(text)`'s `ValueError` reads `'{text}' is not a valid {ClassName}`, and
-   `datetime.fromisoformat`'s reads `Invalid isoformat string: '{text}'` — so while
-   `ContractValidationError.reason` itself stays safe, the **chained `__cause__`** carries the
-   remote value into any full traceback render (`traceback.format_exception`,
-   `logging.exception`, an unguarded `repr` of the exception chain). Change both `from exc` to
-   **`from None`** to suppress the chain. **Test:** construct an offending remote value (e.g. an
-   invalid `run_status` enum member or a malformed timestamp), catch the resulting
-   `ContractValidationError`, render its **full** exception chain (e.g.
-   `"".join(traceback.format_exception(type(exc), exc, exc.__traceback__))` or an assertion that
-   `exc.__cause__ is None` combined with a rendered-chain string check), and assert the offending
-   remote value is **absent** from that full rendered chain — not just from `str(exc)` or
-   `exc.reason`.
+Items **§7.1–§7.4** below are the **four P3s the W0-R03F review itself found** (hard-stop
+evidence §5.4, board §1.15/§14.23.3, register §18.1) — the same four the preamble and the §2.2
+authoritative-disposition line account for. Item **§7.5** is a **fifth finding, originated by this
+grant's own author**, not by W0-R03F — see §7.5 for its exact, explicit provenance. The two counts
+are never to be merged: "four P3s" always means §7.1–§7.4 only.
+
+### 7.1 P3 — `org_path` `maxLength` 512 — FIX
+
+`_parse_org_scope` (`shadow_remote_contract.py:464-474`) currently calls `_require_str(org_path,
+..., min_length=0)` with no `max_length`, so the declared 512-character bound is unenforced. Add
+`max_length=512` to that call. **Tests:** one boundary case at exactly 512 characters (accept) and
+one at 513 (reject with `ContractValidationError`). **The 512-character accept case is
+`PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED`** (§9): the unenforced pre-fix code
+already accepts a 512-character `org_path`, so this assertion cannot RED and must not be
+contrived into one; only the 513-character reject case is a genuine new RED requirement.
+
+### 7.2 P3 — Response-body size cap — FIX, `MAX_RESPONSE_BODY_BYTES = 1_048_576`
+
+In `_run` (`shadow_remote.py:285-439`), after the status-code checks (`shadow_remote.py:364-394`)
+and **before** `response.json()` is called (`shadow_remote.py:396-406`), measure the response body
+size as **`len(response.content)`** — the actual number of bytes received in the buffered
+`httpx.Response` body, not any remote-supplied header — and reject anything **larger than
+`1_048_576` bytes** as `ShadowFailureCategory.MALFORMED_BODY`, quarantined, without attempting
+JSON decode. **The remote `Content-Length` response header MUST NOT be used as the measured
+value, in whole or in part, and MUST NOT be used as a short-circuit** (e.g. trusting a small or
+absent `Content-Length` to skip measuring the actual body) — a remote peer controls that header
+and can misstate it independently of the bytes it actually sends, so only the actually-received
+`len(response.content)` is an honest measurement. **Tests, mandatory:** the ordinary
+over-limit/under-limit boundary cases, **plus** at least one case where the stub response
+declares a small or entirely absent `Content-Length` header while its actual body exceeds
+`1_048_576` bytes — asserting the cap still triggers on the real received size, not on the
+(spoofed) header. **Disclosed residual, mandatory on every citation of this fix:** by the time
+this check runs, `httpx` (used without streaming) has **already buffered the complete response
+body in process memory** to produce `response.content`/`response.json()`; this cap bounds what is
+**parsed and retained downstream** of that point, and is **not** a bound on the **peak memory
+allocation** `httpx` itself performs while reading the response. **True streaming enforcement is
+explicitly deferred** to a future gateway-wiring lane, which is the layer that would own the
+transport's read-size configuration — this pure-domain-slice client does not own or configure the
+injected `httpx.AsyncClient`'s transport (original grant §5, out-of-scope item 2). This body-
+measurement discipline and its mandatory disclosure are mirrored in acceptance §10.3's commit-body
+requirement.
+
+### 7.3 P3 — Strict RFC3339 timestamps — FIX
+
+`_require_timestamp_utc` (`shadow_remote_contract.py:423-431`) currently accepts anything
+`datetime.fromisoformat` parses provided it ends in `Z`, which admits non-RFC3339 basic-format
+strings (e.g. no `-`/`:` separators). Add a strict pattern check —
+`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$` — applied **before** the existing
+`datetime.fromisoformat` calendar-validity check, which is **retained** (still catches impossible
+calendar dates such as month 13 or February 30 that the regex alone would not). **Tests:** one
+case that is calendar-valid but basic-format (rejected by the new regex) and one case with a
+fractional-second component (`.123456789Z`) that is accepted by both the regex and the calendar
+check. **The fractional-second accept case is `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED
+EXPECTED`** (§9): the current permissive parser already accepts a fractional-second RFC3339
+string, so this assertion cannot RED and must not be contrived into one; only the basic-format
+reject case is a genuine new RED requirement.
+
+### 7.4 P3 — `traceparent` — DEFER, not fixed
+
+The contract declares `traceparent` as an **optional** header; this client's boundary
+(`ROUTE_BY_OPERATION`/`_run`) creates it **absent**, and the client is otherwise **unwired** — it
+has no real W3C trace context to propagate, because no gateway or caller in this pure-domain-slice
+constructs one. This grant **explicitly forbids** synthesizing a fake `traceparent` from
+`correlation_id` or any other module-local value, which would be a dishonest trace and worse than
+omission. **Revisit only at a future gateway-wiring lane** that has a real trace context to hand
+the client. No test is required for a deliberately absent, undeployed feature; the existing
+custom `SHADOW_CORRELATION_HEADER` stays as the module-local substitute it already is.
+
+### 7.5 Additional finding originated by this grant — not a W0-R03F P3
+
+**Cause-chain leak — FIX.** `_require_enum` (`shadow_remote_contract.py:434-439`) and
+`_require_timestamp_utc` (`shadow_remote_contract.py:423-431`) both re-raise with `from exc`. The
+underlying `ValueError`s they chain **do** embed the offending remote value in their own message
+text — `StrEnum(text)`'s `ValueError` reads `'{text}' is not a valid {ClassName}`, and
+`datetime.fromisoformat`'s reads `Invalid isoformat string: '{text}'` — so while
+`ContractValidationError.reason` itself stays safe, the **chained `__cause__`** carries the
+remote value into any full traceback render (`traceback.format_exception`, `logging.exception`,
+an unguarded `repr` of the exception chain). Change both `from exc` to **`from None`** to
+suppress the chain. **Test:** construct an offending remote value (e.g. an invalid `run_status`
+enum member or a malformed timestamp), catch the resulting `ContractValidationError`, render its
+**full** exception chain (e.g. `"".join(traceback.format_exception(type(exc), exc,
+exc.__traceback__))` or an assertion that `exc.__cause__ is None` combined with a rendered-chain
+string check), and assert the offending remote value is **absent** from that full rendered chain
+— not just from `str(exc)` or `exc.reason`.
+
+**Provenance, exact — attribution/count correction.** This finding was **not** raised by the
+W0-R03F review, the hard-stop evidence, or any prior record naming "four P3s"; it was identified
+by this grant's own author from a **read-only re-read of the current `shadow_remote_contract.py`
+source** while drafting this document, independent of the W0-R03F transcript. It is a genuine,
+valid, in-scope fix under the same four-path allowlist (§8) and is granted on that basis — but it
+must **never** be cited as a W0-R03F finding, folded into "the four P3s," or used to imply the
+independent review found five. Any future record disposing of "the W0-R03F P3s" must cite exactly
+§7.1–§7.4; any record disposing of "every P3-tier finding in this grant" must cite §7.1–§7.5 and
+name §7.5's distinct, grant-originated provenance.
 
 **Reviewed, no change (explicitly bounded scope):**
 
@@ -364,6 +432,25 @@ in-transcript, **before** touching either source module. A **fabricated or after
 reconstructed** RED chronology is a **P0**, exactly as the original grant §7 and §9 item 12 state,
 and exactly the standard this record's own §2.1 correction holds itself to.
 
+**Satisfiable-RED carve-out, exact.** Genuine RED is required **only for assertions that actually
+fail against the pinned pre-fix source bytes.** Where a new assertion already **passes** against
+those pinned bytes — because the current, unfixed code already happens to exhibit the desired
+behavior — no RED is possible for that specific assertion, and none may be manufactured. Such an
+assertion must instead be run and its result preserved in-transcript labeled exactly
+**`PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED`**, before any source edit, and re-run
+after the fix to confirm it still passes as a regression guard. **At minimum, this applies to:**
+§6 item 4 (GET operations already omit `Idempotency-Key`, since no operation currently sends the
+header at all); §7.1's 512-character `org_path` accept case (already accepted, since no
+`max_length` is currently enforced); and §7.3's fractional-second RFC3339 accept case (already
+accepted by the current permissive `fromisoformat`-based parser). Every **other** new assertion in
+§6/§7 — including the 513-character `org_path` reject, the basic-format timestamp reject, and
+every P1/P2 assertion — has no pre-existing-green carve-out and **must** show a genuine, honest
+RED against the pinned pre-fix bytes before any source edit. **Contriving a failure where none
+exists, relabeling an already-green result as RED, or silently omitting a required
+`PRE-EXISTING GREEN` guard result is itself a §11 item 11 P0**, exactly as a fabricated RED
+chronology is — the carve-out authorizes honest labeling of an unavoidable green, never a shortcut
+around evidencing a genuine RED where one is achievable.
+
 Test harness constraints from the original grant §7.1 continue unchanged: in-process ASGI stub
 only (no socket, no port, no DNS, no egress), synthetic data only, no database, no container, no
 image pull, no external service.
@@ -378,8 +465,13 @@ image pull, no external service.
   in-transcript (§9).
 - **GREEN:** the full set of the prior **81** targeted tests **plus every new test** added under
   §6/§7 passes.
-- **Bounded regression:** the same **39**-test copilot regression set named in the original grant
-  §8.1 still passes.
+- **Bounded regression:** the same copilot regression set the original grant §8.1 names **by
+  five files** (`test_copilot_disposition.py`, `test_hunt_copilot_suggest.py`,
+  `test_soar_copilot_draft.py`, `test_soar_copilot_tool.py`, `test_forensics_copilot_summary.py`)
+  still passes. **Citation correction:** the original grant §8.1 names only the five files, not a
+  test count; the **39**-test count is reported in hard-stop evidence §4 (`Bounded copilot
+  regression | 39 passed`), and it is that count, not the original grant, that this record cites
+  for the number.
 - **Lint:** `ruff check` and `ruff format --check` — **check modes only**; `ruff format` (write
   mode) and `--fix` remain forbidden.
 - **Syntax:** `ast.parse` / byte-compile of the four paths, with no repo cache written.
@@ -409,7 +501,13 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
    W0-IR13 decision or this grant. It must return **GO with no P0–P2**.
 3. **Only then**, the **same remediation writer session** resumes **within its remaining §3.3
    runtime** and: stages **exactly the four paths** (`git add` of those four paths only, never
-   `git add -A`); makes **exactly one** local, status-honest **`SCAFFOLD`** commit.
+   `git add -A`); makes **exactly one** local, status-honest **`SCAFFOLD`** commit. **Runtime-
+   accounting clarifier:** the pause while the independent pre-commit reviewer works does **not**
+   itself consume any of the writer's §3.3 runtime allowance — the writer's clock is not running
+   during a review it is not performing. When the writer resumes to stage and commit, it may act
+   only **within whatever runtime it had genuinely left** at the point it stopped before staging;
+   the reviewer's pause neither extends nor grants a fresh allowance, and does not authorize
+   treating the resumed step as a new cycle.
 4. A **fresh, distinct Opus 5** session — distinct from the pre-commit reviewer of step 2 and
    from every session named in step 2 — performs the **post-commit** review and must return
    **PASS with no P0–P2** before anything counts as product evidence.
@@ -421,12 +519,19 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
 
 ### 10.3 Commit body — mandatory disclosures, mandatory omissions
 
-The one authorized commit's body must disclose, at minimum: which of the P1/two-P2/four-P3
-findings were **fixed** under this grant and which (per §7 item 4) were **explicitly deferred**
-and why; the RED chronology's evidentiary basis (§9); the borrowed-venv dependency-version caveat
-(§10.1); the §7 item 2 residual-buffering disclosure (`httpx` already buffers the full body before
-the new size cap runs); and cache-residue honesty (§10.1). It must **not** claim runtime,
-CI, live-shadow or blocker-closure evidence of any kind.
+The one authorized commit's body must disclose, at minimum: which of the P1, two P2s, four
+W0-R03F P3s (§7.1–§7.4) and the one grant-originated finding (§7.5) were **fixed** under this
+grant and which (per §7.4 only — `traceparent` — no other item is deferred) were **explicitly
+deferred** and why; the RED chronology's evidentiary basis (§9), including which assertions were
+honest RED and which were labeled `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED` under
+the §9 satisfiable-RED carve-out; the borrowed-venv dependency-version caveat (§10.1); the §7.2
+residual-buffering disclosure (`httpx` already buffers the full body before the new size cap
+runs) **together with the §7.2 measurement method** — that the cap measures `len(response.content)`
+and never the remote `Content-Length` header, alone or as a short-circuit; the §7's "Reviewed, no
+change" disclosure that **full request-body schema validation stays out of scope**, with the only
+body-derived field touched by this grant being the `idempotency_key` extraction of §5.1/§6; and
+cache-residue honesty (§10.1). It must **not** claim runtime, CI, live-shadow or blocker-closure
+evidence of any kind.
 
 ---
 
@@ -451,7 +556,9 @@ of:
 9. Any staging attempt before the pre-commit review returns **GO with no P0–P2**.
 10. Any **remote action** whatsoever — push, fetch, merge, rebase, tag, remote add/set-url. The
     pre-existing `origin` remote is not to be touched.
-11. A fabricated or reconstructed RED chronology (§9) — itself a **P0**.
+11. A fabricated or reconstructed RED chronology (§9) — itself a **P0**. This includes contriving
+    a failure where the satisfiable-RED carve-out (§9) applies, relabeling an already-green result
+    as RED, or omitting a required `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED` label.
 12. Any prompt or temptation to resume `c173b76f…` or `e650bda1…`, reuse another task identity,
     or mint a new one.
 

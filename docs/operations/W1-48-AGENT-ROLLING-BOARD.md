@@ -956,6 +956,66 @@ remediation — together with the **W0-R06D** mandatory prospective corrections.
   The **W0-IR12 P1 dirty roadmap file** and the **W0-IR12 P2 blocker-4 roots** remain exactly as
   §1.14/§1.15 record them — untouched, unedited, unresolved. Full bounded record: §14.24.
 
+### 1.17 SOC W1-I04A `shadow_remote` remediation-grant amendment — 2026-07-27, sixteenth same-day record
+
+Recorded later again on 2026-07-27, after §1.16/§14.24, under the **same three-path
+coordinator-delegated authority** re-scoped for **exactly one further bounded local commit**.
+Owner: logical task **W0-D04** (grant-amendment implementer). This record applies an independent
+**W0-R06E** Opus **NO-GO** review's mandatory P2 corrections to the still-prospective
+`docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md` — **before any product writer opened
+under it** — and does nothing else: it opens no writer, edits no product byte, flips no gate,
+accepts no packet and creates no task identity. Full bounded record: §14.25.
+
+- **Why this exists.** The W0-R06E review found the prospective grant's own wording
+  satisfiable-but-imprecise in five respects: (1) it undercounted/mis-anchored its own P3 count by
+  folding a grant-originated finding into "four P3s"; (2) its test-first RED rule did not account
+  for assertions that already pass against the pinned pre-fix bytes, which would force either a
+  contrived failure or an inaccurate RED claim; (3) its response-body size cap left the measurement
+  method ambiguous, risking a `Content-Length`-header short-circuit that a lying remote peer could
+  defeat; (4) several cross-references pointed at the wrong section or document; and (5) a few
+  operational riders (header-casing, runtime-pause accounting, out-of-scope disclosure) were
+  implicit rather than explicit. None of these five findings is a P0 or P1, none touches a hash, a
+  commit, a gate or a classification, and none is product evidence — they are wording, structure
+  and cross-reference corrections to a **document that has not yet been acted on**.
+- **Exact corrections applied, in the grant document itself.** §7 retitled to "the four W0-R03F
+  P3s, plus one grant-originated finding" and restructured into `### 7.1`–`### 7.5`, with §7.5 (the
+  cause-chain `from None` fix) explicitly marked as **originated by this grant's author from a
+  read-only source re-read**, never attributable to the independent W0-R03F review; §2.2's
+  authoritative-disposition line corrected from the wrong anchor `(§6)` to `(§7.1–§7.4)` plus the
+  separately-named `(§7.5)`; §9's test-first rule now carries an explicit **satisfiable-RED
+  carve-out** — genuine RED is required only where the pinned pre-fix bytes can actually fail, and
+  an assertion that already passes those bytes (at minimum: §6 item 4 GET-omits-the-header, §7.1's
+  512-character `org_path` accept, §7.3's fractional-second RFC3339 accept) must be labeled
+  **`PRE-EXISTING GREEN — REGRESSION GUARD, NO RED EXPECTED`** in-transcript rather than contrived
+  into a fabricated RED, with contriving, relabeling or omitting such a label itself remaining the
+  existing §11 item 11 **P0**; §7.2's response-body cap now requires measuring
+  **`len(response.content)`** — the actual received byte count — and explicitly **forbids** using
+  the remote `Content-Length` header as the measured value or as a short-circuit, with a mandatory
+  new test serving a spoofed small/absent `Content-Length` alongside an actual >1 MiB body,
+  mirrored into the §10.3 commit-body disclosure requirement; the out-of-scope transport citation
+  corrected from "item 5" to "item 2"; the regression-count citation corrected to attribute the
+  **39**-test figure to hard-stop evidence §4 (the original grant §8.1 names only the five
+  regression files, not a count); and the transcript-line correction of §2.1 refined to
+  distinguish **line 77** (a reasoning-only entry, not rendered narration) from **line 78** (the
+  actual assistant-text narration) — neither is a second tool call, invocation or observed
+  failure, exactly as the underlying W0-R06D chronology already held, now stated precisely.
+  Riders added: header assertions must read the captured **lowercase** `idempotency-key` key;
+  the pre-commit reviewer's pause does not consume the writer's §3.3 runtime, and the writer may
+  resume only within whatever allowance genuinely remained when it stopped before staging; and
+  the commit body must explicitly disclose that full request-body schema validation stays out of
+  scope beyond the `idempotency_key` extraction.
+- **What this amendment does not do.** It does **not** open a writer, edit any product byte, touch
+  the four-path attempt tree (re-verified unchanged, byte-identical to §1.16/§14.24.2), flip any
+  gate, or change the P1/two-P2/four-P3/one-grant-originated disposition's substance — only its
+  wording, structure, cross-references and test-first satisfiability. The **W0-I04 admission stays
+  `HOLD`**; the product writer named in §1.16/§14.24 **remains not open** pending a **fresh Opus
+  re-review returning GO with no P0–P2** against this amended text — the same identity, runtime,
+  four hash pins and four-path allowlist and STOP rules from §1.16/§14.24 are unchanged by this
+  amendment. **No status or date is promoted.** The persistent `docs/operations/README.md` index
+  omission, the control validator's non-machine-enforcement, the borrowed-venv/dependency-version
+  caveat, and the placeholder Git author identity all remain open, exactly as §14.24.8 records
+  them, and are carried forward unresolved by this amendment too.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -4092,7 +4152,7 @@ W0-I04 admission **stays `HOLD`**; W1 product implementation and integration/liv
 exit criteria remain unmet; the roster of 48 stands with **no task 49**; W1 dates
 **2026-08-01 → 2026-08-23** and the **2026-12-21 → 2026-12-31** release window are unchanged.
 The **W0-IR12 P1 dirty roadmap file** (§1.14, hash `4ed13159a7afc104694dea8b2f2773003cdf8831`,
-re-pinned unchanged in §14.24.3 below) and the **W0-IR12 P2 blocker-4 dirty canonical roots**
+re-pinned unchanged in §14.24.7) and the **W0-IR12 P2 blocker-4 dirty canonical roots**
 remain exactly as §1.14/§1.15/§14.22/§14.23 record them — untouched, unedited, unresolved. The
 `docs/operations/README.md` index omission, the control validator's non-enforcement of this
 record, and the placeholder Git author identity are recorded as **P3s**, unresolved, exactly
@@ -4169,6 +4229,144 @@ the same **P3** named in §14.23.5 item 2, and is disclosed in full in §14.24.8
   **2026-12-21 → 2026-12-31** release window are unchanged.
 - The Fabric W0-I07 lane (§1.7), the Cyber AI W0-I06 lane (§1.9) and the SOC W1-I03B lane (§1.13)
   are untouched.
+
+### 14.25 W0-D04 SOC W1-I04A `shadow_remote` remediation-grant amendment — docs-only, one bounded local commit
+
+Recorded on **2026-07-27**, the sixteenth same-day record, immediately after §14.24, under
+**coordinator-delegated Founder authority** scoped to documentation and **exactly one further
+bounded local commit**. Owner: logical task **W0-D04** (grant-amendment implementer). This
+section applies an independent **W0-R06E** Opus **NO-GO** review's mandatory P2 corrections to
+the still-prospective `docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md`, **before any
+product writer opened under it**. It accepts no packet, flips no ADR/contract/gate status,
+promotes no gate in §1, closes no residual, **opens no remediation or product writer itself**,
+and creates no task identity.
+
+#### 14.25.1 Exact write allowlist — the same three paths, no fourth
+
+| # | Path | Kind |
+|---|---|---|
+| 1 | `docs/operations/W1-I04A-SHADOW-REMOTE-REMEDIATION-GRANT.md` | **amended** — wording, structure and cross-reference corrections only |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this board (§1.17, §14.25, and one cross-reference fix inside the existing §14.24.6 text) |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | evidence register (§20) |
+
+No fourth path was created, and no path outside this list was written. `docs/operations/README.md`
+is outside this allowlist, so its index residual (named continuously since §14.13.1) **persists
+and now also omits this amendment record** — recorded again as the same standing **P3**.
+`docs/strategy/06-ROADMAP-2026-2029.md` is **not** in this allowlist; its pre-existing, unrelated
+dirty working-copy edit is left exactly as found, hash-pinned unchanged below, **not staged**. No
+SOC/product path of any kind was read for a fact not already re-verified in §14.24.2, and none was
+written to.
+
+This authority ends with **exactly one authorized local commit** of the three allowlisted paths
+in this control worktree — subject `docs(control): amend SOC shadow_remote remediation grant` —
+and nothing else: no push, no merge, no remote change, no release, no dependency install, no
+formatter.
+
+**Allowlist history, in order.** §14.24.1's own history list, then §14.24.1 three docs-only paths
+→ **§14.25.1 the same three docs-only paths (this record, an amendment, not a widened set)**.
+
+#### 14.25.2 Basis — an independent W0-R06E Opus review, applied to a still-prospective document
+
+The grant amended by this record had, at the time of this record, **opened no writer and produced
+no product byte** (re-confirmed: the four-path SOC attempt tree remains exactly as §14.24.2
+re-verified it, byte-identical, untouched by this amendment). An independent **W0-R06E** Opus
+review of that still-prospective document returned **NO-GO** against five **P2**-tier findings —
+none a P0 or P1, none touching a hash, a commit, a gate or a classification — all corrected
+directly in the grant document itself, exactly as detailed in board §1.17. This record is the
+control-side accounting of that amendment; it does not re-litigate or restate the grant's
+technical content beyond what is needed to bound the commit.
+
+#### 14.25.3 Exact corrections applied — summary, full detail in §1.17 and the grant itself
+
+1. **P3 attribution/count.** Grant §7 retitled "the four W0-R03F P3s, plus one grant-originated
+   finding," restructured into `### 7.1`–`### 7.5`; §7.5 (cause-chain `from None` fix) explicitly
+   marked as this grant-author's own finding from a read-only source re-read, not a W0-R03F
+   finding; §2.2's authoritative-disposition anchor corrected from `(§6)` to `(§7.1–§7.4)` plus
+   `(§7.5)` named separately.
+2. **Satisfiable test-first rule.** Grant §9 now states a **satisfiable-RED carve-out**: genuine
+   RED is required only where the pinned pre-fix bytes can actually fail; an assertion that
+   already passes those bytes must be labeled `PRE-EXISTING GREEN — REGRESSION GUARD, NO RED
+   EXPECTED` rather than contrived into a fabricated RED — at minimum for §6 item 4 (GET omits
+   `Idempotency-Key`), §7.1 (512-character `org_path` accept) and §7.3 (fractional-second RFC3339
+   accept). Contriving, relabeling or omitting such a label remains the existing §11 item 11 **P0**.
+3. **Body measurement.** Grant §7.2 now requires measuring **`len(response.content)`** — the
+   actual received byte count — and explicitly forbids using the remote `Content-Length` header as
+   the measured value or as a short-circuit; a new mandatory test serves a spoofed small/absent
+   `Content-Length` alongside an actual >1 MiB body. Mirrored into the §10.3 commit-body
+   disclosure requirement.
+4. **Cross-references.** The out-of-scope transport citation corrected from "item 5" to "item 2";
+   the **39**-test regression-count citation corrected to attribute the count to hard-stop evidence
+   §4 (the original grant §8.1 names only the five regression files, not a count); the transcript
+   correction of grant §2.1 refined to distinguish **line 77** (a reasoning-only entry, not
+   rendered narration) from **line 78** (the actual assistant-text narration); and this board's own
+   §14.24.6 roadmap-hash citation corrected from the wrong `§14.24.3 below` to the correct
+   `§14.24.7` (no product/finding content changed by that one-line fix).
+5. **Riders added.** Header assertions must read the captured **lowercase** `idempotency-key` key;
+   the pre-commit reviewer's pause does not consume the writer's §3.3 runtime, and the writer may
+   resume only within whatever allowance genuinely remained when it stopped before staging; the
+   commit body must explicitly disclose that full request-body schema validation stays out of
+   scope beyond the `idempotency_key` extraction.
+
+#### 14.25.4 Ceiling and status — unchanged, binding even on this amendment
+
+This amendment changes **no** hash, commit, gate, classification or disposition substance — only
+wording, structure, cross-references and test-first satisfiability of a document that has not yet
+been acted on. The **W0-I04 admission stays `HOLD`**; the product writer named in §1.16/§14.24
+**remains not open** — it requires a **fresh, independent Opus re-review returning GO with no
+P0–P2 against this amended text** before it may open, under the **same identity, runtime, four
+hash pins, four-path allowlist and STOP rules** as §1.16/§14.24 already state, unchanged by this
+amendment. **No status or date is promoted.** W1 product implementation and integration/live
+shadow stay **`HOLD`**; W1 runtime writers, delegated routine integration, push and external
+release stay **`NO-GO`**; **G2/G3 stay closed**; **`W0 COMPLETE=0`** with W0 closure **`NO-GO`**;
+the roster of 48 stands with **no task 49**; W1 dates **2026-08-01 → 2026-08-23** and the
+**2026-12-21 → 2026-12-31** release window are unchanged. The **W0-IR12 P1 dirty roadmap file**
+and the **W0-IR12 P2 blocker-4 roots** remain exactly as §1.14/§1.15/§14.22/§14.23/§14.24 record
+them — untouched, unedited, unresolved.
+
+#### 14.25.5 Control-side measured evidence — 2026-07-27
+
+Control `HEAD` before this record: `39881cf9ba0f17268ed3126b43ea36eb55ff1398`. Commands run
+manually from this worktree root against the current — deliberately dirty — control tree after
+the three documents were amended/written:
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, still **unstaged** |
+
+The validator and its test suite were **not modified** by this record; both commands are
+**manual** and **static/documentary only** — **CI: NOT WIRED** for both. **The validator does not
+machine-enforce this §14.25, board §1.17, register §20, the amendment's corrections, the grant's
+terms, the hash pins, the reviewer-separation rule or the ceiling** — this is the same standing
+**P3** named in §14.24.7/§14.24.8 item 2, carried forward unchanged.
+
+#### 14.25.6 P3 findings recorded — no new P0–P2 in this control record
+
+| # | P3 | Standing |
+|---|---|---|
+| 1 | `docs/operations/README.md` index omission | **Persistent**; outside §14.25.1, so it now also omits this record. **Not silently fixed outside a grant** |
+| 2 | The control validator does **not** machine-enforce §14.25, §1.17, register §20 or the amendment's terms | Its `PASS` is a documentary consistency check only; unchanged from §14.24.8 item 2 |
+| 3 | `actionlint` still absent from `PATH` and the venv | Open, unchanged from §14.24.8 item 3 |
+| 4 | Borrowed venv — dependency versions not from the SOC base's pins, interpreter **CPython 3.12.13** vs the declared `python_version = "3.11"` | Open, unchanged from §14.24.8 item 4; not re-measured by this docs-only amendment, which touched no product path |
+| 5 | **Placeholder Git author identity** in this control repository (`Your Name <your@email.com>`) | Unchanged provenance weakness of the control record |
+| 6 | The W0-R03F P1/two-P2/four-P3 findings, plus the one grant-originated §7.5 finding | **Still not fixed** — this amendment corrects the grant's wording/structure only; no product byte has been written toward any fix by this record or its predecessor |
+
+#### 14.25.7 What this record did not change and did not grant
+
+Beyond the single authorized local commit named in §14.25.1, nothing was staged, committed,
+merged, pushed, deployed or released; no branch, worktree or remote was created or configured; no
+dependency was installed; no database, container, microVM, netns or broker was started; no
+formatter or auto-fixer was run in any repository; and **no product repository was written to** —
+the attempt worktree was not touched at all by this amendment (it was already re-verified
+untouched in §14.24.2, and this record made no further SOC-side read). **No writer of any kind is
+opened by this record.** **Nothing is promoted.** The four-path dirty tree stays
+**`PAUSED — UNCOMMITTED` and not product evidence**. No gate opens or advances; the W0-I04
+admission stays **`HOLD`**. The dirty roadmap file stays quarantined byte-for-byte, unstaged,
+unedited. Blocker 4 is not resolved. The 48 immutable task identities and category counts are
+unchanged; **no task 49 exists**. W1 formal dates and the release window are unchanged. The Fabric
+W0-I07 lane, the Cyber AI W0-I06 lane and the SOC W1-I03B lane are untouched.
 
 ## 15. Coordinator runtime rule — bounded single extension
 
