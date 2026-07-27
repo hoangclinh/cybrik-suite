@@ -1056,8 +1056,8 @@ Full bounded record: §14.26.
      re-measured) but contradictory on its face. **Corrected, precisely:** the product pins carried
      in `d228522`/§14.25/§20 were **carried forward** from §14.24.2's read, **not independently
      re-measured** during `d228522`'s own authoring; this W0-R06F record **independently
-     re-measured** the same four-path tree (§14.26.5) and confirms it unchanged and read-only.
-  - The nine folded P3s (full text: grant document; summary: §14.26.3) sharpen the grant's own
+     re-measured** the same four-path tree (§14.26.2) and confirms it unchanged and read-only.
+  - The nine folded P3s (full text: grant document; summary: §14.26.4) sharpen the grant's own
     wording and required-fix precision — a security rider naming DEL/`U+2028`/`U+2029` alongside
     C0 controls, an interpreter-conditional (not assumed) pre-existing-green label for the
     fractional-second RFC3339 case, an exhaustive reviewer-exclusion list naming W0-R06E and
@@ -4538,7 +4538,7 @@ commit, a gate or a classification.
 | 6 | Staging-runtime dead end — no STOP rule if the writer's remaining allowance is insufficient to resume, stage and commit | §10.2 step 3 — writer must STOP uncommitted and report if insufficient runtime remains; staging/commit then requires a new, explicit runtime grant, never a workaround or identity substitution |
 | 7 | §6 "new test functions" wording did not address the bounded `RecordingShadowApp` stub edit the new assertions require | §6 preamble — bounded helper/stub edits inside the two already-allowlisted test files are permitted when needed to support required assertions |
 | 8 | Future writer transcript evidence had no explicit treatment as a not-yet-existing, post-run-only field | §10.3 — the writer's own session transcript is a mandatory post-run evidence field, pinned by its real UUID only once that session exists; not a pre-cited path |
-| 9 | Standing P3s (README index omission, `actionlint` absence, placeholder Git author identity) needed accurate carry-forward, not a fix outside scope | Carried forward unchanged below (§14.26.6) — **not silently fixed**, no product/tooling change made |
+| 9 | Standing P3s (README index omission, `actionlint` absence, placeholder Git author identity) needed accurate carry-forward, not a fix outside scope | Carried forward unchanged below (§14.26.7) — **not silently fixed**, no product/tooling change made |
 
 None of these nine widens the grant's product scope, edit allowlist (§8), path count, or
 out-of-scope list; all sharpen existing required-fix wording, evidentiary discipline or

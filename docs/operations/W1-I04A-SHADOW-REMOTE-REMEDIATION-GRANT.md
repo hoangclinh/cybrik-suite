@@ -12,8 +12,12 @@
   rewrite** — the first amendment's own text stands unedited as dated history (board §1.17/§14.25,
   register §20); this correction record is board §1.18/§14.26, register §21. It fixes no product
   byte, flips no gate, and **the four-path attempt tree stays exactly as re-verified in §1.5,
-  untouched by this correction** — the tree pin is carried forward from §1.5/§14.24.2, not
-  independently re-measured a second time by either amendment (board §14.26.2)
+  untouched by this correction**. **W0-R06G correction, exact:** the prior wording here stated the
+  tree pin was "not independently re-measured a second time by either amendment," which is false
+  as to this correction itself — `d228522`/the first amendment carried the pin forward from
+  §1.5/§14.24.2 without a fresh read, but `92f26be`/this correction **independently re-measured**
+  the product tree read-only and confirmed all four hashes byte-identical, exactly as board
+  §14.26.2 and register §21.1 record
 - **Status:** `ACTIVE — PROSPECTIVE BOUNDED GRANT, TWICE-CORRECTED — LOCAL DOCS ONLY, NOT PUSHED —
   NO WRITER OPENED BY THIS RECORD OR EITHER CORRECTION`
 - **Grant author:** logical task **W0-D04** (prospective-grant document implementer), under the
@@ -574,8 +578,11 @@ This differs from the original grant's Fable-only reviewer discipline, by explic
    that authored the **W0-IR13** decision; (e) any session that authored this grant document, in
    any of its states — the original prospective grant (register §19), the **W0-R06E**
    amendment-review/authoring session (board §1.17/§14.25, register §20), and the **W0-R06F**
-   correction-review/authoring session (board §1.18/§14.26, register §21); and (f) distinct from
-   every other reviewer named in this list and in step 4 below. No grant-authoring or
+   correction-review/authoring session (board §1.18/§14.26, register §21); (f) **W0-R06G
+   correction, exact:** the independent review session `82cfaa02-a702-4477-8e20-5f2326992de5`
+   that reviewed the W0-R06F correction and whose provenance/citation findings this present
+   follow-on correction applies — also excluded, exhaustively, by the same role; and (g) distinct
+   from every other reviewer named in this list and in step 4 below. No grant-authoring or
    grant-review session of any kind — past or present — may double as the future product
    pre-commit or post-commit reviewer. It must return **GO with no P0–P2**.
 3. **Only then**, the **same remediation writer session** resumes **within its remaining §3.3
@@ -719,6 +726,9 @@ sub-lane, a decision and a correction, **not tasks**.
   grant. **Not silently fixed outside a grant.**
 - **P3 recorded.** The control validator does not machine-enforce this grant, board §1.16/§14.24,
   register §19 or any pin above; its `PASS` is a documentary consistency check only.
+- **P3 recorded.** `actionlint` remains absent from `PATH` and the borrowed venv, unchanged from
+  board §14.24.8 item 3/§14.25.6 item 3/§14.26.7 item 3; documentary/open only, no tooling
+  installed or fixed by this record.
 - **P3 recorded.** The placeholder Git author identity in this control repository (`Your Name
   <your@email.com>`) is an unchanged provenance weakness, carried forward unresolved.
 
