@@ -824,3 +824,76 @@ it accepts nothing, promotes no writer, opens no writer session and moves no gat
   byte-for-byte untouched and unstaged — hash-pinned before and after at
   `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.19.4); the formal W1 dates
   2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 15. SOC W1-I03B route-DB landing grant — 2026-07-27, eleventh same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.20, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **fresh prospective
+bounded grant** that §14 requires before the `PAUSED — UNCOMMITTED` two-path W1-I03B dirty tree
+can land — a **landing-only** scope with **zero product byte edits** — on the basis of the
+**W0-IR11 decision** (a coordinator-delegated decision label, not a roster task identity): an
+independent Fable governance review of this landing scope returning **GO with no P0–P2**, finding
+the scope **distinct** from the consumed cycle-1 authoring scope and **non-evasive** of the board
+§15 runtime bound. This is **cycle 2** for sub-lane W1-I03B. The attempt worktree state was
+**re-verified read-only** and its dirty bytes **hash-pinned** against the SOC repository on
+2026-07-27; the cycle-1 test, check and review figures are **as reported** in §14 and were not
+re-executed from this control worktree; no product repository was written to. Full grant text:
+`docs/operations/W1-I03B-ROUTE-DB-LANDING-GRANT.md`; board summary: board §1.12. The grant
+authorizes one future bounded landing attempt under its own terms; it promotes nothing by itself,
+and no writer session was opened by this record.
+
+### 15.1 Verified basis and recorded grant
+
+| Item | Verified / reported state | Recorded grant |
+|---|---|---|
+| SOC — W1-I03B route-DB landing | **re-verified 2026-07-27, read-only:** existing worktree `cybrik-worktrees/w1-48/w1-i03b-route-db-permanence-r1`, branch `codex/w1-i03b-route-db-permanence-r1`, **HEAD = branch tip = base = `f4d234bba09ae1bea7a63b3348be3640a701065d`** — **no commit** above the base; exactly **two dirty `-uall` paths, zero staged** (NEW untracked `services/api/tests/integration/test_alert_context_route_db.py`; modified `.github/workflows/ci.yml`); **no upstream**. **Hash-pinned:** working-copy `ci.yml` `25e22c765c599fe832457715c12ab0790fd53fd0`; working-copy test module `386075950bb5c5d910d67ca9af99a937fbc65e53`; `ci.yml` **base blob** at `f4d234b…` `97724c6ffb53df4389942b865bbd5c0f6c61a923` — **any mismatch is a STOP**. Diff re-measured **`66 insertions, 0 deletions`** in one appended hunk, base **392 lines byte-identical** (458 total), appended `alert-context-route-db` job **`if: false` at job level**, self-labelled `STATIC CI WIRING, NOT WIRED`, zero existing-job edits; new test module **575 lines**. **As reported (§14; board §14.19.2):** cycle-1 skip-clean **9 skipped**; real **PostgreSQL 16.14** **9/9 passed**; integration **503 passed / 5 skipped**; available backend slice **2740 passed / 6 skipped / 1 pre-existing environment failure**; `ruff`/format/compile clean; **W0-R02B technical GO, no P0–P2, three P3**; writer session `2aa3bab1-bf56-4161-ac04-b4f67810691c` exhausted at 600 s + one 600 s extension | prospective bounded landing grant recorded (grant §1–§13): grantee the same immutable task **W0-I03**, sub-lane **W1-I03B**, **cycle 2** — no identity reuse or minting, **no task 49**; writer **Opus 5 in a brand-new session** with the exhausted session `2aa3bab1…` **never resumed** and the new session ID deliberately left unpinned for downstream recording; runtime one initial 600 s cycle plus at most one healthy evidence-based 600 s extension under board §15, **no third cycle**; scope is **landing only with ZERO product byte edits** — the only permitted SOC mutations are the Git **index** (staging exactly the two pinned paths) and **one** local commit object with parent exactly `f4d234b…`; revalidation read-only only — Git inspection plus the three hash checks, `ruff check`/`ruff format --check` (**check modes only**), byte-compile, skip-clean with expected **9 skipped**, and a real PostgreSQL 16 run **only if available with no install and no image pull** (already-present local `postgres:16` image; one throwaway test-only no-egress container removed before session end) where **absence of a database is explicitly not a STOP**; `mypy`/`actionlint` only if already present, **never installed**; writer **stops before staging** with zero staged; a **fresh independent Fable pre-commit review — neither W0-R02B nor W0-IR11** — must return **GO with no P0–P2**, after which the **same new session** may, within its remaining §15 time, stage exactly the two paths and make **one status-honest `SCAFFOLD` local commit** (suggested subject `test(soc): add alert-context route-DB test + gated CI block (SCAFFOLD)`; body must state `SCAFFOLD`, static `if: false` wiring with **CI NOT WIRED** and no CI result, the residual **not closed** with permanence requiring push plus remote green and push `NO-GO`, bytes authored under the exhausted cycle-1 grant/session and landed **unmodified** via the hashes, and the **RED evidence gap**), followed by a **fresh distinct independent Fable post-commit review** before anything counts as product evidence; exact STOP conditions in grant §9 (any product byte change, any hash mismatch, any third path or staged residue, any fix/formatter/auto-fixer, any install or image pull, any exhausted-session resume or identity reuse/minting, observed state mismatch, a pre-commit outcome other than GO/no P0–P2 or a disallowed reviewer, timeout, any remote or promotion action, any real data or a container left running). **Terminal for this scope:** on STOP or timeout without the commit, **no third W0-D04 prospective grant** may be issued for this landing scope, the tree stays `PAUSED — UNCOMMITTED`, and disposal or folding into the formal W1 window **requires an explicit Founder decision** |
+| Control — this repository | `HEAD` before this record `abc98d7f0b184e04ca7825a0314817359bc8140f` | control validator `PASS` — `tasks=48`, categories `I 12 · T 12 · R 6 · S 5 · B 5 · IR 4 · D 4`; `77/77` tests — re-run unchanged against the current dirty control worktree after the three documents were written; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged (board §14.20.4) |
+
+### 15.2 Synthesis
+
+- **Which §14 cells this supersedes.** The SOC W1-I03B cell only, and only as to **queued
+  status**: the future action §14 recorded as "queued, not decided and not granted" is now
+  **granted**, once, under the terms above. The §14 attempt facts, the `PAUSED — UNCOMMITTED`
+  disposition and the §13 cycle-1 grant terms all stand **unedited** as dated history, and the
+  tree remains uncommitted until the granted writer completes and both fresh reviews pass.
+- **Why the scope is distinct and non-evasive.** Cycle 1's allowlist permitted **authoring** new
+  product bytes; this grant permits **none** — the two files must land byte-identical to the
+  §15.1 hashes. It therefore buys **no authoring time**, which is what board §15 protects; the
+  task identity is unchanged and no task 49 is minted. Independent **W0-IR11** reviewed exactly
+  this question and returned **GO, no P0–P2**.
+- **Precedent is governance pattern only.** The Fabric W0-I07 (§9 → §10) and Cyber AI W1-I06C
+  (§11 → §12) landings used the same fresh-grant / brand-new-session / two-fresh-reviews
+  pattern, but **both permitted product byte edits**, so this grant is strictly narrower and
+  **no claim about either lane's evidence quality, review depth, gate effect or product maturity
+  transfers here**. Neither lane's `PASS` carries over as a review for this grant.
+- **P3 dispositions, explicit — none "resolved"**, since resolution would need the forbidden
+  byte edits: **P3-1 RED chronology — accepted as a permanent evidence gap**, never to be
+  reconstructed, with **no claim of verified TDD or verified RED→GREEN**, citable only "as
+  reported"; **P3-2 `mypy`/`actionlint` — run-if-present with no install**, otherwise the finding
+  **remains an open CI deferral** and **CI is NOT WIRED**; **P3-3 missing `cryptography` — out of
+  scope** (pre-existing, outside the diff, forbidden install), so the backend-slice figure
+  **`2740 passed / 6 skipped / 1 environment failure` retains that caveat**. Three **new W0-IR11
+  P3 cosmetic observations** are recorded and **not fixed**: a non-English `noqa: S608` rationale
+  fragment at test **line 97**; an import-time `os.environ.setdefault` at test **line 78**; and
+  the **`docs/operations/README.md` index omission** (outside the board §14.20.1 allowlist).
+- **Nothing is promoted now.** Every §6 SOC residual stays open exactly as dated; the CI job
+  block stays **strictly static CI wiring, CI: NOT WIRED**, never "permanent" without push plus
+  observed remote green, and push stays `NO-GO`. Even a completed, twice-reviewed commit under
+  this grant would count **only** as local, independently reviewed, unmerged/unpushed `SCAFFOLD`
+  evidence toward the **route-against-DB portion of live-shadow blocker 3**.
+- **Live-shadow blocker 3 stands in full** — `shadow_remote`, real org mapping, TTL enforcement
+  and the live bundle path are untouched and outside this grant; blockers 1, 2 and 4 stand
+  exactly as §12.2 records them, so **W1 integration/live shadow stays `HOLD`/`NO-GO`**. The
+  latest committed SOC lane state remains `f4d234b…` with W0-R02 `PASS`.
+- No gate opens or closes: GATE A4 and W1-C1/C2 stay `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays
+  `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed; `W0 COMPLETE=0` and W0 closure stays
+  `NO-GO`; the board §11 exit criteria remain unmet.
+- Nothing is pushed, merged or released; no dependency is installed; no secret is read; no status
+  is promoted; the Fabric W0-I07 lane (§10) and the Cyber AI W0-I06 lane (§12) are untouched.
+- The fixed roster of 48 stands with no task 49; category counts stay I 12 · T 12 · R 6 · S 5 ·
+  B 5 · IR 4 · D 4 — `W0-IR11` names a decision, not a task.
+- The pre-existing unrelated dirty edit in `docs/strategy/06-ROADMAP-2026-2029.md` was preserved
+  byte-for-byte untouched and unstaged — hash-pinned before and after at
+  `4ed13159a7afc104694dea8b2f2773003cdf8831` (board §14.20.4); the formal W1 dates
+  2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
