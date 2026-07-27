@@ -1767,3 +1767,136 @@ Measured after this record's three writes (this section, board §1.21/§14.29), 
 - The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
   S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 25. W1 blocker-4 canonical integration and CI-activation packet — 2026-07-27, twenty-first same-day record
+
+Task **W0-D04**, sub-lane **W1-D04B**, session `30493397-316c-47d4-b69a-fada6370afc7`, on the
+**W0-IR14** lane decision. Control `HEAD` before this record:
+`a3e8cba906a1a25298e991954778cb06d4e03e18`.
+Board: §1.22 (current summary), §14.30 (bounded record). Packet:
+`docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md`, status
+`PROPOSED — FOUNDER DECISION REQUIRED`.
+
+**Evidence class: documentation only.** This section records **no** product evidence, **no** CI
+evidence, and **no** runtime, transport, integration, deployment, durability, push, merge, remote or
+release evidence. It records **measurement** of local git topology and cites previously-measured
+hosted state. It is **not** countable toward any blocker.
+
+### 25.1 What was measured in this session, read-only
+
+`rev-parse`, `rev-list --left-right --count`, `merge-base`, `merge-base --is-ancestor`,
+`diff --name-only`, `status --porcelain`, `worktree list` and `for-each-ref` across the control
+worktree, the four canonical roots and the 17 `w1-48` worktrees. **No `fetch`; the measurement
+mutated no ref anywhere, and no product repository ref was mutated at any point; no product byte
+written.** One live read-only `GET` (§25.4). Repository roots never conflated.
+
+| Repository | Shape of the W1 work | Divergence | Tip |
+|---|---|---|---|
+| `cybrik-soc-command-center` | one strict FF chain, 5 branches totally ordered | **none** | `74f9774` (main+48) |
+| `cybrik-cyber-ai-platform` | one strict FF chain, 5 branches totally ordered | **none** | `2baba72` (main+23) |
+| `cybrik-security-tool-fabric` | one strict FF chain, 2 branches ordered | **none** | `d38f910` (main+13) |
+| `cybrik-suite` | **three divergent lines** off fork `3ef8e05` (main+15) | **real** | LINE 1 `a3e8cba` (main+37) · LINE 2 `a976a20` (main+18) · LINE 3 `ed95e51` (main+16) |
+
+Every W1 branch in all four repositories is **zero commits behind `main`**. Suite pairwise
+merge-base is `3ef8e05` in all three pairs, `L/R` 22/3, 22/1, 3/1; the three lines' 32/35/32 changed
+paths have **0 pairwise overlap across all 99 paths**. The validator-recorded `w1C1` `3a2c715…` and
+`w1C2` `ed95e51…` are **both parented on `3ef8e05…`**, which is that fork point.
+
+New objects rather than ahead-counts (`rev-list <tip> --not --remotes`): SOC **10**, Cyber AI
+**12**, Fabric **4**, Suite LINE 1/2/3 **24/5/3** — **58** genuinely-new commits against a naive
+ahead-sum of 155.
+
+Checkout-collision counts, which constrain *checkout* and never *push*: SOC 10 of 24, Cyber AI 16
+of 22, Fabric 10 of 26, Suite LINE 1 9 of 68 with LINES 2 and 3 at **0**. Of the 17 `w1-48`
+worktrees **13 are completely clean**, and **every candidate publication tip sits in a clean
+worktree**.
+
+### 25.2 The framing correction this packet carries
+
+The standing blocker-4 description — "four dirty canonical roots requiring integration" — implies
+four comparable merge problems. Measurement does not support it. **It is three repository
+fast-forwards plus one genuine Suite three-way integration.** For SOC, Cyber AI and Fabric there is
+**nothing to merge**: each is a single chain whose tip subsumes every other W1 branch in that
+repository. The three Suite lines are path-disjoint, so their merge is expected textually
+conflict-free — which is **not** a claim that it is semantically trivial, since LINE 1 is the
+control corpus that records the acceptance of the contracts carried on LINES 2 and 3.
+
+Two honest limits are recorded with it: the 68/24/22/26 dirty canonical-root entries are **W2-wave
+working state, not W1 work**, and retiring them is a separate lane this packet does not open; and
+every W1 artifact remains `SCAFFOLD`-class, locally reviewed, unmerged and unpushed.
+
+### 25.3 Hosted state — cited from W0-IR01B, not re-verified here
+
+Transcript `…/4c95f825-f39d-48d9-9eef-2272b6ca0bb5.jsonl` (298702 bytes), `gh` 2.96.0, scopes
+`gist, read:org, repo, workflow`, **token value never displayed**. Four **private, user-owned**
+repositories on **GitHub Free** with `admin:true` held; twelve protection/ruleset endpoints all
+**403 `"Upgrade to GitHub Pro or make this repository public"`**; `protected=false` on **all 25
+branches including every `main`**; **zero required status checks against 22 actual check instances**
+(SOC 8 + Cyber AI 7 + Fabric 5 + Suite 2), i.e. **19 distinct rendered names**, which are what a
+required-check configuration binds to;
+Actions enabled with `default_workflow_permissions: read` and **0 environments / 0 secrets / 0
+variables**; no `workflow_dispatch`, `merge_group` or `schedule`; no auto-PR/merge/release/deploy
+workflow anywhere; `allow_auto_merge=false`; **0 remote `w1-*` branches and 0 PRs in any state**.
+
+**Governing consequence recorded:** no server-side control exists on any branch of any of the four
+repositories, `main` included, and none can be created on the current plan while they stay private.
+**Rulesets specifically are recorded as "not visible (403); inferred absent" — never as verified
+absent.** Also carried unresolved: the `if: false` `alert-context-route-db` (`ci.yml:418`) and
+`e2e-org` (`ci.yml:253`) jobs, from which **no CI evidence may ever be derived**; the Suite rendered
+check names `secret-scan (gitleaks 8.30.1)` / `contract standards validation` differing from their
+job IDs; the **untested SOSIM fixture / gitleaks risk** at `74f9774` under a fail-closed
+`--exit-code 2` scan whose `.gitleaksignore` is **not new at `74f9774`** — 34 entries, blob
+`ae460e1ae5b345758380984dec3c82a5ace160e0`, unchanged from live/current `main`, predating the SOSIM
+fixtures and not updated by that commit, and therefore carrying no fingerprint for those new
+fixtures — stated as a quantified risk with the **outcome explicitly not predicted**; the unmeasured
+`security_and_analysis` block; and the incidental committed `.claude/` directory on Suite `main`.
+
+### 25.4 The single live re-confirmation
+
+`codex/w1-d02-soc-pg-evidence-r1` and `origin/codex/w2j-org-assets-vertical` both resolve to
+`6fe0c46b7b0d416d22c6cf2b681fe4a0e9b8bbf5`, and a read-only
+`GET repos/hoangclinh/cybrik-soc-command-center/git/ref/heads/codex/w2j-org-assets-vertical`
+returned that same SHA **live**, so this is not a stale remote-tracking artifact. **38 of SOC's 48
+W1 commits are already hosted.** This **refines and does not contradict** W0-IR01B's "0 remote
+`w1-*` branches, 0 PRs": no ref named `w1-*` exists remotely, and every proposed push would still
+create a **brand-new ref**, never updating or force-pushing an existing one.
+
+### 25.5 Verification
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged, and excluded from the commit |
+| Control `HEAD` before this record | `a3e8cba906a1a25298e991954778cb06d4e03e18` — the parent of the single authorized local commit that carries this record |
+| Control changed paths | **exactly four** — packet, board, this register, `docs/operations/README.md`; the exact contents of that one commit |
+| Staging during drafting and review | **zero staged** — chronology only: the draft writer and the remediation writer both hard-stopped before staging, so every review ran against an unstaged working tree; staging and the single local commit follow that phase |
+| Product repository bytes written | **zero**, all four repositories |
+
+**Disclosed coverage limitation, mandatory.** Unchanged pattern from
+§19.4/§20.3/§21.3/§22.4/§23.3/§24.3: the validator is a **documentary consistency check only**, it
+**does not machine-enforce this section or the packet**, and **CI: NOT WIRED** — no CI result is
+claimed.
+
+### 25.6 Synthesis
+
+- **Nothing is superseded and nothing is rewritten.** All prior sections stand as dated history.
+  This section adds a measurement record and a decision packet; it corrects the blocker-4 *framing*
+  in current documents only, and it refines — never contradicts — W0-IR01B (§25.4).
+- **Nothing is promoted.** **No blocker closes**; live-shadow blocker 4 stays open. **G2/G3 stay
+  closed**; `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the **W0-I04 admission stays `HOLD`**;
+  GATE A4/W1-C1/W1-C2 stay `ACCEPTED — CLOSED 2026-07-26` and W1-G1 `ACCEPTED — CLOSED 2026-07-27`;
+  W1 product/integration writers stay `HOLD` and runtime/delegated-integration/external release stay
+  `NO-GO`; **no UAT milestone is reached and no instance exists or is authorized**.
+- **No writer of any kind is opened.** Beyond the single authorized local commit named in board
+  §14.30.1 — the four control paths above, which advances this control repository's own branch ref
+  and nothing else — no push, fetch, product-ref or remote mutation, merge, PR, release, remote
+  configuration, repository-settings, branch-protection, required-check, plan or purchase change is
+  performed or authorized. **No product repository ref, branch or worktree and no remote of any kind
+  is created, configured or mutated.** Nothing is pushed, merged or released; no history is
+  rewritten, reset, checked out, stashed or rebased; no dependency is installed; no formatter is
+  run; no secret or token value is read or displayed; **CI: NOT WIRED**. The Fabric W0-I07, Cyber AI W0-I06, SOC
+  W1-I03B and SOC W1-I04A lanes are untouched.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.

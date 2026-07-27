@@ -1236,6 +1236,75 @@ already records them. W0-R03H's separate transcript-derived pre-fix-bytes caveat
 H2) is unchanged by this correction. Full bounded record: §14.29; standalone evidence correction:
 evidence file §12; register §24.
 
+### 1.22 W1 blocker-4 canonical integration and CI-activation decision packet — 2026-07-27, twenty-first same-day record
+
+Recorded on **2026-07-27**, after §1.21/§14.29, by a fresh, separate Opus 5 packet-writer authority
+(task **W0-D04**, sub-lane **W1-D04B**) under the same coordinator-delegated Founder authority, on
+the **W0-IR14** lane decision. Control `HEAD` at authoring: `a3e8cba906a1a25298e991954778cb06d4e03e18`.
+Produces one new document — `docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md`,
+`PROPOSED — FOUNDER DECISION REQUIRED` — plus this summary, §14.30, register §25 and the
+`docs/operations/README.md` index rows. **Docs-only, four control paths, zero product bytes.**
+
+**Two measured corrections it carries.** First, the standing blocker-4 framing of "four dirty
+canonical roots requiring integration" is **wrong in kind**: re-measured live, SOC, Cyber AI and
+Fabric each hold a **single strictly-ordered fast-forward chain** with **zero divergence and zero
+commits behind `main`** (SOC `267c698`→`6fe0c46`→`87e95cd`→`f4d234b`→`6464cfb`→`74f9774`, tip
+main+48; AI `2635485`→`c9530b9`→`42133a5`→`de41faa`→`866b7db`→`2baba72`, tip main+23; Fabric
+`beb01d7`→`6f72616`→`d38f910`, tip main+13), so for those three **there is nothing to merge**.
+Only `cybrik-suite` carries a genuine integration: **three divergent lines** off the shared fork
+`3ef8e05…` (itself main+15, below trunk `55e94c2…` main+13) — LINE 1 `a3e8cba…` (fork+22, main+37),
+LINE 2 `3a2c715…`→`4d5fb4b…`→`a976a20…` (fork+3, main+18), LINE 3 `ed95e51…` (fork+1, main+16),
+pairwise `L/R` 22/3, 22/1, 3/1 — whose 32/35/32 changed paths are **completely path-disjoint
+(0 pairwise overlap)**, so the three-way merge is expected textually conflict-free but still needs
+semantic review. **It is three repository fast-forwards plus one genuine Suite three-way
+integration, not four equivalent merges.** Second, "ahead of `main`" overstates blast radius: only
+**58** of a naive 155 commits are absent from every remote-tracking ref (SOC 10, AI 12, Fabric 4,
+Suite 24/5/3), because **38 of SOC's 48 commits are already hosted** — the `w1-d02` tip `6fe0c46…`
+is byte-identical to `origin/codex/w2j-org-assets-vertical`, re-confirmed **live** by a read-only
+`GET`. That refines, and does not contradict, W0-IR01B's "0 remote `w1-*` branches, 0 PRs".
+
+**The governing hosted fact, cited from W0-IR01B.** All four repositories are **private,
+user-owned, on GitHub Free**, with `admin:true` held — and all twelve branch-protection/ruleset
+endpoints return **403 `"Upgrade to GitHub Pro or make this repository public"`**, corroborated by
+`protected=false` on **all 25 branches including every `main`**. **Zero required status checks
+against 22 actual check instances** (SOC 8 + Cyber AI 7 + Fabric 5 + Suite 2), which are **19
+distinct rendered names**; required checks bind per repository by rendered name. Therefore **no
+server-side control exists on any branch
+of any repository, `main` included, and none can be created on the current plan while the repos
+stay private** — so "protect `main` first" is **not an engineering step, it is a purchase
+decision**. Rulesets specifically are recorded as **"not visible (403); inferred absent" — never
+as verified absent**. Compensating controls measured green: read-only `GITHUB_TOKEN`, zero
+secrets/environments/variables, no `workflow_dispatch`/`merge_group`/`schedule`, no
+auto-PR/merge/release/deploy workflow anywhere, `allow_auto_merge=false`, every candidate tip a
+clean fast-forward in a **clean worktree**. Carried unresolved: the `if: false`
+`alert-context-route-db` (`ci.yml:418`) and `e2e-org` (`ci.yml:253`) jobs — **a green run on those
+branches is not route-DB evidence**; the Suite rendered check names `secret-scan (gitleaks 8.30.1)`
+and `contract standards validation` differing from their job IDs; and the **untested SOSIM
+fixture / gitleaks risk** at `74f9774` (fail-closed `--exit-code 2`; `.gitleaksignore` is **not new
+at `74f9774`** — 34 entries, blob `ae460e1a…`, unchanged from live/current `main`, predating the
+SOSIM fixtures and not updated by that commit, so it carries no fingerprint for those new fixtures)
+— stated as a quantified risk, **outcome not predicted**.
+
+**Recommendation: Option A** — upgrade to GitHub Pro, configure `main` protection and required
+checks from the **measured rendered names** (excluding the suppressed jobs, `secret-scan` first),
+re-audit, and only then authorize explicit `codex`-ref pushes under a separate grant. Option B
+(explicit `codex/w1-*:codex/w1-*` refspec pushes only, one repo at a time, Suite→Fabric→AI→SOC
+last, two-person SHA/refspec verification, advisory CI, no merge or `main` push) is offered **only
+as a phased fallback if the Founder explicitly accepts the unprotected-`main` risk in writing** —
+red CI can enforce nothing and a mistyped `main` refspec is unrecoverable server-side. Option C
+(hold) changes **no date** but leaves route-DB permanence provably unclosable.
+
+**Nothing changes.** Beyond the single authorized local commit that carries this record across the
+four control paths above, this packet **opens no writer**, authorizes **no** push, fetch, product-ref
+or remote mutation, merge, PR, release, remote/settings change, plan or purchase change, install or
+formatter, **closes no blocker** and **promotes no gate**. W0-I04 stays `HOLD`; GATE A4/W1-C1/C2 stay
+`ACCEPTED — CLOSED 2026-07-26`, W1-G1 `ACCEPTED — CLOSED 2026-07-27`; G2/G3 stay closed;
+`W0 COMPLETE=0` with W0 closure `NO-GO`; W1 product/integration writers `HOLD`, runtime/integration/
+release `NO-GO`; roster 48 with **no task 49**; W1 2026-08-01 → 2026-08-23 and the release window
+2026-12-21 → 2026-12-31 unchanged; **no UAT instance exists**; **CI: NOT WIRED**. Full bounded
+record: §14.30; register §25; packet:
+`docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md`.
+
 ## 2. Capacity and ownership
 
 - Logical roster: exactly 48 immutable task identities from the W0 board.
@@ -5346,6 +5415,182 @@ any repository; no secret was read; and **no product repository was written to**
 any kind is opened by this record.** **Nothing is promoted.** All gates, classifications, dates
 and blocker/residual statuses named in §14.29.5 are unchanged. The Fabric W0-I07 lane, the Cyber
 AI W0-I06 lane and the SOC W1-I03B lane are untouched.
+
+### 14.30 W1-D04B blocker-4 canonical integration and CI-activation packet — docs-only, one bounded local commit
+
+Recorded on **2026-07-27** by a fresh, separate Opus 5 packet-writer authority (task **W0-D04**,
+sub-lane **W1-D04B**), session `30493397-316c-47d4-b69a-fada6370afc7`, on the **W0-IR14** lane
+decision. Current summary: §1.22. Register: §25.
+
+#### 14.30.1 Exact write allowlist — four control paths, no fifth
+
+| # | Path | Change |
+|---|---|---|
+| 1 | `docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md` | **NEW** |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | append §1.22 and §14.30 **only** |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | append §25 **only** |
+| 4 | `docs/operations/README.md` | index rows only — closes the persistent P3 index omission (§14.29.7 item 4) |
+
+Explicitly excluded and untouched: `docs/strategy/06-ROADMAP-2026-2029.md` (quarantined,
+byte-for-byte, unstaged), `tools/operations/**`, and **every product repository** — read-only, zero
+bytes written. No old-history rewrite: every prior section stands unedited as dated history.
+
+#### 14.30.2 Start-gate pins, all verified before any byte was written
+
+| Pin | Required | Measured |
+|---|---|---|
+| Control `HEAD` | `a3e8cba906a1a25298e991954778cb06d4e03e18` | **exact match** |
+| `git status --porcelain` | exactly ` M docs/strategy/06-ROADMAP-2026-2029.md` | **exact match, sole dirty path** |
+| `git hash-object` on that roadmap | `4ed13159a7afc104694dea8b2f2773003cdf8831` | **exact match** |
+| Staged entries at start | zero | **zero** |
+| `node tools/operations/validate-w1-control.mjs` | `PASS tasks=48`, fixed categories/gates | **PASS**, `{"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | 77/77 | **`tests 77 · pass 77 · fail 0`** |
+
+#### 14.30.3 Measure-first discipline
+
+Test-first is inapplicable to a docs-only record; the analogue applied here is **measure-first**.
+Every local topology, collision, ancestry and new-object figure in the packet was **re-measured
+live and read-only in this session before any prose was written**, using `rev-parse`,
+`rev-list --left-right --count`, `merge-base`, `merge-base --is-ancestor`, `diff --name-only`,
+`status --porcelain`, `worktree list` and `for-each-ref`. **No `fetch` was performed, and the
+measurement itself mutated no ref in any repository; no product repository ref was mutated at any
+point.** Repository roots were never conflated. One correction was made to this session's own
+first-pass measurement: an initial pairwise-ancestry sweep returned empty for Cyber AI and Fabric
+because of a `zsh` word-splitting artifact in the loop, **not** because those chains were divergent;
+re-run with literal branch lists, both proved strictly linear. The packet records the corrected
+result.
+
+#### 14.30.4 Measured topology recorded by this packet
+
+Canonical roots, none on `main`, all carrying uncommitted **W2-wave** work that is **not** W1 work:
+Suite `/Users/hoanglinh/Claude/Projects/cybrik-suite` on `codex/w2i-ai-inference-transport` at
+`55e94c2` (68 porcelain entries, **6 of them untracked directories**, so 68 is an exact entry count
+and a lower bound on files); SOC on `codex/w2j-org-assets-vertical` at `1b6671c` (24); Cyber AI on
+`codex/w2h-service-delegation-ai` at `281b252` (22); Fabric on `codex/w2h-auth-org-conformance` at
+`3292a65` (26). Local `main` equals local `origin/main` equals the live `main` reported by
+W0-IR01B in all four (`5a4823f0`, `267c698a`, `2635485e`, `beb01d7f`).
+
+**Three strict fast-forward chains, zero divergence, zero behind:** SOC `267c698`→`6fe0c46`(+38)
+→`87e95cd`(+44)→`f4d234b`(+46)→`6464cfb`(+47)→`74f9774`(+48), all ten ordered pairs satisfying
+`merge-base --is-ancestor`; Cyber AI `2635485`→`c9530b9`(+16)→`42133a5`(+18)→`de41faa`(+21)
+→`866b7db`(+22)→`2baba72`(+23); Fabric `beb01d7`→`6f72616`(+10)→`d38f910`(+13).
+
+**One genuine three-way integration — Suite only:** trunk `5a4823f`→`55e94c2`(+13)→**fork
+`3ef8e05`(+15)**, then LINE 1 `a3e8cba` (fork+22, main+37), LINE 2 `3a2c715`→`4d5fb4b`→`a976a20`
+(fork+3, main+18), LINE 3 `ed95e51` (fork+1, main+16); pairwise merge-base `3ef8e05` in all three
+pairs with `L/R` 22/3, 22/1, 3/1. The validator's recorded `w1C1` `3a2c715…` and `w1C2` `ed95e51…`
+**both parented on `3ef8e05…`** — that shared parent is the fork point. Changed paths 32/35/32 with
+**0 pairwise overlap across all 99 paths**.
+
+**Checkout-collision counts** (constrain *checkout*, never *push*): SOC 10 of 24, Cyber AI 16 of 22
+(**including `.github/workflows/ci.yml`**), Fabric 10 of 26 (**also including
+`.github/workflows/ci.yml`**), Suite LINE 1 9 of 68 with LINE 2 and LINE 3 at **0**; two Suite
+LINE 1 paths (`W1-48-AGENT-ROLLING-BOARD.md`, `W1-E2-EVIDENCE-REGISTER.md`) are tracked on the
+branch but untracked in the canonical root.
+
+**Worktrees:** 17 under `w1-48`; **13 completely clean**, four not — `w1-b05-…` (8), `w1-d02-…`
+(3), `w1-fab-c0-…` (2), and this control worktree (1, the quarantined roadmap). **Every candidate
+publication tip sits in a clean worktree.**
+
+**New objects, not ahead-counts:** `rev-list <tip> --not --remotes` gives SOC **10**, Cyber AI
+**12**, Fabric **4**, Suite LINE 1/2/3 **24/5/3** — **58 genuinely-new commits** against a naive
+ahead-sum of 155.
+
+#### 14.30.5 The one hosted ref this session re-confirmed live
+
+`codex/w1-d02-soc-pg-evidence-r1` and `origin/codex/w2j-org-assets-vertical` both resolve to
+`6fe0c46b7b0d416d22c6cf2b681fe4a0e9b8bbf5`, and a read-only
+`GET repos/hoangclinh/cybrik-soc-command-center/git/ref/heads/codex/w2j-org-assets-vertical`
+returned the same SHA **live** — so this is not a stale remote-tracking artifact. **38 of SOC's 48
+W1 commits are already hosted**, the `w1-d02` lane has committed nothing of its own, and the whole
+SOC W1 chain is built on already-published content. This **refines and does not contradict**
+W0-IR01B: no ref named `w1-*` exists remotely, no PR exists in any state, and every proposed push
+would still create a **brand-new ref** rather than update or force-push an existing one.
+
+#### 14.30.6 Hosted state cited, not re-verified
+
+Except §14.30.5, all hosted facts are **cited from W0-IR01B** (transcript
+`…/4c95f825-f39d-48d9-9eef-2272b6ca0bb5.jsonl`, 298702 bytes; `gh` 2.96.0; scopes
+`gist, read:org, repo, workflow`; **token value never displayed**) and are labelled as cited in the
+packet. Governing fact: four **private, user-owned, GitHub Free** repositories with `admin:true`
+held; twelve protection/ruleset endpoints all **403 `"Upgrade to GitHub Pro or make this repository
+public"`**; `protected=false` on **all 25 branches including every `main`**; **zero required checks
+against 22 actual check instances** (SOC 8 + Cyber AI 7 + Fabric 5 + Suite 2), i.e. **19 distinct
+rendered names**, which are what a required-check configuration binds to; Actions enabled with
+`default_workflow_permissions: read`, and
+**0 environments, 0 secrets, 0 variables**; no `workflow_dispatch`/`merge_group`/`schedule` and no
+auto-PR/merge/release/deploy anywhere; `allow_auto_merge=false`. **Rulesets are recorded as "not
+visible (403); inferred absent" and never as verified absent.** Unresolved and carried: the
+`if: false` `alert-context-route-db` (`ci.yml:418`) and `e2e-org` (`ci.yml:253`) jobs, the Suite
+rendered-name/job-ID divergence, the **untested SOSIM fixture / gitleaks risk** at `74f9774`
+(outcome explicitly **not predicted**), the unmeasured `security_and_analysis` block, and the
+incidental committed `.claude/` directory on Suite `main`.
+
+#### 14.30.7 Decision shape — recommendation only, no authority
+
+**Option A recommended:** Pro upgrade → `main` protection → required checks from **measured
+rendered names**, `secret-scan` first, **excluding** both suppressed jobs → read-only re-audit →
+only then a separate grant for explicit `codex`-ref pushes. Each step is a **Founder action**;
+purchase and settings changes are neither performed nor authorized here. **Option B** (explicit
+`codex/w1-*:codex/w1-*` refspecs only, one repository at a time, Suite→Fabric→Cyber AI→**SOC last
+behind its own `CLAUDE.md` gate**, two-person SHA/refspec verification, **advisory** CI, no merge
+and no `main` push) is a **phased fallback only if the Founder explicitly accepts the
+unprotected-`main` risk in writing** — the packet states plainly that red CI can enforce nothing
+and that a mistyped `main` refspec is unrecoverable server-side. **Option C** (hold) changes **no
+date** and is described only in terms of work compressed into the unchanged W1 window, with
+route-DB permanence provably unclosable locally. Ten NO-GO conditions are carried, eight from
+W0-IR01B and two added from this session's measurement (no canonical-root checkout onto a W1
+branch; no treating the SOC push as 48 new commits).
+
+#### 14.30.8 Verification for this record
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after this record's writes | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged, and excluded from the commit |
+| Control `HEAD` before this record | `a3e8cba906a1a25298e991954778cb06d4e03e18` — the parent of the single authorized local commit that carries this record |
+| Control changed paths for this record | **exactly four** (§14.30.1) — the exact contents of that one commit |
+| Staging during drafting and review | **zero staged** — chronology only: both the draft writer and the remediation writer hard-stopped before staging, so every review of this record ran against an unstaged working tree; staging and the single local commit follow that phase |
+| Product repository bytes written | **zero**, all four repositories |
+| `command -v actionlint` | **absent** — unchanged, no tooling installed |
+
+**Disclosed coverage limitation, mandatory.** Unchanged pattern from §14.29.7 and
+register §19.4/§20.3/§21.3/§22.4/§23.3/§24.3: the validator is a **documentary consistency check
+only**, it **does not machine-enforce this section or the packet**, and **CI: NOT WIRED** — no CI
+result is claimed.
+
+#### 14.30.9 Standing residuals, unchanged by this record
+
+| # | Residual | Status after this record |
+|---|---|---|
+| 1 | `mypy` not installed / not wired | Open, unchanged; not re-measured |
+| 2 | `actionlint` still absent from `PATH` and the venv | Open, unchanged; measured absent again |
+| 3 | Placeholder Git author identity in this control repository (`Your Name <your@email.com>`) | Unchanged provenance weakness |
+| 4 | `docs/operations/README.md` index omission | **Addressed** — `README.md` is inside this record's allowlist, and the index now carries the packet plus the recent W1-I04A grant/evidence/correction documents |
+| 5 | Untested SOSIM fixture / gitleaks verdict at `74f9774` | Open and now **quantified and documented** in the packet; **unresolvable without a push or a forbidden install**, outcome not predicted |
+| 6 | Suite `main` carries a committed `.claude/` directory | Open, **newly carried forward** from W0-IR01B; contents not inspected; not a blocker on this decision |
+
+#### 14.30.10 What this record did not change and did not grant
+
+Beyond the single authorized local commit named in §14.30.1 — four control paths in this control
+repository, which advances this control repository's own branch ref and nothing else — nothing was
+staged, committed, merged, pushed, fetched or released; **no product repository ref, branch or
+worktree was created, configured or mutated, and no remote of any kind was created, configured or
+mutated**; no history was rewritten, reset, checked out, stashed or
+rebased; no dependency was installed; no database, container, microVM, netns or broker was started;
+no formatter or auto-fixer was run in any repository; no secret or token value was read or
+displayed; and **no product repository was written to**. **No writer of any kind is opened by this
+record.** **Nothing is promoted.** No plan, purchase, repository-setting, branch-protection,
+required-check or remote configuration was changed or authorized. **No blocker closes** — live-shadow
+blocker 4 stays open. W0-I04 stays `HOLD`; GATE A4/W1-C1/W1-C2 stay `ACCEPTED — CLOSED 2026-07-26`
+and W1-G1 `ACCEPTED — CLOSED 2026-07-27`; **G2/G3 stay closed**; `W0 COMPLETE=0` and W0 closure
+stays `NO-GO`; W1 product/integration writers stay `HOLD` and runtime/delegated-integration/external
+release stay `NO-GO`; the roster stays **48 with no task 49** and category counts I 12 · T 12 · R 6 ·
+S 5 · B 5 · IR 4 · D 4; W1 **2026-08-01 → 2026-08-23** and the release window
+**2026-12-21 → 2026-12-31** are unchanged; **no UAT milestone is reached and no instance exists or
+is authorized**; **CI: NOT WIRED**. The Fabric W0-I07, Cyber AI W0-I06, SOC W1-I03B and SOC W1-I04A
+lanes are untouched.
 
 ## 15. Coordinator runtime rule — bounded single extension
 
