@@ -1080,3 +1080,85 @@ dependency or source skew makes a tool error out, it is reported as caveated evi
   S 5 · B 5 · IR 4 · D 4 — `W0-IR12`, `W1-I04A` and `W0-R06B` name a decision, a sub-lane and a
   correction, **not tasks**. The formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 18. SOC W1-I04A `shadow_remote` hard-stop evidence — 2026-07-27, fourteenth same-day record
+
+Added later again on 2026-07-27 under the three-path bounded authority recorded in
+`docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §14.23, which ends with exactly one authorized
+local commit of the three allowlisted paths. This section records the **outcome of the §17
+grant**: the granted W1-I04A writer ran on the new branch/worktree at exactly the grant base,
+produced exactly the four allowlisted untracked paths, stopped before staging as grant §10.1
+requires, and the fresh independent **W0-R03F** pre-commit review returned **NO-GO** with one
+**P1** and two **P2** findings. The attempt worktree state and the four file hashes and line
+counts were **re-verified read-only against the SOC repository** on 2026-07-27; the session,
+runtime, RED-chronology, execution and review figures are **as reported by the lane and the
+W0-R03F review** and were **re-read from both session transcripts**, not re-executed from this
+control worktree; **no product repository was written to**. Full record:
+`docs/operations/W1-I04A-SHADOW-REMOTE-HARD-STOP-EVIDENCE.md`; board summary: board §1.15. This
+section records evidence and one already-determined pause disposition — it accepts nothing,
+promotes no writer, **opens no remediation or product writer**, decides no remediation scope and
+moves no gate.
+
+### 18.1 Verified evidence and recorded disposition
+
+| Item | Verified / reported state | Recorded disposition |
+|---|---|---|
+| SOC — W1-I04A `shadow_remote` client-core attempt | **re-verified 2026-07-27, read-only:** **new** worktree `cybrik-worktrees/w1-48/w1-i04a-shadow-remote-r1`, **new** branch `codex/w1-i04a-shadow-remote-r1`, `HEAD` at exactly the grant base `6464cfbfc99ecf2109988dff0e6164c8cac6b10a`; `git rev-list --count 6464cfb..HEAD` = **0** — **no commit produced**; **zero staged**; **exactly four dirty `-uall` paths, all untracked** — precisely the grant §4 allowlist, **no existing file edited, no fifth path**, no `__init__.py`, no `conftest.py`; **no upstream, nothing pushed, no tag**, `origin` untouched; **no ignored or cache residue** (`git status --ignored` shows no `!!` entry; a macOS-valid sweep of `services/api` for `__pycache__`/`.pytest_cache`/`.mypy_cache` returns nothing). **Bytes, 2408 lines:** `shadow_remote.py` `ca351c05190ab0b26ac7aedebd0bd35a44b2421303d669b233c4e8ccbe14c2b5` (439), `shadow_remote_contract.py` `8df05e5fe041ef670bfc81f7c3ee8d6bfe27b65ca0436784fb2ffa582dec9bfc` (729), `test_shadow_remote.py` `8645e7592c9822b276bbe1d3aa29645fb073588e5f6a44b1999296b1f06540d7` (821), `test_shadow_remote_contract.py` `54c8b92db3e470757ae651f7dfdd927cbce6bd5e2f24f91d931e797c4404a565` (419). **As reported:** writer **Opus 5**, brand-new session `c173b76f-25b5-4bbc-8660-d5fe9a9792c8` (transcript **191 lines, one uniform internal `sessionId`**); the **600 s initial cycle plus exactly one** authorized extension, execution **325 s**, **no third cycle**. **Genuine test-first RED, transcript-citable:** both test modules written first (lines 61, 66), then the **target-source environment probe** (72–73), then **two `ModuleNotFoundError` runs** (76 at `01:23:08Z`, 78 at `01:23:30Z`), and **only then** the source modules (82, 102) — both RED runs **after** the probe and **before** any source existed; cited **as reported and as preserved in-transcript**, **never reconstructed**, so the grant §7 fabricated-chronology **P0 does not apply** and the permanent RED gap of W1-I03B is **not repeated**. **Executed local results, as reported, borrowed-venv caveat mandatory:** targeted unit tests **81 passed**; bounded copilot regression **39 passed**; `ruff check` and `ruff format --check` clean (**check modes only**); `ast.parse` clean with **no repo cache written**; `.venv/bin/mypy` targeted at the four paths — **`Success: no issues found in 4 source files`** on **`mypy 2.3.0 (compiled: yes)`**. The venv is **pre-existing, borrowed read-only, no install**; **CPython 3.12.13** and **dependency versions not from this base's pins** against a declared `python_version = "3.11"`; `PYTHONPATH` forced and probe-verified to the attempt worktree; **local runs, not CI — CI: NOT WIRED**. **Independent pre-commit review W0-R03F — PRE-COMMIT NO-GO**, fresh **Fable** session `e650bda1-abfd-4b0e-ac79-69138716e4c6` (transcript **122 lines, one uniform internal `sessionId`**), distinct from the writer and every prior W0-R02/W0-R03 reviewer: **P1** — `_reject_unknown` echoes **remote-controlled JSON key names verbatim** into the validation reason, which flows into the quarantine record's `message_safe` **and a `WARNING` log line**, reproduced with a **credential-shaped key name** and with a newline/unbounded injection yielding a **10,962-character `message_safe`** whose embedded newlines render as forged log lines — **violating the no-response-data invariant and grant §7.2 property 9**; **P2** — **create** and **cancel** omit the accepted required **`Idempotency-Key` header** matching the body, with tests asserting **path and verb but not the header**; **P2** — the **secret-leak tests never reach the leaking key-position branch** (the 500 case short-circuits before JSON handling; the value-position token case is safe by construction), so a **key-position test is required** and absent; **four P3** — `org_path` `maxLength` 512 **unenforced**, **no response-body size cap** before JSON decode, `fromisoformat` **accepting non-RFC3339 basic format**, and a **custom correlation header** used while the contract's **optional `traceparent`** is unused. **What passed:** exact scope and isolation, genuine RED, clean cache discipline, the **five paths and verbs** and conditional logic mostly sound, **bundle opacity justified**, the **injected contract-pin mismatch producing a zero-call** outcome, and the **W0-R06C riders honoured** | **`PAUSED — UNCOMMITTED` — not product evidence.** Grant §10.1 admits staging only after a pre-commit **GO with no P0–P2**, and grant §9 item 7 independently makes any P0–P2 an **immediate STOP**; **no staging and no commit is permitted from this attempt** and the four paths stay untracked. **The green local figures do not overcome the NO-GO** — the suite passes precisely because it never reaches the leaking branch. **Nominal remaining extension wall time does not revive the writer:** the P1/P2 **consumed all remaining writer authority**, the session `c173b76f…` is exhausted and **is never resumed**, and the **W1-I04A grant is consumed** with no second attempt under it. The latest committed SOC lane state remains `6464cfb…` with W0-R02D `PASS`. **Future action is queued, not decided and not granted:** a **brand-new writer** may act **only after a fresh prospective bounded grant** recorded before work, scoped to **genuinely distinct security/conformance/test fixes** — re-issuing the consumed authoring scope or splitting it to dodge the board §15 cycle cap is **evasion and forbidden** — carrying an **exact disposition of the P1, both P2s and all four P3s**, and running its **own** pre-commit and post-commit reviews; **neither the W0-R03F review nor this record's re-verification carries over as either**. The identity stays **`W0-I04`**; **no replacement identity, no task 49**. The reviewer's observation that the fixes **appear to fit the same four paths** is **recorded, not acted on, and confers no authority** |
+| Control — this repository | `HEAD` before this record `4908ecf48ca7dae23b49c037676371a692bce00e` | control validator **PASS** — `tasks=48`, categories `I 12 · T 12 · R 6 · S 5 · B 5 · IR 4 · D 4`; **`77/77`** tests (0 failed) — run against the current dirty control worktree; documentary consistency check only; validator and test suite **not modified**; **CI: NOT WIRED**. The validator **does not machine-enforce** this section, board §1.15/§14.23, board §15, the grant terms or the NO-GO disposition, so its `PASS` is **not** evidence that the governance holds. `docs/strategy/06-ROADMAP-2026-2029.md` hash-pinned before and after this record's writes at `4ed13159a7afc104694dea8b2f2773003cdf8831` — byte-identical, unstaged (board §14.23.4) |
+
+### 18.2 Corrections carried
+
+- **`tests/unit/` layout.** The directory contains **`golden/` and `vulnerability/`** in the base
+  — it is **not** flat with `golden/` as its only subdirectory. The earlier wording in grant §4.1
+  and board §14.22.6 item 7 is **inaccurate and is not repeated**; those records keep it
+  byte-unchanged as dated history and this section supersedes it prospectively. The substantive
+  constraint is unchanged: the new `copilot/` subdirectory carries **no `__init__.py`**.
+- **Tool availability.** `mypy` is **available in the borrowed venv, off `PATH`,
+  dependency-version-caveated** — the §17.2 correction stands and **no record may call it
+  unavailable**. `actionlint` **remains genuinely absent** from both `PATH` and the venv, an
+  **open-ended deferral to a CI that is NOT WIRED**.
+
+### 18.3 Synthesis
+
+- **Which §17 cells this supersedes.** The SOC W1-I04A cell only, and only as to attempt state:
+  the grant's one authorized attempt has now **run and stopped**, and its runtime and staging
+  authority are **consumed**. The §17 grant terms stand as dated history; **no second attempt
+  exists under them**.
+- **Nothing is promoted.** A `PAUSED — UNCOMMITTED` tree reviewed **NO-GO** is an audit
+  observation, not product evidence — the same discipline applied to the Fabric W0-I07 pause (§8),
+  the Cyber AI W1-I06C pause (§7) and the SOC W1-I03B pause (§14). Here it is stricter still: this
+  attempt does not even hold a technical GO.
+- **The one P1 and two P2s are recorded open and undispositioned**, as are the four P3s. **No
+  remediation of any of them is scheduled, decided or granted by this record.**
+- **Live-shadow blocker 3 stands in full** — the `shadow_remote` client core is uncommitted and
+  NO-GO, and **real org mapping, TTL enforcement, the live bundle path and gateway wiring** are
+  untouched; blockers 1, 2 and 4 stand exactly as §12.2 records them, so **W1 integration/live
+  shadow stays `HOLD`/`NO-GO`**.
+- The route-DB permanence residual is untouched: permanence still requires **push plus observed
+  remote green**, push stays **`NO-GO`**, and the appended CI job stays **`if: false`, strictly
+  static, CI: NOT WIRED**.
+- **Blocker 4 is not resolved** — all four canonical roots remain dirty and every suite-accepted
+  contract commit remains a **sibling, unintegrated** local commit; **no claim of resolution is
+  made**. The **W0-IR12 P1 dirty roadmap file** stays **quarantined byte-for-byte and unstaged**;
+  its disposition needs an **explicit Founder decision** or a separately scoped bounded docs
+  grant, and **its dirtiness is neither evidence nor release authority**.
+- No gate opens or closes: GATE A4 and W1-C1/C2 stay `ACCEPTED — CLOSED 2026-07-26`, W1-G1 stays
+  `ACCEPTED — CLOSED 2026-07-27`, G2/G3 stay closed; `W0 COMPLETE=0` and W0 closure stays
+  `NO-GO`; the board §11 exit criteria remain unmet; the **W0-I04 admission itself stays `HOLD`**.
+  **No UAT milestone is reached and no instance is authorized.**
+- Nothing is pushed, merged or released; no dependency is installed; no formatter is run; no
+  secret is read; **CI: NOT WIRED** for every lane above. The Fabric W0-I07 lane (§10), the Cyber
+  AI W0-I06 lane (§12) and the SOC W1-I03B lane (§16) are untouched — the
+  `w1-i03b-route-db-permanence-r1` worktree was left exactly as found at `6464cfb…`, clean, zero
+  staged, no upstream.
+- **P3s of this control record:** the persistent **`docs/operations/README.md` index omission**,
+  outside the board §14.23.1 allowlist and now also omitting this record, **not silently fixed**;
+  the **control validator not machine-enforcing** this section, board §1.15/§14.23, §15, the grant
+  or the NO-GO; **W0-IR12 having no standalone artifact**; **`actionlint` still absent**; the
+  **borrowed-venv dependency and interpreter caveat**; and the **placeholder Git author identity**
+  in **this control repository** (`Your Name <your@email.com>`), which SOC commit `6464cfb…` does
+  not share.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4 — `W1-I04A`, `W0-IR12`, `W0-R03F` and `W0-R06B`/`W0-R06C` name a
+  sub-lane, a decision, a review and corrections, **not tasks**. The formal W1 dates
+  2026-08-01 → 2026-08-23 and the 2026-12-21 → 2026-12-31 release window are unchanged.
