@@ -84,6 +84,12 @@ const sprintPath = join(
   "ADR-DECISION-SPRINT-2026-07.md",
 );
 const adrReadmePath = join(repositoryRoot, "docs", "adr", "README.md");
+const packetPath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
+);
 
 const [
   boardText,
@@ -99,6 +105,7 @@ const [
   w1C2ApplicationText,
   sprintText,
   adrReadmeText,
+  packetText,
 ] = await Promise.all([
   readFile(boardPath, "utf8"),
   readFile(roadmapPath, "utf8"),
@@ -113,6 +120,7 @@ const [
   readFile(w1C2ApplicationPath, "utf8"),
   readFile(sprintPath, "utf8"),
   readFile(adrReadmePath, "utf8"),
+  readFile(packetPath, "utf8"),
 ]);
 
 // Post-acceptance identities, independently recomputed from the committed bytes
@@ -136,6 +144,56 @@ const STALE_W1_C2_PINS = [
   "16099c17f01e7410e87860f5d9ce084a7fa8e2cad0a3e59b90a1ccb66643dd6f",
 ];
 
+// ── Dual-state W1-C1 provenance fixtures ──────────────────────────────────
+//
+// The accepted baseline and the W0-I01C correction candidate are two disjoint
+// states of the same lane. Every drift fixture below targets the *candidate*
+// anchors, which are unique by construction, so no mutation can silently land
+// on an accepted literal by first-occurrence replacement.
+// The correction is a commit now — local-only, integrated nowhere, accepted by
+// no contract gate. `committed` and `accepted` are independent axes, so the
+// fixtures below track the committed generation and never call it uncommitted.
+const W1_C1_CANDIDATE_LIFECYCLE =
+  "CORRECTION COMMITTED — LOCAL-ONLY — NOT INTEGRATED — NOT ACCEPTED";
+const W1_C1_CANDIDATE_BRANCH = "codex/w1-c1-correction-a2-r1";
+const W1_C1_CANDIDATE_COMMIT_ABBREV = "20cfa36";
+const W1_C1_CANDIDATE_COMMIT_PARENT_ABBREV = "a976a20";
+const W1_C1_CANDIDATE_TREE_ABBREV = "380a8f7";
+const W1_C1_CANDIDATE_MEMBER_SET =
+  "27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8";
+const W1_C1_CANDIDATE_AGGREGATE =
+  "76ef51d97dced58eda98b1144ca72f98cf81c7caff6cc51ffc3eab50114c940a";
+const W1_C1_CANDIDATE_ROW =
+  "| W0-I01C — W1-C1 alert-context correction candidate | " +
+  `committed local-only at \`${W1_C1_CANDIDATE_COMMIT_ABBREV}\`, parent ` +
+  `\`${W1_C1_CANDIDATE_COMMIT_PARENT_ABBREV}\`, tree ` +
+  `\`${W1_C1_CANDIDATE_TREE_ABBREV}\`, branch ` +
+  `\`${W1_C1_CANDIDATE_BRANCH}\`, on accepted base \`${W1_C1_COMMIT}\` | ` +
+  `\`${W1_C1_CANDIDATE_LIFECYCLE}\`; exactly 16 paths, zero staged | ` +
+  "candidate `member_set` " +
+  `\`sha256:${W1_C1_CANDIDATE_MEMBER_SET}\` (\`MEMBER-SET-SHA256/v1\`, 13/13 ` +
+  "member hashes, `member_count` 13); standalone validator `PASS`; candidate " +
+  "suite 21/21; 86.99% branch coverage against the declared 80% branch floor; " +
+  "independent review `PASS`, no open P0–P2; the downstream alert-context " +
+  "transport stale lock is disclosed with this candidate |";
+
+// Replace a fixture string that must be unique in the document. Guards against
+// the first-occurrence `.replace` hazard: a drift fixture that silently matched
+// a second, unintended site would make the assertion meaningless.
+function replaceUnique(text, needle, replacement) {
+  const occurrences = text.split(needle).length - 1;
+  assert.equal(
+    occurrences,
+    1,
+    `drift fixture anchor is not unique (${occurrences} occurrences): ${needle.slice(0, 96)}`,
+  );
+  return text.replace(needle, replacement);
+}
+
+function countOccurrences(text, needle) {
+  return text.split(needle).length - 1;
+}
+
 function validate(overrides = {}) {
   return validateW1ControlDocuments({
     boardText,
@@ -151,6 +209,7 @@ function validate(overrides = {}) {
     w1C2ApplicationText,
     sprintText,
     adrReadmeText,
+    packetText,
     ...overrides,
   });
 }
@@ -1391,6 +1450,814 @@ test("rejects an ADR catalog that reopens the closed nine-path index reconciliat
 });
 
 //
+// Dual-state W1-C1 provenance — one accepted baseline, one disjoint
+// correction now committed local-only. Every rule below must fail closed.
+//
+
+test("derives the W0-I01C candidate disposition without disturbing the accepted baseline", () => {
+  const result = validate();
+
+  // Deliberately *outside* `contractGateDisposition`: the candidate is not part
+  // of the accepted contract gate. `committed: true` with `accepted: false` is
+  // the whole point — the two axes are independent.
+  assert.equal(result.contractGateDisposition.w1C1Candidate, undefined);
+  assert.deepEqual(result.w1C1CandidateDisposition, {
+    lane: "W0-I01C",
+    lifecycle: W1_C1_CANDIDATE_LIFECYCLE,
+    committed: true,
+    integrated: false,
+    pushed: false,
+    accepted: false,
+    base: W1_C1_COMMIT,
+    branch: W1_C1_CANDIDATE_BRANCH,
+    memberSet: W1_C1_CANDIDATE_MEMBER_SET,
+    memberCount: 13,
+    dirtyPaths: 16,
+    staged: 0,
+  });
+  // The accepted baseline is untouched by the candidate.
+  assert.deepEqual(result.contractGateDisposition.w1C1, {
+    commit: W1_C1_COMMIT,
+    parent: W1_CANDIDATE_PARENT,
+    pathCount: 16,
+    digest: W1_C1_FINAL_DIGEST,
+  });
+});
+
+test("rejects an E2 register that drops the W0-I01C candidate row", () => {
+  const drifted = replaceUnique(e2RegisterText, W1_C1_CANDIDATE_ROW, "");
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /E2 register.*W0-I01C.*candidate row/i,
+  );
+});
+
+test("rejects a board that drops the W0-I01C candidate row", () => {
+  const drifted = replaceUnique(boardText, W1_C1_CANDIDATE_ROW, "");
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /board.*W0-I01C.*candidate row/i,
+  );
+});
+
+test("rejects a duplicated W0-I01C candidate row anchor", () => {
+  assert.equal(countOccurrences(e2RegisterText, W1_C1_CANDIDATE_ROW), 1);
+  const drifted = replaceUnique(
+    e2RegisterText,
+    W1_C1_CANDIDATE_ROW,
+    `${W1_C1_CANDIDATE_ROW}\n${W1_C1_CANDIDATE_ROW}`,
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /W0-I01C candidate row.*exactly once/i,
+  );
+});
+
+test("rejects a candidate row that claims the accepted contract lifecycle", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    `\`${W1_C1_CANDIDATE_LIFECYCLE}\`; exactly 16 paths`,
+    "`ACCEPTED FOR IMPLEMENTATION v0.1.0 — LOCAL COMMIT ONLY`; exactly 16 paths",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /candidate row/i,
+  );
+});
+
+test("rejects a candidate row that carries the accepted member-set digest", () => {
+  const drifted = replaceUnique(
+    boardText,
+    `candidate \`member_set\` \`sha256:${W1_C1_CANDIDATE_MEMBER_SET}\``,
+    `candidate \`member_set\` \`sha256:${W1_C1_FINAL_DIGEST}\``,
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /candidate row.*accepted W1-C1 member-set digest|candidate row/i,
+  );
+});
+
+test("rejects an accepted W1-C1 register row contaminated with the candidate member-set", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    `member-set digest \`sha256:${W1_C1_FINAL_DIGEST}\` (13/13 member hashes match)`,
+    `member-set digest \`sha256:${W1_C1_CANDIDATE_MEMBER_SET}\` (13/13 member hashes match)`,
+  );
+
+  assert.throws(() => validate({ e2RegisterText: drifted }), /W1-C1/i);
+});
+
+test("rejects an accepted W1-C1 board row contaminated with the candidate lifecycle", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "| exactly 16 paths; standalone validator `PASS`; 21/21 tests; 87.27% " +
+      "branch coverage against the declared 80% branch floor |",
+    "| exactly 16 paths; standalone validator `PASS`; 21/21 tests; 87.27% " +
+      `branch coverage; ${W1_C1_CANDIDATE_LIFECYCLE} |`,
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /accepted W1-C1 .*row.*candidate/i,
+  );
+});
+
+test("rejects a candidate row that drops the exact 16-path / zero-staged measurement", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    `\`${W1_C1_CANDIDATE_LIFECYCLE}\`; exactly 16 paths, zero staged`,
+    `\`${W1_C1_CANDIDATE_LIFECYCLE}\`; an unmeasured scope`,
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /candidate row/i,
+  );
+});
+
+test("rejects a candidate row that drops the 86.99% branch coverage against the 80% floor", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "candidate suite 21/21; 86.99% branch coverage against the declared 80% branch floor",
+    "candidate suite 21/21",
+  );
+
+  assert.throws(() => validate({ boardText: drifted }), /candidate row/i);
+});
+
+test("rejects a candidate row that drops the member_count 13 member-set attestation", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    "(`MEMBER-SET-SHA256/v1`, 13/13 member hashes, `member_count` 13)",
+    "(unverified)",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /candidate row/i,
+  );
+});
+
+test("rejects a candidate row that asserts a commit identity other than the known base", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    `committed local-only at \`${W1_C1_CANDIDATE_COMMIT_ABBREV}\`, parent`,
+    "committed local-only at `1111111111111111111111111111111111111111`, parent",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /candidate.*commit identity|candidate row/i,
+  );
+});
+
+test("rejects candidate wording that claims the candidate supersedes the accepted baseline", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "| W0-I01C — W1-C1 alert-context correction candidate | committed local-only",
+    "| W0-I01C — W1-C1 alert-context correction candidate | supersedes the " +
+      "accepted baseline; committed local-only",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /candidate/i,
+  );
+});
+
+test("rejects a dual-state section that claims the candidate replaces the accepted baseline", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "#### 14.32.2 Dual state — one accepted baseline, one disjoint candidate",
+    "#### 14.32.2 Dual state — one accepted baseline, one disjoint candidate\n\n" +
+      "The candidate replaces the accepted baseline.",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /candidate.*(supersed|replac)/i,
+  );
+});
+
+test("rejects a board that keeps the candidate row but drops the transport stale-lock disclosure", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "#### 14.32.3 Downstream alert-context transport — provenance-stale lock",
+    "#### 14.32.3 Reserved",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /stale[- ]lock disclosure/i,
+  );
+});
+
+test("rejects loss of the packet dual-state provenance overlay section", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "### 2.9 Dual-state W1-C1 provenance — the accepted baseline, and the correction committed on it",
+    "### 2.9 Reserved",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /packet.*dual-state/i,
+  );
+});
+
+test("rejects a packet that relabels the candidate working-tree aggregate", () => {
+  assert.equal(countOccurrences(packetText, W1_C1_CANDIDATE_AGGREGATE), 1);
+  const drifted = replaceUnique(
+    packetText,
+    `\`${W1_C1_CANDIDATE_AGGREGATE}\` is the **pre-commit`,
+    `\`${W1_C1_CANDIDATE_AGGREGATE}\` is the member-set digest ` +
+      `\`${W1_C1_CANDIDATE_AGGREGATE}\`, which is the **pre-commit`,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /working-tree aggregate.*exactly once/i,
+  );
+});
+
+test("rejects a packet that drops the aggregate recipe and its not-a-member-set label", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "It is **not** a member-set\ndigest, **not** a commit identity, and **not** " +
+      "part of the accepted C1 artifact recipe.",
+    "",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /working-tree aggregate/i,
+  );
+});
+
+test("rejects a packet that breaks the totally ordered LINE 2 commit chain", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "`3a2c715` → `4d5fb4b` → `a976a20` → `20cfa36` → `7185739`.",
+    "`3a2c715` → `a976a20` → `4d5fb4b` → `7185739` → `20cfa36`.",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /commit-graph block.*totally ordered `3a2c715` → `4d5fb4b` → `a976a20` → `20cfa36` → `7185739`/i,
+  );
+});
+
+test("rejects a packet that drops the NO-GO on publishing a976a20 as corrected C1 bytes", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "14. **NO-GO** on publishing, pushing or citing `a976a20` as the current corrected W1-C1",
+    "14. Publishing `a976a20` as the current corrected W1-C1",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /NO-GO.*a976a20/i,
+  );
+});
+
+test("rejects a packet that drops the NO-GO on treating the candidate as committed or accepted", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "15. **NO-GO** on treating the W0-I01C correction as accepted, integrated, pushed, merged or",
+    "15. The W0-I01C correction may be treated as accepted, integrated, pushed, merged or",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /NO-GO.*W0-I01C/i,
+  );
+});
+
+test("rejects a register note that presents the candidate member-set as a superseding value", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    "It is a **pending\ncandidate value**, not a superseding value:",
+    "It is a superseding value:",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /pending candidate value/i,
+  );
+});
+
+test("rejects a packet dual-state section that asserts the candidate is accepted", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "### 2.9 Dual-state W1-C1 provenance — the accepted baseline, and the correction committed on it",
+    "### 2.9 Dual-state W1-C1 provenance — the accepted baseline, and the correction committed on it\n\n" +
+      "The candidate is accepted.",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /candidate.*accepted/i,
+  );
+});
+
+//
+// W0-R06M P2-1 — measured alert-context transport fixture ground truth.
+//
+// Measured read-only over `contracts/examples/alert-context-transport/` at
+// `a976a20` (byte-identical to `4d5fb4b` apart from manifest metadata): the
+// examples manifest declares 13 fixtures; 11 of them carry
+// `include_descendants` across 17 occurrences, every one `false`; the
+// `approval-required` and `kill-switch-denied` fixtures omit the field, and no
+// fixture sets it `true`. The withdrawn "all 14 transport fixtures" claim
+// counted the manifest itself as a fixture.
+//
+
+const TRANSPORT_FIXTURE_COUNT = 13;
+const TRANSPORT_FIXTURES_CARRYING_FLAG = 11;
+const TRANSPORT_FLAG_OCCURRENCES = 17;
+
+test("records the measured alert-context transport fixture ground truth in the board and the packet", () => {
+  for (const [label, text] of [
+    ["board", boardText],
+    ["packet", packetText],
+  ]) {
+    for (const required of [
+      `**${TRANSPORT_FIXTURE_COUNT}** fixtures`,
+      `**${TRANSPORT_FIXTURES_CARRYING_FLAG}** of them carry`,
+      `**${TRANSPORT_FLAG_OCCURRENCES}** occurrences`,
+      "`approval-required`",
+      "`kill-switch-denied`",
+      "**no fixture sets it `true`**",
+    ]) {
+      assert.ok(
+        text.includes(required),
+        `${label} must state the measured transport fixture fact: ${required}`,
+      );
+    }
+  }
+
+  // The withdrawn count may not survive anywhere in either document.
+  for (const text of [boardText, packetText]) {
+    assert.equal(/(?:\*\*)?14(?:\*\*)? transport fixtures/.test(text), false);
+  }
+});
+
+test("rejects a board that restores the withdrawn 14-transport-fixture claim", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "the declared **13** transport fixtures never set",
+    "all **14** transport fixtures never set",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /W1 board claims 14 transport fixtures/,
+  );
+});
+
+test("rejects a packet that restores the withdrawn 14-transport-fixture claim", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "The transport examples manifest declares **13** fixtures;",
+    "All **14** transport fixtures carry the flag; the manifest declares",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /blocker-4 packet claims 14 transport fixtures/,
+  );
+});
+
+test("rejects a board stale-lock disclosure that drops the measured include_descendants detail", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "**11** of them carry\n  `include_descendants` across **17** occurrences, every one `false`.",
+    "the fixtures carry `include_descendants`.",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /stale-lock disclosure must stay pinned byte-exact/,
+  );
+});
+
+test("rejects a packet §2.9 that drops the measured transport fixture detail", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**11** of them carry\n`include_descendants` across **17** occurrences, every one `false`. The `approval-required` and",
+    "the fixtures carry `include_descendants`. The `approval-required` and",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.9 must keep the measured transport fixture disclosure/,
+  );
+});
+
+//
+// W0-R06M P2-2 — §7.1 must republish the live §2.8 measurement.
+//
+
+const PACKET_PUSH_DELTA_ROW = "| Suite LINE 1 | `8fe4cb0` | 38 | **25** |";
+const PACKET_CANDIDATE_REF_ROW =
+  "| 3 | Suite | LINE 1 `codex/w1-d04-founder-gate-repair-r1` | `8fe4cb0` | 25 | control corpus, measured at the immutable base |";
+
+test("records one base-plus-one Suite LINE 1 publication measurement in both §2.8 and §7.1", () => {
+  const result = validate();
+
+  // Design C: the record names its immutable base and its own offset, derives
+  // the post-commit count, and mints no identity of its own.
+  assert.deepEqual(result.line1Publication, {
+    base: "8fe4cb02e0119224205a86631db7c481f7638c23",
+    abbreviatedBase: "8fe4cb0",
+    baseNewCommits: 25,
+    laneCommitsAheadOfBase: 1,
+    predictedNewCommits: 26,
+    selfIdentityStated: false,
+  });
+  assert.equal(countOccurrences(packetText, PACKET_PUSH_DELTA_ROW), 1);
+  assert.equal(countOccurrences(packetText, PACKET_CANDIDATE_REF_ROW), 1);
+});
+
+test("rejects a packet §7.1 that proposes publishing Suite LINE 1 at a stale dated tip", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_CANDIDATE_REF_ROW,
+    "| 3 | Suite | LINE 1 `codex/w1-d04-founder-gate-repair-r1` | `a3e8cba` | 24 | control corpus |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 proposes publishing Suite LINE 1 at `a3e8cba`.*§2\.8 measures the live tip as `8fe4cb0`/s,
+  );
+});
+
+test("rejects a packet §7.1 that disagrees with §2.8 on the Suite LINE 1 new-commit count", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_CANDIDATE_REF_ROW,
+    "| 3 | Suite | LINE 1 `codex/w1-d04-founder-gate-repair-r1` | `8fe4cb0` | 24 | control corpus |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 records 24 new Suite LINE 1 commits.*§2\.8 measures 25/s,
+  );
+});
+
+test("rejects a packet §2.8 push-delta row that drifts off the immutable control base", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_PUSH_DELTA_ROW,
+    "| Suite LINE 1 | `a3e8cba` | 38 | **25** |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 measures the Suite LINE 1 publication tip as `a3e8cba`, which is not the immutable control base/,
+  );
+});
+
+test("rejects a packet §2.8 that records a stale Suite LINE 1 new-commit count", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_PUSH_DELTA_ROW,
+    "| Suite LINE 1 | `8fe4cb0` | 38 | **24** |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 records 24 Suite LINE 1 commits not on any remote-tracking ref; the measurement at the base `8fe4cb0` is 25/,
+  );
+});
+
+test("rejects a packet that drops the §2.8 Suite LINE 1 push-delta row", () => {
+  const drifted = replaceUnique(packetText, PACKET_PUSH_DELTA_ROW, "");
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 must carry a `Suite LINE 1` push-delta row/,
+  );
+});
+
+test("rejects a packet that drops the §7.1 Suite LINE 1 candidate-ref row", () => {
+  const drifted = replaceUnique(packetText, PACKET_CANDIDATE_REF_ROW, "");
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 must carry a Suite LINE 1 candidate-ref row/,
+  );
+});
+
+//
+// W0-R06M P3 — the foreign-commit-identity guard runs against every guarded
+// candidate region, in every document, not against a module constant.
+//
+
+const FABRICATED_SUCCESSOR = "9c1d4e2a7b6f0538ea4197cd3b8025f6417d9e0a";
+
+test("rejects a fabricated successor SHA inside the board §14.32.2 candidate region", () => {
+  const drifted = replaceUnique(
+    boardText,
+    "The `git`-measured basis for the correction row",
+    `The correction will land as \`${FABRICATED_SUCCESSOR}\`. The \`git\`-measured basis for the correction row`,
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    new RegExp(
+      `W1 board §14\\.32\\.2 asserts the commit identity \`${FABRICATED_SUCCESSOR}\``,
+    ),
+  );
+});
+
+test("rejects a fabricated successor SHA inside the packet §2.9 candidate region", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**No successor SHA is predicted, reserved or placeholdered anywhere in this corpus.**",
+    `The successor is \`${FABRICATED_SUCCESSOR}\`.`,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    new RegExp(
+      `blocker-4 packet §2\\.9 asserts the commit identity \`${FABRICATED_SUCCESSOR}\``,
+    ),
+  );
+});
+
+test("rejects a fabricated successor SHA inside the register §4.4 candidate region", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    "Promotion of the candidate to accepted status needs its own Founder decision on its own bytes.",
+    `Promotion is reserved at \`${FABRICATED_SUCCESSOR}\`.`,
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    new RegExp(
+      `E2 register §4\\.4 asserts the commit identity \`${FABRICATED_SUCCESSOR}\``,
+    ),
+  );
+});
+
+//
+// W1-D04D-R2 — §2.8 must not present the per-line sum as a unique union.
+//
+// The six per-line counts are measured per ref; the three Suite lines share a
+// fork point, so their per-line sum double-counts. The rule derives the sum
+// from the rows themselves so a row edit and the stated total cannot drift
+// apart, and pins the sum-versus-union framing so the distinction survives.
+//
+
+const PACKET_UNION_SENTENCE =
+  "Independently measured this\nsession, read-only, the **unique union** across all six candidate " +
+  "refs is **59**.";
+const PACKET_FABRIC_DELTA_ROW = "| Fabric | `37d9b329` | 14 | **5** |";
+
+test("records the §2.8 per-line push-delta sum and the measured unique union", () => {
+  const result = validate();
+
+  // The predicted pair is derived from base + this lane's offset, never a
+  // literal, so the measured and predicted figures cannot drift apart.
+  assert.deepEqual(result.pushDelta, {
+    rows: 6,
+    perLineSum: 63,
+    suiteUnion: 31,
+    uniqueUnion: 59,
+    predictedPerLineSum: 64,
+    predictedUniqueUnion: 60,
+  });
+});
+
+test("rejects a packet §2.8 whose per-row counts no longer sum to the stated total", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_FABRIC_DELTA_ROW,
+    "| Fabric | `37d9b329` | 14 | **6** |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 push-delta rows sum to 64 genuinely-new commits; the section states 63/,
+  );
+});
+
+test("rejects a packet §2.8 that drifts on the measured unique-union figure", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_UNION_SENTENCE,
+    PACKET_UNION_SENTENCE.replace("**59**", "**57**"),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 must keep the sum-versus-union disclosure byte-exact/,
+  );
+});
+
+test("rejects a packet §2.8 that presents the per-line sum as the unique union", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**63** is the **sum of the six per-line counts above**, not a unique union:",
+    "**63** is the unique union across all six candidate refs:",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 must keep the sum-versus-union disclosure byte-exact/,
+  );
+});
+
+//
+// W1-D04D-R2 — the §9 enforcement-surface disclosure.
+//
+// The withdrawn §9 sentence claimed the validator enforced §2.9 and §8 NO-GO
+// 14–15 *only* and that §2–§7 were unenforced prose. Both halves were false:
+// §2.8, §7.1 row 3 and a corpus-level packet scan were already enforced. These
+// rules fail closed on any drift in the replacement inventory, in either
+// direction — overclaim or underclaim.
+//
+
+const PACKET_ENFORCEMENT_HEADING =
+  "### 9.1 Machine-enforcement surface — exactly what the validator checks";
+const PACKET_ENFORCED_RULE_12_ROW =
+  "| 12 | §9.1 | this table, the unenforced list below and the no-live-`git` " +
+  "paragraph are pinned byte-exact; the withdrawn `§2.9 and §8 NO-GO 14–15 " +
+  "only` overclaim and any live-`git` claim are rejected wherever they appear |";
+const PACKET_UNENFORCED_NO_GO_LINE =
+  "- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack " +
+  "NO-GO 16 and the";
+const PACKET_NO_LIVE_GIT_SENTENCE =
+  "**No live `git` reading is claimed or performed.** The validator **does not " +
+  "invoke `git`**, opens no";
+const PACKET_CURRENT_VERIFICATION_LABEL =
+  "**Current — W1 Lane 5 control reconciliation, this record.**";
+const PACKET_DATED_HISTORY_ROW =
+  "| 2026-07-27 | W1-D04C dual-state provenance refresh | `PASS: tasks=48` | " +
+  "RED `tests 100 · pass 78 · fail 22`, then `tests 100 · pass 100 · fail 0` |";
+
+test("records the packet §9.1 machine-enforcement surface disclosure", () => {
+  const result = validate();
+
+  assert.deepEqual(result.enforcementSurface, {
+    anchor: "§9.1",
+    enforcedRules: 21,
+    unenforcedNoGo: [16, 17],
+    readsLiveGit: false,
+  });
+  assert.equal(countOccurrences(packetText, PACKET_ENFORCEMENT_HEADING), 1);
+});
+
+test("rejects a packet that drops the §9.1 machine-enforcement surface heading", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCEMENT_HEADING,
+    "### 9.1 Notes on validation",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /blocker-4 packet must carry the §9\.1 machine-enforcement surface disclosure/,
+  );
+});
+
+test("rejects a packet §9.1 that drifts on the enforced-rule inventory", () => {
+  // The row keeps its number so the contiguity check passes and the byte-exact
+  // pin is the rule actually under test.
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCED_RULE_12_ROW,
+    "| 12 | §9.1 | this table is pinned |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 enforced-rule inventory must stay pinned byte-exact/,
+  );
+});
+
+test("rejects a packet §9.1 whose enforced-rule numbering is not 1..21 contiguous", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCED_RULE_12_ROW,
+    PACKET_ENFORCED_RULE_12_ROW.replace("| 12 | §9.1 |", "| 13 | §9.1 |"),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 enforced-rule inventory must be numbered 1..21 contiguously/,
+  );
+});
+
+test("rejects a packet §9.1 that omits NO-GO 16 and 17 from the unenforced list", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_UNENFORCED_NO_GO_LINE,
+    "- §8 NO-GO **1–13** — including the",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 must name NO-GO 16 and NO-GO 17 as unenforced/,
+  );
+});
+
+test("rejects a packet §9.1 that drops the unenforced-section list", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "- §10 in full: every transcript path, byte count and record count.\n",
+    "",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 unenforced-section list must stay pinned byte-exact/,
+  );
+});
+
+test("rejects a packet §9.1 that drops the no-live-`git` disclosure", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_NO_LIVE_GIT_SENTENCE,
+    "The validator is a static check. It opens no",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 must keep the no-live-`git` disclosure byte-exact/,
+  );
+});
+
+test("rejects a packet that restores the withdrawn `NO-GO 14–15 only` enforcement overclaim", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCEMENT_HEADING,
+    "**The validator now machine-enforces this packet's §2.9 and §8 NO-GO 14–15 only.**\n\n" +
+      PACKET_ENFORCEMENT_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /blocker-4 packet restores the withdrawn enforcement overclaim/,
+  );
+});
+
+test("rejects a packet that claims §2–§7 remain unenforced prose", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCEMENT_HEADING,
+    "§2–§7 and §9 remain unenforced prose.\n\n" + PACKET_ENFORCEMENT_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /blocker-4 packet understates the enforcement surface/,
+  );
+});
+
+test("rejects a packet that claims the validator invokes git", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCEMENT_HEADING,
+    "The validator invokes `git` to re-measure the control tip on every run.\n\n" +
+      PACKET_ENFORCEMENT_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /blocker-4 packet claims the validator reads live `git` state/,
+  );
+});
+
+test("rejects a packet §9 that drops a dated verification-history row", () => {
+  const drifted = replaceUnique(packetText, PACKET_DATED_HISTORY_ROW, "");
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9 must keep the dated verification-history table byte-exact/,
+  );
+});
+
+test("rejects a packet §9 that reports a dated test figure as the current result", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_CURRENT_VERIFICATION_LABEL,
+    "**Current.** The suite stands at `tests 100 · pass 100 · fail 0`.\n\n**Superseded.**",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9 must keep the current W1 Lane 5 verification result byte-exact/,
+  );
+});
+
+//
 // Canonical file read path.
 //
 
@@ -1401,4 +2268,779 @@ test("reads and validates the canonical W1 control files", async () => {
   assert.deepEqual(result.gateA4Counts, { H: 11, J: 10 });
   assert.equal(result.contractGateDisposition.accepted, true);
   assert.equal(result.contractGateDisposition.pushed, false);
+});
+
+//
+// ── Lane 5 base-plus-one provenance, design C ─────────────────────────────
+//
+// A commit cannot contain its own SHA, tree or content aggregate. Lane 5
+// therefore records an immutable *base* (`8fe4cb0`, the parent of this record),
+// the count measured at that base (**25**), this record's own offset (**+1**)
+// and the derived live-after-commit prediction (**26**) — never a self
+// identity, and never a literal that could drift away from the derivation.
+//
+
+const W1_D04_CONTROL_BASE = "8fe4cb02e0119224205a86631db7c481f7638c23";
+
+const PACKET_LOCAL_PROVENANCE_HEADING =
+  "### 2.10 Local-only reviewed provenance — four commits, none integrated";
+const BOARD_LOCAL_PROVENANCE_HEADING =
+  "### 14.35 W1 Lane 5 local-only reviewed provenance — four commits, none integrated";
+const REGISTER_LOCAL_PROVENANCE_HEADING =
+  "## 27. W1 Lane 5 local-only reviewed provenance — 2026-07-28, first same-day record";
+
+const LANE5_C1_ROW =
+  "| W1-C1 correction | `20cfa36c503e5a95341c80653d25d2000d65c9fe`, parent " +
+  "`a976a205601de22dae59e5112e37ae29707fda0e`, tree " +
+  "`380a8f77e65b0980d561a94e3615b49bc0e76921` | exactly 16 paths; manifest " +
+  "`403f7b0df42b9c0768f048bb71dedeebdd3f930d9a39dcf4ac935335b85b7d2e`; " +
+  "`MEMBER-SET-SHA256/v1` " +
+  "`27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8`, " +
+  "`member_count` 13; pre-commit working-tree aggregate `76ef51d9…`, full value " +
+  "and recipe in §2.9 | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT " +
+  "INTEGRATED` · `NOT PUSHED/MERGED/RELEASED`; not contract-reaccepted — the " +
+  "accepted W1-C1 baseline `3a2c715…` / `e4cfbf8c…` is unchanged |";
+
+const LANE5_G1_ROW =
+  "| W1-G1 correction | `71857395332fabe041896ca0700fbf7a2bf612d3`, parent " +
+  "`20cfa36c503e5a95341c80653d25d2000d65c9fe`, tree " +
+  "`96a4ecceb054292b1272b7fd38adc6ce7c1ae7f3` | exactly 9 paths; manifest " +
+  "`35e767513267bb5ee88a933ab6faf4526162b34dff13460cd3c5a14e6825fbf0`; " +
+  "`MEMBER-SET-SHA256/v1` " +
+  "`a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4`, " +
+  "`member_count` 15; content aggregate " +
+  "`54e90e27b546e569156c13c3f7455bd99e1a5168e7e62b139422c5fed95e50cc` | " +
+  "`LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT INTEGRATED` · `NOT " +
+  "PUSHED/MERGED/RELEASED`; the accepted W1-G1 baseline is unchanged |";
+
+const LANE5_SOC_ROW =
+  "| SOC vendor conformance | `5da251d92e66968103db4df9d544e2a1f3597b58`, " +
+  "parent `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`, tree " +
+  "`2534201c823c5bde582d1595eea6e22622d6b910` | exactly 16 paths; content " +
+  "aggregate " +
+  "`be19bad6d1c6e14edb4e3a5a810806a3670124cb442808abe87a977cc612cfd3`; " +
+  "post-review `PASS` | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT " +
+  "INTEGRATED` · `NOT PUSHED/MERGED/RELEASED` · `CONFORMANCE-ONLY`; the " +
+  "inherited gitleaks red stands and the SOC push remains `NO-GO` |";
+
+const LANE5_FABRIC_ROW =
+  "| Fabric vendor conformance | `37d9b3293d26502fcd5be8144dbee78a98067043`, " +
+  "parent `d38f910a44d6454285b393cb89df4a6ade4eb855`, tree " +
+  "`6c118efd9f1dfc447eae1efb16194261850274e9` | exactly 32 paths; content " +
+  "aggregate " +
+  "`428a7a9b6cb06ed44469e148041ad56b58949a25cd01fb0ef617eb524ac0a44e`; 403 " +
+  "tests; post-review `PASS` | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT " +
+  "INTEGRATED` · `NOT PUSHED/MERGED/RELEASED` · `CONFORMANCE-ONLY`; no runtime " +
+  "and no vendor-parity claim |";
+
+const LANE5_PROVENANCE_ROWS = [
+  LANE5_C1_ROW,
+  LANE5_G1_ROW,
+  LANE5_SOC_ROW,
+  LANE5_FABRIC_ROW,
+];
+
+//
+// Rule group 1 — the two-sided base+1 disclosure in §2.8 and §7.1.
+//
+
+test("records the Lane 5 base-plus-one publication disposition", () => {
+  const result = validate();
+
+  assert.equal(result.line1Publication.base, W1_D04_CONTROL_BASE);
+  assert.equal(result.line1Publication.abbreviatedBase, "8fe4cb0");
+  assert.equal(result.line1Publication.baseNewCommits, 25);
+  assert.equal(result.line1Publication.laneCommitsAheadOfBase, 1);
+  assert.equal(result.line1Publication.predictedNewCommits, 26);
+  assert.equal(result.line1Publication.selfIdentityStated, false);
+});
+
+test("derives the predicted new-commit count from base plus offset, never a literal", () => {
+  const result = validate();
+
+  assert.equal(
+    result.line1Publication.predictedNewCommits,
+    result.line1Publication.baseNewCommits +
+      result.line1Publication.laneCommitsAheadOfBase,
+  );
+});
+
+test("the validator source derives the predicted count and hardcodes no 26", async () => {
+  const source = await readFile(
+    join(repositoryRoot, "tools", "operations", "validate-w1-control.mjs"),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /PACKET_LINE1_PREDICTED_NEW_COMMITS\s*=\s*\n?\s*PACKET_LINE1_BASE_NEW_COMMITS \+ PACKET_LANE_COMMITS_AHEAD_OF_BASE/,
+  );
+  assert.doesNotMatch(
+    source,
+    /PACKET_LINE1_PREDICTED_NEW_COMMITS\s*=\s*26\b/,
+  );
+});
+
+test("rejects a packet §2.8 that drops the base-plus-one disclosure", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**Base-plus-one disclosure — read with §7.1.**",
+    "**Note.**",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 must carry the base-plus-one disclosure/,
+  );
+});
+
+test("rejects a packet §7.1 that drops the base-plus-one disclosure", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**Base-plus-one disclosure — read with §2.8.**",
+    "**Note.**",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 must carry the base-plus-one disclosure/,
+  );
+});
+
+test("rejects a base-plus-one disclosure that omits the mandatory external re-confirmation", () => {
+  // Both §2.8 and §7.1 carry this clause, so the anchor is qualified with the
+  // §2.8-only sentence ahead of it — a bare clause would silently mutate §2.8
+  // by first-occurrence replacement and prove nothing about which side failed.
+  const drifted = replaceUnique(
+    packetText,
+    "corpus** — a commit cannot contain its own identity. A fresh external " +
+      "`git rev-list --count`\nre-confirmation is **mandatory before any push**",
+    "corpus** — a commit cannot contain its own identity. Re-confirmation is " +
+      "optional",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§2\.8 must carry the base-plus-one disclosure/,
+  );
+});
+
+//
+// Rule group 2 — no present-tense current-`HEAD` claim about the base.
+//
+
+test("rejects a packet that calls the immutable base the current control HEAD", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_LOCAL_PROVENANCE_HEADING,
+    // Inside the Lane 5 region: above the heading it would fall in §2.9, whose
+    // narrow allowlist would reject the digest before this rule ran.
+    PACKET_LOCAL_PROVENANCE_HEADING +
+      "\n\nThe current control `HEAD` is " +
+      "`8fe4cb02e0119224205a86631db7c481f7638c23`.",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /names the immutable base as a present-tense current control `HEAD`/,
+  );
+});
+
+test("rejects a packet that says the control HEAD remains the base", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_LOCAL_PROVENANCE_HEADING,
+    PACKET_LOCAL_PROVENANCE_HEADING +
+      "\n\nControl `HEAD` remains " +
+      "`8fe4cb02e0119224205a86631db7c481f7638c23`.",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /names the immutable base as a present-tense current control `HEAD`/,
+  );
+});
+
+//
+// Rule group 3 — exactly four local-provenance rows, byte-consistent, with the
+// mandatory status tokens, in all three control documents.
+//
+
+test("records the four local-only reviewed provenance commits", () => {
+  const result = validate();
+
+  assert.equal(result.localProvenance.rows, 4);
+  assert.equal(result.localProvenance.integrated, false);
+  assert.equal(result.localProvenance.pushed, false);
+  assert.equal(result.localProvenance.merged, false);
+  assert.equal(result.localProvenance.released, false);
+  assert.deepEqual(result.localProvenance.lanes, [
+    "W1-C1 correction",
+    "W1-G1 correction",
+    "SOC vendor conformance",
+    "Fabric vendor conformance",
+  ]);
+});
+
+for (const [index, row] of LANE5_PROVENANCE_ROWS.entries()) {
+  test(`rejects a packet local-provenance table missing row ${index + 1}`, () => {
+    const drifted = replaceUnique(packetText, row + "\n", "");
+
+    assert.throws(
+      () => validate({ packetText: drifted }),
+      /local-provenance table must carry exactly four rows/,
+    );
+  });
+}
+
+test("rejects a board local-provenance table missing a row", () => {
+  const drifted = replaceUnique(boardText, LANE5_G1_ROW + "\n", "");
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /local-provenance table must carry exactly four rows/,
+  );
+});
+
+test("rejects a register local-provenance table missing a row", () => {
+  const drifted = replaceUnique(e2RegisterText, LANE5_SOC_ROW + "\n", "");
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /local-provenance table must carry exactly four rows/,
+  );
+});
+
+test("rejects a fifth local-provenance row", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_FABRIC_ROW + "\n",
+    LANE5_FABRIC_ROW +
+      "\n| Suite Lane 5 control | `deadbeefdeadbeefdeadbeefdeadbeefdeadbeef`, " +
+      "parent `8fe4cb02e0119224205a86631db7c481f7638c23`, tree " +
+      "`cafebabecafebabecafebabecafebabecafebabe` | exactly 5 paths | " +
+      "`LOCAL-ONLY` |\n",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance table must carry exactly four rows/,
+  );
+});
+
+test("rejects a local-provenance row that drops the NOT INTEGRATED token", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_G1_ROW,
+    LANE5_G1_ROW.replace("`NOT INTEGRATED` · ", ""),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance row .* must carry the `NOT INTEGRATED` status token/,
+  );
+});
+
+test("rejects a local-provenance row that drops the LOCAL-ONLY token", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_SOC_ROW,
+    LANE5_SOC_ROW.replace("`LOCAL-ONLY` · ", ""),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance row .* must carry the `LOCAL-ONLY` status token/,
+  );
+});
+
+test("rejects a local-provenance row that drops the independent-review token", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_C1_ROW,
+    LANE5_C1_ROW.replace("`INDEPENDENT REVIEW PASS` · ", ""),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance row .* must carry the `INDEPENDENT REVIEW PASS` status token/,
+  );
+});
+
+test("rejects a vendor row that drops its conformance-only token", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_FABRIC_ROW,
+    LANE5_FABRIC_ROW.replace(" · `CONFORMANCE-ONLY`", ""),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance row .* must carry the `CONFORMANCE-ONLY` status token/,
+  );
+});
+
+test("rejects a local-provenance section claiming a commit has been pushed", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_G1_ROW + "\n",
+    LANE5_G1_ROW + "\n\nThe W1-G1 correction has been pushed to `origin`.\n",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance section claims a Lane 5 commit is pushed, merged, released or integrated/,
+  );
+});
+
+test("rejects a local-provenance section claiming a commit is integrated", () => {
+  const drifted = replaceUnique(
+    boardText,
+    LANE5_SOC_ROW + "\n",
+    LANE5_SOC_ROW + "\n\nThe SOC vendor commit is integrated.\n",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /local-provenance section claims a Lane 5 commit is pushed, merged, released or integrated/,
+  );
+});
+
+test("rejects a local-provenance section claiming contract re-acceptance", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_C1_ROW + "\n",
+    LANE5_C1_ROW +
+      "\n\nThe W1-C1 correction is contract-reaccepted at v0.1.0.\n",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /local-provenance section claims a contract re-acceptance/,
+  );
+});
+
+//
+// Rule group 4 — no new Lane 5 40-hex identity inside the legacy guarded
+// regions. §2.9, §4.4 and board §14.32.2 keep their narrow allowlist; the four
+// full identities live only in the bounded Lane 5 sections.
+//
+
+test("rejects a Lane 5 commit identity inside the legacy packet §2.9 region", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "**State 2 — the W0-I01C correction, committed local-only.**",
+    "**State 2 — the W0-I01C correction, committed local-only at " +
+      "`20cfa36c503e5a95341c80653d25d2000d65c9fe`.**",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /must not carry the Lane 5 local-provenance identity/,
+  );
+});
+
+test("rejects a Lane 5 commit identity inside the legacy register §4.4 region", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    "### 4.4 Pending W1-C1 correction candidate — not a superseding value",
+    "### 4.4 Pending W1-C1 correction candidate — not a superseding value\n\n" +
+      "See `71857395332fabe041896ca0700fbf7a2bf612d3`.",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /must not carry the Lane 5 local-provenance identity/,
+  );
+});
+
+//
+// Rule group 5 — no surviving uncommitted-generation claim outside explicitly
+// dated history, across all three control documents.
+//
+
+test("rejects an undated surviving uncommitted-generation claim in the packet", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_LOCAL_PROVENANCE_HEADING,
+    "The W1-C1 correction has no commit object.\n\n" +
+      PACKET_LOCAL_PROVENANCE_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /carries the withdrawn uncommitted-generation claim/,
+  );
+});
+
+test("rejects an undated surviving uncommitted-generation claim on the board", () => {
+  const drifted = replaceUnique(
+    boardText,
+    BOARD_LOCAL_PROVENANCE_HEADING,
+    "The correction adds no new commit to the graph.\n\n" +
+      BOARD_LOCAL_PROVENANCE_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /carries the withdrawn uncommitted-generation claim/,
+  );
+});
+
+test("rejects an undated surviving uncommitted-generation claim in the register", () => {
+  const drifted = replaceUnique(
+    e2RegisterText,
+    REGISTER_LOCAL_PROVENANCE_HEADING,
+    "It is an uncommitted working-tree overlay.\n\n" +
+      REGISTER_LOCAL_PROVENANCE_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /carries the withdrawn uncommitted-generation claim/,
+  );
+});
+
+//
+// Rule group 5b — exemption scope. A markdown table carries no blank line, so a
+// paragraph-scoped scanner treats the whole table as one unit and a single
+// dated or self-withdrawing row exempts every sibling row, including a false
+// live one. Each row must carry its own anchor.
+//
+
+// A §9 status-and-ceiling row. Its sibling rows carry `2026-07-26`,
+// `2026-07-27` and the two window dates, so under whole-table exemption this
+// false live claim would pass.
+const PACKET_DATED_SIBLING_ROW =
+  "| W1 window | **2026-08-01 → 2026-08-23**, unchanged |";
+
+// A §14.9.3 measured-evidence row. Its sibling row dates itself `2026-07-26`.
+const BOARD_DATED_SIBLING_ROW =
+  "| `git diff --check` | clean — no whitespace or conflict-marker error |";
+
+test("rejects a false live generation claim in a packet table row whose sibling rows are dated", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_DATED_SIBLING_ROW,
+    `${PACKET_DATED_SIBLING_ROW}\n` +
+      "| Lane 5 generation | this record holds no commit object |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /withdrawn uncommitted-generation claim "no commit object"[\s\S]*sibling row in the same table exempts nothing/,
+  );
+});
+
+test("rejects a false live generation claim in a board table row whose sibling rows are dated", () => {
+  const drifted = replaceUnique(
+    boardText,
+    BOARD_DATED_SIBLING_ROW,
+    `${BOARD_DATED_SIBLING_ROW}\n` +
+      "| Lane 5 generation | this reconciliation adds **no commit** to any line |",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /W1 board carries the withdrawn uncommitted-generation claim "adds \*\*no commit\*\*"/,
+  );
+});
+
+test("rejects a false live generation claim beside a self-withdrawing row in the same table", () => {
+  // The §9.1 inventory has to name the retired phrases verbatim in order to
+  // withdraw them, and its rule-18 row carries `withdrawn` itself. That anchor
+  // must exempt the row that carries it and nothing else — the defect this
+  // guards against is one such row clearing a whole table.
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_DATED_SIBLING_ROW,
+    `${PACKET_DATED_SIBLING_ROW}\n` +
+      "| Retired wording | the `uncommitted working-tree overlay` phrasing is withdrawn |\n" +
+      "| Lane 5 generation | this record is an uncommitted working-tree overlay |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /withdrawn uncommitted-generation claim "uncommitted working-tree overlay"/,
+  );
+});
+
+test("keeps a table row that carries both its own date and its own generation claim legal", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_DATED_SIBLING_ROW,
+    `${PACKET_DATED_SIBLING_ROW}\n` +
+      "| Historical note | recorded 2026-07-27 as **no new commit**; superseded by `20cfa36` |",
+  );
+
+  assert.doesNotThrow(() => validate({ packetText: drifted }));
+});
+
+test("keeps dated prose history whose date sits in a different sentence from the claim legal", () => {
+  // Board §1.24 states the date, and the supersession, in sentences separate
+  // from the `no new commit` claim. Prose keeps paragraph-level exemption on
+  // purpose; row-level scoping applies to table rows only.
+  assert.ok(
+    boardText.includes(
+      "**no new commit**, exactly 16 modified tracked paths and zero staged",
+    ),
+    "board §1.24 must retain its dated W1-D04C generation history",
+  );
+
+  assert.doesNotThrow(() => validate());
+});
+
+//
+// Rule group 6 — aggregates and member sets are unique per document and stay
+// bound to their own lane. Conflation is the failure mode this prevents.
+//
+
+test("rejects a duplicated Lane 5 content aggregate", () => {
+  const drifted = replaceUnique(
+    packetText,
+    LANE5_SOC_ROW + "\n",
+    LANE5_SOC_ROW +
+      "\n\nThe SOC vendor conformance aggregate is " +
+      "`be19bad6d1c6e14edb4e3a5a810806a3670124cb442808abe87a977cc612cfd3`.\n",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /names the SOC vendor conformance content aggregate 2 times/,
+  );
+});
+
+test("rejects a content aggregate attached to the wrong lane", () => {
+  // Swap the two aggregates between rows rather than overwriting one. Each
+  // value still appears exactly once, so the once-per-document rule passes and
+  // the wrong-lane rule is the one actually under test.
+  const G1_AGGREGATE =
+    "`54e90e27b546e569156c13c3f7455bd99e1a5168e7e62b139422c5fed95e50cc`";
+  const FABRIC_AGGREGATE =
+    "`428a7a9b6cb06ed44469e148041ad56b58949a25cd01fb0ef617eb524ac0a44e`";
+  const withSwappedG1 = replaceUnique(
+    packetText,
+    LANE5_G1_ROW,
+    LANE5_G1_ROW.replace(G1_AGGREGATE, FABRIC_AGGREGATE),
+  );
+  const drifted = replaceUnique(
+    withSwappedG1,
+    LANE5_FABRIC_ROW,
+    LANE5_FABRIC_ROW.replace(FABRIC_AGGREGATE, G1_AGGREGATE),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /is not stated on its own lane row/,
+  );
+});
+
+test("rejects a member set conflated across the two correction lanes", () => {
+  // Exchange two lane-bound digests between the C1 and G1 rows. Both still
+  // appear exactly once, so each is caught for sitting on the other lane's row.
+  const C1_MANIFEST =
+    "`403f7b0df42b9c0768f048bb71dedeebdd3f930d9a39dcf4ac935335b85b7d2e`";
+  const G1_MEMBER_SET =
+    "`a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4`";
+  const withSwappedG1 = replaceUnique(
+    packetText,
+    LANE5_G1_ROW,
+    LANE5_G1_ROW.replace(G1_MEMBER_SET, C1_MANIFEST),
+  );
+  const drifted = replaceUnique(
+    withSwappedG1,
+    LANE5_C1_ROW,
+    LANE5_C1_ROW.replace(C1_MANIFEST, G1_MEMBER_SET),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /is not stated on its own lane row/,
+  );
+});
+
+test("keeps the C1 pre-commit working-tree aggregate at exactly one full occurrence", () => {
+  assert.equal(
+    countOccurrences(
+      packetText,
+      "76ef51d97dced58eda98b1144ca72f98cf81c7caff6cc51ffc3eab50114c940a",
+    ),
+    1,
+  );
+  assert.equal(
+    countOccurrences(
+      boardText,
+      "76ef51d97dced58eda98b1144ca72f98cf81c7caff6cc51ffc3eab50114c940a",
+    ),
+    0,
+  );
+});
+
+//
+// Rule group 7 — §2.8 and §7.1 must agree on the LINE 2 and SOC tips and
+// counts, exactly as they already must for Suite LINE 1.
+//
+
+test("records the agreed LINE 2 and SOC publication figures", () => {
+  const result = validate();
+
+  assert.deepEqual(result.line2Publication, {
+    tip: "7185739",
+    newCommits: 7,
+  });
+  assert.deepEqual(result.socPublication, {
+    tip: "5da251d",
+    newCommits: 11,
+  });
+});
+
+test("rejects a packet whose §7.1 LINE 2 tip disagrees with §2.8", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "| 2 | Suite | LINE 2 `codex/w1-g1-c1-repin-r1` | `7185739` | 7 |",
+    "| 2 | Suite | LINE 2 `codex/w1-g1-c1-repin-r1` | `a976a20` | 7 |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 proposes publishing Suite LINE 2 at/,
+  );
+});
+
+test("rejects a packet whose §7.1 SOC count disagrees with §2.8", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "| `5da251d` | 11 | subsumes all SOC branches",
+    "| `5da251d` | 10 | subsumes all SOC branches",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§7\.1 records 10 new SOC commits while §2\.8 measures 11/,
+  );
+});
+
+//
+// Rule group 8 — no self identity minted for the Lane 5 record itself.
+//
+
+test("rejects a minted Lane 5 self commit SHA", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_LOCAL_PROVENANCE_HEADING,
+    // Inserted *inside* the Lane 5 region. Placing it above the heading would
+    // land in §2.9, whose narrow allowlist would intercept the digest before
+    // the self-identity guard ever ran.
+    PACKET_LOCAL_PROVENANCE_HEADING +
+      "\n\nThis record's commit " +
+      "`1234567890abcdef1234567890abcdef12345678` records the reconciliation.",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /mints a self identity for the Lane 5 record/,
+  );
+});
+
+test("rejects an embedded Lane 5 scope aggregate value", () => {
+  const drifted = replaceUnique(
+    boardText,
+    BOARD_LOCAL_PROVENANCE_HEADING,
+    "`SCOPE-AGG-SHA256/v1` " +
+      "`0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef`\n\n" +
+      BOARD_LOCAL_PROVENANCE_HEADING,
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /mints a self identity for the Lane 5 record/,
+  );
+});
+
+//
+// Rule group 9 — refreshed §2.8 topology and the derived post-Lane 5
+// prediction.
+//
+
+test("records the re-measured push-delta topology", () => {
+  const result = validate();
+
+  assert.deepEqual(result.pushDelta, {
+    rows: 6,
+    perLineSum: 63,
+    suiteUnion: 31,
+    uniqueUnion: 59,
+    predictedPerLineSum: 64,
+    predictedUniqueUnion: 60,
+  });
+});
+
+test("derives the post-Lane 5 predictions from the measured figures plus one", () => {
+  const result = validate();
+
+  assert.equal(
+    result.pushDelta.predictedPerLineSum,
+    result.pushDelta.perLineSum + result.line1Publication.laneCommitsAheadOfBase,
+  );
+  assert.equal(
+    result.pushDelta.predictedUniqueUnion,
+    result.pushDelta.uniqueUnion + result.line1Publication.laneCommitsAheadOfBase,
+  );
+});
+
+test("rejects a §2.8 push-delta table whose rows no longer sum to the stated total", () => {
+  const drifted = replaceUnique(
+    packetText,
+    "| Cyber AI | `2baba72` | 23 | **12** |",
+    "| Cyber AI | `2baba72` | 23 | **13** |",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /push-delta rows sum to 64 genuinely-new commits/,
+  );
+});
+
+// The two Lane 5 rules added to the §9.1 inventory by this lane. Rule 21 is the
+// last row, so removing it leaves the remaining numbering contiguous and the
+// omission is caught only by the byte-exact row pin; rule 19 is a middle row,
+// so removing it also breaks the 1..21 contiguity. Both paths are exercised.
+const PACKET_ENFORCED_RULE_19_ROW =
+  "| 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |";
+const PACKET_ENFORCED_RULE_21_ROW =
+  "| 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |";
+
+test("reports the full §9.1 machine-enforcement inventory count", () => {
+  const result = validate();
+
+  assert.equal(result.enforcementSurface.enforcedRules, 21);
+  assert.deepEqual(result.enforcementSurface.unenforcedNoGo, [16, 17]);
+  assert.equal(result.enforcementSurface.readsLiveGit, false);
+});
+
+test("rejects a §9.1 inventory that omits a Lane 5 enforced rule", () => {
+  const drifted = replaceUnique(
+    packetText,
+    `\n${PACKET_ENFORCED_RULE_21_ROW}`,
+    "",
+  );
+
+  assert.equal(countOccurrences(drifted, "\n| 21 | "), 0);
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /rule 21 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
+  );
+});
+
+test("rejects a §9.1 inventory that omits a middle rule and breaks the row numbering", () => {
+  const drifted = replaceUnique(
+    packetText,
+    `\n${PACKET_ENFORCED_RULE_19_ROW}`,
+    "",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /numbered 1\.\.21 contiguously; row 19 reads 20/,
+  );
 });

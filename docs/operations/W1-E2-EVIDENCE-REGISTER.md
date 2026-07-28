@@ -53,6 +53,7 @@ evidence** and promotes nothing.
 |---|---|---|---|
 | GATE A4 | Suite local docs on canonical dirty root | `ACCEPTED — GATE A4 CLOSED 2026-07-26`; ADR-0003 and ADR-0005 are `ACCEPTED` (decision only; no implementation authority) | Independent re-review: no P0–P3; Option A accepted under Founder-delegated current-thread authority; both status-flip applications `APPLIED 2026-07-26`. The W1 control validator and its test suite are **GREEN** against the current tree — validator `PASS`, `tests 77 · pass 77 · fail 0`, measured manually on 2026-07-26 after the W0-R06 repair; see §3 item 10 and `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` §13.1 and §14.9. **Static/documentary only; CI: NOT WIRED, and no CI result is claimed for this row** |
 | W0-I01/T01 — W1-C1 alert context | accepted local commit `3a2c71555a423465855ffaddcb663c8b704dbfbd`, parent `3ef8e0536f8210f2739c6fa0e32e37f8dc27d619`, branch `codex/w1-i01-alert-context-proposal-r1` | `ACCEPTED FOR IMPLEMENTATION v0.1.0 — LOCAL COMMIT ONLY`; exact 16 paths, not pushed | Standalone validator `PASS`; 21/21 tests; 87.27% branch coverage against the declared 80% branch floor; full accepted-contract regression green; member-set digest `sha256:e4cfbf8c6f6ccfe545a91d63b0bee6de4c616a28e3f1a61c320f8fde747e1d35` (13/13 member hashes match); final independent review W0-R05 `PASS`, no open P0–P2 |
+| W0-I01C — W1-C1 alert-context correction candidate | committed local-only at `20cfa36`, parent `a976a20`, tree `380a8f7`, branch `codex/w1-c1-correction-a2-r1`, on accepted base `3a2c71555a423465855ffaddcb663c8b704dbfbd` | `CORRECTION COMMITTED — LOCAL-ONLY — NOT INTEGRATED — NOT ACCEPTED`; exactly 16 paths, zero staged | candidate `member_set` `sha256:27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8` (`MEMBER-SET-SHA256/v1`, 13/13 member hashes, `member_count` 13); standalone validator `PASS`; candidate suite 21/21; 86.99% branch coverage against the declared 80% branch floor; independent review `PASS`, no open P0–P2; the downstream alert-context transport stale lock is disclosed with this candidate |
 | W0-I02/R05 — W1-C2 investigation lifecycle | accepted local commit `ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4`, parent `3ef8e0536f8210f2739c6fa0e32e37f8dc27d619`, branch `codex/w1-i02-investigation-lifecycle-proposal-r1` | `ACCEPTED FOR IMPLEMENTATION v0.1.0 — LOCAL COMMIT ONLY`; exact 32 paths, not pushed | Standalone validator `PASS`; 31/31 tests; 97.44% branch coverage; official Ajv strict eight clean compilations, Spectral/AsyncAPI zero errors; aggregate SHA-256 `0fcac6ede9b2c3712bb7e989c227c91c6bd37c115a2bce4cb41996587f24b42e` (30/30 member digests match); final independent review W0-T01 `PASS`, no open P0–P3 |
 | W0-I11 — FAB-C0 provenance containment | base `6f72616ed2b216fa63cca6090ebee4e162952ca4`; `w1-fab-c0-provenance-r1` | `EVIDENCE READY — UNCOMMITTED`; exact two dirty paths, zero staged | Independent final review: no P0–P3; 39 focused, 74 regression and 14 exact T10 tests; source SHA-256 `ae8cfa7a0b15483377a4344eca37d2b5aefbb2b4030cf70cad9e6ca0175540de` |
 
@@ -322,6 +323,31 @@ re-inspection), with the Cyber AI worktree confirmed clean, zero staged, no upst
   routine integration and external release remain `NO-GO`.
 - W1 formal dates (2026-08-01 → 2026-08-23), all W0–W6 dates and the 2026-12-21 → 2026-12-31
   release window are **unchanged**; no release claim is made.
+
+### 4.4 Pending W1-C1 correction candidate — not a superseding value
+
+The supersession chain recorded in §4 covers **pre-acceptance** values only, and it is closed. The
+W0-I01C correction candidate recorded in §1 is **not** part of it and adds no entry to it.
+
+`sha256:27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8` is **not** a replacement for the accepted
+`sha256:e4cfbf8c6f6ccfe545a91d63b0bee6de4c616a28e3f1a61c320f8fde747e1d35` pinned in §1 and §4. It is a **pending
+candidate value**, not a superseding value: it belongs to a correction that is committed local-only
+at `20cfa36`, accepted by no contract gate and integrated nowhere, and the accepted W1-C1 row
+above is byte-unchanged.
+
+Reading rules that bind every downstream record:
+
+- The accepted W1-C1 artifact stays commit `3a2c71555a423465855ffaddcb663c8b704dbfbd` with member
+  set `sha256:e4cfbf8c…`, `MEMBER-SET-SHA256/v1`, 13/13, exactly 16 paths — unchanged, and the only
+  accepted W1-C1 artifact.
+- The candidate is a commit on that same base: `20cfa36`, exactly 16 paths, zero staged, integrated
+  nowhere and accepted by nothing. Its identity was **measured after the commit existed** and no
+  successor SHA is reserved or predicted anywhere. Full identity: §27.
+- A separate 16-path working-tree aggregate — labelled and bounded in
+  `docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md` §2.9 — is **not** a member set,
+  **not** a commit identity and **not** part of the accepted C1 artifact recipe.
+- Promotion of the candidate to accepted status needs its own Founder decision on its own bytes.
+  Nothing in this register takes one.
 
 ## 5. Product-evidence reconciliation — 2026-07-27
 
@@ -1770,12 +1796,19 @@ Measured after this record's three writes (this section, board §1.21/§14.29), 
 
 ## 25. W1 blocker-4 canonical integration and CI-activation packet — 2026-07-27, twenty-first same-day record
 
-Task **W0-D04**, sub-lane **W1-D04B**, session `30493397-316c-47d4-b69a-fada6370afc7`, on the
-**W0-IR14** lane decision. Control `HEAD` before this record:
+Task **W0-D04**, sub-lane **W1-D04B**, draft-writer session
+`30493397-316c-47d4-b69a-fada6370afc7` and **remediation-writer session
+`57d40b19-c20d-47f1-9622-3bfec86cef00`**, which wrote the final bytes (the second ID is recorded
+here per W0-R06L P3-2, §26; it was previously carried only in the commit body). On the **W0-IR14**
+lane decision. Control `HEAD` before this record:
 `a3e8cba906a1a25298e991954778cb06d4e03e18`.
 Board: §1.22 (current summary), §14.30 (bounded record). Packet:
 `docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md`, status
 `PROPOSED — FOUNDER DECISION REQUIRED`.
+
+**Post-commit review and correction: §26** (board §1.23 / §14.31). The commit carrying this record
+was audited **`PASS` on integrity** but the packet returned **`NO-GO`** on a P1, and §25.3 below is
+corrected in place where it carried the withdrawn claim.
 
 **Evidence class: documentation only.** This section records **no** product evidence, **no** CI
 evidence, and **no** runtime, transport, integration, deployment, durability, push, merge, remote or
@@ -1844,12 +1877,20 @@ repositories, `main` included, and none can be created on the current plan while
 absent.** Also carried unresolved: the `if: false` `alert-context-route-db` (`ci.yml:418`) and
 `e2e-org` (`ci.yml:253`) jobs, from which **no CI evidence may ever be derived**; the Suite rendered
 check names `secret-scan (gitleaks 8.30.1)` / `contract standards validation` differing from their
-job IDs; the **untested SOSIM fixture / gitleaks risk** at `74f9774` under a fail-closed
-`--exit-code 2` scan whose `.gitleaksignore` is **not new at `74f9774`** — 34 entries, blob
+job IDs; the SOSIM fixture / gitleaks question at `74f9774` under a fail-closed `--exit-code 2` scan
+whose `.gitleaksignore` is **not new at `74f9774`** — blob
 `ae460e1ae5b345758380984dec3c82a5ace160e0`, unchanged from live/current `main`, predating the SOSIM
-fixtures and not updated by that commit, and therefore carrying no fingerprint for those new
-fixtures — stated as a quantified risk with the **outcome explicitly not predicted**; the unmeasured
-`security_and_analysis` block; and the incidental committed `.claude/` directory on Suite `main`.
+fixtures and not updated by that commit, and therefore carrying no fingerprint for them
+(**corrected count: 34 lines / 33 non-empty / 8 actual fingerprint entries**, not "34 entries");
+the unmeasured `security_and_analysis` block; and the incidental committed `.claude/` directory on
+Suite `main`.
+
+**Correction — see §26.** This section originally called that gitleaks question *unmeasurable
+without a push or a forbidden install*, with the outcome *explicitly not predicted*. **That was
+false.** `gitleaks 8.30.1` was already installed, and a read-only local scan (W0-S01B) measured
+**exit 2 with five `generic-api-key` findings** — **none of them in the four SOSIM fixtures** — which
+blocks the first SOC push under both Option A and Option B. The pinned-`v8.24.3` CI result remains
+unknown.
 
 ### 25.4 The single live re-confirmation
 
@@ -1900,3 +1941,204 @@ claimed.
 - The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
   S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
   2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 26. Blocker-4 packet post-review correction — measured SOC secret scan — 2026-07-27, twenty-second same-day record
+
+Task **W1-D04B-R2**, a fresh separate Opus 5 correction-writer authority, session
+`e02411f3-c68f-4e55-8471-46dd9698c9f4`, transcript at the **work-pool** path
+`/Users/hoanglinh/.claude-accounts/work-dir/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-d04-founder-gate-repair-r1/e02411f3-c68f-4e55-8471-46dd9698c9f4.jsonl`
+— **not** the personal-pool `~/.claude/projects/…` shorthand, where it does **not** exist; that
+distinction is the §24 lesson and is stated here so no later reader repeats the false-absence
+finding. Measured **727473 bytes** mid-session, so the size is a live figure and not a final one. On
+the **W0-R06L** post-commit review. Control `HEAD` throughout:
+**`8fe4cb02e0119224205a86631db7c481f7638c23`, unchanged — this record is prospective and
+uncommitted.** Board: §1.23 (current summary), §14.31 (bounded record). Corrects §25 in place where
+it carried a withdrawn claim.
+
+**Evidence class: documentation only, carrying one item of local product-repository measurement.**
+This section records **no** CI evidence and **no** runtime, transport, integration, deployment,
+durability, push, merge, remote or release evidence. The gitleaks result it records is a **read-only
+local scan at `8.30.1`**; it is **not** a CI result and does not predict the pinned `v8.24.3`. It is
+**not countable toward any blocker**, and it **closes** none.
+
+### 26.1 The two verdicts from W0-R06L
+
+Transcript
+`/Users/hoanglinh/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-d04-founder-gate-repair-r1/695fc343-d634-4feb-8a9b-d69d2f114188.jsonl`
+(430694 bytes, 100 records). **They differ, and both are recorded:**
+
+| Verdict | Result |
+|---|---|
+| Commit audit of `8fe4cb02…` | **PASS on integrity** — commit, parent `a3e8cba9…`, subject, exactly four paths, blobs `58812fd5…` (A) / `dae8c73b…` (M) / `650157b6…` (M) / `54d3878b…` (M), roadmap sole dirty at `4ed13159…` with zero staged, no upstream / push / tag, `origin/main` reflog untouched since 2026-07-24, 1183 insertions / **0 deletions** — append-only, **no history rewrite** |
+| Packet content | **`NO-GO`** — one P1 plus four P3s |
+
+The review re-derived every topology, ancestry, new-object, path-overlap, check-count and
+`.gitleaksignore`-history figure independently and **all matched**, and re-ran the validator to
+`PASS tasks=48` / `tests 77 · pass 77 · fail 0`. It made **no writes, stages, commits, pushes,
+fetches, installs or ref/settings changes.** Its disposition: `8fe4cb02…` **may stand as committed
+history** — not to be amended, reset or rewritten, since that needs its own approval and would break
+the `a3e8cba` parent chain other records cite — but **may not be cited as independently reviewed
+control evidence**, and the packet **may not serve as the Founder's decision basis**, while the P1
+stands.
+
+### 26.2 P1-1 — what was false
+
+Packet §3.9 and board §14.30.9 row 5 stated the gitleaks verdict on the four SOSIM fixtures at
+`74f9774` was **"unmeasurable without a push or a forbidden local install"**. **False.** `gitleaks
+version` → **`8.30.1`** at `/opt/homebrew/bin/gitleaks` → `../Cellar/gitleaks/8.30.1`, symlink dated
+**May 22** — long pre-existing, no install required. Three dependent decision-bearing statements
+inherited the error: **§5B** "CI is **the only way** to answer" the question, **§5C** that under
+hold it "stays untested and keeps growing as a first-push risk", and **§7.3** that a SOC push would
+be the **"first real measurement"**. All four are **withdrawn and corrected**. The claim also
+contradicted the packet's own §7.2 step 2 and the board's standing RUN-IF-PRESENT / NO-INSTALL rule:
+the drafting session ran `command -v actionlint` but never the equivalent check for `gitleaks`.
+
+### 26.3 W0-S01B — the measurement
+
+Transcript
+`/Users/hoanglinh/.claude/projects/-Users-hoanglinh-Claude-Projects-cybrik-worktrees-w1-48-w1-i04a-shadow-remote-r1/aff4c5dd-7cfd-4ea5-b682-6f1806e11855.jsonl`
+(171637 bytes, 69 records). Read-only, from the repo root of the clean `w1-i04a-shadow-remote-r1`
+worktree at `74f9774`; `HEAD`, `git status --porcelain` (empty), upstream absence and ignored residue
+**identical before and after**; no `--report-path`, no `gitleaks.sarif`, no install, no ref mutated,
+no auth/token/env value inspected.
+
+```
+gitleaks detect --source . --redact -v --config .gitleaks.toml --exit-code 2 --no-banner
+INF 451 commits scanned.
+INF scanned ~12230012 bytes (12.23 MB) in 495ms
+WRN leaks found: 5
+EXIT_CODE=2
+```
+
+**Five findings, all `RuleID: generic-api-key`, all under `services/api/tests/`, values `REDACTED`
+by the tool:**
+
+| # | Commit | File:line | Shape (redacted) |
+|---|---|---|---|
+| 1 | `ff1aec3` | `services/api/tests/integration/test_alert_context_idempotency_rls.py:46` | synthetic module-level `KEY` literal |
+| 2 | `ff1aec3` | `services/api/tests/unit/test_alert_context_route.py:37` | same synthetic `KEY` literal |
+| 3 | `74f9774` | `services/api/tests/unit/copilot/test_shadow_remote_contract.py:156` | negative-test `("openapi_sha256", "<64-hex>")` parametrize value |
+| 4 | `74f9774` | `services/api/tests/unit/copilot/test_shadow_remote.py:229` | `_create_body()` `idempotency_key` literal |
+| 5 | `74f9774` | `services/api/tests/unit/copilot/test_shadow_remote.py:248` | `_cancel_body()` `idempotency_key` literal |
+
+**The original risk framing was wrong on both file and mechanism.** The **four SOSIM fixtures** in
+`test_shadow_remote_contract.py` — `_status_payload` (L56), `_checkpoint_payload` (L75),
+`_bundle_payload` (L96), `_error_payload` (L111) — are **NOT detected**; zero findings in the
+L56–L119 range. That file's one finding (#3) is at L156, **outside all four fixtures**, and the
+byte-exact real digest pins at L128/134/138 were **not** flagged. The two flagged SOSIM-marked
+builders live in the **sibling** file `test_shadow_remote.py` and trip on `idempotency_key`, **not**
+on SOSIM marking. **No finding touches `services/api/src/`**; zero findings outside `tests/`.
+
+### 26.4 Push consequence, and the limit on this evidence
+
+All four flagged files are tracked at `HEAD`; all five flagged lines are **live in the working tree**,
+not history-only stragglers. `ff1aec3` is **not** an ancestor of `main` or `origin/main` (both
+`267c698a`), so all five sit inside the unpushed 48-commit range — **new, branch-local, none
+pre-existing on the remote**. `.gitleaksignore` holds **34 lines / 33 non-empty / 8 non-comment
+fingerprints**, all for `reports/**` and `apps/soc-portal/e2e/helpers/seedForensics.ts`, and
+**matches none of the five**. SOC `secret-scan` is fail-closed full-history, so the two `ff1aec3`
+findings fail the job even if the push advertises only `74f9774`; **splitting or reordering commits
+does not evade it.** **The first SOC push is `NO-GO` under both Option A and Option B** until the
+findings are separately remediated or fingerprint-allowlisted. **Option A remains the packet's
+recommendation** — it rests on the plan-gating fact this measurement does not touch — but it cannot
+proceed to a SOC push, and neither can B.
+
+**Version-skew limit, load-bearing.** SOC CI pins **`v8.24.3`**; this is **`8.30.1`**, and
+`extend.useDefault = true` binds the ruleset to the binary. **The pinned result is not stated and
+not predicted here.** Strong local evidence, explicitly **not** a byte-exact CI reproduction;
+settling it needs a `v8.24.3` install grant nobody holds. Command-form skew was **nil**. **Scope:
+SOC only** — Cyber AI, Fabric and Suite were never locally scanned and are **unmeasured, not
+clean**.
+
+**Two remediation routes recorded, neither granted.** (1) Test-fixture remediation in place —
+cleanest, keeps `.gitleaksignore` honest, but the two `ff1aec3` findings require **rewriting
+unpushed history**, which is **a separate Founder-grade grant on its own merits**; (2) fingerprint
+allowlist — faster, but commit-pinned and invalidated by any later amend or rebase. Finding **#3**
+sits in a byte-exactness digest-pinning test and its assertions must be read before any edit. All of
+this is **test-fixture scope, not product source**. **No product remediation authority exists in
+this record, and no product byte was written.**
+
+### 26.5 W0-R06L P3s, dispositioned
+
+- **P3-1 — README residual.** Accepted and **reopened**: board §14.30.9 row 4 said "Addressed"; it
+  is now **partially addressed — still open**. Re-measured: **18** tracked `.md` under
+  `docs/operations/`, **8** indexed besides `README.md`, so **9 remain unindexed** (`W1-I03B-*` ×4,
+  `W1-I06C-*` ×2, `W1-I07-*` ×3). Closing it needs a `README.md` write, which is **outside this
+  correction's three-path allowlist** — carried open rather than silently fixed.
+- **P3-2 — second writer session.** Accepted and **recorded**: remediation-writer session
+  `57d40b19-c20d-47f1-9622-3bfec86cef00` now appears in the §25 header here and in board §14.30, not
+  only in the commit body.
+- **P3-3 — LINE 1 snapshot staleness.** Accepted as a **note only**; self-correcting via packet §7.2
+  step 1, and disclosed in kind by packet §1. The authored-at-`a3e8cba` figures stand as an accurate
+  dated snapshot and are not restated as current.
+- **P3-4 — `.gitleaksignore` count.** Accepted; the figure is now stated precisely everywhere as
+  **34 lines / 33 non-empty / 8 non-comment fingerprints**, independently confirmed by W0-S01B.
+
+### 26.6 Verification
+
+| Command | Measured result |
+|---|---|
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48`, `categories={"I":12,"T":12,"R":6,"S":5,"B":5,"IR":4,"D":4}`, `GATE_A4={"H":11,"J":10}`, `CONTRACT_GATE={"C1":10,"C2":10}` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 77 · pass 77 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| `git hash-object docs/strategy/06-ROADMAP-2026-2029.md` — before and after | `4ed13159a7afc104694dea8b2f2773003cdf8831` both times — byte-identical, unstaged, never read for content, never edited |
+| Control `HEAD` throughout | `8fe4cb02e0119224205a86631db7c481f7638c23`, unchanged — **no commit was made** |
+| Control changed paths **in this W1-D04B-R2 record only** | **exactly three** — the packet, the board, this register. **No fourth path in this record; `docs/operations/README.md` deliberately untouched; no new file created**. This is a dated, record-scoped figure, **not** a standing global claim about the control corpus: later dated records write their own allowlists (board §14.32 and §14.33 each carry five paths), and this row is not withdrawn by them |
+| Staged entries | **zero at start and zero at hard stop** |
+| SOC product commit `74f9774…` | read-only; `git status --porcelain` empty before and after; **zero product bytes written**, all four repositories |
+| `command -v gitleaks` | **present** — `/opt/homebrew/bin/gitleaks`, `8.30.1` (the check whose omission caused P1-1) |
+
+**Disclosed coverage limitation, mandatory.** Unchanged pattern from §19.4/§20.3/§21.3/§22.4/§23.3/
+§24.3/§25.5: the validator is a **documentary consistency check only**, it **does not
+machine-enforce this section or the packet**, and **CI: NOT WIRED** — no CI result is claimed.
+
+### 26.7 Synthesis
+
+- **Nothing is superseded and nothing is rewritten.** All prior sections stand as dated history;
+  only the passages carrying the withdrawn measurability claim are corrected in place, each
+  cross-referencing this section — the §24 precedent.
+- **The packet stays `PROPOSED — FOUNDER DECISION REQUIRED` and is explicitly not yet usable as the
+  Founder's decision basis.** It must be re-reviewed by a fresh independent Opus authority on these
+  corrected bytes and return **PASS with no P0–P2** first.
+- **Nothing is promoted. No blocker closes** — live-shadow blocker 4 stays open. **G2/G3 stay
+  closed**; `W0 COMPLETE=0` and W0 closure stays `NO-GO`; the **W0-I04 admission stays `HOLD`**;
+  GATE A4/W1-C1/W1-C2 stay `ACCEPTED — CLOSED 2026-07-26` and W1-G1 `ACCEPTED — CLOSED 2026-07-27`;
+  W1 product/integration writers stay `HOLD` and runtime/delegated-integration/external release stay
+  `NO-GO`; **no UAT milestone is reached and no instance exists or is authorized**.
+- **No writer of any kind is opened, and no secret-scan remediation authority — in place or by
+  allowlist — is granted.** This record is **uncommitted**: nothing staged, committed, merged,
+  pushed, fetched or released; **no product repository ref, branch or worktree and no remote of any
+  kind created, configured or mutated**; no history rewritten, reset, checked out, stashed, rebased
+  or branch-switched; no dependency installed; no formatter run; no secret or token value read or
+  displayed; **CI: NOT WIRED**. The Fabric W0-I07, Cyber AI W0-I06, SOC W1-I03B and SOC W1-I04A
+  lanes are untouched.
+- The fixed roster of 48 stands with **no task 49**; category counts stay I 12 · T 12 · R 6 ·
+  S 5 · B 5 · IR 4 · D 4. The formal W1 dates 2026-08-01 → 2026-08-23 and the
+  2026-12-21 → 2026-12-31 release window are unchanged.
+
+## 27. W1 Lane 5 local-only reviewed provenance — 2026-07-28, first same-day record
+
+Four reviewed commits exist **locally and nowhere else**, verified read-only against their own
+repositories on 2026-07-28 — commit, parent, tree and exact path count — and absent from every
+remote-tracking ref. This table is byte-identical in the blocker-4 packet §2.10, on this board and
+in the register, so no document can soften another's wording.
+
+| Lane | Local-only commit | Scope and content evidence | Status |
+|---|---|---|---|
+| W1-C1 correction | `20cfa36c503e5a95341c80653d25d2000d65c9fe`, parent `a976a205601de22dae59e5112e37ae29707fda0e`, tree `380a8f77e65b0980d561a94e3615b49bc0e76921` | exactly 16 paths; manifest `403f7b0df42b9c0768f048bb71dedeebdd3f930d9a39dcf4ac935335b85b7d2e`; `MEMBER-SET-SHA256/v1` `27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8`, `member_count` 13; pre-commit working-tree aggregate `76ef51d9…`, full value and recipe in §2.9 | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT INTEGRATED` · `NOT PUSHED/MERGED/RELEASED`; not contract-reaccepted — the accepted W1-C1 baseline `3a2c715…` / `e4cfbf8c…` is unchanged |
+| W1-G1 correction | `71857395332fabe041896ca0700fbf7a2bf612d3`, parent `20cfa36c503e5a95341c80653d25d2000d65c9fe`, tree `96a4ecceb054292b1272b7fd38adc6ce7c1ae7f3` | exactly 9 paths; manifest `35e767513267bb5ee88a933ab6faf4526162b34dff13460cd3c5a14e6825fbf0`; `MEMBER-SET-SHA256/v1` `a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4`, `member_count` 15; content aggregate `54e90e27b546e569156c13c3f7455bd99e1a5168e7e62b139422c5fed95e50cc` | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT INTEGRATED` · `NOT PUSHED/MERGED/RELEASED`; the accepted W1-G1 baseline is unchanged |
+| SOC vendor conformance | `5da251d92e66968103db4df9d544e2a1f3597b58`, parent `74f9774bfb5a6816cd9f0ddc230673a181a4cfd6`, tree `2534201c823c5bde582d1595eea6e22622d6b910` | exactly 16 paths; content aggregate `be19bad6d1c6e14edb4e3a5a810806a3670124cb442808abe87a977cc612cfd3`; post-review `PASS` | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT INTEGRATED` · `NOT PUSHED/MERGED/RELEASED` · `CONFORMANCE-ONLY`; the inherited gitleaks red stands and the SOC push remains `NO-GO` |
+| Fabric vendor conformance | `37d9b3293d26502fcd5be8144dbee78a98067043`, parent `d38f910a44d6454285b393cb89df4a6ade4eb855`, tree `6c118efd9f1dfc447eae1efb16194261850274e9` | exactly 32 paths; content aggregate `428a7a9b6cb06ed44469e148041ad56b58949a25cd01fb0ef617eb524ac0a44e`; 403 tests; post-review `PASS` | `LOCAL-ONLY` · `INDEPENDENT REVIEW PASS` · `NOT INTEGRATED` · `NOT PUSHED/MERGED/RELEASED` · `CONFORMANCE-ONLY`; no runtime and no vendor-parity claim |
+
+- **Committed is not accepted, and committed is not integrated.** All four are real commits; none is
+  accepted by any contract gate, integrated into any other line, pushed, merged or released.
+- **Both vendor rows are conformance-only** — contract conformance against reviewed bytes, never
+  runtime evidence and never a vendor-parity claim. SOC additionally inherits the measured
+  `secret-scan` red, so its push stays `NO-GO`.
+- **No aggregate here is a member set and no member set is a commit identity.** Each digest belongs
+  to exactly one lane row. W1-C1's `member_set` is `27a6bdeb…` over 13 members; W1-G1's is
+  `a285fa8e…` over 15 — different recipes over different files, never interchangeable.
+- **No identity is stated for this record itself.** A commit cannot contain its own SHA, tree or
+  content aggregate; this lane publishes its recipe and re-measures externally afterwards.
+- **Nothing is promoted.** No blocker closes, no gate moves, `W0 COMPLETE=0` and W0 closure stays
+  `NO-GO`, the roster stays **48** with **no task 49**, W1 stays **2026-08-01 → 2026-08-23** and the
+  release window stays **2026-12-21 → 2026-12-31**. **CI: NOT WIRED.**
