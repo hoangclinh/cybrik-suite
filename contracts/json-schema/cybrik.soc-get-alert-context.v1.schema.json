@@ -36,7 +36,8 @@
         },
         "include_descendants": {
           "type": "boolean",
-          "description": "Requested hierarchy expansion. The runtime may only honor it when the authenticated actor has the corresponding aggregate scope."
+          "const": false,
+          "description": "Hierarchy expansion is held closed in C1 v0.1.0: the field stays required and boolean, but only false is admissible. Raw descendant expansion requires a separately accepted explicit-descendant-grant binding carrying a non-empty raw_scope plus object-level need-to-know; aggregate or ancestor-governance reach can never back a raw descendant read, and this body field is never self-authorizing. Widening to true belongs to a later contract version that binds that grant."
         }
       }
     },

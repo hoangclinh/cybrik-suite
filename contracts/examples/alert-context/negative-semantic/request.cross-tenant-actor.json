@@ -32,10 +32,10 @@
       "risk_class": "R0",
       "side_effects": false
     },
-    "schema_digest": "sha256:dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f",
+    "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
     "input_digest": "sha256:e764d6e1190c106095b0d0e00d656306a62ed17c2461579e7ca680b65479ceb2",
     "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-    "binding_digest": "sha256:009f993141561af0b936e87657330b339be9d631d40577bdef8c80fb60d8703c"
+    "binding_digest": "sha256:2b36eacf7db47b63a16a1fba367d3a1c9e32e6e4a5d2ce9d59c2d2d044e53fe9"
   },
   "requested_at": "2026-07-26T06:00:00Z"
 }

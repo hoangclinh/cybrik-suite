@@ -681,6 +681,18 @@ export function validateAlertContextPacket({
         || capability.side_effects?.const !== false) {
       fail('schema capability pin must be exact soc.get_alert_context@0.1.0 R0 side_effects=false');
     }
+    // Fail-closed descendant pin. `const: false` is the only admissible form:
+    // a removed pin, an inverted pin and a widened enum all leave `const`
+    // different from false and are rejected on the schema's own merits.
+    if (schema.$defs?.orgScope?.properties?.include_descendants?.const !== false) {
+      fail(
+        'schema orgScope.include_descendants must be pinned const false until a '
+        + 'separately accepted explicit-descendant-grant binding exists',
+      );
+    }
+    if (schema.$defs?.orgScope?.properties?.include_descendants?.type !== 'boolean') {
+      fail('schema orgScope.include_descendants must stay a required boolean field');
+    }
     if (schema.$defs?.unavailableFailure?.properties?.code?.const
         !== 'alert_context_unavailable') {
       fail('schema unavailable response must expose only alert_context_unavailable');
@@ -918,7 +930,10 @@ export function validateAlertContextPacket({
   const semanticCrossOrg = fixtures['negative-semantic/result.cross-org.json'];
   if (semanticCrossOrg && positiveRequest
       && same(semanticCrossOrg.org_scope, positiveRequest.org_scope)) {
-    fail('cross-org semantic fixture must differ in full org scope including include_descendants');
+    fail(
+      'cross-org semantic fixture must differ in full org scope; with '
+      + 'include_descendants pinned closed the witness must drift by org_id',
+    );
   }
   const semanticClearance =
     fixtures['negative-semantic/result.clearance-exceeded.json'];

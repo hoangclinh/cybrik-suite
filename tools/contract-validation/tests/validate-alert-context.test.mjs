@@ -54,7 +54,7 @@ const ALERT_DIGEST = `sha256:${'3'.repeat(64)}`;
 // The exact pre-acceptance schema bytes digest. Any binding still pinning it
 // after the lifecycle flip is a stale binding and must fail closed.
 const SUPERSEDED_SCHEMA_DIGEST =
-  'sha256:a5c5c471bdd70b6bc46c18628171ca5a696f2a207b3850c06256d816aabb0f4b';
+  'sha256:dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f';
 const ACCEPTED_STATUS_TOKEN = 'ACCEPTED_FOR_IMPLEMENTATION_NOT_ACCEPTED_FLAG=false';
 
 // Independent expectation of which canonical structural trust invariant each
@@ -300,16 +300,34 @@ const REJECTION_CASES = [
     });
   }],
 
-  ['rejects result hierarchy expansion including include_descendants drift', () => runTable([
+  ['rejects hierarchy expansion across request, binding and result org scope', () => runTable([
     {
+      // C1 v0.1.0 pins include_descendants to const false, so an expanded
+      // available result stops being structurally valid at all.
       file: AVAILABLE,
       mutate: (result) => { result.org_scope.include_descendants = true; },
-      pattern: /preserve.*org scope/i,
+      pattern: /positive fixture failed schema validation/i,
     },
     {
+      // org_id drift stays a semantic/correlation failure, not a schema one.
       file: AVAILABLE,
       mutate: (result) => { result.org_scope.org_id = 'org-soc-west'; },
       pattern: /preserve.*org scope/i,
+    },
+    {
+      // Even a fully re-signed request cannot self-authorize descendant reach.
+      file: REQUEST,
+      mutate: (request) => { request.org_scope.include_descendants = true; },
+      after: refreshPositiveBindingAcrossPacket,
+      pattern: /positive fixture failed schema validation/i,
+    },
+    {
+      // Nor can the credential-derived authorization binding carry it.
+      file: REQUEST,
+      mutate: (request) => {
+        request.authorization_binding.org_scope.include_descendants = true;
+      },
+      pattern: /positive fixture failed schema validation/i,
     },
   ])],
 
@@ -380,6 +398,27 @@ const REJECTION_CASES = [
           .filter((key) => key !== 'include_descendants');
       },
       /orgScope required set must match/i,
+    );
+    // The fail-closed descendant pin may not be removed, inverted or widened,
+    // even when every dependent digest is re-signed around the weakening.
+    expectSchemaRejected(
+      (schema) => {
+        delete schema.$defs.orgScope.properties.include_descendants.const;
+      },
+      /orgScope\.include_descendants must be pinned const false/i,
+    );
+    expectSchemaRejected(
+      (schema) => {
+        schema.$defs.orgScope.properties.include_descendants.const = true;
+      },
+      /orgScope\.include_descendants must be pinned const false/i,
+    );
+    expectSchemaRejected(
+      (schema) => {
+        delete schema.$defs.orgScope.properties.include_descendants.const;
+        schema.$defs.orgScope.properties.include_descendants.enum = [false, true];
+      },
+      /orgScope\.include_descendants must be pinned const false/i,
     );
     expectSchemaRejected(
       (schema) => { schema.$defs.safeInternalObjectRef.additionalProperties = true; },
@@ -1096,8 +1135,35 @@ const POSITIVE_CASES = [
       );
     }
 
+    // Raw descendant expansion is held structurally closed in C1 v0.1.0: the
+    // field stays required and boolean, but only false is admissible.
+    const schemaDocument = readJson(join(SOURCE_CONTRACTS, SCHEMA));
+    const includeDescendants =
+      schemaDocument.$defs.orgScope.properties.include_descendants;
+    assert.equal(includeDescendants.type, 'boolean');
+    assert.equal(includeDescendants.const, false);
+    assert.equal(schemaDocument.$defs.orgScope.required.includes('include_descendants'), true);
+    assert.match(includeDescendants.description, /explicit-descendant-grant/);
+    assert.match(includeDescendants.description, /aggregate/i);
+    assert.equal(
+      manifest.trust_invariants.structural.some((entry) => entry.startsWith('TI-6 ')),
+      true,
+      'TI-6 must declare the structural descendant pin',
+    );
+    assert.match(
+      manifest.trust_invariants.runtime_only_declared
+        .find((entry) => entry.startsWith('TR-8 ')),
+      /explicit-descendant-grant/,
+    );
+    assert.equal(
+      manifest.acceptance.settled_checklist.some((entry) => entry.startsWith('A11 ')),
+      true,
+      'A11 must record the fail-closed descendant correction',
+    );
+
     // Every fixture binding pins the post-flip schema bytes, so the acceptance
-    // cascade left no stale binding behind.
+    // cascade left no stale binding behind, and no fixture — request body,
+    // authorization binding or result — carries an expanded scope.
     const liveSchemaDigest = `sha256:${sha256(readFileSync(join(SOURCE_CONTRACTS, SCHEMA)))}`;
     assert.notEqual(liveSchemaDigest, SUPERSEDED_SCHEMA_DIGEST);
     for (const row of examples) {
@@ -1107,7 +1173,29 @@ const POSITIVE_CASES = [
         liveSchemaDigest,
         `${row.file} must pin the current schema bytes`,
       );
+      assert.equal(
+        fixture.org_scope.include_descendants,
+        false,
+        `${row.file} body org scope must stay descendant-closed`,
+      );
+      assert.equal(
+        fixture.authorization_binding.org_scope.include_descendants,
+        false,
+        `${row.file} binding org scope must stay descendant-closed`,
+      );
     }
+
+    // The cross-org witness stays a genuine TR-2 witness through org_id drift
+    // alone now that hierarchy expansion is structurally unavailable to it.
+    const crossOrg = readJson(join(SOURCE_CONTRACTS, CROSS_ORG));
+    const positiveRequest = readJson(join(SOURCE_CONTRACTS, REQUEST));
+    assert.notEqual(crossOrg.org_scope.org_id, positiveRequest.org_scope.org_id);
+    assert.equal(crossOrg.org_scope.include_descendants, false);
+    assert.match(
+      examples.find((entry) => entry.file === 'negative-semantic/result.cross-org.json')
+        .invariant,
+      /^TR-2 Result org_id differs/,
+    );
 
     // Non-circularity: the aggregate is computed over members[] only, so
     // rewriting an unrelated manifest key leaves the declared digest valid.

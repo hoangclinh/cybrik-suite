@@ -35,7 +35,7 @@
     {
       "file": "negative-semantic/result.cross-org.json",
       "kind": "negative-semantic",
-      "invariant": "TR-2 Result org_id/include_descendants differs from the credential-derived request authorization binding; runtime must reject rather than widen hierarchy access."
+      "invariant": "TR-2 Result org_id differs from the credential-derived request authorization binding. include_descendants is pinned const false in C1 v0.1.0, so this witness drifts by org_id alone; runtime must reject rather than widen hierarchy access."
     },
     {
       "file": "negative-semantic/result.clearance-exceeded.json",
