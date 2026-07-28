@@ -2,7 +2,7 @@
 // packet validator. The packet it exercises is ACCEPTED FOR IMPLEMENTATION on
 // 2026-07-27 and NOT IMPLEMENTED.
 //
-// The suite holds exactly 32 adversarial rejection cases plus 3 positive checks.
+// The suite holds exactly 34 adversarial rejection cases plus 3 positive checks.
 // Several adversarial cases are table-driven over multiple mutations; every
 // mutation must be rejected. `POSITIVE_CASES[0]` asserts that the compatibility
 // manifest's declared `verification.test_case_counts` still equals the real
@@ -203,6 +203,122 @@ const runTable = (rows) => { for (const row of rows) expectRejected(row); };
 
 const refreshOutputDigest = (boundResult) => {
   boundResult.output.output_digest = jcsDigest(boundOutputProjection(boundResult));
+};
+
+// An authorization binding reaches the wire in exactly two places: caller-asserted
+// inside a bound request's closed argument channel (only ever a negative witness)
+// and Fabric-completed inside a bound result's inline business payload.
+const assertedBinding = (fixture) =>
+  fixture?.arguments?.authorization_binding ?? fixture?.output?.data?.authorization_binding;
+
+// Independent re-implementations of the two accepted C1 projections that a
+// schema repin feeds, so this suite never trusts the validator's own copies.
+const authorizationBindingProjection = (binding) => ({
+  schema: 'cybrik.soc-get-alert-context.authorization-binding@0.1.0',
+  tenant_id: binding.tenant_id,
+  org_scope: binding.org_scope,
+  actor: binding.actor,
+  capability: binding.capability,
+  schema_digest: binding.schema_digest,
+  input_digest: binding.input_digest,
+  policy_digest: binding.policy_digest,
+});
+
+const c1AvailableResultProjection = (business) => ({
+  schema: 'cybrik.soc-get-alert-context.available-result@0.1.0',
+  request_id: business.request_id,
+  idempotency_key: business.idempotency_key,
+  authorization_binding_digest: business.authorization_binding?.binding_digest,
+  tenant_id: business.tenant_id,
+  org_scope: business.org_scope,
+  authorized_actor: business.authorized_actor,
+  clearance: business.clearance,
+  capability: business.capability,
+  alert_ref: business.alert_ref,
+  context: business.context,
+  data_marking: business.data_marking,
+  policy_digest: business.policy_digest,
+});
+
+// Re-derives, in dependency order, every inline digest a changed schema pin
+// feeds: binding digest, then the reused C1 context digest, then the bound
+// output digest that encloses both. Used to build maximally coherent stale
+// fixtures, so a liveness rejection can only be about liveness.
+const resignBindingDependents = (fixture) => {
+  const binding = assertedBinding(fixture);
+  if (binding) binding.binding_digest = jcsDigest(authorizationBindingProjection(binding));
+  const business = fixture.output?.data;
+  if (business?.outcome === 'available') {
+    business.context_digest = jcsDigest(c1AvailableResultProjection(business));
+  }
+  if (fixture.output?.output_digest) refreshOutputDigest(fixture);
+};
+
+// The C1 schema generation this packet was originally pinned against, superseded
+// by the accepted org-scope narrowing at 20cfa36. Held here only as the stale
+// value the liveness invariant must refuse; nothing in the packet may carry it.
+const SUPERSEDED_SOURCE_SCHEMA_DIGEST =
+  'sha256:dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f';
+
+// Every transport fixture that asserts an authorization binding, with the label
+// the validator uses for the channel it arrived on. Independently enumerated
+// here; POSITIVE_CASES[0] proves the packet holds no others.
+const EXAMPLES_PREFIX = 'examples/alert-context-transport/';
+// The validator reports fixtures relative to the examples directory, while
+// mutateJson addresses them relative to contracts/.
+const fixtureRelative = (file) => file.slice(EXAMPLES_PREFIX.length);
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const BINDING_ASSERTING_FIXTURES = {
+  [AVAILABLE]: 'completed binding',
+  [UNAVAILABLE]: 'completed binding',
+  [ARGS_BINDING]: 'caller-asserted binding',
+  ['examples/alert-context-transport/negative-schema/'
+    + 'bound-result.completed-without-receipt.json']: 'completed binding',
+  ['examples/alert-context-transport/negative-schema/'
+    + 'bound-result.output-artifact-locator.json']: 'completed binding',
+  ['examples/alert-context-transport/negative-schema/'
+    + 'bound-result.unavailable-with-output.json']: 'completed binding',
+};
+
+// The structural defect each negative-schema fixture exists to witness, stated
+// as an Ajv error predicate that is independent of the schema pin it carries.
+const ORIGINAL_STRUCTURAL_WITNESS = {
+  'negative-schema/bound-request.authorization-binding-asserted.json': {
+    invariant: 'TB-3',
+    reason: 'the closed caller-argument channel refuses a caller-asserted authorization_binding',
+    matches: (error) => error.instancePath === '/arguments'
+      && error.keyword === 'additionalProperties'
+      && error.params.additionalProperty === 'authorization_binding',
+  },
+  'negative-schema/bound-request.capability-pin-mismatch.json': {
+    invariant: 'TB-2',
+    reason: 'the capability version is pinned to exact 0.1.0',
+    matches: (error) => error.instancePath === '/capability/version' && error.keyword === 'const',
+  },
+  'negative-schema/bound-result.approval-required.json': {
+    invariant: 'TB-4',
+    reason: 'approval_required/approval_id are outside the restricted envelope status set',
+    matches: (error) => error.instancePath === '/status' && error.keyword === 'enum',
+  },
+  'negative-schema/bound-result.output-artifact-locator.json': {
+    invariant: 'TB-8',
+    reason: 'output artifacts are bounded to zero items, so there is no locator side channel',
+    matches: (error) => error.instancePath === '/output_artifacts'
+      && error.keyword === 'maxItems'
+      && error.params.limit === 0,
+  },
+  'negative-schema/bound-result.unavailable-with-output.json': {
+    invariant: 'TB-6',
+    reason: 'a non-completed envelope status may carry no business output',
+    matches: (error) => error.keyword === 'not',
+  },
+  'negative-schema/bound-result.completed-without-receipt.json': {
+    invariant: 'TB-7',
+    reason: 'a completed bound result must carry receipt_id',
+    matches: (error) => error.keyword === 'required'
+      && error.params.missingProperty === 'receipt_id',
+  },
 };
 
 // Re-signs every digest the mutated bound result feeds, so each schema row proves
@@ -1525,6 +1641,130 @@ const REJECTION_CASES = [
       },
     ]);
   }],
+
+  // A negative fixture is not exempt from accepted-C1 schema liveness. Parking a
+  // superseded schema generation inside a fixture that is rejected for an
+  // unrelated structural reason would let a mixed-generation packet go green, so
+  // each stale repin here is made *fully coherent* first — dependent binding,
+  // context and output digests, the manifest member hash and the member-set
+  // aggregate are all recomputed — and must still be refused on liveness alone.
+  ['rejects a superseded C1 schema pin in a negative fixture even when every dependent '
+    + 'digest, member hash and member-set aggregate is coherently recomputed', () => {
+    for (const [file, label] of Object.entries(BINDING_ASSERTING_FIXTURES)) {
+      withPacketCopy((contracts) => {
+        mutateJson(contracts, file, (fixture) => {
+          const binding = assertedBinding(fixture);
+          binding.schema_digest = SUPERSEDED_SOURCE_SCHEMA_DIGEST;
+          resignBindingDependents(fixture);
+        });
+
+        // The rejection below cannot be blamed on a stale hash or aggregate:
+        // both are provably coherent with the mutated bytes at this point.
+        const manifest = readJson(join(contracts, COMPATIBILITY));
+        const member = manifest.members.find((candidate) => candidate.file === file);
+        assert.equal(member.sha256, sha256(readFileSync(join(contracts, file))));
+        assert.equal(
+          manifest.member_set_integrity.member_set_digest,
+          memberSetDigest(manifest.members),
+        );
+        // The fixture's own inline digests are self-consistent too, so no
+        // digest-projection rule can be the one firing.
+        const mutated = readJson(join(contracts, file));
+        assert.equal(
+          assertedBinding(mutated).binding_digest,
+          jcsDigest(authorizationBindingProjection(assertedBinding(mutated))),
+        );
+        if (mutated.output?.output_digest) {
+          assert.equal(
+            mutated.output.output_digest,
+            jcsDigest(boundOutputProjection(mutated)),
+          );
+        }
+
+        expectFailure(
+          validate(contracts),
+          new RegExp(
+            `${escapeRegExp(fixtureRelative(file))}: ${label} schema_digest must pin the exact `
+            + 'accepted C1 schema bytes',
+          ),
+        );
+      });
+    }
+
+    // The expectation is derived from the committed C1 schema bytes, never from
+    // a constant: editing those bytes moves the live digest and every asserted
+    // binding — negative fixtures included — goes stale at once.
+    withPacketCopy((contracts) => {
+      mutateJson(contracts, SOURCE_SCHEMA, (schema) => {
+        schema.$defs.alertContext.properties.title.maxLength = 499;
+      }, { rehash: false });
+      const errors = validate(contracts).errors.join('\n');
+      for (const file of Object.keys(BINDING_ASSERTING_FIXTURES)) {
+        assert.match(
+          errors,
+          new RegExp(
+            `${escapeRegExp(fixtureRelative(file))}: .*schema_digest must pin the exact `
+            + 'accepted C1 schema bytes',
+          ),
+          `${file} must go stale when the accepted C1 schema bytes move`,
+        );
+      }
+    });
+
+    // Fail closed, not open: if the accepted C1 schema bytes cannot be read at
+    // all there is no live digest to compare against, and every asserted binding
+    // must be refused rather than silently skipped.
+    withPacketCopy((contracts) => {
+      rmSync(join(contracts, SOURCE_SCHEMA));
+      const errors = validate(contracts).errors.join('\n');
+      for (const file of Object.keys(BINDING_ASSERTING_FIXTURES)) {
+        assert.match(
+          errors,
+          new RegExp(
+            `${escapeRegExp(fixtureRelative(file))}: .*schema_digest must pin the exact `
+            + `accepted C1 schema bytes, but ${escapeRegExp(SOURCE_SCHEMA)} could not be read`,
+          ),
+          `${file} must fail closed when the accepted C1 schema bytes are unreadable`,
+        );
+      }
+    });
+  }],
+
+  // Repinning to the live schema generation must not have repaired anything: each
+  // negative-schema fixture still has to fail the binding schema for the exact
+  // structural defect its examples-manifest row claims it witnesses.
+  ['negative-schema fixtures stay rejected for their original structural reason after the '
+    + 'live accepted-C1 schema repin', () => {
+    withPacketCopy((contracts) => {
+      const { validate: validateSchema } = compileBindingSchema({
+        contractsRoot: contracts,
+        dependencyRoot: DEPENDENCY_ROOT,
+      });
+      const liveDigest = `sha256:${sha256(readFileSync(join(contracts, SOURCE_SCHEMA)))}`;
+
+      for (const [file, witness] of Object.entries(ORIGINAL_STRUCTURAL_WITNESS)) {
+        const fixture = readJson(join(contracts, `examples/alert-context-transport/${file}`));
+        assert.equal(validateSchema(fixture), false, `${file} must stay structurally invalid`);
+        assert.equal(
+          (validateSchema.errors || []).some(witness.matches),
+          true,
+          `${file} must still be rejected for ${witness.invariant}: ${witness.reason}`,
+        );
+        // ...and it is rejected on its own structural merits, not because it is
+        // still carrying a superseded schema pin.
+        const binding = assertedBinding(fixture);
+        if (binding) assert.equal(binding.schema_digest, liveDigest);
+      }
+
+      // The repin left the fixture classes intact: still 6 rejected
+      // negative-schema fixtures and 3 structurally valid negative-semantic ones.
+      const result = validate(contracts);
+      assert.equal(result.ok, true, result.errors.join('\n'));
+      assert.equal(result.counts.negative_schema_total, 6);
+      assert.equal(result.counts.negative_schema_reject, 6);
+      assert.equal(result.counts.negative_semantic_structurally_valid, 3);
+    });
+  }],
 ];
 
 // ---------------------------------------------------------------------------
@@ -1558,12 +1798,34 @@ const POSITIVE_CASES = [
         // those carry the available business outcome.
         bound_output_digests_verified: 5,
         business_context_digests_verified: 3,
+        // Accepted-C1 schema liveness is scanned over every asserted binding in
+        // the packet, negative fixtures included, and all 6 must be live.
+        binding_schema_liveness_scanned: 6,
+        binding_schema_liveness_verified: 6,
         reused_pins_verified: 8,
         source_member_pins_verified: 13,
         manifest_member_hashes_verified: 15,
         member_set_digest_verified: 1,
       });
     });
+
+    // The liveness scan is closed over the real fixture set, not over a list
+    // this suite hopes is complete: walk every declared example, find every
+    // authorization binding wherever it sits, and require both that the set is
+    // exactly BINDING_ASSERTING_FIXTURES and that no fixture anywhere in the
+    // examples tree still carries a superseded C1 schema generation.
+    const scanned = [];
+    for (const row of readJson(join(SOURCE_CONTRACTS, EXAMPLES_MANIFEST)).examples) {
+      const file = `${EXAMPLES_PREFIX}${row.file}`;
+      const bytes = readFileSync(join(SOURCE_CONTRACTS, file), 'utf8');
+      assert.equal(
+        bytes.includes(SUPERSEDED_SOURCE_SCHEMA_DIGEST.slice('sha256:'.length)),
+        false,
+        `${row.file} must not carry the superseded C1 schema digest`,
+      );
+      if (assertedBinding(JSON.parse(bytes))) scanned.push(file);
+    }
+    assert.deepEqual(scanned.sort(), Object.keys(BINDING_ASSERTING_FIXTURES).sort());
 
     // The declared wording cannot drift from the real suite shape.
     const manifest = readJson(join(SOURCE_CONTRACTS, COMPATIBILITY));

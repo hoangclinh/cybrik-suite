@@ -174,7 +174,7 @@ const EXPECTED_NON_CLAIMS = Object.freeze([
   'no merge, push, release or release certification is accepted',
 ]);
 
-const EXPECTED_SOURCE_COMMIT = '3a2c71555a423465855ffaddcb663c8b704dbfbd';
+const EXPECTED_SOURCE_COMMIT = '20cfa36c503e5a95341c80653d25d2000d65c9fe';
 const EXPECTED_SOURCE_MEMBER_COUNT = 13;
 const EXPECTED_MEMBER_COUNT = 15;
 const KILL_SWITCH_CODE = 'FABRIC_POLICY_KILL_SWITCH_ENGAGED';
@@ -433,14 +433,14 @@ const TEST_CASE_COUNT_KEYS = Object.freeze([
   'total_cases',
 ]);
 const EXPECTED_TEST_CASE_COUNTS = Object.freeze({
-  adversarial_rejection_cases: 32,
+  adversarial_rejection_cases: 34,
   positive_cases: 3,
-  total_cases: 35,
+  total_cases: 37,
 });
 const EXPECTED_VERIFICATION_TEXT = Object.freeze({
   scope: 'Standalone static evidence only. The suite in '
     + 'tools/contract-validation/tests/validate-alert-context-transport.test.mjs '
-    + 'holds 32 adversarial rejection cases plus 3 positive checks; several '
+    + 'holds 34 adversarial rejection cases plus 3 positive checks; several '
     + 'adversarial cases are table-driven over multiple mutations and every '
     + 'mutation must fail closed. It proves binding-packet, schema, fixture, '
     + 'correlation, reuse-pin, member-hash and member-set integrity plus '
@@ -1181,6 +1181,37 @@ export function validateAlertContextTransportBindingPacket({
     }
   }
 
+  // Accepted-C1 schema liveness is a packet-wide invariant, not a positive-only
+  // one. Every fixture that asserts an authorization binding pins the accepted
+  // C1 schema bytes — whether the caller asserted it inside a negative-schema
+  // witness or Fabric completed it inside a bound result — so a mixed-generation
+  // packet cannot go green by parking a superseded schema digest in a fixture
+  // that happens to be rejected for an unrelated structural reason. The expected
+  // value is always derived from the committed C1 schema bytes on disk, never
+  // from a constant in this file, and the rule fails closed when those bytes
+  // cannot be read at all.
+  for (const [file] of EXPECTED_EXAMPLES) {
+    const fixture = fixtures[file];
+    if (!fixture) continue;
+    for (const [label, binding] of [
+      ['caller-asserted binding', fixture.arguments?.authorization_binding],
+      ['completed binding', fixture.output?.data?.authorization_binding],
+    ]) {
+      if (binding === undefined) continue;
+      bump('binding_schema_liveness_scanned');
+      if (liveSourceSchemaDigest === undefined) {
+        fail(
+          `${file}: ${label} schema_digest must pin the exact accepted C1 schema bytes, but `
+          + `${SOURCE_SCHEMA_FILE} could not be read to derive them`,
+        );
+      } else if (binding?.schema_digest !== liveSourceSchemaDigest) {
+        fail(`${file}: ${label} schema_digest must pin the exact accepted C1 schema bytes`);
+      } else {
+        bump('binding_schema_liveness_verified');
+      }
+    }
+  }
+
   if (boundRequest) {
     // The resolved-arguments projection must be computable for the caller-asserted
     // arguments; a value outside the constrained set fails closed here.
@@ -1236,11 +1267,8 @@ export function validateAlertContextTransportBindingPacket({
     if (binding?.policy_digest !== boundRequest.arguments?.policy_digest) {
       fail(`${file}: completed binding policy_digest must equal the caller-argument policy_digest`);
     }
-    if (liveSourceSchemaDigest && binding?.schema_digest !== liveSourceSchemaDigest) {
-      fail(
-        `${file}: completed binding schema_digest must pin the exact accepted C1 schema bytes`,
-      );
-    }
+    // Accepted-C1 schema liveness for this completed binding is asserted
+    // packet-wide above, over every fixture that carries a binding at all.
 
     // Exact capability pin equality across the transport envelope and the
     // completed business binding, with the R0/no-side-effect classification held.

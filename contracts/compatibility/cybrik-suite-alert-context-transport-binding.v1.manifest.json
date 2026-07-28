@@ -140,65 +140,65 @@
   },
   "source_packet": {
     "packet": "compatibility/cybrik-suite-alert-context-packet.v1.manifest.json",
-    "source_commit": "3a2c71555a423465855ffaddcb663c8b704dbfbd",
-    "source_manifest_sha256": "4d1a8c835c394e7e1b74f7e9969b850c8e37accdeec083f291de4edf8b9de818",
+    "source_commit": "20cfa36c503e5a95341c80653d25d2000d65c9fe",
+    "source_manifest_sha256": "403f7b0df42b9c0768f048bb71dedeebdd3f930d9a39dcf4ac935335b85b7d2e",
     "source_member_count": 13,
-    "source_member_set_digest": "sha256:e4cfbf8c6f6ccfe545a91d63b0bee6de4c616a28e3f1a61c320f8fde747e1d35",
+    "source_member_set_digest": "sha256:27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8",
     "source_members": [
       {
         "file": "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
-        "sha256": "dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f"
+        "sha256": "d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984"
       },
       {
         "file": "examples/alert-context/examples-manifest.json",
-        "sha256": "a01f3e249ec7314ec765fe96939b9e5f9c01b67eb83eac9cc7eecdbb5ec86091"
+        "sha256": "e5abc6f7201b4401acaf1a74fee96f83b45e850240bb80195e2f208465653e27"
       },
       {
         "file": "examples/alert-context/negative-schema/request.alert-ref-missing-digest.json",
-        "sha256": "4ff40e3fa7e7ec256d6e88c923720b5d6f527403c5315146929a84b2668da147"
+        "sha256": "93c86aa87147c36387ac6b467d816ca82a65ff125a5b151dd4925dfee7f2773d"
       },
       {
         "file": "examples/alert-context/negative-schema/request.execution-grant-in-body.json",
-        "sha256": "8fa44ca8583711e09b0125577a0c6e51b5fe90d5109f71e4436197a90f43dffa"
+        "sha256": "185022b93a4d54b8e39bf123e7c4c6903cee85f941f23a3b052b50c861a1abf9"
       },
       {
         "file": "examples/alert-context/negative-schema/request.w2f-delegation-as-tool-grant.json",
-        "sha256": "efb3f88db7aba903ae5e0cffe8e7a6c87d6f3613626705deab91c7e7646ebadd"
+        "sha256": "3d784b3e5ce3a9e55cf90aedaf479a034e61b94a6db2dbc207081dbbeb850c5e"
       },
       {
         "file": "examples/alert-context/negative-schema/result.existence-leak.json",
-        "sha256": "edbc95782b8159eee5a7c0b0a365fb3e31045d41d00bb575bb4fe02a38f9fe26"
+        "sha256": "f16c996795a2a05b840ad48d99380ecf11d72139f6ab6d3fee982dd25deaf2f8"
       },
       {
         "file": "examples/alert-context/negative-semantic/request.cross-tenant-actor.json",
-        "sha256": "4f1b14c3d61815c7c7c55db9a69d443710da0cd290a9f91e786cc1e383fafa52"
+        "sha256": "c6013cf28a5c9ca490de02c70ca16554d3cacf701529867c990ce6f5332ae023"
       },
       {
         "file": "examples/alert-context/negative-semantic/result.clearance-exceeded.json",
-        "sha256": "af35112dd318f99efb45c982ad0da003a223e4a61c1b45961cd4391f95d5f6a8"
+        "sha256": "eb687f3de64f2aa203e0b49865f4efe69c6f259a73f6ece127efe6007c87cd2f"
       },
       {
         "file": "examples/alert-context/negative-semantic/result.cross-org.json",
-        "sha256": "80c3180697300ae86924df622e0b536076bcc30c0a2e75ad07cca07df4422dc8"
+        "sha256": "4cc9803aa26a3dd744e5769a8ecdf5bfa4973b1b26f400853c390aa92daebf31"
       },
       {
         "file": "examples/alert-context/negative-semantic/result.digest-mismatch.json",
-        "sha256": "2ea20a811459283f0df85eee0386e8afdc203944f47b1c9d10748c9593c83c06"
+        "sha256": "7331123f31589fdb984fc92abc006e025ff0d091257f02ce794ee2175069adf5"
       },
       {
         "file": "examples/alert-context/positive/request.json",
-        "sha256": "c6bb223b50a0c384f04f0fefce10f9635b0bb2738faff3ecfcd05d43bbfeb51a"
+        "sha256": "74d6c1f9d991583c9f3732a5eab86fbf842b42097ea5ff93db429755b44761ac"
       },
       {
         "file": "examples/alert-context/positive/result.available.json",
-        "sha256": "56b069b048feada20eb47f3ad43d2f740d5981685cc0d8c91799986c35a01644"
+        "sha256": "4ad9be4f716f301c02e30415f5c7cd33e609012162254c97a00192c8672a01a5"
       },
       {
         "file": "examples/alert-context/positive/result.unavailable.json",
-        "sha256": "884bcaff9c7f90fecd4b598a9bc638f790ee871daee7f686521f8174f57e6e2a"
+        "sha256": "09d500c3a77c7984f9e16598a025854595231be01fd25e67aa232c1f56aa44b2"
       }
     ],
-    "reuse_statement": "This packet builds on the accepted W1 C1 soc.get_alert_context packet without changing any of its bytes, identifiers, lifecycle or status, and without claiming any standing over it. All 13 accepted C1 members are pinned by sha256 here and re-verified against both the bytes on disk and the accepted C1 manifest declaration, so drift in either place fails closed. The accepted C1 available-result projection is reused verbatim rather than restated, and the packet fails closed if this copy drifts from the accepted declaration."
+    "reuse_statement": "This packet builds on the accepted W1 C1 soc.get_alert_context packet without changing any of its bytes, identifiers, lifecycle or status, and without claiming any standing over it. All 13 accepted C1 members are pinned by sha256 here and re-verified against both the bytes on disk and the accepted C1 manifest declaration, so drift in either place fails closed. The accepted C1 available-result projection is reused verbatim rather than restated, and the packet fails closed if this copy drifts from the accepted declaration. The C1 source pin was first taken at commit 3a2c71555a423465855ffaddcb663c8b704dbfbd and carried unchanged through the transport-binding acceptance at commit a976a205601de22dae59e5112e37ae29707fda0e; both of those commits hold the pre-correction C1 bytes. It is re-pinned here to commit 20cfa36c503e5a95341c80653d25d2000d65c9fe, the accepted C1 org-scope narrowing, so that source_commit names exactly the commit whose bytes every hash in this block is taken from. The re-pin moves pinned source bytes only: no C1 or transport lifecycle, status, version or acceptance date changes with it."
   },
   "reused_unmodified": [
     {
@@ -235,7 +235,7 @@
       "file": "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
       "kind": "json-schema",
       "reuse": "byte-unchanged",
-      "sha256": "dae7ea7d1c06c7309a51ab0eac398423314eb715582cbd2f40039907d6f0b49f"
+      "sha256": "d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984"
     },
     {
       "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
@@ -304,13 +304,13 @@
       "file": "examples/alert-context-transport/positive/bound-result.available.json",
       "kind": "positive",
       "contract_version": "0.1.0",
-      "sha256": "6036083385ba6196f9a374c298d22238511c4c5d4d6be13f5349a1205448365d"
+      "sha256": "a3dfee9fd8ef960b5f51cc1bcf36138e68303642449a9573c4d4db7ea93d39bd"
     },
     {
       "file": "examples/alert-context-transport/positive/bound-result.unavailable.json",
       "kind": "positive",
       "contract_version": "0.1.0",
-      "sha256": "fd0d504405bcd901d9566d5e1669e147d5c272da57c7c2424d0cb8317228deea"
+      "sha256": "4793b59da46aae6b78f9a024db043eace4f459d0feda50f04139d08cb75c2492"
     },
     {
       "file": "examples/alert-context-transport/positive/bound-result.kill-switch-denied.json",
@@ -322,7 +322,7 @@
       "file": "examples/alert-context-transport/negative-schema/bound-request.authorization-binding-asserted.json",
       "kind": "negative-schema",
       "contract_version": "0.1.0",
-      "sha256": "22bad7746f795bacdd675cc8f468e85fe4aba43ac98104a4f2a44036c3b47f9c"
+      "sha256": "6ff8e4140f7e415a2655d645c50656965380df69f6310987a5ee462603390b94"
     },
     {
       "file": "examples/alert-context-transport/negative-schema/bound-request.capability-pin-mismatch.json",
@@ -340,19 +340,19 @@
       "file": "examples/alert-context-transport/negative-schema/bound-result.output-artifact-locator.json",
       "kind": "negative-schema",
       "contract_version": "0.1.0",
-      "sha256": "9da57edd16e843114c02503cf6238867eb7f9aaa5e5821782b5a877cfcfd2796"
+      "sha256": "4010471e0ab2ab9ded97c07ba1ec425aaa6b71f2360c12ce6d2bf668d4421d9b"
     },
     {
       "file": "examples/alert-context-transport/negative-schema/bound-result.unavailable-with-output.json",
       "kind": "negative-schema",
       "contract_version": "0.1.0",
-      "sha256": "5f98c9f2a84313b1e1221eeb01628ece9d66aef2b4beae64e297ea7b52544e63"
+      "sha256": "320f5e510b247f302b2c1fc248c2bca51445c5f887f8df0435f87c37bdc4a0ac"
     },
     {
       "file": "examples/alert-context-transport/negative-schema/bound-result.completed-without-receipt.json",
       "kind": "negative-schema",
       "contract_version": "0.1.0",
-      "sha256": "9f39707265259e0afa83c18582698ce7f595ec7940b87799a92f3bae3eb98dda"
+      "sha256": "5b6c3808140efd2c9e3d76a78b2653ec2c82dcef20df92c0fee3356419007b0f"
     },
     {
       "file": "examples/alert-context-transport/negative-semantic/bound-request.idempotency-key-mismatch.json",
@@ -376,19 +376,19 @@
   "member_set_integrity": {
     "algorithm": "MEMBER-SET-SHA256/v1: reduce every entry of members[] to exactly {file, kind, contract_version, sha256}, sort the reduced entries by file in Unicode code point order, serialize that array as constrained RFC 8785 (JCS) canonical JSON, and render member_set_digest as sha256:<lowercase hex SHA-256 over those UTF-8 bytes>. The digest input is derived from members[] only: member_set_integrity itself and every other manifest key are excluded, so the aggregate is non-circular and is recomputed without reading its own declared value.",
     "member_count": 15,
-    "member_set_digest": "sha256:144821eea67ef4778e14a1285fbd67cbde263a9cee057e6fd454956a2d258fa7"
+    "member_set_digest": "sha256:a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4"
   },
   "verification": {
-    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context-transport.test.mjs holds 32 adversarial rejection cases plus 3 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves binding-packet, schema, fixture, correlation, reuse-pin, member-hash and member-set integrity plus lifecycle coherence only: no endpoint, transport surface, capability registration, Fabric grant, W2-F delegation authority, policy completion, kill-switch behavior, runtime enforcement, deployment, CI wiring, bundle tag or release readiness is demonstrated, and the lifecycle acceptance the packet carries is a recorded decision rather than evidence.",
+    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context-transport.test.mjs holds 34 adversarial rejection cases plus 3 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves binding-packet, schema, fixture, correlation, reuse-pin, member-hash and member-set integrity plus lifecycle coherence only: no endpoint, transport surface, capability registration, Fabric grant, W2-F delegation authority, policy completion, kill-switch behavior, runtime enforcement, deployment, CI wiring, bundle tag or release readiness is demonstrated, and the lifecycle acceptance the packet carries is a recorded decision rather than evidence.",
     "standalone_validator_command": "node tools/contract-validation/validate-alert-context-transport.mjs",
     "standalone_test_command": "node --test tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
     "standalone_coverage_command": "node --test --experimental-test-coverage tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
     "dependency_root_override_env": "CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=<directory whose node_modules already provides ajv 8.20.0 and ajv-formats 3.0.1>. All three commands run from the repository root, install nothing and require no network.",
     "coverage_floor": "Branch coverage of tools/contract-validation/validate-alert-context-transport.mjs must stay at or above 80% under the declared standalone coverage command.",
     "test_case_counts": {
-      "adversarial_rejection_cases": 32,
+      "adversarial_rejection_cases": 34,
       "positive_cases": 3,
-      "total_cases": 35
+      "total_cases": 37
     },
     "ci_wiring": "NOT WIRED. Canonical CI wiring (npm script registration in tools/contract-validation/package.json plus pipeline invocation) is deliberately outside this acceptance and belongs to a later integration gate. This packet adds no tracked file to any existing validator entry point and modifies none."
   },
