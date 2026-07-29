@@ -6373,3 +6373,696 @@ allowlist, a validator/test run producing a new result, or a CI job advancing st
 retry count, agent confidence and "almost done" are not evidence. An extension never widens a write
 allowlist, never grants staging/commit/merge/push authority, never promotes a gate in §1, and never
 creates a replacement identity — a retry keeps the same immutable task ID.
+
+## 16. W1-D04 reviewed decision-packet import — 2026-07-29, docs-only, nothing accepted
+
+Three externally reviewed Founder decision packets were copied into this control repository on
+**2026-07-29** as **exact byte copies** of the worktrees that authored them. Publishing a packet's
+bytes here is **not** acceptance, **not** canonical integration, **not** a gate opening and **not**
+a promotion of anything the packets describe. Sections §1–§15 above stand unedited as dated history;
+this record rewrites none of them.
+
+### 16.1 Exact write allowlist — seven paths
+
+| # | Path | Change made by this lane |
+|---|---|---|
+| 1 | `docs/adr/FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md` | new file — exact byte copy of the reviewed source |
+| 2 | `docs/operations/W1-I03-MARKING-FLOOR-R2-DECISION-PACKET.md` | new file — exact byte copy of the reviewed source |
+| 3 | `docs/adr/FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md` | new file — exact byte copy of the reviewed source |
+| 4 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this §16 appended; no earlier section rewritten |
+| 5 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | the matching §28 appended; no earlier section rewritten |
+| 6 | `docs/adr/README.md` | two catalog index rows added, for allowlist entries 1 and 3 |
+| 7 | `docs/operations/README.md` | one catalog index row added, for allowlist entry 2 |
+
+**There is no eighth path.** No validator, test, contract, strategy or product file was edited, and
+no file in any other repository was written. The three imported files are the only additions.
+
+### 16.2 Source identity and exact-copy verification
+
+Each packet was copied byte-for-byte and then re-measured at its destination. The destination
+SHA-256, line count and byte count below equal the source values in every case.
+
+| Packet | Reviewed source | SHA-256 | Size |
+|---|---|---|---|
+| IR01 | `w1-48/w1-d04-ir01-control-gate-r1/docs/adr/FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md` | `24dcf7e1207222eb146cfc8cf7d4ae2915f72676a03911ec671e88b5d993839b` | 1233 lines, 90471 bytes |
+| I03 | `w1-48/w1-d04-i03-marking-r2-gate-r1/docs/operations/W1-I03-MARKING-FLOOR-R2-DECISION-PACKET.md` | `4d16fc8fe440ac23d1782e9c534e2c729544637ebd2b3d022fb2bd21bf86da25` | 3936 lines, 426454 bytes |
+| T11 | `w1-48/w1-d04-t11-resource-budget-gate-r1/docs/adr/FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md` | `15cd434a473ebb593e844cdb1407f7359169bbd57b46ab574e5ffcdaa637927f` | 1009 lines, 74887 bytes |
+
+### 16.3 Independent review record — external, and not the same object as packet self-status
+
+| Packet | Independent review run | Verdict | Retained |
+|---|---|---|---|
+| IR01 | `18ad27e1-ef5e-49f9-a8fa-725306c810b6` | `PASS` — `P0=0`, `P1=0`, `P2=0` | five `P3` |
+| I03 | `c0576d5a-74a7-499f-bcfe-56de52250799` | `PASS` — `P0=0`, `P1=0`, `P2=0` | five `P3` |
+| T11 | `60adebd4-d22f-4134-8918-1dfd83e89712` | `PASS` — `P0=0`, `P1=0`, `P2=0` | five `P3` |
+
+The T11 bytes were produced by remediation writer run `af4c38bc-57bc-4fb3-8744-ad607a508857`; the
+review run above is a separate, later, independent read of those same bytes.
+
+- **A packet's self-status and its external review record are different objects.** A packet states
+  its own status inside its own bytes; a review run is an external judgement recorded elsewhere.
+  Neither is evidence for the other, and neither is control acceptance.
+- **For W1-I03 specifically:** the exact external review supersedes the packet bytes' own
+  pre-review self-status **without altering the reviewed bytes**. Allowlist entry 2 is the reviewed
+  byte sequence, unedited — the supersession is recorded here and in the register §28, never by
+  editing the packet.
+- **The fifteen retained `P3` observations are not reproduced here.** Each is nonblocking by its
+  reviewer's own grading and each stays in its reviewer transcript. This record neither closes,
+  waives, discharges nor re-grades any of them, and carries no authority to do so.
+
+### 16.4 What the imported packets decide, stated as they decide it
+
+| Packet | Operative decision, as recorded in the imported bytes |
+|---|---|
+| IR01 | **Option Z** is operative: integration stays Founder-manual. `G-IR01` is answered **`NO-GO`**, routine delegated integration is **`NO-GO`**, and every integration action stays an **explicit per-action manual grant**. Option A survives only as the packet's own authored recommendation — considered and **not** selected |
+| I03 | `Q1`–`Q6` decided, Phase 1 executed, and Phase 2 **`COMPLETE` / `ADMITTED` for the bounded local six-path lane only**. That completion is **not** acceptance, **not** integration, **not** canonical, **not** pushed, **not** merged and **not** released, and it makes no runtime or deployment observation. `W1-I03/PF-PERSIST` stays a **proposed `HOLD` sub-lane** under W1-I03 — no task 49, no edit authority |
+| T11 | Status `DECIDED — PARKED — DOCS-ONLY — NO GATE OPENED — NOT INTEGRATED`. Operative naming is **`res-bounds-*`** with **`resource-bounds/`**; the `res-budget` and `res-envelope` generations are **superseded**. The instrument stays parked until W1-C1 and W1-C2 are canonically integrated. No gate opens, no ADR number is allocated and no writer is authorized |
+
+**Import is not integration.** None of these three packets is accepted, canonically integrated,
+pushed, merged or released by being copied here, and no decision inside them acquires force it did
+not already have in its own bytes.
+
+### 16.5 Posture unchanged by this record
+
+- `W0 COMPLETE=0` and W0 closure stays `NO-GO`.
+- W1 product implementation and W1 integration/live shadow stay `HOLD`; W1 runtime writers stay
+  `NO-GO`; delegated routine integration stays `NO-GO`, which is also what IR01's Option Z decides;
+  external release stays `NO-GO`.
+- The local stack/runtime demo and UAT stay `NO-GO` ahead of the `G-C` stable-v1.0 checkpoint.
+- **CI: NOT WIRED.** Every figure in §16.6 is manual and static, and no CI result is claimed.
+- The roster stays **48** immutable task identities with **no task 49**, and this record mints none.
+- W1 stays **2026-08-01 → 2026-08-23**, the stable go/no-go stays **2026-12-20** and the release
+  window stays **2026-12-21 → 2026-12-31**. No date moves.
+- Nothing was staged, committed, merged, pushed, deployed or released by this import; no dependency
+  was installed and no database, container, broker or network was reached.
+
+### 16.6 Measured evidence — this record
+
+| Check | Measured |
+|---|---|
+| Control **base** for this record | `eedadc561700d3e1fa052322d44eb63151df0009` — the base/parent this lane was authored on, never a claim about any current tip |
+| Working tree at hard stop | exactly the seven allowlist paths — four modified tracked files and three added files — with **zero staged** and no eighth `git status --porcelain` entry |
+| Source-to-destination equality | all three packets compared byte-for-byte and by SHA-256 against §16.2; three of three equal |
+| `git diff --check` | clean |
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 179 · pass 179 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| Seven-path content aggregate for this record | **not stated here.** A commit cannot contain an aggregate over its own bytes; any such value must be measured externally after this record exists |
+
+**Disclosed coverage limitation, mandatory.** The validator is a **documentary consistency check
+only**, and the three imported packets are **outside** the set of files it reads — no rule above
+inspects their bytes. It spawns no `git` process, opens no repository and re-derives no digest. The
+hashes, line counts and byte counts in §16.2 were measured manually and are static.
+
+## 17. W1-I03/PF-PERSIST `r2` — grant import plus reviewed local product evidence, 2026-07-29
+
+This record does **two different things**, and the difference is the point of the section. It
+**imports** the reviewed round-4 `W1-I03/PF-PERSIST` grant as an exact byte copy, and it **records**
+the independently reviewed, still-uncommitted product evidence produced by executing that grant as
+`r2` in `cybrik-soc-command-center`. §1–§16 above stand unedited as dated history; this record
+rewrites none of them.
+
+**Three objects, never conflated.**
+
+| Object | What it is here | What it is not |
+|---|---|---|
+| **Packet/grant import** | the round-4 grant's bytes now exist in this repository, byte-identical to their reviewed source | not acceptance, not integration, not authority |
+| **Product evidence** | the measured, reviewed state of an **uncommitted** working tree in another repository | not a commit, not a runtime observation, not a production claim |
+| **Acceptance** | **has not occurred** for any of this | — |
+
+### 17.1 Exact write allowlist — five paths
+
+| # | Path | Change made by this record |
+|---|---|---|
+| 1 | `docs/operations/W1-I03-PF-PERSIST-GRANT.md` | new file — exact byte copy of the reviewed round-4 grant |
+| 2 | `docs/operations/W1-I03-PF-PERSIST-R2-EVIDENCE.md` | new file — authored control-side evidence record |
+| 3 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this §17 appended; no earlier section rewritten |
+| 4 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | the matching §29 appended; no earlier section rewritten |
+| 5 | `docs/operations/README.md` | exactly two catalog index rows added, for allowlist entries 1 and 2 |
+
+**There is no sixth path for this record.** No validator, test, contract, strategy, ADR-catalog or
+product file was edited, and no file in any other repository was written. `docs/adr/README.md` and
+the three packets imported by §16 are untouched and were re-measured at their §16.2 hashes.
+
+### 17.2 Imported grant — source identity and exact-copy verification
+
+| Item | Measured |
+|---|---|
+| Reviewed source | `w1-48/w1-d04-pf-persist-grant-r1/docs/operations/W1-I03-PF-PERSIST-GRANT.md` |
+| SHA-256 | `1a2a5624bad133b5ff5a65c0a5fc641b341a2cc28836c7811c388f7f31abfd72` |
+| Size | 1180 lines, 99455 bytes |
+| Destination equality | compared byte-for-byte and by SHA-256; **equal** |
+| Grant self-status, **as frozen in the imported bytes** | `DECIDED — PROSPECTIVE BOUNDED GRANT — NOT EXECUTED — NOT INTEGRATED` |
+
+**Importing grant bytes is not acceptance, not integration and not authority.** The grant confers
+nothing by being copied here that it did not already confer in its own bytes.
+
+**`NOT EXECUTED` is a frozen self-status, not a current operational claim.** That string is the
+**prospective packet's own statement about itself at the moment its round-4 bytes were authored**,
+and it is preserved verbatim because the import is an exact byte copy and the reviewed bytes are not
+edited. It is **superseded externally** — by the dated `r2` evidence of §17.4/§17.5, which records
+that the grant **was** subsequently executed as `r2` on 2026-07-29 and independently reviewed
+`PASS`. The supersession lives in **this** record and in the companion evidence file; it does **not**
+alter one byte of the imported grant. Read as of today, the grant is **executed once as `r2`**; the
+`NOT EXECUTED` line describes only the grant's own pre-execution vantage point.
+
+### 17.3 The rejected `r1` execution — recorded, not buried
+
+`w1-48/w1-i03-pf-persist-r1`, branch `codex/w1-i03-pf-persist-r1`, base
+`d3aaf6fb29c57f145de8f131ad1588aae57d57c9`, **exactly eight** modified tracked paths, **zero**
+staged, untracked or ahead. PF pair:
+`98fee142fe8df98477f339751aac9281173f141648f1bf518c6ce2314d5bd18c` (763 lines, 34193 bytes) and
+`4f78105a655b7d64495729fcbbe7f4d667d65b58877957fc8488dbd706c0b1db` (828 lines, 36717 bytes).
+
+Independent post-writer review `da59995f-3743-4eaa-94b8-3e1fa674a1a4` found the **technical design
+correct** and still returned **`NO-GO` / non-promotable** on a **`P1` authority breach**: the writer
+observed a **first RED that was invalid — a 7-fail/3-pass split** — which is a hard stop under the
+grant's own RED-gate discipline, and **continued past it**. **No retroactive authorization is
+granted and none is available.** `r1` stays frozen byte-unchanged as **read-only reference only**;
+it is not a basis for landing.
+
+**Correction, 2026-07-29 — what `r1` did and did not contribute.** An earlier draft of this §17.3
+said `r1` "contributed no bytes to `r2`". That was **overbroad and is withdrawn.** Grant §4.7
+**explicitly allowed** the `r2` writer to read and copy-reference `r1`'s **two PF paths**, phase
+gated — the PF **test** bytes before RED (with a hand drift-correction duty), the PF **source** bytes
+**only after a valid RED** — and §5B.2 calls that reference "explicitly ALLOWED … and expected". The
+`r2` writer used it. The accurate statements are narrower: *(a)* `r1`'s **status and evidence** were
+not reused or promoted, and every `r2` measurement was taken fresh in `r2`; *(b)* `r2` produced its
+**own valid RED/GREEN/review chain**; *(c)* the **six inherited I03 paths** came only from the
+reviewed phase-1 source worktree, never from `r1`, whose reference scope is the two PF paths only;
+*(d)* `r1` stayed **byte-unchanged** across the `r2` run. **No claim of literal zero byte influence
+or zero derivation is made.** See the evidence file §2.1 for the full statement.
+
+### 17.4 `r2` — tree identity and the eight exact hashes
+
+| Property | Measured |
+|---|---|
+| Worktree | `w1-48/w1-i03-pf-persist-r2` |
+| Branch | `codex/w1-i03-pf-persist-r2` |
+| Base / `HEAD` | `d3aaf6fb29c57f145de8f131ad1588aae57d57c9` |
+| Working tree | exactly **8** modified tracked paths, **0** staged, **0** untracked, **0** ahead of base — no upstream configured |
+
+Two writable PF paths — the only bytes this lane authored:
+
+| Path | SHA-256 | Size |
+|---|---|---|
+| `ops/pf-workers/pf_workers/correlation_processor.py` | `a346c88e20fc76a2474ef3e9053a7a14071f2857d26767825cde262b142825eb` | 762 lines, 34154 bytes |
+| `ops/pf-workers/tests/test_correlation_processor.py` | `c88158baec153ae1a2a365cfa4998f913965882a0b6bac950151b954f9cd04f6` | 804 lines, 35194 bytes |
+
+Six inherited paths, **unedited by this lane** and equal to the reviewed source worktree
+`w1-48/w1-i03-marking-floor-r2-phase1-r1` (branch `codex/w1-i03-marking-floor-r2-phase1-r1`, `HEAD`
+`d3aaf6fb29c57f145de8f131ad1588aae57d57c9`, six modified, zero staged/untracked — six pins):
+
+| Path | SHA-256 |
+|---|---|
+| `services/api/src/cybrik_soc/modules/ingest/source_labels.py` | `15a2dc67dc1e3935b7cc73a04cdef7c6df4bf49c7d7697f5ba57ff38d00457ef` |
+| `services/api/src/cybrik_soc/modules/siem/correlation.py` | `c144b8bf7465dcbac1412aa6fceea319bc35b368d8c23cbcb479978b87bdeb45` |
+| `services/api/src/cybrik_soc/modules/siem/engine.py` | `e640f9dc0404103ef4a101adf2eddb9373325e8b67df2e067114cb7e3abfb542` |
+| `services/api/tests/unit/test_ingest_label_floor.py` | `b5db2162631620e8074b189088feabff9529b2e26f435d428fdbe4b028a8aadb` |
+| `services/api/tests/unit/test_siem_correlation.py` | `5d929f16f8cba1aa25344e21b9e542a18ca78a0598d928a2026971ebc0516491` |
+| `services/api/tests/unit/test_siem_engine.py` | `dae47bb6a96956f1ea022225072bf84df2bbb6528bb4bddc35087ad9468c55e8` |
+
+### 17.5 `r2` writer evidence and independent review
+
+| Item | Measured |
+|---|---|
+| First **valid** RED | **6 fail / 4 pass** — failing exactly cases **1, 2, 4, 6, 7, 8**; passing exactly locks **3, 5, 9, 10** |
+| Frozen test hash | `c88158baec153ae1a2a365cfa4998f913965882a0b6bac950151b954f9cd04f6` — frozen before RED, byte-unchanged through GREEN |
+| GREEN, ten new nodes | **10 pass**, 0 fail |
+| Full PF module | **23 pass**, **14 skipped** — every skip **fixture-scoped** (Valkey-unreachable `store` fixture), no module-level guard; the ten new nodes request no such fixture |
+| SIEM engine regression | **242 pass** |
+| `ruff check` | pass |
+| `ruff-format` drift budget | base → final unchanged: processor **22 → 22**, test **24 → 24** |
+| `py_compile` | pass |
+| Residue | **no baseline delta** |
+| Environment | borrowed **CPython 3.12.13** and a **two-name `aiokafka` stub**, serializer-level only — no install, no broker, no client constructed |
+| Post-review `03f6a4a2-a9bd-4cd1-b81d-7b8d6486ec24` | **`PASS` — `P0=0`, `P1=0`, `P2=0`**, three nonblocking `P3` retained |
+
+The three retained `P3`s: *(1)* the first RED capture was truncated and the re-capture used a
+duplicate identical selector; *(2)* the malformed variant `"1 "` is unasserted although the
+implemented behaviour for it is correct; *(3)* case 6's no-floor effective branch is not reasserted
+in this lane and is covered by the inherited tests. **All three stay open, stay in their reviewer's
+record, and are neither closed, waived, discharged nor re-graded here.**
+
+Eleven 1DevTool runs carried this lane end to end — grant reviews
+`9c5a4f9a-7237-44c1-bac6-ca0dbb049854`, `5bd4f425-6cd9-4b48-9d27-c1c72ab9cc94`,
+`f13c9989-1b8a-485d-9128-0a7ead99ce4d`, `16f76bc8-25b8-4340-8144-49a075119b66`; grant writers
+`43bc2165-74a4-4c90-96d0-7b3d89c77c92`, `4e0ebcd0-3ace-4634-a6c0-b726ef2bf703`,
+`432bc186-ceae-4cf6-833a-5cd16c469be0`; product writers
+`640db9a0-0160-4cd8-aa23-ac9836ff9443` (`r1`) and `cded7eea-555d-4521-a839-2b162b749e81` (`r2`);
+post-reviews `da59995f-3743-4eaa-94b8-3e1fa674a1a4` (`r1`) and
+`03f6a4a2-a9bd-4cd1-b81d-7b8d6486ec24` (`r2`). All eleven were re-read field-by-field from their
+`meta.json` for this record and measured `model = opus`, `status = done`, `exitCode = 0`,
+`target = claude`, `timeoutSeconds = 600`, and a **present** `contentCaptured` key whose value is the
+JSON literal **`false`** — the key is **not absent, not `null`, and not another value**. That is the
+positive fact that **1DevTool did not retain output content**, which is a stronger statement than
+"no content-capture claim was recorded". Each run nonetheless records a **non-zero `outputChars`**
+(4944–13483) and each run directory holds **`meta.json` and no transcript file**: output was
+produced and its **length** measured, but its **content** discarded. Fable was unavailable; no
+Fable-independence property is claimed. Per-run `cwd`, start time and duration are tabulated in the
+evidence file §9; the eleven durations sum to **4792 s**.
+
+**Provenance of the test figures in this §17.5.** The RED/GREEN splits, the pass and skip counts,
+the `ruff`/`py_compile` results and the drift budget were **not executed by this control record**.
+They are **reported by the `r2` writer run and confirmed by the `r2` post-review**, which reproduced
+them inside that lane's environment — **writer-reported / reviewer-confirmed**, not
+control-measured. Because no transcript was retained, they are **not re-derivable from the run
+store** and are re-verifiable only by re-running the suites inside `r2`. The hashes, sizes, tree
+identities and run metadata above are of a stronger kind: those **were** re-measured live.
+
+### 17.6 Status, and the one thing this supersedes
+
+**`r2` status:** `REVIEWED LOCAL UNCOMMITTED EVIDENCE — NOT ACCEPTED — NOT INTEGRATED — NOT
+CANONICAL — NOT PUSHED/MERGED/RELEASED`.
+
+**Superseded, narrowly:** only the §16 statement that `W1-I03/PF-PERSIST` is **merely a proposed
+`HOLD` sub-lane with no edit authority**. A bounded edit authority was opened by the reviewed
+round-4 grant, executed as `r2`, and has produced independently reviewed local evidence.
+
+**Not superseded:** the six-path `W1-I03` decision packet in whole or in part; `Q1`–`Q6`; any wider
+gate, blocker or checkpoint; the six-path lane's own status, which stays `COMPLETE` / `ADMITTED`
+for the bounded local six-path lane **only** — not accepted, not integrated, not canonical, not
+pushed, not merged, not released.
+
+**The product implementation has local reviewed evidence and remains uncommitted. Recording it
+grants no commit authority.**
+
+### 17.7 Posture unchanged by this record
+
+- `W0 COMPLETE=0` and W0 closure stays `NO-GO`; no blocker closes.
+- W1 product implementation and W1 integration/live shadow stay `HOLD`; W1 runtime writers stay
+  `NO-GO`; delegated routine integration stays `NO-GO`; external release stays `NO-GO`.
+- `G2` and `G3` stay closed.
+- The local stack/runtime demo and UAT stay `NO-GO` ahead of the `G-C` stable-v1.0 checkpoint.
+- **CI: NOT WIRED.** Every figure in §17.5 is manual and static; no CI result is claimed.
+- The roster stays **48** immutable task identities with **no task 49**. `PF-PERSIST` is a named
+  sub-lane of the existing `W1-I03`, not a new identity, and this record mints none.
+- W1 stays **2026-08-01 → 2026-08-23**, the stable go/no-go stays **2026-12-20** and the release
+  window stays **2026-12-21 → 2026-12-31**. No date moves.
+- Nothing was staged, committed, merged, pushed, deployed or released; no dependency was installed
+  and no database, container, broker or network was reached.
+
+### 17.8 Measured evidence — this record
+
+| Check | Measured |
+|---|---|
+| Control **base** for this record | `eedadc561700d3e1fa052322d44eb63151df0009` — the base/parent this lane was authored on, never a claim about any current tip |
+| Working tree at hard stop | exactly **nine** `git status --porcelain` entries — §16's seven plus this record's two new files — with **zero staged** and no tenth entry |
+| Grant source-to-destination equality | compared byte-for-byte and by SHA-256 against §17.2; equal |
+| §16 imported packets | re-measured unchanged at `24dcf7e1…` (1233 lines, 90471 bytes), `4d16fc8f…` (3936 lines, 426454 bytes) and `15cd434a…` (1009 lines, 74887 bytes) |
+| `git diff --check` | clean |
+| `node tools/operations/validate-w1-control.mjs` | **PASS** — `tasks=48` |
+| `node --test tools/operations/tests/validate-w1-control.test.mjs` | **GREEN** — `tests 179 · pass 179 · fail 0`, 0 cancelled, 0 skipped, 0 todo |
+| Accuracy-correction pass, 2026-07-29 | Applied after the first authoring pass and **before** the rows above were re-executed. Withdrew the overbroad "`r1` contributed/supplied no bytes to `r2`" claim in §17.3, register §29.3 and the evidence file §2.1, replacing it with the grant-§4.7-accurate statement (§17.3); relabelled the §17.5 and register §29.4 test figures as **writer-reported / reviewer-confirmed** rather than control-measured; sharpened `contentCaptured` to *present, literal `false`, content not retained despite non-zero `outputChars`*; framed the grant's `NOT EXECUTED` as a **frozen self-status superseded externally** (§17.2); and stated the `r2` authority boundary explicitly. `r1`'s recorded PF sizes were re-measured live and were **already correct** — 763/34193 and 828/36717, unchanged |
+| Five-path content aggregate for this record | **not stated here.** A record cannot contain an aggregate over its own bytes; any such value must be measured externally after this record exists |
+
+**Disclosed coverage limitation, mandatory.** The validator is a **documentary consistency check
+only**. The imported grant, the evidence file and `docs/operations/README.md` are **outside** the
+set of files it reads — no rule inspects their bytes. It spawns no `git` process, opens no
+repository, reaches no other worktree and re-derives no digest. **Every product figure in §17.4 and
+§17.5 was measured manually in another repository and is static; the validator neither observed nor
+can observe any of them.**
+
+## 18. W0-B05 inference-plane transport binding `r3` — reviewed local proposal/repair evidence, 2026-07-29
+
+Control-side record of the `W0-B05` transport-binding lane, on control base
+`eedadc561700d3e1fa052322d44eb63151df0009`. §1–§17 above stand unedited as dated history; this
+section rewrites none of them and was appended only. Register counterpart: §30.
+
+**Three objects, never conflated.** The **proposal bytes** are an uncommitted 38-path working tree
+in the sibling `w1-b05-transport-correction-r2` worktree. The **control evidence** is
+`docs/operations/W0-B05-INFERENCE-TRANSPORT-R3-EVIDENCE.md`, an external measurement of those
+bytes. **Acceptance has not occurred** for any of it.
+
+Status, exactly:
+`REVIEWED LOCAL UNCOMMITTED PROPOSAL/REPAIR — NOT ACCEPTED — NOT INTEGRATED — NOT CANONICAL — NOT PUSHED/MERGED/RELEASED — GATE W2-I NOT OPENED`
+
+### 18.1 Exact write allowlist — four paths
+
+| # | Path | Change made by this record |
+|---|---|---|
+| 1 | `docs/operations/W0-B05-INFERENCE-TRANSPORT-R3-EVIDENCE.md` | new file — authored control-side evidence record |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this §18 appended; §1–§17 byte-frozen, re-verified byte-identical |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | the matching §30 appended; §1–§29 byte-frozen, re-verified byte-identical |
+| 4 | `docs/operations/README.md` | exactly one catalog index row added, for allowlist entry 1 |
+
+**There is no fifth path.** Nothing under `docs/releases/` or `docs/adr/`, no validator, no test,
+no contract and no file in any other repository was written.
+
+**Six frozen control files — precise freeze basis (`P3-1` correction).** All six were frozen by the
+**coordinator's pre-write baseline hashes** and re-measured **unchanged**. **Four** additionally
+have **corpus-recorded pins**: the `W0-IR01` packet, the `W0-T11` packet, the `W1-I03` marking
+decision packet and the `PF-PERSIST` grant. **Two do not, and cannot be called corpus-pinned here**
+— `docs/adr/README.md`, baseline hash
+`2d5c2ea86ced0f54b655a6ae712d5acc8605b06ea194e2a19214e05503a92c51`, and
+`docs/operations/W1-I03-PF-PERSIST-R2-EVIDENCE.md`, baseline hash
+`1639f87076e6a24f933d012c099a4fee2509c5ceece624445f52f06d053b7fb2`. A pre-write baseline hash is a
+freeze reference, not a pin, and no self-digest is added for any path this record writes.
+
+The `W0-B05` source lane is **byte-unchanged and git-state-unchanged**: no edit, no residue, no
+staging, **no validator, test or formatter that loaded or ran**, and no git-state change. The
+unqualified "read only" characterization of the authoring run is **withdrawn** — see §18.7 for the
+disclosed forbidden attempted Node execution and its independently re-derived nil impact.
+
+### 18.2 Live control measurements of the source lane
+
+| Item | Measured live, 2026-07-29 |
+|---|---|
+| Worktree | `w1-48/w1-b05-transport-correction-r2` |
+| Branch | `codex/w1-b05-transport-correction-r2` |
+| `HEAD` | `55e94c2815ee68ef49a6e10cdc41a76c227b7bd7` |
+| Paths | exactly **38** — 5 modified tracked, 33 untracked |
+| Staged / ahead | **0** / **0** |
+| Recorder digest | `5151eda3c492adf90863d1475a68fdb809c735ef4c45325402826f3578d67b7c`, 920 lines, 78110 bytes |
+| Frozen transport test digest | `b2d722e28ca58776863c36425a8dee741ba1ca7fc591fe74ba169e37d8546efc`, 4250 lines, 271026 bytes |
+| 37-path non-recorder content aggregate | `e2bdf10199e533d611765b8038953a801da599d855073e9389667a3f1caa561e` |
+
+The full 38-path enumeration with per-path digest, line count and byte count, and the aggregate's
+labelled reproduction recipe, are in the evidence file §2.1 and §2.2. **The 38-path list contains no
+`W1-C1` path and no `W1-C1` repin.** No aggregate over this record's own four paths is stated
+anywhere — such a value can only be measured externally after these bytes exist.
+
+**The recorder is not imported.** It is the 38th `W0-B05` lane path and its canonical lane home;
+copying it here would create a second provenance chain and would let a `docs/releases/`-shaped
+artifact in the control repository be misread as release-track gate status. The evidence-file
+precedent — record *about* the lane, pin its bytes by digest — is the correct one.
+
+### 18.3 Measured facts versus reported facts
+
+Tree identity, digests, sizes and run metadata above are **control-measured**. The following are
+**`W0-B05` lane-reported and independently reviewer-confirmed**, and are **not control-measured**:
+197/197 transport tests pass; transport validator pass; `validate.mjs` seven steps pass; diff-check
+clean; and **Spectral over 3 OpenAPI documents reporting 0 errors and 33 warnings total, of which
+the successor document carries 14, and 8 of those 14 are `oas3-unused-component` observations from
+YAML anchor/alias reuse**. Warnings are **permitted at `--fail-severity=error`** — **they are not
+zero**. An earlier revision of this section claimed `Spectral 0 errors and 0 warnings`; **that was
+false and is corrected here** (`P1-1`, §18.7).
+
+**No `W0-B05` test, validator or formatter loaded or ran under this repository's authority.** One
+forbidden attempted Node execution occurred during authoring and failed module-not-found before
+loading anything — disclosed in §18.7.
+
+Repair runs: `9197a6ba-cb7f-4978-aef0-0bb248010f9f` (initial) **timeout**, and the one final
+continuation `ceae84f5-71cf-4971-83f5-fcfeffd639f4` **timeout** — both `claude-opus-5`, both
+`contentCaptured=false`, so no writer transcript was retained. The coordinator subsequently re-ran
+the evidence.
+
+Independent review: the initial read-only run `24c044bd-aadf-4e0d-a24f-39a008370d02` **timed out**;
+the one allowed continuation `7d5fd2cb-2ec6-4f7a-8c59-97535e970d0d` **completed `PASS` against the
+current `r3` state**, `P0=P1=P2=0`, with **three `P3`** findings. That review covered the `W0-B05`
+proposal bytes.
+
+### 18.4 Retained `P3` findings — not closed, not waived, not regraded
+
+| ID | Finding |
+|---|---|
+| `P3-1` | ADR README wording should narrow the deliberate gap to `ADR-0010`; **no `ADR-0009` backfill** |
+| `P3-2` | no conventional `npm test` / CI wiring |
+| `P3-3` | original RED transcript absent — only continuation-start 197/194/3 and final 197/197 witnessed; local Node v26 against CI pin 20.18.1, CI not run; no reviewed head, secret scan, commit, integration, runtime, UAT or release evidence |
+
+### 18.5 Supersession, posture and coverage
+
+**This record supersedes nothing.** **§14.32.3 — the downstream alert-context transport
+provenance-stale lock — stays in force**, unchanged. `W1-I03` marking-floor and
+`W1-I03/PF-PERSIST` are **not reopened**. `W0-T11` stays **`DECIDED` / `PARKED`** until `W1-C1` /
+`W1-C2` canonical integration.
+
+Posture, unchanged by this record: **W0 `COMPLETE=0` / `NO-GO`**; W1 product, integration and
+live-shadow writers **`HOLD` / `NO-GO`**; **G2 and G3 closed**; runtime, demo and UAT **`NO-GO`**
+before `G-C` stable-v1.0; **CI: NOT WIRED**; **exactly 48** task identities with `W0-B05` still
+`W0-B05` and **no task 49**; W1 window 2026-08-01 .. 2026-08-23; stable go/no-go 2026-12-20;
+release window 2026-12-21 .. 2026-12-31; **no date moved**; nothing staged, committed, checked out,
+stashed, reset, reverted, rebased, merged, pushed, released or installed, and no PR, branch,
+worktree or remote change. **Gate W2-I is not opened.**
+
+**Disclosed coverage limitation.** `tools/operations/validate-w1-control.mjs` is
+control-repository-scoped and **cannot inspect the sibling `W0-B05` worktree**, its 38 paths, its
+digests, its aggregate or its reported test results. The evidence file and
+`docs/operations/README.md` are outside the document set it reads. A control validator `PASS`
+therefore attests nothing about the `W0-B05` lane.
+
+### 18.6 Next lane — bounded, and not authorized here
+
+The next lane is a **docs-only refresh and presentation of the blocker-4 canonical-integration
+Founder ballot under `W0-IR01` Option Z**. **This section grants that future writer no authority**:
+no write allowlist, no acceptance, no canonical integration, no push, merge, PR, release, runtime
+or CI activation. Presenting a ballot is not deciding it, and nothing here opens the integration it
+would describe.
+
+### 18.7 Failed review, remediation and measured evidence — this record
+
+This subsection concerns **the control record itself**, not the `W0-B05` proposal bytes.
+
+**Independent review `e795221d-6cdb-43ac-a2f5-6844438210dc`** (`claude-opus-5`, read-only) returned
+**`FAIL`** with **`P0=0`, `P1=1`, `P2=1`, `P3=2`**. That `FAIL` is **preserved as dated review
+history and is not rewritten as `PASS`**.
+
+| Finding | Disposition |
+|---|---|
+| `P1-1` — false `Spectral 0 errors / 0 warnings` (`0/0`) claim | **Corrected** to 3 OpenAPI documents, 0 errors, **33 warnings total**; successor **14**; **8** of those 14 `oas3-unused-component` from YAML anchor/alias reuse; permitted at `--fail-severity=error` but **not zero**. Label kept: lane-reported and independently reviewer-confirmed, not control-measured |
+| `P2-1` — undisclosed authority/process breach hidden behind unqualified "read-only" wording | **Disclosed** below; the unqualified claims in §18.1 and §18.3 were withdrawn or qualified |
+| `P3-1` — imprecise "six frozen files at pinned digests" | **Corrected** in §18.1: six frozen by coordinator pre-write baseline hashes and re-measured unchanged; **four** corpus-pinned; **two** baseline-hashed only and not corpus-pinned |
+| `P3-2` — no measured-evidence section for the record's own state | **Added** — this §18.7, register §30.7, evidence file §10 |
+
+**`P1` and `P2` are remediation targets, not silently closed.** They remain open against this
+record until a fresh independent re-review disposes of them.
+
+**`P2-1` process/authority breach, disclosed.** The authoring run
+`b5f353c1-851d-4c3c-b20e-dc5cdac883b1` was intended to use read-only commands in the `W0-B05` lane,
+but **one command block executed with `W0-B05` as working directory and attempted a `node`
+invocation**. It **failed module-not-found before loading or running any validator or test**. It
+was **forbidden by the grant** and is a **real process/authority boundary breach**, not a
+technicality. **No `W0-B05` test, validator or formatter actually loaded or ran.** No transcript
+exists — 1DevTool metadata records `contentCaptured=false` — and no command or transcript content
+is reconstructed here. **Impact was independently re-derived as nil**: `W0-B05` `HEAD`, **38**
+paths, **0** staged, **0** ahead, **every per-path digest**, the recorder and frozen-test hashes and
+the 37-path aggregate all remained exact, with **no residue**. The post-state proves **null byte and
+null git-state impact** — which does not excuse the breach.
+
+**Measured control-side evidence, this repository, after the remediation writes:** control base
+**`eedadc561700d3e1fa052322d44eb63151df0009` unchanged, no commit**; **exactly 10** porcelain
+entries; **0 staged**; **no upstream** and nothing pushed; **`git diff --check` clean**;
+`node tools/operations/validate-w1-control.mjs` → **`PASS`, `tasks=48`**;
+`node --test tools/operations/tests/validate-w1-control.test.mjs` → **`tests 179 · pass 179 ·
+fail 0`**. **No aggregate over this control record's own bytes is stated anywhere** — such a value
+is obtainable only by external re-measurement after these bytes exist.
+
+**Status after remediation — no promotion.** This control record is **`P1`/`P2`/`P3` remediation
+applied, fresh independent re-review `PENDING`** — it is **not `PASS`**. `W0-B05` product/proposal
+status remains **reviewed local uncommitted only**, and **Gate W2-I is not opened**.
+
+## 19. W1 blocker-4 Founder ballot supplement `r1` — 2026-07-29, ballot presented, nothing decided
+
+Control-side record of the blocker-4 **ballot supplement**, on control base
+`eedadc561700d3e1fa052322d44eb63151df0009`. §1–§18 above stand unedited as dated history; this
+section rewrites none of them and was **appended only**. Register counterpart: §31.
+
+**Three objects, never conflated.** The **original packet**
+`docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md` is the **frozen historical decision
+basis**, authored 2026-07-27/28 and **byte-unchanged by this lane**. The **supplement**
+`docs/operations/W1-BLOCKER-4-BALLOT-SUPPLEMENT-R1.md` is a **current local measurement and
+presentation** taken 2026-07-29 plus the exact Founder ballot. **Founder decisions and actions have
+not occurred.**
+
+Status, exactly:
+`PROPOSED — FOUNDER BALLOT PENDING — NOTHING DECIDED — NOTHING EXECUTED — NOT ACCEPTED — NOT INTEGRATED — NOT CANONICAL — NOT PUSHED/MERGED/RELEASED`
+
+**Why a supplement and not a packet edit.** The packet is **machine-pinned** — the control validator
+fails closed if its §2.8 and §7.1 disagree on the LINE 1, LINE 2 or SOC tip or count — and its bytes
+are corpus-guarded. Editing it would trip or weaken those guards, destroy the dated basis the board
+and register already cite as history, and silently rewrite a document already read. The supplement
+therefore **externally presents and supersedes** the packet's old decision-basis status **without
+rewriting one historical byte**.
+
+### 19.1 Exact write allowlist — four paths
+
+| # | Path | Change made by this record |
+|---|---|---|
+| 1 | `docs/operations/W1-BLOCKER-4-BALLOT-SUPPLEMENT-R1.md` | new file — the ballot supplement |
+| 2 | `docs/operations/W1-48-AGENT-ROLLING-BOARD.md` | this §19 appended; **§1–§18 byte-frozen**, re-verified byte-identical |
+| 3 | `docs/operations/W1-E2-EVIDENCE-REGISTER.md` | the matching §31 appended; **§1–§30 byte-frozen**, re-verified byte-identical |
+| 4 | `docs/operations/README.md` | one catalog row added for the supplement and one pre-existing `W0-B05` row refreshed with the externally superseding control-record re-review; no other catalog row changed |
+
+**There is no fifth path.** No validator, test, contract, strategy, ADR, release or product file was
+written, and **no file in any other repository** was written, staged or had any ref changed. The
+blocker-4 packet is **entirely byte-frozen** and was not touched.
+
+**Frozen boundaries, measured 2026-07-29.** Packet blob `c4e06ebd7a8a1db689c45ab88b1a0bebdd5f173d`,
+SHA-256 `a98e4422928c2bdb063de4ca2992a9e6fa2c96647b1c30fcebe336fbb0451681`, **1252** lines,
+**87064** bytes, identical to its `HEAD` blob — **unchanged**. Validator
+`765624b4e95900e4644d610ca047702bcdb5608c` and its test `4f0b439b86f29f998bcd17000a809dc68c5a5556`
+— **unchanged**. Board §1–§18 prefix, lines 1–6851, SHA-256
+`ef1490fa27bc0b52a7b41c6b8cedbba2859ed2cf2575124d8bf1abedb52d0bb1`, and register §1–§30 prefix,
+lines 1–2535, SHA-256 `fff101723e65fe855190cbf910e9a24e3e1f6c7a4689daa1c5a8fd2c3d56993d`, were
+captured **before** the writes and re-verified **byte-identical after**.
+
+**No aggregate over this record's own bytes is stated anywhere.** The candidate-ref table below
+necessarily repeats three full commit IDs that also appear in §27 / packet §2.10, but only as
+topology measurements. **No Lane 5 member-set value, manifest hash or content aggregate is
+republished, and no fifth provenance row exists.**
+
+### 19.2 Remeasured candidate refs — live, 2026-07-29, in their owning repositories
+
+Every row was re-measured: exact ref value, `merge-base --is-ancestor main <ref>`,
+`git rev-list --count <ref> --not --remotes`, and the exact status of the worktree holding the ref.
+**No old count was assumed.**
+
+| Order | Repository | Branch | Measured ref value | `main` ancestor | count `--not --remotes` | Worktree status |
+|---|---|---|---|---|---|---|
+| 1 | Suite | `codex/w1-i02-investigation-lifecycle-proposal-r1` | `ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4` | YES | **3** | clean — 0 porcelain, 0 staged |
+| 2 | Suite | `codex/w1-g1-c1-repin-r1` | `71857395332fabe041896ca0700fbf7a2bf612d3` | YES | **7** | clean — 0 porcelain, 0 staged |
+| 3 | Suite — **old control line** | `codex/w1-d04-founder-gate-repair-r1` | `8fe4cb02e0119224205a86631db7c481f7638c23` | YES | **25** | **DIRTY — 6 porcelain**, 0 staged |
+| 3b | Suite — **current local control presentation branch** | `codex/w1-control-reconcile-l5-r1` | `eedadc561700d3e1fa052322d44eb63151df0009` | YES | **26** | **DIRTY — 10 pre-write / 11 post-write**, 0 staged |
+| 4 | Fabric | `codex/w1-fabric-vendor-c1g1-r1` | `37d9b3293d26502fcd5be8144dbee78a98067043` | YES | **5** | clean — 0 porcelain, 0 staged |
+| 5 | Cyber AI | `codex/w1-i06c-http-ingress-r2` | `2baba72534297fc67130983e5bd21b5730f50c31` | YES | **12** | clean — 0 porcelain, 0 staged |
+| 6 | **SOC** | `codex/w1-soc-vendor-c1r-r1` | `5da251d92e66968103db4df9d544e2a1f3597b58` | YES | **11** | clean — 0 porcelain, 0 staged |
+
+**No branch above has an upstream or tracking ref**, so every count is an explicitly
+`--not --remotes` figure and **never** an "ahead of upstream" claim (`B05-CR-P3-2`, §19.4).
+
+**Rows 3 and 3b are distinct objects and the ambiguity is stated, not smoothed.** Row 3 is the old
+control line carrying the packet's authoring history; row 3b is both the current `HEAD`/tip of the
+branch these control records are written on and the immutable base at which their measurements were
+taken. Row 3b's **26** is the packet's "base-plus-one" figure, which the packet correctly labelled
+**a prediction**; it becomes a **current local measurement here only
+because `git rev-list --count eedadc56… --not --remotes` was actually run in `cybrik-suite` on
+2026-07-29 and actually returned 26**.
+
+**Row 3b is not a push candidate in this ballot.** It is outside packet §7.1 and B5; B7 is a local
+commit-only question and explicitly authorizes no push. Any later row-3b publication needs a fresh
+measurement, ballot treatment and separate per-action Founder grant.
+
+**Row 3's dirt is a preserved measurement, not a task.** Its worktree carries 6 uncommitted entries
+— board, blocker-4 packet, register, a strategy roadmap file, the control validator and its test.
+**Nothing was created, fixed, staged or cleaned there.** The consequence is recorded honestly: row
+3's preflight would stop at packet §7.2 step 1 today, preserving `NO-GO`.
+
+### 19.3 Hosted state — dated and stale, not refreshed
+
+**Every hosted/GitHub fact in packet §3 is `W0-IR01B`, 2026-07-27, stale and not re-verified.** **No
+hosted number, name, status or count is presented as current.** **No network access of any kind
+occurred** — no fetch, no `gh`, no API, no remote read. A hosted refresh requires a **later,
+separate, bounded, read-only network grant** — ballot question **B4**, `PENDING`.
+
+`command -v gitleaks` → `/opt/homebrew/bin/gitleaks`: **presence only, the scanner was not run**.
+The packet's version reading and its five measured SOC findings stand as **dated prior
+measurements**. **Rows 1–5 remain locally unscanned: `UNMEASURED`, not cleared.** NO-GO 12 and
+NO-GO 13 remain in force.
+
+### 19.4 `W0-B05` control-record re-review — recorded externally, §18 untouched
+
+§18.7's review `e795221d-6cdb-43ac-a2f5-6844438210dc` `FAIL` (`P0=0 P1=1 P2=1 P3=2`) **remains dated
+history and is not rewritten**. A **fresh current-byte re-review of the repaired control record**,
+**`13c78e38-2df0-4886-bd51-0669e7cfe1e9`**, returned **`PASS`** with **`P0=0`, `P1=0`, `P2=0`,
+`P3=2`**. That result is recorded **here**, **externally superseding §18.7's `PENDING` without
+editing §18 by a single byte**.
+
+1DevTool metadata at
+`~/.1devtool/orchestration/runs/13c78e38-2df0-4886-bd51-0669e7cfe1e9/meta.json` records the
+independent `claude-opus-5` read-only review (`category=b05-control-rereview`, this control
+worktree), started `2026-07-29T07:14:19.039Z`, duration **280 s**, `status=done`, `exitCode=0`,
+`outputChars=7933`. `contentCaptured=false` and no transcript path mean the coordinator witnessed
+the returned verdict but the review text is not retained or re-derivable from the run store.
+
+The returned `P1=0 P2=0` specifically disposes the repaired control record's former `P1-1` false
+Spectral-warning claim and `P2-1` process/authority-breach disclosure finding. They are closed
+against the repaired bytes; the two namespaced P3s below remain open and nonblocking.
+
+The two retained `P3` findings are **namespaced to their own record** so they cannot collide with the
+`W0-B05` lane's separate `P3-1`/`P3-2`:
+
+| Finding | Content | Disposition |
+|---|---|---|
+| `B05-CR-P3-1` | finding-ID collision — bare `P3-1`/`P3-2` labels reused across two different records | **retained, nonblocking**; fixed forward — every finding referenced in this lane carries a record-scoped namespace |
+| `B05-CR-P3-2` | board/register `0 ahead` claims lacked an explicit no-upstream qualifier | **retained, nonblocking**; fixed forward — **every ahead/count claim in §19 and in the supplement carries explicit `--not --remotes` and no-upstream context** |
+
+Neither `P3` is closed or waived. `W0-B05` product status stays **reviewed local uncommitted only**;
+**Gate W2-I is not opened**.
+
+### 19.5 Inventory at this date — nothing promoted, nothing reopened
+
+`W0-IR01` **Option Z operative** — integration is Founder-manual and **every concrete action needs
+its own separate explicit per-action grant**. `W1-I03` six-path Phase 2 is
+**COMPLETE/ADMITTED bounded-local only — not accepted, not integrated, not canonical**, and **not
+reopened**. `W0-T11` stays **DECIDED/PARKED until `W1-C1`/`W1-C2` canonical integration — not
+unparked**. `W1-I03/PF-PERSIST` `r2` stays **reviewed local uncommitted evidence — not accepted, not
+integrated, not canonical, not committed**. `W0-B05` product `r3` stays **reviewed local uncommitted
+proposal/repair — Gate W2-I not opened**.
+
+`W0 COMPLETE=0`; W0 closure stays **`NO-GO`**; runtime, local stack, demo and UAT stay **`NO-GO`**
+before G-C `stable-v1.0`; **CI: NOT WIRED**; the roster stays **48** with **no task 49**; W1 stays
+**2026-08-01 → 2026-08-23**; the stable go/no-go stays **2026-12-20**; the release window stays
+**2026-12-21 → 2026-12-31**.
+
+### 19.6 The ballot — seven questions, all `PENDING`
+
+**Answering any question performs nothing.** Under Option Z every concrete action remains a separate
+explicit per-action Founder grant. Full text in the supplement §6.
+
+| # | Question | Options | Founder answer |
+|---|---|---|---|
+| **B1** | Direction | **A** upgrade/protection/checks then per-ref pushes *(coordinator recommendation)* · **B** accepted-risk explicit-ref pushes with written risk · **C** hold | **`PENDING`** |
+| **B2** | Purchase GitHub Pro/equivalent for the four private repos | APPROVE · DENY · DEFER — **Founder-personal; no agent can perform it** | **`PENDING`** |
+| **B3** | Pre-approve Founder-executed protection + rendered required checks **excluding suppressed jobs**, contingent on B2 | YES-after-B2 · DEFER | **`PENDING`** |
+| **B4** | Open a bounded read-only `GET`-only `gh api` grant to refresh the stale 2026-07-27 hosted facts before any push | OPEN · KEEP-CLOSED | **`PENDING`** |
+| **B5** | Acknowledge rows 1–5 as the order for **future individual per-action push grants**; **SOC row 6 excluded by NO-GO 11** | ACKNOWLEDGE · REORDER · REJECT | **`PENDING`** |
+| **B6** | SOC secret remediation route — **independent of B1** | **i** fixture edit + **separate Founder-grade** unpushed-history rewrite · **ii** fixture edit + `.gitleaksignore` fingerprint append (commit-pinned; regenerate/re-review on byte/history change) · **iii** DEFER | **`PENDING`** |
+| **B7** | Authorize one bounded commit of the then-**11** reviewed control paths on `codex/w1-control-reconcile-l5-r1` | YES · NO | **`PENDING`** |
+
+**Coordinator authority.** The coordinator **may** author and present the supplement, **recommend
+Option A** under B1, and **propose** the B5 order. The coordinator **may not** decide or execute B2,
+B3, B4, B6 or B7; **may not** perform any push, integration, remote change, settings change or
+purchase; **may not** accept a contract or reopen a lane; and **may not mark B1 decided — a
+recommendation is not an answer**.
+
+### 19.7 Recommendation and binding NO-GOs
+
+**Option A is recommended** — under the dated **2026-07-27** hosted reading, `main` appeared
+unprotected everywhere with zero required checks, so a push under that measured shape would be
+ungated by construction and refspec error is unrecoverable server-side. Hosted state is unrefreshed;
+uncertainty is not protection. **This is a recommendation only; B1 is `PENDING`.**
+
+**SOC row 6 is excluded, not merely last** (NO-GO 11), clearing only through a separate remediation
+grant with the history-rewrite route needing its **own Founder-grade approval on its own merits**.
+**All other secret scans are unmeasured, not cleared.** No push may be framed as "gated by CI"; no
+protections or rulesets may be called *verified* absent; no second remote, no public repository, no
+canonical-root branch switch; no runtime demonstration or local stack before G-C `stable-v1.0`; no
+release-date movement. **Publication is not integration.**
+
+### 19.8 Disclosed validator coverage limitation
+
+`tools/operations/validate-w1-control.mjs` **does not read the supplement and does not read
+`docs/operations/README.md`** — neither path is in its read-set. A validator `PASS` therefore says
+**nothing** about the supplement's correctness, its ballot, its recommendation or its measurements.
+The validator **cannot inspect any other repository**, so none of §19.2's cross-repository
+measurements is machine-checked; it **cannot inspect hosted/GitHub state**; and it **cannot evaluate
+ballot evidence**. Both commands are run manually — **CI: NOT WIRED**.
+
+### 19.9 Measured evidence — this record
+
+Control base **`eedadc561700d3e1fa052322d44eb63151df0009` unchanged, no commit**; porcelain moved
+**10 → 11**, the 10 pre-write entries being the existing §16/§17/§18 dirty record and the one
+addition being the supplement; **0 staged** before and after; **no upstream or tracking ref
+configured** and nothing pushed, so every count in this section is qualified `--not --remotes`;
+blocker-4 packet **unchanged** at blob `c4e06ebd…` / SHA-256 `a98e4422…`, 1252 lines, 87064 bytes;
+validator and test blobs **unchanged**; board §1–§18 and register §1–§30 prefix hashes **identical
+pre- and post-write**; **`git diff --check` clean**;
+`node tools/operations/validate-w1-control.mjs` → **`PASS`, `tasks=48`**;
+`node --test tools/operations/tests/validate-w1-control.test.mjs` → **`tests 179 · pass 179 ·
+fail 0`**. **No aggregate over this record's own bytes is stated anywhere** — such a value is
+obtainable only by external re-measurement after these bytes exist.
+
+**Status — no promotion.** A **fresh independent review of the blocker-4 packet's current bytes
+together with the supplement is `PENDING`**. **Until it returns `PASS` with `P0=P1=P2=0` the
+supplement is not presentable as a Founder decision basis**, and **no `PASS` is claimed for it now**
+— the §19.9 validator result cannot speak to it, for the reasons in §19.8. No blocker closes, no
+gate moves, no lane reopens, no contract is accepted, and **no authority of any kind is granted**.
+
+**Packet-plus-supplement adverse review history — retained, remediated, not promoted.**
+
+| Review | Verdict | Current disposition |
+|---|---|---|
+| `aaeebfa6-0bef-44d9-98d4-ce15087246c8` — independent Opus, started `2026-07-29T09:58:06.376Z`, 505 s, exit 0, `contentCaptured=false`, no transcript | `NO-GO`, `P0=0 P1=0 P2=3 P3=5` | all eight findings closed in current bytes: false Lane-5 absolute, 10-entry arithmetic, B05 review provenance, hosted dating, validator wording, row-3b tip/base, B6 route and README contradiction |
+| `586c1a49-3409-4f0b-9742-fd00645a59de` — independent Opus, started `2026-07-29T10:11:45.509Z`, 529 s, exit 0, `contentCaptured=false`, no transcript | `NO-GO`, `P0=0 P1=0 P2=2 P3=4` | all six findings closed in current bytes: README two-row scope disclosure, review-history/disposition record, seven-row heading, row-3b push exclusion, catalog footer refresh and explicit B05 P1/P2 disposal |
+
+The exact namespaced dispositions are in supplement §10.1. A fresh independent review of the
+post-remediation bytes remains `PENDING`; neither adverse verdict is rewritten as `PASS`.
