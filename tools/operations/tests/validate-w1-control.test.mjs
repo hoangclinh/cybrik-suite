@@ -298,6 +298,23 @@ test("requires the adjacent CI3 historical-versus-current explanation", () => {
   );
 });
 
+test("rejects duplicate or conflicting CI3 top-level Status lines", () => {
+  const additionalStatuses = [
+    "Status: `CANONICAL MERGED 2026-07-30 — PR #1 / 28c564eb9b6853b73a18a59a2e84ba58fd67816a`.",
+    "Status: `LOCAL CANDIDATE GO — HOSTED CI PENDING`.",
+  ];
+
+  for (const additionalStatus of additionalStatuses) {
+    assert.throws(
+      () =>
+        validate({
+          ci3RemediationText: `${ci3RemediationText}\n${additionalStatus}\n`,
+        }),
+      /CI3 remediation must contain exactly one top-level Status line/,
+    );
+  }
+});
+
 test("accepts the current fixed 48-agent W1 control documents", () => {
   const result = validate();
 
