@@ -1047,6 +1047,25 @@ test("rejects loss of the W1 read-ahead GO decision", () => {
   assert.throws(() => validate({ boardText: drifted }), /read-ahead.*GO/i);
 });
 
+test("requires current delegated Governor authority without opening runtime or production", () => {
+  const currentHeader = boardText.slice(0, boardText.indexOf("## 1. Transition decision"));
+
+  assert.match(
+    currentHeader,
+    /\*\*Product-writer decision:\*\* `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain\s+`NO-GO`/,
+  );
+  assert.match(
+    currentHeader,
+    /\*\*Integration decision:\*\* `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`/,
+  );
+  assert.match(
+    boardText,
+    /\| Routine delegated integration \| `GO — EVIDENCE GATED` \|/,
+  );
+  assert.match(currentHeader, /production remains Founder-controlled/i);
+  assert.doesNotMatch(currentHeader, /Founder delegation remain absent/i);
+});
+
 test("rejects loss of W0 NO-GO closure or COMPLETE=0", () => {
   const drifted = boardText.replace(
     "- **W0 closure:** `NO-GO`; `COMPLETE=0`",
