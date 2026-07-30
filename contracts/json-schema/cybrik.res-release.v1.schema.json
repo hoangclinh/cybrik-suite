@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-release.v1.schema.json",
+  "title": "CYBRIK resource reservation release v1",
+  "description": "One terminal accounting release. Semantically, consumed plus returned must equal the target reservation's current remaining vector. Returned unused capacity may rejoin only an open parent; consumed credit never returns, and release never reopens a closed root or reservation. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "release_id",
+    "tenant_id",
+    "org_scope_ref",
+    "target",
+    "consumed",
+    "returned",
+    "sequence",
+    "virtual_time_ms",
+    "reason",
+    "confers_authority"
+  ],
+  "properties": {
+    "release_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/releaseId" },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope_ref": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "target": {
+      "type": "object",
+      "description": "Accounting target only; never a capability.",
+      "additionalProperties": false,
+      "required": ["kind", "id", "expected_version"],
+      "properties": {
+        "kind": { "const": "reservation" },
+        "id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/reservationId" },
+        "expected_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "consumed": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+    "returned": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+    "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
+    "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
+    "reason": { "type": "string", "enum": ["completed", "cancelled", "failed", "expired"] },
+    "confers_authority": { "const": false }
+  }
+}

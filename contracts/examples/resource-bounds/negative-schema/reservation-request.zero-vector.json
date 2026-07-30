@@ -1,0 +1,22 @@
+{
+  "request_id": "rsq_child00000000001",
+  "idempotency_key": "idem.child.000000000001",
+  "tenant_id": "tenant-blue",
+  "org_scope_ref": { "org_id": "org-blue" },
+  "parent": {
+    "kind": "grant",
+    "id": "rbg_root000000000001",
+    "expected_version": 1
+  },
+  "requested": {
+    "cpu_millis": 0,
+    "memory_byte_millis": 0,
+    "model_tokens": 0,
+    "tool_calls": 0,
+    "retrieved_bytes": 0,
+    "egress_bytes": 0
+  },
+  "sequence": 2,
+  "virtual_time_ms": 1010,
+  "confers_authority": false
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-common-defs.v1.schema.json",
+  "title": "CYBRIK resource-bounds common definitions v1",
+  "description": "Shared accounting-only primitives for conserved resource bounds across a call tree. cybrik.res-* is disjoint from the accepted investigation budget object, budget_exceeded, BUDGET_*, over_input_budget, over_output_budget, and fallbackInfo.reason=budget; this proposal maps, renames, extends, or replaces none of them. A res identifier is never a credential, capability, permission, delegation, or approval. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "$defs": {
+    "grantId": {
+      "type": "string",
+      "pattern": "^rbg_[a-z0-9]{16,64}$"
+    },
+    "reservationId": {
+      "type": "string",
+      "pattern": "^rsr_[a-z0-9]{16,64}$"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^rsq_[a-z0-9]{16,64}$"
+    },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^rsl_[a-z0-9]{16,64}$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "description": "Accounting replay key only. It confers no authority.",
+      "minLength": 16,
+      "maxLength": 200,
+      "pattern": "^[a-z0-9][a-z0-9._:-]{15,199}$"
+    },
+    "orgScopeRef": {
+      "type": "object",
+      "description": "Opaque advisory org-scope hint aligned with accepted W1-C2. Authoritative scope derives from authenticated policy; this copy introduces no W1-C2 mutation.",
+      "additionalProperties": false,
+      "required": ["org_id"],
+      "properties": {
+        "org_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "org_path": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "resourceVector": {
+      "type": "object",
+      "description": "Fixed additive vector of conserved credits. Deadline and peak memory are deliberately absent because they are not conserved credits.",
+      "additionalProperties": false,
+      "required": [
+        "cpu_millis",
+        "memory_byte_millis",
+        "model_tokens",
+        "tool_calls",
+        "retrieved_bytes",
+        "egress_bytes"
+      ],
+      "properties": {
+        "cpu_millis": { "type": "integer", "minimum": 0 },
+        "memory_byte_millis": { "type": "integer", "minimum": 0 },
+        "model_tokens": { "type": "integer", "minimum": 0 },
+        "tool_calls": { "type": "integer", "minimum": 0 },
+        "retrieved_bytes": { "type": "integer", "minimum": 0 },
+        "egress_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nonZeroResourceVector": {
+      "allOf": [
+        { "$ref": "#/$defs/resourceVector" },
+        {
+          "anyOf": [
+            { "type": "object", "required": ["cpu_millis"], "properties": { "cpu_millis": { "type": "integer", "minimum": 1 } } },
+            { "type": "object", "required": ["memory_byte_millis"], "properties": { "memory_byte_millis": { "type": "integer", "minimum": 1 } } },
+            { "type": "object", "required": ["model_tokens"], "properties": { "model_tokens": { "type": "integer", "minimum": 1 } } },
+            { "type": "object", "required": ["tool_calls"], "properties": { "tool_calls": { "type": "integer", "minimum": 1 } } },
+            { "type": "object", "required": ["retrieved_bytes"], "properties": { "retrieved_bytes": { "type": "integer", "minimum": 1 } } },
+            { "type": "object", "required": ["egress_bytes"], "properties": { "egress_bytes": { "type": "integer", "minimum": 1 } } }
+          ]
+        }
+      ]
+    },
+    "parentRef": {
+      "type": "object",
+      "description": "Accounting lineage only. A parent reference never confers permission.",
+      "additionalProperties": false,
+      "required": ["kind", "id", "expected_version"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["grant", "reservation"] },
+        "id": {
+          "type": "string",
+          "pattern": "^(rbg|rsr)_[a-z0-9]{16,64}$"
+        },
+        "expected_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "virtualTimeMs": {
+      "type": "integer",
+      "description": "Fixture-supplied logical time; never a wall-clock claim.",
+      "minimum": 0
+    },
+    "ledgerSequence": {
+      "type": "integer",
+      "description": "Monotone accounting sequence within one root tree.",
+      "minimum": 1
+    },
+    "confersAuthority": {
+      "const": false,
+      "description": "Load-bearing denial of credential, capability, permission, delegation, and approval semantics."
+    }
+  }
+}

@@ -21,6 +21,11 @@ The W2-I transport-binding candidate adds ADR-0011 as
 accepted base catalog before this additive proposal and is not an acceptance statement for
 ADR-0011. Gate W2-I is **`NOT OPENED`**.
 
+The W2-H resource-bounds packet adds ADR-0012 as
+`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-H authorizes only bounded proposal writing
+and static conformance under the delegated Governor decision; it does not accept ADR-0012 or
+authorize runtime, UAT, release, deployment, or production work.
+
 Current W1 contract/control lifecycle is
 `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through GitHub PR #1 merge
 `28c564eb9b6853b73a18a59a2e84ba58fd67816a`. This corrects the forward-looking local-only wording
@@ -40,9 +45,11 @@ or production evidence.
 | [ADR-0009](ADR-0009-org-hierarchy-and-external-authority-contract-profile.md) | Org-hierarchy & external-authority contract profile | `ACCEPTED FOR IMPLEMENTATION` (W2-G, 2026-07-24) — v0.1.0, not stable v1/GA; applies the ADR-0007 contract delta, re-decides no model |
 | [ADR-0010](ADR-0010-capability-name-canonicalization.md) | Capability-name canonicalization across JSON Schema runtimes | `ACCEPTED FOR IMPLEMENTATION — APPLIED` (2026-07-26) — pre-GA patch 0.1.1, not stable v1/GA |
 | [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |
+| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |
 
-Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder moves an
-ADR out of `PROPOSED`. Product repositories may not implement against a `PROPOSED` ADR, and an
+Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
+specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains
+Founder-controlled. Product repositories may not implement against a `PROPOSED` ADR, and an
 `ACCEPTED` ADR is a decision record — it is not by itself implementation authority.
 
 `docs/README.md`, the root `README.md` and `docs/operations/README.md` were reconciled to this
@@ -79,3 +86,4 @@ authoritative on ADR status.**
 | [FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md](FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md) | Historical W0-IR01 controlled-integration decision | `DECIDED — OPTION Z — FOUNDER-MANUAL` (2026-07-29) remains immutable dated history; its forward-looking per-action technical approvals are superseded by `DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`. Evidence gates remain mandatory and production remains Founder-controlled |
 | [FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md](FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md) | W0-T11 resource-budget contract instrument — scope, naming and sequencing questions `T11-RB-1` … `T11-RB-8` | `DEPENDENCY READY — AWAITING BOUNDED IMPLEMENTATION PACKET` (decision 2026-07-29). W1-C1/W1-C2 canonical-integration prerequisite is satisfied by PR #1 merge `28c564eb…`; operative naming remains `res-bounds-*` with `resource-bounds/`; no gate opens and no ADR number is allocated. Independent review run `60adebd4-d22f-4134-8918-1dfd83e89712` `PASS`, `P0=P1=P2=0`, five `P3` retained |
 | [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |
+| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY` (2026-07-31); assigns ADR-0012 at write time, authorizes only the exact proposal paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |

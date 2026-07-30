@@ -71,3 +71,9 @@ validation notes). Nothing here is executable product code.
   alone cannot express. This packet is `ACCEPTED FOR IMPLEMENTATION` at v0.1.0 (not stable v1/GA)
   by explicit Founder Option A with G-W0I01-1..5 `yes` on 2026-07-26. Its validator remains
   standalone and proves fixture/contract conformance, not product runtime enforcement.
+- `resource-bounds/` — Gate W2-H **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** fixtures:
+  6 positive, 7 negative-schema, and 9 negative-semantic deterministic replay cases. A virtual
+  clock and monotone sequence make replay byte-reproducible; the cases exercise parent
+  conservation, no-mint spawn, tenant/org mismatch, idempotency conflict, double release,
+  over-return, closed-parent denial, and root-cancel no-remint. Green proves static L1/L2
+  conformance only, never runtime, UAT, T10/T11, release, deployment, or production readiness.

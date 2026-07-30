@@ -24,6 +24,8 @@
     "test:f8:receipt-integrity": "node --test tests/validate-receipt-integrity.test.mjs",
     "validate:w2i:transport": "node validate-transport.mjs",
     "test:w2i:transport": "node --test tests/validate-transport.test.mjs",
+    "validate:w2h:resource-bounds": "node validate-resource-bounds.mjs",
+    "test:w2h:resource-bounds": "node --test tests/validate-resource-bounds.test.mjs",
     "validate:svc-lifecycle": "node validate-svc-lifecycle.mjs",
     "test:svc-lifecycle": "node --test tests/validate-svc-lifecycle.test.mjs",
     "test:w1-contracts": "node validate.mjs --test-w1-contracts",

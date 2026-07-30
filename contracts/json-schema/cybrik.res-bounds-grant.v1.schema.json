@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-bounds-grant.v1.schema.json",
+  "title": "CYBRIK root resource-bounds grant v1",
+  "description": "Accounting root for one finite resource tree. Resource enters only here. The grant is not an authority grant. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grant_id",
+    "tenant_id",
+    "org_scope_ref",
+    "bounds",
+    "state_version",
+    "virtual_time_ms",
+    "sequence",
+    "confers_authority"
+  ],
+  "properties": {
+    "grant_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/grantId" },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope_ref": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "bounds": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/nonZeroResourceVector" },
+    "state_version": { "type": "integer", "minimum": 1 },
+    "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
+    "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
+    "confers_authority": { "const": false }
+  }
+}

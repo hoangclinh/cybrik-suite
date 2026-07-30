@@ -4080,18 +4080,49 @@ const ADR_README_W2I_ADDITIONS = [
   '\n| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |',
   '\n| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |',
 ];
+const ADR_README_W2H_ADDITIONS = [
+  '\nThe W2-H resource-bounds packet adds ADR-0012 as\n' +
+    '`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-H authorizes only bounded proposal writing\n' +
+    'and static conformance under the delegated Governor decision; it does not accept ADR-0012 or\n' +
+    'authorize runtime, UAT, release, deployment, or production work.\n',
+  '\n| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |',
+  '\n| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY` (2026-07-31); assigns ADR-0012 at write time, authorizes only the exact proposal paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |',
+];
+const ADR_README_DELEGATION_RECONCILIATION = {
+  current:
+    'Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a\n' +
+    'specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains\n' +
+    'Founder-controlled. Product repositories may not implement against a `PROPOSED` ADR, and an\n' +
+    '`ACCEPTED` ADR is a decision record — it is not by itself implementation authority.',
+  base:
+    'Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder moves an\n' +
+    'ADR out of `PROPOSED`. Product repositories may not implement against a `PROPOSED` ADR, and an\n' +
+    '`ACCEPTED` ADR is a decision record — it is not by itself implementation authority.',
+};
 
-test(`P2-3: ${ADR_README_REL} preserves every non-W2-I base byte`, () => {
+test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered additions`, () => {
   let normalized = read(ADR_README_REL);
-  for (const addition of ADR_README_W2I_ADDITIONS) {
+  for (const addition of [
+    ...ADR_README_W2I_ADDITIONS,
+    ...ADR_README_W2H_ADDITIONS,
+  ]) {
     const occurrences = normalized.split(addition).length - 1;
-    assert.ok(occurrences <= 1, `P2-3: duplicate W2-I registry addition:\n${addition}`);
+    assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
     normalized = normalized.replace(addition, '');
   }
   assert.equal(
+    normalized.split(ADR_README_DELEGATION_RECONCILIATION.current).length - 1,
+    1,
+    'P2-3: delegated-Governor lifecycle reconciliation must occur exactly once',
+  );
+  normalized = normalized.replace(
+    ADR_README_DELEGATION_RECONCILIATION.current,
+    ADR_README_DELEGATION_RECONCILIATION.base,
+  );
+  assert.equal(
     sha256(normalized),
     ADR_README_BASE_SHA256,
-    'P2-3: docs/adr/README.md changed bytes outside the three exact W2-I additions',
+    'P2-3: docs/adr/README.md changed bytes outside the exact W2-I/W2-H additions and authority reconciliation',
   );
 });
 
@@ -4101,6 +4132,14 @@ test('P2-3: the intended ADR-0011 / W2-I registry entries are retained', () => {
   assert.match(adr, /PROPOSED — NOT DECIDED — NOT APPLIED/, 'P2-3: the ADR-0011 entry must carry its PROPOSED lifecycle verbatim');
   assert.match(adr, /FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP\.md/, 'P2-3: docs/adr/README.md must still register the W2-I Founder path-ownership packet');
   assert.match(adr, /Gate W2-I is \*\*`NOT OPENED`\*\*/, 'P2-3: the ADR-0011 entry must state that Gate W2-I is NOT OPENED');
+});
+
+test('P2-3: the intended ADR-0012 / W2-H registry entries remain proposal-only', () => {
+  const adr = read(ADR_README_REL);
+  assert.match(adr, /ADR-0012/, 'P2-3: docs/adr/README.md must register ADR-0012');
+  assert.match(adr, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/, 'P2-3: ADR-0012 must remain proposal-only');
+  assert.match(adr, /DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL\.md/);
+  assert.match(adr, /production remains\s+Founder-controlled/i);
 });
 
 // --- 9.4 (P2-4) harness portability and the fail-closed Founder-packet witness ----

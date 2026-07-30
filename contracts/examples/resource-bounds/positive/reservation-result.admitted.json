@@ -1,0 +1,38 @@
+{
+  "request_id": "rsq_child00000000001",
+  "status": "admitted",
+  "reservation": {
+    "reservation_id": "rsr_child00000000001",
+    "reserved": {
+      "cpu_millis": 40,
+      "memory_byte_millis": 40000,
+      "model_tokens": 400,
+      "tool_calls": 4,
+      "retrieved_bytes": 4000,
+      "egress_bytes": 400
+    },
+    "remaining": {
+      "cpu_millis": 40,
+      "memory_byte_millis": 40000,
+      "model_tokens": 400,
+      "tool_calls": 4,
+      "retrieved_bytes": 4000,
+      "egress_bytes": 400
+    },
+    "state_version": 1,
+    "status": "open"
+  },
+  "parent_version_before": 1,
+  "parent_version_after": 2,
+  "parent_remaining_after": {
+    "cpu_millis": 60,
+    "memory_byte_millis": 60000,
+    "model_tokens": 600,
+    "tool_calls": 6,
+    "retrieved_bytes": 6000,
+    "egress_bytes": 600
+  },
+  "sequence": 2,
+  "virtual_time_ms": 1010,
+  "confers_authority": false
+}

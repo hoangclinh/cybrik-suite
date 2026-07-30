@@ -1,0 +1,20 @@
+{
+  "grant_id": "rbg_root000000000001",
+  "tenant_id": "tenant-blue",
+  "org_scope_ref": {
+    "org_id": "org-blue",
+    "org_path": "/org-blue/soc"
+  },
+  "bounds": {
+    "cpu_millis": 100,
+    "memory_byte_millis": 100000,
+    "model_tokens": 1000,
+    "tool_calls": 10,
+    "retrieved_bytes": 10000,
+    "egress_bytes": 1000
+  },
+  "state_version": 1,
+  "sequence": 1,
+  "virtual_time_ms": 1000,
+  "confers_authority": false
+}

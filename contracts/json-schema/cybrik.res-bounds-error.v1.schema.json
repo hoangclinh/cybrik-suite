@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-bounds-error.v1.schema.json",
+  "title": "CYBRIK resource-bounds error v1",
+  "description": "Sanitized resource-accounting error. RES_* is deliberately disjoint from budget_exceeded and the BUDGET_* family. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "retriable", "fail_closed"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "RES_ACTIVE_CHILDREN",
+        "RES_ALREADY_RELEASED",
+        "RES_IDEMPOTENCY_CONFLICT",
+        "RES_INSUFFICIENT_REMAINDER",
+        "RES_NO_MINT_ON_SPAWN",
+        "RES_ORG_SCOPE_MISMATCH",
+        "RES_PARENT_CLOSED",
+        "RES_PARENT_NOT_FOUND",
+        "RES_RELEASE_ACCOUNTING_MISMATCH",
+        "RES_RESULT_MISMATCH",
+        "RES_ROOT_CLOSED",
+        "RES_SEQUENCE_VIOLATION",
+        "RES_TENANT_MISMATCH",
+        "RES_VERSION_CONFLICT",
+        "RES_VIRTUAL_TIME_ROLLBACK"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "retriable": { "const": false },
+    "fail_closed": { "const": true }
+  }
+}

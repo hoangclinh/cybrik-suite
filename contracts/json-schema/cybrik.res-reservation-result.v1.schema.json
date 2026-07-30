@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-reservation-result.v1.schema.json",
+  "title": "CYBRIK resource reservation result v1",
+  "description": "All-or-nothing admission result. An admitted result contains exactly one reservation and no error; a denied result contains exactly one fail-closed resource error and no reservation. Parent drawdown occurs at admission. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "status",
+    "parent_version_before",
+    "parent_version_after",
+    "parent_remaining_after",
+    "sequence",
+    "virtual_time_ms",
+    "confers_authority"
+  ],
+  "properties": {
+    "request_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/requestId" },
+    "status": { "type": "string", "enum": ["admitted", "denied"] },
+    "reservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservation_id", "reserved", "remaining", "state_version", "status"],
+      "properties": {
+        "reservation_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/reservationId" },
+        "reserved": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/nonZeroResourceVector" },
+        "remaining": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+        "state_version": { "type": "integer", "minimum": 1 },
+        "status": { "const": "open" }
+      }
+    },
+    "error": { "$ref": "cybrik.res-bounds-error.v1.schema.json" },
+    "parent_version_before": { "type": "integer", "minimum": 1 },
+    "parent_version_after": { "type": "integer", "minimum": 1 },
+    "parent_remaining_after": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+    "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
+    "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
+    "confers_authority": { "const": false }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "admitted" },
+        "error": false
+      },
+      "required": ["reservation"]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "denied" },
+        "reservation": false
+      },
+      "required": ["error"]
+    }
+  ]
+}
