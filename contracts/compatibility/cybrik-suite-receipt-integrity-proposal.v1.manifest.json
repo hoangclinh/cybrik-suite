@@ -246,13 +246,13 @@
       { "file": "compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json", "sha256": "ffc315a09a45714ddd6aa96688ec88565bc3e6146677e9e87e44835652614bbb" },
       { "file": "examples/receipt-integrity/examples-manifest.json", "sha256": "4a0deff1ba97027d40eee0cfb126fda71743ad346e6584acfdde8fdcb52a8740" },
       { "file": "examples/receipt-integrity/positive/receipt-signature-statement.json", "sha256": "72305774d78f0279d96e4101992dc8215c85d851e7219b2a7094d605acefbac9" },
-      { "file": "examples/receipt-integrity/positive/receipt-signature-envelope.json", "sha256": "7a83b5494a29f76488cd8e9d4172b83e0589c496916c11fd9206ea59259ce999" },
+      { "file": "examples/receipt-integrity/positive/receipt-signature-envelope.json", "sha256": "5f735841ff187363b7f219755c41b4a4dbfaee108c91b1fed27e0717a16afdb5" },
       { "file": "examples/receipt-integrity/negative/envelope.wrong-canonicalization.json", "sha256": "7cced96abada723a69d63782ce66a5c814dc742eaaa9f953603aa0674d013526" },
       { "file": "examples/receipt-integrity/negative/envelope.alg-none.json", "sha256": "9d8d7ca74d0a5d437a08b01131724b61ae6f066c66c5b274cd511c4963b9ba3a" },
       { "file": "examples/receipt-integrity/negative/envelope.embedded-jwk.json", "sha256": "1452ad348580d2354f704049f6520c6ef824c06e04ad1df807e3e72589c7d438" },
       { "file": "examples/receipt-integrity/negative/envelope.tampered-payload.json", "sha256": "d1fb6e54ea7abdbabbc51d1109c73d539658d821a0660980a010b491ea561b71" }
     ],
-    "aggregate_sha256": "ff520be173b280cbe31ea880fce0af45bf21212d821a15ca164950b9aaa280eb"
+    "aggregate_sha256": "3a0ae6b01a6eac167c0057d34efbf13a36e3869a1c7df4ef1f7cd45bdf5b6842"
   },
   "gate": {
     "id": "F8-RECEIPT-INTEGRITY-PROFILE",

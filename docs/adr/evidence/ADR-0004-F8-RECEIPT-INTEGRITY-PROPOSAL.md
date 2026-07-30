@@ -129,11 +129,13 @@ who reads the seed label, which is the point: it makes the fixture reproducible 
 PKCS#8 file, and no secret anywhere in the tree**. That kid must never appear in a real trust
 bundle.
 
-The five envelope fixture files encode the first ASCII `e` of `jws_compact` as the equivalent JSON
-source escape `\u0065`. JSON parsing therefore yields the exact compact JWS bytes used for signing,
-verification and locator hashing, while the source file does not trigger gitleaks' generic JWT
-lexical detector. The focused test re-signs and byte-compares the parsed value, and the full-tree
-secret scan remains active for every actual secret rule.
+The positive envelope fixture carries the compact JWS literally, byte for byte. Gitleaks' `jwt`
+rule recognizes that public TEST-ONLY vector, so `.gitleaks.toml` permits only the conjunction of
+that rule, that exact positive-fixture path, and its unique Ed25519 signature segment. The four
+negative envelope fixtures retain the equivalent JSON source escape `\u0065`; they are malformed or
+tampered rejection witnesses rather than the frozen positive vector and receive no allowlist. The
+focused test re-signs and byte-compares the positive value, verifies its content-addressed locator,
+and pins the allowlist shape so a wider path, rule, or vector fails closed.
 
 ### 5.2 An absent array is not an empty array
 

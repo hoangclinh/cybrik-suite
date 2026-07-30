@@ -1,8 +1,8 @@
 # gitleaks configuration for the CYBRIK Suite meta/control repository.
 # Purpose: secret scanning in CI (see .github/workflows/contracts.yml). Pinned gitleaks 8.30.1.
 #
-# We use the full upstream default ruleset (useDefault = true) unchanged, then add ONE
-# narrowly-scoped allowlist to suppress a single, well-understood false positive.
+# We use the full upstream default ruleset (useDefault = true) unchanged, then add TWO
+# narrowly-scoped allowlists for two independently reviewed false-positive classes.
 #
 # Why the allowlist is safe:
 #   - The files under contracts/examples/ are synthetic, curated CONFORMANCE fixtures — the
@@ -26,3 +26,20 @@ useDefault = true
 description = "Synthetic non-secret identifiers in contract conformance fixtures (generic-api-key heuristic only)."
 targetRules = ["generic-api-key"]
 paths = ['''contracts/examples/.*\.json$''']
+
+# The F8 positive receipt fixture carries one deterministic TEST-ONLY compact JWS. It is
+# intentionally public and reproducible from the seed label in the test suite, so it is not a
+# credential. The upstream `jwt` rule correctly recognizes the compact serialization but cannot
+# distinguish this frozen conformance vector from an operational token.
+#
+# This exception is an AND, not an OR: the rule id, exact positive-fixture path, and unique
+# Ed25519 signature segment must all match. A different path, a different JWS in this path, or any
+# other secret rule still fails closed. Negative fixtures remain source-escaped and are not
+# allowlisted.
+[[allowlists]]
+description = "F8 TEST-ONLY positive receipt JWS vector (exact path and signature)"
+targetRules = ["jwt"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^contracts/examples/receipt-integrity/positive/receipt-signature-envelope\.json$''']
+regexes = ['''^\s*"jws_compact": "[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.IB9ZgpRgf0WNvMHwPnLc3nQJskAWiTG2LKmijLyrsunEzS3rDFUxsM6TalcFGlc9qoEyNdPpalnfwwo_lQ49DA",$''']

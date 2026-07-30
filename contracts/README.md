@@ -1,10 +1,8 @@
 # contracts/ — Cross-product contracts
 
 Status: first cross-product contract packet is present, statused `PROPOSED` — **NOT ACCEPTED**
-(version 0.1.0). No contract has been accepted; no product may implement any of these until an
-explicit technical acceptance under the authority in force. Forward-looking technical acceptance
-is currently delegated to the Codex Governor by
-`../docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md` (ADR-0001 D5).
+(version 0.1.0). No contract has been accepted; no product may implement any of these until
+explicit Founder acceptance (ADR-0001 D5).
 
 This directory is the single home for interfaces shared between CYBRIK Suite products.
 Product repositories implement contracts defined here; contracts are never retro-fitted from
@@ -101,5 +99,5 @@ whole key lifecycle remain open prerequisites listed in the manifest's `future_p
 ## Lifecycle
 
 Every contract file must carry a status header: `PROPOSED` → `ACCEPTED` → `DEPRECATED`.
-Moving a contract out of `PROPOSED` requires an explicit technical decision under the authority in
-force. Do not scaffold placeholder OpenAPI/schema files as if they were accepted contracts.
+Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold
+placeholder OpenAPI/schema files as if they were accepted contracts.

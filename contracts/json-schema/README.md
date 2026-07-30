@@ -15,10 +15,7 @@ Shared data object schemas. The first cross-product contract packet lives here, 
 - `cybrik.approval-request.v1` / `cybrik.approval-decision.v1` — approval-ingress pair (ADR-0004 F9 / RB-001).
 
 Inventory and cross-artifact digest bindings: `../compatibility/cybrik-suite-contract-packet.v1.manifest.json`.
-Conformance fixtures: `../examples/`. Moving any file out of `PROPOSED` requires an explicit
-technical decision under the authority in force; forward-looking technical acceptance is currently
-delegated to the Codex Governor by
-`../../docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`.
+Conformance fixtures: `../examples/`. Moving any file out of `PROPOSED` requires explicit Founder approval.
 
 ## W2-F internal service-delegation packet (additive; `ACCEPTED FOR IMPLEMENTATION`, v0.1.0)
 
