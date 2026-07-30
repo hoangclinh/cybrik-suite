@@ -1,8 +1,8 @@
 # CYBRIK W1 investigation lifecycle REST mapping v1
-# Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.
-# The referenced cybrik.investigation-bundle.strict-compatible.v1 v0.1.1 schema remains PROPOSED —
-# NOT ACCEPTED: it is bound only as the validation-profile expression of the semantically identical
-# accepted cybrik.investigation-bundle.v1 v0.1.0 shape, which remains authoritative and byte-unchanged.
+# Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 packet (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.
+# Bundle v0.1.1: ACCEPTED FOR IMPLEMENTATION under W1-REC-3/4 and authoritative for new bundle-read responses.
+# Bundle v0.1.0: immutable supported legacy read/replay input; exact accepted bytes remain unchanged.
+# Consumer migration remains separately gated by W1-REC-5.
 # Mapping notes only. There is deliberately no `servers` block, deployment, runtime endpoint,
 # credential, or transport selection. Cyber AI owns investigation lifecycle and bundle production;
 # SOC is an authenticated consumer/viewer. W2-D remains the sole existing inference-path owner.
@@ -13,13 +13,15 @@ openapi: 3.1.1
 info:
   title: CYBRIK AI investigation lifecycle plane proposal
   version: 0.1.0
-  summary: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2) — NOT IMPLEMENTED, CI NOT WIRED. REST mapping for create/status/checkpoint/cancel/bundle-read.
+  summary: ACCEPTED FOR IMPLEMENTATION v0.1.0 packet; Bundle v0.1.1 is authoritative for new bundle-read responses under W1-REC-3/4 — NOT IMPLEMENTED, CI NOT WIRED.
   description: >-
     Serverless, contract-only mapping notes for the Cyber AI investigation lifecycle seam.
     Authoritative tenant, org, and actor are derived from authenticated identity and policy; body
     and response fields are correlation/audit copies and never grant access. Unknown and
     unauthorized investigation ids use the same sanitized 404 response shape. No implementation,
-    deployment, transport selection, or product authority is created by this document.
+    deployment, transport selection, or product authority is created by this document. Bundle
+    v0.1.1 is authoritative for new bundle-read responses; v0.1.0 remains immutable supported
+    legacy read/replay input, and consumer migration remains separately gated by W1-REC-5.
   x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
   x-cybrik-not-accepted: false
 
@@ -188,13 +190,14 @@ paths:
   /api/v1/investigations/{investigation_id}/bundle:
     get:
       operationId: readInvestigationBundle
-      summary: Read the PROPOSED strict-compatible v0.1.1 Investigation Bundle revision through Cyber AI.
+      summary: Read the accepted strict-compatible v0.1.1 Investigation Bundle through Cyber AI.
       description: >-
-        Cyber AI is the bundle producer/authority. SOC is an authorized viewer of the PROPOSED
-        strict-compatible v0.1.1 successor; it cannot alter the bundle or derive authority from
-        claims/model output. The accepted v0.1.0 bytes remain unchanged unless the Founder
-        explicitly accepts and supersedes them. Wrapper marking must be at least the bundle
-        marking. Unknown and unauthorized ids remain indistinguishable.
+        Cyber AI is the bundle producer/authority. SOC is an authorized viewer of accepted v0.1.1,
+        authoritative for new bundle-read responses under W1-REC-3/4; it cannot alter the bundle
+        or derive authority from claims/model output. Accepted v0.1.0 remains immutable supported
+        legacy read/replay input with byte-unchanged SHA-256 evidence. Consumer migration remains
+        separately gated by W1-REC-5. Wrapper marking must be at least the bundle marking. Unknown
+        and unauthorized ids remain indistinguishable.
       parameters:
         - $ref: '#/components/parameters/InvestigationId'
         - $ref: '#/components/parameters/Traceparent'

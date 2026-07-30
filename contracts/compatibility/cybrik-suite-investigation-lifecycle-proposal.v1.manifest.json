@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
   "title": "CYBRIK W1 investigation lifecycle and transport proposal v1",
-  "description": "Additive packet for create/status/checkpoint/cancel/bundle-read REST mapping and Cyber AI lifecycle events. It reuses the accepted W0-I01 artifact packet without changing its bytes or lifecycle, leaves W2-D as the sole existing inference-path owner, and treats W2-F only as an identity/delegation seam in front of SOC-to-Cyber-AI inference operations — never as Fabric tool-execution authority. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED — except json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1, which remains a PROPOSED — NOT ACCEPTED successor candidate member only. The accepted cybrik.investigation-bundle.v1 v0.1.0 remains authoritative and byte-unchanged; adoption of v0.1.1, supersession of v0.1.0, and consumer migration remain three separate future Founder decisions.",
+  "description": "Additive packet for create/status/checkpoint/cancel/bundle-read REST mapping and Cyber AI lifecycle events. It reuses the accepted W0-I01 artifact packet without changing its bytes or lifecycle, leaves W2-D as the sole existing inference-path owner, and treats W2-F only as an identity/delegation seam in front of SOC-to-Cyber-AI inference operations — never as Fabric tool-execution authority. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 packet (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED. W1-REC-3/4 accepts json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1 and makes it authoritative for new bundle-read responses while preserving accepted cybrik.investigation-bundle.v1 v0.1.0 as immutable supported legacy read/replay input with byte-unchanged SHA-256 evidence. Consumer migration remains separately gated by W1-REC-5.",
   "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
   "x-cybrik-not-accepted": false,
   "x-cybrik-packet-version": "0.1.0",
@@ -14,13 +14,13 @@
   },
   "collision_status_map": {
     "audited_base": "3ef8e0536f8210f2739c6fa0e32e37f8dc27d619",
-    "new_namespace": "cybrik.investigation-lifecycle-* plus create/status/checkpoint/cancel/bundle-read payload names and the proposed cybrik.investigation-bundle.strict-compatible.v1 revision; no existing schema id, path file, event type, or operationId is overwritten.",
+    "new_namespace": "cybrik.investigation-lifecycle-* plus create/status/checkpoint/cancel/bundle-read payload names and the accepted cybrik.investigation-bundle.strict-compatible.v1 revision; no existing schema id, path file, event type, or operationId is overwritten.",
     "existing_boundaries": [
       {
         "packet": "W0-I01 Investigation/Claim/Evidence/Bundle",
         "status": "ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA",
         "collision_result": "none",
-        "treatment": "Accepted primitives are reused by $ref. The accepted bundle bytes remain untouched; this packet adds a distinct PROPOSED v0.1.1 strict-compatible bundle revision with a unique $id and semantic-equivalent shape. No accepted W0-I01 member, status, gate record, validator, or fixture is modified. G-W0I01-5 remains preserved because this packet is the separate later contract change it anticipated, accepted under W1-C2 while the v0.1.1 bundle revision member remains PROPOSED — NOT ACCEPTED."
+        "treatment": "Accepted primitives are reused by $ref. W1-REC-3/4 selects the distinct accepted v0.1.1 strict-compatible bundle revision with a unique $id and semantic-equivalent shape for new bundle-read responses while preserving exact accepted v0.1.0 bytes as immutable supported legacy read/replay input. No accepted W0-I01 member, status, gate record, validator, or fixture is modified. G-W0I01-5 remains preserved because this packet is the separate later contract change it anticipated; consumer migration remains separately gated by W1-REC-5."
       },
       {
         "packet": "W2-D model-inference and alert-summarization",
@@ -46,7 +46,7 @@
     "cyber_ai": "Sole lifecycle state authority, checkpoint/event producer, retry/cancel race arbiter, and Investigation Bundle producer.",
     "soc": "Authorized requestor, consumer, and viewer of lifecycle status/checkpoints/bundles under SOC-owned analyst/tenant/org truth. SOC cannot mint lifecycle state or rewrite a bundle.",
     "fabric": "No member of this packet is Fabric execution authority. Fabric remains sole owner of capability registry, invocation, policy/approval, credential/egress broker, sandbox and execution receipts.",
-    "suite": "Owns this cross-product PROPOSED packet and its compatibility/conformance evidence only."
+    "suite": "Owns this accepted cross-product contract packet and its compatibility/conformance evidence only; it gains no product-runtime or release authority."
   },
   "members": [
     {
@@ -84,7 +84,7 @@
       "format": "json-schema",
       "kind": "strict-compatible-bundle-revision",
       "contract_version": "0.1.1",
-      "status": "PROPOSED — NOT ACCEPTED"
+      "status": "ACCEPTED FOR IMPLEMENTATION"
     },
     {
       "file": "json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
@@ -123,22 +123,20 @@
     "accepted_current": {
       "file": "json-schema/cybrik.investigation-bundle.v1.schema.json",
       "contract_version": "0.1.0",
-      "status": "ACCEPTED FOR IMPLEMENTATION — authoritative — byte-unchanged",
+      "status": "ACCEPTED FOR IMPLEMENTATION — immutable legacy read/replay — byte-unchanged",
       "sha256": "501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1"
     },
-    "proposed_successor": {
+    "accepted_successor": {
       "file": "json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
       "contract_version": "0.1.1",
-      "status": "PROPOSED — NOT ACCEPTED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — authoritative for new bundle-read responses"
     },
-    "compatibility": "Semantic shape is preserved. The accepted v0.1.0 is and remains fully JSON Schema 2020-12 conformant; nothing in it is spec-invalid and nothing in it is being repaired. Its generated_by.allOf[1] is the bare subschema {\"required\":[\"tenant_id\"]}, which the 2020-12 specification permits and which is rejected only by Ajv's optional strict-mode house style (strictRequired/strictTypes), never by the specification itself. The PROPOSED v0.1.1 successor changes only proposal metadata plus generated_by.allOf[1], where it adds an explicit \"type\": \"object\" and a local \"properties\": {\"tenant_id\": {\"$ref\": \"cybrik.common-defs.v1.schema.json#/$defs/tenantId\"}} subschema. That tenant_id subschema is newly written into allOf[1] — it was not present there before — and it is semantically redundant, because allOf[0]'s actor $ref already constrains tenant_id to the identical tenantId primitive. The successor therefore narrows, widens, and removes nothing; it only satisfies the stricter Ajv strict-mode house style.",
-    "transport_binding_rule": "The accepted OpenAPI bundle-read result and AsyncAPI bundle publication reference the strict-compatible v0.1.1 expression only as the validation-profile rendering of the semantically identical accepted v0.1.0 shape (this packet validator enforces that identity: v0.1.1 may differ from v0.1.0 only by proposal metadata and the one semantically redundant generated_by annotation). That reference confers no acceptance, adoption, supersession, or migration authority on v0.1.1.",
+    "compatibility": "Semantic shape is preserved. The accepted v0.1.0 is and remains fully JSON Schema 2020-12 conformant; nothing in it is spec-invalid and nothing in it is being repaired. Its generated_by.allOf[1] is the bare subschema {\"required\":[\"tenant_id\"]}, which the 2020-12 specification permits and which is rejected only by Ajv's optional strict-mode house style (strictRequired/strictTypes), never by the specification itself. The accepted v0.1.1 successor selected by W1-REC-3/4 changes only lifecycle metadata plus generated_by.allOf[1], where it adds an explicit \"type\": \"object\" and a local \"properties\": {\"tenant_id\": {\"$ref\": \"cybrik.common-defs.v1.schema.json#/$defs/tenantId\"}} subschema. That tenant_id subschema is newly written into allOf[1] — it was not present there before — and it is semantically redundant, because allOf[0]'s actor $ref already constrains tenant_id to the identical tenantId primitive. The successor therefore narrows, widens, and removes nothing; it only satisfies the stricter Ajv strict-mode house style.",
+    "transport_binding_rule": "The accepted OpenAPI bundle-read result and AsyncAPI bundle publication bind accepted strict-compatible v0.1.1 as the authoritative validation profile for new responses/publications under W1-REC-3/4. Accepted v0.1.0 remains immutable supported legacy read/replay input. This binding creates no product runtime, server, bus, Fabric, deployment, release, or automatic consumer-migration authority; consumer migration remains separately gated by W1-REC-5.",
     "pending_founder_decisions": [
-      "Adopt cybrik.investigation-bundle.strict-compatible.v1 v0.1.1 (accept it for implementation).",
-      "Supersede accepted cybrik.investigation-bundle.v1 v0.1.0 with v0.1.1.",
       "Authorize consumer migration from v0.1.0 to v0.1.1."
     ],
-    "adoption_rule": "No automatic supersession, and W1-C2 acceptance of this packet accepts nothing about v0.1.1. The accepted v0.1.0 remains authoritative and byte-unchanged until each pending Founder decision above is separately and explicitly recorded."
+    "adoption_rule": "W1-REC-3/4 accepts v0.1.1 and makes it authoritative for new bundle-read responses while preserving v0.1.0 as immutable supported legacy read/replay input with byte-unchanged SHA-256 evidence. No automatic consumer migration is authorized; consumer migration remains gated by W1-REC-5 and is the sole pending Founder decision above."
   },
   "operation_contract": {
     "operations": [
@@ -249,8 +247,8 @@
   "open_decisions": [
     {
       "id": "OD-W1IL-1",
-      "question": "Accept the exact ten-member packet, including the PROPOSED strict-compatible Investigation Bundle v0.1.1 successor, for product implementation?",
-      "current": "RESOLVED (W1-C2, 2026-07-26) — the packet is ACCEPTED FOR IMPLEMENTATION at v0.1.0 except the strict-compatible v0.1.1 member, which remains PROPOSED — NOT ACCEPTED; see supersession_mapping.pending_founder_decisions for the three decisions that remain open."
+      "question": "HISTORICAL W1-C2 QUESTION — accept the exact ten-member packet, including the strict-compatible Investigation Bundle v0.1.1 successor, for product implementation?",
+      "current": "RESOLVED — W1-C2 accepted the v0.1.0 packet; W1-REC-3/4 subsequently accepted strict-compatible v0.1.1 as authoritative for new bundle-read responses while preserving v0.1.0 as immutable supported legacy read/replay input. Consumer migration remains separately gated by W1-REC-5."
     },
     {
       "id": "OD-W1IL-2",
@@ -309,11 +307,11 @@
       },
       {
         "file": "json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json",
-        "sha256": "ce2e255eb52e3f5122d304ec9162fe02b2d35012b4bf0a92747989281f32eea9"
+        "sha256": "09ee10c1a1af8a5a48cc989a4af3c61bc2ac7c022f43dc650bcb170ecb674bb1"
       },
       {
         "file": "json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
-        "sha256": "64d6600feda4f0bf6dfefc01ddeda38d324404eda616fe2b5183a3a7c1fb7246"
+        "sha256": "ed32d01799636c9e92fec22f3b8a39a6722728ea1726d12d51589b8fa16a486b"
       },
       {
         "file": "json-schema/cybrik.investigation-lifecycle-error.v1.schema.json",
@@ -321,15 +319,15 @@
       },
       {
         "file": "openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml",
-        "sha256": "22cd7d71f89bd5c287b79e87015a28dd27fdbd124fd3a073e56346a4de3c318d"
+        "sha256": "72484eb55abf7548d9f68403ba10dbc597bb812381082f63c49c0c62acb71bf8"
       },
       {
         "file": "asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml",
-        "sha256": "c55ca124a193e2406b875af139e463e0e02e8b807c2a6baef616b63fe2f20fe4"
+        "sha256": "c262d1ca4cefad7f5b3784bd58a704b85519e0f16aea3c3b51f2f956b8c6dd36"
       },
       {
         "file": "compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
-        "sha256": "5aaa272ca3e5facdaa8292f972d63d3113aa17366aea235354b46b49b26cbd03"
+        "sha256": "67eb566e2b61df1bc666d534ea40630c076df86a03267afa570bf08f548066bc"
       },
       {
         "file": "examples/investigation-lifecycle/examples-manifest.json",
@@ -408,18 +406,18 @@
         "sha256": "667371ba664dcfc3bebb4555cfe3e2e2e94dd29ae7cc22a4b80086297ad9f659"
       }
     ],
-    "aggregate_sha256": "0fcac6ede9b2c3712bb7e989c227c91c6bd37c115a2bce4cb41996587f24b42e"
+    "aggregate_sha256": "d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449"
   },
   "gate": {
     "id": "W1-INVESTIGATION-LIFECYCLE-PROPOSAL",
-    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; W1-C2; not stable v1/GA)",
-    "decision": "W1-C2 coordinator decision, applied 2026-07-26: the lifecycle/transport packet is ACCEPTED FOR IMPLEMENTATION at v0.1.0. Its member json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1 is carved out and remains a PROPOSED successor candidate member only. The accepted cybrik.investigation-bundle.v1 v0.1.0 remains authoritative and byte-unchanged (sha256-pinned in supersession_mapping.accepted_current). Adoption of v0.1.1, supersession of v0.1.0, and consumer migration remain three separate future Founder decisions. Acceptance authorizes contract-first implementation only: CI remains NOT WIRED, and no runtime, dependency, database, container, endpoint server, bus binding, deploy, or release authority is created."
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (packet v0.1.0; Bundle v0.1.1 authoritative for new responses; legacy v0.1.0 supported; not stable v1/GA)",
+    "decision": "W1-C2 accepted the lifecycle/transport packet at v0.1.0. W1-REC-3/4 subsequently accepted json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json v0.1.1 and made it authoritative for new bundle-read responses while preserving accepted cybrik.investigation-bundle.v1 v0.1.0 as immutable supported legacy read/replay input with byte-unchanged SHA-256 evidence in supersession_mapping.accepted_current. Consumer migration remains separately gated by W1-REC-5. These decisions authorize contract-first implementation only: CI remains NOT WIRED, and no runtime, dependency, database, container, endpoint server, bus binding, Fabric authority, deploy, stable v1/GA, or release authority is created."
   },
   "acceptance_record": [
-    "W1-C2 (2026-07-26): the coordinator decision applying Founder authority accepted this packet FOR IMPLEMENTATION at v0.1.0, explicitly excluding the strict-compatible Investigation Bundle v0.1.1 member, which remains a PROPOSED successor candidate; no supersession of the accepted v0.1.0 bundle was decided or implied.",
+    "W1-C2 (2026-07-26) accepted this packet FOR IMPLEMENTATION at v0.1.0; W1-REC-3/4 later accepted strict-compatible Investigation Bundle v0.1.1 as authoritative for new bundle-read responses while preserving accepted v0.1.0 as immutable supported legacy read/replay input.",
     "Acceptance was not inferred from green validation; the validator, tests, Ajv strict, Spectral, and AsyncAPI checks remain conformance evidence only.",
-    "Compatibility constraint preserved: zero accepted W0-I01, W2-D, W2-F, W2-G, ADR, roadmap, or product bytes changed; the accepted cybrik.investigation-bundle.v1 v0.1.0 digest is pinned in supersession_mapping.accepted_current.sha256.",
+    "Compatibility constraint preserved: zero accepted W0-I01, W2-D, W2-F, W2-G, ADR, roadmap, or product bytes changed; accepted cybrik.investigation-bundle.v1 v0.1.0 remains byte-unchanged and its digest is pinned in supersession_mapping.accepted_current.sha256.",
     "Cyber AI remains sole lifecycle/checkpoint/bundle producer; SOC remains requestor/consumer/viewer; Fabric execution authority is untouched and W2-F is not an execution grant.",
-    "Product implementation, canonical CI wiring, commit, merge, push, deploy, release, stable v1/GA promotion, and any v0.1.1 adoption/supersession/migration remain separately gated future decisions."
+    "Product implementation, canonical CI wiring, commit, merge, push, deploy, release, stable v1/GA promotion, and consumer migration remain separately gated; W1-REC-3/4 grants no such authority."
   ]
 }

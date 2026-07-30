@@ -1,10 +1,10 @@
 // Standalone validator for the W1 investigation lifecycle/transport packet.
 //
-// The packet carries a W1-C2 mixed lifecycle: every member is ACCEPTED FOR IMPLEMENTATION
-// v0.1.0 except the strict-compatible Investigation Bundle v0.1.1 successor candidate, which
-// must remain PROPOSED — NOT ACCEPTED. This tool fails closed on a half-flip in either
-// direction (a member regressing to PROPOSED, or an accidental v0.1.1 promotion) and on any
-// byte change to the accepted cybrik.investigation-bundle.v1 v0.1.0 pinned in the manifest.
+// The packet carries the W1-C2 v0.1.0 lifecycle contract plus the W1-REC-3/4
+// Bundle decision: strict-compatible v0.1.1 is accepted and authoritative for
+// new bundle-read responses, while exact v0.1.0 bytes remain immutable supported
+// legacy read/replay input. Consumer migration remains separately gated by
+// W1-REC-5. This tool fails closed on any half-flip or lifecycle annotation drift.
 //
 // This tool deliberately does not join the accepted packet orchestrator. Exit 0 proves only
 // packet-document consistency, ref resolution and fixture behavior; it does not prove a
@@ -18,8 +18,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
 const ACCEPTED_STATUS = 'ACCEPTED FOR IMPLEMENTATION';
-const PROPOSED_STATUS = 'PROPOSED';
 const PROPOSAL_VERSION = '0.1.0';
+const LEGACY_BUNDLE_STATUS =
+  'ACCEPTED FOR IMPLEMENTATION — immutable legacy read/replay — byte-unchanged';
+const NEW_RESPONSE_BUNDLE_STATUS =
+  'ACCEPTED FOR IMPLEMENTATION — authoritative for new bundle-read responses';
+const ACCEPTED_BUNDLE_SHA256 =
+  '501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1';
+const GATE_STATUS =
+  'DECIDED — ACCEPTED FOR IMPLEMENTATION (packet v0.1.0; Bundle v0.1.1 authoritative for new responses; legacy v0.1.0 supported; not stable v1/GA)';
 const STRICT_COMPATIBLE_SCHEMA_PATH =
   'contracts/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json';
 const ACCEPTED_BUNDLE_SCHEMA_PATH =
@@ -27,6 +34,63 @@ const ACCEPTED_BUNDLE_SCHEMA_PATH =
 const CONTRACTS_PATH_ROOT = 'contracts/';
 const PACKET_INTEGRITY_KEY = 'x-cybrik-packet-integrity';
 const PACKET_MEMBER_COUNT = 30;
+const STALE_LIFECYCLE_PATTERN =
+  /\bproposed\b|\bnot(?:\s+yet)?\s+accepted\b|\bonly\s+proposed\b/i;
+const UNAUTHORIZED_PROMOTION_CLAIM_PATTERN =
+  /\b(?:now|is|becomes?)\s+(?:stable\s+v1|GA|implemented)\b|(?<!no automatic )(?<!no )\bconsumer migration\s+(?:is\s+)?authorized\b|\bruntime authority\s+(?:is\s+)?granted\b|\bCI\s+(?:is\s+)?wired\b/i;
+const MANIFEST_STATUS_CONTAINER_PATHS = new Set([
+  'collision_status_map',
+  'state_machine.record_status_mapping',
+]);
+
+const expectedManifestTopLevelKeys = [
+  '$schema',
+  '$id',
+  'title',
+  'description',
+  'x-cybrik-status',
+  'x-cybrik-not-accepted',
+  'x-cybrik-packet-version',
+  'x-cybrik-is-bundle-tag',
+  'format_pins',
+  'collision_status_map',
+  'ownership',
+  'members',
+  'reuses_unmodified',
+  'supersession_mapping',
+  'operation_contract',
+  'event_contract',
+  'state_machine',
+  'runtime_invariants',
+  'authority_invariants',
+  'open_decisions',
+  'verification_commands',
+  PACKET_INTEGRITY_KEY,
+  'gate',
+  'acceptance_record',
+].sort();
+
+const expectedOwnership = {
+  cyber_ai:
+    'Sole lifecycle state authority, checkpoint/event producer, retry/cancel race arbiter, and Investigation Bundle producer.',
+  soc:
+    'Authorized requestor, consumer, and viewer of lifecycle status/checkpoints/bundles under SOC-owned analyst/tenant/org truth. SOC cannot mint lifecycle state or rewrite a bundle.',
+  fabric:
+    'No member of this packet is Fabric execution authority. Fabric remains sole owner of capability registry, invocation, policy/approval, credential/egress broker, sandbox and execution receipts.',
+  suite:
+    'Owns this accepted cross-product contract packet and its compatibility/conformance evidence only; it gains no product-runtime or release authority.',
+};
+
+const expectedRuntimeInvariantStatements = [
+  'Authoritative tenant and actor derive from authenticated identity; any body/actor/credential tenant mismatch is rejected.',
+  'Authoritative org scope derives from identity plus policy; advisory org_scope never expands visibility and a mismatch is rejected.',
+  'Idempotency is scoped to authenticated principal plus key plus normalized body. Same triple returns the same result; same principal/key with different content returns idempotency_conflict.',
+  'Cancellation is compare-and-set on expected_version. A stale version loses; exactly one state transition wins a cancellation/checkpoint/completion race.',
+  'Terminal attempts are immutable. Late cancellation/checkpoints return or observe current truth and never rewrite state, drop checkpoints, or discard Fabric receipts.',
+  'Checkpoint sequence is strictly increasing per attempt. Retry creates a fresh attempt_id linked to the prior attempt and starts sequence at one; no prior attempt is mutated.',
+  'Status, checkpoint, event, and bundle-read markings never downgrade authoritative input/artifact markings on either classification or TLP axis.',
+  'Unknown and unauthorized investigation ids are indistinguishable in HTTP class, JSON shape, sanitized message policy, and timing policy; no existence, owner, tenant, org, grant, or policy detail leaks. The positive not-found plus negative existence-leak fixtures verify only the static shape/message/no-target-identifier portion; timing indistinguishability remains an explicit runtime-only obligation and is not claimed as fixture-verified.',
+];
 
 const schemaPaths = [
   'contracts/json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json',
@@ -116,6 +180,7 @@ export const expectedVerificationCommands = {
 // Phrases the successor-scope prose must and must not carry. The accepted v0.1.0 is spec-valid;
 // only Ajv's optional strict mode rejects its bare `required` branch.
 const supersessionRequiredPhrases = [
+  'accepted v0.1.1 successor selected by W1-REC-3/4',
   'remains fully JSON Schema 2020-12 conformant',
   'bare subschema {"required":["tenant_id"]}',
   "Ajv's optional strict-mode house style",
@@ -123,16 +188,125 @@ const supersessionRequiredPhrases = [
   'semantically redundant',
 ];
 const strictBundleRequiredPhrases = [
+  'ACCEPTED FOR IMPLEMENTATION v0.1.1 under W1-REC-3/4',
+  'authoritative for new bundle-read responses',
+  'immutable supported legacy read/replay input',
   'fully JSON Schema 2020-12 conformant',
   "only Ajv's optional strict mode rejects",
   'did not previously exist in allOf[1]',
+  'consumer migration remains separately gated by W1-REC-5',
 ];
 const inaccurateSuccessorPhrases = [
   'already-existing tenant_id',
   'type=object/tenant_id property annotation',
 ];
 
+const expectedManifestStatusEntries = new Map([
+  ['x-cybrik-not-accepted', false],
+  ['x-cybrik-packet-version', PROPOSAL_VERSION],
+  ['x-cybrik-status', ACCEPTED_STATUS],
+  ...Array.from(
+    { length: 4 },
+    (_, index) => [
+      `collision_status_map.existing_boundaries.${index}.status`,
+      'ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA',
+    ],
+  ),
+  ...Array.from(
+    { length: 10 },
+    (_, index) => [`members.${index}.status`, ACCEPTED_STATUS],
+  ),
+  ['supersession_mapping.accepted_current.status', LEGACY_BUNDLE_STATUS],
+  ['supersession_mapping.accepted_successor.status', NEW_RESPONSE_BUNDLE_STATUS],
+  ['gate.status', GATE_STATUS],
+]);
+
+const openApiLifecycleFragments = [
+  '# Bundle v0.1.1: ACCEPTED FOR IMPLEMENTATION under W1-REC-3/4 and authoritative for new bundle-read responses.',
+  '# Bundle v0.1.0: immutable supported legacy read/replay input; exact accepted bytes remain unchanged.',
+  '# Consumer migration remains separately gated by W1-REC-5.',
+  'summary: ACCEPTED FOR IMPLEMENTATION v0.1.0 packet; Bundle v0.1.1 is authoritative for new bundle-read responses under W1-REC-3/4 — NOT IMPLEMENTED, CI NOT WIRED.',
+  'x-cybrik-status: ACCEPTED FOR IMPLEMENTATION',
+  'x-cybrik-not-accepted: false',
+  'Read the accepted strict-compatible v0.1.1 Investigation Bundle through Cyber AI.',
+  'v0.1.0 remains immutable supported',
+  'legacy read/replay input, and consumer migration remains separately gated by W1-REC-5.',
+];
+
+const asyncApiLifecycleFragments = [
+  '# Bundle v0.1.1: ACCEPTED FOR IMPLEMENTATION under W1-REC-3/4 and authoritative for new bundle publications.',
+  '# Bundle v0.1.0: immutable supported legacy read/replay input; exact accepted bytes remain unchanged.',
+  '# Consumer migration remains separately gated by W1-REC-5.',
+  'title: CYBRIK AI investigation lifecycle event contract',
+  'ACCEPTED FOR IMPLEMENTATION v0.1.0 packet; Bundle v0.1.1 is authoritative for new bundle',
+  'read/replay input, and consumer migration remains separately gated by W1-REC-5.',
+  'x-cybrik-status: ACCEPTED FOR IMPLEMENTATION',
+  'x-cybrik-not-accepted: false',
+  'data is the accepted v0.1.1 bundle authoritative for new publications.',
+];
+
+const collectManifestStatusEntries = (value, path = [], output = []) => {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      collectManifestStatusEntries(entry, [...path, String(index)], output);
+    });
+    return output;
+  }
+  if (!value || typeof value !== 'object') return output;
+  for (const [name, child] of Object.entries(value)) {
+    const childPath = [...path, name];
+    const childPathText = childPath.join('.');
+    if (
+      (
+        /status/i.test(name)
+        && !MANIFEST_STATUS_CONTAINER_PATHS.has(childPathText)
+        || name === 'x-cybrik-not-accepted'
+        || name === 'x-cybrik-packet-version'
+      )
+    ) {
+      output.push([childPathText, child]);
+    }
+    collectManifestStatusEntries(child, childPath, output);
+  }
+  return output;
+};
+
+const collectSchemaLifecycleAnnotations = (value, path = [], output = []) => {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      collectSchemaLifecycleAnnotations(entry, [...path, String(index)], output);
+    });
+    return output;
+  }
+  if (!value || typeof value !== 'object') return output;
+  for (const [name, child] of Object.entries(value)) {
+    const childPath = [...path, name];
+    if (
+      [
+        'x-cybrik-status',
+        'x-cybrik-not-accepted',
+        'x-cybrik-contract-version',
+      ].includes(name)
+    ) {
+      output.push([childPath.join('.'), child]);
+    }
+    collectSchemaLifecycleAnnotations(child, childPath, output);
+  }
+  return output;
+};
+
+const countLiteral = (text, literal) => text.split(literal).length - 1;
+
 const sha256Hex = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+const manifestStaleLifecycleScanText = (manifestDocument) => {
+  const scanDocument = JSON.parse(JSON.stringify(manifestDocument));
+  const historicalQuestion = scanDocument?.open_decisions?.[0]?.question;
+  if (historicalQuestion?.startsWith('HISTORICAL W1-C2 QUESTION')) {
+    scanDocument.open_decisions[0].question = 'HISTORICAL W1-C2 QUESTION';
+  }
+  return JSON.stringify(scanDocument);
+};
 
 const manifestSelfDigestInput = (manifestDocument) => {
   const withoutIntegrity = { ...manifestDocument };
@@ -388,6 +562,29 @@ export async function validateInvestigationLifecycleProposal({
   if (compatibility?.['x-cybrik-is-bundle-tag'] !== false) {
     errors.push('proposal cannot be an immutable bundle tag');
   }
+  if (compatibility) {
+    if (
+      !deepEqual(Object.keys(compatibility).sort(), expectedManifestTopLevelKeys)
+      || STALE_LIFECYCLE_PATTERN.test(manifestStaleLifecycleScanText(compatibility))
+      || UNAUTHORIZED_PROMOTION_CLAIM_PATTERN.test(JSON.stringify(compatibility))
+    ) {
+      errors.push(
+        `${compatibilityPath}: unknown top-level locus or stale lifecycle wording is forbidden`,
+      );
+    }
+    if (compatibility.title !== 'CYBRIK W1 investigation lifecycle and transport proposal v1') {
+      errors.push(`${compatibilityPath}: title must remain the reviewed contract-packet title`);
+    }
+    const actualStatusEntries = collectManifestStatusEntries(compatibility)
+      .sort(([left], [right]) => left.localeCompare(right));
+    const expectedStatusEntries = [...expectedManifestStatusEntries.entries()]
+      .sort(([left], [right]) => left.localeCompare(right));
+    if (!deepEqual(actualStatusEntries, expectedStatusEntries)) {
+      errors.push(
+        `${compatibilityPath}: lifecycle status annotation inventory must match the exact W1-C2 plus W1-REC-3/4 selection`,
+      );
+    }
+  }
 
   const packetIntegrity = compatibility?.[PACKET_INTEGRITY_KEY];
   if (!packetIntegrity || typeof packetIntegrity !== 'object' || Array.isArray(packetIntegrity)) {
@@ -475,10 +672,10 @@ export async function validateInvestigationLifecycleProposal({
     if (!document) continue;
     if (relativePath === STRICT_COMPATIBLE_SCHEMA_PATH) {
       if (
-        document['x-cybrik-status'] !== PROPOSED_STATUS
-        || document['x-cybrik-not-accepted'] !== true
+        document['x-cybrik-status'] !== ACCEPTED_STATUS
+        || document['x-cybrik-not-accepted'] !== false
       ) {
-        errors.push(`${relativePath}: strict-compatible v0.1.1 member must remain PROPOSED — NOT ACCEPTED; W1-C2 accepted nothing about it`);
+        errors.push(`${relativePath}: strict-compatible v0.1.1 must remain ACCEPTED FOR IMPLEMENTATION and authoritative for new responses under W1-REC-3/4`);
       }
     } else if (
       document['x-cybrik-status'] !== ACCEPTED_STATUS
@@ -493,12 +690,72 @@ export async function validateInvestigationLifecycleProposal({
     if (document.$schema !== 'https://json-schema.org/draft/2020-12/schema') {
       errors.push(`${relativePath}: must pin JSON Schema 2020-12`);
     }
+    const lifecycleAnnotations = collectSchemaLifecycleAnnotations(document)
+      .sort(([left], [right]) => left.localeCompare(right));
+    const expectedLifecycleAnnotations = [
+      ['x-cybrik-contract-version', expectedSchemaVersion],
+      ['x-cybrik-not-accepted', false],
+      ['x-cybrik-status', ACCEPTED_STATUS],
+    ].sort(([left], [right]) => left.localeCompare(right));
+    if (!deepEqual(lifecycleAnnotations, expectedLifecycleAnnotations)) {
+      errors.push(
+        `${relativePath}: lifecycle annotation inventory must contain exactly one top-level status, not-accepted flag and contract version`,
+      );
+    }
   }
   if (
     examples?.['x-cybrik-status'] !== ACCEPTED_STATUS
     || examples?.['x-cybrik-not-accepted'] !== false
   ) {
     errors.push('examples manifest must record the W1-C2 acceptance');
+  }
+  if (
+    examples
+    && !deepEqual(
+      collectSchemaLifecycleAnnotations(examples)
+        .filter(([path]) => path !== 'x-cybrik-contract-version')
+        .sort(([left], [right]) => left.localeCompare(right)),
+      [
+        ['x-cybrik-not-accepted', false],
+        ['x-cybrik-status', ACCEPTED_STATUS],
+      ].sort(([left], [right]) => left.localeCompare(right)),
+    )
+  ) {
+    errors.push('examples manifest lifecycle status annotation inventory must remain exact');
+  }
+  for (const fragment of openApiLifecycleFragments) {
+    if (!openApi.includes(fragment)) {
+      errors.push(`${openApiPath}: lifecycle header/info/bundle-read inventory missing '${fragment}'`);
+    }
+  }
+  if (
+    countLiteral(openApi, 'x-cybrik-status:') !== 1
+    || countLiteral(openApi, 'x-cybrik-not-accepted:') !== 1
+  ) {
+    errors.push(`${openApiPath}: lifecycle status annotation inventory must contain exactly one status and one not-accepted flag`);
+  }
+  if (
+    STALE_LIFECYCLE_PATTERN.test(openApi)
+    || UNAUTHORIZED_PROMOTION_CLAIM_PATTERN.test(openApi)
+  ) {
+    errors.push(`${openApiPath}: stale pre-W1-REC Bundle lifecycle wording is forbidden`);
+  }
+  for (const fragment of asyncApiLifecycleFragments) {
+    if (!asyncApi.includes(fragment)) {
+      errors.push(`${asyncApiPath}: lifecycle header/info/bundle-publication inventory missing '${fragment}'`);
+    }
+  }
+  if (
+    countLiteral(asyncApi, 'x-cybrik-status:') !== 1
+    || countLiteral(asyncApi, 'x-cybrik-not-accepted:') !== 1
+  ) {
+    errors.push(`${asyncApiPath}: lifecycle status annotation inventory must contain exactly one status and one not-accepted flag`);
+  }
+  if (
+    STALE_LIFECYCLE_PATTERN.test(asyncApi)
+    || UNAUTHORIZED_PROMOTION_CLAIM_PATTERN.test(asyncApi)
+  ) {
+    errors.push(`${asyncApiPath}: stale pre-W1-REC Bundle lifecycle wording is forbidden`);
   }
 
   if (/^servers\s*:/m.test(openApi)) {
@@ -519,7 +776,7 @@ export async function validateInvestigationLifecycleProposal({
     )
     || asyncApi.includes("../json-schema/cybrik.investigation-bundle.v1.schema.json")
   ) {
-    errors.push('AsyncAPI bundle publication must bind only the proposed strict-compatible bundle revision');
+    errors.push('AsyncAPI bundle publication must bind only accepted strict-compatible v0.1.1 for new publications');
   }
 
   const operationIds = [...openApi.matchAll(/^\s+operationId:\s*(\S+)\s*$/gm)]
@@ -548,20 +805,48 @@ export async function validateInvestigationLifecycleProposal({
   ) {
     errors.push('compatibility member inventory must be the exact unique ten-member contract set');
   }
+  if (compatibility?.members?.[5]?.contract_version !== '0.1.1') {
+    errors.push('promoted Bundle member contract version must remain 0.1.1');
+  }
   const supersession = compatibility?.supersession_mapping;
   if (
+    !deepEqual(
+      Object.keys(supersession || {}).sort(),
+      [
+        'accepted_current',
+        'accepted_successor',
+        'adoption_rule',
+        'compatibility',
+        'pending_founder_decisions',
+        'transport_binding_rule',
+      ].sort(),
+    )
+    ||
     supersession?.accepted_current?.file
       !== 'json-schema/cybrik.investigation-bundle.v1.schema.json'
+    || supersession?.accepted_current?.contract_version !== '0.1.0'
     || supersession?.accepted_current?.status
-      !== 'ACCEPTED FOR IMPLEMENTATION — authoritative — byte-unchanged'
-    || supersession?.proposed_successor?.file
+      !== LEGACY_BUNDLE_STATUS
+    || supersession?.accepted_successor?.file
       !== 'json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json'
-    || supersession?.proposed_successor?.contract_version !== '0.1.1'
-    || supersession?.proposed_successor?.status !== 'PROPOSED — NOT ACCEPTED'
+    || supersession?.accepted_successor?.contract_version !== '0.1.1'
+    || supersession?.accepted_successor?.status !== NEW_RESPONSE_BUNDLE_STATUS
+    || !deepEqual(
+      supersession?.pending_founder_decisions,
+      ['Authorize consumer migration from v0.1.0 to v0.1.1.'],
+    )
   ) {
-    errors.push('bundle supersession mapping must preserve accepted v0.1.0 and identify proposed v0.1.1');
+    errors.push('bundle supersession mapping must select accepted v0.1.1 for new responses, preserve legacy v0.1.0 and leave only consumer migration pending');
   }
   const acceptedBundleText = texts.get(ACCEPTED_BUNDLE_SCHEMA_PATH);
+  if (
+    compatibility
+    && supersession?.accepted_current?.sha256 !== ACCEPTED_BUNDLE_SHA256
+  ) {
+    errors.push(
+      'accepted cybrik.investigation-bundle.v1 v0.1.0 must remain the exact admission sha256',
+    );
+  }
   if (
     compatibility
     && (
@@ -574,6 +859,54 @@ export async function validateInvestigationLifecycleProposal({
   ) {
     errors.push('accepted cybrik.investigation-bundle.v1 v0.1.0 bytes must match the supersession-pinned sha256');
   }
+  const topDescription = compatibility?.description;
+  if (
+    typeof topDescription !== 'string'
+    || [
+      'W1-REC-3/4 accepts',
+      'authoritative for new bundle-read responses',
+      'immutable supported legacy read/replay input',
+      'Consumer migration remains separately gated by W1-REC-5',
+      'NOT IMPLEMENTED, CI NOT WIRED',
+    ].some((phrase) => !topDescription.includes(phrase))
+    || /\bPROPOSED\b|NOT ACCEPTED/.test(topDescription)
+  ) {
+    errors.push(`${compatibilityPath}: top-level lifecycle description must exactly express W1-REC-3/4, legacy v0.1.0 and W1-REC-5 boundaries`);
+  }
+  if (
+    compatibility?.collision_status_map?.new_namespace
+      !== 'cybrik.investigation-lifecycle-* plus create/status/checkpoint/cancel/bundle-read payload names and the accepted cybrik.investigation-bundle.strict-compatible.v1 revision; no existing schema id, path file, event type, or operationId is overwritten.'
+    || !Array.isArray(compatibility?.collision_status_map?.existing_boundaries)
+    || compatibility.collision_status_map.existing_boundaries.length !== 4
+    || compatibility.collision_status_map.existing_boundaries.some(
+      (entry) => (
+        entry?.status !== 'ACCEPTED FOR IMPLEMENTATION v0.1.0, not stable v1/GA'
+        || entry?.collision_result !== 'none'
+        || typeof entry?.treatment !== 'string'
+        || entry.treatment.length === 0
+        || /\bPROPOSED\b|NOT ACCEPTED/.test(entry.treatment)
+      ),
+    )
+    || !compatibility.collision_status_map.existing_boundaries[0]?.treatment
+      ?.includes('W1-REC-3/4')
+    || !compatibility.collision_status_map.existing_boundaries[0]?.treatment
+      ?.includes('immutable supported legacy read/replay input')
+    || !compatibility.collision_status_map.existing_boundaries[0]?.treatment
+      ?.includes('W1-REC-5')
+  ) {
+    errors.push(`${compatibilityPath}: collision status map must preserve every reviewed boundary treatment and the selected Bundle lifecycle`);
+  }
+  if (!deepEqual(compatibility?.ownership, expectedOwnership)) {
+    errors.push(`${compatibilityPath}: product ownership boundaries must remain exact`);
+  }
+  if (
+    !deepEqual(
+      compatibility?.runtime_invariants?.map((entry) => entry?.statement),
+      expectedRuntimeInvariantStatements,
+    )
+  ) {
+    errors.push(`${compatibilityPath}: runtime invariant inventory must remain exact`);
+  }
 
   const schemaDocuments = new Map();
   for (const relativePath of [...schemaPaths, ...acceptedRefPaths]) {
@@ -584,6 +917,15 @@ export async function validateInvestigationLifecycleProposal({
   for (const relativePath of schemaPaths) {
     const document = documents.get(relativePath);
     if (!document) continue;
+    const schemaText = JSON.stringify(document);
+    if (
+      STALE_LIFECYCLE_PATTERN.test(schemaText)
+      || UNAUTHORIZED_PROMOTION_CLAIM_PATTERN.test(schemaText)
+    ) {
+      errors.push(
+        `${relativePath}: schema lifecycle wording or authority boundary is contradictory`,
+      );
+    }
     if (!document.$id || ids.has(document.$id)) {
       errors.push(`${relativePath}: missing or duplicate $id`);
     }
@@ -651,6 +993,113 @@ export async function validateInvestigationLifecycleProposal({
     errors.push(
       `${strictCompatibleBundlePath}: strict-compatible bundle description must scope the successor to Ajv's optional strict mode and must not claim a specification repair`,
     );
+  }
+  const bundleReadPath =
+    'contracts/json-schema/cybrik.investigation-bundle-read-result.v1.schema.json';
+  const bundleReadDescription = documents.get(bundleReadPath)?.description;
+  if (
+    typeof bundleReadDescription !== 'string'
+    || [
+      'ACCEPTED FOR IMPLEMENTATION strict-compatible v0.1.1',
+      'authoritative for new bundle-read responses',
+      'immutable supported legacy read/replay input',
+      'Consumer migration remains separately gated by W1-REC-5',
+      'NOT IMPLEMENTED, CI NOT WIRED',
+    ].some((phrase) => !bundleReadDescription.includes(phrase))
+    || STALE_LIFECYCLE_PATTERN.test(bundleReadDescription)
+    || UNAUTHORIZED_PROMOTION_CLAIM_PATTERN.test(bundleReadDescription)
+  ) {
+    errors.push(`${bundleReadPath}: lifecycle description must select v0.1.1, preserve legacy v0.1.0 and keep migration/runtime gates closed`);
+  }
+  const transportBindingRule = supersession?.transport_binding_rule;
+  if (
+    typeof transportBindingRule !== 'string'
+    || [
+      'accepted strict-compatible v0.1.1',
+      'authoritative validation profile for new responses/publications under W1-REC-3/4',
+      'immutable supported legacy read/replay input',
+      'consumer migration remains separately gated by W1-REC-5',
+      'no product runtime, server, bus, Fabric, deployment, release',
+    ].some((phrase) => !transportBindingRule.includes(phrase))
+    || /\bPROPOSED\b|NOT ACCEPTED/.test(transportBindingRule)
+  ) {
+    errors.push(`${compatibilityPath}: transport binding rule must express the selected Bundle lifecycle without runtime or migration authority`);
+  }
+  const adoptionRule = supersession?.adoption_rule;
+  if (
+    typeof adoptionRule !== 'string'
+    || [
+      'W1-REC-3/4 accepts v0.1.1',
+      'authoritative for new bundle-read responses',
+      'immutable supported legacy read/replay input',
+      'No automatic consumer migration is authorized',
+      'consumer migration remains gated by W1-REC-5',
+    ].some((phrase) => !adoptionRule.includes(phrase))
+    || /\bPROPOSED\b|NOT ACCEPTED/.test(adoptionRule)
+  ) {
+    errors.push(`${compatibilityPath}: adoption rule must resolve W1-REC-3/4 and leave only W1-REC-5 migration pending`);
+  }
+  const openDecisions = compatibility?.open_decisions;
+  if (
+    !Array.isArray(openDecisions)
+    || openDecisions.length !== 4
+    || !deepEqual(
+      openDecisions.map((entry) => entry?.id),
+      ['OD-W1IL-1', 'OD-W1IL-2', 'OD-W1IL-3', 'OD-W1IL-4'],
+    )
+    || !openDecisions[0]?.question?.startsWith('HISTORICAL W1-C2 QUESTION')
+    || [
+      'W1-REC-3/4',
+      'authoritative for new bundle-read responses',
+      'immutable supported legacy read/replay input',
+      'W1-REC-5',
+    ].some((phrase) => !openDecisions[0]?.current?.includes(phrase))
+    || openDecisions.slice(1).some(
+      (entry) => typeof entry?.question !== 'string' || !entry?.current?.startsWith('OPEN —'),
+    )
+    || openDecisions.some(
+      (entry) => /\bPROPOSED\b|NOT ACCEPTED/.test(`${entry?.question}\n${entry?.current}`),
+    )
+  ) {
+    errors.push(`${compatibilityPath}: open-decision inventory must classify W1-C2 history and retain only real open gates`);
+  }
+  const acceptanceRecord = compatibility?.acceptance_record;
+  if (
+    !Array.isArray(acceptanceRecord)
+    || acceptanceRecord.length !== 5
+    || [
+      ['W1-C2', 'W1-REC-3/4', 'authoritative for new bundle-read responses', 'immutable supported legacy read/replay input'],
+      ['conformance evidence only'],
+      ['byte-unchanged'],
+      ['Cyber AI remains sole', 'Fabric execution authority is untouched'],
+      ['consumer migration remain separately gated', 'W1-REC-3/4 grants no such authority'],
+    ].some(
+      (required, index) => required.some(
+        (phrase) => !acceptanceRecord[index]?.includes(phrase),
+      ),
+    )
+    || acceptanceRecord.some((entry) => /\bPROPOSED\b|NOT ACCEPTED/.test(entry))
+  ) {
+    errors.push(`${compatibilityPath}: acceptance record must preserve the complete W1-C2 and W1-REC-3/4 authority history`);
+  }
+  if (
+    compatibility?.gate?.status !== GATE_STATUS
+    || typeof compatibility?.gate?.decision !== 'string'
+    || [
+      'W1-C2 accepted',
+      'W1-REC-3/4 subsequently accepted',
+      'authoritative for new bundle-read responses',
+      'immutable supported legacy read/replay input',
+      'Consumer migration remains separately gated by W1-REC-5',
+      'CI remains NOT WIRED',
+      'no runtime',
+      'Fabric authority',
+      'stable v1/GA',
+      'release authority',
+    ].some((phrase) => !compatibility.gate.decision.includes(phrase))
+    || /\bPROPOSED\b|NOT ACCEPTED/.test(compatibility.gate.decision)
+  ) {
+    errors.push(`${compatibilityPath}: gate status and decision must exactly express selected lifecycle and closed runtime/release authority`);
   }
 
   const forbiddenAuthorityFields = new Set([

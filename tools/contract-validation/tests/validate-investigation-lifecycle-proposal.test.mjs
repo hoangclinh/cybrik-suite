@@ -82,7 +82,7 @@ const compileProposalSchemasStrict = () => {
   return failures;
 };
 
-test('the exact W1-C2 mixed-lifecycle packet is internally compatible', async () => {
+test('the exact W1-C2 plus W1-REC-3/4 lifecycle packet is internally compatible', async () => {
   const report = await validateInvestigationLifecycleProposal({ root: ROOT });
 
   assert.deepEqual(report.errors, []);
@@ -98,11 +98,37 @@ test('the exact W1-C2 mixed-lifecycle packet is internally compatible', async ()
   assert.equal(report.counts.operations, 5);
 });
 
+test('W1-BSR1 selects strict-compatible v0.1.1 for new responses and preserves v0.1.0 legacy replay', () => {
+  const strictBundle = loadSchema(
+    'cybrik.investigation-bundle.strict-compatible.v1.schema.json',
+  );
+  const manifest = JSON.parse(readFileSync(
+    resolve(
+      ROOT,
+      'contracts/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json',
+    ),
+    'utf8',
+  ));
+
+  assert.equal(strictBundle['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(strictBundle['x-cybrik-not-accepted'], false);
+  assert.equal(
+    manifest.supersession_mapping.accepted_successor.status,
+    'ACCEPTED FOR IMPLEMENTATION — authoritative for new bundle-read responses',
+  );
+  assert.equal(
+    manifest.supersession_mapping.accepted_current.status,
+    'ACCEPTED FOR IMPLEMENTATION — immutable legacy read/replay — byte-unchanged',
+  );
+  assert.match(manifest.supersession_mapping.adoption_rule, /W1-REC-3\/4/);
+  assert.match(manifest.supersession_mapping.adoption_rule, /consumer migration remains gated/);
+});
+
 test('all eight exact proposal schemas compile transitively with official Ajv 2020-12 strict mode', () => {
   assert.deepEqual(compileProposalSchemasStrict(), []);
 });
 
-test('bundle-read prose names the PROPOSED strict-compatible successor without acceptance overclaim', () => {
+test('bundle-read prose selects accepted v0.1.1 without migration or runtime overclaim', () => {
   const bundleReadSchema = loadSchema(
     'cybrik.investigation-bundle-read-result.v1.schema.json',
   );
@@ -114,16 +140,15 @@ test('bundle-read prose names the PROPOSED strict-compatible successor without a
     'utf8',
   );
 
-  assert.match(bundleReadSchema.description, /PROPOSED strict-compatible v0\.1\.1/);
-  assert.doesNotMatch(
-    bundleReadSchema.description,
-    /accepted cybrik\.investigation-bundle\.v1/,
-  );
+  assert.match(bundleReadSchema.description, /ACCEPTED FOR IMPLEMENTATION strict-compatible v0\.1\.1/);
+  assert.match(bundleReadSchema.description, /authoritative for new bundle-read responses/);
+  assert.match(bundleReadSchema.description, /immutable supported legacy read\/replay input/);
+  assert.match(bundleReadSchema.description, /Consumer migration remains separately gated by W1-REC-5/);
   assert.match(
     openApi,
-    /Read the PROPOSED strict-compatible v0\.1\.1 Investigation Bundle revision through Cyber AI\./,
+    /Read the accepted strict-compatible v0\.1\.1 Investigation Bundle through Cyber AI\./,
   );
-  assert.doesNotMatch(openApi, /Read the accepted digest-bound Investigation Bundle/);
+  assert.doesNotMatch(openApi, /\bPROPOSED\b|NOT ACCEPTED/);
 });
 
 test('a manifest half-flip back to PROPOSED is rejected', async () => {
@@ -140,32 +165,434 @@ test('a manifest half-flip back to PROPOSED is rejected', async () => {
   )));
 });
 
-test('an accidental promotion of the strict-compatible v0.1.1 member is rejected', async () => {
+test('a regression of accepted strict-compatible v0.1.1 back to proposed is rejected', async () => {
   const relativePath =
     'contracts/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json';
   const parsed = readPacketJson(relativePath);
-  parsed['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
-  parsed['x-cybrik-not-accepted'] = false;
+  parsed['x-cybrik-status'] = 'PROPOSED';
+  parsed['x-cybrik-not-accepted'] = true;
 
-  const promoted = await validateInvestigationLifecycleProposal({
+  const regressed = await validateInvestigationLifecycleProposal({
     root: ROOT,
     overrides: asOverride(relativePath, parsed),
   });
 
-  assert.ok(promoted.errors.some((message) => message.includes(
-    'strict-compatible v0.1.1 member must remain PROPOSED — NOT ACCEPTED',
+  assert.ok(regressed.errors.some((message) => message.includes(
+    'strict-compatible v0.1.1 must remain ACCEPTED FOR IMPLEMENTATION',
   )));
 
-  const supersessionPromoted = await validateInvestigationLifecycleProposal({
+  const supersessionRegressed = await validateInvestigationLifecycleProposal({
     root: ROOT,
     overrides: mutatedManifestOverride((manifest) => {
-      manifest.supersession_mapping.proposed_successor.status = 'ACCEPTED FOR IMPLEMENTATION';
+      manifest.supersession_mapping.accepted_successor.status = 'PROPOSED — NOT ACCEPTED';
     }),
   });
 
-  assert.ok(supersessionPromoted.errors.some((message) => message.includes(
-    'supersession mapping must preserve',
+  assert.ok(supersessionRegressed.errors.some((message) => message.includes(
+    'supersession mapping must select accepted v0.1.1',
   )));
+});
+
+test('schema, manifest, bundle-read, OpenAPI and AsyncAPI lifecycle half-flips fail closed', async () => {
+  const strictPath =
+    'contracts/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json';
+  const strictBundle = readPacketJson(strictPath);
+  strictBundle['x-cybrik-status'] = 'PROPOSED';
+  strictBundle['x-cybrik-not-accepted'] = true;
+
+  const bundleReadPath =
+    'contracts/json-schema/cybrik.investigation-bundle-read-result.v1.schema.json';
+  const bundleRead = readPacketJson(bundleReadPath);
+  bundleRead.description = bundleRead.description.replace(
+    'authoritative for new bundle-read responses',
+    'PROPOSED — NOT ACCEPTED',
+  );
+
+  const openApiPath =
+    'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
+  const openApi = readPacketText(openApiPath).replace(
+    '# Bundle v0.1.1: ACCEPTED FOR IMPLEMENTATION under W1-REC-3/4 and authoritative for new bundle-read responses.',
+    '# Bundle v0.1.1: PROPOSED — NOT ACCEPTED.',
+  );
+
+  const asyncApiPath =
+    'contracts/asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml';
+  const asyncApi = readPacketText(asyncApiPath).replace(
+    'x-cybrik-status: ACCEPTED FOR IMPLEMENTATION',
+    'x-cybrik-status: PROPOSED',
+  );
+
+  const cases = [
+    {
+      name: 'schema-only',
+      overrides: asOverride(strictPath, strictBundle),
+      expected: 'strict-compatible v0.1.1 must remain ACCEPTED FOR IMPLEMENTATION',
+    },
+    {
+      name: 'manifest-only',
+      overrides: mutatedManifestOverride((manifest) => {
+        manifest.members[5].status = 'PROPOSED — NOT ACCEPTED';
+      }),
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'bundle-read-only',
+      overrides: asOverride(bundleReadPath, bundleRead),
+      expected: 'lifecycle description must select v0.1.1',
+    },
+    {
+      name: 'OpenAPI-only',
+      overrides: new Map([[openApiPath, openApi]]),
+      expected: 'lifecycle header/info/bundle-read inventory',
+    },
+    {
+      name: 'AsyncAPI-only',
+      overrides: new Map([[asyncApiPath, asyncApi]]),
+      expected: 'lifecycle header/info/bundle-publication inventory',
+    },
+  ];
+
+  for (const { name, overrides, expected } of cases) {
+    const report = await validateInvestigationLifecycleProposal({ root: ROOT, overrides });
+    assert.ok(
+      report.errors.some((message) => message.includes(expected)),
+      `${name}: ${expected}`,
+    );
+  }
+});
+
+test('every manifest lifecycle decision locus is inventoried and fails closed on drift', async () => {
+  const cases = [
+    {
+      name: 'additional status annotation',
+      mutate: (manifest) => {
+        manifest.unexpected_lifecycle_status = 'ACCEPTED FOR IMPLEMENTATION';
+      },
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'missing member status',
+      mutate: (manifest) => {
+        delete manifest.members[5].status;
+      },
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'collision treatment',
+      mutate: (manifest) => {
+        manifest.collision_status_map.existing_boundaries[0].treatment = 'unchanged';
+      },
+      expected: 'collision status map',
+    },
+    {
+      name: 'Suite ownership',
+      mutate: (manifest) => {
+        manifest.ownership.suite = 'Owns runtime Bundle migration.';
+      },
+      expected: 'product ownership boundaries must remain exact',
+    },
+    {
+      name: 'supersession compatibility',
+      mutate: (manifest) => {
+        manifest.supersession_mapping.compatibility = 'shape is probably compatible';
+      },
+      expected: 'supersession compatibility note',
+    },
+    {
+      name: 'transport binding',
+      mutate: (manifest) => {
+        manifest.supersession_mapping.transport_binding_rule =
+          'v0.1.1 automatically migrates every consumer.';
+      },
+      expected: 'transport binding rule',
+    },
+    {
+      name: 'pending decision inventory',
+      mutate: (manifest) => {
+        manifest.supersession_mapping.pending_founder_decisions.push(
+          'Reopen W1-REC-3.',
+        );
+      },
+      expected: 'supersession mapping must select accepted v0.1.1',
+    },
+    {
+      name: 'adoption rule',
+      mutate: (manifest) => {
+        manifest.supersession_mapping.adoption_rule =
+          'All consumers are migrated automatically.';
+      },
+      expected: 'adoption rule',
+    },
+    {
+      name: 'gate status',
+      mutate: (manifest) => {
+        manifest.gate.status = 'PROPOSED';
+      },
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'gate decision',
+      mutate: (manifest) => {
+        manifest.gate.decision = 'Runtime and release are authorized.';
+      },
+      expected: 'gate status and decision',
+    },
+    {
+      name: 'acceptance record',
+      mutate: (manifest) => {
+        manifest.acceptance_record[0] = 'W1-C2 only.';
+      },
+      expected: 'acceptance record',
+    },
+    {
+      name: 'open decision current value',
+      mutate: (manifest) => {
+        manifest.open_decisions[0].current = 'OPEN';
+      },
+      expected: 'open-decision inventory',
+    },
+    {
+      name: 'top lifecycle description',
+      mutate: (manifest) => {
+        manifest.description = 'PROPOSED — NOT ACCEPTED';
+      },
+      expected: 'top-level lifecycle description',
+    },
+    {
+      name: 'manifest title',
+      mutate: (manifest) => {
+        manifest.title = 'CYBRIK W1 GA release manifest';
+      },
+      expected: 'title must remain the reviewed contract-packet title',
+    },
+  ];
+
+  for (const { name, mutate, expected } of cases) {
+    const report = await validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: mutatedManifestOverride(mutate),
+    });
+    assert.ok(
+      report.errors.some((message) => message.includes(expected)),
+      `${name}: ${expected}`,
+    );
+  }
+});
+
+test('unknown manifest lifecycle loci and every product ownership boundary fail closed', async () => {
+  const cases = [
+    {
+      name: 'object-valued nested status locus',
+      mutate: (manifest) => {
+        manifest.extra_block = {
+          status: {
+            bundle: 'PROPOSED — NOT ACCEPTED',
+          },
+        };
+      },
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'object-valued suffixed status locus',
+      mutate: (manifest) => {
+        manifest.gate.runtime_status = {
+          value: 'runtime authority granted; CI wired',
+        };
+      },
+      expected: 'lifecycle status annotation inventory',
+    },
+    {
+      name: 'unknown lifecycle wording locus',
+      mutate: (manifest) => {
+        manifest.lifecycle_note =
+          'Bundle v0.1.1 is proposed and not accepted for new responses.';
+      },
+      expected: 'unknown top-level locus or stale lifecycle wording',
+    },
+    {
+      name: 'Cyber AI ownership inversion',
+      mutate: (manifest) => {
+        manifest.ownership.cyber_ai = 'Consumer only.';
+      },
+      expected: 'product ownership boundaries must remain exact',
+    },
+    {
+      name: 'SOC ownership inversion',
+      mutate: (manifest) => {
+        manifest.ownership.soc =
+          'Sole bundle producer and lifecycle authority; SOC may rewrite a bundle.';
+      },
+      expected: 'product ownership boundaries must remain exact',
+    },
+    {
+      name: 'Fabric execution-authority grant',
+      mutate: (manifest) => {
+        manifest.ownership.fabric =
+          'Fabric executes bundle-read tools under this packet.';
+      },
+      expected: 'product ownership boundaries must remain exact',
+    },
+    {
+      name: 'promoted member version contradiction',
+      mutate: (manifest) => {
+        manifest.members[5].contract_version = '0.1.0';
+      },
+      expected: 'promoted Bundle member contract version must remain 0.1.1',
+    },
+    {
+      name: 'runtime invariant authority rewrite',
+      mutate: (manifest) => {
+        manifest.runtime_invariants[0].statement =
+          'Runtime deployment is authorized.';
+      },
+      expected: 'runtime invariant inventory must remain exact',
+    },
+  ];
+
+  for (const { name, mutate, expected } of cases) {
+    const report = await validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: mutatedManifestOverride(mutate),
+    });
+    assert.ok(
+      report.errors.some((message) => message.includes(expected)),
+      `${name}: ${expected}`,
+    );
+  }
+});
+
+test('nested or extra schema lifecycle annotations fail closed', async () => {
+  const relativePath =
+    'contracts/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json';
+  const parsed = readPacketJson(relativePath);
+  parsed.properties.bundle_id['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
+
+  const report = await validateInvestigationLifecycleProposal({
+    root: ROOT,
+    overrides: asOverride(relativePath, parsed),
+  });
+
+  assert.ok(report.errors.some((message) => message.includes(
+    'lifecycle annotation inventory must contain exactly one top-level status',
+  )));
+});
+
+test('stale lifecycle and unauthorized promotion prose fails closed across schemas', async () => {
+  const strictPath =
+    'contracts/json-schema/cybrik.investigation-bundle.strict-compatible.v1.schema.json';
+  const bundleReadPath =
+    'contracts/json-schema/cybrik.investigation-bundle-read-result.v1.schema.json';
+  const commonDefsPath =
+    'contracts/json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json';
+  const cases = [
+    {
+      path: strictPath,
+      mutate: (schema) => {
+        schema.description += ' This member remains PROPOSED — NOT ACCEPTED.';
+      },
+    },
+    {
+      path: strictPath,
+      mutate: (schema) => {
+        schema.description += ' Now stable v1 GA and IMPLEMENTED.';
+      },
+    },
+    {
+      path: strictPath,
+      mutate: (schema) => {
+        schema.description += ' Consumer migration is authorized.';
+      },
+    },
+    {
+      path: bundleReadPath,
+      mutate: (schema) => {
+        schema.description += ' The successor is proposed and not yet accepted.';
+      },
+    },
+    {
+      path: commonDefsPath,
+      mutate: (schema) => {
+        schema.description += ' Runtime authority is granted and CI is wired.';
+      },
+    },
+  ];
+
+  for (const { path, mutate } of cases) {
+    const schema = readPacketJson(path);
+    mutate(schema);
+    const report = await validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: asOverride(path, schema),
+    });
+    assert.ok(
+      report.errors.some((message) => message.includes(
+        'schema lifecycle wording or authority boundary',
+      )),
+      path,
+    );
+  }
+});
+
+test('OpenAPI and AsyncAPI lifecycle status annotations are unique and stale wording is rejected', async () => {
+  const openApiPath =
+    'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
+  const asyncApiPath =
+    'contracts/asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml';
+  const reports = await Promise.all([
+    validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: new Map([[
+        openApiPath,
+        `${readPacketText(openApiPath)}\n# x-cybrik-status: ACCEPTED FOR IMPLEMENTATION\n`,
+      ]]),
+    }),
+    validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: new Map([[
+        asyncApiPath,
+        readPacketText(asyncApiPath).replace(
+          'accepted v0.1.1 bundle authoritative for new publications',
+          'PROPOSED — NOT ACCEPTED bundle',
+        ),
+      ]]),
+    }),
+  ]);
+
+  assert.ok(reports[0].errors.some((message) => message.includes(
+    'must contain exactly one status and one not-accepted flag',
+  )));
+  assert.ok(reports[1].errors.some((message) => message.includes(
+    'stale pre-W1-REC Bundle lifecycle wording is forbidden',
+  )));
+});
+
+test('lowercase stale lifecycle wording in OpenAPI and AsyncAPI fails closed', async () => {
+  const openApiPath =
+    'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
+  const asyncApiPath =
+    'contracts/asyncapi/cybrik-ai-investigation-lifecycle-proposal.v1.asyncapi.yaml';
+  const reports = await Promise.all([
+    validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: new Map([[
+        openApiPath,
+        `${readPacketText(openApiPath)}\nx-cybrik-lifecycle-note: proposed and not accepted\n`,
+      ]]),
+    }),
+    validateInvestigationLifecycleProposal({
+      root: ROOT,
+      overrides: new Map([[
+        asyncApiPath,
+        `${readPacketText(asyncApiPath)}\nx-cybrik-lifecycle-note: not yet accepted; only proposed\n`,
+      ]]),
+    }),
+  ]);
+
+  for (const report of reports) {
+    assert.ok(report.errors.some((message) => message.includes(
+      'stale pre-W1-REC Bundle lifecycle wording is forbidden',
+    )));
+  }
 });
 
 test('a byte change to the accepted v0.1.0 bundle breaks the supersession sha256 pin', async () => {
@@ -177,6 +604,34 @@ test('a byte change to the accepted v0.1.0 bundle breaks the supersession sha256
   assert.ok(report.errors.some((message) => message.includes(
     'must match the supersession-pinned sha256',
   )));
+});
+
+test('a coordinated v0.1.0 byte and manifest-pin rewrite cannot replace the admission digest', async () => {
+  const acceptedPath = 'contracts/json-schema/cybrik.investigation-bundle.v1.schema.json';
+  const mutatedAcceptedText = `${readPacketText(acceptedPath)} `;
+  const manifest = readPacketJson(MANIFEST_RELATIVE_PATH);
+  manifest.supersession_mapping.accepted_current.sha256 = sha256Hex(mutatedAcceptedText);
+
+  const report = await validateInvestigationLifecycleProposal({
+    root: ROOT,
+    overrides: new Map([
+      [acceptedPath, mutatedAcceptedText],
+      [MANIFEST_RELATIVE_PATH, `${JSON.stringify(manifest, null, 2)}\n`],
+    ]),
+  });
+
+  assert.ok(report.errors.some((message) => message.includes(
+    'must remain the exact admission sha256',
+  )));
+  assert.equal(
+    readPacketJson(MANIFEST_RELATIVE_PATH)
+      .supersession_mapping.accepted_current.sha256,
+    '501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1',
+  );
+  assert.equal(
+    sha256Hex(readPacketText(acceptedPath)),
+    '501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1',
+  );
 });
 
 test('an OpenAPI server or Fabric-owned execution path is rejected', async () => {
@@ -408,7 +863,7 @@ test('the standalone JSON Schema subset fails closed across boundary keywords', 
 
 // ---------------------------------------------------------------------------
 // W1-C2 remediation: packet integrity, declared verification commands, and the
-// scope of the PROPOSED strict-compatible bundle successor.
+// scope of the accepted strict-compatible bundle successor.
 // ---------------------------------------------------------------------------
 
 const MANIFEST_RELATIVE_PATH =
@@ -724,7 +1179,7 @@ test('manifest version, bundle-tag, inventory, operation, event and invariant dr
       manifest.members.pop();
       manifest.operation_contract.operations = ['createInvestigation'];
       manifest.event_contract.events = [];
-      manifest.supersession_mapping.proposed_successor.contract_version = '0.2.0';
+      manifest.supersession_mapping.accepted_successor.contract_version = '0.2.0';
       manifest.runtime_invariants = manifest.runtime_invariants.slice(0, 3);
     }),
   });
@@ -735,7 +1190,7 @@ test('manifest version, bundle-tag, inventory, operation, event and invariant dr
     'exact unique ten-member contract set',
     'operationIds must exactly match',
     'event names must exactly match',
-    'supersession mapping must preserve',
+    'supersession mapping must select accepted v0.1.1',
     'runtime invariant inventory must be exactly TR-1..TR-8',
   ]) {
     assert.ok(report.errors.some((message) => message.includes(fragment)), fragment);
@@ -801,7 +1256,7 @@ test('AsyncAPI rebinding to the accepted bundle bytes fails closed', async () =>
   });
 
   assert.ok(report.errors.some((message) => message.includes(
-    'must bind only the proposed strict-compatible bundle revision',
+    'must bind only accepted strict-compatible v0.1.1',
   )));
 });
 
