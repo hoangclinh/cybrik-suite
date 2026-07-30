@@ -7094,3 +7094,29 @@ authorized. The post-remediation independent review remains incomplete and is no
 a pass. The unchanged-lockfile audit records 0 Critical / 13 High entries rooted in
 `GHSA-mh99-v99m-4gvg`; CI3 activation stays blocked pending separate compatible remediation. W0
 remains `COMPLETE=0` / `NO-GO`; all release dates remain unchanged.
+
+## 21. Delegated governance and CI3 dependency remediation — 2026-07-30
+
+The Founder has delegated forward-looking technical review, `GO`/`HOLD`/`NO-GO`, bounded commit,
+push, canonical merge and release decisions to Codex. No further Ballot or Founder technical
+approval is required for those actions. Production remains Founder-controlled. The complete
+boundary and mandatory evidence gates are in
+`docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`; dated authority statements above
+remain historical, but conflicting forward-looking approval requirements are superseded.
+
+CI3 dependency remediation R1 is `LOCAL CANDIDATE GO` at base
+`554ada18ee6855a967de8a5425efc5edf89bb908`. The rejected direct
+`brace-expansion@5.0.9` override reproduced `TypeError: expand is not a function`. The accepted
+candidate uses a repository-local CommonJS compatibility adapter that delegates to the exact
+patched upstream 5.0.9 implementation. Evidence: adapter 2/2, W1 control 202/202, W1 contracts
+98/98, canonical validation pass, Spectral 0 errors/19 warnings, AsyncAPI 0 errors and
+`npm audit --audit-level=high` 0 vulnerabilities.
+
+Independent Opus run `6e5614fe-e56c-4224-a4df-06a53c874bc3` timed out at 600 seconds with exit
+124 and no verdict; it is not counted as a pass. Delegated Codex fallback review after the
+downstream-version and expansion-bound hardening returned `P0=0 P1=0 P2=0 P3=1`; the retained P3
+is deprecated `glob@7` maintenance, with no current npm advisory.
+
+The dependency-specific local blocker is cleared. Commit, push and canonical merge remain pending
+the clean-commit and hosted-required-check gates; no hosted pass is claimed. Runtime, local stack,
+demo and UAT remain `NO-GO` until G-C `stable-v1.0`; release dates are unchanged.

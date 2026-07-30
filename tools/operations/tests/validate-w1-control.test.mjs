@@ -3400,6 +3400,46 @@ test("requires the CI3 test command to measure and enforce exactly 98 completed 
   );
 });
 
+test("requires CI3 to gate the patched dependency adapter and a high-severity audit", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+
+  assert.deepEqual(
+    validateW1CiWiring({ workflowText, packageText, orchestratorText }),
+    {
+      validators: 3,
+      tests: 98,
+      fetchDepth: 0,
+      node: "20.18.1",
+      dependencyCompatibilityTests: 2,
+      dependencyAuditLevel: "high",
+      hostedRunClaimed: false,
+    },
+  );
+
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: workflowText.replace(
+          "        run: npm audit --audit-level=high\n",
+          "",
+        ),
+        packageText,
+        orchestratorText,
+      }),
+    /npm audit --audit-level=high/,
+  );
+});
+
 test("rejects a required contract command moved into a later sibling job", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),

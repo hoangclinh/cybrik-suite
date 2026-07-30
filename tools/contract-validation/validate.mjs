@@ -32,7 +32,7 @@ function runW1ContractTests() {
     return 1;
   }
   const counts = [
-    ...(result.stdout ?? '').matchAll(/^# tests (\d+)$/gm),
+    ...(result.stdout ?? '').matchAll(/^(?:#|ℹ) tests (\d+)$/gm),
   ].map((match) => Number(match[1]));
   if (counts.length !== 1 || counts[0] !== W1_CONTRACT_TEST_COUNT) {
     console.error(
@@ -56,6 +56,7 @@ const steps = [
   'validate-inference.mjs',
   'validate-svc.mjs',
   'validate-org.mjs',
+  'tests/dependency-compat.test.mjs',
   'validate-openapi.mjs',
   'validate-asyncapi.mjs',
   'validate-alert-context.mjs',

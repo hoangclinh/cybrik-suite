@@ -21,6 +21,7 @@ no product source code lives in this repository (see repository `CLAUDE.md`).
 | W2-F service-delegation packet: JSON Schema documents, fixtures, packet integrity, trust invariants | JSON Schema 2020-12 | `ajv` (`ajv/dist/2020`) + `ajv-formats` | `ajv` 8.20.0, `ajv-formats` 3.0.1 |
 | Control-plane + inference-plane wire specs | OpenAPI 3.1.x | Stoplight **Spectral** CLI, built-in `oas` ruleset | `@stoplight/spectral-cli` 6.16.2 |
 | Event specs (suite + inference lifecycle) | AsyncAPI 3.0.0 | Official **`@asyncapi/parser`** | `@asyncapi/parser` 3.6.0 |
+| Spectral/AsyncAPI glob compatibility | CommonJS compatibility adapter backed by the patched upstream implementation | adapter 5.0.9-cybrik.1; upstream 5.0.9 |
 | YAML parsing (ref resolution) | — | `yaml` | 2.9.0 |
 
 Coverage counts printed by a green run:
@@ -70,12 +71,13 @@ transport binding.
 ```bash
 cd tools/contract-validation
 npm ci            # reproducible install from package-lock.json (lockfileVersion 3)
+npm audit --audit-level=high
 npm run validate  # all three validators; exit 0 only if every layer passes
 ```
 
 Individual layers: `npm run validate:schemas` · `npm run validate:inference` · `npm run validate:svc` · `npm run validate:openapi` · `npm run validate:asyncapi`.
 
-Requires Node.js `>=20` (see `package.json` `engines`). CI pins Node 20.18.1.
+Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins Node 20.18.1.
 
 ## Reproducibility & supply-chain posture
 
@@ -84,6 +86,12 @@ Requires Node.js `>=20` (see `package.json` `engines`). CI pins Node 20.18.1.
   (SRI) for all 266 packages. Use `npm ci`, never `npm install`, in CI.
 - **No install-time code execution.** `.npmrc` sets `ignore-scripts=true`, so no dependency
   pre/post-install lifecycle scripts run. None of the pinned validators need them.
+- **Explicit dependency gate.** `.npmrc` disables npm's implicit install-time audit noise, while
+  CI separately runs `npm audit --audit-level=high` as a blocking step. `npm run validate` also
+  executes two compatibility tests before Spectral. The repository-local
+  `vendor/brace-expansion-compat` adapter preserves the callable CommonJS API required by
+  `minimatch@3` while delegating expansion to upstream `brace-expansion` 5.0.9; it contains no
+  copied expansion algorithm.
 - **Licenses.** The installed tree is entirely permissive (MIT / Apache-2.0 / BSD-2/3-Clause /
   ISC / 0BSD / Unlicense / Python-2.0). No copyleft (GPL/LGPL/AGPL).
 - **Generated artifacts are not committed.** `node_modules/` and `*.log` are gitignored

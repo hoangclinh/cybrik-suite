@@ -2761,3 +2761,23 @@ post-remediation independent review remains incomplete and is not represented as
 canonical ref movement is authorized; runtime/local stack/UAT remain `NO-GO`; release dates are
 unchanged. The unchanged-lockfile audit records 0 Critical / 13 High entries rooted in
 `GHSA-mh99-v99m-4gvg`; CI3 activation remains blocked pending separate compatible remediation.
+
+## 33. Delegated-governor authority and CI3 remediation evidence — 2026-07-30
+
+| Evidence | Current result | Ceiling |
+|---|---|---|
+| Forward authority | Codex may decide technical gates, bounded commits, push, canonical merge and release without another Ballot or Founder technical approval | Production remains Founder-controlled; no force-push/history rewrite authority |
+| Remediation base | `554ada18ee6855a967de8a5425efc5edf89bb908` | follow-on candidate only |
+| Rejected graph | direct `brace-expansion@5.0.9` override: audit green but brace pattern throws `TypeError: expand is not a function` | rejected; not accepted evidence |
+| Accepted graph | local callable CommonJS adapter delegating to upstream patched `brace-expansion` 5.0.9 | validation tooling only |
+| Dependency gate | `npm audit --audit-level=high`: 0 vulnerabilities; compatibility 2/2 | local result; hosted CI pending |
+| Static suites | W1 control 202/202; W1 contracts 98/98; canonical validate pass; Spectral 0 errors/19 warnings; AsyncAPI 0 errors | no runtime, deployment or UAT proof |
+| Review | Opus `6e5614fe-e56c-4224-a4df-06a53c874bc3` timed out at 600 seconds, exit 124, no verdict; delegated Codex fallback `P0=0 P1=0 P2=0 P3=1` after adapter-version and bound hardening | Opus timeout is not a pass; retained P3 is deprecated `glob@7` maintenance |
+
+Disposition: `LOCAL CANDIDATE GO`. Full records:
+`docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md` and
+`docs/operations/W1-CI3-DEPENDENCY-REMEDIATION-R1.md`.
+
+The dependency-specific local CI3 blocker is cleared. No commit, push, canonical merge or hosted
+CI pass is claimed by this row. Runtime/local stack/demo/UAT stay `NO-GO` until G-C
+`stable-v1.0`; all release dates remain unchanged; production remains Founder-controlled.

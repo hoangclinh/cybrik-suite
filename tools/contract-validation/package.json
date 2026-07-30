@@ -6,10 +6,11 @@
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": "20 || >=22"
   },
   "scripts": {
     "validate": "node validate.mjs",
+    "validate:dependency-compat": "node --test tests/dependency-compat.test.mjs",
     "validate:schemas": "node validate-schemas.mjs",
     "validate:inference": "node validate-inference.mjs",
     "validate:svc": "node validate-svc.mjs",
@@ -26,6 +27,10 @@
     "@stoplight/spectral-cli": "6.16.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "brace-expansion": "file:vendor/brace-expansion-compat",
     "yaml": "2.9.0"
+  },
+  "overrides": {
+    "brace-expansion": "$brace-expansion"
   }
 }

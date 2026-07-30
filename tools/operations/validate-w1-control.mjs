@@ -3017,6 +3017,8 @@ export function validateW1CiWiring({
       "node validate-alert-context-transport.mjs",
     "validate:w1:investigation-lifecycle":
       "node validate-investigation-lifecycle-proposal.mjs",
+    "validate:dependency-compat":
+      "node --test tests/dependency-compat.test.mjs",
     "test:w1-contracts": "node validate.mjs --test-w1-contracts",
   };
   for (const [name, command] of Object.entries(expectedScripts)) {
@@ -3049,6 +3051,7 @@ export function validateW1CiWiring({
     /fetch-depth: 0/,
     /node-version: "20\.18\.1"/,
     /run: npm ci/,
+    /run: npm audit --audit-level=high/,
     /run: npm run validate/,
     /run: npm run test:w1-contracts/,
   ]) {
@@ -3135,6 +3138,11 @@ export function validateW1CiWiring({
   );
   assertIncludes(
     orchestratorText,
+    /'tests\/dependency-compat\.test\.mjs'/,
+    "canonical contract orchestrator must execute the dependency compatibility tests",
+  );
+  assertIncludes(
+    orchestratorText,
     /static conformance only, not runtime or release proof/,
     "canonical contract orchestrator success banner must stay static-only",
   );
@@ -3145,7 +3153,7 @@ export function validateW1CiWiring({
   );
   assertIncludes(
     orchestratorText,
-    /matchAll\(\/\^# tests \(\\d\+\)\$\/gm\)/,
+    /matchAll\(\/\^\(\?:#\|ℹ\) tests \(\\d\+\)\$\/gm\)/,
     "canonical contract orchestrator must measure the completed TAP test count",
   );
   assertIncludes(
@@ -3159,6 +3167,8 @@ export function validateW1CiWiring({
     tests: 98,
     fetchDepth: 0,
     node: "20.18.1",
+    dependencyCompatibilityTests: 2,
+    dependencyAuditLevel: "high",
     hostedRunClaimed: false,
   };
 }
