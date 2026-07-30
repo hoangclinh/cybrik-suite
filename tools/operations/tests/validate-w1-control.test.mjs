@@ -3598,6 +3598,23 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
     /must contain exactly 3 reviewed GitHub action uses; found 4/,
   );
 
+  const trailingWhitespaceBypass = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - name: Trailing-whitespace action\n" +
+      "        uses: attacker/action@v1" +
+      " \n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: trailingWhitespaceBypass,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@v1/,
+  );
+
   const missingCheckout = workflowText.replace(
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
     "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
@@ -3624,6 +3641,20 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         orchestratorText,
       }),
     /contracts job is missing \/name: contract standards validation\//,
+  );
+
+  const renamedSecretScanCheck = workflowText.replace(
+    "name: secret-scan (gitleaks 8.30.1)",
+    "name: renamed secret scan",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: renamedSecretScanCheck,
+        packageText,
+        orchestratorText,
+      }),
+    /must preserve the rendered secret-scan required-check name/,
   );
 });
 
