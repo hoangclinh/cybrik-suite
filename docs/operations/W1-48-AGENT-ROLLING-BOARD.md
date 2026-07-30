@@ -7144,3 +7144,24 @@ This closes the dependency-specific CI3 activation blocker and makes the reviewe
 corrected C2 control history canonical. It does not prove product runtime, local stack, demo or
 UAT; those remain `NO-GO` until G-C `stable-v1.0`. Release dates are unchanged and production
 remains Founder-controlled.
+
+## 23. W1-CI4 Node 24 action-pin candidate — 2026-07-30
+
+`W1-CI4` is a bounded assurance-lane follow-up at canonical base
+`ad964697eed2d623863b0b034a6215b3dfe29e4e`. It replaces the deprecated Node 20 internal
+runtime of both GitHub-owned actions with exact reviewed Node 24-runtime commits and pins
+validator execution to Node.js `24.18.1`.
+
+Local TDD evidence is `RED 0/1` on the old action pins, then targeted `3/3 PASS`; the full control
+suite is `203/203 PASS` with line/branch/function coverage `97.62%`/`92.43%`/`98.89%`, and the
+control validator passes with `tasks=48`. Exact packet, owner paths and rollback:
+`docs/operations/W1-CI4-NODE24-ACTION-PINS-R1.md`.
+
+Status is `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING`. No required-check name or permission
+changes. This closes no product-runtime blocker and does not authorize the local stack, demo or
+UAT ahead of G-C `stable-v1.0`; release dates remain unchanged and production remains
+Founder-controlled.
+
+The first independent Opus review returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; both P2s and four
+code/test P3s are remediated in the current bytes. Checksum-verified Node 24.18.1 execution is
+green; fresh post-remediation review remains mandatory before push.

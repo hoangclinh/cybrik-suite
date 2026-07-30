@@ -2801,3 +2801,19 @@ explicitly installed Node.js 20.18.1. This maintenance warning is not a failed c
 
 Dependency-specific CI3 activation is closed. Runtime/local stack/demo/UAT remain `NO-GO` until
 G-C `stable-v1.0`; release dates are unchanged; production remains Founder-controlled.
+
+## 35. W1-CI4 Node 24 action-pin candidate — 2026-07-30
+
+| Evidence | Exact result |
+|---|---|
+| Base | `ad964697eed2d623863b0b034a6215b3dfe29e4e` |
+| Action pins | checkout `3d3c42e5aac5ba805825da76410c181273ba90b1` ×2; setup-node `820762786026740c76f36085b0efc47a31fe5020` ×1 |
+| Action runtime | both reviewed `action.yml` manifests declare `node24` |
+| Validator runtime | pinned Node.js `24.18.1` Krypton LTS security release |
+| TDD | intended RED `0/1`; targeted GREEN `3/3` |
+| Full control | checksum-verified Node 24.18.1: `203/203 PASS`; line `97.62%`, branch `92.43%`, functions `98.89%` |
+| First independent review | Opus `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; P2 provenance and additive-runtime findings remediated, fresh review pending |
+| Current status | `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING` |
+
+Independent review, hosted required checks, exact merge-tree verification and canonical
+post-merge evidence remain mandatory. This record changes no runtime/UAT/release gate.

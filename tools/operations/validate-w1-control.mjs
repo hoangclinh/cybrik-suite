@@ -92,6 +92,17 @@ const W1_RECONCILIATION_CI_PATHS = [
   "tools/contract-validation/validate.mjs",
 ];
 
+const CI_ACTION_PINS = new Map([
+  [
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    2,
+  ],
+  [
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    1,
+  ],
+]);
+
 const W1_RECONCILIATION_GOVERNANCE = {
   decision: "DELEGATED-GOVERNOR-ACCEPTED",
   localCommitAuthorized: true,
@@ -3047,9 +3058,10 @@ export function validateW1CiWiring({
   const contractsJob = workflowJob("contracts");
   const secretScanJob = workflowJob("secret-scan");
   for (const pattern of [
+    /name: contract standards validation/,
     /name: Checkout contract topology/,
     /fetch-depth: 0/,
-    /node-version: "20\.18\.1"/,
+    /node-version: "24\.18\.1"/,
     /run: npm ci/,
     /run: npm audit --audit-level=high/,
     /run: npm run validate/,
@@ -3061,6 +3073,11 @@ export function validateW1CiWiring({
       `CI3 workflow contracts job is missing ${pattern}`,
     );
   }
+  assertIncludes(
+    secretScanJob,
+    /name: secret-scan \(gitleaks 8\.30\.1\)/,
+    "CI3 workflow must preserve the rendered secret-scan required-check name",
+  );
   assertExcludes(
     workflowText,
     /^ {4,}if:\s*false\s*$/m,
@@ -3116,6 +3133,24 @@ export function validateW1CiWiring({
   }
   assertExcludes(
     workflowText,
+    /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
+    "CI3 workflow must not reintroduce a superseded Node 20 action-runtime pin",
+  );
+  if (actionLines.length !== 3) {
+    throw new Error(
+      `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionLines.length}`,
+    );
+  }
+  for (const [action, expectedCount] of CI_ACTION_PINS) {
+    const actualCount = actionLines.filter(([, candidate]) => candidate === action).length;
+    if (actualCount !== expectedCount) {
+      throw new Error(
+        `CI3 workflow action pin ${action} must occur exactly ${expectedCount} time${expectedCount === 1 ? "" : "s"}; found ${actualCount}`,
+      );
+    }
+  }
+  assertExcludes(
+    workflowText,
     /members are all PROPOSED — NOT ACCEPTED/,
     "CI3 workflow must not retain the stale all-proposed lifecycle claim",
   );
@@ -3166,7 +3201,7 @@ export function validateW1CiWiring({
     validators: 3,
     tests: 98,
     fetchDepth: 0,
-    node: "20.18.1",
+    node: "24.18.1",
     dependencyCompatibilityTests: 2,
     dependencyAuditLevel: "high",
     hostedRunClaimed: false,
