@@ -1,6 +1,6 @@
 # W1 canonical-state and delegated-authority reconciliation R1
 
-Status: `REMEDIATED — AWAITING FRESH INDEPENDENT REVIEW — NOT PUSHED`.
+Status: `TECHNICAL GO — REMOTE STATUS EXTERNAL; SEE LIVE PR #5`.
 
 ## 1. Authority and boundaries
 
@@ -24,12 +24,17 @@ production configuration. Runtime/local stack/demo/UAT remain `NO-GO` until G-C
 - RED checkpoint 3: `9e8b760d7d4154a91b6611f771af1acbf12b801a`.
 - GREEN remediation checkpoint: `ba3b760`.
 - RED checkpoint 4: `23887d4`.
-- Action performed before this refresh: seven bounded local commits on
-  `codex/w1-canonical-state-reconcile-r1`. This decision-record refresh is the eighth local commit;
+- GREEN checkpoint 4 and independently reviewed publication tip: `68fc825`.
+- RED checkpoint 5: `4df32b6`.
+- Action performed before this refresh: nine bounded local commits on
+  `codex/w1-canonical-state-reconcile-r1`. This decision-record refresh is the tenth local commit;
   its self identity is deliberately not predicted or stated.
-- Remote action performed: none. Hosted checks for this branch are therefore pending.
+- Remote action performed: reviewed tip `68fc825` was pushed to the explicit same-named branch and
+  opened as PR #5. Both required checks passed on the published tip before this refresh. This
+  refresh must receive its own fresh review and hosted checks before merge; live remote state is
+  authoritative and is intentionally not frozen as a mutable `PUSHED`/`MERGED` label here.
 
-All seven predecessor commits and this refresh use
+All nine predecessor commits and this refresh use
 `Cybrik Codex Governor <codex-governor@local.invalid>` as author and committer. No commit is signed;
 traceability is provided by the exact commit chain, this record, the independent review and the
 protected-branch workflow.
@@ -96,15 +101,24 @@ runtime/UAT `NO-GO` and Founder-only production boundary. Its two remaining P2 f
 1. this record omitted `9e8b760…` and `ba3b760…`; and
 2. E2 register §4.3 retained stale present-tense CI/delegation posture.
 
-Both P2 findings are corrected by this refresh and guarded by RED checkpoint `23887d4`. Remaining
+Both P2 findings were corrected at `68fc825` and guarded by RED checkpoint `23887d4`. The third
+independent Opus 5 review of that exact tip returned technical `GO`: `P0=0`, `P1=0`, `P2=0`,
+`P3=6`, and authorized push plus protected-branch PR while keeping merge gated on the current
+tip's hosted required checks.
+
+This refresh closes three documentation P3s from that review: it states that the canonical
+orchestrator **spawns** the validator through its real repository path rather than importing it;
+the ADR catalog restores the W0-T11 decision date and independent-review provenance; and E2 §4.3
+distinguishes predecessor hosted evidence from PR #5's new direct control-test step. Remaining
 nonblocking findings are explicitly retained: the superseded historical blocker-4 packet freezes
 an old 179/179 current-result paragraph; the top-level machine output still exposes a historical
-rehearsal lifecycle alongside the separate canonical/current fields; and the pre-existing
-standalone ESM main guard can silently no-op through a symlink although canonical CI imports the
-validator directly. None authorizes product runtime, release or production.
+rehearsal lifecycle alongside separate canonical/current fields; and the pre-existing standalone
+ESM main guard can silently no-op through a symlink although the canonical orchestrator spawns the
+real path and fails if that subprocess fails. The delegated product-admission widening is
+intentional, evidence-gated and still proves no runtime. None authorizes release or production.
 
-Remediation is GREEN locally. Push, PR and merge remain `NO-GO` until the next fresh independent
-review returns no open P0–P2.
+Technical review is `GO`. Canonical merge remains gated until this refresh receives a fresh
+independent review with no open P0–P2 and PR #5 reports both required hosted checks green.
 
 ## 7. Rollback
 

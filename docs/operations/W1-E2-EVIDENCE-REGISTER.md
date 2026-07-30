@@ -323,8 +323,10 @@ re-inspection), with the Cyber AI worktree confirmed clean, zero staged, no upst
 
 - **Suite W1 static contract/control CI: WIRED AND HOSTED**. The canonical contracts workflow
   runs the control validator and all registered W1 contract checks; hosted evidence is pinned to
-  runs `30537649671` and `30543470413`. Product orchestration, persistence, restart-survival,
-  isolation benchmarks and escape tests remain outside this static CI claim.
+  predecessor runs `30537649671` and `30543470413`. Those runs prove the orchestrator path, not
+  this branch's newly added direct `test:w1-control` step; PR #5 must pass the current workflow on
+  its current tip before merge. Product orchestration, persistence, restart-survival, isolation
+  benchmarks and escape tests remain outside this static CI claim.
 - The W1 control validator and its test suite are **GREEN** against the current reconciliation tree
   — validator `PASS`, `tests 216 · pass 216 · fail 0`. The earlier manual `77/77` and RED `9/77`
   figures are dated history. This remains a control-document consistency result, not product,
