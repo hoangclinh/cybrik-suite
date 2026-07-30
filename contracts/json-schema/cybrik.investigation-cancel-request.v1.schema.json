@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-cancel-request.v1.schema.json",
+  "title": "CYBRIK investigation cancellation request v1",
+  "description": "Authenticated compare-and-set cancellation request. expected_version establishes a linearization point against checkpoint or terminal completion races. Same key and body is idempotent; stale versions fail closed. If the run is already terminal, Cyber AI returns the authoritative current status without rewriting history. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "investigation_id",
+    "attempt_id",
+    "tenant_id",
+    "org_scope",
+    "actor",
+    "expected_version",
+    "reason",
+    "requested_at",
+    "data_marking"
+  ],
+  "properties": {
+    "request_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/requestId"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 200
+    },
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid"
+    },
+    "attempt_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/attemptId"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "org_scope": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/orgScopeRef"
+    },
+    "actor": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ]
+    },
+    "expected_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "requested_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json"
+    },
+    "traceparent": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent"
+    }
+  }
+}

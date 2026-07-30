@@ -1,0 +1,122 @@
+{
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Conformance fixtures for the W1 investigation lifecycle/transport packet. Positive fixtures must validate; negative-schema fixtures must fail JSON Schema validation; negative-semantic fixtures are structurally valid but exercise runtime relationships. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "examples": [
+    {
+      "file": "positive/investigation-create-request.json",
+      "schema": "cybrik.investigation-create-request.v1.schema.json",
+      "kind": "positive"
+    },
+    {
+      "file": "positive/investigation-status.cancelled.json",
+      "schema": "cybrik.investigation-status.v1.schema.json",
+      "kind": "positive"
+    },
+    {
+      "file": "positive/investigation-checkpoint.json",
+      "schema": "cybrik.investigation-checkpoint.v1.schema.json",
+      "kind": "positive"
+    },
+    {
+      "file": "positive/investigation-cancel-request.json",
+      "schema": "cybrik.investigation-cancel-request.v1.schema.json",
+      "kind": "positive"
+    },
+    {
+      "file": "positive/investigation-bundle-read-result.json",
+      "schema": "cybrik.investigation-bundle-read-result.v1.schema.json",
+      "kind": "positive"
+    },
+    {
+      "file": "positive/investigation-lifecycle-error.not-found.json",
+      "schema": "cybrik.investigation-lifecycle-error.v1.schema.json",
+      "kind": "positive",
+      "invariants": ["TR-8"],
+      "invariant": "TR-8 positive shape: unknown and unauthorized targets share error_class=not_found_or_not_authorized, one constant sanitized message, retryable=false, and no investigation/tenant/org/owner/policy target identifiers."
+    },
+
+    {
+      "file": "negative-schema/investigation-create-request.short-idempotency.json",
+      "schema": "cybrik.investigation-create-request.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-1 Idempotency-Key is mandatory and at least 16 characters."
+    },
+    {
+      "file": "negative-schema/investigation-create-request.tool-authority.json",
+      "schema": "cybrik.investigation-create-request.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-2 additionalProperties=false rejects capability/tool/delegation/approval/MCP authority."
+    },
+    {
+      "file": "negative-schema/investigation-cancel-request.missing-version.json",
+      "schema": "cybrik.investigation-cancel-request.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-3 expected_version is mandatory for cancellation race linearization."
+    },
+    {
+      "file": "negative-schema/investigation-checkpoint.sequence-zero.json",
+      "schema": "cybrik.investigation-checkpoint.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-4 checkpoint sequence starts at one."
+    },
+    {
+      "file": "negative-schema/investigation-lifecycle-error.existence-leak.json",
+      "schema": "cybrik.investigation-lifecycle-error.v1.schema.json",
+      "kind": "negative-schema",
+      "invariants": ["TR-8"],
+      "invariant": "TR-8 the sanitized error shape cannot disclose resource existence; unknown and unauthorized ids share one constant safe message and class."
+    },
+
+    {
+      "file": "negative-semantic/investigation-create-request.cross-tenant.json",
+      "schema": "cybrik.investigation-create-request.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-1"],
+      "invariant": "TR-1 actor.tenant_id differs from body tenant_id; authoritative credential/tenant must reject."
+    },
+    {
+      "file": "negative-semantic/investigation-status.org-mismatch.json",
+      "schema": "cybrik.investigation-status.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-2"],
+      "invariant": "TR-2 response org_scope differs from the authorized SOC consumer's org scope."
+    },
+    {
+      "file": "negative-semantic/investigation-create-request.idempotency-conflict.json",
+      "schema": "cybrik.investigation-create-request.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-3"],
+      "invariant": "TR-3 reuses the positive create fixture's authenticated principal and idempotency_key with a different normalized objective/context; Cyber AI must return idempotency_conflict rather than create or replay another investigation."
+    },
+    {
+      "file": "negative-semantic/investigation-cancel-request.stale-version.json",
+      "schema": "cybrik.investigation-cancel-request.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-4"],
+      "invariant": "TR-4 expected_version=6 is stale relative to authoritative positive status version=7; cancellation must fail with version_conflict and cannot rewrite terminal history."
+    },
+    {
+      "file": "negative-semantic/investigation-cancel-request.terminal-race.json",
+      "schema": "cybrik.investigation-cancel-request.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-4", "TR-5"],
+      "invariant": "TR-4/TR-5 cancellation arrives at version=7 after cancelled became terminal; service returns the current status and must not create a second terminal transition or discard checkpoints."
+    },
+    {
+      "file": "negative-semantic/investigation-checkpoint.retry-mutates-terminal-attempt.json",
+      "schema": "cybrik.investigation-checkpoint.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-5", "TR-6"],
+      "invariant": "TR-5/TR-6 retry self-links to the cancelled attempt and starts at sequence=2; retry must use a fresh attempt_id, link the prior attempt, and restart immutable checkpoint sequence at one."
+    },
+    {
+      "file": "negative-semantic/investigation-bundle-read-result.marking-downgrade.json",
+      "schema": "cybrik.investigation-bundle-read-result.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariants": ["TR-7"],
+      "invariant": "TR-7 wrapper marking public/TLP:CLEAR is below bundle confidential/TLP:AMBER."
+    }
+  ]
+}

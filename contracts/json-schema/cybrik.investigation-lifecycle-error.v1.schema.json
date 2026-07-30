@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-lifecycle-error.v1.schema.json",
+  "title": "CYBRIK investigation lifecycle sanitized error v1",
+  "description": "Sanitized lifecycle transport error. Unknown and unauthorized investigation identifiers share the same not_found_or_not_authorized class and HTTP 404 mapping, with identical shape and no resource-existence, authorization-decision, tenant, org, owner, policy, credential, stack, or raw-provider detail. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "error_class",
+    "message_safe",
+    "retryable"
+  ],
+  "properties": {
+    "request_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/requestId"
+    },
+    "error_class": {
+      "type": "string",
+      "enum": [
+        "invalid_request",
+        "not_found_or_not_authorized",
+        "idempotency_conflict",
+        "version_conflict",
+        "invalid_transition",
+        "unavailable",
+        "internal"
+      ]
+    },
+    "message_safe": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "retry_after_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "error_class": {
+            "type": "string",
+            "const": "not_found_or_not_authorized"
+          }
+        },
+        "required": ["error_class"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "message_safe": {
+            "type": "string",
+            "const": "The requested investigation is unavailable."
+          },
+          "retryable": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}
