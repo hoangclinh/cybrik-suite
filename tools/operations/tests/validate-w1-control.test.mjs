@@ -3720,6 +3720,39 @@ test("rejects noncanonical GitHub action step syntax", async () => {
   }
 });
 
+test("rejects YAML-split and explicit action keys", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  for (const actionStep of [
+    "      - { uses\n          : attacker/action@main }",
+    "      - ? uses\n        : attacker/action@main",
+  ]) {
+    const drifted = workflowText.replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      `${actionStep}\n\n` +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+    assert.throws(
+      () =>
+        validateW1CiWiring({
+          workflowText: drifted,
+          packageText,
+          orchestratorText,
+        }),
+      /action is not pinned by commit SHA: attacker\/action@main/,
+    );
+  }
+});
+
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
