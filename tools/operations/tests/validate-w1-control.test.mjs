@@ -3161,6 +3161,48 @@ test("requires live-Git topology enforcement below the exact two-merge rehearsal
   });
 });
 
+test("requires a current canonical-integration supersession record after PR 1", async () => {
+  const currentLifecycle =
+    "CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY";
+  const canonicalMerge = "28c564eb9b6853b73a18a59a2e84ba58fd67816a";
+
+  for (const [text, label] of [
+    [w1ReconciliationApplicationText, "W1 reconciliation application"],
+    [boardText, "W1 board"],
+    [e2RegisterText, "W1 evidence register"],
+    [packetText, "blocker-4 packet"],
+    [adrReadmeText, "ADR catalog"],
+  ]) {
+    assert.match(
+      text,
+      new RegExp(currentLifecycle),
+      `${label} must carry the current canonical-integration lifecycle`,
+    );
+    assert.match(
+      text,
+      new RegExp(canonicalMerge),
+      `${label} must pin the canonical PR 1 merge`,
+    );
+  }
+
+  const result = await validateW1ControlFiles(repositoryRoot);
+  assert.deepEqual(result.reconciliationTopology, {
+    controlBase: "b2caf77c3cd96beb7383cc3d93844d771262ea5f",
+    c1g1Tip: "71857395332fabe041896ca0700fbf7a2bf612d3",
+    correctedC2Tip: "5a1ed0001a5714b7f099aeaff3f5a74cb67c068a",
+    mergeOne: "87efae7898bd14e9aa9a2866380a9973d8b3e5bc",
+    mergeOneTree: "abb4d16d1c6038ccc33931c009628a47b2b0bd68",
+    mergeTwo: "900d83a61515f37ae117e04763da1881cba90b7b",
+    mergeTwoTree: "a297646ec6d4901c8861d28b5ec8736f65902b70",
+    canonicalMerge,
+    canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+    repositoryHeadDescendsFromRehearsal: true,
+    repositoryHeadDescendsFromCanonicalMerge: true,
+    locallyIntegrated: true,
+    canonical: true,
+  });
+});
+
 test("requires canonical CI wiring for all three W1 validators and exactly 98 tests", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
