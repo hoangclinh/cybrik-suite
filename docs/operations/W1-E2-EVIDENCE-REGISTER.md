@@ -2812,9 +2812,12 @@ G-C `stable-v1.0`; release dates are unchanged; production remains Founder-contr
 | Validator runtime | pinned Node.js `24.18.1` Krypton LTS security release |
 | TDD | five bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/split-or-explicit/unpinned `5/5 PASS` |
 | Full control | checksum-verified Node 24.18.1: `206/206 PASS`; line `97.38%`, branch `90.97%`, functions `98.89%` |
-| Action inventory | structurally parsed job/step `uses` values using pinned `yaml@2.9.0`; split, explicit, Unicode-escaped, reusable-workflow and merged-alias negative cases covered |
-| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; third `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; first fourth-review attempt infrastructure `500`, no verdict; retry `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; every P1/P2 has bounded RED/GREEN remediation, fifth review pending |
-| Current status | `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING` |
+| Action inventory | structurally parsed job/step `uses` values using pinned `yaml@2.9.0`; split, explicit, Unicode-escaped, reusable-workflow and whole-step alias negative cases covered |
+| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; third `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; first fourth-review attempt infrastructure `500`, no verdict; retry `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; fifth review exact tip `d96e536c…` `GO`, `P0=P1=P2=0 P3=5`; all adverse history retained |
+| Hosted evidence | push `30543352613` and PR `30543370258` both green; PR #3 merge `9e20dc7f…`, tree `11c40878…` byte-identical; canonical run `30543470413` both jobs green; no Node 20 action-runtime annotation |
+| Current status | `CANONICAL MERGED 2026-07-30` |
 
-Independent review, hosted required checks, exact merge-tree verification and canonical
-post-merge evidence remain mandatory. This record changes no runtime/UAT/release gate.
+Open nonblocking hardening: structural suppression checks, `run:`/workflow inventory, and
+explicit merge-key/multi-document/duplicate-key tests. This record changes no runtime/UAT/release
+gate; runtime/local stack/demo/UAT remain `NO-GO` until G-C `stable-v1.0`, dates are unchanged
+and production remains Founder-controlled.

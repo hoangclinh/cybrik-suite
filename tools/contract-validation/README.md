@@ -80,6 +80,10 @@ Individual layers: `npm run validate:schemas` · `npm run validate:inference` ·
 Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins the Node.js 24 LTS
 security release `24.18.1`.
 
+The repository-root command `node tools/operations/validate-w1-control.mjs` also loads the pinned
+`yaml@2.9.0` from this toolchain. On a fresh clone, run `npm ci` in
+`tools/contract-validation` before invoking that standalone control-validator command.
+
 ## Reproducibility & supply-chain posture
 
 - **Exact versions.** Every dependency is pinned to an exact version (no `^`/`~`). `.npmrc` sets

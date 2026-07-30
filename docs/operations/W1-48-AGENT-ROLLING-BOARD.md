@@ -7158,10 +7158,9 @@ line/branch/function coverage `97.38%`/`90.97%`/`98.89%`, and the
 control validator passes with `tasks=48`. Exact packet, owner paths and rollback:
 `docs/operations/W1-CI4-NODE24-ACTION-PINS-R1.md`.
 
-Status is `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING`. No required-check name or permission
-changes. This closes no product-runtime blocker and does not authorize the local stack, demo or
-UAT ahead of G-C `stable-v1.0`; release dates remain unchanged and production remains
-Founder-controlled.
+Status is `CANONICAL MERGED 2026-07-30`. No required-check name or permission changes. This
+closes no product-runtime blocker and does not authorize the local stack, demo or UAT ahead of
+G-C `stable-v1.0`; release dates remain unchanged and production remains Founder-controlled.
 
 The first independent Opus review returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; both P2s were
 remediated. The second returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5` on a trailing-whitespace parser
@@ -7172,5 +7171,17 @@ fourth-review attempt ended in a Claude infrastructure `500` with no verdict; it
 `NO-GO`, `P0=0 P1=1 P2=1 P3=5` after reproducing split and explicit YAML key bypasses. Current
 bytes replace the textual extractor with the pinned `yaml@2.9.0` structural parser, inventory
 every parsed job/step `uses` value, and cover split, explicit, Unicode-escaped, reusable-workflow
-and alias forms. Checksum-verified Node 24.18.1 execution is green; a fresh fifth review remains
-mandatory before push.
+and whole-step alias forms. The fifth independent Opus review of exact tip `d96e536c…` returned
+`GO`, `P0=P1=P2=0 P3=5`; the earlier adverse reviews remain dated history.
+
+Push run `30543352613` and PR run `30543370258` passed both required jobs. PR #3 merged as
+`9e20dc7f5ff77e908f6b35c8f0a05fd879e370b2`; merge tree `11c40878…` is byte-identical to
+reviewed-tip tree. Canonical run `30543470413` passed contract validation in 45 s and secret scan
+in 10 s; queried annotations contain no Node 20 runtime warning. Three nonblocking reviewer P3s
+remain for a later control-hardening packet: structural suppression checks, `run:`/workflow
+inventory, and explicit merge-key/multi-document/duplicate-key tests. The standalone-validator
+prerequisite is now documented and hosted action provenance is closed.
+
+The dependency-specific local CI3 blocker and W1-CI4 hosted-evidence gate are cleared.
+Runtime/local stack/demo/UAT stay `NO-GO` until G-C `stable-v1.0`; all release dates remain
+unchanged; production remains Founder-controlled.
