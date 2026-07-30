@@ -321,20 +321,17 @@ re-inspection), with the Cyber AI worktree confirmed clean, zero staged, no upst
 
 ### 4.3 CI and posture
 
-- **CI: NOT WIRED** for all four applications and both accepted contract lanes. No validator, test,
-  orchestration, persistence, restart-survival, isolation-benchmark or escape-test job is
-  registered in any pipeline. Every result recorded above is **static/documentary only** from
-  manual reproducible execution; **no CI result is claimed**.
-- The W1 control validator and its test suite are **GREEN** against the current tree — validator
-  `PASS`, `tests 77 · pass 77 · fail 0`, coverage line 98.31% · branch 92.93% · funcs 97.87% —
-  measured manually on 2026-07-26 after the W0-R06 repair. That is §3 item 10, now closed; the
-  earlier `tests 77 · pass 9 · fail 68` RED is dated history. This result is a documentary
-  consistency check over the control documents only. It is **not** product, runtime or CI evidence,
-  it does not close W0 and it opens no writer, and it is separate from the per-lane W1-C1/W1-C2
-  evidence above, which comes from each packet's own standalone validator and test suite run in its
-  own worktree — those remain `PASS`, `21/21` and `31/31` respectively.
-- `W0 COMPLETE=0` and W0 closure `NO-GO`. W1 runtime writers remain `HOLD`/`NO-GO`. Delegated
-  routine integration and external release remain `NO-GO`.
+- **Suite W1 static contract/control CI: WIRED AND HOSTED**. The canonical contracts workflow
+  runs the control validator and all registered W1 contract checks; hosted evidence is pinned to
+  runs `30537649671` and `30543470413`. Product orchestration, persistence, restart-survival,
+  isolation benchmarks and escape tests remain outside this static CI claim.
+- The W1 control validator and its test suite are **GREEN** against the current reconciliation tree
+  — validator `PASS`, `tests 216 · pass 216 · fail 0`. The earlier manual `77/77` and RED `9/77`
+  figures are dated history. This remains a control-document consistency result, not product,
+  runtime, UAT, release or production evidence. The per-lane W1-C1/W1-C2 evidence remains separate
+  at `PASS`, `21/21` and `31/31`.
+- `W0 COMPLETE=0` and W0 closure `NO-GO`. W1 runtime writers remain `HOLD`/`NO-GO`.
+  Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`.
 - W1 formal dates (2026-08-01 → 2026-08-23), all W0–W6 dates and the 2026-12-21 → 2026-12-31
   release window are **unchanged**; no release claim is made.
 

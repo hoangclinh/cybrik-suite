@@ -1235,9 +1235,14 @@ function validateE2Register(e2RegisterText) {
   );
   assertIncludes(
     e2RegisterText,
-    /^- \*\*CI: NOT WIRED\*\* for all four applications and both accepted contract lanes\./m,
-    "E2 register must keep the CI: NOT WIRED disclosure for all four " +
-      "applications and both accepted contract lanes",
+    /^- \*\*Suite W1 static contract\/control CI: WIRED AND HOSTED\*\*\./m,
+    "E2 register must record the current Suite W1 static contract/control CI as WIRED AND HOSTED",
+  );
+  assertIncludes(
+    e2RegisterText,
+    /Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`\./,
+    "E2 register must keep delegated technical integration at evidence-gated `GO` while " +
+      "external release remains `NO-GO`",
   );
   assertIncludes(
     e2RegisterText,
@@ -3059,6 +3064,10 @@ function validateW1ReconciliationDocuments({
     "f5cc213db0a9cb84377d47b0058608322f7af288",
     "5459aeec785c8ec8eada77afea3f0d1f18c16373",
     "7c1cc8f5bf3c772436eff2922a4a1071e0571328",
+    "9e8b760d7d4154a91b6611f771af1acbf12b801a",
+    "ba3b760",
+    "23887d4",
+    "eighth local commit",
     "208/208",
     "found 0 vulnerabilities",
     "no leaks found",
