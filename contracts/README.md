@@ -47,8 +47,10 @@ accepted W2-F schemas unchanged and fixes the relying-party audience to
 `svc:cyber-ai-lifecycle`. Only `investigation.create`, `investigation.status`, and
 `investigation.cancel` are externally delegatable, with one exact scope each. The
 `listInvestigationCheckpoints` REST read maps to `investigation.status`/read;
-`investigation.checkpoint` remains an internal producer write. `investigation.bundle_read`
-remains non-delegatable and tokenless while bundle read is unconditional refusal. See
+`investigation.checkpoint` remains an internal producer write. `readInvestigationBundle` /
+`investigation.bundle_read` is already an accepted business lifecycle operation with the accepted
+v0.1.1 response contract; this proposed binding grants it no delegation authority and keeps it
+tokenless only because the current Cyber AI implementation remains unconditional refusal. See
 `compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json`.
 
 The **W2-G organizational-hierarchy + external-authority-boundary packet** (all `ACCEPTED FOR

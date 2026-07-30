@@ -65,8 +65,9 @@ test('checkpoint and bundle-read cannot become externally delegatable', async ()
     overrides: mutateJson(path, (manifest) => {
       manifest.delegatable_operations['investigation.checkpoint'] =
         'investigation.lifecycle:write';
-      manifest.rest_operation_binding.readInvestigationBundle =
-        'investigation.bundle_read';
+      manifest.delegatable_operations['investigation.bundle_read'] =
+        'investigation.lifecycle:read';
+      manifest.delegation_disposition.readInvestigationBundle.mint_token = true;
     }),
   });
   assert.ok(report.errors.some((error) => error.includes('operation-to-scope map')));
@@ -81,7 +82,7 @@ test('listInvestigationCheckpoints stays a status/read operation', async () => {
   const report = await validateSvcLifecycleBinding({
     root: ROOT,
     overrides: mutateJson(path, (manifest) => {
-      manifest.rest_operation_binding.listInvestigationCheckpoints =
+      manifest.business_operation_binding.listInvestigationCheckpoints =
         'investigation.checkpoint';
     }),
   });

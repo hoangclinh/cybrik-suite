@@ -23,16 +23,36 @@
     "investigation.status": "investigation.lifecycle:read",
     "investigation.cancel": "investigation.lifecycle:cancel"
   },
-  "reserved_non_delegatable_operations": [
+  "non_delegatable_operations": [
     "investigation.checkpoint",
     "investigation.bundle_read"
   ],
-  "rest_operation_binding": {
+  "business_operation_binding": {
     "createInvestigation": "investigation.create",
     "getInvestigationStatus": "investigation.status",
     "listInvestigationCheckpoints": "investigation.status",
     "cancelInvestigation": "investigation.cancel",
-    "readInvestigationBundle": null
+    "readInvestigationBundle": "investigation.bundle_read"
+  },
+  "delegation_disposition": {
+    "readInvestigationBundle": {
+      "accepted_business_contract": true,
+      "accepted_response_profile": "cybrik.investigation-bundle.strict-compatible.v1@0.1.1",
+      "delegated": false,
+      "mint_token": false,
+      "consume_token": false,
+      "reason": "CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL"
+    }
+  },
+  "accepted_source_cross_check": {
+    "manifest": "compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
+    "openapi": "openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml",
+    "operation_id": "readInvestigationBundle",
+    "operation_contract_state": "ACCEPTED FOR IMPLEMENTATION",
+    "response_status": "200",
+    "response_schema": "InvestigationBundleReadResult",
+    "response_profile": "cybrik.investigation-bundle.strict-compatible.v1@0.1.1",
+    "proposal_effect": "DECLINES W2-F DELEGATION AUTHORITY ONLY; DOES NOT CHANGE THE ACCEPTED BUSINESS LIFECYCLE CONTRACT"
   },
   "binding_invariants": [
     {
@@ -77,7 +97,7 @@
     },
     {
       "id": "LSD-11",
-      "statement": "investigation.bundle_read remains reserved and non-delegatable; unconditional refusal mints and consumes no token."
+      "statement": "readInvestigationBundle / investigation.bundle_read remains an accepted business lifecycle operation with accepted v0.1.1 response contract. This proposed binding declines only its W2-F delegation authority because the current Cyber AI implementation is unimplemented and returns unconditional refusal; that current path mints and consumes no token."
     }
   ],
   "members": [
@@ -85,13 +105,13 @@
       "file": "adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
       "kind": "adapter-notes",
       "contract_version": "0.1.0",
-      "sha256": "3d33444ad83bd6cbc23bc4dc340f250fe8f75635cedde7ea51926da86fc7abf3"
+      "sha256": "215aff878a119c8f0198b3abeeedb937c0eb27b8f72cb8275680d641e6874a31"
     },
     {
       "file": "examples/svc-lifecycle/examples-manifest.json",
       "kind": "examples-manifest",
       "contract_version": "0.1.0",
-      "sha256": "eabd3fe6d0e52fa45a6988404945338d2c1d8453ed414a3525202a412c69db77"
+      "sha256": "9b4d5490377559ec777f4a12f4f7aaf1a5d5ddeae75aefecd9c05083dbccf8cf"
     },
     {
       "file": "examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json",

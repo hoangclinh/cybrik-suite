@@ -58,6 +58,10 @@ export const expectedPacketPaths = [
 const MANIFEST = expectedPacketPaths[0];
 const NOTES = expectedPacketPaths[1];
 const EXAMPLES_MANIFEST = expectedPacketPaths[2];
+const ACCEPTED_LIFECYCLE_MANIFEST =
+  'contracts/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json';
+const ACCEPTED_LIFECYCLE_OPENAPI =
+  'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
 const FIXTURE_ROOT = 'contracts/examples/svc-lifecycle/';
 const NOW = 1900000000;
 const AUDIENCE = 'svc:cyber-ai-lifecycle';
@@ -66,7 +70,17 @@ const ALLOWED = new Map([
   ['investigation.status', 'investigation.lifecycle:read'],
   ['investigation.cancel', 'investigation.lifecycle:cancel'],
 ]);
-const RESERVED = new Set(['investigation.checkpoint', 'investigation.bundle_read']);
+const NON_DELEGATABLE = new Set([
+  'investigation.checkpoint',
+  'investigation.bundle_read',
+]);
+const ACCEPTED_LIFECYCLE_OPERATIONS = [
+  'createInvestigation',
+  'getInvestigationStatus',
+  'listInvestigationCheckpoints',
+  'cancelInvestigation',
+  'readInvestigationBundle',
+];
 const CLASSIFICATION = { public: 0, internal: 1, confidential: 2, restricted: 3 };
 const TLP = {
   'TLP:CLEAR': 0,
@@ -233,7 +247,7 @@ const runtimeViolations = (request, trust, seenJtis = new Set()) => {
   if (request?.org_scope !== claims?.['cybrik.org_scope']) violations.push('ORG');
   if (!stableEqual(request?.actor, claims?.['cybrik.actor'])) violations.push('ACTOR');
   if (request?.operation?.name !== op) violations.push('OPERATION');
-  if (RESERVED.has(op) || !ALLOWED.has(op)) violations.push('NOT_DELEGATABLE');
+  if (NON_DELEGATABLE.has(op) || !ALLOWED.has(op)) violations.push('NOT_DELEGATABLE');
   if (ALLOWED.has(op) && scope !== ALLOWED.get(op)) violations.push('SCOPE');
   if (above(request?.data_marking, claims?.['cybrik.marking'])) violations.push('MARKING');
   if (seenJtis.has(claims?.jti)) violations.push('REPLAY');
@@ -249,6 +263,8 @@ export async function validateSvcLifecycleBinding({
     packetFiles: 0,
     positiveFixtures: 0,
     negativeSemanticFixtures: 0,
+    acceptedLifecycleOperations: 0,
+    acceptedBundleRead200Responses: 0,
   };
 
   for (const path of expectedPacketPaths) {
@@ -264,10 +280,64 @@ export async function validateSvcLifecycleBinding({
 
   const manifest = parseJson(root, MANIFEST, overrides, errors);
   const examples = parseJson(root, EXAMPLES_MANIFEST, overrides, errors);
+  const acceptedLifecycle = parseJson(
+    root,
+    ACCEPTED_LIFECYCLE_MANIFEST,
+    overrides,
+    errors,
+  );
   const acceptedW2f = compileAcceptedW2f(root, errors);
   let notes = '';
   try { notes = readSource(root, NOTES, overrides); } catch (error) {
     errors.push(`${NOTES}: cannot read: ${error.message}`);
+  }
+  let acceptedOpenApi = '';
+  try {
+    acceptedOpenApi = readSource(root, ACCEPTED_LIFECYCLE_OPENAPI, overrides);
+  } catch (error) {
+    errors.push(`${ACCEPTED_LIFECYCLE_OPENAPI}: cannot read: ${error.message}`);
+  }
+
+  const acceptedOperations = acceptedLifecycle?.operation_contract?.operations || [];
+  counts.acceptedLifecycleOperations = acceptedOperations.length;
+  if (acceptedLifecycle?.['x-cybrik-status'] !== 'ACCEPTED FOR IMPLEMENTATION'
+    || acceptedLifecycle?.['x-cybrik-not-accepted'] !== false) {
+    errors.push(
+      'accepted lifecycle source must remain ACCEPTED FOR IMPLEMENTATION '
+        + 'before this proposal can restrict its delegation surface',
+    );
+  }
+  if (!stableEqual(acceptedOperations, ACCEPTED_LIFECYCLE_OPERATIONS)) {
+    errors.push(
+      'accepted lifecycle operation set must include readInvestigationBundle '
+        + 'and retain the exact five accepted operationIds',
+    );
+  }
+  const bundleOperationStart = acceptedOpenApi.search(
+    /^\s{6}operationId:\s*readInvestigationBundle\s*$/m,
+  );
+  let bundleOperationBlock = '';
+  if (bundleOperationStart >= 0) {
+    const remainder = acceptedOpenApi.slice(bundleOperationStart);
+    const nextPath = remainder.search(/\n  (?:\/|components:)/);
+    bundleOperationBlock = nextPath >= 0 ? remainder.slice(0, nextPath) : remainder;
+  }
+  const response200Matches = bundleOperationBlock.match(/^\s{8}'200':\s*$/gm) || [];
+  counts.acceptedBundleRead200Responses = response200Matches.length;
+  if (response200Matches.length !== 1
+    || !bundleOperationBlock.includes(
+      "$ref: '#/components/schemas/InvestigationBundleReadResult'",
+    )) {
+    errors.push(
+      'accepted readInvestigationBundle must retain its declared 200 response '
+        + 'bound to InvestigationBundleReadResult',
+    );
+  }
+  if (acceptedLifecycle?.supersession_mapping?.accepted_successor?.contract_version
+    !== '0.1.1') {
+    errors.push(
+      'accepted lifecycle source must retain v0.1.1 as the bundle-read response profile',
+    );
   }
 
   if (manifest?.['x-cybrik-status'] !== 'PROPOSED'
@@ -283,23 +353,53 @@ export async function validateSvcLifecycleBinding({
   if (!stableEqual(manifest?.delegatable_operations, Object.fromEntries(ALLOWED))) {
     errors.push('manifest delegatable operation-to-scope map must remain exact');
   }
-  if (!stableEqual(manifest?.reserved_non_delegatable_operations, [...RESERVED])) {
-    errors.push('manifest reserved non-delegatable operation inventory must remain exact');
+  if (!stableEqual(
+    manifest?.non_delegatable_operations,
+    [...NON_DELEGATABLE],
+  )) {
+    errors.push('manifest non-delegatable operation inventory must remain exact');
   }
-  const expectedRestBinding = {
+  const expectedAcceptedSourceCrossCheck = {
+    manifest:
+      'compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json',
+    openapi: 'openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml',
+    operation_id: 'readInvestigationBundle',
+    operation_contract_state: 'ACCEPTED FOR IMPLEMENTATION',
+    response_status: '200',
+    response_schema: 'InvestigationBundleReadResult',
+    response_profile: 'cybrik.investigation-bundle.strict-compatible.v1@0.1.1',
+    proposal_effect:
+      'DECLINES W2-F DELEGATION AUTHORITY ONLY; '
+        + 'DOES NOT CHANGE THE ACCEPTED BUSINESS LIFECYCLE CONTRACT',
+  };
+  if (!stableEqual(
+    manifest?.accepted_source_cross_check,
+    expectedAcceptedSourceCrossCheck,
+  )) {
+    errors.push(
+      'proposal accepted-source cross-check must distinguish accepted bundle-read '
+        + 'business contract from declined delegation authority',
+    );
+  }
+  const expectedBusinessBinding = {
     createInvestigation: 'investigation.create',
     getInvestigationStatus: 'investigation.status',
     listInvestigationCheckpoints: 'investigation.status',
     cancelInvestigation: 'investigation.cancel',
-    readInvestigationBundle: null,
+    readInvestigationBundle: 'investigation.bundle_read',
   };
-  if (!stableEqual(manifest?.rest_operation_binding, expectedRestBinding)) {
+  if (!stableEqual(manifest?.business_operation_binding, expectedBusinessBinding)) {
     errors.push(
-      'REST operation binding must remain exact; '
+      'accepted business operation binding must remain exact; '
         + 'listInvestigationCheckpoints must bind to investigation.status/read',
     );
   }
-  if (manifest?.rest_operation_binding?.readInvestigationBundle !== null) {
+  const bundleDelegation = manifest?.delegation_disposition?.readInvestigationBundle;
+  if (bundleDelegation?.delegated !== false
+    || bundleDelegation?.mint_token !== false
+    || bundleDelegation?.consume_token !== false
+    || bundleDelegation?.reason
+      !== 'CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL') {
     errors.push('readInvestigationBundle must not mint or consume a delegation token');
   }
   for (const phrase of [
@@ -310,6 +410,8 @@ export async function validateSvcLifecycleBinding({
     'investigation.bundle_read',
     'listInvestigationCheckpoints',
     'investigation.status',
+    'accepted business lifecycle operation',
+    'current Cyber AI implementation',
   ]) {
     if (!notes.includes(phrase)) errors.push(`mapping notes must state '${phrase}'`);
   }
