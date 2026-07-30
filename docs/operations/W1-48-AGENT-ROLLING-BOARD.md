@@ -2,9 +2,9 @@
 
 - **Prepared:** 2026-07-26
 - **Coordination decision:** `W1 READ-AHEAD/PACKET PREPARATION GO`
-- **Product-writer decision:** `FAB-C0 BOUNDED HARDENING WRITER GO`; W1 runtime writers remain
+- **Product-writer decision:** `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain
   `NO-GO`
-- **Integration decision:** `NO-GO FOR DELEGATED ROUTINE INTEGRATION`
+- **Integration decision:** `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`
 - **W0 closure:** `NO-GO`; `COMPLETE=0`
 - **Release impact:** none. W0–W6 dates and the 2026-12-21 → 2026-12-31 release window remain
   unchanged.
@@ -44,9 +44,9 @@ Therefore:
 | W1-C2 — investigation lifecycle/create/status/cancel/bundle-read contract proposal | `ACCEPTED — CLOSED 2026-07-26` | `ACCEPTED FOR IMPLEMENTATION v0.1.0` as the local commit `ed95e51...` only; Cyber AI producer / SOC consumer ownership preserved; Bundle v0.1.1 adoption, v0.1.0 supersession and consumer migration each still separately gated |
 | GATE A4 — ADR-0003/ADR-0005 evidence and decision packet | `ACCEPTED — CLOSED 2026-07-26` | ADR-0003 and ADR-0005 `ACCEPTED` as decisions only; no implementation, dependency or substrate selection follows |
 | W1-G1 — alert-context transport-binding acceptance | `ACCEPTED — CLOSED 2026-07-27` | `ACCEPTED FOR IMPLEMENTATION` (packet v0.1.0, not stable v1/GA, `NOT IMPLEMENTED`) as the local commit `a976a205…` only, parent `4d5fb4b…`, exact 6 paths, branch tip `codex/w1-c1-transport-acceptance-r1`; static contract decision only — TR-4..TR-8 runtime evidence, an endpoint, a live capability-registry entry, a Fabric invocation grant, CI wiring and Bundle adoption each remain open; not pushed, not merged (§1.3, §14.11) |
-| W1 product implementation | `HOLD` | Requires exact repo/base/path/acceptance/test/commit authority |
+| W1 product implementation | `CONDITIONAL GO` | Dependency-ready bounded packets may proceed with exact repo/base/path/acceptance/test scope |
 | W1 integration/live shadow | `HOLD` | Requires accepted contracts, product revisions and explicit integration authority |
-| Routine delegated integration | `NO-GO` | Hosted enforcement and Founder delegation remain absent |
+| Routine delegated integration | `GO — EVIDENCE GATED` | Governor may review, commit, push and merge after exact-scope verification and hosted required checks |
 | External release | `NO-GO` | Release-register RB-001 responsible-disclosure blocker remains open |
 
 The contract packet's historical approval-ingress forward gap also uses the string `RB-001`.

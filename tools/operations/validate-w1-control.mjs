@@ -632,13 +632,18 @@ function validateBoardGates(boardText) {
   );
   assertIncludes(
     boardText,
-    /\*\*Product-writer decision:\*\* `FAB-C0 BOUNDED HARDENING WRITER GO`; W1 runtime writers remain\s+`NO-GO`/,
+    /\*\*Product-writer decision:\*\* `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain\s+`NO-GO`/,
     "W1 runtime writers must remain NO-GO",
   );
   assertIncludes(
     boardText,
-    /\*\*Integration decision:\*\* `NO-GO FOR DELEGATED ROUTINE INTEGRATION`/,
-    "Delegated routine integration must remain NO-GO",
+    /\*\*Integration decision:\*\* `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`/,
+    "Delegated technical integration must remain evidence-gated GO",
+  );
+  assertIncludes(
+    boardText,
+    /\| Routine delegated integration \| `GO — EVIDENCE GATED` \| Governor may review, commit, push and merge after exact-scope verification and hosted required checks \|/,
+    "Delegated technical integration must preserve exact-scope and hosted-check gates",
   );
   assertIncludes(
     boardText,
