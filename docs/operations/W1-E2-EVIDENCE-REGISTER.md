@@ -1,7 +1,8 @@
 # W1 E2 proposal and bounded-hardening evidence register
 
 - **Prepared:** 2026-07-26
-- **Status:** `ACTIVE — LOCAL COMMIT AND WORKTREE EVIDENCE ONLY — NOT PUSHED, NOT INTEGRATED`
+- **Status:** `ACTIVE — MIXED HISTORICAL EVIDENCE`; current W1 C1/G1 + corrected C2 control and
+  contract state is `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY`
 - **Scope:** GATE A4 decision packet, W1-C1 alert-context contract, W1-C2 investigation
   lifecycle contract and FAB-C0 provenance containment
 - **Authority:** no push, merge, dependency install, database/container, deployment,
@@ -16,6 +17,8 @@
 - **Cyber AI W1-I06C post-commit evidence:** 2026-07-27, eighth same-day record — see §12
 - **SOC W1-I03B route-DB permanence grant:** 2026-07-27, ninth same-day record — see §13
 - **SOC W1-I03B hard-stop evidence:** 2026-07-27, tenth same-day record — see §14
+- **Canonical W1 integration:** 2026-07-30 — PR #1 merge
+  `28c564eb9b6853b73a18a59a2e84ba58fd67816a`
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
@@ -46,6 +49,11 @@ stop: a two-path dirty tree at the grant base, reviewed **technical GO, no P0–
 independent W0-R02B review but dispositioned `PAUSED — UNCOMMITTED` because the grant's
 same-writer commit authority expired with the exhausted session — which is **not product
 evidence** and promotes nothing.
+
+The canonical-integration line supersedes only current-state/local-only wording for W1-C1,
+W1-C2, W1-G1, CONTROL9 and CI3. The per-lane rows and dated sections below retain the evidence and
+status that existed when recorded. No SOC, Cyber AI or Fabric runtime integration is inferred from
+the Suite control merge.
 
 ## 1. Current evidence
 
@@ -129,14 +137,19 @@ not a P0–P3 defect and it opens no gate.
   privileged local tree is not an atomic verify-and-load snapshot.
 - Stronger closure requires an immutable/snapshot mount or a load-from-verified-descriptor design.
 
-## 3. Remaining gates
+## 3. Gate reconciliation — current as of 2026-07-30
 
-1. **Publication gate.** Obtain explicit authority before pushing either accepted branch; neither
-   accepted commit has been pushed.
-2. **Merge gate.** Obtain explicit authority before either accepted branch reaches `main`.
-3. Obtain separate exact product/base/path/test/reviewer authority before SOC, Cyber AI or Fabric
-   runtime work.
-4. Keep delegated routine integration and external release `NO-GO`.
+1. **Suite W1 publication and merge gates — `CLOSED`.** The corrected W1-C1/G1 and W1-C2 line
+   reached canonical `main` through PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`;
+   no replay or cherry-pick remains.
+2. **Product/runtime scope gate — `OPEN`.** SOC, Cyber AI and Fabric work still requires an exact
+   repo/base/path/test/reviewer packet. Static Suite integration proves no product runtime.
+3. **Delegated technical integration — evidence-gated `GO`.** The Governor may review, commit,
+   push and merge bounded technical packets after exact-scope verification and hosted required
+   checks. External release remains `NO-GO` while `RB-001(release-disclosure)` is open.
+4. **Suite W1 static contract/control CI gate — `CLOSED`.** The canonical workflow invokes the
+   control validator and all registered W1 contract checks. Product-repository CI admission and
+   live-shadow runtime evidence remain separate gates.
 5. **Pinned-row correction gate — closed.** The pre-acceptance §1 aggregate/coverage/test-count
    attributes, the matching decision-packet §1 rows and the matching pins in
    `tools/operations/validate-w1-control.mjs` and its test file were repaired together under a
@@ -155,8 +168,9 @@ not a P0–P3 defect and it opens no gate.
    `docs/adr/ADR-0005-STATUS-FLIP-APPLICATION.md` §4 records the same resolution. **The governing
    rule stands permanently:** only policy-approved S0/R0 metadata workers may be pooled, and S4 — an
    R3 class — is never pooled under accepted ADR-0004 F3. No open gate remains from this item.
-8. **CI wiring gate.** Validator/test registration and pipeline invocation remain unwired for every
-   lane in §4.
+8. **CI wiring gate — closed for Suite W1 static contract/control.** Canonical CI runs the control
+   validator and registered W1 contract tests. This does not close product-repository CI admission
+   or runtime evidence gates for the lanes in §4.
 9. **GATE A4 status flip — applied 2026-07-26; outside-allowlist reconciliation closed 2026-07-26.**
    Option A was accepted under Founder-delegated current-thread authority; ADR-0003 `H1..H11` and
    ADR-0005 `J1..J10` are accepted, both ADR files read `ACCEPTED` (GATE A4, 2026-07-26) — decision
@@ -307,20 +321,19 @@ re-inspection), with the Cyber AI worktree confirmed clean, zero staged, no upst
 
 ### 4.3 CI and posture
 
-- **CI: NOT WIRED** for all four applications and both accepted contract lanes. No validator, test,
-  orchestration, persistence, restart-survival, isolation-benchmark or escape-test job is
-  registered in any pipeline. Every result recorded above is **static/documentary only** from
-  manual reproducible execution; **no CI result is claimed**.
-- The W1 control validator and its test suite are **GREEN** against the current tree — validator
-  `PASS`, `tests 77 · pass 77 · fail 0`, coverage line 98.31% · branch 92.93% · funcs 97.87% —
-  measured manually on 2026-07-26 after the W0-R06 repair. That is §3 item 10, now closed; the
-  earlier `tests 77 · pass 9 · fail 68` RED is dated history. This result is a documentary
-  consistency check over the control documents only. It is **not** product, runtime or CI evidence,
-  it does not close W0 and it opens no writer, and it is separate from the per-lane W1-C1/W1-C2
-  evidence above, which comes from each packet's own standalone validator and test suite run in its
-  own worktree — those remain `PASS`, `21/21` and `31/31` respectively.
-- `W0 COMPLETE=0` and W0 closure `NO-GO`. W1 runtime writers remain `HOLD`/`NO-GO`. Delegated
-  routine integration and external release remain `NO-GO`.
+- **Suite W1 static contract/control CI: WIRED AND HOSTED**. The canonical contracts workflow
+  runs the control validator and all registered W1 contract checks; hosted evidence is pinned to
+  predecessor runs `30537649671` and `30543470413`. Those runs prove the orchestrator path, not
+  this branch's newly added direct `test:w1-control` step; PR #5 must pass the current workflow on
+  its current tip before merge. Product orchestration, persistence, restart-survival, isolation
+  benchmarks and escape tests remain outside this static CI claim.
+- The W1 control validator and its test suite are **GREEN** against the current reconciliation tree
+  — validator `PASS`, `tests 216 · pass 216 · fail 0`. The earlier manual `77/77` and RED `9/77`
+  figures are dated history. This remains a control-document consistency result, not product,
+  runtime, UAT, release or production evidence. The per-lane W1-C1/W1-C2 evidence remains separate
+  at `PASS`, `21/21` and `31/31`.
+- `W0 COMPLETE=0` and W0 closure `NO-GO`. W1 runtime writers remain `HOLD`/`NO-GO`.
+  Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`.
 - W1 formal dates (2026-08-01 → 2026-08-23), all W0–W6 dates and the 2026-12-21 → 2026-12-31
   release window are **unchanged**; no release claim is made.
 

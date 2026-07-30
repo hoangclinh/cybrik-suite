@@ -1,6 +1,15 @@
 # W1 blocker-4 — canonical integration and CI activation Founder decision packet
 
-Status: `PROPOSED — FOUNDER DECISION REQUIRED`.
+Status: `SUPERSEDED FOR SUITE W1 CONTRACT/CONTROL INTEGRATION — HISTORICAL PACKET`.
+
+Current Suite W1 lifecycle:
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY`.
+GitHub PR #1 merged the reviewed reconciliation and CI activation line at
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. Therefore no W1-C1, W1-C2, W1-G1, CONTROL9 or CI3
+replay/cherry-pick remains. The packet below is retained as dated topology and decision provenance;
+its forward-looking Founder-ballot, GitHub Free, no-protection, no-push and no-canonical-integration
+claims are superseded. Product-runtime integration, G-C `stable-v1.0`, UAT and production remain
+outside this correction.
 
 Task: **W0-D04**, sub-lanes **W1-D04B** and **W1-D04C**. Originally authored 2026-07-27 in control
 worktree `/Users/hoanglinh/Claude/Projects/cybrik-worktrees/w1-48/w1-d04-founder-gate-repair-r1` at
@@ -1174,7 +1183,7 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 | 9 | whole file | corpus-level withdrawn-count guard: every surviving `<n> transport fixtures` claim anywhere in this file, quotation included, must read **13** |
 | 10 | §8 | NO-GO **14** and NO-GO **15** are each pinned byte-exact |
 | 11 | §9 | the dated verification-history table and the current-result paragraph above are each pinned byte-exact |
-| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and tip ancestry exist |
+| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and rehearsal-tip ancestry exist |
 | 13 | §2.8 and §7.1 | both sections must carry the full two-sided base-plus-one disclosure — the base `8fe4cb0`, the measured **25**, this record's **+1**, the derived **26**, the prediction-not-measurement warning, the no-self-identity statement and the mandatory external re-confirmation before any push |
 | 14 | whole file | no present-tense `current`/`live` control-tip claim may name the immutable base `8fe4cb0`; it is the base/parent of this record, never its tip |
 | 15 | §2.10, board §14.35, register §27 | exactly four local-provenance rows, each pinned byte-exact and byte-identical across the three documents, each carrying `LOCAL-ONLY`, `INDEPENDENT REVIEW PASS`, `NOT INTEGRATED` and `NOT PUSHED/MERGED/RELEASED`, with `CONFORMANCE-ONLY` on both vendor rows; a missing or extra row fails closed |
@@ -1184,6 +1193,9 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 | 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |
 | 20 | §2.8 ↔ §7.1 | the Suite LINE 2 and SOC rows must agree on tip and count across both sections, exactly as Suite LINE 1 already must |
 | 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |
+| 22 | current canonical state | the reconciliation application, board, E2 register, blocker-4 packet and ADR catalog must all carry the canonical lifecycle and PR #1 merge; the E2 current-gate section must exclude superseded unpushed, unmerged and delegation-NO-GO claims |
+| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime at `NO-GO` and production as Founder-controlled |
+| 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |
 
 **Not enforced — equally complete, so no reader infers coverage that does not exist.**
 
@@ -1203,8 +1215,10 @@ read-only `git` commands in the repository root. It requires the exact objects
 `71857395332fabe041896ca0700fbf7a2bf612d3`,
 `5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`,
 `87efae7898bd14e9aa9a2866380a9973d8b3e5bc` and
-`900d83a61515f37ae117e04763da1881cba90b7b`, then checks exact ordered parents, trees, ancestry
-and current rehearsal tip. A missing or shallow-history object is a hard failure. The pure
+`900d83a61515f37ae117e04763da1881cba90b7b`, plus canonical PR #1 merge
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. It checks the exact ordered parents and trees of
+all three merges, rehearsal-to-canonical ancestry and canonical-merge-to-`HEAD` ancestry. A
+missing or shallow-history object is a hard failure. The pure
 document-validation function remains injectable for negative fixtures, but it never substitutes
 for the canonical file validator or degrades a missing Git object to document-only success.
 

@@ -84,3 +84,7 @@ jobs:
       - name: Test accepted W1 static contract lines (exactly 98 tests)
         working-directory: tools/contract-validation
         run: npm run test:w1-contracts
+
+      - name: Test W1 control validator fail-closed rules
+        working-directory: tools/contract-validation
+        run: npm run test:w1-control

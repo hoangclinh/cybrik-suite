@@ -74,6 +74,17 @@ const W1_RECONCILIATION = {
     "501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1",
 };
 
+const W1_CANONICAL_INTEGRATION = {
+  lifecycle:
+    "CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY",
+  merge: "28c564eb9b6853b73a18a59a2e84ba58fd67816a",
+  mergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+  mergeParents: [
+    "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+    "f82f45e8d56be27651c56e8d1510877f48563224",
+  ],
+};
+
 const W1_RECONCILIATION_HISTORICAL_COMMITS = [
   "3a2c71555a423465855ffaddcb663c8b704dbfbd",
   "a976a205601de22dae59e5112e37ae29707fda0e",
@@ -621,13 +632,23 @@ function validateBoardGates(boardText) {
   );
   assertIncludes(
     boardText,
-    /\*\*Product-writer decision:\*\* `FAB-C0 BOUNDED HARDENING WRITER GO`; W1 runtime writers remain\s+`NO-GO`/,
+    /\*\*Product-writer decision:\*\* `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain\s+`NO-GO`/,
     "W1 runtime writers must remain NO-GO",
   );
   assertIncludes(
     boardText,
-    /\*\*Integration decision:\*\* `NO-GO FOR DELEGATED ROUTINE INTEGRATION`/,
-    "Delegated routine integration must remain NO-GO",
+    /\*\*Integration decision:\*\* `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`/,
+    "Delegated technical integration must remain evidence-gated GO",
+  );
+  assertIncludes(
+    boardText,
+    /\| Routine delegated integration \| `GO — EVIDENCE GATED` \| Governor may review, commit, push and merge after exact-scope verification and hosted required checks \|/,
+    "Delegated technical integration must preserve exact-scope and hosted-check gates",
+  );
+  assertIncludes(
+    boardText,
+    /\| W1 product implementation \| `CONDITIONAL GO` \| Dependency-ready bounded packets may proceed with exact repo\/base\/path\/acceptance\/test scope \|/,
+    "W1 product implementation must remain CONDITIONAL GO for bounded packets",
   );
   assertIncludes(
     boardText,
@@ -1214,9 +1235,14 @@ function validateE2Register(e2RegisterText) {
   );
   assertIncludes(
     e2RegisterText,
-    /^- \*\*CI: NOT WIRED\*\* for all four applications and both accepted contract lanes\./m,
-    "E2 register must keep the CI: NOT WIRED disclosure for all four " +
-      "applications and both accepted contract lanes",
+    /^- \*\*Suite W1 static contract\/control CI: WIRED AND HOSTED\*\*\./m,
+    "E2 register must record the current Suite W1 static contract/control CI as WIRED AND HOSTED",
+  );
+  assertIncludes(
+    e2RegisterText,
+    /Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`\./,
+    "E2 register must keep delegated technical integration at evidence-gated `GO` while " +
+      "external release remains `NO-GO`",
   );
   assertIncludes(
     e2RegisterText,
@@ -2331,7 +2357,7 @@ const PACKET_ENFORCED_RULE_ROWS = [
   "| 9 | whole file | corpus-level withdrawn-count guard: every surviving `<n> transport fixtures` claim anywhere in this file, quotation included, must read **13** |",
   "| 10 | §8 | NO-GO **14** and NO-GO **15** are each pinned byte-exact |",
   "| 11 | §9 | the dated verification-history table and the current-result paragraph above are each pinned byte-exact |",
-  "| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and tip ancestry exist |",
+  "| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and rehearsal-tip ancestry exist |",
   "| 13 | §2.8 and §7.1 | both sections must carry the full two-sided base-plus-one disclosure — the base `8fe4cb0`, the measured **25**, this record's **+1**, the derived **26**, the prediction-not-measurement warning, the no-self-identity statement and the mandatory external re-confirmation before any push |",
   "| 14 | whole file | no present-tense `current`/`live` control-tip claim may name the immutable base `8fe4cb0`; it is the base/parent of this record, never its tip |",
   "| 15 | §2.10, board §14.35, register §27 | exactly four local-provenance rows, each pinned byte-exact and byte-identical across the three documents, each carrying `LOCAL-ONLY`, `INDEPENDENT REVIEW PASS`, `NOT INTEGRATED` and `NOT PUSHED/MERGED/RELEASED`, with `CONFORMANCE-ONLY` on both vendor rows; a missing or extra row fails closed |",
@@ -2341,6 +2367,9 @@ const PACKET_ENFORCED_RULE_ROWS = [
   "| 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |",
   "| 20 | §2.8 ↔ §7.1 | the Suite LINE 2 and SOC rows must agree on tip and count across both sections, exactly as Suite LINE 1 already must |",
   "| 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |",
+  "| 22 | current canonical state | the reconciliation application, board, E2 register, blocker-4 packet and ADR catalog must all carry the canonical lifecycle and PR #1 merge; the E2 current-gate section must exclude superseded unpushed, unmerged and delegation-NO-GO claims |",
+  "| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime at `NO-GO` and production as Founder-controlled |",
+  "| 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |",
 ];
 
 const PACKET_UNENFORCED_BULLETS = [
@@ -2359,8 +2388,10 @@ const PACKET_LIVE_GIT_BLOCK =
   "`71857395332fabe041896ca0700fbf7a2bf612d3`,\n" +
   "`5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`,\n" +
   "`87efae7898bd14e9aa9a2866380a9973d8b3e5bc` and\n" +
-  "`900d83a61515f37ae117e04763da1881cba90b7b`, then checks exact ordered parents, trees, ancestry\n" +
-  "and current rehearsal tip. A missing or shallow-history object is a hard failure. The pure\n" +
+  "`900d83a61515f37ae117e04763da1881cba90b7b`, plus canonical PR #1 merge\n" +
+  "`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. It checks the exact ordered parents and trees of\n" +
+  "all three merges, rehearsal-to-canonical ancestry and canonical-merge-to-`HEAD` ancestry. A\n" +
+  "missing or shallow-history object is a hard failure. The pure\n" +
   "document-validation function remains injectable for negative fixtures, but it never substitutes\n" +
   "for the canonical file validator or degrades a missing Git object to document-only success.";
 
@@ -2794,6 +2825,8 @@ function validateW1ReconciliationDocuments({
   boardText,
   e2RegisterText,
   adrReadmeText,
+  operationsReadmeText,
+  actionRecordText,
   packetText,
   w1C1ApplicationText,
   w1C2ApplicationText,
@@ -2973,6 +3006,85 @@ function validateW1ReconciliationDocuments({
     );
   }
 
+  for (const [text, label] of [
+    [w1ReconciliationApplicationText, "W1 reconciliation application"],
+    [boardText, "W1 board"],
+    [e2RegisterText, "W1 E2 register"],
+    [packetText, "blocker-4 packet"],
+    [adrReadmeText, "ADR catalog"],
+  ]) {
+    assertIncludes(
+      text,
+      new RegExp(escapeRegExp(W1_CANONICAL_INTEGRATION.lifecycle)),
+      `${label} must carry the current canonical-integration lifecycle`,
+    );
+    assertIncludes(
+      text,
+      new RegExp(escapeRegExp(W1_CANONICAL_INTEGRATION.merge)),
+      `${label} must pin the canonical PR 1 merge`,
+    );
+  }
+
+  const currentGateSection = extractSection(
+    e2RegisterText,
+    "## 3. Gate reconciliation — current as of 2026-07-30",
+    "W1 E2 register",
+  );
+  for (const pattern of [
+    /PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`/,
+    /delegated technical integration — evidence-gated `GO`/i,
+    /Suite W1 static contract\/control CI gate — `CLOSED`/i,
+  ]) {
+    assertIncludes(
+      currentGateSection,
+      pattern,
+      `W1 E2 register current gates are missing ${pattern}`,
+    );
+  }
+  for (const pattern of [
+    /neither accepted commit has been pushed/i,
+    /before either accepted branch reaches `main`/i,
+    /delegated routine integration and external release `NO-GO`/i,
+  ]) {
+    assertExcludes(
+      currentGateSection,
+      pattern,
+      "W1 E2 register current gates retain a superseded publication, merge or delegation claim",
+    );
+  }
+
+  assertIncludes(
+    operationsReadmeText,
+    /\[W1-CANONICAL-STATE-RECONCILIATION-R1\.md\]\(W1-CANONICAL-STATE-RECONCILIATION-R1\.md\)/,
+    "operations catalog must index the delegated-action reconciliation record",
+  );
+  for (const value of [
+    "fac2ac13a36abbf31b6b6d95f08d289c0a27fd52",
+    "6eeed3689fd0c787394cee3d48f3ecfd654db313",
+    "f5cc213db0a9cb84377d47b0058608322f7af288",
+    "5459aeec785c8ec8eada77afea3f0d1f18c16373",
+    "7c1cc8f5bf3c772436eff2922a4a1071e0571328",
+    "9e8b760d7d4154a91b6611f771af1acbf12b801a",
+    "ba3b760",
+    "23887d4",
+    "68fc825",
+    "4df32b6",
+    "tenth local commit",
+    "TECHNICAL GO — REMOTE STATUS EXTERNAL; SEE LIVE PR #5",
+    "208/208",
+    "found 0 vulnerabilities",
+    "no leaks found",
+    "NO-GO",
+    "rollback",
+    "production remains Founder-controlled",
+  ]) {
+    assertIncludes(
+      actionRecordText,
+      new RegExp(escapeRegExp(value), "i"),
+      `delegated-action record is missing ${value}`,
+    );
+  }
+
   assertIncludes(
     adrReadmeText,
     /\[W1-CONTRACT-RECONCILIATION-APPLICATION\.md\]\(W1-CONTRACT-RECONCILIATION-APPLICATION\.md\)/,
@@ -3014,10 +3126,22 @@ function validateW1ReconciliationDocuments({
     },
     controlDraftPaths: W1_RECONCILIATION_CONTROL_PATHS.length,
     ciDraftPaths: W1_RECONCILIATION_CI_PATHS.length,
-    governance: { ...W1_RECONCILIATION_GOVERNANCE },
-    security: { ...W1_RECONCILIATION_SECURITY },
-    canonical: false,
-    pushed: false,
+    historicalRehearsal: {
+      governance: { ...W1_RECONCILIATION_GOVERNANCE },
+      security: { ...W1_RECONCILIATION_SECURITY },
+    },
+    canonicalIntegration: { ...W1_CANONICAL_INTEGRATION },
+    currentGovernance: {
+      pushed: true,
+      merged: true,
+      released: false,
+      ciActivated: true,
+      auditHigh: 0,
+      runtimeProven: false,
+      productionAuthorized: false,
+    },
+    canonical: true,
+    pushed: true,
     runtimeProven: false,
   };
 }
@@ -3037,6 +3161,8 @@ export function validateW1CiWiring({
     "validate:dependency-compat":
       "node --test tests/dependency-compat.test.mjs",
     "test:w1-contracts": "node validate.mjs --test-w1-contracts",
+    "test:w1-control":
+      "node --test ../operations/tests/validate-w1-control.test.mjs",
   };
   for (const [name, command] of Object.entries(expectedScripts)) {
     if (packageDocument.scripts?.[name] !== command) {
@@ -3100,6 +3226,7 @@ export function validateW1CiWiring({
     /run: npm audit --audit-level=high/,
     /run: npm run validate/,
     /run: npm run test:w1-contracts/,
+    /run: npm run test:w1-control/,
   ]) {
     assertIncludes(
       contractsJob,
@@ -3253,7 +3380,8 @@ export function validateW1CiWiring({
     node: "24.18.1",
     dependencyCompatibilityTests: 2,
     dependencyAuditLevel: "high",
-    hostedRunClaimed: false,
+    hostedRunClaimed: true,
+    hostedRuns: [30537649671, 30543470413],
   };
 }
 
@@ -3308,6 +3436,45 @@ export function validateW1ReconciliationTopology(snapshot) {
   };
 }
 
+export function validateW1CanonicalIntegrationTopology(snapshot) {
+  if (
+    !Array.isArray(snapshot.canonicalMergeParents) ||
+    snapshot.canonicalMergeParents.length !==
+      W1_CANONICAL_INTEGRATION.mergeParents.length ||
+    snapshot.canonicalMergeParents.some(
+      (parent, index) => parent !== W1_CANONICAL_INTEGRATION.mergeParents[index],
+    )
+  ) {
+    throw new Error(
+      "W1 reconciliation canonical merge parents are wrong; expected " +
+        `${JSON.stringify(W1_CANONICAL_INTEGRATION.mergeParents)}, received ` +
+        JSON.stringify(snapshot.canonicalMergeParents),
+    );
+  }
+  if (snapshot.canonicalMergeTree !== W1_CANONICAL_INTEGRATION.mergeTree) {
+    throw new Error(
+      "W1 reconciliation canonical merge tree is wrong; expected " +
+        `${W1_CANONICAL_INTEGRATION.mergeTree}, received ${snapshot.canonicalMergeTree}`,
+    );
+  }
+  if (!snapshot.rehearsalDescendsIntoCanonicalMerge) {
+    throw new Error(
+      "W1 reconciliation rehearsal tip does not descend into the canonical merge",
+    );
+  }
+  if (!snapshot.headDescendsFromCanonicalMerge) {
+    throw new Error(
+      "W1 reconciliation repository HEAD does not descend from the canonical merge",
+    );
+  }
+  return {
+    canonicalMerge: W1_CANONICAL_INTEGRATION.merge,
+    canonicalMergeTree: W1_CANONICAL_INTEGRATION.mergeTree,
+    repositoryHeadDescendsFromCanonicalMerge: true,
+    canonical: true,
+  };
+}
+
 function runGitRead(repositoryRoot, args, label) {
   const result = spawnSync("git", ["-C", repositoryRoot, ...args], {
     encoding: "utf8",
@@ -3328,6 +3495,7 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     W1_RECONCILIATION.correctedC2Tip,
     W1_RECONCILIATION.mergeOne,
     W1_RECONCILIATION.mergeTwo,
+    W1_CANONICAL_INTEGRATION.merge,
   ]) {
     runGitRead(
       repositoryRoot,
@@ -3371,7 +3539,7 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     headDescendsFromRehearsal = false;
   }
 
-  return validateW1ReconciliationTopology({
+  const rehearsalTopology = validateW1ReconciliationTopology({
     mergeOneParents: runGitRead(
       repositoryRoot,
       ["show", "-s", "--format=%P", W1_RECONCILIATION.mergeOne],
@@ -3395,6 +3563,60 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     ancestryComplete,
     headDescendsFromRehearsal,
   });
+
+  const canonicalMergeParents = runGitRead(
+    repositoryRoot,
+    ["show", "-s", "--format=%P", W1_CANONICAL_INTEGRATION.merge],
+    "canonical merge parents",
+  ).split(" ");
+  const canonicalMergeTree = runGitRead(
+    repositoryRoot,
+    ["rev-parse", `${W1_CANONICAL_INTEGRATION.merge}^{tree}`],
+    "canonical merge tree",
+  );
+
+  let rehearsalDescendsIntoCanonicalMerge = true;
+  try {
+    runGitRead(
+      repositoryRoot,
+      [
+        "merge-base",
+        "--is-ancestor",
+        W1_RECONCILIATION.mergeTwo,
+        W1_CANONICAL_INTEGRATION.merge,
+      ],
+      `ancestry ${W1_RECONCILIATION.mergeTwo} -> ${W1_CANONICAL_INTEGRATION.merge}`,
+    );
+  } catch {
+    rehearsalDescendsIntoCanonicalMerge = false;
+  }
+  let headDescendsFromCanonicalMerge = true;
+  try {
+    runGitRead(
+      repositoryRoot,
+      [
+        "merge-base",
+        "--is-ancestor",
+        W1_CANONICAL_INTEGRATION.merge,
+        "HEAD",
+      ],
+      `ancestry ${W1_CANONICAL_INTEGRATION.merge} -> HEAD`,
+    );
+  } catch {
+    headDescendsFromCanonicalMerge = false;
+  }
+
+  const canonicalTopology = validateW1CanonicalIntegrationTopology({
+    canonicalMergeParents,
+    canonicalMergeTree,
+    rehearsalDescendsIntoCanonicalMerge,
+    headDescendsFromCanonicalMerge,
+  });
+
+  return {
+    ...rehearsalTopology,
+    ...canonicalTopology,
+  };
 }
 
 export function validateW1ControlDocuments({
@@ -3412,6 +3634,8 @@ export function validateW1ControlDocuments({
   w1ReconciliationApplicationText,
   sprintText,
   adrReadmeText,
+  operationsReadmeText,
+  actionRecordText,
   packetText,
 }) {
   const { taskIds, categoryCounts } = parseBoardTasks(boardText);
@@ -3454,6 +3678,8 @@ export function validateW1ControlDocuments({
     boardText,
     e2RegisterText,
     adrReadmeText,
+    operationsReadmeText,
+    actionRecordText,
     packetText,
     w1C1ApplicationText,
     w1C2ApplicationText,
@@ -3601,6 +3827,12 @@ const CONTROL_DOCUMENT_PATHS = {
   ],
   sprintText: ["docs", "adr", "ADR-DECISION-SPRINT-2026-07.md"],
   adrReadmeText: ["docs", "adr", "README.md"],
+  operationsReadmeText: ["docs", "operations", "README.md"],
+  actionRecordText: [
+    "docs",
+    "operations",
+    "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
+  ],
   packetText: [
     "docs",
     "operations",

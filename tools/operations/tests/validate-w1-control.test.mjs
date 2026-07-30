@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   readW1ReconciliationTopology,
+  validateW1CanonicalIntegrationTopology,
   validateW1CiWiring,
   validateW1ControlDocuments,
   validateW1ControlFiles,
@@ -99,6 +100,18 @@ const packetPath = join(
   "operations",
   "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
 );
+const operationsReadmePath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "README.md",
+);
+const actionRecordPath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
+);
 
 const [
   boardText,
@@ -115,6 +128,8 @@ const [
   w1ReconciliationApplicationText,
   sprintText,
   adrReadmeText,
+  operationsReadmeText,
+  actionRecordText,
   packetText,
 ] = await Promise.all([
   readFile(boardPath, "utf8"),
@@ -131,6 +146,8 @@ const [
   readFile(w1ReconciliationApplicationPath, "utf8"),
   readFile(sprintPath, "utf8"),
   readFile(adrReadmePath, "utf8"),
+  readFile(operationsReadmePath, "utf8"),
+  readFile(actionRecordPath, "utf8"),
   readFile(packetPath, "utf8"),
 ]);
 
@@ -221,6 +238,8 @@ function validate(overrides = {}) {
     w1ReconciliationApplicationText,
     sprintText,
     adrReadmeText,
+    operationsReadmeText,
+    actionRecordText,
     packetText,
     ...overrides,
   });
@@ -854,12 +873,12 @@ test("rejects an E2 register that drops the accepted commit pins", () => {
   }
 });
 
-test("rejects loss of the E2 register CI NOT WIRED and static-only disclosure", () => {
+test("rejects loss of the current E2 register Suite CI wiring and static-only boundary", () => {
   const postureDrifts = [
     [
-      "- **CI: NOT WIRED** for all four applications and both accepted contract lanes.",
-      "- **CI: WIRED** for all four applications and both accepted contract lanes.",
-      /E2 register.*CI: NOT WIRED/i,
+      "- **Suite W1 static contract/control CI: WIRED AND HOSTED**.",
+      "- **Suite W1 static contract/control CI: NOT WIRED**.",
+      /E2 register.*Suite W1 static contract\/control CI.*WIRED AND HOSTED/i,
     ],
     [
       "**static/documentary only**",
@@ -881,6 +900,18 @@ test("rejects loss of the E2 register CI NOT WIRED and static-only disclosure", 
 
     assert.throws(() => validate({ e2RegisterText: drifted }), expectedError);
   }
+});
+
+test("rejects a current E2 posture that reverts delegated integration to NO-GO", () => {
+  const drifted = e2RegisterText.replace(
+    "Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`.",
+    "Delegated routine integration and external release remain `NO-GO`.",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /E2 register.*delegated technical integration.*evidence-gated `GO`/i,
+  );
 });
 
 test("rejects an E2 register GATE A4 row that does not record the acceptance", () => {
@@ -1045,6 +1076,123 @@ test("rejects loss of the W1 read-ahead GO decision", () => {
   );
 
   assert.throws(() => validate({ boardText: drifted }), /read-ahead.*GO/i);
+});
+
+test("requires current delegated Governor authority without opening runtime or production", () => {
+  const currentHeader = boardText.slice(0, boardText.indexOf("## 1. Transition decision"));
+
+  assert.match(
+    currentHeader,
+    /\*\*Product-writer decision:\*\* `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain\s+`NO-GO`/,
+  );
+  assert.match(
+    currentHeader,
+    /\*\*Integration decision:\*\* `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`/,
+  );
+  assert.match(
+    boardText,
+    /\| Routine delegated integration \| `GO — EVIDENCE GATED` \|/,
+  );
+  assert.match(currentHeader, /production remains Founder-controlled/i);
+  assert.doesNotMatch(currentHeader, /Founder delegation remain absent/i);
+});
+
+test("requires current register gates to supersede publication, merge, and CI-wiring blockers", () => {
+  const currentGates = e2RegisterText.slice(
+    e2RegisterText.indexOf("## 3."),
+    e2RegisterText.indexOf("## 4."),
+  );
+
+  assert.match(
+    currentGates,
+    /PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`/,
+  );
+  assert.match(currentGates, /delegated technical integration.*evidence-gated `GO`/i);
+  assert.match(currentGates, /Suite W1 static contract\/control CI.*`CLOSED`/i);
+  assert.doesNotMatch(currentGates, /neither accepted commit has been pushed/i);
+  assert.doesNotMatch(currentGates, /before either accepted branch reaches `main`/i);
+  assert.doesNotMatch(currentGates, /delegated routine integration.*`NO-GO`/i);
+});
+
+test("requires a cataloged delegated-action record with exact rollback and review state", async () => {
+  const actionRecord = await readFile(
+    join(
+      repositoryRoot,
+      "docs",
+      "operations",
+      "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
+    ),
+    "utf8",
+  );
+
+  for (const value of [
+    "fac2ac13a36abbf31b6b6d95f08d289c0a27fd52",
+    "6eeed3689fd0c787394cee3d48f3ecfd654db313",
+    "f5cc213db0a9cb84377d47b0058608322f7af288",
+    "5459aeec785c8ec8eada77afea3f0d1f18c16373",
+    "7c1cc8f5bf3c772436eff2922a4a1071e0571328",
+    "9e8b760d7d4154a91b6611f771af1acbf12b801a",
+    "ba3b760",
+    "23887d4",
+    "68fc825",
+    "4df32b6",
+    "tenth local commit",
+    "TECHNICAL GO — REMOTE STATUS EXTERNAL; SEE LIVE PR #5",
+    "208/208",
+    "found 0 vulnerabilities",
+    "no leaks found",
+    "NO-GO",
+    "rollback",
+    "production remains Founder-controlled",
+  ]) {
+    assert.match(actionRecord, new RegExp(value, "i"));
+  }
+
+  const operationsReadme = await readFile(
+    join(repositoryRoot, "docs", "operations", "README.md"),
+    "utf8",
+  );
+  assert.match(
+    operationsReadme,
+    /\[W1-CANONICAL-STATE-RECONCILIATION-R1\.md\]\(W1-CANONICAL-STATE-RECONCILIATION-R1\.md\)/,
+  );
+});
+
+test("reports 24 enforced blocker-4 rules after canonical-state activation", () => {
+  const result = validate();
+
+  assert.equal(result.enforcementSurface.enforcedRules, 24);
+  assert.match(packetText, /\| 22 \| current canonical state \|/);
+  assert.match(packetText, /\| 23 \| current delegated authority \|/);
+  assert.match(packetText, /\| 24 \| canonical merge topology \|/);
+});
+
+test("reports historical rehearsal facts separately from current canonical state", () => {
+  const result = validate();
+
+  assert.equal(result.w1ReconciliationApplication.governance, undefined);
+  assert.equal(result.w1ReconciliationApplication.security, undefined);
+  assert.deepEqual(result.w1ReconciliationApplication.currentGovernance, {
+    pushed: true,
+    merged: true,
+    released: false,
+    ciActivated: true,
+    auditHigh: 0,
+    runtimeProven: false,
+    productionAuthorized: false,
+  });
+});
+
+test("pins conditional product-writer admission against silent drift", () => {
+  const drifted = boardText.replace(
+    "| W1 product implementation | `CONDITIONAL GO` |",
+    "| W1 product implementation | `GO` |",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /product implementation.*CONDITIONAL GO/i,
+  );
 });
 
 test("rejects loss of W0 NO-GO closure or COMPLETE=0", () => {
@@ -2102,7 +2250,7 @@ const PACKET_ENFORCED_RULE_12_ROW =
   "| 12 | §9.1 plus live repository | this table and the live-`git` paragraph " +
   "are pinned byte-exact; the canonical file validator fails closed unless " +
   "the exact two rehearsal merge commits, ordered parents, trees, required " +
-  "input objects and tip ancestry exist |";
+  "input objects and rehearsal-tip ancestry exist |";
 const PACKET_UNENFORCED_NO_GO_LINE =
   "- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack " +
   "NO-GO 16 and the";
@@ -2120,7 +2268,7 @@ test("records the packet §9.1 machine-enforcement surface disclosure", () => {
 
   assert.deepEqual(result.enforcementSurface, {
     anchor: "§9.1",
-    enforcedRules: 21,
+    enforcedRules: 24,
     unenforcedNoGo: [16, 17],
     readsLiveGit: false,
   });
@@ -2155,7 +2303,7 @@ test("rejects a packet §9.1 that drifts on the enforced-rule inventory", () => 
   );
 });
 
-test("rejects a packet §9.1 whose enforced-rule numbering is not 1..21 contiguous", () => {
+test("rejects a packet §9.1 whose enforced-rule numbering is not 1..24 contiguous", () => {
   const drifted = replaceUnique(
     packetText,
     PACKET_ENFORCED_RULE_12_ROW,
@@ -2167,7 +2315,7 @@ test("rejects a packet §9.1 whose enforced-rule numbering is not 1..21 contiguo
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /§9\.1 enforced-rule inventory must be numbered 1..21 contiguously/,
+    /§9\.1 enforced-rule inventory must be numbered 1..24 contiguously/,
   );
 });
 
@@ -3016,19 +3164,19 @@ test("rejects a §2.8 push-delta table whose rows no longer sum to the stated to
   );
 });
 
-// The two Lane 5 rules added to the §9.1 inventory by this lane. Rule 21 is the
+// The Lane 5 and reconciliation rules added to the §9.1 inventory. Rule 24 is the
 // last row, so removing it leaves the remaining numbering contiguous and the
 // omission is caught only by the byte-exact row pin; rule 19 is a middle row,
-// so removing it also breaks the 1..21 contiguity. Both paths are exercised.
+// so removing it also breaks the 1..24 contiguity. Both paths are exercised.
 const PACKET_ENFORCED_RULE_19_ROW =
   "| 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |";
-const PACKET_ENFORCED_RULE_21_ROW =
-  "| 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |";
+const PACKET_ENFORCED_RULE_24_ROW =
+  "| 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |";
 
 test("reports the full §9.1 machine-enforcement inventory count", () => {
   const result = validate();
 
-  assert.equal(result.enforcementSurface.enforcedRules, 21);
+  assert.equal(result.enforcementSurface.enforcedRules, 24);
   assert.deepEqual(result.enforcementSurface.unenforcedNoGo, [16, 17]);
   assert.equal(result.enforcementSurface.readsLiveGit, false);
 });
@@ -3036,14 +3184,14 @@ test("reports the full §9.1 machine-enforcement inventory count", () => {
 test("rejects a §9.1 inventory that omits a Lane 5 enforced rule", () => {
   const drifted = replaceUnique(
     packetText,
-    `\n${PACKET_ENFORCED_RULE_21_ROW}`,
+    `\n${PACKET_ENFORCED_RULE_24_ROW}`,
     "",
   );
 
-  assert.equal(countOccurrences(drifted, "\n| 21 | "), 0);
+  assert.equal(countOccurrences(drifted, "\n| 24 | "), 0);
   assert.throws(
     () => validate({ packetText: drifted }),
-    /rule 21 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
+    /rule 24 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
   );
 });
 
@@ -3056,7 +3204,7 @@ test("rejects a §9.1 inventory that omits a middle rule and breaks the row numb
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /numbered 1\.\.21 contiguously; row 19 reads 20/,
+    /numbered 1\.\.24 contiguously; row 19 reads 20/,
   );
 });
 
@@ -3102,7 +3250,9 @@ test("requires the delegated governor disposition for one exact local-only commi
     w1ReconciliationApplicationText,
     /DELEGATED-GOVERNOR-ACCEPTED/,
   );
-  assert.deepEqual(result.w1ReconciliationApplication.governance, {
+  assert.deepEqual(
+    result.w1ReconciliationApplication.historicalRehearsal.governance,
+    {
     decision: "DELEGATED-GOVERNOR-ACCEPTED",
     localCommitAuthorized: true,
     exactPathCount: 12,
@@ -3111,7 +3261,8 @@ test("requires the delegated governor disposition for one exact local-only commi
     pushed: false,
     merged: false,
     released: false,
-  });
+    },
+  );
 });
 
 test("rejects removal of the delegated governor risk disposition", () => {
@@ -3133,14 +3284,17 @@ test("requires the unchanged-lockfile dependency-audit blocker disclosure", () =
     w1ReconciliationApplicationText,
     /GHSA-mh99-v99m-4gvg/,
   );
-  assert.deepEqual(result.w1ReconciliationApplication.security, {
+  assert.deepEqual(
+    result.w1ReconciliationApplication.historicalRehearsal.security,
+    {
     lockfileChanged: false,
     auditHigh: 13,
     auditCritical: 0,
     rootAdvisory: "GHSA-mh99-v99m-4gvg",
     localEvidenceCommitBlocked: false,
     ciActivationBlocked: true,
-  });
+    },
+  );
 });
 
 test("requires live-Git topology enforcement below the exact two-merge rehearsal tip", async () => {
@@ -3155,9 +3309,54 @@ test("requires live-Git topology enforcement below the exact two-merge rehearsal
     mergeOneTree: "abb4d16d1c6038ccc33931c009628a47b2b0bd68",
     mergeTwo: "900d83a61515f37ae117e04763da1881cba90b7b",
     mergeTwoTree: "a297646ec6d4901c8861d28b5ec8736f65902b70",
+    canonicalMerge: "28c564eb9b6853b73a18a59a2e84ba58fd67816a",
+    canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
     repositoryHeadDescendsFromRehearsal: true,
+    repositoryHeadDescendsFromCanonicalMerge: true,
     locallyIntegrated: true,
-    canonical: false,
+    canonical: true,
+  });
+});
+
+test("requires a current canonical-integration supersession record after PR 1", async () => {
+  const currentLifecycle =
+    "CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY";
+  const canonicalMerge = "28c564eb9b6853b73a18a59a2e84ba58fd67816a";
+
+  for (const [text, label] of [
+    [w1ReconciliationApplicationText, "W1 reconciliation application"],
+    [boardText, "W1 board"],
+    [e2RegisterText, "W1 evidence register"],
+    [packetText, "blocker-4 packet"],
+    [adrReadmeText, "ADR catalog"],
+  ]) {
+    assert.match(
+      text,
+      new RegExp(currentLifecycle),
+      `${label} must carry the current canonical-integration lifecycle`,
+    );
+    assert.match(
+      text,
+      new RegExp(canonicalMerge),
+      `${label} must pin the canonical PR 1 merge`,
+    );
+  }
+
+  const result = await validateW1ControlFiles(repositoryRoot);
+  assert.deepEqual(result.reconciliationTopology, {
+    controlBase: "b2caf77c3cd96beb7383cc3d93844d771262ea5f",
+    c1g1Tip: "71857395332fabe041896ca0700fbf7a2bf612d3",
+    correctedC2Tip: "5a1ed0001a5714b7f099aeaff3f5a74cb67c068a",
+    mergeOne: "87efae7898bd14e9aa9a2866380a9973d8b3e5bc",
+    mergeOneTree: "abb4d16d1c6038ccc33931c009628a47b2b0bd68",
+    mergeTwo: "900d83a61515f37ae117e04763da1881cba90b7b",
+    mergeTwoTree: "a297646ec6d4901c8861d28b5ec8736f65902b70",
+    canonicalMerge,
+    canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+    repositoryHeadDescendsFromRehearsal: true,
+    repositoryHeadDescendsFromCanonicalMerge: true,
+    locallyIntegrated: true,
+    canonical: true,
   });
 });
 
@@ -3177,10 +3376,12 @@ test("requires canonical CI wiring for all three W1 validators and exactly 98 te
   assert.match(workflowText, /name: Checkout contract topology/);
   assert.match(workflowText, /fetch-depth: 0/);
   assert.match(workflowText, /npm run test:w1-contracts/);
+  assert.match(workflowText, /npm run test:w1-control/);
   assert.match(packageText, /"validate:w1:alert-context"/);
   assert.match(packageText, /"validate:w1:alert-context-transport"/);
   assert.match(packageText, /"validate:w1:investigation-lifecycle"/);
   assert.match(packageText, /"test:w1-contracts"/);
+  assert.match(packageText, /"test:w1-control"/);
   assert.match(orchestratorText, /validate-alert-context\.mjs/);
   assert.match(orchestratorText, /validate-alert-context-transport\.mjs/);
   assert.match(
@@ -3228,6 +3429,38 @@ test("rejects live Git topology with the second merge parents reversed", () => {
         headDescendsFromRehearsal: true,
       }),
     /mergeTwoParents is wrong/,
+  );
+});
+
+test("rejects canonical integration topology with reversed merge parents", () => {
+  assert.throws(
+    () =>
+      validateW1CanonicalIntegrationTopology({
+        canonicalMergeParents: [
+          "f82f45e8d56be27651c56e8d1510877f48563224",
+          "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+        ],
+        canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+        rehearsalDescendsIntoCanonicalMerge: true,
+        headDescendsFromCanonicalMerge: true,
+      }),
+    /canonical merge parents are wrong/,
+  );
+});
+
+test("rejects canonical integration topology with the wrong merge tree", () => {
+  assert.throws(
+    () =>
+      validateW1CanonicalIntegrationTopology({
+        canonicalMergeParents: [
+          "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+          "f82f45e8d56be27651c56e8d1510877f48563224",
+        ],
+        canonicalMergeTree: "0000000000000000000000000000000000000000",
+        rehearsalDescendsIntoCanonicalMerge: true,
+        headDescendsFromCanonicalMerge: true,
+      }),
+    /canonical merge tree is wrong/,
   );
 });
 
@@ -3422,7 +3655,8 @@ test("requires CI3 to gate the patched dependency adapter and a high-severity au
       node: "24.18.1",
       dependencyCompatibilityTests: 2,
       dependencyAuditLevel: "high",
-      hostedRunClaimed: false,
+      hostedRunClaimed: true,
+      hostedRuns: [30537649671, 30543470413],
     },
   );
 
