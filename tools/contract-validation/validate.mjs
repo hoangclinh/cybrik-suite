@@ -62,6 +62,11 @@ const steps = [
   'validate-alert-context.mjs',
   'validate-alert-context-transport.mjs',
   'validate-investigation-lifecycle-proposal.mjs',
+  // F8 receipt-integrity signature profile — PROPOSED, NOT ACCEPTED. Registered
+  // here so the proposal cannot silently rot; its test file is deliberately kept
+  // out of W1_CONTRACT_TEST_FILES so the pinned W1 contract-test count above is
+  // unchanged by a non-W1 proposal.
+  'validate-receipt-integrity.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;
