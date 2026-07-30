@@ -8,11 +8,19 @@
 - **W0 closure:** `NO-GO`; `COMPLETE=0`
 - **Release impact:** none. W0–W6 dates and the 2026-12-21 → 2026-12-31 release window remain
   unchanged.
+- **Current W1 contract/control integration:**
+  `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through PR #1 merge
+  `28c564eb9b6853b73a18a59a2e84ba58fd67816a`; no replay/cherry-pick remains.
 
 This board applies the standing direction to keep the fixed roster of 48 agent identities moving
 and to pull later-wave work forward when evidence is ready. It does not invent a task 49, claim
 that 48 processes run simultaneously, accept a contract/ADR, or grant commit, merge, push,
 deployment, database, credential or release authority.
+
+The current integration line above supersedes only undated or forward-looking claims below that
+W1-C1, W1-C2, W1-G1, CONTROL9 or CI3 are still local-only/noncanonical. Dated sections remain
+historical evidence. Runtime/local stack/demo/UAT remain `NO-GO` until the existing G-C
+`stable-v1.0` trigger; production remains Founder-controlled.
 
 ## 1. Transition decision
 

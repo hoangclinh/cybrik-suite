@@ -3155,9 +3155,12 @@ test("requires live-Git topology enforcement below the exact two-merge rehearsal
     mergeOneTree: "abb4d16d1c6038ccc33931c009628a47b2b0bd68",
     mergeTwo: "900d83a61515f37ae117e04763da1881cba90b7b",
     mergeTwoTree: "a297646ec6d4901c8861d28b5ec8736f65902b70",
+    canonicalMerge: "28c564eb9b6853b73a18a59a2e84ba58fd67816a",
+    canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
     repositoryHeadDescendsFromRehearsal: true,
+    repositoryHeadDescendsFromCanonicalMerge: true,
     locallyIntegrated: true,
-    canonical: false,
+    canonical: true,
   });
 });
 

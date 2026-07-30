@@ -1,7 +1,8 @@
 # W1 E2 proposal and bounded-hardening evidence register
 
 - **Prepared:** 2026-07-26
-- **Status:** `ACTIVE — LOCAL COMMIT AND WORKTREE EVIDENCE ONLY — NOT PUSHED, NOT INTEGRATED`
+- **Status:** `ACTIVE — MIXED HISTORICAL EVIDENCE`; current W1 C1/G1 + corrected C2 control and
+  contract state is `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY`
 - **Scope:** GATE A4 decision packet, W1-C1 alert-context contract, W1-C2 investigation
   lifecycle contract and FAB-C0 provenance containment
 - **Authority:** no push, merge, dependency install, database/container, deployment,
@@ -16,6 +17,8 @@
 - **Cyber AI W1-I06C post-commit evidence:** 2026-07-27, eighth same-day record — see §12
 - **SOC W1-I03B route-DB permanence grant:** 2026-07-27, ninth same-day record — see §13
 - **SOC W1-I03B hard-stop evidence:** 2026-07-27, tenth same-day record — see §14
+- **Canonical W1 integration:** 2026-07-30 — PR #1 merge
+  `28c564eb9b6853b73a18a59a2e84ba58fd67816a`
 
 This register records exact current evidence without promoting a product runtime or release claim.
 W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
@@ -46,6 +49,11 @@ stop: a two-path dirty tree at the grant base, reviewed **technical GO, no P0–
 independent W0-R02B review but dispositioned `PAUSED — UNCOMMITTED` because the grant's
 same-writer commit authority expired with the exhausted session — which is **not product
 evidence** and promotes nothing.
+
+The canonical-integration line supersedes only current-state/local-only wording for W1-C1,
+W1-C2, W1-G1, CONTROL9 and CI3. The per-lane rows and dated sections below retain the evidence and
+status that existed when recorded. No SOC, Cyber AI or Fabric runtime integration is inferred from
+the Suite control merge.
 
 ## 1. Current evidence
 

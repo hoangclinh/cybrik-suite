@@ -340,3 +340,11 @@ historical provenance. The corrected state is `ACCEPTED-AND-LOCALLY-INTEGRATED �
 NONCANONICAL` at the exact topology in `W1-CONTRACT-RECONCILIATION-APPLICATION.md` §3.
 `W1-REC-5=YES` permits only separately bounded, test-first preparation of consumer migrations;
 none occurs here. No canonical commit, push, merge-to-branch, runtime, UAT or release is authorized.
+
+## 14. Current canonical landing — 2026-07-30
+
+The corrected W1-C2 state is now
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through GitHub PR #1 merge
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. This supersedes the forward-looking publication,
+merge and CI-wiring residuals in §§12–13. Bundle consumer migration, runtime durability,
+stable-v1/GA, UAT and production remain separately gated and unproven.

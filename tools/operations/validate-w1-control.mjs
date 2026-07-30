@@ -74,6 +74,17 @@ const W1_RECONCILIATION = {
     "501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1",
 };
 
+const W1_CANONICAL_INTEGRATION = {
+  lifecycle:
+    "CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY",
+  merge: "28c564eb9b6853b73a18a59a2e84ba58fd67816a",
+  mergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+  mergeParents: [
+    "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+    "f82f45e8d56be27651c56e8d1510877f48563224",
+  ],
+};
+
 const W1_RECONCILIATION_HISTORICAL_COMMITS = [
   "3a2c71555a423465855ffaddcb663c8b704dbfbd",
   "a976a205601de22dae59e5112e37ae29707fda0e",
@@ -2973,6 +2984,25 @@ function validateW1ReconciliationDocuments({
     );
   }
 
+  for (const [text, label] of [
+    [w1ReconciliationApplicationText, "W1 reconciliation application"],
+    [boardText, "W1 board"],
+    [e2RegisterText, "W1 E2 register"],
+    [packetText, "blocker-4 packet"],
+    [adrReadmeText, "ADR catalog"],
+  ]) {
+    assertIncludes(
+      text,
+      new RegExp(escapeRegExp(W1_CANONICAL_INTEGRATION.lifecycle)),
+      `${label} must carry the current canonical-integration lifecycle`,
+    );
+    assertIncludes(
+      text,
+      new RegExp(escapeRegExp(W1_CANONICAL_INTEGRATION.merge)),
+      `${label} must pin the canonical PR 1 merge`,
+    );
+  }
+
   assertIncludes(
     adrReadmeText,
     /\[W1-CONTRACT-RECONCILIATION-APPLICATION\.md\]\(W1-CONTRACT-RECONCILIATION-APPLICATION\.md\)/,
@@ -3016,8 +3046,9 @@ function validateW1ReconciliationDocuments({
     ciDraftPaths: W1_RECONCILIATION_CI_PATHS.length,
     governance: { ...W1_RECONCILIATION_GOVERNANCE },
     security: { ...W1_RECONCILIATION_SECURITY },
-    canonical: false,
-    pushed: false,
+    canonicalIntegration: { ...W1_CANONICAL_INTEGRATION },
+    canonical: true,
+    pushed: true,
     runtimeProven: false,
   };
 }
@@ -3328,6 +3359,7 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     W1_RECONCILIATION.correctedC2Tip,
     W1_RECONCILIATION.mergeOne,
     W1_RECONCILIATION.mergeTwo,
+    W1_CANONICAL_INTEGRATION.merge,
   ]) {
     runGitRead(
       repositoryRoot,
@@ -3371,7 +3403,7 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     headDescendsFromRehearsal = false;
   }
 
-  return validateW1ReconciliationTopology({
+  const rehearsalTopology = validateW1ReconciliationTopology({
     mergeOneParents: runGitRead(
       repositoryRoot,
       ["show", "-s", "--format=%P", W1_RECONCILIATION.mergeOne],
@@ -3395,6 +3427,65 @@ export function readW1ReconciliationTopology(repositoryRoot) {
     ancestryComplete,
     headDescendsFromRehearsal,
   });
+
+  const canonicalMergeParents = runGitRead(
+    repositoryRoot,
+    ["show", "-s", "--format=%P", W1_CANONICAL_INTEGRATION.merge],
+    "canonical merge parents",
+  ).split(" ");
+  if (
+    canonicalMergeParents.length !== W1_CANONICAL_INTEGRATION.mergeParents.length ||
+    canonicalMergeParents.some(
+      (parent, index) => parent !== W1_CANONICAL_INTEGRATION.mergeParents[index],
+    )
+  ) {
+    throw new Error(
+      "W1 reconciliation canonical merge parents are wrong; expected " +
+        `${JSON.stringify(W1_CANONICAL_INTEGRATION.mergeParents)}, received ` +
+        JSON.stringify(canonicalMergeParents),
+    );
+  }
+
+  const canonicalMergeTree = runGitRead(
+    repositoryRoot,
+    ["rev-parse", `${W1_CANONICAL_INTEGRATION.merge}^{tree}`],
+    "canonical merge tree",
+  );
+  if (canonicalMergeTree !== W1_CANONICAL_INTEGRATION.mergeTree) {
+    throw new Error(
+      "W1 reconciliation canonical merge tree is wrong; expected " +
+        `${W1_CANONICAL_INTEGRATION.mergeTree}, received ${canonicalMergeTree}`,
+    );
+  }
+
+  runGitRead(
+    repositoryRoot,
+    [
+      "merge-base",
+      "--is-ancestor",
+      W1_RECONCILIATION.mergeTwo,
+      W1_CANONICAL_INTEGRATION.merge,
+    ],
+    `ancestry ${W1_RECONCILIATION.mergeTwo} -> ${W1_CANONICAL_INTEGRATION.merge}`,
+  );
+  runGitRead(
+    repositoryRoot,
+    [
+      "merge-base",
+      "--is-ancestor",
+      W1_CANONICAL_INTEGRATION.merge,
+      "HEAD",
+    ],
+    `ancestry ${W1_CANONICAL_INTEGRATION.merge} -> HEAD`,
+  );
+
+  return {
+    ...rehearsalTopology,
+    canonicalMerge: W1_CANONICAL_INTEGRATION.merge,
+    canonicalMergeTree: W1_CANONICAL_INTEGRATION.mergeTree,
+    repositoryHeadDescendsFromCanonicalMerge: true,
+    canonical: true,
+  };
 }
 
 export function validateW1ControlDocuments({

@@ -16,6 +16,12 @@ All ten suite ADRs are therefore decided; none is still `PROPOSED`. Accepted ADR
 architectural policy/model decisions only — no technical capability is implemented by their
 acceptance.
 
+Current W1 contract/control lifecycle is
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through GitHub PR #1 merge
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. This corrects the forward-looking local-only wording
+in older W1 records without changing their dated provenance. It is not runtime, UAT, stable-v1/GA
+or production evidence.
+
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-0001](ADR-0001-suite-contract-versioning-policy.md) | Suite contract/versioning policy | `ACCEPTED` (2026-07-24) |
@@ -63,6 +69,6 @@ authoritative on ADR status.**
 | [ADR-0005-STATUS-FLIP-APPLICATION.md](ADR-0005-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0005 GATE A4 status flip | `APPLIED 2026-07-26` — decision record only, no implementation authority |
 | [W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md](W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md) | Recorded acceptance of W1-C1 and its corrected-state reconciliation | Historical `3a2c715…` application remains immutable; authoritative correction `20cfa36…` and G1 repin `7185739…` are accepted and locally integrated in noncanonical rehearsal only |
 | [W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md](W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md) | Recorded acceptance of W1-C2 and corrected Bundle reconciliation | Historical `ed95e51…` remains immutable; corrected `5a1ed00…` makes Bundle v0.1.1 authoritative for new production while immutable v0.1.0 remains legacy read/replay input |
-| [W1-CONTRACT-RECONCILIATION-APPLICATION.md](W1-CONTRACT-RECONCILIATION-APPLICATION.md) | Exact C1/G1 + corrected C2 two-merge reconciliation application | `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY — NONCANONICAL`; `DELEGATED-GOVERNOR-ACCEPTED` for one exact 12-path local-only commit; CI3 activation blocked by the disclosed dependency audit; no push/runtime/UAT/release authority |
+| [W1-CONTRACT-RECONCILIATION-APPLICATION.md](W1-CONTRACT-RECONCILIATION-APPLICATION.md) | Exact C1/G1 + corrected C2 two-merge reconciliation application | Current: `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` at PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`; the earlier rehearsal-only/local-commit disposition remains dated provenance; no runtime/UAT/production claim |
 | [FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md](FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md) | W0-IR01 controlled integration and hosted control gate; asks `G-IR01` — may routine integration stop being Founder-manual? | `DECIDED — OPTION Z — FOUNDER-MANUAL` (2026-07-29). `G-IR01` answered `NO-GO`; routine delegated integration stays `NO-GO` and each integration action stays an explicit per-action manual grant. Independent review run `18ad27e1-ef5e-49f9-a8fa-725306c810b6` `PASS`, `P0=P1=P2=0`, five `P3` retained. Imported here docs-only on 2026-07-29 as an exact byte copy — import is not acceptance, not canonical integration and opens no gate. Board §16, register §28 |
 | [FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md](FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md) | W0-T11 resource-budget contract instrument — scope, naming and sequencing questions `T11-RB-1` … `T11-RB-8` | `DECIDED — PARKED — DOCS-ONLY — NO GATE OPENED — NOT INTEGRATED` (2026-07-29). Operative naming `res-bounds-*` with `resource-bounds/`; the `res-budget` and `res-envelope` generations are superseded; parked until W1-C1 and W1-C2 are canonically integrated. No gate opens and **no ADR number is allocated** — this catalog stays authoritative on ADR status. Independent review run `60adebd4-d22f-4134-8918-1dfd83e89712` `PASS`, `P0=P1=P2=0`, five `P3` retained. Imported here docs-only on 2026-07-29 as an exact byte copy. Board §16, register §28 |

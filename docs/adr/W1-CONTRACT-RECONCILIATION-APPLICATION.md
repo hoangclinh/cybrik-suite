@@ -110,3 +110,20 @@ toolchain path to `brace-expansion` advisory `GHSA-mh99-v99m-4gvg`; the offered 
 breaking major-version change. This pre-existing toolchain finding does not block the local
 evidence commit, but it blocks CI3 activation or push until a separate dependency-remediation
 packet proves compatibility and clears the audit. No dependency or lockfile byte is changed here.
+
+## 7. Current canonical-integration supersession — 2026-07-30
+
+Current lifecycle:
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY`.
+
+The dependency remediation and exact CONTROL9 + CI3 tree landed through GitHub PR #1 at canonical
+merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`, with tree
+`f222fad6bc6d3682684a0975f47a5415f7f716dc`. Its parents, in order, are canonical base
+`5a4823f06ce9b12083e13cf9b1031f46130d90a8` and reviewed implementation
+`f82f45e8d56be27651c56e8d1510877f48563224`. The deterministic rehearsal tip
+`900d83a61515f37ae117e04763da1881cba90b7b` is an ancestor of that canonical merge.
+
+This section supersedes only the forward-looking noncanonical/local-only posture in §§4–6. Those
+sections remain immutable dated provenance for the authority and evidence available before PR #1.
+It does not turn static contract conformance into runtime proof, does not open G-C
+`stable-v1.0`, and does not authorize production. Release dates remain unchanged.

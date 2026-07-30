@@ -1,6 +1,15 @@
 # W1 blocker-4 — canonical integration and CI activation Founder decision packet
 
-Status: `PROPOSED — FOUNDER DECISION REQUIRED`.
+Status: `SUPERSEDED FOR SUITE W1 CONTRACT/CONTROL INTEGRATION — HISTORICAL PACKET`.
+
+Current Suite W1 lifecycle:
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY`.
+GitHub PR #1 merged the reviewed reconciliation and CI activation line at
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. Therefore no W1-C1, W1-C2, W1-G1, CONTROL9 or CI3
+replay/cherry-pick remains. The packet below is retained as dated topology and decision provenance;
+its forward-looking Founder-ballot, GitHub Free, no-protection, no-push and no-canonical-integration
+claims are superseded. Product-runtime integration, G-C `stable-v1.0`, UAT and production remain
+outside this correction.
 
 Task: **W0-D04**, sub-lanes **W1-D04B** and **W1-D04C**. Originally authored 2026-07-27 in control
 worktree `/Users/hoanglinh/Claude/Projects/cybrik-worktrees/w1-48/w1-d04-founder-gate-repair-r1` at

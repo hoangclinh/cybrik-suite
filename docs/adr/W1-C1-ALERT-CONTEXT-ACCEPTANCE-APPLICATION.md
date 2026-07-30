@@ -257,3 +257,11 @@ The original `3a2c71555a423465855ffaddcb663c8b704dbfbd` acceptance and the
 provenance. The corrected state is `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY —
 NONCANONICAL` at the exact topology in `W1-CONTRACT-RECONCILIATION-APPLICATION.md` §3. This grants
 no canonical commit, push, merge-to-branch, consumer migration, runtime, UAT or release authority.
+
+## 12. Current canonical landing — 2026-07-30
+
+The corrected W1-C1/W1-G1 state is now
+`CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through GitHub PR #1 merge
+`28c564eb9b6853b73a18a59a2e84ba58fd67816a`. This supersedes the forward-looking publication,
+merge and CI-wiring residuals in §§9–11. It preserves their dated provenance and does not prove an
+endpoint, consumer migration, runtime, UAT, stable-v1/GA or production deployment.
