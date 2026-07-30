@@ -1,0 +1,42 @@
+{
+  "message_type": "request",
+  "request_id": "req-alert-context-w2f-confusion",
+  "idempotency_key": "idem-alert-context-w2f-confusion",
+  "capability": {
+    "name": "soc.get_alert_context",
+    "version": "0.1.0",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "risk_class": "R0",
+    "side_effects": false
+  },
+  "tenant_id": "tenant-acme",
+  "org_scope": { "org_id": "org-soc-east", "include_descendants": false },
+  "actor": { "type": "service", "id": "spiffe://cybrik.example/cyber-ai", "tenant_id": "tenant-acme" },
+  "purpose": "alert_triage",
+  "clearance": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "data_marking": { "classification": "internal", "tlp": "TLP:GREEN" },
+  "alert_ref": {
+    "type": "soc.alert",
+    "id": "alert-0001",
+    "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "authorization_binding": {
+    "tenant_id": "tenant-acme",
+    "org_scope": { "org_id": "org-soc-east", "include_descendants": false },
+    "actor": { "type": "user", "id": "membership-analyst-42", "tenant_id": "tenant-acme" },
+    "capability": {
+      "name": "soc.get_alert_context",
+      "version": "0.1.0",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "risk_class": "R0",
+      "side_effects": false
+    },
+    "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
+    "input_digest": "sha256:3f90c3ee6d8d5128730252ada989b60cd489ce8b160195b86f9ddbe7e325537c",
+    "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "binding_digest": "sha256:44e9cee597deb4d87357cdbe587a369d74b1ae9940b1645dfe0da4323bdb84c9"
+  },
+  "requested_at": "2026-07-26T06:00:00Z",
+  "delegation_token": "w2f-token-is-not-a-fabric-tool-grant"
+}

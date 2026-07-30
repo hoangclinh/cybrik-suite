@@ -1,0 +1,41 @@
+{
+  "message_type": "request",
+  "request_id": "req-alert-context-cross-tenant",
+  "idempotency_key": "idem-alert-context-cross-tenant",
+  "capability": {
+    "name": "soc.get_alert_context",
+    "version": "0.1.0",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "risk_class": "R0",
+    "side_effects": false
+  },
+  "tenant_id": "tenant-acme",
+  "org_scope": { "org_id": "org-soc-east", "include_descendants": false },
+  "actor": { "type": "user", "id": "membership-analyst-42", "tenant_id": "tenant-other" },
+  "purpose": "alert_triage",
+  "clearance": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "data_marking": { "classification": "internal", "tlp": "TLP:GREEN" },
+  "alert_ref": {
+    "type": "soc.alert",
+    "id": "alert-0001",
+    "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "authorization_binding": {
+    "tenant_id": "tenant-acme",
+    "org_scope": { "org_id": "org-soc-east", "include_descendants": false },
+    "actor": { "type": "user", "id": "membership-analyst-42", "tenant_id": "tenant-acme" },
+    "capability": {
+      "name": "soc.get_alert_context",
+      "version": "0.1.0",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "risk_class": "R0",
+      "side_effects": false
+    },
+    "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
+    "input_digest": "sha256:e764d6e1190c106095b0d0e00d656306a62ed17c2461579e7ca680b65479ceb2",
+    "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "binding_digest": "sha256:2b36eacf7db47b63a16a1fba367d3a1c9e32e6e4a5d2ce9d59c2d2d044e53fe9"
+  },
+  "requested_at": "2026-07-26T06:00:00Z"
+}

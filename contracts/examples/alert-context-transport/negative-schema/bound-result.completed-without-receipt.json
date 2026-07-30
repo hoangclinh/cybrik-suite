@@ -1,0 +1,98 @@
+{
+  "action_id": "act-alert-context-0001",
+  "tenant_id": "tenant-acme",
+  "status": "completed",
+  "policy_decision_id": "pdec-alert-context-0001",
+  "output": {
+    "data": {
+      "message_type": "result",
+      "request_id": "req-alert-context-0001",
+      "idempotency_key": "idem-alert-context-0001",
+      "capability": {
+        "name": "soc.get_alert_context",
+        "version": "0.1.0",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "risk_class": "R0",
+        "side_effects": false
+      },
+      "tenant_id": "tenant-acme",
+      "org_scope": {
+        "org_id": "org-soc-east",
+        "include_descendants": false
+      },
+      "authorized_actor": {
+        "type": "user",
+        "id": "membership-analyst-42",
+        "tenant_id": "tenant-acme"
+      },
+      "clearance": {
+        "classification": "confidential",
+        "tlp": "TLP:AMBER"
+      },
+      "authorization_binding": {
+        "tenant_id": "tenant-acme",
+        "org_scope": {
+          "org_id": "org-soc-east",
+          "include_descendants": false
+        },
+        "actor": {
+          "type": "user",
+          "id": "membership-analyst-42",
+          "tenant_id": "tenant-acme"
+        },
+        "capability": {
+          "name": "soc.get_alert_context",
+          "version": "0.1.0",
+          "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "risk_class": "R0",
+          "side_effects": false
+        },
+        "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
+        "input_digest": "sha256:737ef665ab9f3002213e23b64581d24720b19cdc815fef859619c2327e8f03d3",
+        "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "binding_digest": "sha256:0933f8b758ada6d15c2acf71af6c75943be08f7eb34849fbe13f2da6cc28ad00"
+      },
+      "idempotency_disposition": "fresh",
+      "outcome": "available",
+      "alert_ref": {
+        "type": "soc.alert",
+        "id": "alert-0001",
+        "version": "17",
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "context": {
+        "alert_id": "alert-0001",
+        "alert_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "title": "Suspicious privileged sign-in",
+        "severity": "high",
+        "status": "open",
+        "observed_at": "2026-07-26T05:58:00Z",
+        "event_refs": [
+          {
+            "type": "ocsf.event",
+            "id": "event-9001",
+            "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          }
+        ],
+        "entity_refs": [
+          {
+            "type": "soc.asset",
+            "id": "asset-77",
+            "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        ],
+        "case_refs": []
+      },
+      "context_digest": "sha256:c4f810498e96e3e5b91309556cefb2809d7d02fcde0619e8cfa8e9bf8c4a1364",
+      "data_marking": {
+        "classification": "confidential",
+        "tlp": "TLP:AMBER"
+      },
+      "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "completed_at": "2026-07-26T06:00:01Z",
+      "traceparent": "00-11111111111111111111111111111111-2222222222222222-01"
+    },
+    "truncated": false,
+    "output_digest": "sha256:f844f57341f09e54472f1d2e94040e88455943b190c5a23ab3aa85b9e2c16235"
+  }
+}
