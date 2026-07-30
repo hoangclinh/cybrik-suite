@@ -51,6 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
+// These 17 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -68,6 +69,10 @@ const steps = [
   // unchanged by a non-W1 proposal.
   'validate-receipt-integrity.mjs',
   'tests/validate-receipt-integrity.test.mjs',
+  // W2-I inference transport-binding profile — PROPOSED, NOT ACCEPTED and
+  // NOT IMPLEMENTED. Registration prevents proposal drift; it opens no gate.
+  'validate-transport.mjs',
+  'tests/validate-transport.test.mjs',
   'validate-svc-lifecycle.mjs',
   'tests/validate-svc-lifecycle.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
@@ -79,4 +84,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants. This is static conformance only, not runtime or release proof.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for the W2-I PROPOSED / NOT ACCEPTED candidate. This is static conformance only, not runtime or release proof.');

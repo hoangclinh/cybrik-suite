@@ -8,11 +8,13 @@ import { dirname, resolve, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-// Accepted v0.1 control-plane mapping notes + the ACCEPTED W2-D inference-plane mapping notes.
-// Both are non-deployable, server-less mapping notes; lint each at fail-severity=error.
+// Accepted v0.1 control-plane mapping notes + the ACCEPTED W2-D inference-plane mapping notes
+// + the W2-I PROPOSED / NOT ACCEPTED compatible successor. All are non-deployable,
+// server-less mapping notes; lint each at fail-severity=error.
 const targets = [
   join(ROOT, 'contracts', 'openapi', 'cybrik-fabric-control-plane.v1.openapi.yaml'),
   join(ROOT, 'contracts', 'openapi', 'cybrik-ai-inference-plane.v1.openapi.yaml'),
+  join(ROOT, 'contracts', 'openapi', 'cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml'),
 ];
 const spectral = join(HERE, 'node_modules', '.bin', 'spectral');
 const ruleset = join(HERE, '.spectral.yaml');
