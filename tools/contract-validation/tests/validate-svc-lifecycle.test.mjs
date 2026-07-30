@@ -165,3 +165,63 @@ test('accepted lifecycle operation and 200-response source drift fails closed', 
     'accepted readInvestigationBundle must retain its declared 200 response',
   )));
 });
+
+test('bundle-read nondelegation is a Suite contract rule with no cross-repo runtime claim', async () => {
+  const report = await validateSvcLifecycleBinding({ root: ROOT });
+  assert.deepEqual(report.errors, []);
+
+  const manifest = JSON.parse(read(
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json',
+  ));
+  const disposition = manifest.delegation_disposition.readInvestigationBundle;
+  assert.equal(
+    disposition.reason,
+    'PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY',
+  );
+  assert.equal(disposition.delegated, false);
+  assert.equal(disposition.mint_token, false);
+  assert.equal(disposition.consume_token, false);
+  assert.equal(
+    disposition.future_binding_gate,
+    'SEPARATELY_ACCEPTED_IMPLEMENTATION_AND_CONTRACT_GATE_REQUIRED',
+  );
+
+  const proposalProse = [
+    read('contracts/README.md'),
+    read('contracts/compatibility/README.md'),
+    read('contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md'),
+    read('contracts/examples/svc-lifecycle/examples-manifest.json'),
+    JSON.stringify(manifest),
+  ].join('\n');
+  assert.doesNotMatch(
+    proposalProse,
+    /CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL|current Cyber AI implementation|unconditional refusal/i,
+  );
+  assert.match(proposalProse, /no caller may mint/i);
+  assert.match(proposalProse, /no relying party may consume/i);
+});
+
+test('cross-repo runtime-state overclaim and weakened future gate fail closed', async () => {
+  const notesPath =
+    'contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md';
+  const manifestPath =
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json';
+  const manifest = JSON.parse(read(manifestPath));
+  manifest.delegation_disposition.readInvestigationBundle.future_binding_gate =
+    'RUNTIME_CHANGE_ONLY';
+  const notes = `${read(notesPath)}\nCyber AI currently refuses bundle-read requests at runtime.\n`;
+
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: new Map([
+      [manifestPath, `${JSON.stringify(manifest, null, 2)}\n`],
+      [notesPath, notes],
+    ]),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'proposal must not assert cross-repository runtime state',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'future bundle-read binding requires a separately accepted implementation and contract gate',
+  )));
+});
