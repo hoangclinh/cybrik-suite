@@ -1,0 +1,17 @@
+{
+  "investigation_id": "3150799b-b9d3-48d3-903c-f8777e4b29a7",
+  "tenant_id": "tenant-acme",
+  "status": "closed",
+  "objective": "Confirm and close out a benign scheduled-task false positive.",
+  "opened_by": {
+    "type": "user",
+    "id": "soc-membership-analyst-011",
+    "tenant_id": "tenant-acme"
+  },
+  "opened_at": "2026-07-20T08:00:00Z",
+  "closed_at": "2026-07-20T09:30:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "org_node_id": "on-district",
+  "parent_id": "on-region",
+  "tier": 2,
+  "tenant_binding": "tenant-acme",
+  "boundary_kind": "internal",
+  "status": "active",
+  "labels": {
+    "label_key": "org.node.district"
+  }
+}

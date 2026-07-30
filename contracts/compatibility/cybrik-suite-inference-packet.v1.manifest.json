@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
+  "title": "CYBRIK Suite W2-D model-inference + alert-summarization contract packet — compatibility/version manifest",
+  "description": "Inventory and compatibility record for the W2-D AI-inference contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (cybrik-suite-contract-packet.v1.manifest.json): it introduces a new cybrik.model-* / cybrik.ai.* namespace and REUSES accepted primitives (common-defs, data-marking, envelope) by $ref without modifying them. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-D (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — it is NOT a stable v1/GA promotion and is NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "mcp_scope": "OUT OF SCOPE. This packet defines no MCP server/tool/action contract and grants a model no tool/function/agent authority. Tool execution remains governed by the accepted Tool-Fabric packet (ADR-0004); MCP mapping notes there are unchanged.",
+  "adr_basis": [
+    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never a bundle tag." },
+    { "id": "ADR-0002", "status": "ACCEPTED", "role": "model-runtime seam (G3): provider-neutral CYBRIK-owned adapter over Ollama/vLLM/llama.cpp; model gets no credential/database/tool/shell authority; constrained structured output + streaming. This packet is the contract realization of that accepted seam." },
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), conditional correlation (E6), naming (E7). Inference lifecycle events reuse the accepted envelope; identity/authority is never a model-populated field." }
+  ],
+  "adr_out_of_scope": [
+    { "id": "ADR-0004", "reason": "Tool execution authority / capability registry / approval — a SEPARATE accepted packet. This packet carries no capability, delegation, approval, tool, or action-authorization field. The inference seam and the tool-execution seam are deliberately disjoint." },
+    { "id": "ADR-0003", "reason": "Durable agent orchestration / bus choice — NOT decided here; the AsyncAPI delta declares no servers or bindings (mirrors ADR-0006 E4)." },
+    { "id": "ADR-0005", "reason": "Sandbox substrate — NOT decided here." },
+    { "id": "ADR-0007", "reason": "Org-hierarchy contract delta is PROPOSED — NOT APPLIED. org_scope here is opaque/advisory only and does not depend on that unapplied delta." }
+  ],
+  "reuses_accepted_unmodified": {
+    "note": "These accepted v0.1 members are referenced by $ref and are NOT modified, re-versioned, or re-stated by this packet. Backward compatibility of the accepted packet is preserved.",
+    "members": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json",
+      "json-schema/cybrik.envelope.v1.schema.json"
+    ]
+  },
+  "members": [
+    { "file": "json-schema/cybrik.model-common-defs.v1.schema.json", "title": "Model-inference common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives" },
+    { "file": "json-schema/cybrik.model-inference-request.v1.schema.json", "title": "Model inference request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.model-inference-result.v1.schema.json", "title": "Model inference result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.model-inference-error.v1.schema.json", "title": "Model inference error", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.model-capability.v1.schema.json", "title": "Model-class capability descriptor", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.model-health.v1.schema.json", "title": "Model-class health signal", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.alert-summarization-request.v1.schema.json", "title": "Alert-summarization request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "json-schema/cybrik.alert-summarization-result.v1.schema.json", "title": "Alert-summarization result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
+    { "file": "asyncapi/cybrik-ai-inference-events.v1.asyncapi.yaml", "title": "AI inference lifecycle events", "contract_version": "0.1.0", "format": "asyncapi", "kind": "events" },
+    { "file": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml", "title": "AI inference-plane REST mapping notes", "contract_version": "0.1.0", "format": "openapi", "kind": "rest-mapping" },
+    { "file": "adapters/cybrik-inference-adapter-notes.v1.md", "title": "Provider adapter mapping notes (Ollama/Qwen/OpenAI-envelope)", "contract_version": "0.1.0", "format": "adapter-notes", "kind": "adapter-notes" }
+  ],
+  "backward_compatibility": {
+    "additive": true,
+    "modifies_accepted_v0_1": false,
+    "namespace": "Disjoint: schema ids cybrik.model-*/cybrik.alert-summarization-*; event types cybrik.ai.<entity>.<action>.v<major> (ADR-0006 E7). No accepted id, event type, or channel is redefined.",
+    "soc_native_compatibility": "Alert summarization consumes SOC alert truth by DIGEST-BOUND objectRef to soc.alert / soc.alert_snapshot (the accepted cybrik.soc.alert_snapshot.created payload). SOC remains the owner of alerts (repository boundary preserved); no SOC schema is changed. No new obligation is placed on any accepted member.",
+    "obligations_on_accepted_members": "none"
+  },
+  "trust_invariants": {
+    "note": "Fail-closed trust invariants. Some are STRUCTURAL (enforced by the JSON Schemas and exercised by fixtures); others are RUNTIME-ONLY (the platform MUST enforce; JSON Schema constrains shape only). Both products MUST implement identical outcomes.",
+    "structural": [
+      "TI-1 No wire lock-in / no vendor pinning: additionalProperties=false on every request/result/error, and the model is named only by a policy-selected model_class token — there is no vendor, provider, endpoint, api_key, or concrete model field to pin. Ollama/Qwen/OpenAI-envelope details are adapter metadata only.",
+      "TI-2 No tool/agent/action authority: no capability, delegation_ref, approval_id, tool, or mcp field exists in any inference payload, and capability.tool_calling is const 'disabled'. A model gets no execution authority through this seam (ADR-0002 G3; disjoint from ADR-0004).",
+      "TI-3 Fail-closed redaction: redaction_policy is required and redaction_policy.on_unresolved is const 'deny' — a caller can never request that unredacted sensitive content reach a model.",
+      "TI-4 Mandatory bounds: token limits (max_input/output/context_tokens) and deadline_seconds are required on every request; data_marking is required on every request and result.",
+      "TI-5 Replay control: idempotency_key minLength 16 on every mutating request; it is not authority after the correlated deadline.",
+      "TI-6 Cross-tenant guard: actor.tenant_id is required at the authorization site; the platform derives authoritative tenant/actor/org from the credential and rejects mismatch (advisory body fields never elevate).",
+      "TI-7 Refusal/fallback are surfaced, not dropped: outcome enumerates refused/filtered with required reasons; a fallback substitution is recorded via fallbackInfo (feature-flag/health/capacity fallback is explicit).",
+      "TI-8 Grounded, referenced context: alert summarization references alerts by digest-bound objectRef (minItems 1), never inlines SOC-owned content; an empty alert set is unsummarizable."
+    ],
+    "runtime_only": [
+      "TR-1 Marking non-downgrade: a result's data_marking MUST be >= the input marking (union of alert markings for summarization); inference never lowers sensitivity. Schema cannot compare marking lattices; the platform MUST.",
+      "TR-2 Feature negotiation fail-closed: a requested_features token not in the resolved class's capability.supported_features MUST be denied (error_class 'unsupported_feature'), never silently ignored.",
+      "TR-3 Health fail-closed: an absent/stale/unrecognized cybrik.model-health signal MUST be treated as 'unavailable'; no routing to an unknown-health class.",
+      "TR-4 Budget/limit clamping: the platform clamps request limits/deadline to the resolved class ceilings and never above them; exceeding a budget yields a typed error (over_input_budget/over_output_budget/context_overflow), not truncated silent success.",
+      "TR-5 Authoritative resolution: tenant/actor/org/model come from credential + policy, not the advisory body; a body/credential mismatch MUST be rejected.",
+      "TR-6 Output is not authority: result.output/summary_text is untrusted analyst-support data and MUST NOT be consumed as authorization, approval, or an action trigger."
+    ]
+  },
+  "cross_ref_integrity": {
+    "note": "Correlation bindings the platform MUST preserve across the inference lifecycle (schema cannot enforce equality across artifacts).",
+    "bindings": [
+      "model-inference-request.request_id == model-inference-result.request_id == model-inference-error.request_id",
+      "model-inference-request.correlation.correlation_id == result/error.correlation.correlation_id",
+      "alert-summarization-request.alert_refs[*].digest == alert-summarization-result.citations[*].digest for every cited alert (grounding provenance)",
+      "envelope.dataschema of a cybrik.ai.inference.* event == the $id of the bound payload schema (version negotiation, ADR-0001)"
+    ]
+  },
+  "gate": {
+    "id": "W2-D",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-D (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "decisions_resolved": [
+      "G-W2D-1 ACCEPTED: the provider-neutral model_class abstraction (no vendor/model on the wire; Ollama/Qwen/OpenAI-envelope confined to adapter metadata) is the cross-product inference contract.",
+      "G-W2D-2 ACCEPTED: the fail-closed redaction_policy (on_unresolved const 'deny') and marking non-downgrade (TR-1) are mandatory inference trust invariants.",
+      "G-W2D-3 ACCEPTED: the disjointness stance — inference carries NO tool/agent/approval authority (TI-2) and MCP is out of scope — so this packet cannot become a tool-execution bypass.",
+      "G-W2D-4 ACCEPTED: alert summarization consumes SOC alerts by digest-bound objectRef only (SOC remains owner of alert truth; no SOC schema change).",
+      "G-W2D-5 ACCEPTED: the AsyncAPI/OpenAPI deltas are retained as additive mapping notes with no operational servers/endpoints."
+    ],
+    "evidence_ref": "See acceptance.evidence[] and cybrik-suite:docs/releases/GATE-W2-D-INFERENCE-ACCEPTANCE-2026-07-24.md. A green validator/secret-scan run is a conformance signal; acceptance is the recorded Founder-delegated decision, not an inference from CI."
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-D",
+    "decided_by": "Codex, under explicit Founder delegation of Gate W2-D (not agent-inferred)",
+    "decided_on": "2026-07-24",
+    "scope": "Products MAY now implement against the W2-D inference packet v0.1.0. This is an implementation-authorization acceptance only; it is NOT a stable v1/GA promotion and NOT an ADR-0001 immutable bundle tag. The packet version remains 0.1.0 and x-cybrik-is-bundle-tag remains false. Runtime-only trust invariants (trust_invariants.runtime_only: TR-1..TR-6) and cross_ref_integrity bindings remain explicit and REQUIRED of every implementation; a green validator run proves standards conformance and fixture coverage, not runtime enforcement.",
+    "evidence": [
+      "Pinned standards validation green: JSON Schema 2020-12 compile/ref-resolution of 8 inference schemas, 8/8 positive + 8/8 negative-schema + 4/4 negative-semantic fixtures, 39 trust-invariant assertions, 5/5 AsyncAPI messages data-bound; OpenAPI 3.1.x (Spectral oas, fail-severity=error) and AsyncAPI 3.0.0 (@asyncapi/parser) clean; gitleaks secret scan clean (Gate-cited CI run 30084152546 at e7d192b, 0 Critical/High; re-run at the status-flip commit head).",
+      "Independent post-validator security/compatibility review: 0 Critical / 0 High trust or schema defect; packet internally coherent at v0.1.0, disjoint from the accepted tool-execution packet (ADR-0004), MCP out of scope."
+    ],
+    "mechanics": "Acceptance-for-implementation was authorized by explicit Founder delegation of Gate W2-D to Codex and recorded with evidence in this status-flip commit (ADR-0001 D5). No approval was inferred from CI going green. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate (ADR-0001 D6)."
+  }
+}

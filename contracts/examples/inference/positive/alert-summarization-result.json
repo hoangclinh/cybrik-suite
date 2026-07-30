@@ -1,0 +1,29 @@
+{
+  "request_id": "sum-INC-4821-0001",
+  "tenant_id": "tenant-acme",
+  "model_class": "summarization.soc_alert",
+  "outcome": "completed",
+  "summary_style": "triage",
+  "summary_text": "Two correlated alerts indicate credential-stuffing against the SSO gateway followed by anomalous east-west access from a tier-1 workstation. Advisory: prioritize for analyst review; no action is authorized by this summary.",
+  "citations": [
+    {
+      "type": "soc.alert_snapshot",
+      "id": "ALRT-99821",
+      "version": "snap-3",
+      "digest": "sha256:22222222222222222222222222222222222222222222222222222222222222cd"
+    },
+    {
+      "type": "soc.alert_snapshot",
+      "id": "ALRT-99822",
+      "version": "snap-1",
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444401"
+    }
+  ],
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER", "handling": ["no-export"] },
+  "redaction": { "profile": "soc.pii_strip", "enforced": true, "categories_removed": ["pii"] },
+  "usage": { "input_tokens": 9120, "output_tokens": 96, "total_tokens": 9216 },
+  "latency": { "queue_ms": 120, "inference_ms": 640, "total_ms": 790 },
+  "created_at": "2026-07-24T18:27:33Z",
+  "telemetry": { "audit_ref": "audit-sum-0001", "eval_ref": "eval-sum-0001" },
+  "correlation": { "correlation_id": "corr-INC-4821", "investigation_id": "inv-INC-4821" }
+}

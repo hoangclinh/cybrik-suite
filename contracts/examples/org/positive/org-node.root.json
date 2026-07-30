@@ -1,0 +1,11 @@
+{
+  "org_node_id": "on-root",
+  "parent_id": null,
+  "tier": 0,
+  "tenant_binding": "tenant-acme",
+  "boundary_kind": "internal",
+  "status": "active",
+  "labels": {
+    "label_key": "org.node.root"
+  }
+}

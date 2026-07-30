@@ -1,0 +1,199 @@
+# CYBRIK Tool Fabric control-plane REST mapping notes v1
+# Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) — Founder-delegated Gate W2-B, 2026-07-24
+# Format pin: OpenAPI 3.1.x (ADR-0001 D4); OpenAPI 3.1 uses JSON Schema 2020-12 natively.
+# These are MAPPING NOTES, not a deployable API description. Deliberately NO `servers` block:
+# no operational endpoints, hostnames, or secrets are declared (contract-lead constraint).
+# Path templates only bind the shared cross-product schemas to REST verbs (strategy 05 §2.1, §5).
+# Authorization is short-lived audience-bound delegation over service mTLS; Idempotency-Key is
+# mandatory for create/invoke; traceparent per W3C. Authoritative tenant/actor come from the
+# credential, never the body (strategy 05 §11). This packet does not decide the deployment.
+openapi: 3.1.1
+info:
+  title: CYBRIK Tool Fabric control-plane (mapping notes)
+  version: 0.1.0
+  summary: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). REST binding of the cross-product contract schemas.
+  description: >-
+    Notes-only mapping of the packet's ACCEPTED FOR IMPLEMENTATION cross-product schemas onto REST
+    resources. No servers, no endpoints, no examples of real infrastructure. Accepted for
+    implementation contract-first under Founder-delegated Gate W2-B (ADR-0001 D5); this remains a
+    mapping-notes document and decides no deployment.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
+
+# No `servers:` — endpoints are intentionally omitted.
+
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Mandatory for create/invoke (strategy 05 §2.1). Not replay authority after expiry.
+      schema:
+        type: string
+        minLength: 16
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context; created at the boundary when absent (ADR-0006 E6).
+      schema:
+        type: string
+  schemas:
+    Capability:
+      $ref: '../json-schema/cybrik.capability.v1.schema.json'
+    ToolExecutionRequest:
+      $ref: '../json-schema/cybrik.tool-execution-request.v1.schema.json'
+    ToolExecutionResult:
+      $ref: '../json-schema/cybrik.tool-execution-result.v1.schema.json'
+    ExecutionReceipt:
+      $ref: '../json-schema/cybrik.execution-receipt.v1.schema.json'
+    ApprovalRequest:
+      $ref: '../json-schema/cybrik.approval-request.v1.schema.json'
+    ApprovalDecision:
+      $ref: '../json-schema/cybrik.approval-decision.v1.schema.json'
+
+paths:
+  /api/v1/capabilities:
+    get:
+      operationId: listCapabilities
+      summary: List capability registry entries the caller is authorized to see.
+      description: Discovery returns only capabilities the actor may see (strategy 05 §2.3).
+      responses:
+        '200':
+          description: Authorized capability entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Capability'
+  /api/v1/capabilities/{name}:
+    get:
+      operationId: getCapability
+      summary: Fetch a single digest-pinned capability entry.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Capability entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capability'
+  /api/v1/invocations:
+    post:
+      operationId: createInvocation
+      summary: Request a capability invocation (maps to tool execution request/result).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolExecutionRequest'
+      responses:
+        '200':
+          description: Completed (fast R0 path).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '202':
+          description: Queued (async execution).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '403':
+          description: Denied by policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '409':
+          description: Approval required (carries approval_id).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '429':
+          description: Budget exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+        '503':
+          description: Unavailable — no silent execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolExecutionResult'
+  /api/v1/receipts/{receipt_id}:
+    get:
+      operationId: getReceipt
+      summary: Fetch the signed execution receipt for an action.
+      parameters:
+        - name: receipt_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Signed execution receipt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionReceipt'
+  /api/v1/approvals/{approval_id}:
+    get:
+      operationId: getApproval
+      summary: Fetch a pending approval request (SOC-side ingress; ADR-0004 F9 / RB-001).
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Approval request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+  /api/v1/approvals/{approval_id}/decision:
+    post:
+      operationId: decideApproval
+      summary: Submit an authenticated approval decision (digest/target re-bound server-side).
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecision'
+      responses:
+        '200':
+          description: Decision accepted (idempotent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalDecision'
+        '409':
+          description: >-
+            Rejected — action/capability/arguments/target snapshot/policy changed materially,
+            or approval expired (stale-approval defense; strategy 05 §5.4).

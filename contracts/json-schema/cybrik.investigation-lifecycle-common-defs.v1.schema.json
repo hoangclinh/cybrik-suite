@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json",
+  "title": "CYBRIK investigation lifecycle transport common definitions v1",
+  "description": "Shared transport-only definitions for the W1 investigation lifecycle packet. These run states do not redefine the accepted cybrik.investigation.v1 record status. Cyber AI owns lifecycle authority and bundle production; SOC is an authorized consumer/viewer. This packet grants no model, service, or caller any Fabric tool-execution authority. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "$defs": {
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "attemptId": {
+      "type": "string",
+      "pattern": "^att_[a-z0-9]{16,64}$"
+    },
+    "checkpointId": {
+      "type": "string",
+      "pattern": "^chk_[a-z0-9]{16,64}$"
+    },
+    "orgScopeRef": {
+      "type": "object",
+      "description": "Opaque advisory organizational scope. Authoritative tenant/org scope is derived from the authenticated caller and policy; this hint grants no access.",
+      "additionalProperties": false,
+      "required": ["org_id"],
+      "properties": {
+        "org_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "org_path": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "runStatus": {
+      "type": "string",
+      "description": "Transport/orchestrator run state. It is mapped to, but never replaces or widens, the accepted cybrik.investigation.v1 record status.",
+      "enum": [
+        "queued",
+        "running",
+        "waiting_approval",
+        "completed",
+        "partial",
+        "abstained",
+        "denied",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "terminalRunStatus": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "partial",
+        "abstained",
+        "denied",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "checkpointStage": {
+      "type": "string",
+      "enum": [
+        "context",
+        "enrichment",
+        "related_activity",
+        "hypothesis_testing",
+        "synthesis",
+        "bundle"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed_steps", "total_steps"],
+      "properties": {
+        "completed_steps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_steps": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

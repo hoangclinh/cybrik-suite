@@ -1,0 +1,26 @@
+{
+  "claim_id": "d3f46848-230b-4185-9388-952e6e758962",
+  "claim_digest": "sha256:9c39b75bf0a0cf494578efc4bdbbe5d3a9ce5cbc70da1bd731c26d611a78dacd",
+  "investigation_id": "3150799b-b9d3-48d3-903c-f8777e4b29a7",
+  "tenant_id": "tenant-acme",
+  "status": "asserted",
+  "statement": "The Updater.exe scheduled task under SYSTEM matches the vendor's documented baseline; no action required.",
+  "confidence": "high",
+  "evidence_refs": [
+    {
+      "type": "cybrik.evidence",
+      "id": "624daf0e-6ae1-41a2-b9ab-af7f4dd0de5a",
+      "digest": "sha256:bc549e06b5c7e5a5f358406bd16a37b95112ef17ae27ef35bfb9270b931905ef"
+    }
+  ],
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-01",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-20T09:00:00Z"
+}

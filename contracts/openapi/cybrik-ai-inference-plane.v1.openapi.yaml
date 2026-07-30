@@ -1,0 +1,163 @@
+# CYBRIK AI model-inference plane REST mapping notes v1
+# Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-D
+# (Codex under Founder delegation, 2026-07-24). Acceptance authorizes contract-first
+# implementation at v0.1.0; it is NOT a stable v1/GA promotion and NOT an immutable bundle tag.
+# Format pin: OpenAPI 3.1.x (ADR-0001 D4); OpenAPI 3.1 uses JSON Schema 2020-12 natively.
+# These are MAPPING NOTES, not a deployable API description. Deliberately NO `servers` block:
+# no operational endpoints, hostnames, vendor URLs, or secrets are declared. Path templates only
+# bind this packet's ACCEPTED provider-neutral inference schemas to REST verbs. The concrete
+# model/runtime is NEVER named on the wire (model_class is a policy-selected token resolved
+# server-side per ADR-0002 G3); vendor specifics (Ollama/vLLM/llama.cpp/OpenAI-envelope/Qwen)
+# are adapter metadata, described in ../adapters/cybrik-inference-adapter-notes.v1.md, never here.
+# Authorization is short-lived audience-bound delegation over service mTLS; Idempotency-Key is
+# mandatory for create/inference; traceparent per W3C. Authoritative tenant/actor/org come from
+# the credential, never the body. This packet grants a model NO tool/function/agent authority and
+# decides no deployment.
+openapi: 3.1.1
+info:
+  title: CYBRIK AI model-inference plane (mapping notes)
+  version: 0.1.0
+  summary: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). REST binding of the W2-D inference schemas.
+  description: >-
+    Notes-only mapping of the ACCEPTED W2-D provider-neutral inference schemas onto REST
+    resources. No servers, no endpoints, no vendor URLs, no examples of real infrastructure. This
+    remains a mapping-notes document and decides no deployment. Model output is untrusted data and
+    is never an authorization, approval, or action trigger.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
+
+# No `servers:` — endpoints are intentionally omitted.
+
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Mandatory for inference create. minLength 16. Not replay authority after the deadline.
+      schema:
+        type: string
+        minLength: 16
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context; created at the boundary when absent (ADR-0006 E6).
+      schema:
+        type: string
+  schemas:
+    ModelInferenceRequest:
+      $ref: '../json-schema/cybrik.model-inference-request.v1.schema.json'
+    ModelInferenceResult:
+      $ref: '../json-schema/cybrik.model-inference-result.v1.schema.json'
+    ModelInferenceError:
+      $ref: '../json-schema/cybrik.model-inference-error.v1.schema.json'
+    ModelCapability:
+      $ref: '../json-schema/cybrik.model-capability.v1.schema.json'
+    ModelHealth:
+      $ref: '../json-schema/cybrik.model-health.v1.schema.json'
+    AlertSummarizationRequest:
+      $ref: '../json-schema/cybrik.alert-summarization-request.v1.schema.json'
+    AlertSummarizationResult:
+      $ref: '../json-schema/cybrik.alert-summarization-result.v1.schema.json'
+  responses:
+    InferenceError:
+      description: Typed provider-neutral inference error (no result produced).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ModelInferenceError'
+
+paths:
+  /api/v1/model-classes:
+    get:
+      operationId: listModelClasses
+      summary: List policy-selectable model-class capability descriptors the caller is authorized to see.
+      description: >-
+        Returns provider-neutral capability descriptors. No vendor, product, endpoint, or weights
+        id is exposed; tool_calling is const 'disabled' for every class.
+      responses:
+        '200':
+          description: Capability descriptors.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelCapability'
+  /api/v1/model-classes/{model_class}/health:
+    get:
+      operationId: getModelClassHealth
+      summary: Current health/readiness signal for a model class (consumed fail-closed).
+      description: >-
+        An absent, stale, or unrecognized signal MUST be treated as 'unavailable' by the caller.
+      parameters:
+        - name: model_class
+          in: path
+          required: true
+          schema:
+            $ref: '../json-schema/cybrik.model-common-defs.v1.schema.json#/$defs/modelClass'
+      responses:
+        '200':
+          description: Health signal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelHealth'
+  /api/v1/inferences:
+    post:
+      operationId: createInference
+      summary: Submit a provider-neutral model-inference request.
+      description: >-
+        The authoritative tenant/actor/org derive from the credential; body identity fields are
+        advisory and a mismatch MUST be rejected. Redaction is fail-closed; token/context limits
+        and a deadline are mandatory. A runtime that responds returns a result (completed/refused/
+        filtered); a runtime that produces no result returns a typed error.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelInferenceRequest'
+      responses:
+        '200':
+          description: The runtime responded (outcome completed/refused/filtered).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInferenceResult'
+        '422':
+          $ref: '#/components/responses/InferenceError'
+        '503':
+          $ref: '#/components/responses/InferenceError'
+  /api/v1/summarizations:
+    post:
+      operationId: createAlertSummarization
+      summary: Submit an alert-summarization inference over digest-bound SOC alerts.
+      description: >-
+        Alerts are referenced by digest-bound objectRef (SOC owns the truth) and dereferenced
+        under the caller's authority; at least one alert is required. The summary is advisory
+        analyst-support content with no authority.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSummarizationRequest'
+      responses:
+        '200':
+          description: The runtime responded (outcome completed/refused/filtered).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSummarizationResult'
+        '422':
+          $ref: '#/components/responses/InferenceError'
+        '503':
+          $ref: '#/components/responses/InferenceError'

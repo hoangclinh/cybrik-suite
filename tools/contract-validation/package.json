@@ -1,0 +1,36 @@
+{
+  "name": "cybrik-contract-validation",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Isolated, reproducible validation toolchain for the CYBRIK mixed-lifecycle static contract corpus. This is validation tooling only, not product runtime, deployment, release or acceptance proof.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "20 || >=22"
+  },
+  "scripts": {
+    "validate": "node validate.mjs",
+    "validate:dependency-compat": "node --test tests/dependency-compat.test.mjs",
+    "validate:schemas": "node validate-schemas.mjs",
+    "validate:inference": "node validate-inference.mjs",
+    "validate:svc": "node validate-svc.mjs",
+    "validate:org": "node validate-org.mjs",
+    "validate:openapi": "node validate-openapi.mjs",
+    "validate:asyncapi": "node validate-asyncapi.mjs",
+    "validate:w1:alert-context": "node validate-alert-context.mjs",
+    "validate:w1:alert-context-transport": "node validate-alert-context-transport.mjs",
+    "validate:w1:investigation-lifecycle": "node validate-investigation-lifecycle-proposal.mjs",
+    "test:w1-contracts": "node validate.mjs --test-w1-contracts"
+  },
+  "dependencies": {
+    "@asyncapi/parser": "3.6.0",
+    "@stoplight/spectral-cli": "6.16.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "brace-expansion": "file:vendor/brace-expansion-compat",
+    "yaml": "2.9.0"
+  },
+  "overrides": {
+    "brace-expansion": "$brace-expansion"
+  }
+}

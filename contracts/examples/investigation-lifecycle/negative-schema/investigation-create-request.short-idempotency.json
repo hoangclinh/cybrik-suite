@@ -1,0 +1,31 @@
+{
+  "request_id": "req-create-short-idem",
+  "idempotency_key": "short",
+  "tenant_id": "tenant-acme",
+  "org_scope": {
+    "org_id": "org-tier1"
+  },
+  "actor": {
+    "type": "user",
+    "id": "membership-001",
+    "tenant_id": "tenant-acme"
+  },
+  "objective": "Triage alert.",
+  "context_refs": [
+    {
+      "type": "soc.alert_snapshot",
+      "id": "alert-snapshot-001",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "budget": {
+    "deadline_seconds": 300,
+    "max_model_calls": 12,
+    "max_tool_calls": 20,
+    "max_retrieved_bytes": 1048576
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  }
+}

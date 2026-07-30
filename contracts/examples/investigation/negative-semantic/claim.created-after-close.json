@@ -1,0 +1,20 @@
+{
+  "claim_id": "d757ebad-82e7-4750-a54f-c66f5d2a0425",
+  "claim_digest": "sha256:4c6e5013303a6ebeb9cba55289018534c136ea3073ea8ce67debaccb409aea0f",
+  "investigation_id": "3150799b-b9d3-48d3-903c-f8777e4b29a7",
+  "tenant_id": "tenant-acme",
+  "status": "abstained",
+  "statement": "Late-arriving claim drafted after the scheduled-task investigation was already closed; no reopening was requested.",
+  "evidence_refs": [],
+  "abstention_reason": "insufficient-evidence",
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-01",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-20T11:00:00Z"
+}

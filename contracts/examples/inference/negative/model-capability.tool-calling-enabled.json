@@ -1,0 +1,11 @@
+{
+  "model_class": "chat.general",
+  "contract_version": "0.1.0",
+  "modalities": { "input": ["text"], "output": ["text"] },
+  "limits": { "max_input_tokens": 8000, "max_output_tokens": 1024, "max_context_tokens": 16000 },
+  "supported_features": ["structured_output"],
+  "tool_calling": "enabled",
+  "structured_output": "best_effort",
+  "data_residency": "local",
+  "default_health": "unavailable"
+}

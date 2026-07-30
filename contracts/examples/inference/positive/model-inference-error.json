@@ -1,0 +1,11 @@
+{
+  "request_id": "inf-INC-4821-triage-0003",
+  "tenant_id": "tenant-acme",
+  "model_class": "chat.general",
+  "error_class": "over_input_budget",
+  "retryable": false,
+  "message_safe": "Request input exceeds the resolved model class input-token ceiling; reduce context and retry with a smaller input.",
+  "occurred_at": "2026-07-24T18:26:10Z",
+  "telemetry": { "audit_ref": "audit-inf-0003" },
+  "correlation": { "correlation_id": "corr-INC-4821", "causation_id": "evt-alert-snap-ALRT-99821" }
+}

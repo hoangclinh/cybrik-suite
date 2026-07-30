@@ -1,0 +1,40 @@
+{
+  "result_id": "ares-1",
+  "request_ref": "agr-1",
+  "tenant_id": "tenant-acme",
+  "target_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "small_cell_floor": 5,
+  "dimensions": [
+    "severity",
+    "category"
+  ],
+  "cells": [
+    {
+      "bucket": {
+        "severity": "critical",
+        "category": "phishing"
+      },
+      "count": 7
+    },
+    {
+      "bucket": {
+        "severity": "high",
+        "category": "malware"
+      },
+      "count": 12
+    },
+    {
+      "bucket": {
+        "severity": "low",
+        "category": "phishing"
+      },
+      "suppressed": true
+    }
+  ],
+  "generated_at": "2030-03-13T12:00:00Z"
+}

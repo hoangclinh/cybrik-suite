@@ -1,0 +1,121 @@
+{
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Conformance manifest for the W0-I01 Investigation/Claim/Evidence/Bundle example fixtures (ACCEPTED FOR IMPLEMENTATION, v0.1.0; not stable v1/GA, by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26). 'kind' drives the expected validation outcome: positive = MUST validate; negative-schema = MUST fail JSON Schema validation; negative-semantic = MUST validate structurally but MUST be rejected by a control-plane trust invariant a schema alone cannot enforce. Schema paths are relative to contracts/json-schema/; fixture paths are relative to contracts/examples/investigation/. Validated by tools/contract-validation/validate-investigation.mjs (standalone; not wired into the shared orchestrator).",
+  "examples": [
+    { "file": "positive/investigation.json", "schema": "cybrik.investigation.v1.schema.json", "kind": "positive" },
+    { "file": "positive/investigation.closed.json", "schema": "cybrik.investigation.v1.schema.json", "kind": "positive" },
+    { "file": "positive/evidence.log-excerpt.json", "schema": "cybrik.evidence.v1.schema.json", "kind": "positive" },
+    { "file": "positive/evidence.tool-result.json", "schema": "cybrik.evidence.v1.schema.json", "kind": "positive" },
+    { "file": "positive/claim.asserted.json", "schema": "cybrik.claim.v1.schema.json", "kind": "positive" },
+    { "file": "positive/claim.abstained.json", "schema": "cybrik.claim.v1.schema.json", "kind": "positive" },
+    { "file": "positive/investigation-bundle.json", "schema": "cybrik.investigation-bundle.v1.schema.json", "kind": "positive" },
+    { "file": "positive/evidence.other-investigation.json", "schema": "cybrik.evidence.v1.schema.json", "kind": "positive" },
+    { "file": "positive/claim.other-investigation.json", "schema": "cybrik.claim.v1.schema.json", "kind": "positive" },
+
+    {
+      "file": "negative-schema/claim.asserted-empty-evidence.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-1 GROUNDED ASSERTION: an 'asserted' claim requires evidence_refs.minItems=1. A claim can never assert something backed by zero cited evidence."
+    },
+    {
+      "file": "negative-schema/claim.abstained-missing-reason.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-2 HONEST ABSTENTION: status='abstained' requires abstention_reason."
+    },
+    {
+      "file": "negative-schema/claim.abstained-with-confidence.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-2 HONEST ABSTENTION: status='abstained' MUST NOT carry confidence — you do not hold a confidence level in something you are declining to assert."
+    },
+    {
+      "file": "negative-schema/investigation.abstained-missing-reason.json",
+      "schema": "cybrik.investigation.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-3 HONEST ABSTENTION (investigation): status='abstained' requires abstention_reason."
+    },
+    {
+      "file": "negative-schema/investigation-bundle.empty-claims.json",
+      "schema": "cybrik.investigation-bundle.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-4 NO SILENT-EMPTY BUNDLE: claims.minItems=1. An investigation with no grounded findings still yields at least one (possibly abstained) claim, never a silent empty bundle."
+    },
+    {
+      "file": "negative-schema/claim.extra-authority-field.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-5 NO TOOL/AGENT/ACTION AUTHORITY: additionalProperties=false rejects an approval_id (or any capability/delegation_ref/tool/mcp) field. Asserting a claim grants no execution authority (disjoint from ADR-0004)."
+    },
+    {
+      "file": "negative-schema/evidence.missing-investigation-id.json",
+      "schema": "cybrik.evidence.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-6 INVESTIGATION-SCOPED CORRELATION: investigation_id is required on Evidence (ADR-0006 E6)."
+    },
+    {
+      "file": "negative-schema/evidence.source-ref-missing-digest.json",
+      "schema": "cybrik.evidence.v1.schema.json",
+      "kind": "negative-schema",
+      "invariant": "TI-7 DIGEST-BOUND REFERENCES ONLY: source_ref is a cybrik.common-defs objectRef, which requires digest. A reference without a digest is rejected."
+    },
+
+    {
+      "file": "negative-semantic/investigation-bundle.marking-downgrade.json",
+      "schema": "cybrik.investigation-bundle.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-1 MARKING NON-DOWNGRADE: this bundle references the same claims/evidence as positive/investigation-bundle.json but marks itself public/TLP:CLEAR — strictly below the confidential/TLP:AMBER union of the referenced claim/evidence markings. Structurally valid; the control plane MUST reject the downgrade."
+    },
+    {
+      "file": "negative-semantic/investigation-bundle.marking-downgrade-mixed-axis.json",
+      "schema": "cybrik.investigation-bundle.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-1 MARKING NON-DOWNGRADE (mixed-axis regression): this bundle references the same claims/evidence (confidential/TLP:AMBER union) but marks itself restricted/TLP:GREEN — classification goes UP while TLP goes DOWN. A downgrade on EITHER axis alone must be rejected; classification being raised MUST NOT excuse the TLP decrease. Structurally valid; the control plane MUST reject the downgrade."
+    },
+    {
+      "file": "negative-semantic/claim.cross-tenant.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-2 CROSS-TENANT GUARD: tenant_id='tenant-other' while investigation_id references the tenant-acme investigation. Structurally valid; the control plane MUST reject the tenant mismatch."
+    },
+    {
+      "file": "negative-semantic/evidence.cross-tenant.json",
+      "schema": "cybrik.evidence.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-2 CROSS-TENANT GUARD (evidence): tenant_id='tenant-other' while investigation_id references the tenant-acme investigation. Structurally valid; the control plane MUST reject the tenant mismatch."
+    },
+    {
+      "file": "negative-semantic/claim.ungrounded-citation.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-3 CITATION DEREFERENCE: evidence_refs cites a digest that matches no real cybrik.evidence.v1 entry anywhere (a wholly fictional evidence_id + digest pair). Structurally valid (well-formed objectRef); the control plane MUST reject the ungrounded citation."
+    },
+    {
+      "file": "negative-semantic/claim.cross-investigation-citation.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-3 CITATION DEREFERENCE (investigation partition): evidence_refs cites the REAL evidence_digest of positive/evidence.other-investigation.json, but that evidence belongs to a DIFFERENT investigation_id than this claim. A real digest reused across investigations must still be rejected — grounding is scoped per-investigation, not global. Structurally valid; the control plane MUST reject the cross-investigation citation."
+    },
+    {
+      "file": "negative-semantic/investigation-bundle.cross-investigation-members.json",
+      "schema": "cybrik.investigation-bundle.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-3 CITATION DEREFERENCE (bundle-level investigation partition): this bundle's investigation_id is the OPEN investigation, but its claims[] entry is the REAL claim_digest of positive/claim.other-investigation.json and its evidence[] entry is the REAL evidence_digest of positive/evidence.other-investigation.json — both belong to the CLOSED (foreign) investigation. Real members reused across investigations must still be rejected: a bundle's claims/evidence MUST be partitioned to its own investigation_id, the same as a claim's evidence_refs. Structurally valid; the control plane MUST reject the cross-investigation members."
+    },
+    {
+      "file": "negative-semantic/evidence.collected-after-close.json",
+      "schema": "cybrik.evidence.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-4 LIFECYCLE ORDERING (evidence): investigation_id references positive/investigation.closed.json (closed_at=2026-07-20T09:30:00Z) but collected_at=2026-07-20T11:00:00Z, after the close. Structurally valid; the control plane MUST reject evidence attached to a closed investigation."
+    },
+    {
+      "file": "negative-semantic/claim.created-after-close.json",
+      "schema": "cybrik.claim.v1.schema.json",
+      "kind": "negative-semantic",
+      "invariant": "TR-4 LIFECYCLE ORDERING (claim): investigation_id references positive/investigation.closed.json (closed_at=2026-07-20T09:30:00Z) but created_at=2026-07-20T11:00:00Z, after the close. Structurally valid; the control plane MUST reject a claim attached to a closed investigation."
+    }
+  ]
+}

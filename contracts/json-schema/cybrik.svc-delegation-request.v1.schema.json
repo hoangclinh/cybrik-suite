@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.svc-delegation-request.v1.schema.json",
+  "title": "CYBRIK internal service-delegation request (validation view) v1",
+  "description": "The relying-party validation view of an internal service-to-service call presenting a W2-F delegation token (ADR-0008). It binds the decoded token to the mTLS transport context (E2) and to the advisory request body the relying party MUST cross-check: the body's tenant/org/operation/marking are NEVER trusted over the token, and the token is NEVER trusted over the mTLS peer certificate. additionalProperties:false makes a static bearer, forwarded end-user token, or inline credential structurally impossible. This is a validation contract, not a wire endpoint; it declares no server, host, or route. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-F (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "presented_token", "relying_party", "tenant_id", "operation", "data_marking"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Caller-assigned logical request id (e.g. 'svc_…'). Correlates the presented token → the relying party's authorization decision → audit.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "presented_token": {
+      "$ref": "cybrik.svc-delegation-token.v1.schema.json",
+      "description": "The decoded delegation token presented on this call. Signature/JWKS verification and the RFC 8725 strict iss/aud/exp/nbf/jti checks happen BEFORE these body cross-checks; a token that fails either is rejected without consulting the body."
+    },
+    "relying_party": {
+      "type": "object",
+      "description": "The validating service's own trust context for this call. The relying party compares token.aud to `audience` (confused-deputy defense) and the mTLS peer certificate thumbprint to token.cnf['x5t#S256'] (proof-of-possession). Both mismatches MUST be rejected.",
+      "additionalProperties": false,
+      "required": ["audience", "trust_domain", "peer_cert_thumbprint"],
+      "properties": {
+        "audience": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/audienceId" },
+        "trust_domain": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/trustDomain" },
+        "peer_cert_thumbprint": {
+          "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/certThumbprint",
+          "description": "SHA-256 thumbprint of the presented mTLS client certificate (E2). MUST equal token.claims.cnf['x5t#S256']; a mismatch means a token replayed without its bound key and MUST be rejected."
+        }
+      }
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Advisory body tenant. MUST equal token.claims['cybrik.tenant_id']; the relying party derives authoritative tenant from the token/credential and rejects a mismatch (cross-tenant guard)."
+    },
+    "org_scope": {
+      "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "Advisory body org hint. When present it MUST equal token.claims['cybrik.org_scope']; it carries no authority on its own (ADR-0007 org delta PROPOSED — NOT APPLIED)."
+    },
+    "actor": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Advisory body actor; authoritative actor is token.claims['cybrik.actor']. Present only for audit correlation."
+    },
+    "operation": {
+      "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/operationRef",
+      "description": "The operation the body requests. operation.name MUST equal token.claims['cybrik.operation'].name; a body requesting an operation the token did not authorize is a confused-deputy attempt and MUST be rejected."
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "The marking of the data this call would touch. MUST be at or below token.claims['cybrik.marking'] on the classification/TLP lattice; a request above it is a marking escalation and MUST be rejected (runtime)."
+    },
+    "correlation": {
+      "type": "object",
+      "description": "Optional trace correlation. Carries no authority.",
+      "additionalProperties": false,
+      "properties": {
+        "correlation_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+      }
+    }
+  }
+}

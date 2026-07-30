@@ -1,0 +1,86 @@
+# Contract standards validation + secret scan for the CYBRIK Suite meta/control repository.
+#
+# Status: static contract conformance for a mixed lifecycle corpus: accepted W1 contract lines,
+# accepted-for-implementation Wave 2 packets and remaining proposals. A green run proves only
+# static schema/semantic conformance. It is not runtime, deployment, release or acceptance proof.
+#
+# Two independent jobs, least-privilege (read-only) token:
+#   secret-scan  — gitleaks 8.30.1 (pinned + checksum-verified), full-tree AND full-history.
+#   contracts    — official validators (ajv 2020-12, Spectral `oas`, @asyncapi/parser) via a
+#                  reproducible `npm ci` from the committed lockfile.
+# GitHub-owned actions are pinned by commit SHA (supply-chain hardening).
+
+name: contracts
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: secret-scan (gitleaks 8.30.1)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for git-mode scan)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks 8.30.1 (pinned, checksum-verified)
+        run: |
+          set -euo pipefail
+          VER=8.30.1
+          SHA=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          echo "${SHA}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      # Working tree (node_modules is absent — no deps installed in this job). Strictest mode;
+      # exercises the single scoped generic-api-key allowlist in .gitleaks.toml.
+      - name: Secret scan — working tree
+        run: ./gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+      - name: Secret scan — full git history
+        run: ./gitleaks git . --config .gitleaks.toml --no-banner --redact --exit-code 1
+
+  contracts:
+    name: contract standards validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout contract topology
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20.18.1
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20.18.1"
+          cache: npm
+          cache-dependency-path: tools/contract-validation/package-lock.json
+
+      # ci = exact, reproducible install from the committed lockfile. .npmrc pins
+      # ignore-scripts=true (no dependency lifecycle code runs at install time).
+      - name: Install validators (reproducible, no lifecycle scripts)
+        working-directory: tools/contract-validation
+        run: npm ci
+
+      - name: Audit validator dependencies (high severity gate)
+        working-directory: tools/contract-validation
+        run: npm audit --audit-level=high
+
+      - name: Validate contract packet (JSON Schema 2020-12 + OpenAPI 3.1.x + AsyncAPI 3.0.0 + hardenings)
+        working-directory: tools/contract-validation
+        run: npm run validate
+
+      - name: Test accepted W1 static contract lines (exactly 98 tests)
+        working-directory: tools/contract-validation
+        run: npm run test:w1-contracts

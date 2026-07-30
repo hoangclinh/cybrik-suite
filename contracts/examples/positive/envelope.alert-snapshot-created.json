@@ -1,0 +1,27 @@
+{
+  "specversion": "1.0",
+  "id": "evt-01J8ALERTSNAP4821",
+  "source": "/cybrik/soc",
+  "type": "cybrik.soc.alert_snapshot.created.v1",
+  "subject": "ALR-99213",
+  "time": "2026-07-24T09:58:00Z",
+  "datacontenttype": "application/json",
+  "dataschema": "https://contracts.cybrik.example/json-schema/cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+  "tenantid": "tenant-acme",
+  "marking": "TLP:AMBER/confidential",
+  "traceparent": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+  "investigationid": "inv-INC-4821",
+  "data": {
+    "alert_ref": {
+      "type": "soc.alert",
+      "id": "ALR-99213",
+      "version": "etag-3",
+      "digest": "sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "locator": "cybrik://soc/alert/ALR-99213"
+    },
+    "marking": {
+      "classification": "confidential",
+      "tlp": "TLP:AMBER"
+    }
+  }
+}

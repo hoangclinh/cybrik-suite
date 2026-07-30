@@ -1,0 +1,20 @@
+{
+  "name": "fabric.isolate_host",
+  "version": "1.0.0",
+  "publisher": "cybrik.fabric",
+  "license": "LicenseRef-cybrik-proprietary",
+  "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca",
+  "signature_ref": "sigstore-bundle://capability/fabric.isolate_host@1.0.0",
+  "risk_class": "R3",
+  "side_effects": "destructive",
+  "idempotency": "idempotent",
+  "isolation_profile": "S3",
+  "network_policy": "none",
+  "input_schema_ref": "cybrik.fabric.isolate_host.input.v1.schema.json",
+  "output_schema_ref": "cybrik.fabric.isolate_host.output.v1.schema.json",
+  "required_scopes": ["fabric.endpoint.isolate"],
+  "evidence": {
+    "output_can_be_evidence": true,
+    "integrity_receipt": "required"
+  }
+}

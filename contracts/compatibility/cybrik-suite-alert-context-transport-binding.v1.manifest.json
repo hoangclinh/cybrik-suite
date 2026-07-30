@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json",
+  "title": "CYBRIK Suite W1 soc.get_alert_context invocation transport-binding packet manifest",
+  "description": "Inventory, provenance, boundary and compatibility record for the transport binding that carries the accepted W1 C1 soc.get_alert_context business payload inside the already-accepted W2-B tool-execution request, result and receipt envelopes. The packet is restriction-only: it reuses the accepted envelope schemas and the accepted Fabric control-plane OpenAPI operations byte-unchanged and narrows them for exactly one capability. It is additive to every accepted packet, changes none of their bytes or identifiers, and places no obligation on any existing accepted member. It defines no endpoint, path, operation, parameter, header, queue, AsyncAPI channel or MCP tool, registers no capability, grants no Fabric invocation, wires no CI and proves no runtime behavior. Status: ACCEPTED FOR IMPLEMENTATION on 2026-07-27 and NOT IMPLEMENTED; the lifecycle decision recorded in acceptance is a contract decision rather than evidence, implementation has not started, and every gate listed under acceptance.non_claims stays closed.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12"
+  },
+  "capability_scope": {
+    "name": "soc.get_alert_context",
+    "risk_class": "R0",
+    "side_effects": false,
+    "dispatch": "Synchronous execute-only. No dry_run, no queueing, no approval gate and no deferred completion.",
+    "owner_of_truth": "cybrik-soc-command-center",
+    "contract_owner": "cybrik-suite",
+    "execution_authority_owner": "cybrik-security-tool-fabric",
+    "implementation_status": "NOT IMPLEMENTED"
+  },
+  "wire_scope": "TRANSPORT BINDING PROFILE ONLY, expressed entirely over already-accepted surfaces. This packet restricts the accepted W2-B tool-execution request, result and receipt envelopes for one capability and reuses the accepted Fabric control-plane OpenAPI operations byte-unchanged. It adds no endpoint, path, operation, parameter, header, queue, AsyncAPI channel, MCP tool or service-discovery surface, it registers no capability-registry entry, and it grants no Fabric invocation authority.",
+  "transport_binding": {
+    "envelope_request": "json-schema/cybrik.tool-execution-request.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
+    "envelope_result": "json-schema/cybrik.tool-execution-result.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
+    "envelope_receipt": "json-schema/cybrik.execution-receipt.v1.schema.json, reused byte-unchanged by $ref plus exactly one restriction branch.",
+    "envelope_openapi": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml, reused byte-unchanged and pinned by sha256 as positive evidence that this packet adds no transport surface: the already-accepted invocation-creation and receipt-retrieval operations are reused exactly as they stand.",
+    "business_request_channel": "The accepted C1 business request is split across the envelope and one closed capability-specific argument object, so no field has two competing wire homes. idempotency_key, tenant_id, actor, purpose, capability and data_marking stay envelope-owned; request_id, org_scope, clearance, alert_ref, policy_digest, requested_at and the optional traceparent travel in arguments. traceparent is conditional in both directions: it is optional on the caller side, and the reconstruction carries it only when the caller asserted it. A business result may omit traceparent, because the accepted C1 result contract leaves it optional, but any value it does carry must be exactly the caller-asserted one; when the caller asserted none, a result-side traceparent has been minted rather than carried and fails closed. Trace context is carried, never minted. Two envelope string bounds are narrowed to the accepted C1 business-request bounds so that no envelope-valid bound request can reconstruct into a C1 business request the accepted C1 contract rejects: purpose to 1..200 and idempotency_key to 16..200. The accepted W2-B envelope declares only a lower bound on both fields, so without this narrowing the round trip would not be total. The boundary itself stays inside the profile: exactly 200 characters is valid on both fields and 201 is outside it.",
+    "business_result_channel": "The accepted C1 business result document is carried verbatim as output.data inside envelope status=completed, with truncated=false and an output_digest over the declared bound-output projection. The reconstruction back into the accepted C1 business request is lossless: its target is the C1 business request document itself rather than a digest projection, every field is carried rather than re-derived, and it adds only the two C1 capability-profile constants risk_class=R0 and side_effects=false.",
+    "artifact_channel": "none. Output artifacts are bounded to zero items on both the bound result and the receipt, and receipt input artifact digests are bounded to zero items, so the digest-bound business payload has exactly one wire home.",
+    "dispatch_mode": "execute only. dry_run, queueing and approval gating are out of profile, and resource_scope is forbidden on the request so authorized scope reaches the capability through exactly one channel."
+  },
+  "authority_boundaries": {
+    "fabric": "Fabric tool-grant authority remains exclusively in the separately accepted capability, delegation, policy, approval and execution-receipt chain. This profile pins a capability name/version/digest to identify requested behavior, which is not an invocation grant; it registers no capability, mints no grant and adds no transport surface of its own.",
+    "w2f": "W2-F remains a non-authority for this capability. W2-F inference delegation is the internal SOC-to-Cyber-AI inference trust seam: it cannot authorize a Fabric tool invocation, cannot widen SOC tenant, org or clearance scope, and cannot be presented as delegation_ref for soc.get_alert_context. The negative-semantic witness carries the constrained-JCS digest of the accepted W2-F delegation token in delegation_ref precisely so that this confusion is a named, testable rejection rather than an unstated assumption.",
+    "soc": "SOC-Command-Center owns alert truth and derives authoritative tenant, org scope, actor, clearance and alert visibility from authenticated policy. The business result carried inside the envelope is the accepted C1 result document byte-for-byte; this profile neither reshapes nor reinterprets it, and body fields on the request side stay advisory copies that must match authoritative values.",
+    "ai": "Cyber AI may consume an authorized, digest-bound business result as untrusted analysis context. Carrying that result inside the tool-execution envelope grants no planning, response, approval or execution authority.",
+    "kill_switch": "A Fabric policy kill switch denies pre-dispatch and is fail-closed: envelope status=denied carrying error code FABRIC_POLICY_KILL_SWITCH_ENGAGED with retryable=false, no receipt_id, no business output and no artifact, because nothing was executed and therefore no receipt exists to emit. Only the shape of such a denial is exercised here; whether a runtime engages the kill switch is not demonstrated by this packet."
+  },
+  "completion_semantics": {
+    "caller_assertion": "The caller supplies advisory copies only and may never assert authorization_binding: the caller-argument object is closed and has no such property, so a caller-asserted binding is a structural rejection rather than a trusted input.",
+    "identity_completion": "Fabric derives the authoritative tenant and the full actor identity from the presented credential and its policy decision, and SOC returns the completed authorization binding inside output.data. The envelope actor and the completed binding actor must be identical, and the envelope actor tenant must equal the envelope authoritative tenant.",
+    "scope_completion": "The caller-asserted org_scope and policy_digest are advisory. The completed binding carries the authorized org scope and the evaluated policy revision, and the two must agree exactly; include_descendants is a request and is never self-authorizing.",
+    "order": "Authorize, then complete the binding, then dispatch. The completed binding is produced before dispatch and before any idempotency or cache lookup, and a caller-supplied value never participates in it.",
+    "capability_pin": "The capability descriptor is held under exact equality across the envelope request, the completed business authorization binding and the execution receipt, with risk_class=R0 and side_effects=false preserved. The descriptor digest stays opaque: this profile neither defines nor decomposes it."
+  },
+  "outcome_mapping": {
+    "completed": "Envelope status=completed carries the accepted C1 business result inline in output.data with truncated=false, an output_digest over the declared bound-output projection, receipt_id present and no error. Every C1 business outcome — available, unavailable and idempotency_conflict — is carried here, because a business-level negative answer is still a successful capability execution.",
+    "denied": "Envelope status=denied is a pre-dispatch authorization or policy refusal, including the kill switch. It carries error with retryable=false, is terminal, and must carry no receipt_id, no business output and no artifact, because nothing was executed.",
+    "unavailable": "Envelope status=unavailable means the transport or executor could not reach the capability at all. It is a different thing from the C1 business outcome=unavailable, which means SOC answered and the alert context is not available to this caller under the single generic alert_context_unavailable code. The two meanings must never be conflated: the envelope meaning carries error and no business payload, while the business meaning travels inside envelope status=completed as a full digest-bound C1 result. Collapsing them would turn a policy-filtered answer into a retryable transport fault and would destroy the no-existence-leak property the accepted C1 contract depends on.",
+    "failed": "Envelope status=failed is an executor-side failure carrying error and no business payload. It is not a business answer and must never be synthesized from one.",
+    "budget_exceeded": "Envelope status=budget_exceeded is a Fabric budget refusal carrying error and no business payload. It stays in the restricted status set because the accepted envelope can produce it; this packet claims no budget behavior.",
+    "excluded": "approval_required and queued are excluded from the restricted envelope status set, and approval_id is forbidden: this R0 read is synchronous and not approval-gated, so approval and queueing have no meaning for it. dry_run is excluded on the request side for the same reason."
+  },
+  "canonicalization": {
+    "standard": "RFC 8785 JSON Canonicalization Scheme (JCS) over a constrained value set, UTF-8 bytes, SHA-256, lowercase hex rendered as sha256:<64-hex>.",
+    "constrained_value_set": "Objects, arrays, strings without lone surrogate code points, booleans, null and safe integer numbers only. Non-integer and unsafe-integer numbers are deliberately outside the set so that every digest in this packet is reproducible without depending on a runtime's floating-point formatting; a value outside the set fails closed instead of producing a silently divergent digest.",
+    "owner": "SOC produces the business context digest under the reused accepted C1 available-result projection after authorization and redaction; this packet neither redefines nor re-owns that projection. Fabric produces the two transport-side digests: the resolved-arguments digest carried in the receipt and the bound-output digest carried in the envelope. Both transport-side projections are non-circular by construction — the resolved-arguments projection reads bound-request fields only, and the bound-output projection reads output.data only and never output.output_digest or output.truncated — so neither digest can ever read the field that carries it.",
+    "resolved_arguments_projection": [
+      "schema = cybrik.soc-alert-context-invocation-binding.resolved-arguments@0.1.0",
+      "action_id",
+      "idempotency_key",
+      "tenant_id = credential-derived",
+      "actor = exact type/id/tenant_id/delegated_by? identity",
+      "purpose",
+      "capability = exact envelope name/version/digest pin",
+      "arguments = exact closed caller-argument object"
+    ],
+    "bound_output_projection": [
+      "schema = cybrik.soc-alert-context-invocation-binding.bound-output@0.1.0",
+      "action_id",
+      "tenant_id",
+      "data = exact accepted C1 business result document"
+    ],
+    "business_request_reconstruction_projection": [
+      "target = the accepted C1 business request document itself, not a digest projection",
+      "message_type = request",
+      "request_id = arguments.request_id",
+      "idempotency_key = envelope idempotency_key",
+      "capability = envelope name/version/digest pin plus the accepted C1 constants risk_class=R0 and side_effects=false",
+      "tenant_id = envelope tenant_id",
+      "org_scope = arguments.org_scope",
+      "actor = envelope actor",
+      "purpose = envelope purpose",
+      "clearance = arguments.clearance",
+      "data_marking = envelope data_marking",
+      "alert_ref = arguments.alert_ref",
+      "policy_digest = arguments.policy_digest",
+      "authorization_binding = the credential- and policy-derived binding completed by Fabric and returned inside output.data",
+      "requested_at = arguments.requested_at",
+      "traceparent = arguments.traceparent when present"
+    ],
+    "reused_c1_available_result_projection": [
+      "schema = cybrik.soc-get-alert-context.available-result@0.1.0",
+      "request_id",
+      "idempotency_key",
+      "authorization_binding_digest",
+      "tenant_id",
+      "org_scope",
+      "authorized_actor",
+      "clearance",
+      "capability",
+      "alert_ref",
+      "context",
+      "data_marking",
+      "policy_digest"
+    ]
+  },
+  "idempotency_semantics": {
+    "quadruple_equality": "One idempotency key is bound in four bound positions and all four must be identical: the envelope request idempotency_key, the receipt resolved-arguments projection, the reconstructed accepted C1 business request, and the C1 business result inside output.data. Drift in any position is a fail-closed rejection, never a reconciliation.",
+    "order": "Validate the credential, derive authoritative tenant, org, actor and clearance, authorize the capability and the alert scope, compute the schema, input, policy and binding digests, and only then look up idempotency state. The accepted C1 rule that mandates authorization before any idempotency or cache lookup is carried unchanged across this transport binding.",
+    "cache_partition": "Idempotency state is tenant-partitioned by the authoritative tenant plus idempotency_key. A stored entry is usable only when its authorization_binding.binding_digest equals the freshly computed binding digest. The transport envelope introduces no second cache key, and action_id is not one.",
+    "conflict": "Same tenant plus same idempotency key with a different binding digest rejects before target lookup as the C1 business outcome idempotency_conflict, with idempotency_disposition=conflict and code=idempotency_binding_conflict, carried inside envelope status=completed. It returns no alert_ref, context or context_digest and reveals no cached or target-derived state."
+  },
+  "receipt_binding": {
+    "requirement": "A Fabric execution receipt is required for every completed invocation of this capability: a bound result with envelope status=completed must carry receipt_id, and the referenced receipt must satisfy this profile's bound-receipt restriction branch. The accepted generic W2-B tool-execution-result envelope does not itself require a receipt on completed, so this capability-specific obligation intentionally strengthens the generic envelope at the obligation layer, for this capability only. It is a restriction over the instance set this profile's schema admits and it makes no claim that W2-B generally requires a receipt on completed; the accepted W2-B bytes are reused byte-unchanged and no accepted contract or accepted packet member acquires an obligation from this packet.",
+    "required_fields": "receipt_id, action_id, tenant_id, status, capability, executor, delegation_ref, resolved_arguments_digest, started_at, finished_at, side_effect, receipt_digest and signature. side_effect is required here although the accepted envelope leaves it optional, because an R0 read must state positively that it performed none. action_id, tenant_id, delegation_ref and the capability descriptor must equal the bound request exactly, receipt_id must equal the completed bound result receipt_id, and resolved_arguments_digest must equal the constrained-JCS resolved-arguments projection of the bound request. Receipt status is restricted to completed, failed and timed_out.",
+    "side_effect": "side_effect.performed=false is exact and structural: an R0 read that reports a performed side effect is rejected. Both receipt artifact channels are bounded to zero items because the business payload is inline and digest-bound.",
+    "signature": "The receipt carries an opaque non-empty signature reference and nothing more. The signing and attestation envelope stays deferred and is owned by Fabric; this profile invents no signature format, key material, algorithm or verification rule, and a deferred envelope is an open obligation rather than a satisfied one.",
+    "artifacts": "No artifact channel exists in this profile. Because the packet deliberately ships no receipt fixture, the bound-receipt rules are exercised only against synthesized receipt documents inside the standalone suite."
+  },
+  "compatibility": {
+    "additive": true,
+    "modifies_existing_packet_bytes": false,
+    "modifies_existing_ids": false,
+    "stable_v1_or_ga": false,
+    "obligations_on_existing_accepted_members": "none. No accepted packet member is edited, re-versioned or re-pinned, and no accepted contract acquires a runtime obligation from this packet or from its acceptance. The completed-receipt rule recorded in receipt_binding binds only the instances admitted by this profile's own schema.",
+    "reuses_accepted_unmodified": [
+      "json-schema/cybrik.common-defs.v1.schema.json",
+      "json-schema/cybrik.data-marking.v1.schema.json",
+      "json-schema/cybrik.tool-execution-request.v1.schema.json",
+      "json-schema/cybrik.tool-execution-result.v1.schema.json",
+      "json-schema/cybrik.execution-receipt.v1.schema.json",
+      "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
+      "openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+      "examples/svc/positive/svc-delegation-token.json"
+    ]
+  },
+  "source_packet": {
+    "packet": "compatibility/cybrik-suite-alert-context-packet.v1.manifest.json",
+    "source_commit": "20cfa36c503e5a95341c80653d25d2000d65c9fe",
+    "source_manifest_sha256": "403f7b0df42b9c0768f048bb71dedeebdd3f930d9a39dcf4ac935335b85b7d2e",
+    "source_member_count": 13,
+    "source_member_set_digest": "sha256:27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8",
+    "source_members": [
+      {
+        "file": "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
+        "sha256": "d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984"
+      },
+      {
+        "file": "examples/alert-context/examples-manifest.json",
+        "sha256": "e5abc6f7201b4401acaf1a74fee96f83b45e850240bb80195e2f208465653e27"
+      },
+      {
+        "file": "examples/alert-context/negative-schema/request.alert-ref-missing-digest.json",
+        "sha256": "93c86aa87147c36387ac6b467d816ca82a65ff125a5b151dd4925dfee7f2773d"
+      },
+      {
+        "file": "examples/alert-context/negative-schema/request.execution-grant-in-body.json",
+        "sha256": "185022b93a4d54b8e39bf123e7c4c6903cee85f941f23a3b052b50c861a1abf9"
+      },
+      {
+        "file": "examples/alert-context/negative-schema/request.w2f-delegation-as-tool-grant.json",
+        "sha256": "3d784b3e5ce3a9e55cf90aedaf479a034e61b94a6db2dbc207081dbbeb850c5e"
+      },
+      {
+        "file": "examples/alert-context/negative-schema/result.existence-leak.json",
+        "sha256": "f16c996795a2a05b840ad48d99380ecf11d72139f6ab6d3fee982dd25deaf2f8"
+      },
+      {
+        "file": "examples/alert-context/negative-semantic/request.cross-tenant-actor.json",
+        "sha256": "c6013cf28a5c9ca490de02c70ca16554d3cacf701529867c990ce6f5332ae023"
+      },
+      {
+        "file": "examples/alert-context/negative-semantic/result.clearance-exceeded.json",
+        "sha256": "eb687f3de64f2aa203e0b49865f4efe69c6f259a73f6ece127efe6007c87cd2f"
+      },
+      {
+        "file": "examples/alert-context/negative-semantic/result.cross-org.json",
+        "sha256": "4cc9803aa26a3dd744e5769a8ecdf5bfa4973b1b26f400853c390aa92daebf31"
+      },
+      {
+        "file": "examples/alert-context/negative-semantic/result.digest-mismatch.json",
+        "sha256": "7331123f31589fdb984fc92abc006e025ff0d091257f02ce794ee2175069adf5"
+      },
+      {
+        "file": "examples/alert-context/positive/request.json",
+        "sha256": "74d6c1f9d991583c9f3732a5eab86fbf842b42097ea5ff93db429755b44761ac"
+      },
+      {
+        "file": "examples/alert-context/positive/result.available.json",
+        "sha256": "4ad9be4f716f301c02e30415f5c7cd33e609012162254c97a00192c8672a01a5"
+      },
+      {
+        "file": "examples/alert-context/positive/result.unavailable.json",
+        "sha256": "09d500c3a77c7984f9e16598a025854595231be01fd25e67aa232c1f56aa44b2"
+      }
+    ],
+    "reuse_statement": "This packet builds on the accepted W1 C1 soc.get_alert_context packet without changing any of its bytes, identifiers, lifecycle or status, and without claiming any standing over it. All 13 accepted C1 members are pinned by sha256 here and re-verified against both the bytes on disk and the accepted C1 manifest declaration, so drift in either place fails closed. The accepted C1 available-result projection is reused verbatim rather than restated, and the packet fails closed if this copy drifts from the accepted declaration. The C1 source pin was first taken at commit 3a2c71555a423465855ffaddcb663c8b704dbfbd and carried unchanged through the transport-binding acceptance at commit a976a205601de22dae59e5112e37ae29707fda0e; both of those commits hold the pre-correction C1 bytes. It is re-pinned here to commit 20cfa36c503e5a95341c80653d25d2000d65c9fe, the accepted C1 org-scope narrowing, so that source_commit names exactly the commit whose bytes every hash in this block is taken from. The re-pin moves pinned source bytes only: no C1 or transport lifecycle, status, version or acceptance date changes with it."
+  },
+  "reused_unmodified": [
+    {
+      "file": "json-schema/cybrik.common-defs.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "cecc415ca472eb841985517504fdc721ab303f977f0a2fa1998c37c3514116c0"
+    },
+    {
+      "file": "json-schema/cybrik.data-marking.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "f0ee58c940f7c865ba8aa620949fb5836ee739ede6afe0c6d6618bc2b7735250"
+    },
+    {
+      "file": "json-schema/cybrik.tool-execution-request.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "acd5fdd6ef286f4e8bc7a292a92e1a9c23603ed3dae7abcfe7cd36fedc8d477b"
+    },
+    {
+      "file": "json-schema/cybrik.tool-execution-result.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "7cc2ab0d050e43d5a2faab829cdb87194626660843228a2a53bb132cabf551e2"
+    },
+    {
+      "file": "json-schema/cybrik.execution-receipt.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "423ce118ae1ddabb0b3d1f13a65526e761356b9f14aa9974555976812cc0839d"
+    },
+    {
+      "file": "json-schema/cybrik.soc-get-alert-context.v1.schema.json",
+      "kind": "json-schema",
+      "reuse": "byte-unchanged",
+      "sha256": "d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984"
+    },
+    {
+      "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+      "kind": "openapi",
+      "reuse": "byte-unchanged",
+      "sha256": "fdaecfa3aa2c7fe2ccdf1d89069bc5250d0d9cc95adbcfa295f327d2c42e130c"
+    },
+    {
+      "file": "examples/svc/positive/svc-delegation-token.json",
+      "kind": "example",
+      "reuse": "byte-unchanged",
+      "sha256": "e33cc6abb560443907a94fd7ebea8937c3b4b8e14a3c95a345129ab609a9ae23"
+    }
+  ],
+  "trust_invariants": {
+    "structural": [
+      "TB-1 The accepted W2-B request, result and receipt envelopes and the accepted Fabric control-plane OpenAPI surface are reused byte-unchanged, and every binding definition is exactly one $ref to the accepted envelope plus exactly one restriction branch, so this profile can only narrow and never widen.",
+      "TB-2 The capability descriptor is pinned to exact soc.get_alert_context@0.1.0 with R0 and side_effects=false, and its digest stays an opaque accepted sha256Digest held under exact equality across the envelope request, the completed business binding and the receipt.",
+      "TB-3 The caller-argument channel is closed and cannot carry authorization_binding, so the credential- and policy-derived binding can never be caller-asserted.",
+      "TB-4 The envelope status set is restricted to completed, denied, unavailable, failed and budget_exceeded, and approval_id is forbidden, because this synchronous R0 read is neither approval-gated nor queued.",
+      "TB-5 Dispatch is execute-only with no dry_run, and resource_scope is forbidden, so authorized scope reaches the capability through exactly one channel and the two narrowed string bounds keep every envelope-valid bound request reconstructible into a C1-valid business request.",
+      "TB-6 A non-completed envelope status carries no business output, and a denied envelope status carries no receipt_id and stays terminal with retryable=false, so envelope-level unavailability can never be conflated with the C1 business outcome unavailable.",
+      "TB-7 A completed bound result requires receipt_id and a complete, digest-bound inline output, and forbids an error.",
+      "TB-8 Output artifacts are bounded to zero items on both the bound result and the receipt and output.truncated is exactly false, so the business payload is inline, complete, digest-bound and has no locator side channel."
+    ],
+    "runtime_only_fixture_exercised": [
+      "TR-1 Runtime must hold one idempotency key identical across the four bound positions; the structurally valid rebound-key fixture must be rejected.",
+      "TR-2 Runtime must reject an envelope whose actor tenant differs from the credential-derived authoritative tenant; the structurally valid cross-tenant fixture must be rejected.",
+      "TR-3 Runtime must reject a W2-F internal service delegation token presented as a Fabric tool grant; the structurally valid fixture carrying the accepted W2-F token digest as delegation_ref must be rejected."
+    ],
+    "runtime_only_declared": [
+      "TR-4 Runtime must complete the authorization binding from the presented credential and the evaluated policy before dispatch, and must reject any bound request whose advisory copies disagree with that completed binding. Static fixtures show only that the shipped fixtures agree; they decide nothing about a runtime.",
+      "TR-5 Runtime must engage the fail-closed policy kill switch pre-dispatch, emit no receipt and no business payload, and keep the denial terminal. This packet exercises the shape of a denial only and demonstrates no kill-switch behavior.",
+      "TR-6 Runtime must emit a conforming execution receipt for each completed invocation and bind it to that invocation by action_id, tenant_id, delegation_ref, capability descriptor, receipt_id and resolved-arguments digest. The packet ships no receipt fixture, so the profile is exercised only against synthesized receipt documents.",
+      "TR-7 Runtime must authorize before any idempotency or cache lookup, partition idempotency state by the authoritative tenant, and reject a binding-digest conflict before target lookup. Ordering and partitioning are not observable in static fixtures.",
+      "TR-8 Runtime must carry trace context rather than mint it, keep the unavailable response class, timing budget and audit behavior indistinguishable for absent, unauthorized and policy-filtered alerts, and record policy, capability and payload digests in the audit trail without exposing context to unauthorized callers. Timing and audit behavior lie outside static evidence entirely."
+    ]
+  },
+  "open_runtime_obligations": [
+    "TR-4",
+    "TR-5",
+    "TR-6",
+    "TR-7",
+    "TR-8"
+  ],
+  "members": [
+    {
+      "file": "json-schema/cybrik.soc-alert-context-invocation-binding.v1.schema.json",
+      "kind": "json-schema",
+      "contract_version": "0.1.0",
+      "sha256": "8e7c0c67daa793e575b1c879643c92721733851f61a027b24ac1b36974d3eb98"
+    },
+    {
+      "file": "examples/alert-context-transport/examples-manifest.json",
+      "kind": "example-manifest",
+      "contract_version": "0.1.0",
+      "sha256": "70e621eb65cd5631216f05a28de34309eadbfc05c9dbed593ca5594e956ce3bb"
+    },
+    {
+      "file": "examples/alert-context-transport/positive/bound-request.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "2932950ee16abf9a5f26e193856a11ce34631795e70590bf7c5774acd332aa5c"
+    },
+    {
+      "file": "examples/alert-context-transport/positive/bound-result.available.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "a3dfee9fd8ef960b5f51cc1bcf36138e68303642449a9573c4d4db7ea93d39bd"
+    },
+    {
+      "file": "examples/alert-context-transport/positive/bound-result.unavailable.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "4793b59da46aae6b78f9a024db043eace4f459d0feda50f04139d08cb75c2492"
+    },
+    {
+      "file": "examples/alert-context-transport/positive/bound-result.kill-switch-denied.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "b3620f3f544a08bc8ba2de54c78d78b9242498fe42f47fa641dfbe13828b1b0b"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-request.authorization-binding-asserted.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "6ff8e4140f7e415a2655d645c50656965380df69f6310987a5ee462603390b94"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-request.capability-pin-mismatch.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "0b87a74f95380d46c46d5514df45841eea74851fdd33b9b38cd09d0a485b2595"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-result.approval-required.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "d18108b72b68f823f687677a034acd7628456b4d27eb12579b4eb337ddae66ac"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-result.output-artifact-locator.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "4010471e0ab2ab9ded97c07ba1ec425aaa6b71f2360c12ce6d2bf668d4421d9b"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-result.unavailable-with-output.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "320f5e510b247f302b2c1fc248c2bca51445c5f887f8df0435f87c37bdc4a0ac"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-schema/bound-result.completed-without-receipt.json",
+      "kind": "negative-schema",
+      "contract_version": "0.1.0",
+      "sha256": "5b6c3808140efd2c9e3d76a78b2653ec2c82dcef20df92c0fee3356419007b0f"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-semantic/bound-request.idempotency-key-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "a892f1fc471f9c6afe36e6b2cee6273352815ff0d4c7770050ad22a20ea89c10"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-semantic/bound-request.tenant-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "9d0ad11ab69e1062b6e05aa456d265a3fb4ee4ec9af707c215182bd2f3d3e2f7"
+    },
+    {
+      "file": "examples/alert-context-transport/negative-semantic/bound-request.w2f-token-as-delegation-ref.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "d2c92a612461cc68e6ab0c609cc4e4383e100f62ebb9bd7fb1977d508efd5a00"
+    }
+  ],
+  "member_set_integrity": {
+    "algorithm": "MEMBER-SET-SHA256/v1: reduce every entry of members[] to exactly {file, kind, contract_version, sha256}, sort the reduced entries by file in Unicode code point order, serialize that array as constrained RFC 8785 (JCS) canonical JSON, and render member_set_digest as sha256:<lowercase hex SHA-256 over those UTF-8 bytes>. The digest input is derived from members[] only: member_set_integrity itself and every other manifest key are excluded, so the aggregate is non-circular and is recomputed without reading its own declared value.",
+    "member_count": 15,
+    "member_set_digest": "sha256:a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4"
+  },
+  "verification": {
+    "scope": "Standalone static evidence only. The suite in tools/contract-validation/tests/validate-alert-context-transport.test.mjs holds 34 adversarial rejection cases plus 3 positive checks; several adversarial cases are table-driven over multiple mutations and every mutation must fail closed. It proves binding-packet, schema, fixture, correlation, reuse-pin, member-hash and member-set integrity plus lifecycle coherence only: no endpoint, transport surface, capability registration, Fabric grant, W2-F delegation authority, policy completion, kill-switch behavior, runtime enforcement, deployment, CI wiring, bundle tag or release readiness is demonstrated, and the lifecycle acceptance the packet carries is a recorded decision rather than evidence.",
+    "standalone_validator_command": "node tools/contract-validation/validate-alert-context-transport.mjs",
+    "standalone_test_command": "node --test tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
+    "standalone_coverage_command": "node --test --experimental-test-coverage tools/contract-validation/tests/validate-alert-context-transport.test.mjs",
+    "dependency_root_override_env": "CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=<directory whose node_modules already provides ajv 8.20.0 and ajv-formats 3.0.1>. All three commands run from the repository root, install nothing and require no network.",
+    "coverage_floor": "Branch coverage of tools/contract-validation/validate-alert-context-transport.mjs must stay at or above 80% under the declared standalone coverage command.",
+    "test_case_counts": {
+      "adversarial_rejection_cases": 34,
+      "positive_cases": 3,
+      "total_cases": 37
+    },
+    "ci_wiring": "NOT WIRED. Canonical CI wiring (npm script registration in tools/contract-validation/package.json plus pipeline invocation) is deliberately outside this acceptance and belongs to a later integration gate. This packet adds no tracked file to any existing validator entry point and modifies none."
+  },
+  "provenance": {
+    "repository": "cybrik-suite",
+    "base_commit": "4d5fb4b701f79194313975302cc0a63e0dd2a8ea",
+    "worktree": "w1-c1-transport-acceptance-r1",
+    "source_decision": "W1 lifecycle acceptance decision for the transport-binding slice, applied by logical lane W0-I01/T01.",
+    "generated_on": "2026-07-27",
+    "validator": "tools/contract-validation/validate-alert-context-transport.mjs",
+    "network_required": false
+  },
+  "proof_limits": {
+    "static_packet_integrity_proven": true,
+    "runtime_authorization_proven": false,
+    "policy_completion_runtime_proven": false,
+    "kill_switch_runtime_proven": false,
+    "endpoint_or_transport_implemented": false,
+    "accepted_for_implementation": true,
+    "release_ready": false
+  },
+  "acceptance": {
+    "status": "ACCEPTED FOR IMPLEMENTATION",
+    "accepted_on": "2026-07-27",
+    "decision_record": "W1 coordinator lifecycle decision under delegated Founder authority, recorded in docs/releases/GATE-W1-C1-TRANSPORT-BINDING.md and applied by logical lane W0-I01/T01 in cybrik-suite worktree w1-c1-transport-acceptance-r1 against base commit 4d5fb4b701f79194313975302cc0a63e0dd2a8ea.",
+    "scope_of_acceptance": "Accepts the transport-binding profile shape at v0.1.0 as the basis for implementation: the restriction-only reuse of the accepted W2-B request, result and receipt envelopes; the closed caller-argument channel; the capability pin; the restricted envelope status set and outcome mapping; the constrained RFC 8785/JCS projections and the lossless reconstruction back into the accepted C1 business request; the bound-receipt profile; and the static packet-integrity evidence. Acceptance is a recorded contract decision, not evidence: it changes no runtime behavior and demonstrates none.",
+    "non_claims": [
+      "no runtime implementation or runtime behavior is accepted, verified or demonstrated",
+      "no endpoint, path, operation, queue, AsyncAPI channel or MCP transport surface is accepted",
+      "no capability-registry entry is accepted or registered",
+      "no Fabric tool-execution grant is accepted or minted, and W2-F inference delegation is never Fabric tool authority",
+      "no deployment, environment rollout or operational enablement is accepted",
+      "no CI wiring or pipeline registration is accepted",
+      "no Bundle v0.1.1 membership or bundle tag is accepted",
+      "no merge, push, release or release certification is accepted"
+    ],
+    "settled_checklist": [
+      "B1 The accepted W2-B request, result and receipt envelopes and the accepted Fabric control-plane OpenAPI surface are reused byte-unchanged; this profile can only narrow them.",
+      "B2 The capability pin is exact soc.get_alert_context@0.1.0 with risk_class=R0 and side_effects=false, over an opaque registry-owned descriptor digest held under exact equality across the envelope request, the completed business binding and the receipt.",
+      "B3 The caller-argument channel is closed and can never carry authorization_binding; Fabric completes the credential- and policy-derived binding after authorization and before dispatch.",
+      "B4 The envelope status set is restricted to completed, denied, unavailable, failed and budget_exceeded, approval_id is forbidden, and dispatch is execute-only.",
+      "B5 Envelope status=unavailable and the C1 business outcome=unavailable are distinct meanings and must never be conflated; every business outcome travels inside envelope status=completed.",
+      "B6 The two narrowed string bounds (purpose 1..200, idempotency_key 16..200) make every envelope-valid bound request reconstructible into a C1-valid business request.",
+      "B7 The constrained RFC 8785/JCS projections are non-circular, and the reconstruction into the accepted C1 business request is lossless and byte-identical under constrained JCS.",
+      "B8 A completed invocation of this capability requires a conforming execution receipt with side_effect.performed=false and zero artifacts; the signing envelope stays deferred and is owned by Fabric.",
+      "B9 W2-F inference delegation is never Fabric tool authority for this capability, and the negative-semantic witness keeps that confusion a named, testable rejection.",
+      "B10 All static schema, fixture, correlation, reuse-pin, member-hash and member-set checks pass from a clean checkout under the declared standalone commands."
+    ],
+    "open_runtime_obligations": [
+      "TR-4",
+      "TR-5",
+      "TR-6",
+      "TR-7",
+      "TR-8"
+    ]
+  },
+  "residual_questions": [
+    "Should the capability descriptor digest stay fully opaque at v0.1.0, or must the capability registry publish a computable descriptor projection before this binding can be implemented against a real registry entry?",
+    "Is envelope status=unavailable ever a legitimate response for this capability, given that SOC reports business unavailability inside envelope status=completed, or should the profile forbid the envelope meaning outright once transport failure modes are enumerated?",
+    "Should traceparent become required on the caller side so that trace continuity is structural rather than conditional, and how would that be reconciled with callers that legitimately hold no trace context?",
+    "Are 1..200 for purpose and 16..200 for idempotency_key the right long-term reconstruction bounds, or should the accepted W2-B envelope itself be narrowed in a later revision so that each capability profile does not have to restate them?",
+    "Which signing and attestation envelope will bind the receipt signature, and must it cover resolved_arguments_digest and receipt_digest before a first implementation is attempted?",
+    "Should the completed-receipt obligation eventually be lifted into the generic W2-B envelope for all R0 read capabilities, or remain a per-capability restriction as it is here?",
+    "Does the bound-output projection need to cover output.truncated if truncated or streamed payloads ever become possible for this capability, and how would such a projection stay non-circular?",
+    "Which integration gate wires this validator into the canonical pipeline, now that the lifecycle decision is recorded and CI wiring is still explicitly outside it?"
+  ]
+}

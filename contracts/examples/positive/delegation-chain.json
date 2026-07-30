@@ -1,0 +1,41 @@
+{
+  "chain_digest": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "tenant_id": "tenant-acme",
+  "grants": [
+    {
+      "grant_id": "grant-root-0001",
+      "grant_digest": "sha256:a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "parent_digest": null,
+      "issuer": { "type": "user", "id": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
+      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
+      "audience": "cybrik.fabric.control-plane",
+      "purpose": "incident_investigation",
+      "scope": {
+        "capabilities": ["soc.search_related_events", "fabric.isolate_host"],
+        "resource_patterns": ["case:INC-4821/*"],
+        "max_risk_class": "R3"
+      },
+      "constraints": { "max_uses": 50 },
+      "issued_at": "2026-07-24T09:00:00Z",
+      "not_before": "2026-07-24T09:00:00Z",
+      "expires_at": "2026-07-24T13:00:00Z"
+    },
+    {
+      "grant_id": "grant-approval-0002",
+      "grant_digest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "parent_digest": "sha256:a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "issuer": { "type": "user", "id": "soc:manager:sam", "tenant_id": "tenant-acme" },
+      "subject": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:manager:sam", "tenant_id": "tenant-acme" },
+      "audience": "cybrik.fabric.control-plane",
+      "purpose": "incident_containment",
+      "scope": {
+        "capabilities": ["fabric.isolate_host"],
+        "resource_patterns": ["case:INC-4821/host/HR-LAPTOP-19"],
+        "max_risk_class": "R3"
+      },
+      "constraints": { "max_uses": 1, "separation_of_duties": true },
+      "issued_at": "2026-07-24T10:15:00Z",
+      "expires_at": "2026-07-24T10:45:00Z"
+    }
+  ]
+}

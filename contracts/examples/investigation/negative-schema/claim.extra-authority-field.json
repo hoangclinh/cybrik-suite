@@ -1,0 +1,27 @@
+{
+  "claim_id": "d2e7af08-b8fc-4eeb-9cbc-be1938857a0d",
+  "claim_digest": "sha256:1c238b9535ce532bc9c6d9ff533584b948eb57e1548d29aefa61f9a066546cc9",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "asserted",
+  "statement": "WKS-0042 executed psexec.exe as SYSTEM against SRV-DC01.",
+  "confidence": "medium",
+  "evidence_refs": [
+    {
+      "type": "cybrik.evidence",
+      "id": "3c859ff3-8942-444b-b9d8-8b9819284ba3",
+      "digest": "sha256:947d8135a30447350e3211c52182862c7c53bc2ba9b58151b48672fcf8bc10f3"
+    }
+  ],
+  "approval_id": "apr-should-not-exist-on-a-claim",
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-25T09:25:00Z"
+}

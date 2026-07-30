@@ -1,0 +1,15 @@
+{
+  "org_node_id": "on-region",
+  "parent_id": "on-root",
+  "tier": 1,
+  "tenant_binding": "tenant-acme",
+  "boundary_kind": "internal",
+  "status": "active",
+  "labels": {
+    "label_key": "org.node.region",
+    "locale_labels": {
+      "vi": "Vùng",
+      "en": "Region"
+    }
+  }
+}

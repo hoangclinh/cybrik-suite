@@ -1,0 +1,20 @@
+{
+  "request_id": "sum-neg-empty-refs-0001",
+  "idempotency_key": "idem-sum-neg-emptyrefs-00001",
+  "tenant_id": "tenant-acme",
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/summarizer", "tenant_id": "tenant-acme" },
+  "purpose": "alert_triage_summary",
+  "model_class": "summarization.soc_alert",
+  "prompt_template": {
+    "id": "soc.alert.triage_summary",
+    "version": "2.0.1",
+    "digest": "sha256:33333333333333333333333333333333333333333333333333333333333333ef"
+  },
+  "alert_refs": [],
+  "summary_style": "triage",
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "redaction_policy": { "profile": "soc.pii_strip", "on_unresolved": "deny" },
+  "limits": { "max_input_tokens": 16000, "max_output_tokens": 1200, "max_context_tokens": 32000 },
+  "deadline_seconds": 90,
+  "correlation": { "correlation_id": "corr-neg-0005" }
+}

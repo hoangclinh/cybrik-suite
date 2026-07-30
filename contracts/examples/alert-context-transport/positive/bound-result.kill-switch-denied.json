@@ -1,0 +1,10 @@
+{
+  "action_id": "act-alert-context-0001",
+  "tenant_id": "tenant-acme",
+  "status": "denied",
+  "policy_decision_id": "pdp-alert-context-0003",
+  "error": {
+    "code": "FABRIC_POLICY_KILL_SWITCH_ENGAGED",
+    "retryable": false
+  }
+}

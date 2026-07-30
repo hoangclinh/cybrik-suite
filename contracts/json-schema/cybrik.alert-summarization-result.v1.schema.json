@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.alert-summarization-result.v1.schema.json",
+  "title": "CYBRIK alert-summarization result v1",
+  "description": "Result of an alert-summarization inference. The summary is UNTRUSTED, advisory analyst-support content — never an authorization, triage-decision authority, or action trigger. Citations bind each claim back to the digest-bound alert refs (grounding/provenance). Runtime invariant (control-enforced, not schema): output data_marking MUST be >= the union of the input alerts' markings — a summary never downgrades sensitivity. A refusal/filter is surfaced as outcome, not dropped. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "tenant_id",
+    "model_class",
+    "outcome",
+    "summary_style",
+    "data_marking",
+    "redaction",
+    "usage",
+    "created_at",
+    "correlation"
+  ],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Control-written authoritative tenant. Never from model output."
+    },
+    "model_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass" },
+    "outcome": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/inferenceOutcome" },
+    "summary_style": {
+      "type": "string",
+      "enum": ["triage", "executive", "technical"]
+    },
+    "summary_text": {
+      "type": "string",
+      "description": "The generated summary. Advisory analyst-support text with NO authority. Present for outcome='completed'; absent/empty otherwise.",
+      "maxLength": 20000
+    },
+    "citations": {
+      "type": "array",
+      "description": "Grounding: each cited alert bound by digest-bound objectRef back to the request's alert_refs. Enables provenance/eval and discourages ungrounded claims.",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "maxItems": 200,
+      "default": []
+    },
+    "refusal_reason": { "type": "string", "maxLength": 2000 },
+    "filter_reason": { "type": "string", "maxLength": 2000 },
+    "fallback": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/fallbackInfo" },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking of the summary output. MUST be >= the union of input alert markings (control-enforced non-downgrade)."
+    },
+    "redaction": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/redactionApplied" },
+    "usage": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/usage" },
+    "latency": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/latency" },
+    "created_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "telemetry": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/telemetryRef" },
+    "correlation": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/correlation" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "completed" } }, "required": ["outcome"] },
+      "then": { "required": ["summary_text"] }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "refused" } }, "required": ["outcome"] },
+      "then": { "required": ["refusal_reason"] }
+    },
+    {
+      "if": { "properties": { "outcome": { "const": "filtered" } }, "required": ["outcome"] },
+      "then": { "required": ["filter_reason"] }
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-node-lifecycle.v1.schema.json",
+  "title": "CYBRIK org_node governed lifecycle transition v1 (D-1)",
+  "description": "A governed status transition of an org_node (ADR-0007 D-1; 02 §1.2, §8). There is deliberately NO hard-delete: a node referenced by audit/history is NEVER row-deleted — the terminal state is 'archived'. operation enumerates ONLY the governed transitions (suspend / reactivate / archive / restore); a 'delete' operation is not expressible (enum), so a hard-delete of a referenced node is structurally impossible. Rollback of a reorg is a status transition ('restore'), not a row delete. archive MAY carry an optional backfill that reassigns live memberships/edges to a same-tenant successor node (reorg-churn handling, AC-11) — never a cross-tenant or external successor (INV-2/OD-1, enforced at runtime). Every transition is actor-attributed, reasoned, and audited. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transition_id", "tenant_id", "org_node_id", "operation", "actor", "reason", "recorded_at", "audit_ref"],
+  "properties": {
+    "transition_id": {
+      "type": "string",
+      "description": "Opaque transition id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "The tenant of the node being transitioned. MUST equal the node's tenant_binding and actor.tenant_id (OD-1)."
+    },
+    "org_node_id": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeId",
+      "description": "The node whose status is being transitioned."
+    },
+    "operation": {
+      "type": "string",
+      "description": "The governed lifecycle operation. 'suspend' (active->suspended), 'reactivate' (suspended->active), 'archive' (->archived, terminal), 'restore' (archived->active, a rollback as a status transition). There is deliberately NO 'delete': a referenced node is archived, never hard-deleted (D-1). A 'delete' value is not in the enum and is rejected.",
+      "enum": ["suspend", "reactivate", "archive", "restore"]
+    },
+    "resulting_status": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeStatus",
+      "description": "The org_node status after this transition (active | suspended | archived). Never 'deleted' — that state does not exist."
+    },
+    "actor": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Who performed the governed transition. Model output can never populate an actor (ADR-0006)."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human reason for the transition (audited).",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "backfill": {
+      "type": "object",
+      "description": "Optional reassignment applied when archiving a node that still has live memberships/edges (reorg-churn, AC-11). References are backfilled onto a SAME-TENANT internal successor node — never dropped, never reassigned across tenants or to an external peer (runtime). Only meaningful with operation 'archive'.",
+      "additionalProperties": false,
+      "required": ["successor_node_id", "reassign_memberships"],
+      "properties": {
+        "successor_node_id": {
+          "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeId",
+          "description": "The same-tenant internal node that inherits the archived node's live references. MUST be in the same tenant and MUST NOT equal org_node_id (runtime)."
+        },
+        "reassign_memberships": {
+          "type": "boolean",
+          "description": "Whether live memberships on the archived node are reassigned to the successor (true) or expired in place (false)."
+        }
+      }
+    },
+    "recorded_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "When the transition was recorded (UTC)."
+    },
+    "audit_ref": {
+      "type": "string",
+      "description": "Reference to the append-only audit record for this governed transition (required — every lifecycle change is accountable).",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "backfill is only meaningful for an archive transition (a same-tenant successor inherits live references on archive).",
+      "if": { "required": ["backfill"] },
+      "then": { "properties": { "operation": { "const": "archive" } } }
+    }
+  ]
+}

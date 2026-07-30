@@ -1,0 +1,31 @@
+{
+  "bundle_id": "987e25fb-8bd0-4d11-a80e-b67c2350385d",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "in_progress",
+  "claims": [
+    {
+      "type": "cybrik.claim",
+      "id": "d3f46848-230b-4185-9388-952e6e758962",
+      "digest": "sha256:9c39b75bf0a0cf494578efc4bdbbe5d3a9ce5cbc70da1bd731c26d611a78dacd"
+    }
+  ],
+  "evidence": [
+    {
+      "type": "cybrik.evidence",
+      "id": "624daf0e-6ae1-41a2-b9ab-af7f4dd0de5a",
+      "digest": "sha256:bc549e06b5c7e5a5f358406bd16a37b95112ef17ae27ef35bfb9270b931905ef"
+    }
+  ],
+  "generated_by": {
+    "type": "service",
+    "id": "spiffe://cybrik/tenant-acme/ai/worker/bundle-generator",
+    "tenant_id": "tenant-acme"
+  },
+  "generated_at": "2026-07-25T09:27:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "digest": "sha256:0f656f53bd6e16828df7bffaa6da4c2ad55b85719d081be73669b68236ea23d5"
+}

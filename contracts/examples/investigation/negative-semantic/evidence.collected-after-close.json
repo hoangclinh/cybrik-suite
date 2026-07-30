@@ -1,0 +1,23 @@
+{
+  "evidence_id": "efcb2e31-5b97-4787-bb4b-17c8cc56e471",
+  "evidence_digest": "sha256:62a2c3093cdd47a00a3f4002e74af5f432bfc98497fc400678216efd7911a3dc",
+  "investigation_id": "3150799b-b9d3-48d3-903c-f8777e4b29a7",
+  "tenant_id": "tenant-acme",
+  "kind": "log-excerpt",
+  "source_ref": {
+    "type": "ocsf.event",
+    "id": "evt-2026-07-20-991122",
+    "digest": "sha256:56f4d2123250fed384b070531728180c07ed8e293a142be92f3f8cac86ebab52"
+  },
+  "excerpt": "Late arrival log line for the already-closed scheduled-task investigation.",
+  "collected_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-01",
+    "tenant_id": "tenant-acme"
+  },
+  "collected_at": "2026-07-20T11:00:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

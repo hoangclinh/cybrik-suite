@@ -1,0 +1,6 @@
+{
+  "action_id": "act-INC-4821-isolate-0007",
+  "tenant_id": "tenant-acme",
+  "status": "approval_required",
+  "policy_decision_id": "pd-2026-07-24-6613"
+}

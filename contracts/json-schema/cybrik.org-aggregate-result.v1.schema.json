@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-aggregate-result.v1.schema.json",
+  "title": "CYBRIK org aggregate roll-up result v1 (D-8)",
+  "description": "A DE-IDENTIFIED subtree roll-up result (ADR-0007 D-8; 02 §2.2; OD-2; FC-4). This is the payload an ancestor may see across a tier: counts/metrics only, NEVER raw records. It carries NO objectRef and no raw resource pattern — additionalProperties:false at every level means there is nowhere for a raw record, case id, or drill-down handle to live (a 'raw aggregate' is structurally impossible). Every reported cell is either SUPPRESSED (below the small-cell floor) or carries a count that MUST be >= the small_cell_floor (const 5, OD-2): a cell counting fewer than 5 underlying subjects is a re-identification risk and cannot be expressed unsuppressed. small_cell_floor const 5 pins the OD-2 floor; no differential privacy is adopted here. $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["result_id", "request_ref", "tenant_id", "target_node", "small_cell_floor", "dimensions", "cells", "generated_at"],
+  "properties": {
+    "result_id": {
+      "type": "string",
+      "description": "Opaque result id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "request_ref": {
+      "type": "string",
+      "description": "The request_id of the aggregate request this result answers (traceability).",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "The tenant this roll-up was computed in. MUST equal the request's / grant's tenant (OD-1)."
+    },
+    "target_node": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef",
+      "description": "The subtree root this roll-up covers."
+    },
+    "small_cell_floor": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/smallCellFloor",
+      "description": "Const 5 (OD-2): every unsuppressed cell count is >= this floor. A result declaring a smaller floor is not expressible."
+    },
+    "dimensions": {
+      "type": "array",
+      "description": "The metric dimensions rolled up, in order. Cell buckets are keyed by these dimension names. No raw identifiers.",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "cells": {
+      "type": "array",
+      "description": "The de-identified cells. Each cell is EITHER suppressed OR reports a count >= small_cell_floor. No cell carries a raw record, objectRef, or drill-down handle.",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A single de-identified aggregate cell. Exactly one of {count, suppressed} is present (oneOf). A counted cell has count >= 5 (the small-cell floor); a small cell is reported only as suppressed=true, never with its true sub-5 count.",
+        "required": ["bucket"],
+        "properties": {
+          "bucket": {
+            "type": "object",
+            "description": "The dimension coordinate of this cell: a map of dimension name -> de-identified category value (e.g. {\"severity\":\"critical\",\"category\":\"phishing\"}). Values are coarsened category labels, never raw record identifiers.",
+            "minProperties": 1,
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Underlying subject count for this cell. minimum 5 = the small-cell floor (OD-2): a count below 5 is a re-identification risk and MUST instead be reported as a suppressed cell. Not present when suppressed=true.",
+            "minimum": 5
+          },
+          "suppressed": {
+            "type": "boolean",
+            "description": "Const true: this cell fell below the small-cell floor and its count is withheld (its true count is NOT carried). Not present alongside count.",
+            "const": true
+          }
+        },
+        "oneOf": [
+          { "required": ["count"], "not": { "required": ["suppressed"] } },
+          { "required": ["suppressed"], "not": { "required": ["count"] } }
+        ]
+      }
+    },
+    "generated_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "When this roll-up was computed (UTC)."
+    }
+  }
+}

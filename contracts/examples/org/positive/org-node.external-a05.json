@@ -1,0 +1,11 @@
+{
+  "org_node_id": "on-a05",
+  "parent_id": null,
+  "tier": 0,
+  "tenant_binding": "tenant-external-a05",
+  "boundary_kind": "external",
+  "status": "active",
+  "labels": {
+    "label_key": "org.node.a05"
+  }
+}

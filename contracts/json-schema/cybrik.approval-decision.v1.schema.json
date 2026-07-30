@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.approval-decision.v1.schema.json",
+  "title": "CYBRIK approval decision v1",
+  "description": "An authenticated human decision on an approval request (strategy 05 §5.4), the response side of the ADR-0004 F9 / RB-001 approval-ingress gap. The decision re-binds the same approval_id, capability digest, resolved target snapshot, and resolved arguments digest it was issued against; the control plane MUST reject the decision if the action, capability, arguments, target snapshot, or policy changed materially, or if the approval has expired (strategy 05 §5.4, §11.4). The decider is an authenticated actor, not model output. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "action_id",
+    "tenant_id",
+    "decision",
+    "decided_by",
+    "decided_at",
+    "capability_digest",
+    "resolved_target_digest",
+    "resolved_arguments_digest",
+    "policy_decision_id",
+    "delegation_ref"
+  ],
+  "properties": {
+    "approval_id": { "type": "string", "minLength": 1 },
+    "action_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "decision": {
+      "type": "string",
+      "enum": ["approved", "denied"]
+    },
+    "decided_by": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"], "properties": { "type": { "const": "user" } } } ], "description": "Authenticated HUMAN approver. decided_by.type MUST be \"user\" (schema-enforced; W2B-H1): human-in-the-loop is not satisfiable by model output, so a type:\"agent\"/\"service\" identity can request or propose an approval but can NEVER decide one — a decision from a non-human actor MUST be rejected at the schema, not just at runtime. tenant_id required (cross-tenant authorization). MUST satisfy the request's obligations (role, minimum_approvers, separation_of_duties). For separation_of_duties, MUST differ from requested_by and requested_for.actor_id." },
+    "decided_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "reason_code": { "type": "string" },
+    "comment": { "type": "string" },
+    "capability_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "MUST equal the approval request's capability_digest."
+    },
+    "resolved_target_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "The target snapshot the approver observed. MUST equal the request's resolved_target_digest, else the decision is invalid."
+    },
+    "resolved_arguments_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "MUST equal the approval request's resolved_arguments_digest."
+    },
+    "policy_decision_id": {
+      "type": "string",
+      "description": "MUST equal the approval request's policy_decision_id."
+    },
+    "delegation_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "chain_digest of the delegation chain the action runs under. MUST equal the approval request's delegation_ref; binds the decision to the exact authority (confused-deputy / re-bind defense)."
+    }
+  }
+}

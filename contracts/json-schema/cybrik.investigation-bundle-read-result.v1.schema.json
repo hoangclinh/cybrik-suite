@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-bundle-read-result.v1.schema.json",
+  "title": "CYBRIK investigation bundle read result v1",
+  "description": "Authorized Cyber-AI-to-SOC bundle-read response. Cyber AI remains the bundle producer/authority; SOC receives and displays the ACCEPTED FOR IMPLEMENTATION strict-compatible v0.1.1 Investigation Bundle under the authenticated tenant/org/actor read scope. W1-REC-3/4 makes v0.1.1 authoritative for new bundle-read responses while preserving accepted v0.1.0 as immutable supported legacy read/replay input with byte-unchanged SHA-256 evidence. Consumer migration remains separately gated by W1-REC-5. The wrapper marking cannot be lower than the bundle marking at runtime. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 packet with authoritative Bundle v0.1.1 for new responses (not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "investigation_id",
+    "tenant_id",
+    "org_scope",
+    "served_to",
+    "bundle",
+    "read_at",
+    "data_marking",
+    "etag"
+  ],
+  "properties": {
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "org_scope": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/orgScopeRef"
+    },
+    "served_to": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ]
+    },
+    "bundle": {
+      "$ref": "cybrik.investigation-bundle.strict-compatible.v1.schema.json"
+    },
+    "read_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json"
+    },
+    "etag": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+    }
+  }
+}

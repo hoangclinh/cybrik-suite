@@ -1,0 +1,16 @@
+{
+  "action_id": "act-short-key",
+  "idempotency_key": "short",
+  "tenant_id": "tenant-acme",
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "tenant_id": "tenant-acme" },
+  "purpose": "incident_containment",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "capability": {
+    "name": "fabric.isolate_host",
+    "version": "1.0.0",
+    "digest": "sha256:cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"
+  },
+  "arguments": { "host_ref": "HR-LAPTOP-19" },
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "execution": { "mode": "execute" }
+}

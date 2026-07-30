@@ -1,0 +1,36 @@
+{
+  "grant_id": "gr-agg-1",
+  "tenant_id": "tenant-acme",
+  "grantor": {
+    "type": "user",
+    "id": "soc:admin:hoa",
+    "tenant_id": "tenant-acme"
+  },
+  "subject": {
+    "type": "user",
+    "id": "soc:coordinator:minh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "scope_kind": "aggregate",
+  "subject_relationship": "ancestor-governance",
+  "mechanism": "standard",
+  "aggregate_scope": {
+    "small_cell_floor": 5,
+    "dimensions": [
+      "severity",
+      "category"
+    ]
+  },
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:gr-agg-1"
+  }
+}

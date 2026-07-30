@@ -1,0 +1,21 @@
+{
+  "evidence_id": "32f1b51c-1290-473f-bd1a-a140692abf6a",
+  "evidence_digest": "sha256:6f9c13de508f5b95fb0132d0f671b3b1918cf38dea1682073b09bfba10c44c0f",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "kind": "log-excerpt",
+  "source_ref": {
+    "type": "ocsf.event",
+    "id": "evt-2026-07-25-778812"
+  },
+  "collected_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "collected_at": "2026-07-25T09:12:30Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

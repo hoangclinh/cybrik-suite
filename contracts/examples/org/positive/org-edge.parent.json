@@ -1,0 +1,23 @@
+{
+  "edge_id": "ed-parent-1",
+  "edge_type": "parent",
+  "from_node": {
+    "org_node_id": "on-region",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 1
+  },
+  "to_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "confers_raw_read": false,
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:ed-parent-1"
+  }
+}

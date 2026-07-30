@@ -1,0 +1,24 @@
+{
+  "evidence_id": "24365f31-e256-42d5-93e1-4d94fc9f5aa2",
+  "evidence_digest": "sha256:6541fb80d276bc28a023e778975dfe86f81b7e1766eb17aea21506cd21df6f3d",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "kind": "tool-result",
+  "source_ref": {
+    "type": "tool.artifact",
+    "id": "rcpt-INC-4821-isolate-0007-report",
+    "digest": "sha256:54f523ca7d860ebc474d43409b7b87aebe63edb652d81ae447b1ea732137f9af"
+  },
+  "excerpt": "fabric.isolate_host completed: WKS-0042 network-isolated pending analyst review.",
+  "receipt_ref": "sha256:e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+  "collected_by": {
+    "type": "service",
+    "id": "spiffe://cybrik/tenant-acme/fabric/control-plane",
+    "tenant_id": "tenant-acme"
+  },
+  "collected_at": "2026-07-25T09:22:11Z",
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  }
+}

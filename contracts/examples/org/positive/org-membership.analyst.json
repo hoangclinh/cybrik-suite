@@ -1,0 +1,19 @@
+{
+  "membership_id": "mb-analyst-1",
+  "actor": {
+    "type": "user",
+    "id": "soc:analyst:linh",
+    "tenant_id": "tenant-acme"
+  },
+  "org_node_id": "on-commune",
+  "node_boundary_kind": "internal",
+  "tenant_id": "tenant-acme",
+  "role": "analyst",
+  "confers_descendant_raw": false,
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:grant-ok"
+  }
+}

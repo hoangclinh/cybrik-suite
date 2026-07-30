@@ -1,0 +1,6 @@
+{
+  "request_id": "req-status-404",
+  "error_class": "not_found_or_not_authorized",
+  "message_safe": "The requested investigation is unavailable.",
+  "retryable": false
+}

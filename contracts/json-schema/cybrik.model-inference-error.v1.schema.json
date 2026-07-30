@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-inference-error.v1.schema.json",
+  "title": "CYBRIK model inference error v1",
+  "description": "Provider-neutral typed error for an inference that produced NO result (the runtime failed, was unavailable, exceeded a budget, or the redaction/policy gate denied it). Distinct from cybrik.model-inference-result.v1 refusal/filtered outcomes, which are successful runtime responses. Fail-closed: message_safe is a sanitized, secret-free string (no stack traces, prompts, credentials, or runtime-native error blobs); an unmapped runtime failure surfaces as error_class 'internal' with retryable=false. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "tenant_id",
+    "error_class",
+    "retryable",
+    "message_safe",
+    "occurred_at",
+    "correlation"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Echoes the request's request_id for correlation.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Control-written authoritative tenant. Never populated from model output."
+    },
+    "model_class": {
+      "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass",
+      "description": "The requested class, if it resolved far enough to be known. Omitted for error_class 'model_class_unresolved'."
+    },
+    "error_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/errorClass" },
+    "retryable": {
+      "type": "boolean",
+      "description": "Whether an identical retry MIGHT succeed. Fail-closed default reasoning: budget/policy/redaction/context errors are retryable=false; only transient capacity/availability/timeout are retryable=true."
+    },
+    "message_safe": {
+      "type": "string",
+      "description": "Sanitized, human-readable message. MUST NOT contain secrets, credentials, raw prompts/inputs, model output, or runtime-native error payloads.",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "retry_after_seconds": {
+      "type": "integer",
+      "description": "Optional backoff hint; meaningful only when retryable=true.",
+      "minimum": 0,
+      "maximum": 86400
+    },
+    "occurred_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "telemetry": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/telemetryRef" },
+    "correlation": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/correlation" }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "edge_id": "ed-esc-1",
+  "edge_type": "escalation",
+  "from_node": {
+    "org_node_id": "on-commune",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 3
+  },
+  "to_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "confers_raw_read": true,
+  "object_ref": {
+    "type": "soc.case",
+    "id": "case-991",
+    "digest": "sha256:a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4"
+  },
+  "marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  },
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:ed-esc-1"
+  }
+}

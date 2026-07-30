@@ -1,0 +1,11 @@
+{
+  "request_id": "inf-neg-refused-noreason-0001",
+  "tenant_id": "tenant-acme",
+  "model_class": "chat.general",
+  "outcome": "refused",
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "redaction": { "profile": "soc.pii_strip", "enforced": true },
+  "usage": { "input_tokens": 5980, "output_tokens": 0 },
+  "created_at": "2026-07-24T18:30:00Z",
+  "correlation": { "correlation_id": "corr-neg-0006" }
+}

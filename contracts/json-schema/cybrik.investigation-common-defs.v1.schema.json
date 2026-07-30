@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-common-defs.v1.schema.json",
+  "title": "CYBRIK investigation-packet common definitions v1",
+  "description": "Shared enums for the W0-I01 Investigation/Claim/Evidence/Bundle packet (additive to, and disjoint from, the accepted v0.1 packet and the ACCEPTED FOR IMPLEMENTATION W2-D/W2-F/W2-G packets). Realizes ADR-0006 E6's deferred instruction that investigation-scoped correlation semantics be 'defined per event class and enforced by accepted schemas later' (this packet is that later definition). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "$defs": {
+    "investigationStatus": {
+      "type": "string",
+      "description": "Investigation lifecycle state. 'abstained' is a first-class terminal state (roadmap Week 2: an investigation MUST be able to say 'insufficient data' instead of forcing a verdict), distinct from 'completed'.",
+      "enum": ["open", "in_progress", "completed", "abstained", "closed"]
+    },
+    "claimStatus": {
+      "type": "string",
+      "description": "'asserted' claims MUST be grounded in evidence (see cybrik.claim.v1 allOf); 'abstained' claims record that the evidence was insufficient/conflicting to assert anything, which is itself a required, honest output (roadmap Week 2 'Abstention/missing-evidence output'), not an error.",
+      "enum": ["asserted", "abstained"]
+    },
+    "evidenceKind": {
+      "type": "string",
+      "description": "What kind of product-owned object cybrik.evidence.v1.source_ref points at. Evidence never inlines the referenced object's content beyond a short excerpt (strategy 05 §4.5: dereferenced through the owner's authorized API, never a public URL).",
+      "enum": ["tool-result", "log-excerpt", "artifact", "citation", "external-reference"]
+    },
+    "confidenceLevel": {
+      "type": "string",
+      "description": "Deliberately coarse (not a numeric score) so a claim cannot manufacture false precision. Required on every 'asserted' claim; MUST be absent on an 'abstained' claim (you do not hold a confidence level in something you are declining to assert).",
+      "enum": ["low", "medium", "high"]
+    },
+    "abstentionReason": {
+      "type": "string",
+      "description": "Why an investigation or claim abstained instead of asserting. Required whenever status='abstained' (investigation or claim).",
+      "enum": ["insufficient-evidence", "conflicting-evidence", "access-denied", "tool-unavailable", "scope-exceeded"]
+    }
+  }
+}

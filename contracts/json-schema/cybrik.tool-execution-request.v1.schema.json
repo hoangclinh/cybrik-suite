@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.tool-execution-request.v1.schema.json",
+  "title": "CYBRIK tool execution (invocation) request v1",
+  "description": "Request from Cyber AI (or SOC) to the Tool Fabric control plane to invoke a capability (strategy 05 §5.2). Tenant/actor/approval/credential fields carried here are ADVISORY: the control plane derives authoritative tenant/actor from the caller credential and delegation chain, ignores or rejects model-asserted authority, and re-checks authorization at execution time (strategy 05 §11). Idempotency key prevents replay; it is not replay authority after the delegation/approval expires. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "action_id",
+    "idempotency_key",
+    "tenant_id",
+    "actor",
+    "purpose",
+    "delegation_ref",
+    "capability",
+    "arguments",
+    "data_marking",
+    "execution"
+  ],
+  "properties": {
+    "action_id": {
+      "type": "string",
+      "description": "Caller-assigned logical action id (e.g. 'act_…'). Correlates request → decision → receipt.",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Mandatory for invoke/mutation (strategy 05 §2.1). Same key + same resolved request = same outcome, never a second side effect.",
+      "minLength": 16
+    },
+    "investigation_id": {
+      "type": "string",
+      "description": "Present only for investigation-scoped invocations (ADR-0006 E6)."
+    },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "actor": { "allOf": [ { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" }, { "required": ["tenant_id"] } ], "description": "Advisory actor; the control plane derives authoritative actor/tenant from the caller credential. tenant_id required because cross-tenant authorization is evaluated here." },
+    "purpose": { "type": "string", "minLength": 1 },
+    "delegation_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "chain_digest of the digest-bound delegation chain authorizing this action. The raw chain/token is never sent inline (ADR-0004 F5)."
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest"],
+      "description": "Digest-pinned capability reference. A registry digest mismatch MUST be denied.",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/semver" },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    },
+    "arguments": {
+      "type": "object",
+      "description": "Capability-specific arguments, validated against the capability's input_schema_ref. Targets/parameters are re-resolved server-side; client-asserted target identity is not trusted (strategy 05 §11.2)."
+    },
+    "resource_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Server-resolvable scope narrowing. Never widens authority beyond the delegation chain.",
+      "properties": {
+        "case_ref": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+        "resource_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["execute", "dry_run"]
+        },
+        "deadline_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Caller deadline; the control plane clamps to the capability's timeout limit."
+        }
+      }
+    }
+  }
+}

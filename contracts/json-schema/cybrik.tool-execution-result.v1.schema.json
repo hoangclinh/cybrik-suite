@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.tool-execution-result.v1.schema.json",
+  "title": "CYBRIK tool execution (invocation) result v1",
+  "description": "Control-plane response to a tool execution request (strategy 05 §5.2). Maps to REST statuses: queued(202), completed(200), denied(403), approval_required(409), budget_exceeded(429), unavailable(503, no silent execution), failed. Output returned to the model is UNTRUSTED data (strategy 05 §11.6). No credential or unrestricted raw stdout is ever returned; large output is referenced by scoped locator + digest. The authoritative record of any side effect is the signed execution receipt referenced by receipt_id. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action_id", "tenant_id", "status"],
+  "properties": {
+    "action_id": { "type": "string", "minLength": 1 },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Advisory tenant of this result; the control plane derives the authoritative tenant from the credential. MUST equal the originating request's tenant_id (consistent cross-tenant binding)."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "completed",
+        "denied",
+        "approval_required",
+        "budget_exceeded",
+        "unavailable",
+        "failed"
+      ]
+    },
+    "receipt_id": {
+      "type": "string",
+      "description": "Present when execution occurred (completed/failed with side effect). Dereference for the signed authoritative receipt."
+    },
+    "policy_decision_id": {
+      "type": "string",
+      "description": "Id of the policy decision that gated this invocation."
+    },
+    "approval_id": {
+      "type": "string",
+      "description": "Present when status=approval_required; correlates to the approval request."
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Bounded, in-line result for small R0/read outputs. UNTRUSTED when returned to the model.",
+      "properties": {
+        "data": {
+          "description": "Capability-specific output, validated against the capability output_schema_ref.",
+          "type": ["object", "array", "string", "number", "boolean", "null"]
+        },
+        "truncated": { "type": "boolean", "default": false },
+        "output_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    },
+    "output_artifacts": {
+      "type": "array",
+      "description": "Scoped locators + digests for larger output. Locators are owner-issued, not arbitrary URLs.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["locator", "digest", "media_type"],
+        "properties": {
+          "locator": { "type": "string", "minLength": 1 },
+          "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+          "media_type": { "type": "string", "minLength": 1 },
+          "size_bytes": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "default": []
+    },
+    "error": { "$ref": "#/$defs/error" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "approval_required" } }, "required": ["status"] },
+      "then": { "required": ["approval_id"] }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["denied", "budget_exceeded", "unavailable", "failed"] } }, "required": ["status"] },
+      "then": { "required": ["error"] }
+    }
+  ],
+  "$defs": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryable"],
+      "description": "Stable error families only (strategy 05 §8): AUTH_*, SCOPE_*, TENANT_*, CONTRACT_*, VALIDATION_*, BUDGET_*, RATE_*, FABRIC_POLICY_*, FABRIC_APPROVAL_*, FABRIC_EXECUTION_*, SANDBOX_*, ARTIFACT_*, DEPENDENCY_*. Never leak backend exceptions or cross-tenant resource detail.",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$"
+        },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object" }
+      }
+    }
+  }
+}

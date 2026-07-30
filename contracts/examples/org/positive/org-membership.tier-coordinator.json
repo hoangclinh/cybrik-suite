@@ -1,0 +1,19 @@
+{
+  "membership_id": "mb-coord-1",
+  "actor": {
+    "type": "user",
+    "id": "soc:coordinator:minh",
+    "tenant_id": "tenant-acme"
+  },
+  "org_node_id": "on-region",
+  "node_boundary_kind": "internal",
+  "tenant_id": "tenant-acme",
+  "role": "tier-coordinator",
+  "confers_descendant_raw": false,
+  "temporal": {
+    "issued_at": "2030-03-13T00:00:00Z",
+    "not_before": "2030-03-13T00:00:00Z",
+    "expires_at": "2030-03-14T00:00:00Z",
+    "audit_ref": "audit:grant-ok"
+  }
+}

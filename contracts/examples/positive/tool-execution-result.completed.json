@@ -1,0 +1,13 @@
+{
+  "action_id": "act-INC-4821-search-0003",
+  "tenant_id": "tenant-acme",
+  "status": "completed",
+  "receipt_id": "rcpt-INC-4821-search-0003",
+  "policy_decision_id": "pd-2026-07-24-6590",
+  "output": {
+    "data": { "matches": 4, "top_technique": "T1071" },
+    "truncated": false,
+    "output_digest": "sha256:f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+  },
+  "output_artifacts": []
+}

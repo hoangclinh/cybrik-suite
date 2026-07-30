@@ -1,0 +1,26 @@
+{
+  "claim_id": "02a897de-8c3c-4d79-a730-8ab7725b0b9d",
+  "claim_digest": "sha256:335227e2230ee476fb415f0ba6028384fa0e13bf3a27f563f87d2ed2d862db2c",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "asserted",
+  "statement": "WKS-0042 activity matches a known-benign vendor update pattern.",
+  "confidence": "low",
+  "evidence_refs": [
+    {
+      "type": "cybrik.evidence",
+      "id": "624daf0e-6ae1-41a2-b9ab-af7f4dd0de5a",
+      "digest": "sha256:bc549e06b5c7e5a5f358406bd16a37b95112ef17ae27ef35bfb9270b931905ef"
+    }
+  ],
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-25T09:25:30Z"
+}

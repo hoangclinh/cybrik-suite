@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.capability.v1.schema.json",
+  "title": "CYBRIK capability registry entry v1",
+  "description": "A signed, digest-pinned capability descriptor in the Tool Fabric capability registry (strategy 05 §5.1; ADR-0004). Registration MUST be rejected if digest, signature, license, owner, risk_class, side_effects, schemas, or limits are missing (fail-closed). MCP is an adapter over these capabilities, not a trust boundary (ADR-0006). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.1; not stable v1/GA). Validation tightening: capability names now reject any character outside [a-z0-9_.] across JSON Schema runtimes.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version",
+    "publisher",
+    "license",
+    "digest",
+    "signature_ref",
+    "risk_class",
+    "side_effects",
+    "idempotency",
+    "isolation_profile",
+    "network_policy",
+    "input_schema_ref",
+    "output_schema_ref",
+    "required_scopes",
+    "limits",
+    "evidence"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Capability name, dotted vendor-neutral form, e.g. 'soc.search_related_events'. Combined with version and digest for pinned invocation.",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "not": { "pattern": "[^a-z0-9_.]" }
+    },
+    "version": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/semver" },
+    "publisher": { "type": "string", "minLength": 1 },
+    "license": { "type": "string", "minLength": 1 },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest of the capability package. Invocations pin this digest; a digest mismatch MUST be denied."
+    },
+    "signature_ref": {
+      "type": "string",
+      "description": "Reference to the detached signature/attestation over `digest` (e.g. a sigstore bundle reference). The signature material itself is not inlined.",
+      "minLength": 1
+    },
+    "description": { "type": "string" },
+    "risk_class": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass" },
+    "side_effects": {
+      "type": "string",
+      "description": "Effect class. A patch release MUST NOT change side_effects, risk_class, or input semantics — that is a major change (ADR-0001; strategy 05 §9).",
+      "enum": ["none", "read", "write", "destructive"]
+    },
+    "idempotency": {
+      "type": "string",
+      "enum": ["safe", "idempotent", "non_idempotent"]
+    },
+    "isolation_profile": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/isolationProfile",
+      "description": "Minimum isolation floor. Policy may raise isolation but never lower it (ADR-0004 F3). S0 permitted only for R0."
+    },
+    "network_policy": {
+      "type": "string",
+      "description": "Declared egress posture; enforced by the broker (ADR-0004 F5).",
+      "enum": ["none", "broker_allowlist"]
+    },
+    "input_schema_ref": {
+      "type": "string",
+      "description": "Reference ($id or relative path) to the JSON Schema for invocation arguments.",
+      "minLength": 1
+    },
+    "output_schema_ref": {
+      "type": "string",
+      "description": "Reference ($id or relative path) to the JSON Schema for invocation result output.",
+      "minLength": 1
+    },
+    "required_scopes": {
+      "type": "array",
+      "description": "Authorization scopes the caller must hold. Empty array = no capability grantable (fail-closed), not 'public'.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "supported_purposes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "max_input_bytes", "max_output_bytes"],
+      "description": "Mandatory execution bounds (ADR-0004 F7): every invocation is time/CPU/RAM/output/egress bounded.",
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1 },
+        "max_input_bytes": { "type": "integer", "minimum": 1 },
+        "max_output_bytes": { "type": "integer", "minimum": 1 },
+        "max_items": { "type": "integer", "minimum": 1 },
+        "max_egress_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output_can_be_evidence", "integrity_receipt"],
+      "properties": {
+        "output_can_be_evidence": { "type": "boolean" },
+        "integrity_receipt": {
+          "type": "string",
+          "description": "Whether a signed execution receipt is required for this capability's output to be admissible.",
+          "enum": ["required", "optional"]
+        }
+      }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "network_policy": { "const": "broker_allowlist" } }, "required": ["network_policy"] },
+      "then": { "properties": { "limits": { "required": ["max_egress_bytes"] } } } }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "brace-expansion",
+  "version": "5.0.9-cybrik.1",
+  "private": true,
+  "description": "CommonJS compatibility adapter from the legacy callable API to patched brace-expansion 5.0.9.",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "license": "MIT",
+  "engines": {
+    "node": "20 || >=22"
+  },
+  "dependencies": {
+    "brace-expansion-v5": "npm:brace-expansion@5.0.9"
+  }
+}

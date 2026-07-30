@@ -1,0 +1,12 @@
+{
+  "model_class": "summarization.soc_alert",
+  "contract_version": "0.1.0",
+  "description": "SOC alert-summarization class; local, structured-output capable.",
+  "modalities": { "input": ["text", "json"], "output": ["text", "json"] },
+  "limits": { "max_input_tokens": 16000, "max_output_tokens": 2048, "max_context_tokens": 32000 },
+  "supported_features": ["structured_output", "json_mode", "stop_sequences"],
+  "tool_calling": "disabled",
+  "structured_output": "enforced",
+  "data_residency": "local",
+  "default_health": "unavailable"
+}

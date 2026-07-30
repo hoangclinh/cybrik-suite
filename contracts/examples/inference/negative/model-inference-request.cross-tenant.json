@@ -1,0 +1,18 @@
+{
+  "request_id": "inf-neg-cross-tenant-0001",
+  "idempotency_key": "idem-inf-neg-crosstenant-0001",
+  "tenant_id": "tenant-globex",
+  "actor": { "type": "agent", "id": "spiffe://cybrik/tenant-acme/ai/investigator", "delegated_by": "soc:analyst:jordan", "tenant_id": "tenant-acme" },
+  "purpose": "alert_triage_summary",
+  "model_class": "chat.general",
+  "prompt_template": {
+    "id": "soc.alert.triage_assistant",
+    "version": "1.2.0",
+    "digest": "sha256:11111111111111111111111111111111111111111111111111111111111111ab"
+  },
+  "data_marking": { "classification": "confidential", "tlp": "TLP:AMBER" },
+  "redaction_policy": { "profile": "soc.pii_strip", "on_unresolved": "deny" },
+  "limits": { "max_input_tokens": 8000, "max_output_tokens": 1024, "max_context_tokens": 16000 },
+  "deadline_seconds": 60,
+  "correlation": { "correlation_id": "corr-neg-0007" }
+}

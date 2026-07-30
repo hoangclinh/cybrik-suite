@@ -1,0 +1,21 @@
+{
+  "request_id": "req-cancel-no-version",
+  "idempotency_key": "idem-cancel-00000002",
+  "investigation_id": "11111111-1111-4111-8111-111111111111",
+  "attempt_id": "att_0123456789abcdef",
+  "tenant_id": "tenant-acme",
+  "org_scope": {
+    "org_id": "org-tier1"
+  },
+  "actor": {
+    "type": "user",
+    "id": "membership-001",
+    "tenant_id": "tenant-acme"
+  },
+  "reason": "Cancel without a race boundary.",
+  "requested_at": "2026-07-26T08:04:30Z",
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  }
+}

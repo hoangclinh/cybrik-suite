@@ -1,0 +1,76 @@
+{
+  "action_id": "act-alert-context-0001",
+  "tenant_id": "tenant-acme",
+  "status": "unavailable",
+  "policy_decision_id": "pdec-alert-context-0001",
+  "error": {
+    "code": "DEPENDENCY_UNAVAILABLE",
+    "message": "alert context source is unavailable",
+    "retryable": true
+  },
+  "output": {
+    "data": {
+      "message_type": "result",
+      "request_id": "req-alert-context-0001",
+      "idempotency_key": "idem-alert-context-0001",
+      "capability": {
+        "name": "soc.get_alert_context",
+        "version": "0.1.0",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "risk_class": "R0",
+        "side_effects": false
+      },
+      "tenant_id": "tenant-acme",
+      "org_scope": {
+        "org_id": "org-soc-east",
+        "include_descendants": false
+      },
+      "authorized_actor": {
+        "type": "user",
+        "id": "membership-analyst-42",
+        "tenant_id": "tenant-acme"
+      },
+      "clearance": {
+        "classification": "confidential",
+        "tlp": "TLP:AMBER"
+      },
+      "authorization_binding": {
+        "tenant_id": "tenant-acme",
+        "org_scope": {
+          "org_id": "org-soc-east",
+          "include_descendants": false
+        },
+        "actor": {
+          "type": "user",
+          "id": "membership-analyst-42",
+          "tenant_id": "tenant-acme"
+        },
+        "capability": {
+          "name": "soc.get_alert_context",
+          "version": "0.1.0",
+          "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "risk_class": "R0",
+          "side_effects": false
+        },
+        "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
+        "input_digest": "sha256:737ef665ab9f3002213e23b64581d24720b19cdc815fef859619c2327e8f03d3",
+        "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "binding_digest": "sha256:0933f8b758ada6d15c2acf71af6c75943be08f7eb34849fbe13f2da6cc28ad00"
+      },
+      "idempotency_disposition": "fresh",
+      "outcome": "unavailable",
+      "failure": {
+        "code": "alert_context_unavailable",
+        "retryable": false
+      },
+      "data_marking": {
+        "classification": "internal",
+        "tlp": "TLP:GREEN"
+      },
+      "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "completed_at": "2026-07-26T06:01:01Z"
+    },
+    "truncated": false,
+    "output_digest": "sha256:5ec00dbc44b1b1bd6a2ac27f9229299166ff33b85328b665672906550e2d7525"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "claim_id": "23998d99-fe16-4fb4-a4f1-8e0171ed1b7a",
+  "claim_digest": "sha256:6bc8e45be4df9535fe3dad3d132861fa7b43e5cc48375ba7156d2df449932ff4",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "asserted",
+  "statement": "WKS-0042 exfiltrated data to an external host.",
+  "confidence": "high",
+  "evidence_refs": [
+    {
+      "type": "cybrik.evidence",
+      "id": "9c1a9c1a-9c1a-4c1a-9c1a-9c1a9c1a9c1a",
+      "digest": "sha256:3c46ccdb53a272342796b1311060cc8729a6d97b010ff1e81600fc556272fcc4"
+    }
+  ],
+  "produced_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-acme/ai/agent/investigator-07",
+    "tenant_id": "tenant-acme"
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-07-25T09:25:00Z"
+}

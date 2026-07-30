@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.evidence.v1.schema.json",
+  "title": "CYBRIK investigation evidence v1",
+  "description": "A single piece of evidence collected within an investigation. Evidence is a REFERENCE to a product-owned object (source_ref, digest-bound), never an inlined copy — the platform dereferences it through the owner's authorized API (strategy 05 §4.5), mirroring the inference packet's context_refs/alert_refs pattern. `excerpt` is a short human-readable pointer only, bounded to discourage inlining raw content. Evidence carries NO tool/capability/delegation/approval/action field — collecting evidence is descriptive, never itself an execution-authority grant (disjoint from ADR-0004, same TI-2 stance as the accepted W2-D inference packet). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evidence_id", "evidence_digest", "investigation_id", "tenant_id", "kind", "source_ref", "collected_by", "collected_at", "data_marking"],
+  "properties": {
+    "evidence_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid" },
+    "evidence_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Content digest of this evidence record itself (distinct from source_ref.digest, which digests the referenced product-owned object). This is the digest a claim's evidence_refs and a bundle's evidence[] cite (structural replay/citation-dereference anchor)."
+    },
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Parent cybrik.investigation.v1.investigation_id. Required — evidence is always investigation-scoped (ADR-0006 E6)."
+    },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "kind": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/evidenceKind" },
+    "source_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+      "description": "Digest-bound reference to the underlying product-owned object (e.g. a soc.alert, a tool-execution-result artifact, an ocsf.event). Dereferenced through the owner's authorized API, never inlined; NOT the digest a claim's evidence_refs cites (that is evidence_digest, this record's own content digest — see TR-3 citation-dereference invariant)."
+    },
+    "excerpt": {
+      "type": "string",
+      "description": "Optional short human-readable pointer into source_ref (e.g. a one-line log snippet). NOT the authoritative content — a full copy is dereferenced through the owner's API, never carried here.",
+      "maxLength": 2000
+    },
+    "receipt_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Optional digest of the cybrik.execution-receipt.v1 (receipt_digest) that produced this evidence via a tool execution, tying evidence provenance back to the signed receipt chain (ADR-0004 F6 / ADR-0006 E5)."
+    },
+    "collected_by": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        { "required": ["tenant_id"] }
+      ],
+      "description": "Authenticated actor (service or agent) that collected this evidence. Written only by authenticated service code."
+    },
+    "collected_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" }
+  }
+}

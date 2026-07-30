@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.svc-delegation-token.v1.schema.json",
+  "title": "CYBRIK internal service-delegation token (decoded) v1",
+  "description": "Structural shape of a DECODED short-lived internal service-delegation access token — the application-layer (E3) half of the W2-F two-layer trust seam (ADR-0006 E2/E3; ADR-0008). It is a RFC 9068 JWT access-token profile: header carries explicit typ 'at+jwt' and an asymmetric alg (RFC 8725 — no HS*/none); claims carry the RFC 7519 registered set (iss/sub/aud/exp/nbf/iat/jti), the RFC 8705 §3.1 'cnf' certificate-bound proof-of-possession, an RFC 6749 scope, and the CYBRIK namespaced authorization claims (tenant/org/actor/operation/marking). It is minted by the SOC downstream-mint authority and validated by Cyber AI. This decoded shape is what a relying party MUST check AFTER signature verification against pinned JWKS trust; a raw private key, symmetric secret, static bearer, or forwarded end-user token is NEVER a field here. $id uses the RFC 2606 .example documentation domain; it is an identifier, NOT an endpoint. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-F (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["header", "claims"],
+  "properties": {
+    "header": {
+      "type": "object",
+      "description": "JOSE protected header. alg is asymmetric-only (jwtAlg enum excludes every HS* and 'none'); typ is the RFC 9068 §2.1 explicit access-token type; kid pins the verification key in the issuer JWKS.",
+      "additionalProperties": false,
+      "required": ["alg", "typ", "kid"],
+      "properties": {
+        "alg": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/jwtAlg" },
+        "typ": {
+          "type": "string",
+          "description": "RFC 9068 §2.1 explicit typing: a delegation token MUST be typed 'at+jwt' so a relying party can reject a token minted for a different purpose (RFC 8725 §3.11).",
+          "const": "at+jwt"
+        },
+        "kid": {
+          "type": "string",
+          "description": "Key id (RFC 7515 §4.1.4). Selects the pinned public key in the issuer JWKS; verification MUST fail closed if it resolves to no pinned key.",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "description": "The delegation claim set. additionalProperties:false: a claim the profile does not define cannot ride along, so a forwarded end-user token, static bearer, or injected authority claim has nowhere to live.",
+      "additionalProperties": false,
+      "required": [
+        "iss",
+        "sub",
+        "aud",
+        "iat",
+        "nbf",
+        "exp",
+        "jti",
+        "cnf",
+        "scope",
+        "cybrik.tenant_id",
+        "cybrik.actor",
+        "cybrik.operation",
+        "cybrik.marking"
+      ],
+      "properties": {
+        "iss": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/issuerId" },
+        "sub": {
+          "type": "string",
+          "description": "Subject (RFC 7519 §4.1.2): the delegated principal/session this token acts for. Advisory identity; authoritative identity derives from the mTLS peer certificate + cnf, never from sub alone.",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "aud": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/audienceId" },
+        "iat": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/epochSeconds" },
+        "nbf": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/epochSeconds" },
+        "exp": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/epochSeconds" },
+        "jti": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/jti" },
+        "cnf": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/cnfConfirmation" },
+        "scope": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/scopeString" },
+        "act": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/actorClaim" },
+        "cybrik.tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+        "cybrik.org_scope": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/orgNodeRef" },
+        "cybrik.actor": {
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            { "required": ["tenant_id"] }
+          ],
+          "description": "The authoritative acting party this delegation carries. tenant_id required because cross-tenant authorization is evaluated at the relying party against this claim."
+        },
+        "cybrik.operation": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/operationRef" },
+        "cybrik.marking": {
+          "$ref": "cybrik.data-marking.v1.schema.json",
+          "description": "The HIGHEST data marking this token authorizes the operation to touch. A downstream request whose body marking is above this on the classification/TLP lattice MUST be rejected (marking non-escalation; runtime)."
+        },
+        "cybrik.delegation_ref": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+          "description": "OPTIONAL, DISJOINT reference to an accepted cybrik.delegation-chain.v1 tool-execution grant (ADR-0004 E3). This application-delegation token is NOT that digest-bound tool grant; it MAY name one for correlation but never substitutes for it."
+        }
+      }
+    }
+  }
+}

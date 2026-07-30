@@ -1,0 +1,11 @@
+{
+  "org_node_id": "on-province",
+  "parent_id": "on-root",
+  "tier": "province",
+  "tenant_binding": "tenant-acme",
+  "boundary_kind": "internal",
+  "status": "active",
+  "labels": {
+    "label_key": "org.node.province"
+  }
+}

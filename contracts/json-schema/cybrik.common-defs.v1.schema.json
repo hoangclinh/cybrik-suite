@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.common-defs.v1.schema.json",
+  "title": "CYBRIK common definitions v1",
+  "description": "Shared vendor-neutral primitives referenced by the CYBRIK cross-product contract packet. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-format-pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0",
+    "mcp": "2025-11-25"
+  },
+  "$defs": {
+    "sha256Digest": {
+      "type": "string",
+      "description": "Content digest as 'sha256:' followed by 64 lowercase hex chars.",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "tenantId": {
+      "type": "string",
+      "description": "Opaque authoritative tenant identifier. The value carried in any payload is advisory only; the receiving service derives the authoritative tenant from the caller credential and MUST reject on mismatch (ADR-0006 E1; strategy 05 §3).",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "timestampUtc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 / ISO 8601 timestamp in UTC (trailing Z)."
+    },
+    "traceparent": {
+      "type": "string",
+      "description": "W3C Trace Context traceparent header value.",
+      "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+    },
+    "tracestate": {
+      "type": "string",
+      "description": "W3C Trace Context tracestate header value.",
+      "maxLength": 512
+    },
+    "semver": {
+      "type": "string",
+      "description": "SemVer 2.0.0 version string (ADR-0001 D1).",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$"
+    },
+    "riskClass": {
+      "type": "string",
+      "description": "Untrusted-input risk class (ADR-0004 F3). R0 read-metadata … R3 highest-risk side effect.",
+      "enum": ["R0", "R1", "R2", "R3"]
+    },
+    "isolationProfile": {
+      "type": "string",
+      "description": "Executor isolation profile (ADR-0004 F3). S0 pooled long-lived (R0 only, policy-permitting); S1–S3 disposable per-invocation.",
+      "enum": ["S0", "S1", "S2", "S3"]
+    },
+    "tlpMarking": {
+      "type": "string",
+      "description": "Traffic Light Protocol 2.0 marking.",
+      "enum": ["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER", "TLP:AMBER+STRICT", "TLP:RED"]
+    },
+    "classification": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "actor": {
+      "type": "object",
+      "description": "Who/what is acting. For type=user, `id` is the SOC-owned tenant membership id (authoritative analyst identity remains SOC-owned; ADR-0006). For type=service/agent, `id` is a workload identity (SPIFFE-style; ADR-0006 E2). Written only by authenticated service code; model output can never populate it.",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string", "enum": ["user", "service", "agent"] },
+        "id": {
+          "type": "string",
+          "description": "Opaque actor id. user → SOC membership id; service/agent → workload identity (e.g. spiffe://…).",
+          "minLength": 1
+        },
+        "delegated_by": {
+          "type": ["string", "null"],
+          "description": "Optional id of the actor that delegated authority to this actor. Full authorization is the digest-bound delegation chain, not this hint."
+        },
+        "tenant_id": { "$ref": "#/$defs/tenantId", "description": "Tenant this actor belongs to. Advisory in payloads (authoritative tenant derives from the credential); REQUIRED at contract sites where cross-tenant authorization is evaluated." }
+      }
+    },
+    "objectRef": {
+      "type": "object",
+      "description": "Vendor-neutral reference to a product-owned object (e.g. a SOC alert or case). The object is opaque to the contract; it is dereferenced through the owner's authorized API, never a public URL (strategy 05 §4.5).",
+      "additionalProperties": false,
+      "required": ["type", "id", "digest"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Object type token, e.g. 'soc.alert', 'soc.case', 'ocsf.event', 'tool.artifact'.",
+          "minLength": 1
+        },
+        "id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "description": "Owner-supplied revision/etag of the referenced object at reference time."
+        },
+        "digest": { "$ref": "#/$defs/sha256Digest" },
+        "locator": {
+          "type": "string",
+          "description": "Opaque owner-issued locator (e.g. cybrik://…). MUST NOT be an arbitrary public URL."
+        }
+      }
+    }
+  }
+}

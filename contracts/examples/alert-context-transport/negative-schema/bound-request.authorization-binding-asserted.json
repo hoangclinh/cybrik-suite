@@ -1,0 +1,68 @@
+{
+  "action_id": "act-alert-context-0001",
+  "idempotency_key": "idem-alert-context-0001",
+  "tenant_id": "tenant-acme",
+  "actor": {
+    "type": "user",
+    "id": "membership-analyst-42",
+    "tenant_id": "tenant-acme"
+  },
+  "purpose": "alert_triage",
+  "delegation_ref": "sha256:c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+  "capability": {
+    "name": "soc.get_alert_context",
+    "version": "0.1.0",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "arguments": {
+    "request_id": "req-alert-context-0001",
+    "org_scope": {
+      "org_id": "org-soc-east",
+      "include_descendants": false
+    },
+    "clearance": {
+      "classification": "confidential",
+      "tlp": "TLP:AMBER"
+    },
+    "alert_ref": {
+      "type": "soc.alert",
+      "id": "alert-0001",
+      "version": "17",
+      "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "requested_at": "2026-07-26T06:00:00Z",
+    "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+    "authorization_binding": {
+      "tenant_id": "tenant-acme",
+      "org_scope": {
+        "org_id": "org-soc-east",
+        "include_descendants": false
+      },
+      "actor": {
+        "type": "user",
+        "id": "membership-analyst-42",
+        "tenant_id": "tenant-acme"
+      },
+      "capability": {
+        "name": "soc.get_alert_context",
+        "version": "0.1.0",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "risk_class": "R0",
+        "side_effects": false
+      },
+      "schema_digest": "sha256:d07e858ae1a26e807f664547d6190002061f4f161be9c5729f9cbbf9521e4984",
+      "input_digest": "sha256:737ef665ab9f3002213e23b64581d24720b19cdc815fef859619c2327e8f03d3",
+      "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "binding_digest": "sha256:0933f8b758ada6d15c2acf71af6c75943be08f7eb34849fbe13f2da6cc28ad00"
+    }
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN"
+  },
+  "execution": {
+    "mode": "execute",
+    "deadline_seconds": 10
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-status.v1.schema.json",
+  "title": "CYBRIK investigation lifecycle status v1",
+  "description": "Authoritative Cyber AI lifecycle view returned to an authorized SOC consumer. Version is monotonic and supplies the compare-and-set boundary for cancellation. Retries create a new immutable attempt linked to the prior attempt; they never rewrite prior checkpoints or receipts. Status: ACCEPTED FOR IMPLEMENTATION v0.1.0 (W1-C2; not stable v1/GA) — NOT IMPLEMENTED, CI NOT WIRED.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "investigation_id",
+    "attempt_id",
+    "attempt_number",
+    "tenant_id",
+    "org_scope",
+    "requested_by",
+    "run_status",
+    "record_status",
+    "version",
+    "last_checkpoint_sequence",
+    "updated_at",
+    "data_marking"
+  ],
+  "properties": {
+    "investigation_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid"
+    },
+    "attempt_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/attemptId"
+    },
+    "attempt_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_attempt_id": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/attemptId"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+    },
+    "org_scope": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/orgScopeRef"
+    },
+    "requested_by": {
+      "allOf": [
+        {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId"
+            }
+          }
+        }
+      ]
+    },
+    "run_status": {
+      "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/runStatus"
+    },
+    "record_status": {
+      "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/investigationStatus"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_checkpoint_sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updated_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "terminal_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "bundle_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef"
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "attempt_number": {
+            "type": "integer",
+            "minimum": 2
+          }
+        },
+        "required": ["attempt_number"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["previous_attempt_id"],
+        "properties": {
+          "previous_attempt_id": {
+            "$ref": "cybrik.investigation-lifecycle-common-defs.v1.schema.json#/$defs/attemptId"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "run_status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "partial",
+              "abstained",
+              "denied",
+              "cancelled",
+              "failed"
+            ]
+          }
+        },
+        "required": ["run_status"]
+      },
+      "then": {
+        "type": "object",
+        "required": ["terminal_at"],
+        "properties": {
+          "terminal_at": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+          }
+        }
+      }
+    }
+  ]
+}

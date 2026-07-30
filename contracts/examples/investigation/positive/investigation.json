@@ -1,0 +1,21 @@
+{
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-acme",
+  "status": "in_progress",
+  "objective": "Triage suspected lateral movement from host WKS-0042.",
+  "source_ref": {
+    "type": "soc.alert",
+    "id": "alrt-2026-07-25-0091",
+    "digest": "sha256:9faa15491c996cb2febe941730f86a1ce518d087ed1a551225d60f672a443351"
+  },
+  "opened_by": {
+    "type": "user",
+    "id": "soc-membership-analyst-042",
+    "tenant_id": "tenant-acme"
+  },
+  "opened_at": "2026-07-25T09:10:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

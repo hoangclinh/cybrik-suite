@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.model-capability.v1.schema.json",
+  "title": "CYBRIK model-class capability descriptor v1",
+  "description": "Provider-neutral descriptor of a POLICY-SELECTABLE model class in the model registry (ADR-0002 G3/G4). It advertises what a class can do WITHOUT naming a vendor, product, endpoint, or weights id: those are adapter metadata resolved server-side. Fail-closed: a class with no advertised token/context limits is not registrable; tool/function-calling is explicitly disabled at this seam (a model gets no tool authority). Callers negotiate features against supported_features; an unsupported requested feature is denied, never silently ignored. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model_class",
+    "contract_version",
+    "modalities",
+    "limits",
+    "supported_features",
+    "tool_calling",
+    "data_residency",
+    "default_health"
+  ],
+  "properties": {
+    "model_class": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/modelClass" },
+    "contract_version": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/semver",
+      "description": "Version of THIS capability descriptor for the class (SemVer; ADR-0001). A change that reduces limits or removes a supported feature is a major change."
+    },
+    "description": { "type": "string", "maxLength": 500 },
+    "modalities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "output"],
+      "description": "Vendor-neutral I/O modalities the class accepts/produces.",
+      "properties": {
+        "input": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["text", "json"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "output": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["text", "json"] },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "limits": {
+      "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/tokenLimits",
+      "description": "Hard token/context ceilings for the class. A request's limits are clamped to these; the platform never exceeds them."
+    },
+    "supported_features": {
+      "type": "array",
+      "description": "Advertised, vendor-neutral feature tokens. A request may only ask for features in this set (fail-closed negotiation). Tool/function-calling is NOT expressible here — it lives in the separate tool_calling field, fixed to 'disabled'.",
+      "items": { "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/featureToken" },
+      "uniqueItems": true,
+      "default": []
+    },
+    "tool_calling": {
+      "description": "Fixed const 'disabled'. This inference seam grants a model NO tool/function/agent/MCP authority; tool execution is governed by the separate accepted Tool-Fabric packet (ADR-0004), never here. Encoded as a const so no class can advertise tool authority through the inference contract.",
+      "const": "disabled"
+    },
+    "structured_output": {
+      "type": "string",
+      "description": "Whether the class can enforce constrained/structured decoding for output_contract. 'enforced' = schema-guaranteed; 'best_effort' = attempts but may fail a strict output_contract (which then errors); 'unsupported' = a strict output_contract is rejected.",
+      "enum": ["enforced", "best_effort", "unsupported"],
+      "default": "unsupported"
+    },
+    "data_residency": {
+      "type": "string",
+      "description": "Where the class runs relative to the tenant boundary. 'local' = on-prem/air-gap capable (Ollama/vLLM/llama.cpp per ADR-0002 G3); 'external' = a class that may egress to an external provider (permitted only when data_marking/redaction_policy allow it — enforced control-side).",
+      "enum": ["local", "external"]
+    },
+    "default_health": {
+      "$ref": "cybrik.model-common-defs.v1.schema.json#/$defs/healthState",
+      "description": "Health assumed when no fresh health signal is available. Fail-closed guidance: a registry SHOULD set this to 'unavailable' so a class is not routed to on stale signals."
+    }
+  }
+}

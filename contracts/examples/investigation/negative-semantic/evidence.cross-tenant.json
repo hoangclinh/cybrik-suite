@@ -1,0 +1,23 @@
+{
+  "evidence_id": "28eeaf87-c367-400a-a597-b96be5dd028e",
+  "evidence_digest": "sha256:a6b22c09076dac36236c48bc064f870300fe1e20e1b3a82fe1718989ed6850de",
+  "investigation_id": "06ef7978-e1b2-45bf-8511-a73fa68a6932",
+  "tenant_id": "tenant-other",
+  "kind": "log-excerpt",
+  "source_ref": {
+    "type": "ocsf.event",
+    "id": "evt-2026-07-25-778813",
+    "digest": "sha256:2c353c58547a2eb5077c06a6bc00d80ae96d313d0c5e1904e0fba459c608e2a2"
+  },
+  "excerpt": "Evidence submitted under tenant-other for an investigation authoritatively owned by tenant-acme.",
+  "collected_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik/tenant-other/ai/agent/investigator-01",
+    "tenant_id": "tenant-other"
+  },
+  "collected_at": "2026-07-25T09:13:00Z",
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:AMBER"
+  }
+}

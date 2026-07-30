@@ -1,0 +1,34 @@
+{
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Conformance manifest for the CYBRIK contract packet examples. 'kind' drives expected validation outcome: positive = MUST validate; negative-schema = MUST fail JSON Schema validation; negative-semantic = MUST validate structurally but MUST be rejected by a control-plane invariant a schema alone cannot enforce. Schema paths are relative to contracts/json-schema/.",
+  "examples": [
+    { "file": "positive/data-marking.json", "schema": "cybrik.data-marking.v1.schema.json", "kind": "positive" },
+    { "file": "positive/capability.json", "schema": "cybrik.capability.v1.schema.json", "kind": "positive" },
+    { "file": "positive/delegation-chain.json", "schema": "cybrik.delegation-chain.v1.schema.json", "kind": "positive" },
+    { "file": "positive/tool-execution-request.json", "schema": "cybrik.tool-execution-request.v1.schema.json", "kind": "positive" },
+    { "file": "positive/tool-execution-result.approval-required.json", "schema": "cybrik.tool-execution-result.v1.schema.json", "kind": "positive" },
+    { "file": "positive/tool-execution-result.completed.json", "schema": "cybrik.tool-execution-result.v1.schema.json", "kind": "positive" },
+    { "file": "positive/approval-request.json", "schema": "cybrik.approval-request.v1.schema.json", "kind": "positive" },
+    { "file": "positive/approval-decision.json", "schema": "cybrik.approval-decision.v1.schema.json", "kind": "positive" },
+    { "file": "positive/execution-receipt.json", "schema": "cybrik.execution-receipt.v1.schema.json", "kind": "positive" },
+    { "file": "positive/envelope.alert-snapshot-created.json", "schema": "cybrik.envelope.v1.schema.json", "kind": "positive" },
+
+    { "file": "negative/envelope.bad-event-type.json", "schema": "cybrik.envelope.v1.schema.json", "kind": "negative-schema", "invariant": "type MUST match cybrik.<product>.<entity>.<action>.v<major> (ADR-0006 E7); the five-segment name is rejected by the pattern." },
+    { "file": "negative/envelope.model-injected-attr.json", "schema": "cybrik.envelope.v1.schema.json", "kind": "negative-schema", "invariant": "additionalProperties=false rejects model-injected authority/approval attributes; identity/authority is never carried as free envelope fields (ADR-0006)." },
+    { "file": "negative/tool-execution-request.short-idempotency-key.json", "schema": "cybrik.tool-execution-request.v1.schema.json", "kind": "negative-schema", "invariant": "idempotency_key minLength=16 (replay/idempotency; strategy 05 §2.1)." },
+    { "file": "negative/tool-execution-result.approval-required-missing-id.json", "schema": "cybrik.tool-execution-result.v1.schema.json", "kind": "negative-schema", "invariant": "status=approval_required requires approval_id (allOf/if-then); no approval-bypass via missing correlation." },
+    { "file": "negative/capability.missing-limits.json", "schema": "cybrik.capability.v1.schema.json", "kind": "negative-schema", "invariant": "limits is required — registration MUST fail closed without execution bounds (ADR-0004 F7)." },
+    { "file": "negative/approval-decision.agent-approver.json", "schema": "cybrik.approval-decision.v1.schema.json", "kind": "negative-schema", "invariant": "HUMAN-IN-THE-LOOP (W2B-H1): decided_by.type MUST be \"user\". A type=\"agent\" approver of the R3 destructive fabric.isolate_host action is rejected by the schema (const \"user\") — a model/agent identity can never satisfy human approval, even if it differs from requested_by/requested_for (SoD alone would not catch this)." },
+    { "file": "negative/approval-decision.service-approver.json", "schema": "cybrik.approval-decision.v1.schema.json", "kind": "negative-schema", "invariant": "HUMAN-IN-THE-LOOP (W2B-H1): decided_by.type MUST be \"user\". A type=\"service\" (workload identity) approver is rejected by the schema (const \"user\"); only an authenticated human may decide an approval." },
+
+    { "file": "negative/delegation-chain.confused-deputy-audience.json", "schema": "cybrik.delegation-chain.v1.schema.json", "kind": "negative-semantic", "invariant": "CONFUSED DEPUTY: grant audience 'cybrik.soc.notifications' MUST be rejected when presented to the Fabric control plane; a grant is valid only for its intended audience (delegation-chain grant.audience)." },
+    { "file": "negative/tool-execution-request.cross-tenant.json", "schema": "cybrik.tool-execution-request.v1.schema.json", "kind": "negative-semantic", "invariant": "CROSS-TENANT: body tenant_id=tenant-globex while the credential/actor and delegation_ref belong to tenant-acme. The control plane derives the authoritative tenant from the credential and MUST reject the mismatch (ADR-0006; strategy 05 §11.1)." },
+    { "file": "negative/approval-decision.sod-violation.json", "schema": "cybrik.approval-decision.v1.schema.json", "kind": "negative-semantic", "invariant": "APPROVAL-BYPASS / SoD: obligations.separation_of_duties=true but decided_by (soc:analyst:jordan) equals requested_for.actor_id; the self-approval MUST be rejected (approval-request obligations)." },
+    { "file": "negative/approval-decision.digest-mismatch.json", "schema": "cybrik.approval-decision.v1.schema.json", "kind": "negative-semantic", "invariant": "DIGEST-BINDING: resolved_arguments_digest does not equal the approval request's; the decision cannot be re-bound to different resolved arguments and MUST be rejected (strategy 05 §5.4)." },
+    { "file": "negative/delegation-chain.expired-replay.json", "schema": "cybrik.delegation-chain.v1.schema.json", "kind": "negative-semantic", "invariant": "REPLAY: grant expires_at is in the past; idempotent replay after expiry MUST NOT re-authorize (strategy 05 §11.4)." },
+    { "file": "negative/delegation-chain.risk-downgrade.json", "schema": "cybrik.delegation-chain.v1.schema.json", "kind": "negative-semantic", "invariant": "DOWNGRADE/ESCALATION: scope.max_risk_class=R1 cannot authorize the R3 capability fabric.isolate_host; a request above the granted risk class MUST be denied (ADR-0004 F3)." },
+    { "file": "negative/delegation-chain.privilege-escalation.json", "schema": "cybrik.delegation-chain.v1.schema.json", "kind": "negative-semantic", "invariant": "PRIVILEGE ESCALATION VIA CO-GRANT (W2B-H2): the root grant caps authority at R2, but a later approver co-grant (grant[1], issuer soc:manager:sam) sets max_risk_class=R3 to reach the R3 fabric.isolate_host. The effective risk ceiling is the MINIMUM scope.max_risk_class across the chain (min(R2,R3)=R2); a downstream/approver grant MUST NOT elevate it. This chain MUST be denied (manifest monotonicity_invariants.chain_evaluation). R3 requires an original R3 grant plus a required human approval-decision — never later co-grant elevation." }
+  ]
+}

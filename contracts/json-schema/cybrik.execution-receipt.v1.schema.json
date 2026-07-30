@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt.v1.schema.json",
+  "title": "CYBRIK execution receipt v1",
+  "description": "The signed, authoritative record of an invocation (strategy 05 §5.5). The Tool Fabric CONTROL PLANE signs the receipt; executors only attest evidence to it and never hold a signing key (ADR-0006 E5; ADR-0004 F6). The receipt binds the resolved arguments, capability digest, policy decision, approval, and the digest-bound delegation chain, so it alone answers 'who allowed this, on whose behalf, for what' (ADR-0006). It contains no credential and no unrestricted raw stdout (strategy 05 §5.5). Receipt/audit write failure MUST block R2/R3 side effects (strategy 05 §11.8). The receipt-signing envelope format is deferred (ADR-0004 F8); `signature` is a reference to it. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "action_id",
+    "tenant_id",
+    "status",
+    "capability",
+    "executor",
+    "delegation_ref",
+    "resolved_arguments_digest",
+    "started_at",
+    "finished_at",
+    "receipt_digest",
+    "signature"
+  ],
+  "properties": {
+    "receipt_id": { "type": "string", "minLength": 1 },
+    "action_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "partial", "denied", "failed", "timed_out", "cancelled", "rolled_back"]
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/semver" },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "isolation_profile"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Executor workload identity (SPIFFE-style; ADR-0006 E2 / ADR-0004 F4).",
+          "minLength": 1
+        },
+        "version": { "type": "string" },
+        "isolation_profile": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/isolationProfile" }
+      }
+    },
+    "policy_decision_id": { "type": "string" },
+    "approval_id": {
+      "type": "string",
+      "description": "Present when the gating policy decision required approval."
+    },
+    "delegation_ref": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "chain_digest of the delegation chain under which the action was authorized. Binds the receipt to the exact authority used."
+    },
+    "credential_lease_id_hash": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Hash of the single-use credential lease id. The credential itself never appears (ADR-0004 F5)."
+    },
+    "resolved_arguments_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest of the server-resolved arguments actually executed. An approval bound to different resolved arguments is invalid."
+    },
+    "started_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "finished_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "input_artifact_digests": {
+      "type": "array",
+      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+      "default": []
+    },
+    "output_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["locator", "digest"],
+        "properties": {
+          "locator": { "type": "string", "minLength": 1 },
+          "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+          "media_type": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "side_effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performed"],
+      "properties": {
+        "performed": { "type": "boolean" },
+        "target_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "Digest of the server-resolved target snapshot the effect was applied to."
+        },
+        "verification": { "type": "object" },
+        "expires_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "rollback_handle": {
+          "type": "string",
+          "description": "Opaque rollback handle; not a credential."
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "performed": { "const": true } }, "required": ["performed"] },
+          "then": { "required": ["target_digest"] } }
+      ]
+    },
+    "logs_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+    "receipt_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest over the canonical receipt content (all fields except signature)."
+    },
+    "signature": {
+      "type": "string",
+      "description": "Reference to the control-plane signature over receipt_digest (signing envelope deferred, ADR-0004 F8). Never produced by an executor.",
+      "minLength": 1
+    }
+  }
+}

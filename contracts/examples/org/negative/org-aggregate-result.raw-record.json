@@ -1,0 +1,33 @@
+{
+  "result_id": "ares-bad-raw",
+  "request_ref": "agr-1",
+  "tenant_id": "tenant-acme",
+  "target_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "small_cell_floor": 5,
+  "dimensions": [
+    "severity",
+    "category"
+  ],
+  "cells": [
+    {
+      "bucket": {
+        "severity": "critical",
+        "category": "apt"
+      },
+      "count": 9,
+      "object_refs": [
+        {
+          "type": "soc.case",
+          "id": "case-991",
+          "digest": "sha256:a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4"
+        }
+      ]
+    }
+  ],
+  "generated_at": "2030-03-13T12:00:00Z"
+}

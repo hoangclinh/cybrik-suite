@@ -1,0 +1,23 @@
+{
+  "request_id": "agr-1",
+  "tenant_id": "tenant-acme",
+  "requester": {
+    "type": "user",
+    "id": "soc:coordinator:minh",
+    "tenant_id": "tenant-acme"
+  },
+  "target_node": {
+    "org_node_id": "on-district",
+    "tenant_binding": "tenant-acme",
+    "boundary_kind": "internal",
+    "tier": 2
+  },
+  "scope_kind": "aggregate",
+  "grant_ref": "gr-agg-1",
+  "small_cell_floor": 5,
+  "dimensions": [
+    "severity",
+    "category"
+  ],
+  "purpose": "regional situational-awareness roll-up"
+}

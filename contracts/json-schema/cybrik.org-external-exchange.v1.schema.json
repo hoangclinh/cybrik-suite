@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.org-external-exchange.v1.schema.json",
+  "title": "CYBRIK org external exchange v1 (D-6)",
+  "description": "A typed, contract-bound exchange with an EXTERNAL authority (e.g. A05) across a trust boundary (ADR-0007 D-6; 02 §4; INV-2). The external peer is never a parent/ancestor, never an org_node member, and never a super-admin: external_peer.boundary_kind is const 'external', and its authorization is a DISTINCT trust context (auth_context const 'external-distinct') that NEVER reuses an internal user/service token (OD-3) — additionalProperties:false makes an internal_service_token / bearer field structurally impossible. Direction is explicit: 'outbound-submission' vs 'inbound-directive'. An inbound directive NEVER auto-executes (auto_execute const false); it enters the normal policy/approval/tool review path. Every crossing is marked, residency-checked (deny-by-default, OD-4), minimized, and audited. The transport floor is mTLS + signed envelope + audience/nonce/timestamp/replay protection (OD-5). $id uses the RFC 2606 .example documentation domain. Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA). Accepted at Gate W2-G (Codex under Founder delegation, 2026-07-24).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exchange_id", "direction", "external_peer", "tenant_id", "authorization", "marking", "minimization", "auto_execute", "temporal"],
+  "properties": {
+    "exchange_id": {
+      "type": "string",
+      "description": "Opaque exchange id.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "direction": { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/exchangeDirection" },
+    "external_peer": {
+      "allOf": [
+        { "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/orgNodeRef" },
+        { "properties": { "boundary_kind": { "const": "external" } } }
+      ],
+      "description": "The external authority peer. boundary_kind is const 'external' — an internal node can never be the peer of an external exchange, and the external peer is never an internal ancestor/member (INV-2)."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Our (internal) tenant on this side of the crossing."
+    },
+    "authorization": {
+      "type": "object",
+      "description": "The DISTINCT external-exchange authorization context (OD-3). It is NOT an internal user/service JWT/SSO token and reuses no internal credential. additionalProperties:false: there is nowhere for an internal_service_token / bearer / on_behalf_of_user_token to live.",
+      "additionalProperties": false,
+      "required": ["auth_context", "audience", "purpose", "mtls", "signed_envelope", "replay_protection"],
+      "properties": {
+        "auth_context": {
+          "type": "string",
+          "description": "Const 'external-distinct': this authorization is a distinct trust context, never an internal token (OD-3).",
+          "const": "external-distinct"
+        },
+        "audience": {
+          "type": "string",
+          "description": "The external peer this authorization is bound to (confused-deputy defense; audience set to the external peer).",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "purpose": {
+          "type": "string",
+          "description": "The bounded purpose of this exchange.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mtls": {
+          "type": "boolean",
+          "description": "Const true: mutually-authenticated transport is the floor (OD-5). Hardware-backed keys preferred/required where supported.",
+          "const": true
+        },
+        "signed_envelope": {
+          "type": "boolean",
+          "description": "Const true: a signed envelope with audience/nonce/timestamp is required (OD-5).",
+          "const": true
+        },
+        "replay_protection": {
+          "type": "boolean",
+          "description": "Const true: nonce/timestamp replay protection + key rotation/revocation (OD-5).",
+          "const": true
+        }
+      }
+    },
+    "marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative marking of the exchanged data. Marking is enforced on the crossing and is NEVER downgraded relative to the source (runtime); TLP:AMBER+STRICT / TLP:RED + residency caveats can block a crossing outright."
+    },
+    "jurisdiction": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/jurisdiction",
+      "description": "Residency policy for this crossing, evaluated deny-by-default (OD-4). The peer's residency_zone MUST be in allowed_zones or the crossing is denied."
+    },
+    "minimization": {
+      "type": "object",
+      "description": "Minimization: share the least (02 §4). Prefer an aggregate or a single delegated object over a raw dump.",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "description": "'aggregate' = de-identified roll-up; 'delegated-object' = one specific shared object; 'minimized-record' = a reduced record. There is no 'raw-dump' mode.",
+          "enum": ["aggregate", "delegated-object", "minimized-record"]
+        },
+        "object_ref": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef",
+          "description": "For delegated-object / minimized-record: the specific shared object, digest-bound."
+        }
+      }
+    },
+    "auto_execute": {
+      "type": "boolean",
+      "description": "Const false: an inbound directive from an external authority NEVER auto-executes; it enters the normal policy/approval/tool path like any other request (02 §4; INV-2).",
+      "const": false
+    },
+    "review_queue_ref": {
+      "type": "string",
+      "description": "For inbound-directive: the review-queue entry the directive lands in (it does not auto-execute). Required for inbound directives.",
+      "minLength": 1
+    },
+    "temporal": {
+      "$ref": "cybrik.org-common-defs.v1.schema.json#/$defs/grantTemporal",
+      "description": "Per-exchange authorization is time-bounded, revocable, audited (audit_ref required)."
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "An inbound directive must land in a review queue (it never auto-executes).",
+      "if": { "properties": { "direction": { "const": "inbound-directive" } }, "required": ["direction"] },
+      "then": { "required": ["review_queue_ref"] }
+    }
+  ]
+}
