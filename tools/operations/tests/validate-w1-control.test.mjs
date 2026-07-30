@@ -112,6 +112,12 @@ const actionRecordPath = join(
   "operations",
   "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
 );
+const ci3RemediationPath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "W1-CI3-DEPENDENCY-REMEDIATION-R1.md",
+);
 
 const [
   boardText,
@@ -130,6 +136,7 @@ const [
   adrReadmeText,
   operationsReadmeText,
   actionRecordText,
+  ci3RemediationText,
   packetText,
 ] = await Promise.all([
   readFile(boardPath, "utf8"),
@@ -148,6 +155,7 @@ const [
   readFile(adrReadmePath, "utf8"),
   readFile(operationsReadmePath, "utf8"),
   readFile(actionRecordPath, "utf8"),
+  readFile(ci3RemediationPath, "utf8"),
   readFile(packetPath, "utf8"),
 ]);
 
@@ -240,10 +248,72 @@ function validate(overrides = {}) {
     adrReadmeText,
     operationsReadmeText,
     actionRecordText,
+    ci3RemediationText,
     packetText,
     ...overrides,
   });
 }
+
+test("requires a truthful current top-level CI3 canonical status", () => {
+  const canonicalStatus =
+    "Status: `CANONICAL MERGED 2026-07-30 — PR #1 / 28c564eb9b6853b73a18a59a2e84ba58fd67816a`.";
+
+  assert.match(ci3RemediationText, new RegExp(`^${canonicalStatus}$`, "m"));
+  assert.doesNotThrow(() => validate());
+  assert.throws(
+    () =>
+      validate({
+        ci3RemediationText: ci3RemediationText.replace(
+          canonicalStatus,
+          "Status: `LOCAL CANDIDATE GO — HOSTED CI PENDING`.",
+        ),
+      }),
+    /CI3 remediation top-level status must record the canonical PR #1 merge/,
+  );
+});
+
+test("requires the adjacent CI3 historical-versus-current explanation", () => {
+  const explanatoryBlock = [
+    "Historical authoring status, retained for §§1–5:",
+    "`LOCAL CANDIDATE GO — AUTHORING SNAPSHOT BEFORE COMMIT/PUSH/MERGE — HOSTED CI PENDING`.",
+    "Section §6 is the authoritative canonical-integration evidence; this header correction changes no",
+    "runtime, UAT, release-date or production gate.",
+  ].join("\n");
+
+  assert.match(ci3RemediationText, new RegExp(explanatoryBlock, "m"));
+  assert.doesNotThrow(() => validate());
+  assert.throws(
+    () =>
+      validate({
+        ci3RemediationText: ci3RemediationText.replace(
+          explanatoryBlock,
+          [
+            "Current status for §§1–5:",
+            "`CANONICAL MERGED`.",
+            "Section §6 is the authoritative canonical-integration evidence.",
+          ].join("\n"),
+        ),
+      }),
+    /CI3 remediation must preserve the adjacent historical-versus-current explanation/,
+  );
+});
+
+test("rejects duplicate or conflicting CI3 top-level Status lines", () => {
+  const additionalStatuses = [
+    "Status: `CANONICAL MERGED 2026-07-30 — PR #1 / 28c564eb9b6853b73a18a59a2e84ba58fd67816a`.",
+    "Status: `LOCAL CANDIDATE GO — HOSTED CI PENDING`.",
+  ];
+
+  for (const additionalStatus of additionalStatuses) {
+    assert.throws(
+      () =>
+        validate({
+          ci3RemediationText: `${ci3RemediationText}\n${additionalStatus}\n`,
+        }),
+      /CI3 remediation must contain exactly one top-level Status line/,
+    );
+  }
+});
 
 test("accepts the current fixed 48-agent W1 control documents", () => {
   const result = validate();
