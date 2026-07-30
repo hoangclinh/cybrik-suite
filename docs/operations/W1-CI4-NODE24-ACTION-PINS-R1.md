@@ -1,6 +1,6 @@
 # W1-CI4 Node 24 action-pin refresh R1
 
-- **Status:** `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING`
+- **Status:** `CANONICAL MERGED 2026-07-30`
 - **Prepared:** 2026-07-30
 - **Task / wave / ownership:** `W1-CI4`; W1 assurance lane; Suite CI/control ownership
 - **Base:** `ad964697eed2d623863b0b034a6215b3dfe29e4e`
@@ -46,7 +46,8 @@
 - The official Node distribution index identifies `v24.18.1`, dated 2026-07-28, as the current
   Krypton LTS security release used by this packet.
 - No contract changes are affected. No assumption substitutes for hosted execution.
-- Hosted check results and warning removal remain unknown until the branch/PR run completes.
+- Hosted push, PR and canonical-main runs all completed successfully; their exact identities are
+  recorded in §4.
 
 Captured provenance commands and results:
 
@@ -78,15 +79,16 @@ that deprecated action-runtime fallback cannot silently persist.
 | Full control on checksum-verified Node 24.18.1 | `206/206 PASS`; line `97.38%`, branch `90.97%`, functions `98.89%` |
 | Control validator | `PASS`, fixed roster `tasks=48`; statically asserts configured workflow Node `24.18.1` |
 | Contract/dependency/security on Node 24.18.1 | Canonical validate pass; W1 contracts `98/98`; dependency compatibility `2/2`; audit 0; Spectral 0 errors/19 warnings; AsyncAPI 0 errors; gitleaks dir/git clean |
-| Hosted acceptance | `PENDING` — both required rendered checks must pass on the PR and exact canonical merge, with no Node 20 action-runtime annotation |
+| Hosted acceptance | `PASS` — both rendered required checks passed on push, PR and exact canonical merge; queried check annotations contain only expected Spectral warnings and no Node 20 action-runtime annotation |
 
 Negative coverage includes additive stale-Node-20 rejection, positive action allowlisting, total
 action-use cardinality, checkout/setup-node multiplicity, both standard and inline `uses:` forms,
-flow/quoted/split/explicit/Unicode-key syntax, reusable-workflow job references and YAML aliases,
+flow/quoted/split/explicit/Unicode-key syntax, reusable-workflow job references and a whole-step
+YAML alias,
 rendered required-check-name stability, unpinned-action rejection, shallow checkout rejection,
 missing required command rejection, suppressed-job rejection and permission-guard preservation.
 The action inventory is derived from the job/step `uses` values produced by the already-pinned
-`yaml@2.9.0` parser, including merged aliases, rather than a textual regex. These controls execute
+`yaml@2.9.0` parser, including resolved aliases, rather than a textual regex. These controls execute
 through canonical validation inside the required `contract standards validation` job, not only
 in the local control test suite. Failure remains observable as a required-check failure and a
 specific fail-closed validator/test error.
@@ -158,8 +160,39 @@ npm run test:w1-contracts: 98/98 PASS
 gitleaks dir/git 8.30.1: no leaks found
 ```
 
-A fresh fifth independent review of the remediated bytes remains mandatory; the adverse
-verdicts are retained as history and are not rewritten as a pass.
+The fifth independent Opus review of exact tip
+`d96e536c277bcebbcc5a068028c8acf148fb9cae` returned **`GO`,
+`P0=0 P1=0 P2=0 P3=5`**. It independently measured the exact eight-path scope and clean tree,
+confirmed that the structural inventory closes the previously reproduced bypass class, and
+retained five nonblocking P3 follow-ups:
 
-This packet is not completion evidence. It becomes `CANONICAL MERGED` only after independent
-review, PR checks, exact-tree merge verification and a successful canonical post-merge run.
+1. the standalone control-validator command now requires `npm ci` in
+   `tools/contract-validation` first;
+2. the pre-existing textual `if: false` suppression guard should become structural;
+3. `run:` steps and the workflow-directory inventory remain outside this bounded action-use
+   control;
+4. merge-key, multi-document and duplicate-key parser behavior should receive explicit negative
+   tests; and
+5. external action provenance still depended on the then-pending hosted run.
+
+The first item is now documented in `tools/contract-validation/README.md`; the fifth is closed by
+the hosted evidence below. Items 2–4 remain nonblocking follow-up work. All adverse verdicts and
+the infrastructure failure above remain dated history and are not rewritten as a pass.
+
+## 4. Canonical integration evidence
+
+| Evidence | Exact result |
+|---|---|
+| Reviewed tip | `d96e536c277bcebbcc5a068028c8acf148fb9cae`; exact eight paths; clean worktree; independent Opus `GO`, `P0=P1=P2=0 P3=5` |
+| Push run | `30543352613`; event `push`; head `d96e536c277bcebbcc5a068028c8acf148fb9cae`; both jobs `SUCCESS` |
+| Pull request | `https://github.com/hoangclinh/cybrik-suite/pull/3`; base `ad964697eed2d623863b0b034a6215b3dfe29e4e`; head `d96e536c277bcebbcc5a068028c8acf148fb9cae`; mergeable state `CLEAN` |
+| PR run | `30543370258`; event `pull_request`; both jobs `SUCCESS` |
+| Canonical merge | `9e20dc7f5ff77e908f6b35c8f0a05fd879e370b2`; parents exact base then reviewed tip; tree `11c408782de41a14279f4c9b99ba2eae13ea5f96`, byte-identical to reviewed-tip tree |
+| Canonical run | `30543470413`; event `push`; head exact merge; contract job `SUCCESS` in 45 s; secret-scan job `SUCCESS` in 10 s |
+| Annotations | no Node 20 action-runtime annotation; 19 pre-existing Spectral warnings remain permitted at fail-severity `error` |
+| Protection | strict required checks remain `contract standards validation` and `secret-scan (gitleaks 8.30.1)`; app id 15368; admins enforced; force-push and deletion disabled |
+
+`W1-CI4` is `CANONICAL MERGED`. This is static CI/control evidence only. It proves no product
+runtime, local stack, demo, UAT, deployment or production state. Runtime/local stack/demo/UAT
+remain `NO-GO` until G-C `stable-v1.0`; release dates remain unchanged; production remains
+Founder-controlled.
