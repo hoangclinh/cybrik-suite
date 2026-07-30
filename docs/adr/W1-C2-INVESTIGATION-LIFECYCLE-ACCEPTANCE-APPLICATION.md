@@ -324,3 +324,19 @@ recorded them as the local commit `ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4`. It
 
 This application is `APPLIED 2026-07-26` and the W1-C2 packet is
 `ACCEPTED FOR IMPLEMENTATION v0.1.0` as a local commit only.
+
+## 13. 2026-07-30 corrected Bundle reconciliation
+
+Founder decisions `W1-REC-3=YES` and `W1-REC-4=YES`, followed by the accepted BSR1 correction,
+make `5a1ed0001a5714b7f099aeaff3f5a74cb67c068a` the authoritative corrected W1-C2 tip. The
+reconciliation changes exactly 7 paths; the full packet remains exactly 32 paths / 30 members,
+has aggregate `d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449`, and registers 40
+tests. Bundle v0.1.1 is authoritative for new production and bundle-read responses. Immutable
+Bundle v0.1.0 remains supported for legacy read/replay input at SHA-256
+`501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1`.
+
+The pre-BSR1 accepted line `ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4` remains immutable
+historical provenance. The corrected state is `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY —
+NONCANONICAL` at the exact topology in `W1-CONTRACT-RECONCILIATION-APPLICATION.md` §3.
+`W1-REC-5=YES` permits only separately bounded, test-first preparation of consumer migrations;
+none occurs here. No canonical commit, push, merge-to-branch, runtime, UAT or release is authorized.

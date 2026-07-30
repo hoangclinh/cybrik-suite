@@ -1,9 +1,8 @@
 # Contract standards validation + secret scan for the CYBRIK Suite meta/control repository.
 #
-# Status: SCAFFOLD tooling. This validates the Wave 2 cross-product contract packet, whose
-# members are all PROPOSED — NOT ACCEPTED. A green run is a standards-conformance signal only;
-# it does NOT accept any contract (acceptance is a separate Founder gate — see contracts/ and
-# CLAUDE.md "Approval gates").
+# Status: static contract conformance for a mixed lifecycle corpus: accepted W1 contract lines,
+# accepted-for-implementation Wave 2 packets and remaining proposals. A green run proves only
+# static schema/semantic conformance. It is not runtime, deployment, release or acceptance proof.
 #
 # Two independent jobs, least-privilege (read-only) token:
 #   secret-scan  — gitleaks 8.30.1 (pinned + checksum-verified), full-tree AND full-history.
@@ -56,8 +55,10 @@ jobs:
     name: contract standards validation
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout contract topology
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js 20.18.1
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -75,3 +76,7 @@ jobs:
       - name: Validate contract packet (JSON Schema 2020-12 + OpenAPI 3.1.x + AsyncAPI 3.0.0 + hardenings)
         working-directory: tools/contract-validation
         run: npm run validate
+
+      - name: Test accepted W1 static contract lines (exactly 98 tests)
+        working-directory: tools/contract-validation
+        run: npm run test:w1-contracts

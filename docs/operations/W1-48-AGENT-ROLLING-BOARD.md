@@ -7066,3 +7066,31 @@ gate moves, no lane reopens, no contract is accepted, and **no authority of any 
 
 The exact namespaced dispositions are in supplement §10.1. A fresh independent review of the
 post-remediation bytes remains `PENDING`; neither adverse verdict is rewritten as `PASS`.
+
+## 20. W1 C1/G1 + corrected C2 reconciliation rehearsal — 2026-07-30
+
+Founder ballot `W1-C1C2-AR-REVISION=R1` authorized a disposable, noncanonical rehearsal and exact
+uncommitted CONTROL9/CI3 drafts. Current lifecycle:
+`ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY — NONCANONICAL`.
+
+| Lane | Authoritative tip / digest | Scope and tests |
+|---|---|---|
+| C1 | `20cfa36c503e5a95341c80653d25d2000d65c9fe`; `27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8` | 16-path correction; 21 tests |
+| G1 | `71857395332fabe041896ca0700fbf7a2bf612d3`; member set `a285fa8e…b43f4` | 9-path repin; 37 tests |
+| corrected C2/BSR1 | `5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`; `d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449` | 7-path reconciliation, full packet 32 paths / 30 members; 40 tests |
+
+The exact rehearsal graph is merge 1 `87efae7898bd14e9aa9a2866380a9973d8b3e5bc`, tree
+`abb4d16d1c6038ccc33931c009628a47b2b0bd68`, followed by merge 2
+`900d83a61515f37ae117e04763da1881cba90b7b`, tree
+`a297646ec6d4901c8861d28b5ec8736f65902b70`. The control validator reads these live Git objects
+and asserts exact parent ordering and ancestry. CI3 wires all three validators and their combined
+98 tests locally; no hosted CI result is claimed.
+
+Historical `3a2c715…`, `a976a20…`, `ed95e51…`, `d6e53221…` and `4ecc9658…` remain dated,
+immutable provenance. Governance disposition `DELEGATED-GOVERNOR-ACCEPTED` authorizes one exact
+local-only commit of the combined CONTROL9 + CI3 12-path scope. No canonical ref movement, push,
+merge-to-branch, consumer migration, runtime, stack, UAT, POC, RC, deployment or release is
+authorized. The post-remediation independent review remains incomplete and is not represented as
+a pass. The unchanged-lockfile audit records 0 Critical / 13 High entries rooted in
+`GHSA-mh99-v99m-4gvg`; CI3 activation stays blocked pending separate compatible remediation. W0
+remains `COMPLETE=0` / `NO-GO`; all release dates remain unchanged.

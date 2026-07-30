@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -42,6 +43,74 @@ const W1_C2_DIGEST =
 
 const W1_C1_PATH_COUNT = 16;
 const W1_C2_PATH_COUNT = 32;
+
+// Accepted current contract state and the exact noncanonical rehearsal graph.
+// Historical pins above remain intact because the original acceptance records
+// are immutable provenance; this block governs current implementation.
+const W1_RECONCILIATION = {
+  lifecycle:
+    "ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY — NONCANONICAL",
+  controlBase: "b2caf77c3cd96beb7383cc3d93844d771262ea5f",
+  c1Correction: "20cfa36c503e5a95341c80653d25d2000d65c9fe",
+  c1g1Tip: "71857395332fabe041896ca0700fbf7a2bf612d3",
+  correctedC2Tip: "5a1ed0001a5714b7f099aeaff3f5a74cb67c068a",
+  mergeOne: "87efae7898bd14e9aa9a2866380a9973d8b3e5bc",
+  mergeOneTree: "abb4d16d1c6038ccc33931c009628a47b2b0bd68",
+  mergeTwo: "900d83a61515f37ae117e04763da1881cba90b7b",
+  mergeTwoTree: "a297646ec6d4901c8861d28b5ec8736f65902b70",
+  c1Digest:
+    "27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8",
+  g1Digest:
+    "a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4",
+  c2Digest:
+    "d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449",
+  legacyBundleSha:
+    "501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1",
+};
+
+const W1_RECONCILIATION_HISTORICAL_COMMITS = [
+  "3a2c71555a423465855ffaddcb663c8b704dbfbd",
+  "a976a205601de22dae59e5112e37ae29707fda0e",
+  "ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4",
+];
+
+const W1_RECONCILIATION_CONTROL_PATHS = [
+  "docs/adr/W1-CONTRACT-RECONCILIATION-APPLICATION.md",
+  "docs/adr/W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md",
+  "docs/adr/W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md",
+  "docs/adr/README.md",
+  "docs/operations/W1-48-AGENT-ROLLING-BOARD.md",
+  "docs/operations/W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
+  "docs/operations/W1-E2-EVIDENCE-REGISTER.md",
+  "tools/operations/validate-w1-control.mjs",
+  "tools/operations/tests/validate-w1-control.test.mjs",
+];
+
+const W1_RECONCILIATION_CI_PATHS = [
+  ".github/workflows/contracts.yml",
+  "tools/contract-validation/package.json",
+  "tools/contract-validation/validate.mjs",
+];
+
+const W1_RECONCILIATION_GOVERNANCE = {
+  decision: "DELEGATED-GOVERNOR-ACCEPTED",
+  localCommitAuthorized: true,
+  exactPathCount: 12,
+  independentRereviewCompleted: false,
+  codexFallbackAccepted: true,
+  pushed: false,
+  merged: false,
+  released: false,
+};
+
+const W1_RECONCILIATION_SECURITY = {
+  lockfileChanged: false,
+  auditHigh: 13,
+  auditCritical: 0,
+  rootAdvisory: "GHSA-mh99-v99m-4gvg",
+  localEvidenceCommitBlocked: false,
+  ciActivationBlocked: true,
+};
 
 // The accepted lifecycle string shared by both contract packets.
 const ACCEPTED_CONTRACT_LIFECYCLE =
@@ -2245,7 +2314,7 @@ const PACKET_ENFORCED_RULE_ROWS = [
   "| 9 | whole file | corpus-level withdrawn-count guard: every surviving `<n> transport fixtures` claim anywhere in this file, quotation included, must read **13** |",
   "| 10 | §8 | NO-GO **14** and NO-GO **15** are each pinned byte-exact |",
   "| 11 | §9 | the dated verification-history table and the current-result paragraph above are each pinned byte-exact |",
-  "| 12 | §9.1 | this table, the unenforced list below and the no-live-`git` paragraph are pinned byte-exact; the withdrawn `§2.9 and §8 NO-GO 14–15 only` overclaim and any live-`git` claim are rejected wherever they appear |",
+  "| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and tip ancestry exist |",
   "| 13 | §2.8 and §7.1 | both sections must carry the full two-sided base-plus-one disclosure — the base `8fe4cb0`, the measured **25**, this record's **+1**, the derived **26**, the prediction-not-measurement warning, the no-self-identity statement and the mandatory external re-confirmation before any push |",
   "| 14 | whole file | no present-tense `current`/`live` control-tip claim may name the immutable base `8fe4cb0`; it is the base/parent of this record, never its tip |",
   "| 15 | §2.10, board §14.35, register §27 | exactly four local-provenance rows, each pinned byte-exact and byte-identical across the three documents, each carrying `LOCAL-ONLY`, `INDEPENDENT REVIEW PASS`, `NOT INTEGRATED` and `NOT PUSHED/MERGED/RELEASED`, with `CONFORMANCE-ONLY` on both vendor rows; a missing or extra row fails closed |",
@@ -2266,16 +2335,17 @@ const PACKET_UNENFORCED_BULLETS = [
   "- §10 in full: every transcript path, byte count and record count.",
 ];
 
-const PACKET_NO_LIVE_GIT_BLOCK =
-  "**No live `git` reading is claimed or performed.** The validator **does not " +
-  "invoke `git`**, opens no\nrepository, and reads no transport fixture, member " +
-  "set, coverage figure or review verdict. It pins\nthe immutable control " +
-  `**base** \`${PACKET_CONTROL_BASE}\` as a module\n**constant** — the ` +
-  "base/parent of this record, never a claim about any current tip — and " +
-  "checks that\nthese documents agree with it and with one another. The live " +
-  "count after this record is\ncommitted is **derived** from that base plus " +
-  "this lane's own offset, and must be re-measured\nexternally; the validator " +
-  "cannot observe the move itself.";
+const PACKET_LIVE_GIT_BLOCK =
+  "**Live `git` topology is required and read fail-closed.** The canonical file validator invokes\n" +
+  "read-only `git` commands in the repository root. It requires the exact objects\n" +
+  "`b2caf77c3cd96beb7383cc3d93844d771262ea5f`,\n" +
+  "`71857395332fabe041896ca0700fbf7a2bf612d3`,\n" +
+  "`5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`,\n" +
+  "`87efae7898bd14e9aa9a2866380a9973d8b3e5bc` and\n" +
+  "`900d83a61515f37ae117e04763da1881cba90b7b`, then checks exact ordered parents, trees, ancestry\n" +
+  "and current rehearsal tip. A missing or shallow-history object is a hard failure. The pure\n" +
+  "document-validation function remains injectable for negative fixtures, but it never substitutes\n" +
+  "for the canonical file validator or degrades a missing Git object to document-only success.";
 
 const PACKET_VERIFICATION_HISTORY_BLOCK =
   "| Date | Lane / record | Validator | Test suite |\n|---|---|---|---|\n" +
@@ -2301,8 +2371,8 @@ const PACKET_CURRENT_VERIFICATION_BLOCK =
   "`node tools/operations/validate-w1-control.mjs` → **PASS**, " +
   "`tasks=48`;\n`node --test tools/operations/tests/validate-w1-control.test.mjs` " +
   "→ **`tests 179 · pass 179 · fail 0`**.\nThe `131 · 131` and `172 · 172` " +
-  "figures are earlier results, not the current count. Manual only;\n" +
-  "**CI: NOT WIRED**.";
+  "figures are earlier results, not the current count. CI3 is now\n" +
+  "prepared locally; no hosted run is claimed.";
 
 // Affirmative overclaims only. §9.1 itself has to *name* the withdrawn wording
 // to withdraw it, so every pattern requires the asserting verb form: the
@@ -2322,22 +2392,6 @@ const PACKET_ENFORCEMENT_OVERCLAIMS = [
       "blocker-4 packet understates the enforcement surface by claiming §2–§7 " +
       "remain unenforced prose; §2.8 rules 1–2 and the §2.8↔§7.1 row-3 " +
       "cross-check are machine-enforced — see the §9.1 inventory",
-  },
-  {
-    pattern:
-      /\bvalidator\b(?:(?!\bnot\b)[^\n]){0,140}\b(?:invokes?|calls|shells out to|executes|runs)\s+`?git`?\b/i,
-    message:
-      "blocker-4 packet claims the validator reads live `git` state; it does " +
-      "not invoke `git` — it pins the expected control `HEAD` as a module " +
-      "constant and checks the documents against it",
-  },
-  {
-    pattern:
-      /\bvalidator\b(?:(?!\bnot\b)[^\n]){0,140}\b(?:reads?|re-reads?|measures?)\s+(?:the\s+)?live\s+(?:git\s+)?(?:repository|repositories|refs?|history|state)\b/i,
-    message:
-      "blocker-4 packet claims the validator reads live `git` state; it does " +
-      "not open any repository — it is a static consistency check over these " +
-      "documents",
   },
 ];
 
@@ -2409,11 +2463,10 @@ function validatePacketEnforcementSurface(packetText) {
 
   assertPinnedBlock(
     packetText,
-    PACKET_NO_LIVE_GIT_BLOCK,
-    "blocker-4 packet §9.1 must keep the no-live-`git` disclosure byte-exact — " +
-      "the validator does not invoke `git` and opens no repository; it pins the " +
-      `expected control \`HEAD\` \`${PACKET_CONTROL_BASE}\` as a module ` +
-      "constant that must be updated by hand when the control `HEAD` moves",
+    PACKET_LIVE_GIT_BLOCK,
+    "blocker-4 packet §9.1 must keep the fail-closed live-`git` disclosure byte-exact — " +
+      "the canonical file validator requires exact objects, ordered parents, " +
+      "trees, ancestry and the rehearsal tip",
   );
 
   assertPinnedBlock(
@@ -2702,6 +2755,554 @@ function validateDualStateW1C1Provenance({
   };
 }
 
+function documentedOrderedPaths(sectionText) {
+  return [...sectionText.matchAll(/^\d+\. `([^`]+)`$/gm)].map(
+    ([, path]) => path,
+  );
+}
+
+function assertOrderedPaths(actual, expected, label) {
+  if (
+    actual.length !== expected.length ||
+    actual.some((path, index) => path !== expected[index])
+  ) {
+    throw new Error(
+      `${label} must contain exactly ${expected.length} ordered paths; ` +
+        `received ${actual.length}`,
+    );
+  }
+}
+
+function validateW1ReconciliationDocuments({
+  boardText,
+  e2RegisterText,
+  adrReadmeText,
+  packetText,
+  w1C1ApplicationText,
+  w1C2ApplicationText,
+  w1ReconciliationApplicationText,
+}) {
+  assertPinnedBlock(
+    w1ReconciliationApplicationText,
+    `- **Lifecycle:** \`${W1_RECONCILIATION.lifecycle}\``,
+    "W1 reconciliation application must carry the exact rehearsal-only lifecycle",
+  );
+
+  for (const value of [
+    W1_RECONCILIATION.controlBase,
+    W1_RECONCILIATION.c1Correction,
+    W1_RECONCILIATION.c1g1Tip,
+    W1_RECONCILIATION.correctedC2Tip,
+    W1_RECONCILIATION.mergeOne,
+    W1_RECONCILIATION.mergeOneTree,
+    W1_RECONCILIATION.mergeTwo,
+    W1_RECONCILIATION.mergeTwoTree,
+    W1_RECONCILIATION.c1Digest,
+    W1_RECONCILIATION.g1Digest,
+    W1_RECONCILIATION.c2Digest,
+    W1_RECONCILIATION.legacyBundleSha,
+  ]) {
+    assertIncludes(
+      w1ReconciliationApplicationText,
+      new RegExp(escapeRegExp(value)),
+      `W1 reconciliation application is missing exact pin ${value}`,
+    );
+  }
+
+  for (const historicalCommit of W1_RECONCILIATION_HISTORICAL_COMMITS) {
+    assertIncludes(
+      w1ReconciliationApplicationText,
+      new RegExp(escapeRegExp(historicalCommit)),
+      `W1 reconciliation application must preserve historical provenance ${historicalCommit}`,
+    );
+  }
+
+  const controlSection = extractSection(
+    w1ReconciliationApplicationText,
+    "### CONTROL9",
+    "W1 reconciliation application",
+  );
+  const ciSection = extractSection(
+    w1ReconciliationApplicationText,
+    "### CI3",
+    "W1 reconciliation application",
+  );
+  assertOrderedPaths(
+    documentedOrderedPaths(controlSection),
+    W1_RECONCILIATION_CONTROL_PATHS,
+    "W1 reconciliation CONTROL9 scope",
+  );
+  assertOrderedPaths(
+    documentedOrderedPaths(ciSection),
+    W1_RECONCILIATION_CI_PATHS,
+    "W1 reconciliation CI3 scope",
+  );
+  const governanceSection = extractSection(
+    w1ReconciliationApplicationText,
+    "## 6. Delegated-governor disposition",
+    "W1 reconciliation application",
+  );
+  assertPinnedBlock(
+    governanceSection,
+    `**Decision:** \`${W1_RECONCILIATION_GOVERNANCE.decision}\`.`,
+    "W1 reconciliation application must carry the delegated-governor disposition",
+  );
+  assertIncludes(
+    governanceSection,
+    /authorizes exactly one local-only commit of the 12 paths in §4/,
+    "W1 delegated-governor disposition must preserve the exact local-only commit authority",
+  );
+  assertIncludes(
+    governanceSection,
+    /does not claim a\s+completed post-remediation independent review/,
+    "W1 delegated-governor disposition must disclose the incomplete independent re-review",
+  );
+  for (const value of [
+    "0 Critical and 13 High",
+    W1_RECONCILIATION_SECURITY.rootAdvisory,
+    "blocks CI3 activation or push",
+    "No dependency or lockfile byte is changed here",
+  ]) {
+    assertIncludes(
+      governanceSection,
+      new RegExp(escapeRegExp(value)),
+      `W1 delegated-governor disposition must disclose dependency-audit fact: ${value}`,
+    );
+  }
+
+  assertIncludes(
+    w1C1ApplicationText,
+    /^## 11\. 2026-07-30 corrected-state reconciliation$/m,
+    "W1-C1 application must carry its corrected-state reconciliation",
+  );
+  for (const value of [
+    W1_RECONCILIATION.c1Correction,
+    W1_RECONCILIATION.c1g1Tip,
+    W1_RECONCILIATION.c1Digest,
+    W1_RECONCILIATION.g1Digest,
+    W1_RECONCILIATION_HISTORICAL_COMMITS[0],
+    W1_RECONCILIATION_HISTORICAL_COMMITS[1],
+  ]) {
+    assertIncludes(
+      w1C1ApplicationText,
+      new RegExp(escapeRegExp(value)),
+      `W1-C1 reconciliation is missing pin ${value}`,
+    );
+  }
+  assertIncludes(
+    w1C2ApplicationText,
+    /^## 13\. 2026-07-30 corrected Bundle reconciliation$/m,
+    "W1-C2 application must carry its corrected Bundle reconciliation",
+  );
+  for (const value of [
+    W1_RECONCILIATION.correctedC2Tip,
+    W1_RECONCILIATION.c2Digest,
+    W1_RECONCILIATION.legacyBundleSha,
+    W1_RECONCILIATION_HISTORICAL_COMMITS[2],
+  ]) {
+    assertIncludes(
+      w1C2ApplicationText,
+      new RegExp(escapeRegExp(value)),
+      `W1-C2 reconciliation is missing pin ${value}`,
+    );
+  }
+
+  const currentSections = [
+    [
+      extractSection(
+        boardText,
+        "## 20. W1 C1/G1 + corrected C2 reconciliation rehearsal — 2026-07-30",
+        "W1 board",
+      ),
+      "W1 board",
+    ],
+    [
+      extractSection(
+        e2RegisterText,
+        "## 32. W1 C1/G1 + corrected C2 reconciliation evidence — 2026-07-30",
+        "W1 E2 register",
+      ),
+      "W1 E2 register",
+    ],
+    [
+      extractSection(
+        packetText,
+        "## 11. W1 C1/G1 + corrected C2 reconciliation rehearsal — 2026-07-30",
+        "blocker-4 packet",
+      ),
+      "blocker-4 packet",
+    ],
+  ];
+  for (const [section, label] of currentSections) {
+    assertIncludes(
+      section,
+      new RegExp(escapeRegExp(W1_RECONCILIATION.lifecycle)),
+      `${label} must carry the current rehearsal-only reconciliation lifecycle`,
+    );
+    assertExcludes(
+      section,
+      /\bCI:\s*NOT WIRED\b/i,
+      `${label} falsely claims CI is not wired after the bounded CI3 draft`,
+    );
+    assertExcludes(
+      section,
+      /\b(?:canonical(?:ly)? integrated|pushed|released|runtime proven)\b/i,
+      `${label} overclaims canonical integration, push, release or runtime proof`,
+    );
+    assertIncludes(
+      section,
+      new RegExp(escapeRegExp(W1_RECONCILIATION_GOVERNANCE.decision)),
+      `${label} must carry the delegated-governor disposition`,
+    );
+  }
+
+  assertIncludes(
+    adrReadmeText,
+    /\[W1-CONTRACT-RECONCILIATION-APPLICATION\.md\]\(W1-CONTRACT-RECONCILIATION-APPLICATION\.md\)/,
+    "ADR catalog must index the W1 reconciliation application",
+  );
+  assertIncludes(
+    w1ReconciliationApplicationText,
+    /every published W0–W6 date and release milestone is unchanged/,
+    "W1 reconciliation application must keep all release dates unchanged",
+  );
+  assertIncludes(
+    w1ReconciliationApplicationText,
+    /local stack, demo, UAT, POC and RC remain `NO-GO`/,
+    "W1 reconciliation application must keep runtime and UAT NO-GO",
+  );
+
+  return {
+    lifecycle: W1_RECONCILIATION.lifecycle,
+    c1: {
+      commit: W1_RECONCILIATION.c1Correction,
+      tip: W1_RECONCILIATION.c1g1Tip,
+      digest: W1_RECONCILIATION.c1Digest,
+      pathCount: 16,
+      tests: 21,
+    },
+    g1: {
+      tip: W1_RECONCILIATION.c1g1Tip,
+      digest: W1_RECONCILIATION.g1Digest,
+      pathCount: 9,
+      tests: 37,
+    },
+    c2: {
+      tip: W1_RECONCILIATION.correctedC2Tip,
+      digest: W1_RECONCILIATION.c2Digest,
+      reconciliationPathCount: 7,
+      packetPathCount: 32,
+      memberCount: 30,
+      tests: 40,
+    },
+    controlDraftPaths: W1_RECONCILIATION_CONTROL_PATHS.length,
+    ciDraftPaths: W1_RECONCILIATION_CI_PATHS.length,
+    governance: { ...W1_RECONCILIATION_GOVERNANCE },
+    security: { ...W1_RECONCILIATION_SECURITY },
+    canonical: false,
+    pushed: false,
+    runtimeProven: false,
+  };
+}
+
+export function validateW1CiWiring({
+  workflowText,
+  packageText,
+  orchestratorText,
+}) {
+  const packageDocument = JSON.parse(packageText);
+  const expectedScripts = {
+    "validate:w1:alert-context": "node validate-alert-context.mjs",
+    "validate:w1:alert-context-transport":
+      "node validate-alert-context-transport.mjs",
+    "validate:w1:investigation-lifecycle":
+      "node validate-investigation-lifecycle-proposal.mjs",
+    "test:w1-contracts": "node validate.mjs --test-w1-contracts",
+  };
+  for (const [name, command] of Object.entries(expectedScripts)) {
+    if (packageDocument.scripts?.[name] !== command) {
+      throw new Error(`CI3 package script ${name} is missing or drifted`);
+    }
+  }
+
+  function workflowJob(name) {
+    const heading = `  ${name}:\n`;
+    const occurrences = countOccurrences(workflowText, heading);
+    if (occurrences !== 1) {
+      throw new Error(
+        `CI3 workflow job ${name} must occur exactly once; found ${occurrences}`,
+      );
+    }
+    const start = workflowText.indexOf(heading);
+    const bodyStart = start + heading.length;
+    const remainder = workflowText.slice(bodyStart);
+    const nextJobOffset = remainder.search(/^  [a-zA-Z0-9_-]+:\n/m);
+    return nextJobOffset === -1
+      ? remainder
+      : remainder.slice(0, nextJobOffset);
+  }
+
+  const contractsJob = workflowJob("contracts");
+  const secretScanJob = workflowJob("secret-scan");
+  for (const pattern of [
+    /name: Checkout contract topology/,
+    /fetch-depth: 0/,
+    /node-version: "20\.18\.1"/,
+    /run: npm ci/,
+    /run: npm run validate/,
+    /run: npm run test:w1-contracts/,
+  ]) {
+    assertIncludes(
+      contractsJob,
+      pattern,
+      `CI3 workflow contracts job is missing ${pattern}`,
+    );
+  }
+  assertExcludes(
+    workflowText,
+    /^ {4,}if:\s*false\s*$/m,
+    "CI3 workflow must not suppress a required job or step with if: false",
+  );
+  for (const pattern of [
+    /fetch-depth: 0/,
+    /gitleaks dir \./,
+    /gitleaks git \./,
+  ]) {
+    assertIncludes(
+      secretScanJob,
+      pattern,
+      `CI3 workflow secret-scan job is missing ${pattern}`,
+    );
+  }
+  assertIncludes(
+    workflowText,
+    /^permissions:\n  contents: read$/m,
+    "CI3 workflow must preserve read-only token permissions",
+  );
+  assertIncludes(
+    workflowText,
+    /^  secret-scan:$/m,
+    "CI3 workflow must preserve the secret-scan job",
+  );
+  const permissionsBlocks = [...workflowText.matchAll(/^permissions:/gm)];
+  if (permissionsBlocks.length !== 1) {
+    throw new Error(
+      "CI3 workflow must carry exactly one workflow-level permissions block",
+    );
+  }
+  assertExcludes(
+    workflowText,
+    /^ {4}permissions:/m,
+    "CI3 workflow must not add a job-scoped permissions override",
+  );
+  assertExcludes(
+    workflowText,
+    /\bwrite-all\b/,
+    "CI3 workflow must not grant write-all permissions",
+  );
+  const actionLines = [
+    ...workflowText.matchAll(/^\s*uses:\s*(\S+)(?:\s+#.*)?$/gm),
+  ];
+  if (actionLines.length === 0) {
+    throw new Error("CI3 workflow must contain pinned GitHub actions");
+  }
+  for (const [, action] of actionLines) {
+    if (!/@[0-9a-f]{40}(?:\s|$)/.test(action)) {
+      throw new Error(`CI3 workflow action is not pinned by commit SHA: ${action}`);
+    }
+  }
+  assertExcludes(
+    workflowText,
+    /members are all PROPOSED — NOT ACCEPTED/,
+    "CI3 workflow must not retain the stale all-proposed lifecycle claim",
+  );
+
+  for (const validator of [
+    "validate-alert-context.mjs",
+    "validate-alert-context-transport.mjs",
+    "validate-investigation-lifecycle-proposal.mjs",
+  ]) {
+    assertIncludes(
+      orchestratorText,
+      new RegExp(`['"]${escapeRegExp(validator)}['"]`),
+      `canonical contract orchestrator is missing ${validator}`,
+    );
+  }
+  assertIncludes(
+    orchestratorText,
+    /'\.\.\/\.\.\/tools\/operations\/validate-w1-control\.mjs'/,
+    "canonical contract orchestrator must execute the live-Git W1 control validator",
+  );
+  assertIncludes(
+    orchestratorText,
+    /static conformance only, not runtime or release proof/,
+    "canonical contract orchestrator success banner must stay static-only",
+  );
+  assertIncludes(
+    orchestratorText,
+    /const W1_CONTRACT_TEST_COUNT = 98;/,
+    "canonical contract orchestrator must pin the exact W1 test count",
+  );
+  assertIncludes(
+    orchestratorText,
+    /matchAll\(\/\^# tests \(\\d\+\)\$\/gm\)/,
+    "canonical contract orchestrator must measure the completed TAP test count",
+  );
+  assertIncludes(
+    orchestratorText,
+    /counts\.length !== 1 \|\| counts\[0\] !== W1_CONTRACT_TEST_COUNT/,
+    "canonical contract orchestrator must fail closed on count drift",
+  );
+
+  return {
+    validators: 3,
+    tests: 98,
+    fetchDepth: 0,
+    node: "20.18.1",
+    hostedRunClaimed: false,
+  };
+}
+
+export function validateW1ReconciliationTopology(snapshot) {
+  const expected = {
+    mergeOneParents: [
+      W1_RECONCILIATION.controlBase,
+      W1_RECONCILIATION.c1g1Tip,
+    ],
+    mergeOneTree: W1_RECONCILIATION.mergeOneTree,
+    mergeTwoParents: [
+      W1_RECONCILIATION.mergeOne,
+      W1_RECONCILIATION.correctedC2Tip,
+    ],
+    mergeTwoTree: W1_RECONCILIATION.mergeTwoTree,
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    const actual = snapshot[key];
+    const matches = Array.isArray(value)
+      ? Array.isArray(actual) &&
+        actual.length === value.length &&
+        actual.every((item, index) => item === value[index])
+      : actual === value;
+    if (!matches) {
+      throw new Error(
+        `W1 reconciliation live Git ${key} is wrong; expected ` +
+          `${JSON.stringify(value)}, received ${JSON.stringify(actual)}`,
+      );
+    }
+  }
+  if (!snapshot.ancestryComplete) {
+    throw new Error(
+      "W1 reconciliation live Git ancestry is incomplete or in the wrong direction",
+    );
+  }
+  if (!snapshot.headDescendsFromRehearsal) {
+    throw new Error(
+      "W1 reconciliation live Git repository HEAD does not descend from the exact rehearsal tip",
+    );
+  }
+  return {
+    controlBase: W1_RECONCILIATION.controlBase,
+    c1g1Tip: W1_RECONCILIATION.c1g1Tip,
+    correctedC2Tip: W1_RECONCILIATION.correctedC2Tip,
+    mergeOne: W1_RECONCILIATION.mergeOne,
+    mergeOneTree: W1_RECONCILIATION.mergeOneTree,
+    mergeTwo: W1_RECONCILIATION.mergeTwo,
+    mergeTwoTree: W1_RECONCILIATION.mergeTwoTree,
+    repositoryHeadDescendsFromRehearsal: true,
+    locallyIntegrated: true,
+    canonical: false,
+  };
+}
+
+function runGitRead(repositoryRoot, args, label) {
+  const result = spawnSync("git", ["-C", repositoryRoot, ...args], {
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `W1 reconciliation live Git ${label} failed closed: ` +
+        `${result.stderr.trim() || `exit ${result.status}`}`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+export function readW1ReconciliationTopology(repositoryRoot) {
+  for (const objectId of [
+    W1_RECONCILIATION.controlBase,
+    W1_RECONCILIATION.c1g1Tip,
+    W1_RECONCILIATION.correctedC2Tip,
+    W1_RECONCILIATION.mergeOne,
+    W1_RECONCILIATION.mergeTwo,
+  ]) {
+    runGitRead(
+      repositoryRoot,
+      ["cat-file", "-e", `${objectId}^{commit}`],
+      `required object ${objectId}`,
+    );
+  }
+
+  const ancestryPairs = [
+    [W1_RECONCILIATION.controlBase, W1_RECONCILIATION.mergeOne],
+    [W1_RECONCILIATION.c1g1Tip, W1_RECONCILIATION.mergeOne],
+    [W1_RECONCILIATION.mergeOne, W1_RECONCILIATION.mergeTwo],
+    [W1_RECONCILIATION.correctedC2Tip, W1_RECONCILIATION.mergeTwo],
+  ];
+  let ancestryComplete = true;
+  for (const [ancestor, descendant] of ancestryPairs) {
+    try {
+      runGitRead(
+        repositoryRoot,
+        ["merge-base", "--is-ancestor", ancestor, descendant],
+        `ancestry ${ancestor} -> ${descendant}`,
+      );
+    } catch {
+      ancestryComplete = false;
+      break;
+    }
+  }
+  let headDescendsFromRehearsal = true;
+  try {
+    runGitRead(
+      repositoryRoot,
+      [
+        "merge-base",
+        "--is-ancestor",
+        W1_RECONCILIATION.mergeTwo,
+        "HEAD",
+      ],
+      `ancestry ${W1_RECONCILIATION.mergeTwo} -> HEAD`,
+    );
+  } catch {
+    headDescendsFromRehearsal = false;
+  }
+
+  return validateW1ReconciliationTopology({
+    mergeOneParents: runGitRead(
+      repositoryRoot,
+      ["show", "-s", "--format=%P", W1_RECONCILIATION.mergeOne],
+      "merge 1 parents",
+    ).split(" "),
+    mergeOneTree: runGitRead(
+      repositoryRoot,
+      ["rev-parse", `${W1_RECONCILIATION.mergeOne}^{tree}`],
+      "merge 1 tree",
+    ),
+    mergeTwoParents: runGitRead(
+      repositoryRoot,
+      ["show", "-s", "--format=%P", W1_RECONCILIATION.mergeTwo],
+      "merge 2 parents",
+    ).split(" "),
+    mergeTwoTree: runGitRead(
+      repositoryRoot,
+      ["rev-parse", `${W1_RECONCILIATION.mergeTwo}^{tree}`],
+      "merge 2 tree",
+    ),
+    ancestryComplete,
+    headDescendsFromRehearsal,
+  });
+}
+
 export function validateW1ControlDocuments({
   boardText,
   roadmapText,
@@ -2714,6 +3315,7 @@ export function validateW1ControlDocuments({
   adr0005ApplicationText,
   w1C1ApplicationText,
   w1C2ApplicationText,
+  w1ReconciliationApplicationText,
   sprintText,
   adrReadmeText,
   packetText,
@@ -2754,6 +3356,15 @@ export function validateW1ControlDocuments({
     validatePacketMovedLinePublication(packetText);
   const pushDelta = validatePacketPushDelta(packetText);
   const enforcementSurface = validatePacketEnforcementSurface(packetText);
+  const w1ReconciliationApplication = validateW1ReconciliationDocuments({
+    boardText,
+    e2RegisterText,
+    adrReadmeText,
+    packetText,
+    w1C1ApplicationText,
+    w1C2ApplicationText,
+    w1ReconciliationApplicationText,
+  });
 
   // Design C's own invariant: the prediction is derived, never asserted. If a
   // future edit replaces the derivation with a literal, this fails closed
@@ -2840,6 +3451,7 @@ export function validateW1ControlDocuments({
     // candidate is *not* part of the accepted contract gate, and folding it in
     // there would be the very conflation these rules exist to prevent.
     w1C1CandidateDisposition: w1C1Candidate,
+    w1ReconciliationApplication,
     // The Suite LINE 1 publication measurement taken at the immutable base,
     // with this lane's offset and the derived post-commit prediction. Proposed
     // only — nothing here is push authority, and no self identity is stated.
@@ -2861,8 +3473,9 @@ export function validateW1ControlDocuments({
     // §2.8's six per-line counts, summed from the rows themselves, alongside
     // the separately measured unique union they are not.
     pushDelta,
-    // What this validator actually enforces over the packet, as §9.1 discloses
-    // it. `readsLiveGit` is false by construction: no `git` process is spawned.
+    // Pure document validation is injectable for negative fixtures and has
+    // not itself spawned Git. The canonical file wrapper replaces this flag
+    // with true only after exact live-object and topology validation passes.
     enforcementSurface,
   };
 }
@@ -2887,6 +3500,11 @@ const CONTROL_DOCUMENT_PATHS = {
     "adr",
     "W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md",
   ],
+  w1ReconciliationApplicationText: [
+    "docs",
+    "adr",
+    "W1-CONTRACT-RECONCILIATION-APPLICATION.md",
+  ],
   sprintText: ["docs", "adr", "ADR-DECISION-SPRINT-2026-07.md"],
   adrReadmeText: ["docs", "adr", "README.md"],
   packetText: [
@@ -2894,6 +3512,9 @@ const CONTROL_DOCUMENT_PATHS = {
     "operations",
     "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
   ],
+  workflowText: [".github", "workflows", "contracts.yml"],
+  packageText: ["tools", "contract-validation", "package.json"],
+  orchestratorText: ["tools", "contract-validation", "validate.mjs"],
 };
 
 export async function validateW1ControlFiles(repositoryRoot) {
@@ -2907,7 +3528,19 @@ export async function validateW1ControlFiles(repositoryRoot) {
     entries.map(([key], index) => [key, texts[index]]),
   );
 
-  return validateW1ControlDocuments(documents);
+  const result = validateW1ControlDocuments(documents);
+  const ciWiring = validateW1CiWiring(documents);
+  const reconciliationTopology = readW1ReconciliationTopology(repositoryRoot);
+
+  return {
+    ...result,
+    enforcementSurface: {
+      ...result.enforcementSurface,
+      readsLiveGit: true,
+    },
+    ciWiring,
+    reconciliationTopology,
+  };
 }
 
 async function main() {
@@ -2922,6 +3555,9 @@ async function main() {
       `GATE_A4_DISPOSITION=${JSON.stringify(result.gateA4Disposition)}, ` +
       `CONTRACT_GATE_DISPOSITION=${JSON.stringify(result.contractGateDisposition)}, ` +
       `W1_C1_CANDIDATE=${JSON.stringify(result.w1C1CandidateDisposition)}, ` +
+      `W1_RECONCILIATION=${JSON.stringify(result.w1ReconciliationApplication)}, ` +
+      `W1_TOPOLOGY=${JSON.stringify(result.reconciliationTopology)}, ` +
+      `W1_CI=${JSON.stringify(result.ciWiring)}, ` +
       `LINE1_PUBLICATION=${JSON.stringify(result.line1Publication)}, ` +
       `PUSH_DELTA=${JSON.stringify(result.pushDelta)}, ` +
       `ENFORCEMENT_SURFACE=${JSON.stringify(result.enforcementSurface)}\n`,

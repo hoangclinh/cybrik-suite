@@ -1112,7 +1112,7 @@ Added by the W1-D04C dual-state provenance refresh (§2.9):
 | W1 window | **2026-08-01 → 2026-08-23**, unchanged |
 | Release window | **2026-12-21 → 2026-12-31**, unchanged |
 | UAT instance | **none exists** |
-| CI | **NOT WIRED** — no workflow has ever executed the current W1 bytes |
+| CI | **CI3 PREPARED LOCALLY — NOT HOSTED-RUN** — workflow draft wires the three W1 validators and exact 98-test command; no hosted result exists |
 | W1-C1 accepted baseline | `3a2c715…` / `sha256:e4cfbf8c…`, **unchanged**; the only accepted W1-C1 artifact |
 | W0-I01C correction | `CORRECTION COMMITTED — LOCAL-ONLY — NOT INTEGRATED — NOT ACCEPTED` — committed at `20cfa36`, 16 paths, zero staged; integrated nowhere (§2.9, §2.10) |
 | Lane 5 local-only reviewed commits | **four** — W1-C1 `20cfa36`, W1-G1 `7185739`, SOC `5da251d`, Fabric `37d9b329`; all `LOCAL-ONLY`, independently reviewed, **`NOT INTEGRATED`**, **`NOT PUSHED/MERGED/RELEASED`** (§2.10) |
@@ -1123,8 +1123,9 @@ Added by the W1-D04C dual-state provenance refresh (§2.9):
 Machine validation for the W1 control documents (board §13) is `node
 tools/operations/validate-w1-control.mjs` → `PASS: tasks=48`, with a derived `W1_C1_CANDIDATE`
 carrying `committed=true` and `accepted=false`, a derived `LINE1_PUBLICATION` carrying the §2.8
-tip and count, and a derived `ENFORCEMENT_SURFACE` carrying `readsLiveGit=false`. It is a static
-consistency check over the control documents; it is not product, CI or integration evidence.
+tip and count, and a derived `ENFORCEMENT_SURFACE` whose canonical file path carries
+`readsLiveGit=true`. It validates exact rehearsal objects plus the control documents; it is not
+product runtime, hosted-CI or release evidence.
 
 **Verification history — dated, retained, not withdrawn.**
 
@@ -1148,8 +1149,8 @@ tests, three of them measured RED against the un-hardened exemption scanner — 
 176 · fail 3` — before the fix landed. Final, against these bytes:
 `node tools/operations/validate-w1-control.mjs` → **PASS**, `tasks=48`;
 `node --test tools/operations/tests/validate-w1-control.test.mjs` → **`tests 179 · pass 179 · fail 0`**.
-The `131 · 131` and `172 · 172` figures are earlier results, not the current count. Manual only;
-**CI: NOT WIRED**.
+The `131 · 131` and `172 · 172` figures are earlier results, not the current count. CI3 is now
+prepared locally; no hosted run is claimed.
 
 ### 9.1 Machine-enforcement surface — exactly what the validator checks
 
@@ -1173,7 +1174,7 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 | 9 | whole file | corpus-level withdrawn-count guard: every surviving `<n> transport fixtures` claim anywhere in this file, quotation included, must read **13** |
 | 10 | §8 | NO-GO **14** and NO-GO **15** are each pinned byte-exact |
 | 11 | §9 | the dated verification-history table and the current-result paragraph above are each pinned byte-exact |
-| 12 | §9.1 | this table, the unenforced list below and the no-live-`git` paragraph are pinned byte-exact; the withdrawn `§2.9 and §8 NO-GO 14–15 only` overclaim and any live-`git` claim are rejected wherever they appear |
+| 12 | §9.1 plus live repository | this table and the live-`git` paragraph are pinned byte-exact; the canonical file validator fails closed unless the exact two rehearsal merge commits, ordered parents, trees, required input objects and tip ancestry exist |
 | 13 | §2.8 and §7.1 | both sections must carry the full two-sided base-plus-one disclosure — the base `8fe4cb0`, the measured **25**, this record's **+1**, the derived **26**, the prediction-not-measurement warning, the no-self-identity statement and the mandatory external re-confirmation before any push |
 | 14 | whole file | no present-tense `current`/`live` control-tip claim may name the immutable base `8fe4cb0`; it is the base/parent of this record, never its tip |
 | 15 | §2.10, board §14.35, register §27 | exactly four local-provenance rows, each pinned byte-exact and byte-identical across the three documents, each carrying `LOCAL-ONLY`, `INDEPENDENT REVIEW PASS`, `NOT INTEGRATED` and `NOT PUSHED/MERGED/RELEASED`, with `CONFORMANCE-ONLY` on both vendor rows; a missing or extra row fails closed |
@@ -1196,13 +1197,16 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 - §9 outside §9.1: the status-and-ceiling table above.
 - §10 in full: every transcript path, byte count and record count.
 
-**No live `git` reading is claimed or performed.** The validator **does not invoke `git`**, opens no
-repository, and reads no transport fixture, member set, coverage figure or review verdict. It pins
-the immutable control **base** `8fe4cb02e0119224205a86631db7c481f7638c23` as a module
-**constant** — the base/parent of this record, never a claim about any current tip — and checks that
-these documents agree with it and with one another. The live count after this record is
-committed is **derived** from that base plus this lane's own offset, and must be re-measured
-externally; the validator cannot observe the move itself.
+**Live `git` topology is required and read fail-closed.** The canonical file validator invokes
+read-only `git` commands in the repository root. It requires the exact objects
+`b2caf77c3cd96beb7383cc3d93844d771262ea5f`,
+`71857395332fabe041896ca0700fbf7a2bf612d3`,
+`5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`,
+`87efae7898bd14e9aa9a2866380a9973d8b3e5bc` and
+`900d83a61515f37ae117e04763da1881cba90b7b`, then checks exact ordered parents, trees, ancestry
+and current rehearsal tip. A missing or shallow-history object is a hard failure. The pure
+document-validation function remains injectable for negative fixtures, but it never substitutes
+for the canonical file validator or degrades a missing Git object to document-only success.
 
 ---
 
@@ -1250,3 +1254,42 @@ externally; the validator cannot observe the move itself.
   `76ef51d9…` working-tree aggregate is **coordinator-reproduced** by the recipe stated verbatim in
   §2.9. Board record: **§1.24 and §14.32**; register: **§1** row and **§4.4**. This refresh performs
   no commit, opens no writer, and clears no lock.
+
+## 11. W1 C1/G1 + corrected C2 reconciliation rehearsal — 2026-07-30
+
+This section supersedes only the current-state conclusions of older candidate sections. Their
+measurements remain immutable dated provenance, including `3a2c715…`, `a976a20…`, `ed95e51…`,
+`d6e53221…` and `4ecc9658…`.
+
+The authoritative inputs are control base `b2caf77c3cd96beb7383cc3d93844d771262ea5f`,
+corrected C1/G1 `71857395332fabe041896ca0700fbf7a2bf612d3` containing accepted C1
+`20cfa36c503e5a95341c80653d25d2000d65c9fe`, and corrected C2/BSR1
+`5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`.
+
+The exact noncanonical rehearsal topology is:
+
+1. `87efae7898bd14e9aa9a2866380a9973d8b3e5bc`, parents
+   `b2caf77c3cd96beb7383cc3d93844d771262ea5f` then
+   `71857395332fabe041896ca0700fbf7a2bf612d3`, tree
+   `abb4d16d1c6038ccc33931c009628a47b2b0bd68`;
+2. `900d83a61515f37ae117e04763da1881cba90b7b`, parents
+   `87efae7898bd14e9aa9a2866380a9973d8b3e5bc` then
+   `5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`, tree
+   `a297646ec6d4901c8861d28b5ec8736f65902b70`.
+
+Current state is `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY — NONCANONICAL`. C1 pins
+`27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8` / 16 paths / 21 tests;
+G1 pins member set `a285fa8e…b43f4` / 9 paths / 37
+tests; corrected C2 pins `d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449`
+/ 7 reconciliation paths / full packet 32 paths and 40 tests. Immutable Bundle v0.1.0 remains
+`501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1`.
+
+The canonical file validator now reads live Git topology and fails closed on missing objects,
+wrong parent order, wrong trees or wrong tip ancestry. CI3 locally wires the three standalone
+validators and their combined exact 98 tests. Governance disposition
+`DELEGATED-GOVERNOR-ACCEPTED` authorizes one exact local-only commit of the combined CONTROL9 +
+CI3 12-path scope. The post-remediation independent review remains incomplete and is not
+represented as a pass. This is static contract conformance only; no hosted CI result, canonical
+ref movement, push, merge-to-branch, runtime, UAT or release is claimed. The unchanged-lockfile
+audit records 0 Critical / 13 High entries rooted in `GHSA-mh99-v99m-4gvg`; CI3 activation stays
+blocked pending separate compatible dependency remediation.

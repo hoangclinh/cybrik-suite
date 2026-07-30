@@ -239,3 +239,21 @@ recorded them as the local commit `3a2c71555a423465855ffaddcb663c8b704dbfbd`. It
 
 This application is `APPLIED 2026-07-26` and the W1-C1 packet is
 `ACCEPTED FOR IMPLEMENTATION v0.1.0` as a local commit only.
+
+## 11. 2026-07-30 corrected-state reconciliation
+
+Founder decisions `W1-REC-1=YES` and `W1-REC-2=YES` make correction
+`20cfa36c503e5a95341c80653d25d2000d65c9fe` and its 16-path
+`MEMBER-SET-SHA256/v1`
+`27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8`
+authoritative for new implementation. Descendant
+`71857395332fabe041896ca0700fbf7a2bf612d3` is the authoritative 9-path transport repin with
+`MEMBER-SET-SHA256/v1`
+`a285fa8e4850999dc013b03506ed1e62f5c7bb4209d198a4e16fa02c446b43f4`.
+The registered suites remain 21 W1-C1 tests and 37 W1-G1 tests.
+
+The original `3a2c71555a423465855ffaddcb663c8b704dbfbd` acceptance and the
+`a976a205601de22dae59e5112e37ae29707fda0e` transport generation remain immutable historical
+provenance. The corrected state is `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY —
+NONCANONICAL` at the exact topology in `W1-CONTRACT-RECONCILIATION-APPLICATION.md` §3. This grants
+no canonical commit, push, merge-to-branch, consumer migration, runtime, UAT or release authority.

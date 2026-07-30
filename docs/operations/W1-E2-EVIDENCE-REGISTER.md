@@ -2735,3 +2735,29 @@ lane reopens, no contract is accepted, **no authority of any kind is granted**.
 
 The exact namespaced dispositions are in supplement §10.1. A fresh independent review of the
 post-remediation bytes remains `PENDING`; neither adverse verdict is rewritten as `PASS`.
+
+## 32. W1 C1/G1 + corrected C2 reconciliation evidence — 2026-07-30
+
+| Evidence | Exact value | Ceiling |
+|---|---|---|
+| Founder authority | `W1-C1C2-AR-REVISION=R1`; guards 1–10 `yes` | disposable rehearsal and uncommitted drafts only |
+| C1 | `20cfa36c503e5a95341c80653d25d2000d65c9fe`; `27a6bdeb168599dc4fd05e27f06785315a3b763647826559efe9d721bc0292c8` | 16 paths; 21 tests |
+| G1 | `71857395332fabe041896ca0700fbf7a2bf612d3`; member set `a285fa8e…b43f4` | 9 paths; 37 tests |
+| corrected C2/BSR1 | `5a1ed0001a5714b7f099aeaff3f5a74cb67c068a`; `d741f22470a59bde5f0761dd6f3309acb9bb9b851970bc95c5228efd135a5449` | 7 reconciliation paths; packet 32 paths / 30 members; 40 tests |
+| immutable Bundle v0.1.0 | `501cb160f2fe7035c824d5b0ab37b74d5624cf99a7c25c7adffa72dff9c53bb1` | legacy read/replay input |
+| rehearsal merge 1 | `87efae7898bd14e9aa9a2866380a9973d8b3e5bc`; tree `abb4d16d1c6038ccc33931c009628a47b2b0bd68` | disposable, noncanonical |
+| rehearsal merge 2 | `900d83a61515f37ae117e04763da1881cba90b7b`; tree `a297646ec6d4901c8861d28b5ec8736f65902b70` | disposable, noncanonical |
+| CI3 | three standalone W1 validators plus combined exactly 98 tests | local static conformance; no hosted result |
+
+Current lifecycle: `ACCEPTED-AND-LOCALLY-INTEGRATED — REHEARSAL ONLY — NONCANONICAL`. Historical
+`3a2c71555a423465855ffaddcb663c8b704dbfbd`, `a976a205601de22dae59e5112e37ae29707fda0e`
+and `ed95e5102603ccc0c8313c670e6f07fdf0d6f7b4` remain immutable provenance.
+
+The control validator reads live Git objects and fails closed on missing inputs, wrong parent
+ordering, wrong trees or missing ancestry. Governance disposition
+`DELEGATED-GOVERNOR-ACCEPTED` authorizes one exact local-only commit of the combined CONTROL9 +
+CI3 12-path scope after delegated Codex review reached `P0=0`, `P1=0`, `P2=0`, `P3=0`; the
+post-remediation independent review remains incomplete and is not represented as a pass. No
+canonical ref movement is authorized; runtime/local stack/UAT remain `NO-GO`; release dates are
+unchanged. The unchanged-lockfile audit records 0 Critical / 13 High entries rooted in
+`GHSA-mh99-v99m-4gvg`; CI3 activation remains blocked pending separate compatible remediation.

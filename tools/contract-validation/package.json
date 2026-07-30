@@ -2,7 +2,7 @@
   "name": "cybrik-contract-validation",
   "private": true,
   "version": "0.0.0",
-  "description": "Isolated, reproducible validation toolchain for the CYBRIK cross-product contract packet (all members PROPOSED — NOT ACCEPTED). This is validation tooling ONLY; it is deliberately not a product runtime stack choice (see README).",
+  "description": "Isolated, reproducible validation toolchain for the CYBRIK mixed-lifecycle static contract corpus. This is validation tooling only, not product runtime, deployment, release or acceptance proof.",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
@@ -15,7 +15,11 @@
     "validate:svc": "node validate-svc.mjs",
     "validate:org": "node validate-org.mjs",
     "validate:openapi": "node validate-openapi.mjs",
-    "validate:asyncapi": "node validate-asyncapi.mjs"
+    "validate:asyncapi": "node validate-asyncapi.mjs",
+    "validate:w1:alert-context": "node validate-alert-context.mjs",
+    "validate:w1:alert-context-transport": "node validate-alert-context-transport.mjs",
+    "validate:w1:investigation-lifecycle": "node validate-investigation-lifecycle-proposal.mjs",
+    "test:w1-contracts": "node validate.mjs --test-w1-contracts"
   },
   "dependencies": {
     "@asyncapi/parser": "3.6.0",
