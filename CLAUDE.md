@@ -36,17 +36,24 @@ stop and ask the Founder.
 
 ## Approval gates
 
-Explicit Founder approval is required for:
+Forward-looking technical review, gate acceptance/rejection, bounded commits, push, canonical
+merge and release are delegated to the Codex Governor by
+`docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`. Earlier per-action Founder approval
+requirements for those actions are dated history. Evidence, exact scope, required checks,
+independent review where applicable and rollback remain mandatory.
+
+Explicit Founder approval is still required for:
 
 - creating, deleting, moving, or renaming repositories or top-level directories;
-- accepting a contract (moving anything in `contracts/` out of `PROPOSED` status);
-- any commit, push, or remote configuration (an `origin` remote now exists —
-  `github.com/hoangclinh/cybrik-suite`; commits and pushes still require Founder approval, and no
-  additional remote may be created without approval);
+- production deployment, production rollout, production data or production configuration;
+- production credentials, secrets, signing keys or identity-provider changes;
+- destructive history rewriting, force-pushing protected refs, or creating an additional remote;
+- remote repository settings not covered by a separately recorded authorization;
 - any change inside `cybrik-soc-command-center` (including replacing its docs with pointers —
   that is a separate migration requiring its own approval);
 - dependency installation, database migration, deployment, or running formatters/auto-fixers
-  in any repository.
+  in any repository; and
+- purchasing or changing third-party billing.
 
 ## Data-handling boundary
 

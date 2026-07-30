@@ -100,6 +100,18 @@ const packetPath = join(
   "operations",
   "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
 );
+const operationsReadmePath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "README.md",
+);
+const actionRecordPath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
+);
 
 const [
   boardText,
@@ -116,6 +128,8 @@ const [
   w1ReconciliationApplicationText,
   sprintText,
   adrReadmeText,
+  operationsReadmeText,
+  actionRecordText,
   packetText,
 ] = await Promise.all([
   readFile(boardPath, "utf8"),
@@ -132,6 +146,8 @@ const [
   readFile(w1ReconciliationApplicationPath, "utf8"),
   readFile(sprintPath, "utf8"),
   readFile(adrReadmePath, "utf8"),
+  readFile(operationsReadmePath, "utf8"),
+  readFile(actionRecordPath, "utf8"),
   readFile(packetPath, "utf8"),
 ]);
 
@@ -222,6 +238,8 @@ function validate(overrides = {}) {
     w1ReconciliationApplicationText,
     sprintText,
     adrReadmeText,
+    operationsReadmeText,
+    actionRecordText,
     packetText,
     ...overrides,
   });
@@ -2213,7 +2231,7 @@ const PACKET_ENFORCED_RULE_12_ROW =
   "| 12 | §9.1 plus live repository | this table and the live-`git` paragraph " +
   "are pinned byte-exact; the canonical file validator fails closed unless " +
   "the exact two rehearsal merge commits, ordered parents, trees, required " +
-  "input objects and tip ancestry exist |";
+  "input objects and rehearsal-tip ancestry exist |";
 const PACKET_UNENFORCED_NO_GO_LINE =
   "- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack " +
   "NO-GO 16 and the";
@@ -2231,7 +2249,7 @@ test("records the packet §9.1 machine-enforcement surface disclosure", () => {
 
   assert.deepEqual(result.enforcementSurface, {
     anchor: "§9.1",
-    enforcedRules: 21,
+    enforcedRules: 24,
     unenforcedNoGo: [16, 17],
     readsLiveGit: false,
   });
@@ -2266,7 +2284,7 @@ test("rejects a packet §9.1 that drifts on the enforced-rule inventory", () => 
   );
 });
 
-test("rejects a packet §9.1 whose enforced-rule numbering is not 1..21 contiguous", () => {
+test("rejects a packet §9.1 whose enforced-rule numbering is not 1..24 contiguous", () => {
   const drifted = replaceUnique(
     packetText,
     PACKET_ENFORCED_RULE_12_ROW,
@@ -2278,7 +2296,7 @@ test("rejects a packet §9.1 whose enforced-rule numbering is not 1..21 contiguo
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /§9\.1 enforced-rule inventory must be numbered 1..21 contiguously/,
+    /§9\.1 enforced-rule inventory must be numbered 1..24 contiguously/,
   );
 });
 
@@ -3127,19 +3145,19 @@ test("rejects a §2.8 push-delta table whose rows no longer sum to the stated to
   );
 });
 
-// The two Lane 5 rules added to the §9.1 inventory by this lane. Rule 21 is the
+// The Lane 5 and reconciliation rules added to the §9.1 inventory. Rule 24 is the
 // last row, so removing it leaves the remaining numbering contiguous and the
 // omission is caught only by the byte-exact row pin; rule 19 is a middle row,
-// so removing it also breaks the 1..21 contiguity. Both paths are exercised.
+// so removing it also breaks the 1..24 contiguity. Both paths are exercised.
 const PACKET_ENFORCED_RULE_19_ROW =
   "| 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |";
-const PACKET_ENFORCED_RULE_21_ROW =
-  "| 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |";
+const PACKET_ENFORCED_RULE_24_ROW =
+  "| 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |";
 
 test("reports the full §9.1 machine-enforcement inventory count", () => {
   const result = validate();
 
-  assert.equal(result.enforcementSurface.enforcedRules, 21);
+  assert.equal(result.enforcementSurface.enforcedRules, 24);
   assert.deepEqual(result.enforcementSurface.unenforcedNoGo, [16, 17]);
   assert.equal(result.enforcementSurface.readsLiveGit, false);
 });
@@ -3147,14 +3165,14 @@ test("reports the full §9.1 machine-enforcement inventory count", () => {
 test("rejects a §9.1 inventory that omits a Lane 5 enforced rule", () => {
   const drifted = replaceUnique(
     packetText,
-    `\n${PACKET_ENFORCED_RULE_21_ROW}`,
+    `\n${PACKET_ENFORCED_RULE_24_ROW}`,
     "",
   );
 
-  assert.equal(countOccurrences(drifted, "\n| 21 | "), 0);
+  assert.equal(countOccurrences(drifted, "\n| 24 | "), 0);
   assert.throws(
     () => validate({ packetText: drifted }),
-    /rule 21 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
+    /rule 24 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
   );
 });
 
@@ -3167,7 +3185,7 @@ test("rejects a §9.1 inventory that omits a middle rule and breaks the row numb
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /numbered 1\.\.21 contiguously; row 19 reads 20/,
+    /numbered 1\.\.24 contiguously; row 19 reads 20/,
   );
 });
 
@@ -3213,7 +3231,9 @@ test("requires the delegated governor disposition for one exact local-only commi
     w1ReconciliationApplicationText,
     /DELEGATED-GOVERNOR-ACCEPTED/,
   );
-  assert.deepEqual(result.w1ReconciliationApplication.governance, {
+  assert.deepEqual(
+    result.w1ReconciliationApplication.historicalRehearsal.governance,
+    {
     decision: "DELEGATED-GOVERNOR-ACCEPTED",
     localCommitAuthorized: true,
     exactPathCount: 12,
@@ -3222,7 +3242,8 @@ test("requires the delegated governor disposition for one exact local-only commi
     pushed: false,
     merged: false,
     released: false,
-  });
+    },
+  );
 });
 
 test("rejects removal of the delegated governor risk disposition", () => {
@@ -3244,14 +3265,17 @@ test("requires the unchanged-lockfile dependency-audit blocker disclosure", () =
     w1ReconciliationApplicationText,
     /GHSA-mh99-v99m-4gvg/,
   );
-  assert.deepEqual(result.w1ReconciliationApplication.security, {
+  assert.deepEqual(
+    result.w1ReconciliationApplication.historicalRehearsal.security,
+    {
     lockfileChanged: false,
     auditHigh: 13,
     auditCritical: 0,
     rootAdvisory: "GHSA-mh99-v99m-4gvg",
     localEvidenceCommitBlocked: false,
     ciActivationBlocked: true,
-  });
+    },
+  );
 });
 
 test("requires live-Git topology enforcement below the exact two-merge rehearsal tip", async () => {
@@ -3612,7 +3636,8 @@ test("requires CI3 to gate the patched dependency adapter and a high-severity au
       node: "24.18.1",
       dependencyCompatibilityTests: 2,
       dependencyAuditLevel: "high",
-      hostedRunClaimed: false,
+      hostedRunClaimed: true,
+      hostedRuns: [30537649671, 30543470413],
     },
   );
 

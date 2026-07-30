@@ -137,14 +137,19 @@ not a P0–P3 defect and it opens no gate.
   privileged local tree is not an atomic verify-and-load snapshot.
 - Stronger closure requires an immutable/snapshot mount or a load-from-verified-descriptor design.
 
-## 3. Remaining gates
+## 3. Gate reconciliation — current as of 2026-07-30
 
-1. **Publication gate.** Obtain explicit authority before pushing either accepted branch; neither
-   accepted commit has been pushed.
-2. **Merge gate.** Obtain explicit authority before either accepted branch reaches `main`.
-3. Obtain separate exact product/base/path/test/reviewer authority before SOC, Cyber AI or Fabric
-   runtime work.
-4. Keep delegated routine integration and external release `NO-GO`.
+1. **Suite W1 publication and merge gates — `CLOSED`.** The corrected W1-C1/G1 and W1-C2 line
+   reached canonical `main` through PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`;
+   no replay or cherry-pick remains.
+2. **Product/runtime scope gate — `OPEN`.** SOC, Cyber AI and Fabric work still requires an exact
+   repo/base/path/test/reviewer packet. Static Suite integration proves no product runtime.
+3. **Delegated technical integration — evidence-gated `GO`.** The Governor may review, commit,
+   push and merge bounded technical packets after exact-scope verification and hosted required
+   checks. External release remains `NO-GO` while `RB-001(release-disclosure)` is open.
+4. **Suite W1 static contract/control CI gate — `CLOSED`.** The canonical workflow invokes the
+   control validator and all registered W1 contract checks. Product-repository CI admission and
+   live-shadow runtime evidence remain separate gates.
 5. **Pinned-row correction gate — closed.** The pre-acceptance §1 aggregate/coverage/test-count
    attributes, the matching decision-packet §1 rows and the matching pins in
    `tools/operations/validate-w1-control.mjs` and its test file were repaired together under a
@@ -163,8 +168,9 @@ not a P0–P3 defect and it opens no gate.
    `docs/adr/ADR-0005-STATUS-FLIP-APPLICATION.md` §4 records the same resolution. **The governing
    rule stands permanently:** only policy-approved S0/R0 metadata workers may be pooled, and S4 — an
    R3 class — is never pooled under accepted ADR-0004 F3. No open gate remains from this item.
-8. **CI wiring gate.** Validator/test registration and pipeline invocation remain unwired for every
-   lane in §4.
+8. **CI wiring gate — closed for Suite W1 static contract/control.** Canonical CI runs the control
+   validator and registered W1 contract tests. This does not close product-repository CI admission
+   or runtime evidence gates for the lanes in §4.
 9. **GATE A4 status flip — applied 2026-07-26; outside-allowlist reconciliation closed 2026-07-26.**
    Option A was accepted under Founder-delegated current-thread authority; ADR-0003 `H1..H11` and
    ADR-0005 `J1..J10` are accepted, both ADR files read `ACCEPTED` (GATE A4, 2026-07-26) — decision
