@@ -7152,9 +7152,9 @@ remains Founder-controlled.
 runtime of both GitHub-owned actions with exact reviewed Node 24-runtime commits and pins
 validator execution to Node.js `24.18.1`.
 
-Local TDD evidence includes four bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/
-unpinned tests are `4/4 PASS`. The full control suite is `205/205 PASS` with
-line/branch/function coverage `97.69%`/`92.56%`/`98.90%`, and the
+Local TDD evidence includes five bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/
+split-or-explicit/unpinned tests are `5/5 PASS`. The full control suite is `206/206 PASS` with
+line/branch/function coverage `97.38%`/`90.97%`/`98.89%`, and the
 control validator passes with `tasks=48`. Exact packet, owner paths and rollback:
 `docs/operations/W1-CI4-NODE24-ACTION-PINS-R1.md`.
 
@@ -7167,5 +7167,10 @@ The first independent Opus review returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; both 
 remediated. The second returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5` on a trailing-whitespace parser
 bypass. The third returned `NO-GO`, `P0=0 P1=1 P2=1 P3=5` on inline `- uses:` and the associated
 evidence overclaim. Current bytes recognize both canonical forms, reject flow/quoted-key syntax,
-positively allowlist all three action uses, and anchor both rendered job names. Checksum-verified
-Node 24.18.1 execution is green; a fresh fourth review remains mandatory before push.
+positively allowlist all three action uses, and anchor both rendered job names. The first
+fourth-review attempt ended in a Claude infrastructure `500` with no verdict; its retry returned
+`NO-GO`, `P0=0 P1=1 P2=1 P3=5` after reproducing split and explicit YAML key bypasses. Current
+bytes replace the textual extractor with the pinned `yaml@2.9.0` structural parser, inventory
+every parsed job/step `uses` value, and cover split, explicit, Unicode-escaped, reusable-workflow
+and alias forms. Checksum-verified Node 24.18.1 execution is green; a fresh fifth review remains
+mandatory before push.

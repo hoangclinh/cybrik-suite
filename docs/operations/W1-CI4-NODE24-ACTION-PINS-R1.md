@@ -74,20 +74,22 @@ that deprecated action-runtime fallback cannot silently persist.
 | Gate | Evidence |
 |---|---|
 | RED | New exact-pin test executed against the old workflow: `tests 1`, `pass 0`, `fail 1`; intended mismatch `0 !== 2` for checkout |
-| GREEN | Targeted pin/inline/noncanonical/unpinned tests: `4/4 PASS` |
-| Full control on checksum-verified Node 24.18.1 | `205/205 PASS`; line `97.69%`, branch `92.56%`, functions `98.90%` |
+| GREEN | Targeted pin/inline/noncanonical/split-or-explicit/unpinned tests: `5/5 PASS` |
+| Full control on checksum-verified Node 24.18.1 | `206/206 PASS`; line `97.38%`, branch `90.97%`, functions `98.89%` |
 | Control validator | `PASS`, fixed roster `tasks=48`; statically asserts configured workflow Node `24.18.1` |
 | Contract/dependency/security on Node 24.18.1 | Canonical validate pass; W1 contracts `98/98`; dependency compatibility `2/2`; audit 0; Spectral 0 errors/19 warnings; AsyncAPI 0 errors; gitleaks dir/git clean |
-| Hosted acceptance | Both required rendered checks pass on the PR and exact canonical merge; no Node 20 action-runtime annotation |
+| Hosted acceptance | `PENDING` — both required rendered checks must pass on the PR and exact canonical merge, with no Node 20 action-runtime annotation |
 
 Negative coverage includes additive stale-Node-20 rejection, positive action allowlisting, total
 action-use cardinality, checkout/setup-node multiplicity, both standard and inline `uses:` forms,
-fail-closed rejection of flow/quoted-key action syntax, rendered required-check-name stability,
-unpinned-action rejection, shallow checkout rejection, missing required command rejection,
-suppressed-job rejection and permission-guard preservation. These controls execute through
-canonical validation inside the required `contract standards validation` job, not only in the
-local control test suite. Failure remains observable as a required-check failure and a specific
-fail-closed validator/test error.
+flow/quoted/split/explicit/Unicode-key syntax, reusable-workflow job references and YAML aliases,
+rendered required-check-name stability, unpinned-action rejection, shallow checkout rejection,
+missing required command rejection, suppressed-job rejection and permission-guard preservation.
+The action inventory is derived from the job/step `uses` values produced by the already-pinned
+`yaml@2.9.0` parser, including merged aliases, rather than a textual regex. These controls execute
+through canonical validation inside the required `contract standards validation` job, not only
+in the local control test suite. Failure remains observable as a required-check failure and a
+specific fail-closed validator/test error.
 
 ## 3. Rollback, review and integration
 
@@ -97,7 +99,7 @@ fail-closed validator/test error.
   output and Node version.
 - **Model/account:** Codex implementation and evidence coordination; independent Opus review
   required before merge because this changes the release-control supply-chain path.
-- **Budget:** eight owned paths, four bounded RED/GREEN cycles, independent review until
+- **Budget:** eight owned paths, five bounded RED/GREEN checkpoints, independent review until
   `P0=P1=P2=0`, one PR/merge cycle; stop on any unresolved P0/P1/P2 or required-check failure.
 - **Integration consumer:** `main` branch protection and every future Suite contract/control PR.
 
@@ -130,15 +132,25 @@ A third RED checkpoint reproduces the inline bypass. The remediation recognizes 
 separate-line and inline step forms, anchors both rendered job names, removes the redundant
 zero-action branch and positively rejects every action outside the reviewed allowlist. A fourth
 RED/GREEN cycle proves that flow-map and quoted-key variants are rejected as unsupported syntax,
-so a syntactically different action step cannot evade the textual allowlist/cardinality control.
+which was the textual-control completeness claim later invalidated by the fourth-review retry.
+
+The first fourth-review attempt ended with a Claude infrastructure `500` and produced no verdict;
+it is not counted as a pass. The bounded retry returned `NO-GO`, `P0=0 P1=1 P2=1 P3=5`, after
+reproducing split `uses` key/colon and explicit `? uses` forms that still evaded the textual
+extractor. The fifth RED checkpoint preserves both bypasses. The remediation removes the textual
+action extractor and instead parses the workflow with the already-pinned `yaml@2.9.0`, walks
+every structurally interpreted job-level and step-level `uses` value, and applies the immutable
+SHA, superseded-pin, allowlist, total-cardinality and multiplicity rules to that inventory.
+Additional cases cover Unicode-escaped `uses`, reusable-workflow job references and a merged YAML
+alias. The earlier adverse verdict and the infrastructure failure remain dated history.
 
 Compact coordinator transcript for the fresh exact binary run:
 
 ```text
 node-v24.18.1-darwin-arm64.tar.xz: OK
 node --version: v24.18.1
-node --test --experimental-test-coverage ...: tests 205, pass 205, fail 0
-coverage: line 97.69%, branch 92.56%, functions 98.90%
+node --test --experimental-test-coverage ...: tests 206, pass 206, fail 0
+coverage: line 97.38%, branch 90.97%, functions 98.89%
 node tools/operations/validate-w1-control.mjs: W1 control PASS, tasks=48
 npm audit --audit-level=high: found 0 vulnerabilities
 npm run validate: PASS; dependency compatibility 2/2; Spectral 0 errors/19 warnings; AsyncAPI 0 errors
@@ -146,7 +158,7 @@ npm run test:w1-contracts: 98/98 PASS
 gitleaks dir/git 8.30.1: no leaks found
 ```
 
-A fresh fourth independent review of the remediated bytes remains mandatory; the adverse
+A fresh fifth independent review of the remediated bytes remains mandatory; the adverse
 verdicts are retained as history and are not rewritten as a pass.
 
 This packet is not completion evidence. It becomes `CANONICAL MERGED` only after independent

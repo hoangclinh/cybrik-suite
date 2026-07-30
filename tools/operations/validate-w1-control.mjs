@@ -2,8 +2,14 @@
 
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+const requireFromContractValidator = createRequire(
+  new URL("../contract-validation/package.json", import.meta.url),
+);
+const { parse: parseYaml } = requireFromContractValidator("yaml");
 
 const CATEGORY_SIZES = {
   I: 12,
@@ -3055,10 +3061,38 @@ export function validateW1CiWiring({
       : remainder.slice(0, nextJobOffset);
   }
 
+  let workflowDocument;
+  try {
+    workflowDocument = parseYaml(workflowText, { merge: true });
+  } catch (error) {
+    throw new Error(`CI3 workflow YAML is invalid: ${error.message}`);
+  }
+  if (
+    workflowDocument === null ||
+    typeof workflowDocument !== "object" ||
+    Array.isArray(workflowDocument) ||
+    workflowDocument.jobs === null ||
+    typeof workflowDocument.jobs !== "object" ||
+    Array.isArray(workflowDocument.jobs)
+  ) {
+    throw new Error("CI3 workflow must contain a jobs mapping");
+  }
+
   const contractsJob = workflowJob("contracts");
   const secretScanJob = workflowJob("secret-scan");
+  const contractsJobDocument = workflowDocument.jobs.contracts;
+  const secretScanJobDocument = workflowDocument.jobs["secret-scan"];
+  if (contractsJobDocument?.name !== "contract standards validation") {
+    throw new Error(
+      "CI3 workflow must preserve the rendered contracts required-check name",
+    );
+  }
+  if (secretScanJobDocument?.name !== "secret-scan (gitleaks 8.30.1)") {
+    throw new Error(
+      "CI3 workflow must preserve the rendered secret-scan required-check name",
+    );
+  }
   for (const pattern of [
-    /^ {4}name: contract standards validation$/m,
     /name: Checkout contract topology/,
     /fetch-depth: 0/,
     /node-version: "24\.18\.1"/,
@@ -3073,11 +3107,6 @@ export function validateW1CiWiring({
       `CI3 workflow contracts job is missing ${pattern}`,
     );
   }
-  assertIncludes(
-    secretScanJob,
-    /^ {4}name: secret-scan \(gitleaks 8\.30\.1\)$/m,
-    "CI3 workflow must preserve the rendered secret-scan required-check name",
-  );
   assertExcludes(
     workflowText,
     /^ {4,}if:\s*false\s*$/m,
@@ -3120,24 +3149,26 @@ export function validateW1CiWiring({
     /\bwrite-all\b/,
     "CI3 workflow must not grant write-all permissions",
   );
-  const actionLines = [
-    ...workflowText.matchAll(
-      /^[^\S\n]*(?:-[^\S\n]+)?uses:[^\S\n]*(\S+)(?:[^\S\n]+#.*)?[^\S\n]*$/gm,
-    ),
-  ];
-  const usesSyntaxLineCount = workflowText
-    .split(/\r?\n/)
-    .filter((line) => {
-      const leftTrimmed = line.trimStart();
-      if (leftTrimmed.startsWith("#")) return false;
-      return /(?:^|[\s{,])(?:"uses"|'uses'|uses)[^\S\n]*:/.test(leftTrimmed);
-    }).length;
-  if (usesSyntaxLineCount !== actionLines.length) {
-    throw new Error(
-      "CI3 workflow contains unsupported or noncanonical uses syntax",
-    );
+  const actionUses = [];
+  for (const [jobName, job] of Object.entries(workflowDocument.jobs)) {
+    if (job === null || typeof job !== "object" || Array.isArray(job)) {
+      throw new Error(`CI3 workflow job ${jobName} must be a mapping`);
+    }
+    if (Object.hasOwn(job, "uses")) actionUses.push(job.uses);
+    if (job.steps !== undefined && !Array.isArray(job.steps)) {
+      throw new Error(`CI3 workflow job ${jobName} steps must be an array`);
+    }
+    for (const step of job.steps ?? []) {
+      if (step === null || typeof step !== "object" || Array.isArray(step)) {
+        throw new Error(`CI3 workflow job ${jobName} contains an invalid step`);
+      }
+      if (Object.hasOwn(step, "uses")) actionUses.push(step.uses);
+    }
   }
-  for (const [, action] of actionLines) {
+  for (const action of actionUses) {
+    if (typeof action !== "string") {
+      throw new Error("CI3 workflow action reference must be a string");
+    }
     if (!/@[0-9a-f]{40}(?:\s|$)/.test(action)) {
       throw new Error(`CI3 workflow action is not pinned by commit SHA: ${action}`);
     }
@@ -3147,20 +3178,20 @@ export function validateW1CiWiring({
     /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
     "CI3 workflow must not reintroduce a superseded Node 20 action-runtime pin",
   );
-  for (const [, action] of actionLines) {
+  for (const action of actionUses) {
     if (!CI_ACTION_PINS.has(action)) {
       throw new Error(
         `CI3 workflow action is outside the reviewed allowlist: ${action}`,
       );
     }
   }
-  if (actionLines.length !== 3) {
+  if (actionUses.length !== 3) {
     throw new Error(
-      `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionLines.length}`,
+      `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionUses.length}`,
     );
   }
   for (const [action, expectedCount] of CI_ACTION_PINS) {
-    const actualCount = actionLines.filter(([, candidate]) => candidate === action).length;
+    const actualCount = actionUses.filter((candidate) => candidate === action).length;
     if (actualCount !== expectedCount) {
       throw new Error(
         `CI3 workflow action pin ${action} must occur exactly ${expectedCount} time${expectedCount === 1 ? "" : "s"}; found ${actualCount}`,

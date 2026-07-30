@@ -3640,7 +3640,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /contracts job is missing/,
+    /must preserve the rendered contracts required-check name/,
   );
 
   const renamedSecretScanCheck = workflowText.replace(
@@ -3715,7 +3715,7 @@ test("rejects noncanonical GitHub action step syntax", async () => {
           packageText,
           orchestratorText,
         }),
-      /unsupported or noncanonical uses syntax/,
+      /action is not pinned by commit SHA: attacker\/action@main/,
     );
   }
 });
@@ -3735,6 +3735,7 @@ test("rejects YAML-split and explicit action keys", async () => {
   for (const actionStep of [
     "      - { uses\n          : attacker/action@main }",
     "      - ? uses\n        : attacker/action@main",
+    '      - "\\u0075ses": attacker/action@main',
   ]) {
     const drifted = workflowText.replace(
       "      - name: Install validators (reproducible, no lifecycle scripts)",
@@ -3751,6 +3752,42 @@ test("rejects YAML-split and explicit action keys", async () => {
       /action is not pinned by commit SHA: attacker\/action@main/,
     );
   }
+
+  const reusableJob = workflowText.replace(
+    "jobs:\n",
+    "jobs:\n  injected:\n    uses: attacker/workflow@main\n\n",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: reusableJob,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/workflow@main/,
+  );
+
+  const aliasedAction = workflowText
+    .replace(
+      "jobs:\n",
+      "x-injected-action: &injected-action\n" +
+        "  uses: attacker/action@main\n\n" +
+        "jobs:\n",
+    )
+    .replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      "      - *injected-action\n\n" +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: aliasedAction,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@main/,
+  );
 });
 
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {

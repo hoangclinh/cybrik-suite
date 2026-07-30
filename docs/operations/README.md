@@ -26,7 +26,7 @@ Runbooks and operating procedures for the suite.
 Machine validation for the current W1 control corpus is described in
 [W1-48-AGENT-ROLLING-BOARD.md](W1-48-AGENT-ROLLING-BOARD.md) §13. The canonical workflow is
 wired and protected by two required checks. The latest 2026-07-30 local W1-CI4 measurement is
-`PASS`, `tasks=48`, with `tests 205 · pass 205 · fail 0`; the separate dependency
+`PASS`, `tasks=48`, with `tests 206 · pass 206 · fail 0`; the separate dependency
 compatibility suite is 2/2, the accepted W1 contract suite is 98/98, and
 `npm audit --audit-level=high` reports 0 vulnerabilities. Earlier 77-test and 179-test readings
 remain dated history. These results are static control and contract evidence, not runtime,
