@@ -225,3 +225,46 @@ test('cross-repo runtime-state overclaim and weakened future gate fail closed', 
     'future bundle-read binding requires a separately accepted implementation and contract gate',
   )));
 });
+
+test('canonical npm validate directly executes the lifecycle-delegation test suite', () => {
+  const orchestrator = read('tools/contract-validation/validate.mjs');
+  assert.match(
+    orchestrator,
+    /['"]tests\/validate-svc-lifecycle\.test\.mjs['"]/,
+  );
+});
+
+test('runtime-overclaim detector is bundle-read specific and ignores unrelated Cyber AI prose', async () => {
+  const readmePath = 'contracts/README.md';
+  const unrelated = `${read(readmePath)}
+
+Cyber AI returns model metadata for inference compatibility checks; this sentence makes no
+bundle-read runtime-state assertion and grants no authority.
+`;
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: new Map([[readmePath, unrelated]]),
+  });
+  assert.deepEqual(report.errors, []);
+});
+
+test('both previously reviewed bundle-read runtime overclaims remain rejected', async () => {
+  const notesPath =
+    'contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md';
+  const reviewedOverclaims = [
+    'For bundle-read, the current Cyber AI implementation remains unconditional refusal.',
+    'Cyber AI currently refuses bundle-read requests at runtime.',
+  ];
+  for (const overclaim of reviewedOverclaims) {
+    const report = await validateSvcLifecycleBinding({
+      root: ROOT,
+      overrides: new Map([[notesPath, `${read(notesPath)}\n${overclaim}\n`]]),
+    });
+    assert.ok(
+      report.errors.some((error) => error.includes(
+        'proposal must not assert cross-repository runtime state',
+      )),
+      overclaim,
+    );
+  }
+});
