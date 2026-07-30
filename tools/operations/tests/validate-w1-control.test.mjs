@@ -3658,6 +3658,35 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
   );
 });
 
+test("rejects an unreviewed inline GitHub action step", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  const inlineAction = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - uses: attacker/action@main\n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: inlineAction,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@main/,
+  );
+});
+
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
