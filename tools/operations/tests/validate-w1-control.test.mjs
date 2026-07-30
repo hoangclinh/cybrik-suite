@@ -3368,11 +3368,11 @@ test("rejects CI3 shallow checkout that can hide required merge objects", async 
   ]);
   const drifted = workflowText.replace(
     "      - name: Checkout contract topology\n" +
-      "        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2\n" +
+      "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)\n" +
       "        with:\n" +
       "          fetch-depth: 0",
     "      - name: Checkout contract topology\n" +
-      "        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2",
+      "        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)",
   );
 
   assert.throws(
@@ -3419,7 +3419,7 @@ test("requires CI3 to gate the patched dependency adapter and a high-severity au
       validators: 3,
       tests: 98,
       fetchDepth: 0,
-      node: "20.18.1",
+      node: "24.18.1",
       dependencyCompatibilityTests: 2,
       dependencyAuditLevel: "high",
       hostedRunClaimed: false,
@@ -3517,6 +3517,279 @@ test("requires canonical validation to execute the live-Git W1 control validator
   );
 });
 
+test("pins CI actions to reviewed Node 24 runtime commits", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+
+  assert.equal(
+    (
+      workflowText.match(
+        /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/g,
+      ) ?? []
+    ).length,
+    2,
+  );
+  assert.equal(
+    (
+      workflowText.match(
+        /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/g,
+      ) ?? []
+    ).length,
+    1,
+  );
+  assert.doesNotMatch(
+    workflowText,
+    /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
+  );
+  assert.match(workflowText, /node-version: "24\.18\.1"/);
+
+  const drifted = workflowText.replace(
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "actions/cache@0000000000000000000000000000000000000000",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: drifted,
+        packageText,
+        orchestratorText,
+      }),
+    /action is outside the reviewed allowlist: actions\/cache@/,
+  );
+
+  const additiveNode20 = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - name: Deprecated additive checkout\n" +
+      "        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683\n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: additiveNode20,
+        packageText,
+        orchestratorText,
+      }),
+    /must not reintroduce a superseded Node 20 action-runtime pin/,
+  );
+
+  const additivePinnedAction = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - name: Unexpected pinned action\n" +
+      "        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020\n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: additivePinnedAction,
+        packageText,
+        orchestratorText,
+      }),
+    /must contain exactly 3 reviewed GitHub action uses; found 4/,
+  );
+
+  const trailingWhitespaceBypass = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - name: Trailing-whitespace action\n" +
+      "        uses: attacker/action@v1" +
+      " \n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: trailingWhitespaceBypass,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@v1/,
+  );
+
+  const missingCheckout = workflowText.replace(
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: missingCheckout,
+        packageText,
+        orchestratorText,
+      }),
+    /checkout@.* must occur exactly 2 times; found 1/,
+  );
+
+  const renamedRequiredCheck = workflowText.replace(
+    "name: contract standards validation",
+    "name: renamed contract validation",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: renamedRequiredCheck,
+        packageText,
+        orchestratorText,
+      }),
+    /must preserve the rendered contracts required-check name/,
+  );
+
+  const renamedSecretScanCheck = workflowText.replace(
+    "name: secret-scan (gitleaks 8.30.1)",
+    "name: renamed secret scan",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: renamedSecretScanCheck,
+        packageText,
+        orchestratorText,
+      }),
+    /must preserve the rendered secret-scan required-check name/,
+  );
+});
+
+test("rejects an unreviewed inline GitHub action step", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  const inlineAction = workflowText.replace(
+    "      - name: Install validators (reproducible, no lifecycle scripts)",
+    "      - uses: attacker/action@main\n\n" +
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+  );
+
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: inlineAction,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@main/,
+  );
+});
+
+test("rejects noncanonical GitHub action step syntax", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  for (const actionStep of [
+    '      - { uses: "attacker/action@main" }',
+    '      - "uses": attacker/action@main',
+  ]) {
+    const drifted = workflowText.replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      `${actionStep}\n\n` +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+    assert.throws(
+      () =>
+        validateW1CiWiring({
+          workflowText: drifted,
+          packageText,
+          orchestratorText,
+        }),
+      /action is not pinned by commit SHA: attacker\/action@main/,
+    );
+  }
+});
+
+test("rejects YAML-split and explicit action keys", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  for (const actionStep of [
+    "      - { uses\n          : attacker/action@main }",
+    "      - ? uses\n        : attacker/action@main",
+    '      - "\\u0075ses": attacker/action@main',
+  ]) {
+    const drifted = workflowText.replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      `${actionStep}\n\n` +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+    assert.throws(
+      () =>
+        validateW1CiWiring({
+          workflowText: drifted,
+          packageText,
+          orchestratorText,
+        }),
+      /action is not pinned by commit SHA: attacker\/action@main/,
+    );
+  }
+
+  const reusableJob = workflowText.replace(
+    "jobs:\n",
+    "jobs:\n  injected:\n    uses: attacker/workflow@main\n\n",
+  );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: reusableJob,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/workflow@main/,
+  );
+
+  const aliasedAction = workflowText
+    .replace(
+      "jobs:\n",
+      "x-injected-action: &injected-action\n" +
+        "  uses: attacker/action@main\n\n" +
+        "jobs:\n",
+    )
+    .replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      "      - *injected-action\n\n" +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+  assert.throws(
+    () =>
+      validateW1CiWiring({
+        workflowText: aliasedAction,
+        packageText,
+        orchestratorText,
+      }),
+    /action is not pinned by commit SHA: attacker\/action@main/,
+  );
+});
+
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
@@ -3530,7 +3803,7 @@ test("rejects an unpinned GitHub action even when the line carries a comment", a
     ),
   ]);
   const drifted = workflowText.replace(
-    "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2",
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)",
     "actions/checkout@v4 # unpinned",
   );
 

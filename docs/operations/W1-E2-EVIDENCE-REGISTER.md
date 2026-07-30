@@ -2801,3 +2801,20 @@ explicitly installed Node.js 20.18.1. This maintenance warning is not a failed c
 
 Dependency-specific CI3 activation is closed. Runtime/local stack/demo/UAT remain `NO-GO` until
 G-C `stable-v1.0`; release dates are unchanged; production remains Founder-controlled.
+
+## 35. W1-CI4 Node 24 action-pin candidate — 2026-07-30
+
+| Evidence | Exact result |
+|---|---|
+| Base | `ad964697eed2d623863b0b034a6215b3dfe29e4e` |
+| Action pins | checkout `3d3c42e5aac5ba805825da76410c181273ba90b1` ×2; setup-node `820762786026740c76f36085b0efc47a31fe5020` ×1 |
+| Action runtime | both reviewed `action.yml` manifests declare `node24` |
+| Validator runtime | pinned Node.js `24.18.1` Krypton LTS security release |
+| TDD | five bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/split-or-explicit/unpinned `5/5 PASS` |
+| Full control | checksum-verified Node 24.18.1: `206/206 PASS`; line `97.38%`, branch `90.97%`, functions `98.89%` |
+| Action inventory | structurally parsed job/step `uses` values using pinned `yaml@2.9.0`; split, explicit, Unicode-escaped, reusable-workflow and merged-alias negative cases covered |
+| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; third `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; first fourth-review attempt infrastructure `500`, no verdict; retry `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; every P1/P2 has bounded RED/GREEN remediation, fifth review pending |
+| Current status | `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING` |
+
+Independent review, hosted required checks, exact merge-tree verification and canonical
+post-merge evidence remain mandatory. This record changes no runtime/UAT/release gate.

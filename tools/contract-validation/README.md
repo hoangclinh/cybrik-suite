@@ -77,7 +77,8 @@ npm run validate  # all three validators; exit 0 only if every layer passes
 
 Individual layers: `npm run validate:schemas` · `npm run validate:inference` · `npm run validate:svc` · `npm run validate:openapi` · `npm run validate:asyncapi`.
 
-Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins Node 20.18.1.
+Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins the Node.js 24 LTS
+security release `24.18.1`.
 
 ## Reproducibility & supply-chain posture
 

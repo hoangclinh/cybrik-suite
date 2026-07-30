@@ -7144,3 +7144,33 @@ This closes the dependency-specific CI3 activation blocker and makes the reviewe
 corrected C2 control history canonical. It does not prove product runtime, local stack, demo or
 UAT; those remain `NO-GO` until G-C `stable-v1.0`. Release dates are unchanged and production
 remains Founder-controlled.
+
+## 23. W1-CI4 Node 24 action-pin candidate — 2026-07-30
+
+`W1-CI4` is a bounded assurance-lane follow-up at canonical base
+`ad964697eed2d623863b0b034a6215b3dfe29e4e`. It replaces the deprecated Node 20 internal
+runtime of both GitHub-owned actions with exact reviewed Node 24-runtime commits and pins
+validator execution to Node.js `24.18.1`.
+
+Local TDD evidence includes five bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/
+split-or-explicit/unpinned tests are `5/5 PASS`. The full control suite is `206/206 PASS` with
+line/branch/function coverage `97.38%`/`90.97%`/`98.89%`, and the
+control validator passes with `tasks=48`. Exact packet, owner paths and rollback:
+`docs/operations/W1-CI4-NODE24-ACTION-PINS-R1.md`.
+
+Status is `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING`. No required-check name or permission
+changes. This closes no product-runtime blocker and does not authorize the local stack, demo or
+UAT ahead of G-C `stable-v1.0`; release dates remain unchanged and production remains
+Founder-controlled.
+
+The first independent Opus review returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; both P2s were
+remediated. The second returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5` on a trailing-whitespace parser
+bypass. The third returned `NO-GO`, `P0=0 P1=1 P2=1 P3=5` on inline `- uses:` and the associated
+evidence overclaim. Current bytes recognize both canonical forms, reject flow/quoted-key syntax,
+positively allowlist all three action uses, and anchor both rendered job names. The first
+fourth-review attempt ended in a Claude infrastructure `500` with no verdict; its retry returned
+`NO-GO`, `P0=0 P1=1 P2=1 P3=5` after reproducing split and explicit YAML key bypasses. Current
+bytes replace the textual extractor with the pinned `yaml@2.9.0` structural parser, inventory
+every parsed job/step `uses` value, and cover split, explicit, Unicode-escaped, reusable-workflow
+and alias forms. Checksum-verified Node 24.18.1 execution is green; a fresh fifth review remains
+mandatory before push.
