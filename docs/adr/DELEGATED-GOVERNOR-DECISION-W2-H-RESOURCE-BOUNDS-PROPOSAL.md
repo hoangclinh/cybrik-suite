@@ -177,8 +177,18 @@ Only these existing files may be edited:
 - `tools/contract-validation/README.md`
 - `tools/contract-validation/package.json`
 - `tools/contract-validation/validate.mjs`
+- `tools/contract-validation/tests/validate-transport.test.mjs`
 
 This decision record itself is the only additional path.
+
+The final path above is a bounded integration-compatibility amendment recorded
+after aggregate validation found that W2-I's exact additive-byte test rejected
+every later ADR catalog entry and that its existing success-banner test
+required the literal validator name. It may change only the additive-byte
+normalization and add the W2-H companion assertion; the orchestrator banner may
+be updated to satisfy the unchanged W2-I banner test. All other catalog bytes
+and all W2-I lifecycle assertions remain pinned. This grants no authority to
+weaken transport semantics, coverage, ownership, or accepted-byte protections.
 
 ## 4. Corrected vocabulary boundary
 

@@ -1,0 +1,44 @@
+{
+  "request_id": "rsq_child00000000001",
+  "status": "denied",
+  "reservation": {
+    "reservation_id": "rsr_child00000000001",
+    "reserved": {
+      "cpu_millis": 40,
+      "memory_byte_millis": 40000,
+      "model_tokens": 400,
+      "tool_calls": 4,
+      "retrieved_bytes": 4000,
+      "egress_bytes": 400
+    },
+    "remaining": {
+      "cpu_millis": 40,
+      "memory_byte_millis": 40000,
+      "model_tokens": 400,
+      "tool_calls": 4,
+      "retrieved_bytes": 4000,
+      "egress_bytes": 400
+    },
+    "state_version": 1,
+    "status": "open"
+  },
+  "error": {
+    "code": "RES_INSUFFICIENT_REMAINDER",
+    "message": "A denied result may not carry a reservation.",
+    "retriable": false,
+    "fail_closed": true
+  },
+  "parent_version_before": 1,
+  "parent_version_after": 1,
+  "parent_remaining_after": {
+    "cpu_millis": 100,
+    "memory_byte_millis": 100000,
+    "model_tokens": 1000,
+    "tool_calls": 10,
+    "retrieved_bytes": 10000,
+    "egress_bytes": 1000
+  },
+  "sequence": 2,
+  "virtual_time_ms": 1010,
+  "confers_authority": false
+}

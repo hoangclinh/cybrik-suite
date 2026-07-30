@@ -1,0 +1,22 @@
+{
+  "case_id": "replay.org-scope-mismatch",
+  "credential_context": { "tenant_id": "tenant-blue", "org_scope_ref": { "org_id": "org-blue" } },
+  "events": [
+    {
+      "sequence": 1,
+      "virtual_time_ms": 1000,
+      "kind": "grant",
+      "payload": {
+        "grant_id": "rbg_orgscope00000001",
+        "tenant_id": "tenant-blue",
+        "org_scope_ref": { "org_id": "org-red" },
+        "bounds": { "cpu_millis": 1, "memory_byte_millis": 1, "model_tokens": 1, "tool_calls": 1, "retrieved_bytes": 1, "egress_bytes": 1 },
+        "state_version": 1,
+        "sequence": 1,
+        "virtual_time_ms": 1000,
+        "confers_authority": false
+      }
+    }
+  ],
+  "expected": { "accepted": false, "error_codes": ["RES_ORG_SCOPE_MISMATCH"] }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-reservation-request.v1.schema.json",
+  "title": "CYBRIK resource reservation request v1",
+  "description": "All-or-nothing request to subtract a non-zero vector from an open parent at admission time. Idempotency and lineage are accounting state only. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "idempotency_key",
+    "tenant_id",
+    "org_scope_ref",
+    "parent",
+    "requested",
+    "virtual_time_ms",
+    "sequence",
+    "confers_authority"
+  ],
+  "properties": {
+    "request_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/requestId" },
+    "idempotency_key": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/idempotencyKey" },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope_ref": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "parent": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/parentRef" },
+    "requested": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/nonZeroResourceVector" },
+    "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
+    "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
+    "confers_authority": { "const": false }
+  }
+}

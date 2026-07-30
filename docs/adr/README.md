@@ -21,6 +21,11 @@ The W2-I transport-binding candidate adds ADR-0011 as
 accepted base catalog before this additive proposal and is not an acceptance statement for
 ADR-0011. Gate W2-I is **`NOT OPENED`**.
 
+The W2-H resource-bounds packet adds ADR-0012 as
+`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-H authorizes only bounded proposal writing
+and static conformance under the delegated Governor decision; it does not accept ADR-0012 or
+authorize runtime, UAT, release, deployment, or production work.
+
 Current W1 contract/control lifecycle is
 `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` through GitHub PR #1 merge
 `28c564eb9b6853b73a18a59a2e84ba58fd67816a`. This corrects the forward-looking local-only wording
@@ -40,9 +45,11 @@ or production evidence.
 | [ADR-0009](ADR-0009-org-hierarchy-and-external-authority-contract-profile.md) | Org-hierarchy & external-authority contract profile | `ACCEPTED FOR IMPLEMENTATION` (W2-G, 2026-07-24) — v0.1.0, not stable v1/GA; applies the ADR-0007 contract delta, re-decides no model |
 | [ADR-0010](ADR-0010-capability-name-canonicalization.md) | Capability-name canonicalization across JSON Schema runtimes | `ACCEPTED FOR IMPLEMENTATION — APPLIED` (2026-07-26) — pre-GA patch 0.1.1, not stable v1/GA |
 | [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |
+| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |
 
-Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder moves an
-ADR out of `PROPOSED`. Product repositories may not implement against a `PROPOSED` ADR, and an
+Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
+specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains
+Founder-controlled. Product repositories may not implement against a `PROPOSED` ADR, and an
 `ACCEPTED` ADR is a decision record — it is not by itself implementation authority.
 
 `docs/README.md`, the root `README.md` and `docs/operations/README.md` were reconciled to this

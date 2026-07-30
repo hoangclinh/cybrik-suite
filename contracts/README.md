@@ -101,3 +101,19 @@ whole key lifecycle remain open prerequisites listed in the manifest's `future_p
 Every contract file must carry a status header: `PROPOSED` → `ACCEPTED` → `DEPRECATED`.
 Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold
 placeholder OpenAPI/schema files as if they were accepted contracts.
+
+## W2-H resource-bounds packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+
+This additive v0.1.0 packet introduces six `cybrik.res-*` JSON Schemas, a deterministic
+fixture/replay corpus, and one compatibility manifest. Its conserved credits are additive
+quantities only: CPU milliseconds, memory-byte-milliseconds, model tokens, tool calls, retrieved
+bytes, and egress bytes. A child reservation subtracts from its parent at admission; spawn never
+mints credits; unused credits may return only to an open parent; consumed credits and closed roots
+never reopen.
+
+Tenant authority remains credential-derived and org scope advisory; no resource identifier grants
+permission. The accepted investigation `budget` object remains distinct and byte-unmodified, with
+no implicit mapping. No OpenAPI, AsyncAPI, MCP, endpoint, runtime, UAT, T10/T11, release,
+deployment, or production authority follows. See
+`compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json` and
+`../docs/adr/ADR-0012-resource-bounds-contract-profile.md`.

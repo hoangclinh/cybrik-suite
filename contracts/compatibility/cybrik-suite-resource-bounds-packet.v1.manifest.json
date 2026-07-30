@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json",
+  "title": "CYBRIK resource-bounds proposal packet v1",
+  "description": "Suite-owned contract-first accounting packet for finite conserved resource bounds across a call tree. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. Static L1/L2 conformance only; no runtime, UAT, release, deployment, production, T10, or T11 evidence.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "format_pins": {
+    "jsonSchema": "2020-12"
+  },
+  "gate": {
+    "id": "W2-H",
+    "disposition": "OPEN FOR BOUNDED PROPOSAL WRITING ONLY",
+    "lifecycle_ceiling": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+    "runtime_uat_deployment_production": "NOT AUTHORIZED",
+    "release_dates": "UNCHANGED"
+  },
+  "scope": {
+    "lane": "W0-T11/RB",
+    "task_identity": "existing W0-T11 sub-lane; no task 49",
+    "contract_first_only": true,
+    "no_openapi_asyncapi_mcp_or_product_code": true,
+    "t11_measurement_status": "HOLD until real vertical exists"
+  },
+  "vocabulary_boundaries": {
+    "investigation_budget": "The accepted W1-C2 investigation budget is distinct: it declares deadline_seconds, max_model_calls, max_tool_calls, and max_retrieved_bytes for one create request. Resource bounds conserve six additive credit dimensions across a call tree. There is no mapping between them in this packet.",
+    "existing_budget_tokens": "No rename, extension, deprecation, replacement, or mapping of budget_exceeded, BUDGET_*, over_input_budget, over_output_budget, or fallbackInfo.reason=budget. Resource-accounting errors use the disjoint RES_* namespace."
+  },
+  "resource_model": {
+    "dimensions": [
+      "cpu_millis",
+      "memory_byte_millis",
+      "model_tokens",
+      "tool_calls",
+      "retrieved_bytes",
+      "egress_bytes"
+    ],
+    "admission": "All-or-nothing; the complete child vector is subtracted from the open parent at admission.",
+    "no_mint": "Spawn introduces no credit. Finite root bounds imply finite admitted fanout; depth is independent.",
+    "release": "Per dimension, consumed + returned equals the target reservation current available. Only returned unused credit may join a still-open parent; consumed credit never returns.",
+    "closure": "Root cancellation closes the subtree. A closed root or reservation never reopens and no release may re-mint credit."
+  },
+  "authority_model": {
+    "tenant": "Authoritative tenant derives from the authenticated caller credential; payload tenant_id is advisory and must match.",
+    "org_scope": "org_scope_ref is advisory and must match authenticated policy.",
+    "identifiers": "Grant, request, reservation, release, idempotency, parent, version, sequence, and virtual-time fields are accounting state only.",
+    "confers_authority": false,
+    "prohibition": "No member is a credential, capability, permission, delegation, or approval."
+  },
+  "dependencies_reused_unmodified": [
+    {
+      "file": "json-schema/cybrik.common-defs.v1.schema.json",
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "cecc415ca472eb841985517504fdc721ab303f977f0a2fa1998c37c3514116c0",
+      "use": "tenantId reference only"
+    },
+    {
+      "file": "json-schema/cybrik.investigation-create-request.v1.schema.json",
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "4cfe118bb2b2e7c8e51a70ce86e8f9cbc06cbe1621105efcd7400fd2bfbe46fd",
+      "use": "corrected current accepted investigation-budget boundary; no mapping"
+    },
+    {
+      "file": "compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "e9d7f8b7f619821a97f41de3fcb265d419ed900934ec21450d49f04157b74ce0",
+      "use": "W1-C2 cancellation dependency only; no mutation or re-acceptance"
+    },
+    {
+      "file": "../docs/adr/ADR-0003-durable-agent-orchestration.md",
+      "status": "ACCEPTED decision only",
+      "sha256": "be7b8062c9af9135dce446c007bfbbc83c61cb17cf70f135af1bd2bc8c3b8520",
+      "use": "durable no-remint dependency only; no mutation or implementation authority"
+    }
+  ],
+  "evidence": {
+    "L1": "Static JSON Schema 2020-12 compilation, fixture conformance, inventory, dependency pins, and integrity.",
+    "L2": "Offline deterministic virtual-time replay and synthetic-tree property proof.",
+    "ceiling": "Static documentary conformance only. L1/L2 are local evidence labels, not gates or analyst tiers.",
+    "not_claimed": [
+      "contract acceptance",
+      "product implementation",
+      "runtime or integration",
+      "UAT",
+      "release or deployment",
+      "production",
+      "W0-T10 or W0-T11 measurement"
+    ]
+  },
+  "members": [
+    { "file": "json-schema/cybrik.res-common-defs.v1.schema.json", "format": "json-schema", "kind": "common-defs", "status": "PROPOSED" },
+    { "file": "json-schema/cybrik.res-bounds-grant.v1.schema.json", "format": "json-schema", "kind": "root-grant", "status": "PROPOSED" },
+    { "file": "json-schema/cybrik.res-reservation-request.v1.schema.json", "format": "json-schema", "kind": "reservation-request", "status": "PROPOSED" },
+    { "file": "json-schema/cybrik.res-reservation-result.v1.schema.json", "format": "json-schema", "kind": "reservation-result", "status": "PROPOSED" },
+    { "file": "json-schema/cybrik.res-release.v1.schema.json", "format": "json-schema", "kind": "release", "status": "PROPOSED" },
+    { "file": "json-schema/cybrik.res-bounds-error.v1.schema.json", "format": "json-schema", "kind": "error", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/examples-manifest.json", "format": "json", "kind": "examples-manifest", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/bounds-grant.root.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/reservation-request.child.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/reservation-result.admitted.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/reservation-result.denied.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/release.completed.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/replay.conserved-tree.json", "format": "json", "kind": "positive-replay", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/bounds-grant.authority-token.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/bounds-grant.empty-vector.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/reservation-request.zero-vector.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/reservation-request.short-idempotency-key.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/reservation-result.admitted-with-error.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/reservation-result.denied-with-reservation.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-schema/release.missing-accounting.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.parent-overdraw.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.no-mint-spawn.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.tenant-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.org-scope-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.idempotency-conflict.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.double-release.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.over-return.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.parent-closed.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.root-cancel-remint.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json", "format": "json", "kind": "compatibility-manifest", "status": "PROPOSED" }
+  ],
+  "x-cybrik-packet-integrity": {
+    "algorithm": "sha256",
+    "member_count": 30,
+    "path_root": "contracts/",
+    "file_digest_rule": "Every member except this manifest is the lowercase hex SHA-256 of the exact on-disk UTF-8 bytes of <path_root><file>.",
+    "self_digest_rule": "The compatibility-manifest member digest is the lowercase hex SHA-256 of the UTF-8 bytes of JSON.stringify(this parsed manifest after deleting the complete top-level x-cybrik-packet-integrity key). The digest inventory is inside that deleted block, so the input contains no digest and is non-circular.",
+    "aggregate_rule": "Sort member_digests ascending by file using JavaScript default string comparison, render <sha256> two spaces <file>, join with one newline and no trailing newline, then SHA-256 the UTF-8 bytes.",
+    "member_digests": [
+      { "file": "json-schema/cybrik.res-common-defs.v1.schema.json", "sha256": "2ecd65122daf8e113d75073acae687eef0a009347de369c52d34b05b2ffe16b6" },
+      { "file": "json-schema/cybrik.res-bounds-grant.v1.schema.json", "sha256": "95d7f9e8fd36e59e09fbb327ebb3cdb216f3d4f795654d31ffa36d24b52ae409" },
+      { "file": "json-schema/cybrik.res-reservation-request.v1.schema.json", "sha256": "9b862811857ad37fd9aeb054b270618de3c5965dbccacb01e025311ee248a576" },
+      { "file": "json-schema/cybrik.res-reservation-result.v1.schema.json", "sha256": "d925857fc5acdc5974c0f00634bfaaa8d6cc559091f5a3901bdd38643b803360" },
+      { "file": "json-schema/cybrik.res-release.v1.schema.json", "sha256": "953b569bb6c3f75db1add3c5b7f6ce96bd7cead272da51e03aa36ed54ced28b2" },
+      { "file": "json-schema/cybrik.res-bounds-error.v1.schema.json", "sha256": "c3fe45c0705833d7a2bb87ca76a5ce74c5399f73004dfdf0ea4891971d6368c0" },
+      { "file": "examples/resource-bounds/examples-manifest.json", "sha256": "bc69e0ad7dd953410334ee507d86be8ff57b177889131b5d2963c6ccf6610525" },
+      { "file": "examples/resource-bounds/positive/bounds-grant.root.json", "sha256": "85d569e26858e868569d2b4a23af7ae8cef11976b665e722d5d9bfd4c6d41d95" },
+      { "file": "examples/resource-bounds/positive/reservation-request.child.json", "sha256": "e0fe678a0821e5de65e46aec1f1cddfab9e880e4f912ab58f8fcff831f6bc928" },
+      { "file": "examples/resource-bounds/positive/reservation-result.admitted.json", "sha256": "0ce691bfbf167a545d297e0a6b9aaed051471ddc2f06a3d3e8379545f53fa7ca" },
+      { "file": "examples/resource-bounds/positive/reservation-result.denied.json", "sha256": "138a4f02f25120f54d1341a3ece8f26cf10a2670101e2b354be0bf64a489936d" },
+      { "file": "examples/resource-bounds/positive/release.completed.json", "sha256": "3bab9fbd7dfa491e6cc65c81434bcd3c7ad2497fbdf507559e8853bb481ccec3" },
+      { "file": "examples/resource-bounds/positive/replay.conserved-tree.json", "sha256": "2fe05957ac3ccdf932b39ededf2d89a611da97b5f735844c30a798b000c6340b" },
+      { "file": "examples/resource-bounds/negative-schema/bounds-grant.authority-token.json", "sha256": "39e1f634d06ec53f9f3d49812e0f8df04d706b180d728fd7e85f2c5fbf8dec3a" },
+      { "file": "examples/resource-bounds/negative-schema/bounds-grant.empty-vector.json", "sha256": "1964acea0270de656a008ecbe4d20dcd6928b43cf7cf5806b00be0d4f7a8338c" },
+      { "file": "examples/resource-bounds/negative-schema/reservation-request.zero-vector.json", "sha256": "4828ea6e4db9eda02b35c419b6b57caca674ad440a95b74c2aa667edddd0cdae" },
+      { "file": "examples/resource-bounds/negative-schema/reservation-request.short-idempotency-key.json", "sha256": "5f4742ce9e4ee039f80a95bcd8fd021426899cdb680af6809c8bb9f6227556fd" },
+      { "file": "examples/resource-bounds/negative-schema/reservation-result.admitted-with-error.json", "sha256": "ade5d0a13290d5aa7d20fa731186a18e290daf2fb4bd021ed59bb06ccb21d12b" },
+      { "file": "examples/resource-bounds/negative-schema/reservation-result.denied-with-reservation.json", "sha256": "094e7fbcffa11e04662694a9ca536015ae98a5b24b9cb7ea4f30a5e1de57afb6" },
+      { "file": "examples/resource-bounds/negative-schema/release.missing-accounting.json", "sha256": "8fbf51e2c4b40a676ab8aad9738f5c32273da982c17a4bd066841657e7e867ce" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.parent-overdraw.json", "sha256": "4a2d30c467d26725023192cb2248344c7659302efbeb0930ba799c425f79b693" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.no-mint-spawn.json", "sha256": "15884dc5f38b0f78075ef7c2e355478c91c12fabe97c848698ff366f7e00faf7" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.tenant-mismatch.json", "sha256": "a04fd5340036aeb2e2c487611e8cf7115b2159c676f6c759d4b72f7abd1e3c16" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.org-scope-mismatch.json", "sha256": "b7ca5ce8da078eb19ef7e0439cf91ae623f4e818ca05ced6bfd2d6063f0d7884" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.idempotency-conflict.json", "sha256": "02563762094b8e80363876ae147c76c60d541585088d962e7e77c2208f4f0269" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.double-release.json", "sha256": "63f846f781f947f03cd9b9acd763d5d6f5979bf2c7a6afba63e81ded73a3776f" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.over-return.json", "sha256": "7a18432aca8aa4a7146ae20e9100fd4fd8b0f6f1e894e5e29a64b52acde3fa0f" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.parent-closed.json", "sha256": "a2a6185ed1eb62cf59e283b243bf65edf4d0b3a33d5977756e0bdbd7e006c6c7" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.root-cancel-remint.json", "sha256": "d936ef028ffbae160feeece5720d036c19a8121a92ca7f5a57c8de8d7903f7e0" },
+      { "file": "compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json", "sha256": "4337ec2149a1d55df6dccc76ea35ddce1d357ea022a074341039de1074c34598" }
+    ],
+    "aggregate_sha256": "aa0bdc51af9470f13501a1ba3b2355e8d722512e46302c3a54e12761ff1e256d"
+  }
+}

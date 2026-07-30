@@ -1,0 +1,138 @@
+{
+  "status": "PROPOSED",
+  "not_accepted": true,
+  "packet_version": "0.1.0",
+  "fixtures": [
+    {
+      "file": "positive/bounds-grant.root.json",
+      "kind": "positive",
+      "schema": "cybrik.res-bounds-grant.v1.schema.json",
+      "sha256": "85d569e26858e868569d2b4a23af7ae8cef11976b665e722d5d9bfd4c6d41d95"
+    },
+    {
+      "file": "positive/reservation-request.child.json",
+      "kind": "positive",
+      "schema": "cybrik.res-reservation-request.v1.schema.json",
+      "sha256": "e0fe678a0821e5de65e46aec1f1cddfab9e880e4f912ab58f8fcff831f6bc928"
+    },
+    {
+      "file": "positive/reservation-result.admitted.json",
+      "kind": "positive",
+      "schema": "cybrik.res-reservation-result.v1.schema.json",
+      "sha256": "0ce691bfbf167a545d297e0a6b9aaed051471ddc2f06a3d3e8379545f53fa7ca"
+    },
+    {
+      "file": "positive/reservation-result.denied.json",
+      "kind": "positive",
+      "schema": "cybrik.res-reservation-result.v1.schema.json",
+      "sha256": "138a4f02f25120f54d1341a3ece8f26cf10a2670101e2b354be0bf64a489936d"
+    },
+    {
+      "file": "positive/release.completed.json",
+      "kind": "positive",
+      "schema": "cybrik.res-release.v1.schema.json",
+      "sha256": "3bab9fbd7dfa491e6cc65c81434bcd3c7ad2497fbdf507559e8853bb481ccec3"
+    },
+    {
+      "file": "positive/replay.conserved-tree.json",
+      "kind": "positive",
+      "sha256": "2fe05957ac3ccdf932b39ededf2d89a611da97b5f735844c30a798b000c6340b"
+    },
+    {
+      "file": "negative-schema/bounds-grant.authority-token.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-bounds-grant.v1.schema.json",
+      "sha256": "39e1f634d06ec53f9f3d49812e0f8df04d706b180d728fd7e85f2c5fbf8dec3a"
+    },
+    {
+      "file": "negative-schema/bounds-grant.empty-vector.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-bounds-grant.v1.schema.json",
+      "sha256": "1964acea0270de656a008ecbe4d20dcd6928b43cf7cf5806b00be0d4f7a8338c"
+    },
+    {
+      "file": "negative-schema/reservation-request.zero-vector.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-reservation-request.v1.schema.json",
+      "sha256": "4828ea6e4db9eda02b35c419b6b57caca674ad440a95b74c2aa667edddd0cdae"
+    },
+    {
+      "file": "negative-schema/reservation-request.short-idempotency-key.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-reservation-request.v1.schema.json",
+      "sha256": "5f4742ce9e4ee039f80a95bcd8fd021426899cdb680af6809c8bb9f6227556fd"
+    },
+    {
+      "file": "negative-schema/reservation-result.admitted-with-error.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-reservation-result.v1.schema.json",
+      "sha256": "ade5d0a13290d5aa7d20fa731186a18e290daf2fb4bd021ed59bb06ccb21d12b"
+    },
+    {
+      "file": "negative-schema/reservation-result.denied-with-reservation.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-reservation-result.v1.schema.json",
+      "sha256": "094e7fbcffa11e04662694a9ca536015ae98a5b24b9cb7ea4f30a5e1de57afb6"
+    },
+    {
+      "file": "negative-schema/release.missing-accounting.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.res-release.v1.schema.json",
+      "sha256": "8fbf51e2c4b40a676ab8aad9738f5c32273da982c17a4bd066841657e7e867ce"
+    },
+    {
+      "file": "negative-semantic/replay.parent-overdraw.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_INSUFFICIENT_REMAINDER",
+      "sha256": "4a2d30c467d26725023192cb2248344c7659302efbeb0930ba799c425f79b693"
+    },
+    {
+      "file": "negative-semantic/replay.no-mint-spawn.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_NO_MINT_ON_SPAWN",
+      "sha256": "15884dc5f38b0f78075ef7c2e355478c91c12fabe97c848698ff366f7e00faf7"
+    },
+    {
+      "file": "negative-semantic/replay.tenant-mismatch.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_TENANT_MISMATCH",
+      "sha256": "a04fd5340036aeb2e2c487611e8cf7115b2159c676f6c759d4b72f7abd1e3c16"
+    },
+    {
+      "file": "negative-semantic/replay.org-scope-mismatch.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_ORG_SCOPE_MISMATCH",
+      "sha256": "b7ca5ce8da078eb19ef7e0439cf91ae623f4e818ca05ced6bfd2d6063f0d7884"
+    },
+    {
+      "file": "negative-semantic/replay.idempotency-conflict.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_IDEMPOTENCY_CONFLICT",
+      "sha256": "02563762094b8e80363876ae147c76c60d541585088d962e7e77c2208f4f0269"
+    },
+    {
+      "file": "negative-semantic/replay.double-release.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_ALREADY_RELEASED",
+      "sha256": "63f846f781f947f03cd9b9acd763d5d6f5979bf2c7a6afba63e81ded73a3776f"
+    },
+    {
+      "file": "negative-semantic/replay.over-return.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_RELEASE_ACCOUNTING_MISMATCH",
+      "sha256": "7a18432aca8aa4a7146ae20e9100fd4fd8b0f6f1e894e5e29a64b52acde3fa0f"
+    },
+    {
+      "file": "negative-semantic/replay.parent-closed.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_PARENT_CLOSED",
+      "sha256": "a2a6185ed1eb62cf59e283b243bf65edf4d0b3a33d5977756e0bdbd7e006c6c7"
+    },
+    {
+      "file": "negative-semantic/replay.root-cancel-remint.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_ROOT_CLOSED",
+      "sha256": "d936ef028ffbae160feeece5720d036c19a8121a92ca7f5a57c8de8d7903f7e0"
+    }
+  ]
+}

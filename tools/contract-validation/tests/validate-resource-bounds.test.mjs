@@ -11,8 +11,10 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  FORBIDDEN_AUTHORITY_PROPERTY_KEYS,
   RESOURCE_KEYS,
   REPLAY_ERROR_CODES,
+  declaredDependencyPinsMatch,
   expectedPacketPaths,
   replayResourceCase,
   validateResourceBoundsProposal,
@@ -27,6 +29,18 @@ const readJson = (relativePath) =>
   JSON.parse(readFileSync(join(REPO_ROOT, relativePath), 'utf8'));
 const readText = (relativePath) =>
   readFileSync(join(REPO_ROOT, relativePath), 'utf8');
+const collectKeys = (value, output = []) => {
+  if (Array.isArray(value)) {
+    for (const item of value) collectKeys(item, output);
+    return output;
+  }
+  if (!value || typeof value !== 'object') return output;
+  for (const [key, item] of Object.entries(value)) {
+    output.push(key);
+    collectKeys(item, output);
+  }
+  return output;
+};
 
 const EXPECTED_RESOURCE_KEYS = [
   'cpu_millis',
@@ -184,6 +198,50 @@ test('every semantic replay is structurally valid and rejected by exactly its na
   }
 });
 
+test('idempotent replay binds both the original request and its exact result', () => {
+  const fixture = readJson(
+    'contracts/examples/resource-bounds/negative-semantic/replay.idempotency-conflict.json',
+  );
+  const firstReserve = fixture.events[1];
+  const secondReserve = fixture.events[2];
+
+  secondReserve.payload.request = structuredClone(firstReserve.payload.request);
+  secondReserve.payload.result = structuredClone(firstReserve.payload.result);
+  assert.equal(replayResourceCase(fixture).accepted, true);
+
+  secondReserve.payload.result.parent_version_after += 1;
+  assert.deepEqual(
+    replayResourceCase(fixture).errors,
+    ['RES_RESULT_MISMATCH'],
+  );
+});
+
+test('malformed replay events return fail-closed verdicts instead of throwing', () => {
+  const mutations = [
+    (fixture) => { fixture.events[0] = null; },
+    (fixture) => { delete fixture.events[0].payload; },
+    (fixture) => { fixture.events[1].payload = {}; },
+    (fixture) => {
+      const release = fixture.events.find((event) => event.kind === 'release');
+      delete release.payload;
+    },
+    (fixture) => {
+      const release = fixture.events.find((event) => event.kind === 'release');
+      release.payload = null;
+    },
+  ];
+
+  for (const mutate of mutations) {
+    const fixture = readJson(POSITIVE_REPLAY);
+    mutate(fixture);
+    assert.doesNotThrow(() => replayResourceCase(fixture));
+    assert.deepEqual(
+      replayResourceCase(fixture).errors,
+      ['RES_RESULT_MISMATCH'],
+    );
+  }
+});
+
 test('root cancellation closes the subtree and closed capacity is never re-minted', () => {
   const fixture = readJson(
     'contracts/examples/resource-bounds/negative-semantic/replay.root-cancel-remint.json',
@@ -191,8 +249,15 @@ test('root cancellation closes the subtree and closed capacity is never re-minte
   const result = replayResourceCase(fixture);
 
   assert.deepEqual(result.errors, ['RES_ROOT_CLOSED']);
-  assert.equal(result.trace.some((entry) => entry.rootClosed === true), true);
-  assert.equal(result.trace.at(-1).admitted, false);
+  assert.equal(result.accepted, false);
+  assert.equal(result.trace.at(-1).kind, 'cancel-root');
+  assert.equal(result.trace.at(-1).rootClosed, true);
+  assert.equal(
+    result.trace.some(
+      (entry) => entry.sequence > 3 && entry.admitted === true,
+    ),
+    false,
+  );
 });
 
 test('unused returned capacity is conserved but consumed capacity never returns', () => {
@@ -218,26 +283,35 @@ test('unused returned capacity is conserved but consumed capacity never returns'
 });
 
 test('a reservation handle is accounting state and never an authority object', () => {
-  const forbiddenAuthorityKeys = /\b(?:capability|credential|delegation|permission|approval|bearer|access_token|refresh_token|api_key|secret)\b/i;
+  const forbiddenAuthorityKeys = new Set(FORBIDDEN_AUTHORITY_PROPERTY_KEYS);
+  const intentionalNegative =
+    'contracts/examples/resource-bounds/negative-schema/bounds-grant.authority-token.json';
   for (const relativePath of expectedPacketPaths) {
     if (!relativePath.endsWith('.json')) continue;
     const value = readJson(relativePath);
-    const serialized = JSON.stringify(value);
-    assert.doesNotMatch(
-      serialized,
-      forbiddenAuthorityKeys,
-      `${relativePath} introduces a parallel authority field`,
+    const forbidden = collectKeys(value).filter((key) =>
+      forbiddenAuthorityKeys.has(key),
     );
+    if (relativePath === intentionalNegative) {
+      assert.deepEqual(forbidden, ['authority_token']);
+      continue;
+    }
+    assert.deepEqual(forbidden, [], `${relativePath} introduces authority keys`);
   }
 
-  for (const schema of [
+  const commonDefinitions = readJson(
+    'contracts/json-schema/cybrik.res-common-defs.v1.schema.json',
+  );
+  assert.equal(commonDefinitions.$defs.confersAuthority.const, false);
+
+  for (const schemaPath of [
     'contracts/json-schema/cybrik.res-bounds-grant.v1.schema.json',
     'contracts/json-schema/cybrik.res-reservation-request.v1.schema.json',
     'contracts/json-schema/cybrik.res-reservation-result.v1.schema.json',
     'contracts/json-schema/cybrik.res-release.v1.schema.json',
   ]) {
-    assert.match(readText(schema), /"confers_authority"\s*:\s*\{/);
-    assert.match(readText(schema), /"const"\s*:\s*false/);
+    const schema = readJson(schemaPath);
+    assert.equal(schema.properties.confers_authority.const, false);
   }
 });
 
@@ -258,6 +332,18 @@ test('the accepted investigation budget remains distinct and byte-unmodified', (
   );
   assert.match(manifest.vocabulary_boundaries.investigation_budget, /distinct/i);
   assert.match(manifest.vocabulary_boundaries.investigation_budget, /no mapping/i);
+});
+
+test('accepted dependency pins have one source of truth across manifest and validator', () => {
+  const manifest = readJson(
+    'contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json',
+  );
+  assert.equal(manifest.dependencies_reused_unmodified.length, 4);
+  assert.equal(declaredDependencyPinsMatch(manifest), true);
+
+  const mutated = structuredClone(manifest);
+  mutated.dependencies_reused_unmodified[0].sha256 = '0'.repeat(64);
+  assert.equal(declaredDependencyPinsMatch(mutated), false);
 });
 
 test('status wording never overclaims runtime, UAT, release, or production proof', () => {

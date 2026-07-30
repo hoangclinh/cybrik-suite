@@ -1,0 +1,23 @@
+{
+  "request_id": "rsq_denied0000000001",
+  "status": "denied",
+  "error": {
+    "code": "RES_INSUFFICIENT_REMAINDER",
+    "message": "The open parent has insufficient remaining conserved credit.",
+    "retriable": false,
+    "fail_closed": true
+  },
+  "parent_version_before": 2,
+  "parent_version_after": 2,
+  "parent_remaining_after": {
+    "cpu_millis": 60,
+    "memory_byte_millis": 60000,
+    "model_tokens": 600,
+    "tool_calls": 6,
+    "retrieved_bytes": 6000,
+    "egress_bytes": 600
+  },
+  "sequence": 3,
+  "virtual_time_ms": 1020,
+  "confers_authority": false
+}

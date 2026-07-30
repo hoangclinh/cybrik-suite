@@ -107,3 +107,19 @@ The repository-root command `node tools/operations/validate-w1-control.mjs` also
 `.github/workflows/contracts.yml` runs this validator (`contracts` job) plus a `gitleaks` 8.30.1
 secret scan (`secret-scan` job) on every push and pull request. See that file and the repo-root
 `.gitleaks.toml` for the secret-scan configuration.
+
+## Gate W2-H resource-bounds proposal
+
+The resource-bounds validator is registered as an additive proposal drift check:
+
+```bash
+npm run validate:w2h:resource-bounds
+npm run test:w2h:resource-bounds
+```
+
+It compiles six JSON Schema 2020-12 documents, validates 6 positive and rejects 7
+negative-schema fixtures, requires each of 9 negative-semantic replay cases to fail exactly its
+declared resource invariant, checks packet/member digests, and runs seeded conservation
+properties over synthetic trees. Replay uses only fixture sequence numbers and a virtual clock.
+Status is **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**; green is static L1/L2 evidence only and
+is not runtime, UAT, T10/T11, release, deployment, or production proof.

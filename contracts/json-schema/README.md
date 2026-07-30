@@ -136,3 +136,22 @@ kid must never appear in a real trust bundle. **Nothing here decides an ADR, set
 implements a runtime, or names a production signer.** Credential lease, workload attestation, a
 production issuer/signer, and key lifecycle remain open prerequisites — see the manifest's
 `future_prerequisites` and `../../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.
+
+## W2-H resource-bounds packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`, v0.1.0)
+
+The additive `cybrik.res-*` family is a static proposal for conserved accounting across a call
+tree:
+
+- `cybrik.res-common-defs.v1` — additive credit vector, identifiers, parent reference, sequence,
+  virtual time, and derived-only authority constants.
+- `cybrik.res-bounds-grant.v1` — finite root credits; an accounting grant, never permission.
+- `cybrik.res-reservation-request.v1` / `cybrik.res-reservation-result.v1` — all-or-nothing
+  admission that draws down the parent at reservation time.
+- `cybrik.res-release.v1` — terminal accounting where consumed plus returned equals the target's
+  current remainder; returned unused credits may flow only to an open parent.
+- `cybrik.res-bounds-error.v1` — fail-closed resource-specific errors, deliberately disjoint from
+  `budget_exceeded`, `BUDGET_*`, and the inference budget error classes.
+
+Inventory: `../compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`. Fixtures:
+`../examples/resource-bounds/`. This packet defines no deadline or peak-memory conservation,
+server, endpoint, MCP tool, runtime, UAT, release, deployment, or production surface.
