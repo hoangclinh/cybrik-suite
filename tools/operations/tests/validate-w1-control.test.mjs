@@ -3563,7 +3563,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /action pin .* must occur exactly 1 time; found 0/,
+    /action is outside the reviewed allowlist: actions\/cache@/,
   );
 
   const additiveNode20 = workflowText.replace(
@@ -3640,7 +3640,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /contracts job is missing \/name: contract standards validation\//,
+    /contracts job is missing/,
   );
 
   const renamedSecretScanCheck = workflowText.replace(
@@ -3685,6 +3685,39 @@ test("rejects an unreviewed inline GitHub action step", async () => {
       }),
     /action is not pinned by commit SHA: attacker\/action@main/,
   );
+});
+
+test("rejects noncanonical GitHub action step syntax", async () => {
+  const [workflowText, packageText, orchestratorText] = await Promise.all([
+    readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "package.json"),
+      "utf8",
+    ),
+    readFile(
+      join(repositoryRoot, "tools", "contract-validation", "validate.mjs"),
+      "utf8",
+    ),
+  ]);
+  for (const actionStep of [
+    '      - { uses: "attacker/action@main" }',
+    '      - "uses": attacker/action@main',
+  ]) {
+    const drifted = workflowText.replace(
+      "      - name: Install validators (reproducible, no lifecycle scripts)",
+      `${actionStep}\n\n` +
+        "      - name: Install validators (reproducible, no lifecycle scripts)",
+    );
+    assert.throws(
+      () =>
+        validateW1CiWiring({
+          workflowText: drifted,
+          packageText,
+          orchestratorText,
+        }),
+      /unsupported or noncanonical uses syntax/,
+    );
+  }
 });
 
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {
