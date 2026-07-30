@@ -873,12 +873,12 @@ test("rejects an E2 register that drops the accepted commit pins", () => {
   }
 });
 
-test("rejects loss of the E2 register CI NOT WIRED and static-only disclosure", () => {
+test("rejects loss of the current E2 register Suite CI wiring and static-only boundary", () => {
   const postureDrifts = [
     [
-      "- **CI: NOT WIRED** for all four applications and both accepted contract lanes.",
-      "- **CI: WIRED** for all four applications and both accepted contract lanes.",
-      /E2 register.*CI: NOT WIRED/i,
+      "- **Suite W1 static contract/control CI: WIRED AND HOSTED**.",
+      "- **Suite W1 static contract/control CI: NOT WIRED**.",
+      /E2 register.*Suite W1 static contract\/control CI.*WIRED AND HOSTED/i,
     ],
     [
       "**static/documentary only**",
@@ -900,6 +900,18 @@ test("rejects loss of the E2 register CI NOT WIRED and static-only disclosure", 
 
     assert.throws(() => validate({ e2RegisterText: drifted }), expectedError);
   }
+});
+
+test("rejects a current E2 posture that reverts delegated integration to NO-GO", () => {
+  const drifted = e2RegisterText.replace(
+    "Delegated technical integration remains evidence-gated `GO`; external release remains `NO-GO`.",
+    "Delegated routine integration and external release remain `NO-GO`.",
+  );
+
+  assert.throws(
+    () => validate({ e2RegisterText: drifted }),
+    /E2 register.*delegated technical integration.*evidence-gated `GO`/i,
+  );
 });
 
 test("rejects an E2 register GATE A4 row that does not record the acceptance", () => {
@@ -1119,6 +1131,9 @@ test("requires a cataloged delegated-action record with exact rollback and revie
     "f5cc213db0a9cb84377d47b0058608322f7af288",
     "5459aeec785c8ec8eada77afea3f0d1f18c16373",
     "7c1cc8f5bf3c772436eff2922a4a1071e0571328",
+    "9e8b760d7d4154a91b6611f771af1acbf12b801a",
+    "ba3b760",
+    "seventh local commit",
     "208/208",
     "found 0 vulnerabilities",
     "no leaks found",
