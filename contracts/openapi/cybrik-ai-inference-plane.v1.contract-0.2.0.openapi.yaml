@@ -1,0 +1,349 @@
+# CYBRIK AI model-inference plane REST mapping notes — PROPOSED successor revision v0.2.0 (W2-I)
+# Status: PROPOSED — NOT ACCEPTED. Gate W2-I is NOT OPENED and no Founder acceptance of this
+# revision has been recorded. Validation of this file is conformance evidence only: it authorizes
+# no implementation and decides no deployment.
+#
+# WHAT THIS IS — A SUCCESSOR REVISION, NOT A SECOND PLANE. The four inference path+method pairs are
+# owned by the ACCEPTED W2-D member cybrik-ai-inference-plane.v1.openapi.yaml (v0.1.0). This
+# document does NOT introduce a second plane, a second path owner, or a parallel transport API: it
+# is a single proposed compatible successor revision of that W2-D-owned member, declaring the same
+# four pairs under the same four operationIds so that at most one CURRENT owner and at most one
+# PROPOSED successor ever exist per pair.
+#
+# THE PREDECESSOR REMAINS CURRENT. The accepted v0.1.0 document stays the SOLE CURRENT owner of the
+# four operations and stays BYTE-FROZEN. Nothing here modifies, supersedes in effect, or retires it.
+# A transition of this revision from PROPOSED to CURRENT requires a SEPARATE, explicitly recorded
+# Founder status flip that has NOT been made; until then a consumer implements the predecessor.
+#
+# WHAT THIS REVISION ADDS over the accepted predecessor, and nothing else:
+#   1. every operation is authorized only under BOTH layers of the ACCEPTED W2-F two-layer trust
+#      seam (ADR-0008) — mutually-authenticated mTLS workload identity (E2) AND a short-lived,
+#      certificate-bound (RFC 8705 cnf/x5t#S256) asymmetric RFC 9068 at+jwt delegation token (E3),
+#      AND-required together in a single security requirement object, never either-or;
+#   2. a typed, fail-closed transport/authorization error surface (RFC 9457 problem shape over the
+#      closed status set {400,401,403,409,422,429,503}; no 500 or other 5xx is exposed). On the
+#      statuses the predecessor already binds (422/503 on the creates) the ACCEPTED W2-D
+#      ModelInferenceError branch is RETAINED alongside the proposed transport branch — it is never
+#      replaced and never dropped;
+#   3. two OPTIONAL headers — the predecessor's traceparent, extended to the reads, and an optional
+#      caller deadline. Both are declared at PATH-ITEM level precisely so that every operation's own
+#      `parameters` list stays byte-identical to the predecessor's; an optional header is additive
+#      and a client that sends neither is unaffected;
+#   4. a neutral operation token per operation (x-cybrik-operation-token). The two create tokens are
+#      ACCEPTED W2-F vocabulary (contracts/json-schema/cybrik.svc-common-defs.v1.schema.json,
+#      cybrik-svc-delegation-mapping-notes.v1.md); the two read tokens are W2-I PROPOSED vocabulary
+#      and are NOT accepted vocabulary.
+# The four path+method pairs, the four operationIds, every operation-level parameter, every request
+# body and required flag, and every 200 binding are preserved exactly as the accepted predecessor
+# declares them.
+#
+# Format pin: OpenAPI 3.1.x (ADR-0001 D4); OpenAPI 3.1 uses JSON Schema 2020-12 natively.
+# These are MAPPING NOTES, not a deployable API description. Deliberately NO `servers` block: no
+# operational endpoints, hostnames, provider URLs, credentials, or key material are declared. Path
+# templates are INTERNAL versioned /api/v1/... tokens only. The concrete model/runtime is NEVER
+# named on the wire (model_class is a policy-selected token resolved server-side per ADR-0002 G3).
+# MCP is a Tool/Agent gateway adapter, NOT this trust boundary. This revision grants a model NO
+# tool/function/agent authority, creates no approval or execution authority, declares no webhooks or
+# callbacks, and decides no deployment. Model output stays untrusted data and is never an
+# authorization or action trigger.
+#
+# STYLE NOTE: shared responses are declared once under components.responses and reused through YAML
+# anchors/aliases rather than $ref, so each operation shows its complete resolved error surface —
+# in particular both branches of the two-shape oneOf — without a reader or a generated client having
+# to dereference. There is exactly one declaration of each shared response.
+openapi: 3.1.1
+info:
+  title: CYBRIK AI model-inference plane (mapping notes) — proposed transport-binding successor
+  version: 0.2.0
+  summary: PROPOSED — NOT ACCEPTED (v0.2.0). Candidate successor revision of the accepted v0.1.0 inference mapping notes, adding the W2-F mTLS + certificate-bound delegation binding. The accepted v0.1.0 remains CURRENT and byte-frozen.
+  description: >-
+    Notes-only mapping of the ACCEPTED W2-D provider-neutral inference schemas onto REST resources,
+    overlaid with the ACCEPTED W2-F two-layer authorization seam. This is a proposed compatible
+    successor revision of the W2-D-owned inference plane, not a second plane and not a second owner
+    of the same paths. No servers, no endpoints, no provider URLs, no secrets. Every operation
+    AND-requires mutual TLS AND a certificate-bound at+jwt delegation token; the authoritative
+    tenant/actor/operation/marking derive from the token, the request body is advisory only, and any
+    mismatch is rejected fail-closed with a typed transport/authorization error. The accepted
+    provider-neutral inference error is retained on every status the predecessor already binds. This
+    remains a mapping-notes document, remains PROPOSED — NOT ACCEPTED, and decides no deployment.
+    Model output is untrusted data and is never an authorization, approval, or action trigger.
+  x-cybrik-status: PROPOSED
+  x-cybrik-not-accepted: true
+  x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR
+  x-cybrik-supersedes: cybrik-ai-inference-plane.v1.openapi.yaml
+  # Companion W2-I delta record carrying the compatibility disclosure, the per-member digests and the
+  # closed operation-token registry. Forward reference: that record is a separate artifact of this
+  # in-flight packet and is NOT authored by this document.
+  x-cybrik-delta-ref: ../compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json
+
+# No `servers:` — endpoints are intentionally omitted.
+
+# Every operation is authorized only under BOTH layers together (logical AND within ONE requirement
+# object). A second requirement object would degrade the bind to mTLS OR token and is forbidden.
+security:
+  - mutualTLS: []
+    delegationToken: []
+
+components:
+  securitySchemes:
+    mutualTLS:
+      type: mutualTLS
+      description: >-
+        E2 mutually-authenticated TLS. The client presents an X.509 workload certificate; its
+        SHA-256 thumbprint MUST equal the delegation token cnf x5t#S256 (proof-of-possession). A
+        bearer-only, non-mTLS inference channel is not expressible on this seam (ADR-0008 D1).
+    delegationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: at+jwt
+      description: >-
+        E3 short-lived W2-F delegation token — an asymmetric RFC 9068 at+jwt (no HS*/none),
+        certificate-bound per RFC 8705 (cnf/x5t#S256), <=120s, with strict iss/aud/jti/time
+        validation and the CYBRIK tenant/actor/operation/marking authorization claims. The relying
+        party validates AND re-authorizes the named operation (ADR-0008 D3); it never trusts the
+        request body over the token, nor the token over the mTLS peer certificate. This is NOT a
+        forwarded end-user token and NOT a static bearer.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Mandatory for inference create. minLength 16. Not replay authority after the deadline.
+      schema:
+        type: string
+        minLength: 16
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context; created at the boundary when absent (ADR-0006 E6).
+      schema:
+        type: string
+    Deadline:
+      name: X-Cybrik-Deadline-Seconds
+      in: header
+      required: false
+      description: >-
+        OPTIONAL caller deadline in seconds. The relying party clamps it to the resolved model
+        class's own timeout and never above it; an absent header means the resolved class timeout
+        applies. A deadline overrun surfaces as a typed 503 deadline_exceeded. Optional and additive:
+        a client that never sends it behaves exactly as it does against the accepted predecessor.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 3600
+  schemas:
+    ModelInferenceRequest:
+      $ref: '../json-schema/cybrik.model-inference-request.v1.schema.json'
+    ModelInferenceResult:
+      $ref: '../json-schema/cybrik.model-inference-result.v1.schema.json'
+    # RETAINED from the accepted predecessor, which binds this exact schema under this exact
+    # component name. The successor neither replaces nor drops it; the oneOf branches below target
+    # the same file through a relative $ref so each error surface reads without dereferencing.
+    ModelInferenceError:
+      $ref: '../json-schema/cybrik.model-inference-error.v1.schema.json'
+    TransportAuthorizationError:
+      $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+    ModelCapability:
+      $ref: '../json-schema/cybrik.model-capability.v1.schema.json'
+    ModelHealth:
+      $ref: '../json-schema/cybrik.model-health.v1.schema.json'
+    AlertSummarizationRequest:
+      $ref: '../json-schema/cybrik.alert-summarization-request.v1.schema.json'
+    AlertSummarizationResult:
+      $ref: '../json-schema/cybrik.alert-summarization-result.v1.schema.json'
+  responses:
+    BadRequest: &badRequest
+      content:
+        application/json:
+          schema:
+            $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+      description: 400 malformed_request — the presentation could not be parsed/validated as a transport payload.
+    Unauthenticated: &unauthenticated
+      content:
+        application/json:
+          schema:
+            $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+      description: 401 unauthenticated / invalid_token / token_expired — no valid delegation token was presented.
+    Forbidden: &forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+      description: >-
+        403 authorization denial — audience_mismatch / proof_of_possession_failed / issuer_untrusted
+        / cross_tenant / operation_mismatch / marking_escalation / org_scope_mismatch /
+        feature_disabled. Fail-closed and audited under a decision_id; the denial never echoes the
+        credential that failed.
+    Conflict: &conflict
+      content:
+        application/json:
+          schema:
+            $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+      description: 409 idempotency_conflict / replay_detected — a reused Idempotency-Key or jti with a differing request.
+    RateLimited: &rateLimited
+      content:
+        application/json:
+          schema:
+            $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+      description: 429 rate_limited — retriable only for a safe or idempotency-guarded operation (Retry-After honored).
+    InferenceOrTransportError: &inferenceOrTransportError
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
+              - $ref: '../json-schema/cybrik.model-inference-error.v1.schema.json'
+      description: >-
+        Typed fail-closed error surface. EXACTLY ONE branch applies: the PROPOSED
+        transport/authorization error when the seam refuses the presentation, or the ACCEPTED W2-D
+        provider-neutral inference error when the presentation was authorized and the inference
+        plane itself produced no result (create), or the health/capability read could not be served
+        (read). The accepted branch is retained unmodified so a client generated against the accepted
+        predecessor keeps a conformant response shape on every status that predecessor binds — it is
+        the same schema the accepted owner binds as '#/components/schemas/ModelInferenceError'.
+    # RETAINED VERBATIM from the accepted predecessor, which declares this exact named response with
+    # this exact description and this exact binding. The successor neither renames, re-describes, nor
+    # drops it: a named component the accepted document publishes stays available to any consumer or
+    # generator that resolves it by name, even though the six operation error surfaces above bind the
+    # wider two-branch shape. Preserving it is compatibility preservation, not a break disclosure.
+    InferenceError:
+      description: Typed provider-neutral inference error (no result produced).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ModelInferenceError'
+
+paths:
+  /api/v1/model-classes:
+    # PATH-ITEM level, inherited by the operation below. Declared here, not on the operation, so the
+    # operation's own `parameters` stay byte-identical to the accepted predecessor's. Both are
+    # OPTIONAL headers, so this is additive for every existing client.
+    parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      - $ref: '#/components/parameters/Deadline'
+    get:
+      operationId: listModelClasses
+      x-cybrik-operation-token: ai.model_classes.list
+      summary: List policy-selectable model-class descriptors the caller is authorized to see (safe read).
+      description: >-
+        Safe read: retriable because it is safe, not because anything is guarded. Authorized under
+        mTLS AND a valid delegation token; no provider, product, endpoint, or weights id is exposed.
+      responses:
+        '200':
+          description: Capability descriptors.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelCapability'
+        '401': *unauthenticated
+        '403': *forbidden
+        '429': *rateLimited
+        # The accepted ModelInferenceError branch is kept on 503 for the reads as well, so the
+        # transport surface is added WITHOUT narrowing the accepted plane's error vocabulary.
+        '503': *inferenceOrTransportError
+  /api/v1/model-classes/{model_class}/health:
+    parameters:
+      - $ref: '#/components/parameters/Traceparent'
+      - $ref: '#/components/parameters/Deadline'
+    get:
+      operationId: getModelClassHealth
+      x-cybrik-operation-token: ai.model_class_health.read
+      summary: Current health/readiness signal for a model class (safe read; consumed fail-closed).
+      description: >-
+        An absent, stale, or unrecognized signal MUST be treated as 'unavailable' by the caller.
+        Authorized under mTLS AND a valid delegation token.
+      parameters:
+        - name: model_class
+          in: path
+          required: true
+          schema:
+            $ref: '../json-schema/cybrik.model-common-defs.v1.schema.json#/$defs/modelClass'
+      responses:
+        '200':
+          description: Health signal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelHealth'
+        '401': *unauthenticated
+        '403': *forbidden
+        '429': *rateLimited
+        '503': *inferenceOrTransportError
+  /api/v1/inferences:
+    # Only the deadline is added at path-item level here: the predecessor already declares
+    # traceparent on the operation itself, and that declaration is preserved verbatim below.
+    parameters:
+      - $ref: '#/components/parameters/Deadline'
+    post:
+      operationId: createInference
+      x-cybrik-operation-token: ai.inference.create
+      summary: Submit a provider-neutral model-inference request.
+      description: >-
+        The authoritative tenant/actor/org/operation/marking derive from the delegation token; body
+        identity fields are advisory and a mismatch MUST be rejected fail-closed. Redaction is
+        fail-closed; token/context limits and a deadline are mandatory. A runtime that responds
+        returns a result (completed/refused/filtered); a runtime that produces no result returns a
+        typed error. Retriable ONLY because the create is Idempotency-Key-guarded.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelInferenceRequest'
+      responses:
+        '200':
+          description: The runtime responded (outcome completed/refused/filtered).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInferenceResult'
+        '400': *badRequest
+        '401': *unauthenticated
+        '403': *forbidden
+        '409': *conflict
+        # 422 and 503 are the two statuses the accepted predecessor already binds to
+        # ModelInferenceError. Both keep that branch and ADD the transport branch.
+        '422': *inferenceOrTransportError
+        '429': *rateLimited
+        '503': *inferenceOrTransportError
+  /api/v1/summarizations:
+    parameters:
+      - $ref: '#/components/parameters/Deadline'
+    post:
+      operationId: createAlertSummarization
+      x-cybrik-operation-token: ai.summarization.create
+      summary: Submit an alert-summarization inference over digest-bound SOC alerts.
+      description: >-
+        Alerts are referenced by digest-bound objectRef (SOC owns the truth) and dereferenced under
+        the caller's authority; at least one alert is required. The summary is advisory
+        analyst-support content with no authority. Authorized under mTLS AND a valid delegation
+        token; retriable ONLY because the create is Idempotency-Key-guarded.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSummarizationRequest'
+      responses:
+        '200':
+          description: The runtime responded (outcome completed/refused/filtered).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSummarizationResult'
+        '400': *badRequest
+        '401': *unauthenticated
+        '403': *forbidden
+        '409': *conflict
+        '422': *inferenceOrTransportError
+        '429': *rateLimited
+        '503': *inferenceOrTransportError

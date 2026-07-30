@@ -1,0 +1,8 @@
+{
+  "type": "cybrik.transport.cross_tenant",
+  "title": "soft denial",
+  "status": 403,
+  "error_class": "cross_tenant",
+  "decision_id": "dec-neg-failopen",
+  "fail_closed": false
+}

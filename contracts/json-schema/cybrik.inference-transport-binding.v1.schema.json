@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.inference-transport-binding.v1.schema.json",
+  "title": "CYBRIK inference-plane transport binding (authorization-context view) v1",
+  "description": "Structural shape of the AUTHORIZATION CONTEXT a relying party (Cyber AI) MUST evaluate for a single presented call on the W2-D inference REST plane, once that plane is bound to the W2-F two-layer trust seam (ADR-0008). It composes, WITHOUT modifying: (1) the mTLS transport channel (E2 workload identity, proof-of-possession thumbprint); (2) the presented W2-F delegation token (cybrik.svc-delegation-token.v1, authoritative identity/authorization); (3) the relying-party context (its own audience + peer certificate thumbprint); (4) the ADVISORY identity the W2-D request body carries (never elevates — must match the token); and (5) the REST/idempotency/deadline/feature-flag/audit-decision transport metadata. Every identity axis is AUTHORITATIVE from the token and ADVISORY in the body; a mismatch MUST be rejected fail-closed. additionalProperties:false everywhere means a forwarded end-user token, static bearer, or model/vendor/tool authority field has nowhere to live. This is a validation/authorization VIEW; it is not itself a wire message and carries no server, host, URL, key, or secret. $id uses the RFC 2606 .example documentation domain; it is an identifier, NOT an endpoint. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). Gate W2-I is NOT OPENED and no Founder acceptance has been recorded.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binding_id",
+    "transport",
+    "rest_binding",
+    "presented_token",
+    "relying_party",
+    "body_advisory",
+    "deadline_seconds",
+    "feature_flag"
+  ],
+  "properties": {
+    "binding_id": {
+      "type": "string",
+      "description": "Caller/relying-party-assigned id for this presented-call authorization context. Correlates the transport decision to audit/eval telemetry. Not authority.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "type": "object",
+      "description": "The E2 mutually-authenticated mTLS channel the call arrived on. Const protocol 'rest/json' and const mutual_tls true make an unauthenticated or non-REST inference channel structurally inexpressible here (MCP is a Tool/Agent gateway adapter, not this trust boundary). The peer_cert_thumbprint is the SHA-256 thumbprint of the presenter's client certificate; the relying party MUST match it to the token cnf['x5t#S256'] (proof-of-possession).",
+      "additionalProperties": false,
+      "required": ["protocol", "mutual_tls", "peer_cert_thumbprint", "trust_domain"],
+      "properties": {
+        "protocol": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/transportProtocol" },
+        "mutual_tls": {
+          "type": "boolean",
+          "description": "Const true. A non-mTLS (bearer-only) inference channel is structurally impossible on this seam.",
+          "const": true
+        },
+        "peer_cert_thumbprint": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/certThumbprint" },
+        "trust_domain": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/trustDomain" }
+      }
+    },
+    "rest_binding": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/restBinding" },
+    "presented_token": {
+      "$ref": "cybrik.svc-delegation-token.v1.schema.json",
+      "description": "The decoded W2-F delegation token presented on the call (authoritative). Its claims are the source of truth for tenant/actor/operation/marking; the body below is advisory only."
+    },
+    "relying_party": {
+      "type": "object",
+      "description": "The validating service's own context (Cyber AI inference). audience is matched EXACTLY to the token aud (confused-deputy defense); peer_cert_thumbprint is the observed mTLS peer thumbprint (must equal transport.peer_cert_thumbprint and token cnf).",
+      "additionalProperties": false,
+      "required": ["audience", "peer_cert_thumbprint"],
+      "properties": {
+        "audience": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/audienceId" },
+        "peer_cert_thumbprint": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/certThumbprint" },
+        "trust_domain": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/trustDomain" },
+        "accepted_issuers": {
+          "type": "array",
+          "description": "Pinned issuer allow-list; the token iss MUST be a member. minItems 1 — an empty issuer set trusts nothing.",
+          "items": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/issuerId" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "body_advisory": {
+      "type": "object",
+      "description": "The identity/authorization fields the W2-D request body carries. ADVISORY ONLY: each axis MUST equal (or, for marking, be at-or-below) the authoritative token claim; a mismatch MUST be rejected. additionalProperties:false forbids a forwarded end-user token, static bearer, or any model/vendor/tool/agent authority field from riding along in the identity view.",
+      "additionalProperties": false,
+      "required": ["tenant_id", "operation", "data_marking"],
+      "properties": {
+        "tenant_id": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+          "description": "Advisory tenant; MUST equal token cybrik.tenant_id. Never elevates."
+        },
+        "actor": {
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            { "required": ["tenant_id"] }
+          ],
+          "description": "Advisory actor for audit correlation; authoritative actor is the token cybrik.actor."
+        },
+        "org_scope": {
+          "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/orgNodeRef",
+          "description": "Advisory opaque org hint; when present MUST equal token cybrik.org_scope. Carries no authority (ADR-0007 delta not applied)."
+        },
+        "operation": {
+          "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/operationRef",
+          "description": "The requested operation; operation.name MUST equal both the token cybrik.operation.name and rest_binding.operation.name (confused-deputy defense)."
+        },
+        "data_marking": {
+          "$ref": "cybrik.data-marking.v1.schema.json",
+          "description": "Advisory request marking; MUST be at or below token cybrik.marking on the classification/TLP lattice (marking non-escalation)."
+        }
+      }
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "REQUIRED for create (POST) presentations whose rest_binding declares requires_idempotency_key true (see the TT-4 conditional below); mirrors the mandatory Idempotency-Key header. Same key + same resolved request = same result, never a second billed/side-effecting inference. minLength 16. Not replay authority after the deadline.",
+      "minLength": 16,
+      "maxLength": 200
+    },
+    "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" },
+    "deadline_seconds": {
+      "type": "integer",
+      "description": "Caller deadline for the call; the relying party clamps to the resolved model class's own timeout and never above it (mirrors W2-D deadline_seconds).",
+      "minimum": 1,
+      "maximum": 3600
+    },
+    "feature_flag": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/featureFlagState" },
+    "decision": {
+      "type": "object",
+      "description": "The relying party's audited authorization decision for this presented call. Present on the evaluated view; decision_id is echoed on the response so the wire decision correlates to its audit record.",
+      "additionalProperties": false,
+      "required": ["decision_id", "disposition"],
+      "properties": {
+        "decision_id": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/decisionId" },
+        "disposition": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/authorizationDisposition" },
+        "reason_class": {
+          "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/transportErrorClass",
+          "description": "Present when disposition='deny': the typed class that fired. Absent on 'permit'."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "title": "TT-4 create replay control",
+      "description": "Cross-object conditional: when the presentation binds a create (rest_binding.method POST) whose policy declares requires_idempotency_key true, the ROOT idempotency_key MUST be present — and, by its own minLength, at least 16 characters. minLength alone never fires on an absent property, so without this conditional a create could omit the key entirely and escape replay control. The condition is a conjunction, so a safe read whose policy declares no key is never forced to carry one; rest_binding's own method/policy agreement rule keeps the two consistent. This subschema restates rest_binding inline only to express the condition; it neither modifies nor re-versions the referenced restBinding definition, and additionalProperties on the root object is unaffected because it is evaluated against the root's own properties.",
+      "if": {
+        "type": "object",
+        "required": ["rest_binding"],
+        "properties": {
+          "rest_binding": {
+            "type": "object",
+            "required": ["method", "requires_idempotency_key"],
+            "properties": {
+              "method": { "const": "POST" },
+              "requires_idempotency_key": { "const": true }
+            }
+          }
+        }
+      },
+      "then": { "required": ["idempotency_key"] }
+    }
+  ]
+}
