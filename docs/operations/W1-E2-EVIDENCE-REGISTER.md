@@ -2810,9 +2810,9 @@ G-C `stable-v1.0`; release dates are unchanged; production remains Founder-contr
 | Action pins | checkout `3d3c42e5aac5ba805825da76410c181273ba90b1` ×2; setup-node `820762786026740c76f36085b0efc47a31fe5020` ×1 |
 | Action runtime | both reviewed `action.yml` manifests declare `node24` |
 | Validator runtime | pinned Node.js `24.18.1` Krypton LTS security release |
-| TDD | intended RED `0/1`; targeted GREEN `3/3` |
-| Full control | checksum-verified Node 24.18.1: `203/203 PASS`; line `97.62%`, branch `92.43%`, functions `98.89%` |
-| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; all three P2 findings have bounded remediations and RED/GREEN evidence, third review pending |
+| TDD | four bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/unpinned `4/4 PASS` |
+| Full control | checksum-verified Node 24.18.1: `205/205 PASS`; line `97.69%`, branch `92.56%`, functions `98.90%` |
+| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; third `NO-GO`, `P0=0 P1=1 P2=1 P3=5`; every P1/P2 has bounded RED/GREEN remediation, fourth review pending |
 | Current status | `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING` |
 
 Independent review, hosted required checks, exact merge-tree verification and canonical

@@ -7152,8 +7152,9 @@ remains Founder-controlled.
 runtime of both GitHub-owned actions with exact reviewed Node 24-runtime commits and pins
 validator execution to Node.js `24.18.1`.
 
-Local TDD evidence is `RED 0/1` on the old action pins, then targeted `3/3 PASS`; the full control
-suite is `203/203 PASS` with line/branch/function coverage `97.62%`/`92.43%`/`98.89%`, and the
+Local TDD evidence includes four bounded RED/GREEN checkpoints; targeted pin/inline/noncanonical/
+unpinned tests are `4/4 PASS`. The full control suite is `205/205 PASS` with
+line/branch/function coverage `97.69%`/`92.56%`/`98.90%`, and the
 control validator passes with `tasks=48`. Exact packet, owner paths and rollback:
 `docs/operations/W1-CI4-NODE24-ACTION-PINS-R1.md`.
 
@@ -7163,7 +7164,8 @@ UAT ahead of G-C `stable-v1.0`; release dates remain unchanged and production re
 Founder-controlled.
 
 The first independent Opus review returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; both P2s were
-remediated. The second review returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5` after finding a
-trailing-whitespace `uses:` parser bypass. That P2 now has its own RED checkpoint and a
-horizontal-whitespace-safe extractor plus negative test. Checksum-verified Node 24.18.1 execution
-is green; a fresh third review remains mandatory before push.
+remediated. The second returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5` on a trailing-whitespace parser
+bypass. The third returned `NO-GO`, `P0=0 P1=1 P2=1 P3=5` on inline `- uses:` and the associated
+evidence overclaim. Current bytes recognize both canonical forms, reject flow/quoted-key syntax,
+positively allowlist all three action uses, and anchor both rendered job names. Checksum-verified
+Node 24.18.1 execution is green; a fresh fourth review remains mandatory before push.

@@ -3058,7 +3058,7 @@ export function validateW1CiWiring({
   const contractsJob = workflowJob("contracts");
   const secretScanJob = workflowJob("secret-scan");
   for (const pattern of [
-    /name: contract standards validation/,
+    /^ {4}name: contract standards validation$/m,
     /name: Checkout contract topology/,
     /fetch-depth: 0/,
     /node-version: "24\.18\.1"/,
@@ -3075,7 +3075,7 @@ export function validateW1CiWiring({
   }
   assertIncludes(
     secretScanJob,
-    /name: secret-scan \(gitleaks 8\.30\.1\)/,
+    /^ {4}name: secret-scan \(gitleaks 8\.30\.1\)$/m,
     "CI3 workflow must preserve the rendered secret-scan required-check name",
   );
   assertExcludes(
@@ -3122,11 +3122,20 @@ export function validateW1CiWiring({
   );
   const actionLines = [
     ...workflowText.matchAll(
-      /^[^\S\n]*uses:[^\S\n]*(\S+)(?:[^\S\n]+#.*)?[^\S\n]*$/gm,
+      /^[^\S\n]*(?:-[^\S\n]+)?uses:[^\S\n]*(\S+)(?:[^\S\n]+#.*)?[^\S\n]*$/gm,
     ),
   ];
-  if (actionLines.length === 0) {
-    throw new Error("CI3 workflow must contain pinned GitHub actions");
+  const usesSyntaxLineCount = workflowText
+    .split(/\r?\n/)
+    .filter((line) => {
+      const leftTrimmed = line.trimStart();
+      if (leftTrimmed.startsWith("#")) return false;
+      return /(?:^|[\s{,])(?:"uses"|'uses'|uses)[^\S\n]*:/.test(leftTrimmed);
+    }).length;
+  if (usesSyntaxLineCount !== actionLines.length) {
+    throw new Error(
+      "CI3 workflow contains unsupported or noncanonical uses syntax",
+    );
   }
   for (const [, action] of actionLines) {
     if (!/@[0-9a-f]{40}(?:\s|$)/.test(action)) {
@@ -3138,6 +3147,13 @@ export function validateW1CiWiring({
     /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
     "CI3 workflow must not reintroduce a superseded Node 20 action-runtime pin",
   );
+  for (const [, action] of actionLines) {
+    if (!CI_ACTION_PINS.has(action)) {
+      throw new Error(
+        `CI3 workflow action is outside the reviewed allowlist: ${action}`,
+      );
+    }
+  }
   if (actionLines.length !== 3) {
     throw new Error(
       `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionLines.length}`,
