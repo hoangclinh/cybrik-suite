@@ -1,0 +1,22 @@
+{
+  "envelope_profile": "CYBRIK-RECEIPT-JWS/v1",
+  "envelope_version": "0.1.0",
+  "digest_profile": "CYBRIK-RECEIPT-JCS/v1",
+  "canonicalization": "RFC8785-JCS",
+  "receipt_id": "rcpt-f8-0001",
+  "receipt_digest": "sha256:39ded94c4b25a4323c1dffcc90e01ca45ae461807b4991185480141a1ce8871e",
+  "signature_locator": "cybrik-ledger://receipt-signatures/sha256/90014acbad5065928441d6d4a757dd20cb4a754b9beaa0a9731fc4c58684107b",
+  "jws_compact": "\u0065yJhbGciOiJFZERTQSIsImtpZCI6ImN5YnJpay1yZWNlaXB0LXNpZ25lcjp2MTo3YWQyMTExYmQxYzdjNTcxOTQzMTJhOTk4MDM4NDMwN2I4MmUwNDA0MGFkNmVmZDg1M2QyMzNmMjI2NWZhNzk1IiwidHlwIjoiYXBwbGljYXRpb24vY3licmlrLXJlY2VpcHQtc2lnbmF0dXJlLXN0YXRlbWVudCtqc29uIn0.eyJjYW5vbmljYWxpemF0aW9uIjoiUkZDODc4NS1KQ1MiLCJraWQiOiJjeWJyaWstcmVjZWlwdC1zaWduZXI6djE6N2FkMjExMWJkMWM3YzU3MTk0MzEyYTk5ODAzODQzMDdiODJlMDQwNDBhZDZlZmQ4NTNkMjMzZjIyNjVmYTc5NSIsInByb2ZpbGUiOiJDWUJSSUstUkVDRUlQVC1KQ1MvdjEiLCJwcm9maWxlX3ZlcnNpb24iOiIwLjEuMCIsInJlY2VpcHRfY29udHJhY3RfaWQiOiJodHRwczovL2NvbnRyYWN0cy5jeWJyaWsuZXhhbXBsZS9qc29uLXNjaGVtYS9jeWJyaWsuZXhlY3V0aW9uLXJlY2VpcHQudjEuc2NoZW1hLmpzb24iLCJyZWNlaXB0X2NvbnRyYWN0X3ZlcnNpb24iOiIwLjEuMCIsInJlY2VpcHRfZGlnZXN0Ijoic2hhMjU2OmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIiLCJyZWNlaXB0X2lkIjoicmNwdC1mOC0wMDAxIiwic2lnbmVkX2F0IjoiMjAyNi0wNy0zMVQwMDowMDowMloifQ.IB9ZgpRgf0WNvMHwPnLc3nQJskAWiTG2LKmijLyrsunEzS3rDFUxsM6TalcFGlc9qoEyNdPpalnfwwo_lQ49DA",
+  "alg": "EdDSA",
+  "key_type": {
+    "kty": "OKP",
+    "crv": "Ed25519"
+  },
+  "kid": "cybrik-receipt-signer:v1:7ad2111bd1c7c57194312a9980384307b82e04040ad6efd853d233f2265fa795",
+  "trust_bundle_ref": {
+    "bundle_uri": "cybrik-trust://receipt-signers/v1",
+    "bundle_digest": "sha256:fb76aad65cb11c1ce3a181e8e1cda5d2be0903b5ce02cd9fe27d5109d750f043"
+  },
+  "signer_role": "tool-fabric-control-plane",
+  "signed_at": "2026-07-31T00:00:02Z"
+}

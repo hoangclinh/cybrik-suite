@@ -15,7 +15,10 @@ Shared data object schemas. The first cross-product contract packet lives here, 
 - `cybrik.approval-request.v1` / `cybrik.approval-decision.v1` — approval-ingress pair (ADR-0004 F9 / RB-001).
 
 Inventory and cross-artifact digest bindings: `../compatibility/cybrik-suite-contract-packet.v1.manifest.json`.
-Conformance fixtures: `../examples/`. Moving any file out of `PROPOSED` requires explicit Founder approval.
+Conformance fixtures: `../examples/`. Moving any file out of `PROPOSED` requires an explicit
+technical decision under the authority in force; forward-looking technical acceptance is currently
+delegated to the Codex Governor by
+`../../docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`.
 
 ## W2-F internal service-delegation packet (additive; `ACCEPTED FOR IMPLEMENTATION`, v0.1.0)
 
@@ -101,3 +104,38 @@ Fixtures: `../examples/investigation/`. Validator (standalone, not wired into th
 orchestrator): `../../tools/contract-validation/validate-investigation.mjs`. No server/endpoint,
 no MCP/tool authority. TR-5 remains `declared_runtime_only` until a future real-consumer
 authorization gate proves advisory-only consumption.
+
+## F8 receipt-integrity signature profile (additive; `PROPOSED` — **NOT ACCEPTED**, v0.1.0)
+
+Two disjoint `cybrik.receipt-signature-*` schemas offering **one candidate** for the receipt-signing
+envelope that ADR-0004 F8 deferred. They **reuse** `cybrik.common-defs.v1` and
+`cybrik.execution-receipt.v1` by `$ref`, unmodified — `cybrik.execution-receipt.v1` already describes
+its own `signature` field as a reference to a deferred envelope, and this is a candidate for exactly
+that reference:
+
+- `cybrik.receipt-signature-statement.v1` — the object that is actually signed. It never carries the
+  receipt, only a digest binding: profile + version, the reused receipt contract `$id` + version,
+  the canonicalization id, `receipt_id`, `receipt_digest`, `kid`, and `signed_at`. Digest profile
+  `CYBRIK-RECEIPT-JCS/v1` hashes `UTF-8(profile) || 0x00 || RFC-8785-JCS(receipt)` over the *exact
+  transmitted* receipt with only `receipt_digest` and `signature` removed. **No schema `default` is
+  ever materialized**, so an absent `output_artifacts` and an explicitly empty one digest
+  differently — the fixture pins both values to keep that provable.
+- `cybrik.receipt-signature-envelope.v1` — the transport shape. An ordinary compact JWS with an
+  **included** payload (never detached, never RFC 7797 `b64=false`), **EdDSA over Ed25519 only**
+  (`alg=none` rejected), protected-header key set exactly `{alg, kid, typ}`, and **no key material
+  anywhere**: `jwk`, `jku`, `x5u`, `x5c`, `x5t`, `x5t#S256` and `epk` are all forbidden and `kid`
+  resolves only against a pinned external trust bundle. `signature_locator` is
+  `cybrik-ledger://receipt-signatures/sha256/<64 hex>`, the SHA-256 of the exact compact JWS bytes,
+  and is the string the receipt's own `signature` carries.
+
+Receipts are **control-plane observed, not executor-attested**: the Tool Fabric control plane signs
+and a receipt-signing key never exists on an executor (ADR-0004 F6; ADR-0006 E5). Inventory:
+`../compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json`. Fixtures:
+`../examples/receipt-integrity/`. Validator: `../../tools/contract-validation/validate-receipt-integrity.mjs`
+(`npm run validate:f8:receipt-integrity`, `npm run test:f8:receipt-integrity`). The only key in the
+packet is a **TEST-ONLY** Ed25519 public JWK whose private half is derived at test runtime from
+`SHA-256("CYBRIK-F8-TEST-ONLY-ED25519-SEED/v1")`; no PEM or private key exists in the tree, and that
+kid must never appear in a real trust bundle. **Nothing here decides an ADR, settles the F8 deferral,
+implements a runtime, or names a production signer.** Credential lease, workload attestation, a
+production issuer/signer, and key lifecycle remain open prerequisites — see the manifest's
+`future_prerequisites` and `../../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.

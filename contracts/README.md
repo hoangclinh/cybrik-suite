@@ -1,8 +1,10 @@
 # contracts/ — Cross-product contracts
 
 Status: first cross-product contract packet is present, statused `PROPOSED` — **NOT ACCEPTED**
-(version 0.1.0). No contract has been accepted; no product may implement any of these until
-explicit Founder acceptance (ADR-0001 D5).
+(version 0.1.0). No contract has been accepted; no product may implement any of these until an
+explicit technical acceptance under the authority in force. Forward-looking technical acceptance
+is currently delegated to the Codex Governor by
+`../docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md` (ADR-0001 D5).
 
 This directory is the single home for interfaces shared between CYBRIK Suite products.
 Product repositories implement contracts defined here; contracts are never retro-fitted from
@@ -55,6 +57,24 @@ MCP/tool authority**, and keeps the A05 boundary distinct. The SOC migration/API
 owned + separately gated by `cybrik-soc-command-center` and are `NOT IMPLEMENTED`. See
 `compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`.
 
+The **F8 receipt-integrity signature profile packet** (all `PROPOSED` — **NOT ACCEPTED**, v0.1.0, not
+stable v1/GA) is **additive to, and disjoint from,** every packet above. ADR-0004 F8 deferred the
+receipt-signing envelope (COSE vs. JWS vs. in-toto-style); this packet offers **one candidate** for
+that deferred choice contract-first, so the option can be reviewed against real bytes rather than a
+paragraph. It introduces `cybrik.receipt-signature-statement.v1` and
+`cybrik.receipt-signature-envelope.v1` under `json-schema/`, its own compatibility manifest under
+`compatibility/`, and fixtures under `examples/receipt-integrity/` — including a frozen, byte-exactly
+reproducible Ed25519 test vector. It **reuses `cybrik.execution-receipt.v1` and
+`cybrik.common-defs.v1` by `$ref` without modifying them**. The profile digests the *exact
+transmitted* receipt (removing only `receipt_digest` and `signature`, injecting no schema default),
+signs an ordinary compact JWS with an included payload under EdDSA/Ed25519 only, and rejects
+`alg=none` together with every embedded or remote key parameter. **This packet records no ADR
+decision, does not settle the ADR-0004 F8 deferral, and authorizes no issuer, signer, key lifecycle,
+ledger, or runtime.** Credential lease, workload attestation, a production issuer/signer, and the
+whole key lifecycle remain open prerequisites listed in the manifest's `future_prerequisites`. See
+`compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json` and
+`../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.
+
 | Directory | Will contain |
 |---|---|
 | `openapi/` | REST API contracts (OpenAPI) |
@@ -68,5 +88,5 @@ owned + separately gated by `cybrik-soc-command-center` and are `NOT IMPLEMENTED
 ## Lifecycle
 
 Every contract file must carry a status header: `PROPOSED` → `ACCEPTED` → `DEPRECATED`.
-Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold
-placeholder OpenAPI/schema files as if they were accepted contracts.
+Moving a contract out of `PROPOSED` requires an explicit technical decision under the authority in
+force. Do not scaffold placeholder OpenAPI/schema files as if they were accepted contracts.

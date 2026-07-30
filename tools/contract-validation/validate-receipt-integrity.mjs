@@ -260,14 +260,13 @@ const expectedManifestTopLevelKeys = [
   'gate',
 ].sort();
 
-// The five prerequisites F8 cannot close by itself. The evidence document and
+// The four prerequisites F8 cannot close by itself. The evidence document and
 // the manifest must both carry them; the validator fails closed if one is lost.
 export const expectedFuturePrerequisites = [
   'credential-lease',
   'workload-attestation',
   'production-issuer-and-signer',
   'key-lifecycle',
-  'receipt-ledger-durability',
 ];
 
 // ---------------------------------------------------------------------------
@@ -348,6 +347,12 @@ export function verifyReceiptSignatureEnvelope({
 
   // --- RI-1 canonicalization -----------------------------------------------
   const recomputedReceiptDigest = receipt ? canonicalReceiptDigest(receipt) : undefined;
+  if (envelope.envelope_profile !== SIGNATURE_ENVELOPE_PROFILE) {
+    fail('RI-1', `envelope.envelope_profile must be ${SIGNATURE_ENVELOPE_PROFILE}`);
+  }
+  if (envelope.envelope_version !== PROFILE_VERSION) {
+    fail('RI-1', `envelope.envelope_version must be ${PROFILE_VERSION}`);
+  }
   if (envelope.digest_profile !== RECEIPT_DIGEST_PROFILE) {
     fail('RI-1', `envelope.digest_profile must be ${RECEIPT_DIGEST_PROFILE}`);
   }
@@ -512,6 +517,9 @@ export function verifyReceiptSignatureEnvelope({
   if (receipt && (payload.receipt_id !== receipt.receipt_id || envelope.receipt_id !== receipt.receipt_id)) {
     fail('RI-6', 'receipt_id must be identical in the payload, the envelope and the receipt');
   }
+  if (envelope.signed_at !== payload.signed_at) {
+    fail('RI-6', 'signed_at must be identical in the signed payload and the envelope');
+  }
   if (envelope.signer_role !== SIGNER_ROLE) {
     fail('RI-6', `envelope.signer_role must be ${SIGNER_ROLE} — an executor never signs a receipt`);
   }
@@ -557,6 +565,22 @@ const decodeJwsParts = (jws) => {
 };
 
 export const mutationProbes = [
+  {
+    id: 'RI-1',
+    label: 'signature envelope profile changed',
+    mutate: (vector) => ({
+      ...vector,
+      envelope: { ...vector.envelope, envelope_profile: 'CYBRIK-RECEIPT-JWS/v2' },
+    }),
+  },
+  {
+    id: 'RI-1',
+    label: 'signature envelope version changed',
+    mutate: (vector) => ({
+      ...vector,
+      envelope: { ...vector.envelope, envelope_version: '0.2.0' },
+    }),
+  },
   {
     id: 'RI-1',
     label: 'canonicalization id swapped to a non-JCS renderer',
@@ -684,6 +708,38 @@ export const mutationProbes = [
   },
   {
     id: 'RI-5',
+    label: 'remote x5u certificate-fetch header',
+    mutate: (vector) => {
+      const parts = decodeJwsParts(vector.envelope.jws_compact);
+      const jws = reencodeJws(
+        { ...parts.header, x5u: 'https://keys.cybrik.example/receipt-signer.pem' },
+        parts.payload,
+        parts.signatureSegment,
+      );
+      return {
+        ...vector,
+        envelope: { ...vector.envelope, jws_compact: jws, signature_locator: computeSignatureLocator(jws) },
+      };
+    },
+  },
+  {
+    id: 'RI-5',
+    label: 'embedded x5c certificate chain header',
+    mutate: (vector) => {
+      const parts = decodeJwsParts(vector.envelope.jws_compact);
+      const jws = reencodeJws(
+        { ...parts.header, x5c: ['VEVTVC1PTkxZLU5PVC1BLUNFUlRJRklDQVRF'] },
+        parts.payload,
+        parts.signatureSegment,
+      );
+      return {
+        ...vector,
+        envelope: { ...vector.envelope, jws_compact: jws, signature_locator: computeSignatureLocator(jws) },
+      };
+    },
+  },
+  {
+    id: 'RI-5',
     label: 'kid absent from the pinned trust bundle',
     mutate: (vector) => ({
       ...vector,
@@ -705,6 +761,14 @@ export const mutationProbes = [
         envelope: { ...vector.envelope, jws_compact: jws, signature_locator: computeSignatureLocator(jws) },
       };
     },
+  },
+  {
+    id: 'RI-6',
+    label: 'unsigned envelope signed_at differs from the signed payload',
+    mutate: (vector) => ({
+      ...vector,
+      envelope: { ...vector.envelope, signed_at: '2026-07-31T00:00:03Z' },
+    }),
   },
   {
     id: 'RI-6',

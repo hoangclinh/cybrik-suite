@@ -118,6 +118,21 @@ test('the rejection inventory covers all seven required categories', () => {
   }
 });
 
+test('the required JOSE attack surface has executable rejection probes', () => {
+  const labels = mutationProbes.map((probe) => probe.label);
+  for (const required of [
+    'payload detached (empty middle segment)',
+    'alg=none with a stripped signature',
+    'b64=false unencoded-payload switch',
+    'embedded jwk in the protected header',
+    'remote jku key-fetch header',
+    'remote x5u certificate-fetch header',
+    'embedded x5c certificate chain header',
+  ]) {
+    assert.ok(labels.includes(required), `${required} has no executable rejection probe`);
+  }
+});
+
 test('the frozen compact JWS is byte-exactly reproducible from the TEST-ONLY seed', () => {
   const statement = readPacketJson(
     'contracts/examples/receipt-integrity/positive/receipt-signature-statement.json',
@@ -267,14 +282,24 @@ test('the packet stays PROPOSED and claims no decision, closure or promotion', (
   assert.equal(manifest['x-cybrik-status'], 'PROPOSED');
   assert.equal(manifest['x-cybrik-not-accepted'], true);
   assert.equal(manifest.gate.status, 'OPEN — NOT DECIDED');
-  assert.match(manifest.gate.decision_authority, /Founder/);
+  assert.match(manifest.gate.decision_authority, /Codex Governor/);
   for (const member of manifest.members) {
     assert.equal(member.status, 'PROPOSED', member.file);
   }
-  // The five prerequisites F8 cannot close by itself must all still be open.
+  // The four prerequisites F8 cannot close by itself must all still be open.
   for (const prerequisite of manifest.future_prerequisites) {
     assert.equal(prerequisite.state, 'OPEN', prerequisite.id);
   }
+  assert.deepEqual(
+    manifest.future_prerequisites.map((entry) => entry.id),
+    [
+      'credential-lease',
+      'workload-attestation',
+      'production-issuer-and-signer',
+      'key-lifecycle',
+    ],
+  );
+  assert.match(manifest.gate.decision_authority, /Codex Governor/);
   assert.match(
     manifest.ownership.fabric,
     /control plane/,
@@ -282,23 +307,16 @@ test('the packet stays PROPOSED and claims no decision, closure or promotion', (
   );
 });
 
-test('the two proposed schemas compile under official Ajv 2020-12 strict mode', () => {
+const SCHEMA_ID_BASE = 'https://contracts.cybrik.example/json-schema';
+
+const buildAjv = (options) => {
   const dependencyRequire = createRequire(join(resolve(DEPENDENCY_ROOT), 'package.json'));
   const AjvModule = dependencyRequire('ajv/dist/2020.js');
   const addFormatsModule = dependencyRequire('ajv-formats');
   const Ajv2020 = AjvModule.default || AjvModule;
   const addFormats = addFormatsModule.default || addFormatsModule;
 
-  const names = [
-    'cybrik.common-defs.v1.schema.json',
-    'cybrik.execution-receipt.v1.schema.json',
-    'cybrik.receipt-signature-statement.v1.schema.json',
-    'cybrik.receipt-signature-envelope.v1.schema.json',
-  ];
-  const documents = names.map((name) => readPacketJson(`contracts/json-schema/${name}`));
-  assert.ok(documents.every(Boolean), 'both proposed schemas must exist');
-
-  const ajv = new Ajv2020({ strict: true, allErrors: true });
+  const ajv = new Ajv2020({ strict: true, allErrors: true, ...options });
   addFormats(ajv);
   for (const keyword of [
     'x-cybrik-status',
@@ -309,10 +327,21 @@ test('the two proposed schemas compile under official Ajv 2020-12 strict mode', 
   ]) {
     ajv.addKeyword({ keyword });
   }
+  return ajv;
+};
+
+test('both proposed schemas compile under official Ajv 2020-12 strict mode', () => {
+  const names = [
+    'cybrik.common-defs.v1.schema.json',
+    'cybrik.receipt-signature-statement.v1.schema.json',
+    'cybrik.receipt-signature-envelope.v1.schema.json',
+  ];
+  const documents = names.map((name) => readPacketJson(`contracts/json-schema/${name}`));
+  assert.ok(documents.every(Boolean), 'both proposed schemas must exist');
+
+  const ajv = buildAjv();
   for (const document of documents) ajv.addSchema(document);
 
-  const examples = readPacketJson(EXAMPLES_MANIFEST_PATH);
-  assert.ok(examples, 'examples manifest must exist');
   for (const [name, fixture] of [
     [
       'cybrik.receipt-signature-statement.v1.schema.json',
@@ -322,14 +351,39 @@ test('the two proposed schemas compile under official Ajv 2020-12 strict mode', 
       'cybrik.receipt-signature-envelope.v1.schema.json',
       readPacketJson('contracts/examples/receipt-integrity/positive/receipt-signature-envelope.json'),
     ],
-    ['cybrik.execution-receipt.v1.schema.json', examples.test_vector.receipt],
   ]) {
-    const validate = ajv.getSchema(
-      `https://contracts.cybrik.example/json-schema/${name}`,
-    );
+    const validate = ajv.getSchema(`${SCHEMA_ID_BASE}/${name}`);
     assert.ok(validate, `${name} did not compile`);
     assert.equal(validate(fixture), true, `${name}: ${ajv.errorsText(validate.errors)}`);
   }
+});
+
+// The accepted cybrik.execution-receipt.v1 writes its conditional requirement as
+// a bare `then: {"required": ["target_digest"]}` with no sibling property
+// annotation. That is fully JSON Schema 2020-12 conformant; only Ajv's OPTIONAL
+// strictRequired house rule objects to it. Relaxing exactly that one option — and
+// nothing else — is what lets the frozen receipt be checked against the real
+// accepted schema instead of a copy. Repairing the accepted schema is out of this
+// proposal's scope and would change accepted bytes.
+test('the frozen receipt validates against the accepted execution-receipt schema', () => {
+  const examples = readPacketJson(EXAMPLES_MANIFEST_PATH);
+  assert.ok(examples, 'examples manifest must exist');
+
+  const ajv = buildAjv({ strictRequired: false });
+  for (const name of [
+    'cybrik.common-defs.v1.schema.json',
+    'cybrik.execution-receipt.v1.schema.json',
+  ]) {
+    ajv.addSchema(readPacketJson(`contracts/json-schema/${name}`));
+  }
+
+  const validate = ajv.getSchema(`${SCHEMA_ID_BASE}/cybrik.execution-receipt.v1.schema.json`);
+  assert.ok(validate, 'the accepted receipt schema did not compile');
+  assert.equal(
+    validate(examples.test_vector.receipt),
+    true,
+    ajv.errorsText(validate.errors),
+  );
 });
 
 test('the statement pins the profile, canonicalization and reused receipt contract', () => {
