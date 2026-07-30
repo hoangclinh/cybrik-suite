@@ -1,0 +1,11 @@
+{
+  "profile": "CYBRIK-RECEIPT-JCS/v1",
+  "profile_version": "0.1.0",
+  "receipt_contract_id": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt.v1.schema.json",
+  "receipt_contract_version": "0.1.0",
+  "canonicalization": "RFC8785-JCS",
+  "receipt_id": "rcpt-f8-0001",
+  "receipt_digest": "sha256:39ded94c4b25a4323c1dffcc90e01ca45ae461807b4991185480141a1ce8871e",
+  "kid": "cybrik-receipt-signer:v1:7ad2111bd1c7c57194312a9980384307b82e04040ad6efd853d233f2265fa795",
+  "signed_at": "2026-07-31T00:00:02Z"
+}

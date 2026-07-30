@@ -44,7 +44,7 @@ jobs:
           ./gitleaks version
 
       # Working tree (node_modules is absent — no deps installed in this job). Strictest mode;
-      # exercises the single scoped generic-api-key allowlist in .gitleaks.toml.
+      # exercises the two narrow allowlists: generic-api-key fixtures and one exact F8 TEST JWT.
       - name: Secret scan — working tree
         run: ./gitleaks dir . --config .gitleaks.toml --no-banner --redact --exit-code 1
 

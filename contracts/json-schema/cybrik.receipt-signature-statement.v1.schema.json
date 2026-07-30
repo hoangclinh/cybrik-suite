@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.receipt-signature-statement.v1.schema.json",
+  "title": "CYBRIK receipt signature statement v1",
+  "description": "The exact object that is signed when a Tool Fabric control plane signs an execution receipt. ADR-0004 F8 deferred the receipt-signing envelope (COSE vs. JWS vs. in-toto-style); this schema is one candidate profile offered for that deferred choice and nothing more. The statement never carries the receipt itself, only a digest binding: profile + profile_version fix the digest recipe, canonicalization fixes the byte rendering, receipt_contract_id + receipt_contract_version fix which receipt contract those bytes were produced under, and receipt_id + receipt_digest identify the exact receipt. kid names the signer and resolves only against a pinned external trust bundle. Because the profile id is inside the hash input of receipt_digest, a receipt canonicalized under one profile can never be replayed as if it had been signed under another. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No ADR decision, no runtime, no signer and no key lifecycle follow from this file.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-profile": "CYBRIK-RECEIPT-JCS/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "profile_version",
+    "receipt_contract_id",
+    "receipt_contract_version",
+    "canonicalization",
+    "receipt_id",
+    "receipt_digest",
+    "kid",
+    "signed_at"
+  ],
+  "properties": {
+    "profile": {
+      "description": "Receipt digest profile id. The hash input is UTF-8(profile) then one NUL byte then the canonical receipt bytes, so this value is bound into every receipt_digest and cannot be swapped after the fact.",
+      "const": "CYBRIK-RECEIPT-JCS/v1"
+    },
+    "profile_version": {
+      "description": "Version of the profile document, distinct from the profile id itself.",
+      "const": "0.1.0"
+    },
+    "receipt_contract_id": {
+      "description": "$id of the receipt contract the canonical bytes were produced under. Reused unmodified; this proposal changes no byte of it.",
+      "const": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt.v1.schema.json"
+    },
+    "receipt_contract_version": {
+      "description": "x-cybrik-contract-version of that receipt contract at signing time.",
+      "const": "0.1.0"
+    },
+    "canonicalization": {
+      "description": "Canonical JSON rendering used before hashing: RFC 8785 JSON Canonicalization Scheme. The exact transmitted receipt is canonicalized with only the top-level receipt_digest and signature removed, and with no schema default materialized — an absent array and an explicitly empty array are two different receipts.",
+      "const": "RFC8785-JCS"
+    },
+    "receipt_id": {
+      "type": "string",
+      "description": "receipt_id of the receipt this statement binds.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "receipt_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Digest produced by the profile above over the exact transmitted receipt."
+    },
+    "kid": {
+      "type": "string",
+      "description": "Signer key id. Lowercase hex SHA-256 over the RFC 7638 thumbprint input for an OKP key — the JCS rendering of exactly {crv, kty, x}. RFC 7638 renders that digest as base64url; this profile deliberately renders it as hex so the kid grammar stays a single character class. A verifier resolves this id ONLY against a pinned external trust bundle, never against key material carried in the message.",
+      "pattern": "^cybrik-receipt-signer:v1:[0-9a-f]{64}$"
+    },
+    "signed_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "When the control plane signed. Advisory for ordering only; it is not a validity window and confers no freshness guarantee."
+    }
+  }
+}

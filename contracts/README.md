@@ -68,6 +68,24 @@ MCP/tool authority**, and keeps the A05 boundary distinct. The SOC migration/API
 owned + separately gated by `cybrik-soc-command-center` and are `NOT IMPLEMENTED`. See
 `compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`.
 
+The **F8 receipt-integrity signature profile packet** (all `PROPOSED` — **NOT ACCEPTED**, v0.1.0, not
+stable v1/GA) is **additive to, and disjoint from,** every packet above. ADR-0004 F8 deferred the
+receipt-signing envelope (COSE vs. JWS vs. in-toto-style); this packet offers **one candidate** for
+that deferred choice contract-first, so the option can be reviewed against real bytes rather than a
+paragraph. It introduces `cybrik.receipt-signature-statement.v1` and
+`cybrik.receipt-signature-envelope.v1` under `json-schema/`, its own compatibility manifest under
+`compatibility/`, and fixtures under `examples/receipt-integrity/` — including a frozen, byte-exactly
+reproducible Ed25519 test vector. It **reuses `cybrik.execution-receipt.v1` and
+`cybrik.common-defs.v1` by `$ref` without modifying them**. The profile digests the *exact
+transmitted* receipt (removing only `receipt_digest` and `signature`, injecting no schema default),
+signs an ordinary compact JWS with an included payload under EdDSA/Ed25519 only, and rejects
+`alg=none` together with every embedded or remote key parameter. **This packet records no ADR
+decision, does not settle the ADR-0004 F8 deferral, and authorizes no issuer, signer, key lifecycle,
+ledger, or runtime.** Credential lease, workload attestation, a production issuer/signer, and the
+whole key lifecycle remain open prerequisites listed in the manifest's `future_prerequisites`. See
+`compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json` and
+`../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.
+
 | Directory | Will contain |
 |---|---|
 | `openapi/` | REST API contracts (OpenAPI) |
