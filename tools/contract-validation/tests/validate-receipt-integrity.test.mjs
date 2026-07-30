@@ -307,6 +307,31 @@ test('the packet stays PROPOSED and claims no decision, closure or promotion', (
   );
 });
 
+test('canonical npm validate directly executes F8 tests without changing W1 inventory', () => {
+  const orchestrator = readFileSync(
+    join(REPO_ROOT, 'tools/contract-validation/validate.mjs'),
+    'utf8',
+  );
+  const packageJson = JSON.parse(
+    readFileSync(join(REPO_ROOT, 'tools/contract-validation/package.json'), 'utf8'),
+  );
+  assert.equal(packageJson.scripts.validate, 'node validate.mjs');
+  assert.match(
+    orchestrator,
+    /['"]validate-receipt-integrity\.mjs['"],\s*['"]tests\/validate-receipt-integrity\.test\.mjs['"],/,
+    'the F8 test suite must be the direct canonical step after its validator',
+  );
+  const w1Inventory = orchestrator.slice(
+    orchestrator.indexOf('const W1_CONTRACT_TEST_FILES'),
+    orchestrator.indexOf('const W1_CONTRACT_TEST_COUNT'),
+  );
+  assert.doesNotMatch(
+    w1Inventory,
+    /validate-receipt-integrity\.test\.mjs/,
+    'the additive F8 suite must not change the accepted W1 98-test inventory',
+  );
+});
+
 const SCHEMA_ID_BASE = 'https://contracts.cybrik.example/json-schema';
 
 const buildAjv = (options) => {

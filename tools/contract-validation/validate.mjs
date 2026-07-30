@@ -67,6 +67,7 @@ const steps = [
   // out of W1_CONTRACT_TEST_FILES so the pinned W1 contract-test count above is
   // unchanged by a non-W1 proposal.
   'validate-receipt-integrity.mjs',
+  'tests/validate-receipt-integrity.test.mjs',
   'validate-svc-lifecycle.mjs',
   'tests/validate-svc-lifecycle.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
