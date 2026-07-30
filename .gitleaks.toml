@@ -10,10 +10,10 @@
 #     fields (e.g. "idempotency_key": "idem-8f2c1a90-...") are deliberately constructed, non-
 #     secret values. gitleaks' entropy-based `generic-api-key` heuristic matches them because
 #     the JSON key contains the substring "key".
-#   - The allowlist is scoped by `targetRules = ["generic-api-key"]`, so ONLY that one heuristic
-#     rule is relaxed, and only for example JSON. Every high-signal rule (AWS/GCP/Azure keys,
-#     private keys, JWTs, provider tokens, etc.) STILL scans these files. A real credential
-#     accidentally dropped into an example would still fail CI.
+#   - The first allowlist is scoped by `targetRules = ["generic-api-key"]`, so ONLY that one
+#     heuristic is relaxed for example JSON. Every high-signal rule (AWS/GCP/Azure keys, private
+#     keys, JWTs, provider tokens, etc.) still scans examples except the single exact F8 TEST-ONLY
+#     JWT vector described below. A different JWT or any real credential still fails CI.
 #   - The repository data-handling boundary (CLAUDE.md) independently forbids committing real
 #     secrets or customer data anywhere in the suite; this allowlist does not widen that.
 
