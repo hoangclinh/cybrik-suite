@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   readW1ReconciliationTopology,
+  validateW1CanonicalIntegrationTopology,
   validateW1CiWiring,
   validateW1ControlDocuments,
   validateW1ControlFiles,
@@ -1064,6 +1065,97 @@ test("requires current delegated Governor authority without opening runtime or p
   );
   assert.match(currentHeader, /production remains Founder-controlled/i);
   assert.doesNotMatch(currentHeader, /Founder delegation remain absent/i);
+});
+
+test("requires current register gates to supersede publication, merge, and CI-wiring blockers", () => {
+  const currentGates = e2RegisterText.slice(
+    e2RegisterText.indexOf("## 3."),
+    e2RegisterText.indexOf("## 4."),
+  );
+
+  assert.match(
+    currentGates,
+    /PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`/,
+  );
+  assert.match(currentGates, /delegated technical integration.*evidence-gated `GO`/i);
+  assert.match(currentGates, /Suite W1 static contract\/control CI.*`CLOSED`/i);
+  assert.doesNotMatch(currentGates, /neither accepted commit has been pushed/i);
+  assert.doesNotMatch(currentGates, /before either accepted branch reaches `main`/i);
+  assert.doesNotMatch(currentGates, /delegated routine integration.*`NO-GO`/i);
+});
+
+test("requires a cataloged delegated-action record with exact rollback and review state", async () => {
+  const actionRecord = await readFile(
+    join(
+      repositoryRoot,
+      "docs",
+      "operations",
+      "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
+    ),
+    "utf8",
+  );
+
+  for (const value of [
+    "fac2ac13a36abbf31b6b6d95f08d289c0a27fd52",
+    "6eeed3689fd0c787394cee3d48f3ecfd654db313",
+    "f5cc213db0a9cb84377d47b0058608322f7af288",
+    "5459aeec785c8ec8eada77afea3f0d1f18c16373",
+    "7c1cc8f5bf3c772436eff2922a4a1071e0571328",
+    "208/208",
+    "found 0 vulnerabilities",
+    "no leaks found",
+    "NO-GO",
+    "rollback",
+    "production remains Founder-controlled",
+  ]) {
+    assert.match(actionRecord, new RegExp(value, "i"));
+  }
+
+  const operationsReadme = await readFile(
+    join(repositoryRoot, "docs", "operations", "README.md"),
+    "utf8",
+  );
+  assert.match(
+    operationsReadme,
+    /\[W1-CANONICAL-STATE-RECONCILIATION-R1\.md\]\(W1-CANONICAL-STATE-RECONCILIATION-R1\.md\)/,
+  );
+});
+
+test("reports 24 enforced blocker-4 rules after canonical-state activation", () => {
+  const result = validate();
+
+  assert.equal(result.enforcementSurface.enforcedRules, 24);
+  assert.match(packetText, /\| 22 \| current canonical state \|/);
+  assert.match(packetText, /\| 23 \| current delegated authority \|/);
+  assert.match(packetText, /\| 24 \| canonical merge topology \|/);
+});
+
+test("reports historical rehearsal facts separately from current canonical state", () => {
+  const result = validate();
+
+  assert.equal(result.w1ReconciliationApplication.governance, undefined);
+  assert.equal(result.w1ReconciliationApplication.security, undefined);
+  assert.deepEqual(result.w1ReconciliationApplication.currentGovernance, {
+    pushed: true,
+    merged: true,
+    released: false,
+    ciActivated: true,
+    auditHigh: 0,
+    runtimeProven: false,
+    productionAuthorized: false,
+  });
+});
+
+test("pins conditional product-writer admission against silent drift", () => {
+  const drifted = boardText.replace(
+    "| W1 product implementation | `CONDITIONAL GO` |",
+    "| W1 product implementation | `GO` |",
+  );
+
+  assert.throws(
+    () => validate({ boardText: drifted }),
+    /product implementation.*CONDITIONAL GO/i,
+  );
 });
 
 test("rejects loss of W0 NO-GO closure or COMPLETE=0", () => {
@@ -3241,10 +3333,12 @@ test("requires canonical CI wiring for all three W1 validators and exactly 98 te
   assert.match(workflowText, /name: Checkout contract topology/);
   assert.match(workflowText, /fetch-depth: 0/);
   assert.match(workflowText, /npm run test:w1-contracts/);
+  assert.match(workflowText, /npm run test:w1-control/);
   assert.match(packageText, /"validate:w1:alert-context"/);
   assert.match(packageText, /"validate:w1:alert-context-transport"/);
   assert.match(packageText, /"validate:w1:investigation-lifecycle"/);
   assert.match(packageText, /"test:w1-contracts"/);
+  assert.match(packageText, /"test:w1-control"/);
   assert.match(orchestratorText, /validate-alert-context\.mjs/);
   assert.match(orchestratorText, /validate-alert-context-transport\.mjs/);
   assert.match(
@@ -3292,6 +3386,38 @@ test("rejects live Git topology with the second merge parents reversed", () => {
         headDescendsFromRehearsal: true,
       }),
     /mergeTwoParents is wrong/,
+  );
+});
+
+test("rejects canonical integration topology with reversed merge parents", () => {
+  assert.throws(
+    () =>
+      validateW1CanonicalIntegrationTopology({
+        canonicalMergeParents: [
+          "f82f45e8d56be27651c56e8d1510877f48563224",
+          "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+        ],
+        canonicalMergeTree: "f222fad6bc6d3682684a0975f47a5415f7f716dc",
+        rehearsalDescendsIntoCanonicalMerge: true,
+        headDescendsFromCanonicalMerge: true,
+      }),
+    /canonical merge parents are wrong/,
+  );
+});
+
+test("rejects canonical integration topology with the wrong merge tree", () => {
+  assert.throws(
+    () =>
+      validateW1CanonicalIntegrationTopology({
+        canonicalMergeParents: [
+          "5a4823f06ce9b12083e13cf9b1031f46130d90a8",
+          "f82f45e8d56be27651c56e8d1510877f48563224",
+        ],
+        canonicalMergeTree: "0000000000000000000000000000000000000000",
+        rehearsalDescendsIntoCanonicalMerge: true,
+        headDescendsFromCanonicalMerge: true,
+      }),
+    /canonical merge tree is wrong/,
   );
 });
 
