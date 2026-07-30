@@ -5,12 +5,35 @@
 // runtime, deployment, acceptance, or release authority.
 
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
+
+const dependencyRequire = () => {
+  const localRequire = createRequire(join(HERE, 'package.json'));
+  try {
+    localRequire.resolve('ajv/dist/2020.js');
+    return localRequire;
+  } catch {
+    const commonDir = execFileSync(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { cwd: DEFAULT_ROOT, encoding: 'utf8' },
+    ).trim();
+    return createRequire(join(dirname(commonDir), 'tools/contract-validation/package.json'));
+  }
+};
+
+const requireFromValidationRoot = dependencyRequire();
+const AjvModule = requireFromValidationRoot('ajv/dist/2020.js');
+const addFormatsModule = requireFromValidationRoot('ajv-formats');
+const Ajv2020 = AjvModule.default || AjvModule;
+const addFormats = addFormatsModule.default || addFormatsModule;
 
 export const expectedPacketPaths = [
   'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json',
@@ -75,6 +98,63 @@ const parseJson = (root, path, overrides, errors) => {
 };
 
 const requestClaims = (request) => request?.presented_token?.claims;
+
+const compileAcceptedW2f = (root, errors) => {
+  const names = [
+    'cybrik.common-defs.v1.schema.json',
+    'cybrik.data-marking.v1.schema.json',
+    'cybrik.svc-common-defs.v1.schema.json',
+    'cybrik.svc-delegation-token.v1.schema.json',
+    'cybrik.svc-delegation-request.v1.schema.json',
+    'cybrik.svc-trust-metadata.v1.schema.json',
+  ];
+  const documents = [];
+  for (const name of names) {
+    try {
+      documents.push(JSON.parse(readFileSync(
+        join(root, 'contracts/json-schema', name),
+        'utf8',
+      )));
+    } catch (error) {
+      errors.push(`accepted W2-F schema ${name} cannot be loaded: ${error.message}`);
+    }
+  }
+  if (documents.length !== names.length) return null;
+  try {
+    const ajv = new Ajv2020({
+      strict: true,
+      strictTypes: false,
+      strictRequired: false,
+      allErrors: true,
+      allowUnionTypes: true,
+    });
+    addFormats(ajv);
+    for (const keyword of [
+      'x-cybrik-status',
+      'x-cybrik-not-accepted',
+      'x-cybrik-contract-version',
+      'x-cybrik-format-pins',
+    ]) {
+      ajv.addKeyword({ keyword });
+    }
+    for (const document of documents) ajv.addSchema(document);
+    const byTitle = new Map(documents.map((document) => [document.title, document]));
+    const requestDoc = byTitle.get(
+      'CYBRIK internal service-delegation request (validation view) v1',
+    );
+    const trustDoc = byTitle.get(
+      'CYBRIK internal service-delegation trust metadata v1',
+    );
+    return {
+      ajv,
+      request: ajv.getSchema(requestDoc.$id),
+      trust: ajv.getSchema(trustDoc.$id),
+    };
+  } catch (error) {
+    errors.push(`accepted W2-F schema compile/ref-resolution failed: ${error.message}`);
+    return null;
+  }
+};
 
 const requestStructuralErrors = (request) => {
   const errors = [];
@@ -184,6 +264,7 @@ export async function validateSvcLifecycleBinding({
 
   const manifest = parseJson(root, MANIFEST, overrides, errors);
   const examples = parseJson(root, EXAMPLES_MANIFEST, overrides, errors);
+  const acceptedW2f = compileAcceptedW2f(root, errors);
   let notes = '';
   try { notes = readSource(root, NOTES, overrides); } catch (error) {
     errors.push(`${NOTES}: cannot read: ${error.message}`);
@@ -205,9 +286,18 @@ export async function validateSvcLifecycleBinding({
   if (!stableEqual(manifest?.reserved_non_delegatable_operations, [...RESERVED])) {
     errors.push('manifest reserved non-delegatable operation inventory must remain exact');
   }
-  if (manifest?.rest_operation_binding?.listInvestigationCheckpoints
-    !== 'investigation.status') {
-    errors.push('listInvestigationCheckpoints must bind to investigation.status/read');
+  const expectedRestBinding = {
+    createInvestigation: 'investigation.create',
+    getInvestigationStatus: 'investigation.status',
+    listInvestigationCheckpoints: 'investigation.status',
+    cancelInvestigation: 'investigation.cancel',
+    readInvestigationBundle: null,
+  };
+  if (!stableEqual(manifest?.rest_operation_binding, expectedRestBinding)) {
+    errors.push(
+      'REST operation binding must remain exact; '
+        + 'listInvestigationCheckpoints must bind to investigation.status/read',
+    );
   }
   if (manifest?.rest_operation_binding?.readInvestigationBundle !== null) {
     errors.push('readInvestigationBundle must not mint or consume a delegation token');
@@ -225,9 +315,12 @@ export async function validateSvcLifecycleBinding({
   }
 
   const memberByPath = new Map((manifest?.members || []).map((member) => [member.file, member]));
+  if (memberByPath.size !== expectedPacketPaths.length - 1
+    || memberByPath.size !== (manifest?.members || []).length) {
+    errors.push('manifest member inventory must contain each non-manifest packet file exactly once');
+  }
   for (const path of expectedPacketPaths.slice(1)) {
     const relative = path.replace(/^contracts\//, '');
-    if ([EXAMPLES_MANIFEST].includes(path)) continue;
     const member = memberByPath.get(relative);
     if (!member) {
       errors.push(`manifest member inventory missing ${relative}`);
@@ -235,6 +328,14 @@ export async function validateSvcLifecycleBinding({
     }
     const digest = sha256(Buffer.from(readSource(root, path, overrides), 'utf8'));
     if (member.sha256 !== digest) errors.push(`manifest member sha256 mismatch for ${relative}`);
+  }
+  for (const reused of manifest?.reuses_accepted_unmodified || []) {
+    if (!existsSync(join(root, 'contracts', reused))) {
+      errors.push(`reused accepted member is missing: ${reused}`);
+    }
+    if (memberByPath.has(reused)) {
+      errors.push(`reused accepted member must not also be owned by proposal: ${reused}`);
+    }
   }
 
   if (examples?.['x-cybrik-status'] !== 'PROPOSED'
@@ -258,7 +359,21 @@ export async function validateSvcLifecycleBinding({
     fixtures.set(path, fixture);
     if (path.includes('/positive/')) counts.positiveFixtures += 1;
     else counts.negativeSemanticFixtures += 1;
-    if (path.endsWith('svc-lifecycle-trust-metadata.json')) continue;
+    if (path.endsWith('svc-lifecycle-trust-metadata.json')) {
+      if (acceptedW2f?.trust && !acceptedW2f.trust(fixture)) {
+        errors.push(
+          `${path}: must validate against accepted cybrik.svc-trust-metadata.v1: `
+            + acceptedW2f.ajv.errorsText(acceptedW2f.trust.errors),
+        );
+      }
+      continue;
+    }
+    if (acceptedW2f?.request && !acceptedW2f.request(fixture)) {
+      errors.push(
+        `${path}: must validate against accepted cybrik.svc-delegation-request.v1: `
+          + acceptedW2f.ajv.errorsText(acceptedW2f.request.errors),
+      );
+    }
     for (const structuralError of requestStructuralErrors(fixture)) {
       errors.push(`${path}: must remain structurally valid against accepted W2-F shape: ${structuralError}`);
     }

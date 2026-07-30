@@ -1,0 +1,58 @@
+{
+  "request_id": "svc_lifecycle_cancel_0001",
+  "presented_token": {
+    "header": {
+      "alg": "ES256",
+      "typ": "at+jwt",
+      "kid": "soc-mint-2026-07"
+    },
+    "claims": {
+      "iss": "spiffe://soc.internal.cybrik/mint/downstream",
+      "sub": "spiffe://soc.internal.cybrik/workload/investigation-api",
+      "aud": "svc:cyber-ai-lifecycle",
+      "iat": 1899999960,
+      "nbf": 1899999960,
+      "exp": 1900000040,
+      "jti": "jti-lifecycle-cancel-0001",
+      "cnf": {
+        "x5t#S256": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
+      },
+      "scope": "investigation.lifecycle:cancel",
+      "cybrik.tenant_id": "tenant-acme",
+      "cybrik.org_scope": "org:acme/soc/tier2",
+      "cybrik.actor": {
+        "type": "service",
+        "id": "spiffe://soc.internal.cybrik/workload/investigation-api",
+        "tenant_id": "tenant-acme"
+      },
+      "cybrik.operation": {
+        "name": "investigation.cancel",
+        "max_risk_class": "R1"
+      },
+      "cybrik.marking": {
+        "classification": "confidential",
+        "tlp": "TLP:AMBER"
+      }
+    }
+  },
+  "relying_party": {
+    "audience": "svc:cyber-ai-lifecycle",
+    "trust_domain": "soc.internal.cybrik",
+    "peer_cert_thumbprint": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
+  },
+  "tenant_id": "tenant-acme",
+  "org_scope": "org:acme/soc/tier2",
+  "actor": {
+    "type": "service",
+    "id": "spiffe://soc.internal.cybrik/workload/investigation-api",
+    "tenant_id": "tenant-acme"
+  },
+  "operation": {
+    "name": "investigation.cancel",
+    "max_risk_class": "R1"
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  }
+}

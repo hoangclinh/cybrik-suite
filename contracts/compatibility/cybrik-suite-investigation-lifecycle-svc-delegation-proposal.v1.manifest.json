@@ -1,0 +1,195 @@
+{
+  "title": "CYBRIK investigation-lifecycle service-delegation binding proposal v1",
+  "description": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. Additive restriction profile binding the accepted W2-F service-delegation validation view to the accepted investigation-lifecycle surface. It introduces no schema, server, endpoint, runtime, deployment, acceptance, stable bundle, release, Fabric authority or production claim.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-implemented": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "audience": "svc:cyber-ai-lifecycle",
+  "wire_scope": "NO NEW SERVER / NO NEW ENDPOINT. This proposal restricts authorization at the already accepted lifecycle seam only.",
+  "mcp_scope": "OUT OF SCOPE. No MCP, capability, tool, action, approval, execution grant or credential authority.",
+  "reuses_accepted_unmodified": [
+    "json-schema/cybrik.svc-common-defs.v1.schema.json",
+    "json-schema/cybrik.svc-delegation-token.v1.schema.json",
+    "json-schema/cybrik.svc-delegation-request.v1.schema.json",
+    "json-schema/cybrik.svc-trust-metadata.v1.schema.json",
+    "compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json",
+    "compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json",
+    "openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml"
+  ],
+  "delegatable_operations": {
+    "investigation.create": "investigation.lifecycle:create",
+    "investigation.status": "investigation.lifecycle:read",
+    "investigation.cancel": "investigation.lifecycle:cancel"
+  },
+  "reserved_non_delegatable_operations": [
+    "investigation.checkpoint",
+    "investigation.bundle_read"
+  ],
+  "rest_operation_binding": {
+    "createInvestigation": "investigation.create",
+    "getInvestigationStatus": "investigation.status",
+    "listInvestigationCheckpoints": "investigation.status",
+    "cancelInvestigation": "investigation.cancel",
+    "readInvestigationBundle": null
+  },
+  "binding_invariants": [
+    {
+      "id": "LSD-1",
+      "statement": "Token aud, relying-party audience and pinned self_audience equal svc:cyber-ai-lifecycle exactly."
+    },
+    {
+      "id": "LSD-2",
+      "statement": "require_mtls and require_cnf remain true; the mTLS peer certificate SHA-256 thumbprint equals token cnf x5t#S256."
+    },
+    {
+      "id": "LSD-3",
+      "statement": "The advisory body tenant equals the signed token tenant; cross-tenant mismatch is rejected."
+    },
+    {
+      "id": "LSD-4",
+      "statement": "When present, advisory body org scope equals the signed token org scope and never expands it."
+    },
+    {
+      "id": "LSD-5",
+      "statement": "The full advisory body actor equals the signed token actor; identity substitution is rejected."
+    },
+    {
+      "id": "LSD-6",
+      "statement": "The requested operation equals the signed token operation."
+    },
+    {
+      "id": "LSD-7",
+      "statement": "The token carries exactly one scope and it equals the operation mapping; extra or different scopes are rejected."
+    },
+    {
+      "id": "LSD-8",
+      "statement": "Request marking does not exceed the signed token marking on either classification or TLP axis."
+    },
+    {
+      "id": "LSD-9",
+      "statement": "Token lifetime is no more than 120 seconds and jti is single-use for its validity window."
+    },
+    {
+      "id": "LSD-10",
+      "statement": "investigation.checkpoint remains an internal Cyber AI producer write and is never delegatable by SOC."
+    },
+    {
+      "id": "LSD-11",
+      "statement": "investigation.bundle_read remains reserved and non-delegatable; unconditional refusal mints and consumes no token."
+    }
+  ],
+  "members": [
+    {
+      "file": "adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
+      "kind": "adapter-notes",
+      "contract_version": "0.1.0",
+      "sha256": "3d33444ad83bd6cbc23bc4dc340f250fe8f75635cedde7ea51926da86fc7abf3"
+    },
+    {
+      "file": "examples/svc-lifecycle/examples-manifest.json",
+      "kind": "examples-manifest",
+      "contract_version": "0.1.0",
+      "sha256": "eabd3fe6d0e52fa45a6988404945338d2c1d8453ed414a3525202a412c69db77"
+    },
+    {
+      "file": "examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "6aff12879e9161e70eef45ada3b49994ca1403e0eaca3733decd20ebc22ba76b"
+    },
+    {
+      "file": "examples/svc-lifecycle/positive/svc-lifecycle-create-request.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "b855dec26a8ce3df3d7715bba7367a772d6455716210c54aadb4dc8b025cafe2"
+    },
+    {
+      "file": "examples/svc-lifecycle/positive/svc-lifecycle-status-request.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "2b7ffc6efc8f6f3b0d0be76a854ef5b699573de368eece8f39e336f7b3b00702"
+    },
+    {
+      "file": "examples/svc-lifecycle/positive/svc-lifecycle-cancel-request.json",
+      "kind": "positive",
+      "contract_version": "0.1.0",
+      "sha256": "25eee1a59ed85d075aacc7e9b2c6b0a5615e18c5aabd92d5673cded2cdce16f5"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.wrong-audience.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "665247006273abbe0ebc75e01519396b7461a4cad7b802b3b68b24fb28725a43"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.operation-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "6e51319e51e4cc32338f4e01bec06ebfa305a6bbf3c9f221d508ad224f2d10d2"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.scope-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "b64779004a5fb1adaf80afce5351d9f75dd98d5ad2f2f1c1186cbd162dfd9e87"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.tenant-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "34a3de8faf28afd24710c00f9e9074f041d5322495e6e79bb61b916240c9623d"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.org-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "980b69b2ff30e1a20bdb679d016d1dec4dddd2a47af40ba36a2eb4a84b74cc31"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.actor-mismatch.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "bcb41fae82d40140078a7f8334b13d6db6790e2cd7dcdd8c8722020f33c374cb"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.marking-escalation.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "2e33fdc30bed9abf830133ca139ff7964d15618bfba9207b33b7bee57f6efe89"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.replay.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "8cbd8ceac2808ab1f48995a2a2c540bf3d8fe08ce26c746f822647975867fe20"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.checkpoint-not-delegatable.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "7254cb88258d3e9986cd5ef77c2cfde1b6e27d10f9eea9f34764ed3f412830d8"
+    },
+    {
+      "file": "examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.bundle-read-not-delegatable.json",
+      "kind": "negative-semantic",
+      "contract_version": "0.1.0",
+      "sha256": "54bb2a937f1e875bd3838ad4e7b80d96d7c974604886f03914bd4af2415fa15f"
+    }
+  ],
+  "gate": {
+    "id": "W2-F-LIFECYCLE-BINDING",
+    "status": "NOT OPENED",
+    "decision": "No acceptance decision is recorded. Green static validation is evidence only."
+  },
+  "acceptance": {
+    "status": "NOT ACCEPTED",
+    "implementation": "NOT IMPLEMENTED",
+    "non_claims": [
+      "No product runtime, route, socket, mTLS deployment or token mint/verifier wiring exists because of this proposal.",
+      "No checkpoint write or bundle-read delegation is authorized.",
+      "No CI, canonical merge, release, stable v1/GA or production action is implied."
+    ]
+  }
+}
