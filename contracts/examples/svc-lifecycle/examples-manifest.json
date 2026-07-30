@@ -1,0 +1,81 @@
+{
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-implemented": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "description": "Static conformance fixtures for the PROPOSED lifecycle restriction over accepted W2-F. Positive requests must satisfy the lifecycle audience, mTLS/cnf, <=120s, tenant/org/actor, operation, exact-scope, marking and replay rules. Negative-semantic fixtures remain structurally valid W2-F validation views but must be rejected by the named runtime invariant. Green tests do not imply acceptance or implementation.",
+  "test_reference_clock_epoch_seconds": 1900000000,
+  "examples": [
+    {
+      "file": "positive/svc-lifecycle-trust-metadata.json",
+      "kind": "positive",
+      "contract": "cybrik.svc-trust-metadata.v1"
+    },
+    {
+      "file": "positive/svc-lifecycle-create-request.json",
+      "kind": "positive",
+      "contract": "cybrik.svc-delegation-request.v1"
+    },
+    {
+      "file": "positive/svc-lifecycle-status-request.json",
+      "kind": "positive",
+      "contract": "cybrik.svc-delegation-request.v1",
+      "invariant": "listInvestigationCheckpoints binds to investigation.status with investigation.lifecycle:read."
+    },
+    {
+      "file": "positive/svc-lifecycle-cancel-request.json",
+      "kind": "positive",
+      "contract": "cybrik.svc-delegation-request.v1"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.wrong-audience.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-1 exact lifecycle audience"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.operation-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-6 operation binding"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.scope-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-7 exact scope"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.tenant-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-3 tenant binding"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.org-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-4 org binding"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.actor-mismatch.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-5 actor binding"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.marking-escalation.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-8 marking non-escalation"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.replay.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-9 jti replay"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.checkpoint-not-delegatable.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-10 checkpoint is internal producer write"
+    },
+    {
+      "file": "negative-semantic/svc-lifecycle-request.bundle-read-not-delegatable.json",
+      "kind": "negative-semantic",
+      "invariant": "LSD-11 readInvestigationBundle is an accepted business lifecycle operation with an accepted v0.1.1 response contract, but this proposed W2-F binding grants no bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token; any future binding requires a separately accepted implementation and contract gate"
+    }
+  ]
+}
