@@ -15,7 +15,7 @@ acceptance authority. The relying-party audience is exactly `svc:cyber-ai-lifecy
 | `getInvestigationStatus` | `investigation.status` | `investigation.lifecycle:read` | SOC may mint one short-lived request token. |
 | `listInvestigationCheckpoints` | `investigation.status` | `investigation.lifecycle:read` | This is an external read of producer-owned checkpoints, not a checkpoint write. |
 | `cancelInvestigation` | `investigation.cancel` | `investigation.lifecycle:cancel` | SOC may mint one short-lived request token. |
-| `readInvestigationBundle` | `investigation.bundle_read` | none | This is already an accepted business lifecycle operation with an accepted v0.1.1 response contract. This proposed binding grants it no delegation authority: no token is minted or consumed while the current Cyber AI implementation remains unconditional refusal. |
+| `readInvestigationBundle` | `investigation.bundle_read` | none | This is already an accepted business lifecycle operation with an accepted v0.1.1 response contract. This proposed binding grants it no delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this proposal. |
 
 The exact-scope rule is deliberately singular: a lifecycle token contains exactly the one scope
 mapped to its operation. Extra scopes are rejected rather than treated as harmless.
@@ -26,9 +26,9 @@ mapped to its operation. Extra scopes are rejected rather than treated as harmle
 - `readInvestigationBundle` / `investigation.bundle_read` is already a declared accepted business
   lifecycle operation, and accepted v0.1.1 is the authoritative response profile for new bundle
   reads. This proposal does not reopen or weaken that accepted contract. It declines only W2-F
-  delegation authority for this operation because the current Cyber AI implementation is still
-  unimplemented and returns unconditional refusal. That current refusal path must neither mint nor
-  consume a token.
+  delegation authority for this operation: no caller may mint and no relying party may consume a
+  bundle-read delegation token under this proposal. Any future bundle-read delegation binding
+  requires a separately accepted implementation and contract gate.
 
 ## Restriction over accepted W2-F
 

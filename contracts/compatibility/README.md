@@ -37,8 +37,9 @@ delegatable operation/scope pairs, the status/read treatment of `listInvestigati
 and the fail-closed rule that checkpoint producer writes are not delegatable. It also preserves
 `readInvestigationBundle` / `investigation.bundle_read` as an accepted business lifecycle
 operation with accepted v0.1.1 response contract while declining only W2-F delegation authority
-until the current Cyber AI unconditional-refusal implementation state changes through a separate
-review. Its fixtures prove static conformance only; they do not accept or implement a runtime.
+under this proposal: no caller may mint and no relying party may consume a bundle-read delegation
+token. Any future binding requires a separately accepted implementation and contract gate. Its
+fixtures prove static conformance only; they do not accept or implement a runtime.
 
 `cybrik-suite-investigation-packet.v1.manifest.json` (W0-I01 Investigation/Claim/Evidence/Bundle)
 is an **additive, disjoint** packet, `ACCEPTED FOR IMPLEMENTATION` at v0.1.0 (not stable v1/GA)

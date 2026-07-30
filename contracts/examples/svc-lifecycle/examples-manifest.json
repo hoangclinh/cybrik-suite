@@ -75,7 +75,7 @@
     {
       "file": "negative-semantic/svc-lifecycle-request.bundle-read-not-delegatable.json",
       "kind": "negative-semantic",
-      "invariant": "LSD-11 readInvestigationBundle is an accepted business lifecycle operation with an accepted v0.1.1 response contract, but this proposed W2-F binding grants no bundle-read delegation authority while the current Cyber AI implementation remains unconditional refusal"
+      "invariant": "LSD-11 readInvestigationBundle is an accepted business lifecycle operation with an accepted v0.1.1 response contract, but this proposed W2-F binding grants no bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token; any future binding requires a separately accepted implementation and contract gate"
     }
   ]
 }

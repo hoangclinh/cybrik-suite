@@ -397,10 +397,17 @@ export async function validateSvcLifecycleBinding({
   const bundleDelegation = manifest?.delegation_disposition?.readInvestigationBundle;
   if (bundleDelegation?.delegated !== false
     || bundleDelegation?.mint_token !== false
-    || bundleDelegation?.consume_token !== false
-    || bundleDelegation?.reason
-      !== 'CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL') {
+    || bundleDelegation?.consume_token !== false) {
     errors.push('readInvestigationBundle must not mint or consume a delegation token');
+  }
+  if (bundleDelegation?.reason
+      !== 'PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY'
+    || bundleDelegation?.future_binding_gate
+      !== 'SEPARATELY_ACCEPTED_IMPLEMENTATION_AND_CONTRACT_GATE_REQUIRED') {
+    errors.push(
+      'future bundle-read binding requires a separately accepted implementation '
+        + 'and contract gate',
+    );
   }
   for (const phrase of [
     'PROPOSED',
@@ -411,9 +418,42 @@ export async function validateSvcLifecycleBinding({
     'listInvestigationCheckpoints',
     'investigation.status',
     'accepted business lifecycle operation',
-    'current Cyber AI implementation',
+    'no caller may mint',
+    'no relying party may consume',
+    'separately accepted implementation and contract gate',
   ]) {
     if (!notes.includes(phrase)) errors.push(`mapping notes must state '${phrase}'`);
+  }
+
+  let contractsReadme = '';
+  let compatibilityReadme = '';
+  try {
+    contractsReadme = readSource(root, 'contracts/README.md', overrides);
+    compatibilityReadme = readSource(
+      root,
+      'contracts/compatibility/README.md',
+      overrides,
+    );
+  } catch (error) {
+    errors.push(`proposal README cannot be read: ${error.message}`);
+  }
+  const proposalOwnedProse = [
+    notes,
+    contractsReadme,
+    compatibilityReadme,
+    JSON.stringify(manifest),
+    JSON.stringify(examples),
+  ].join('\n');
+  const runtimeOverclaimPatterns = [
+    /\bCyber AI\b.{0,100}\b(?:currently|current implementation|returns?|refus(?:es|al|ing))\b/is,
+    /\b(?:currently|current implementation)\b.{0,100}\bCyber AI\b/is,
+    /\bcross[- ]repo(?:sitory)? runtime state\b/is,
+  ];
+  if (runtimeOverclaimPatterns.some((pattern) => pattern.test(proposalOwnedProse))) {
+    errors.push(
+      'proposal must not assert cross-repository runtime state; '
+        + 'Suite owns only the proposed nondelegation contract rule',
+    );
   }
 
   const memberByPath = new Map((manifest?.members || []).map((member) => [member.file, member]));

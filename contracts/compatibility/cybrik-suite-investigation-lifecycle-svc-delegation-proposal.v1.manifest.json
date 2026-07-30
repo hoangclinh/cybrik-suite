@@ -41,7 +41,8 @@
       "delegated": false,
       "mint_token": false,
       "consume_token": false,
-      "reason": "CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL"
+      "reason": "PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY",
+      "future_binding_gate": "SEPARATELY_ACCEPTED_IMPLEMENTATION_AND_CONTRACT_GATE_REQUIRED"
     }
   },
   "accepted_source_cross_check": {
@@ -97,7 +98,7 @@
     },
     {
       "id": "LSD-11",
-      "statement": "readInvestigationBundle / investigation.bundle_read remains an accepted business lifecycle operation with accepted v0.1.1 response contract. This proposed binding declines only its W2-F delegation authority because the current Cyber AI implementation is unimplemented and returns unconditional refusal; that current path mints and consumes no token."
+      "statement": "readInvestigationBundle / investigation.bundle_read remains an accepted business lifecycle operation with accepted v0.1.1 response contract. This proposed binding grants no W2-F bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this proposal. Any future binding requires a separately accepted implementation and contract gate."
     }
   ],
   "members": [
@@ -105,13 +106,13 @@
       "file": "adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
       "kind": "adapter-notes",
       "contract_version": "0.1.0",
-      "sha256": "215aff878a119c8f0198b3abeeedb937c0eb27b8f72cb8275680d641e6874a31"
+      "sha256": "6d7ec7349be46984dc6376f393005ad773aa268273bec461bb31b6c5d8bca79c"
     },
     {
       "file": "examples/svc-lifecycle/examples-manifest.json",
       "kind": "examples-manifest",
       "contract_version": "0.1.0",
-      "sha256": "9b4d5490377559ec777f4a12f4f7aaf1a5d5ddeae75aefecd9c05083dbccf8cf"
+      "sha256": "dfdcbea4743a4473b2e9b56d579dcee5d51e214c528dfa6b10c1ae1e91d3f8d6"
     },
     {
       "file": "examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json",

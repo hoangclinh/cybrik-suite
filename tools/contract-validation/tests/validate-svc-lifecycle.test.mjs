@@ -132,7 +132,7 @@ test('accepted bundle-read business contract remains source truth while delegati
   );
   assert.match(notes, /readInvestigationBundle.*accepted business lifecycle operation/is);
   assert.doesNotMatch(notes, /reserved for a future separately accepted profile/i);
-  assert.match(notes, /current Cyber AI implementation.*unconditional refusal/is);
+  assert.match(notes, /no caller may mint.*no relying party may consume/is);
 });
 
 test('accepted lifecycle operation and 200-response source drift fails closed', async () => {
@@ -195,7 +195,7 @@ test('bundle-read nondelegation is a Suite contract rule with no cross-repo runt
   ].join('\n');
   assert.doesNotMatch(
     proposalProse,
-    /CURRENT_IMPLEMENTATION_UNCONDITIONAL_REFUSAL|current Cyber AI implementation|unconditional refusal/i,
+    /\bCyber AI\b.{0,80}\b(?:currently|runtime (?:returns|refuses))\b/is,
   );
   assert.match(proposalProse, /no caller may mint/i);
   assert.match(proposalProse, /no relying party may consume/i);
