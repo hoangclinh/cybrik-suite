@@ -272,6 +272,32 @@ test("requires a truthful current top-level CI3 canonical status", () => {
   );
 });
 
+test("requires the adjacent CI3 historical-versus-current explanation", () => {
+  const explanatoryBlock = [
+    "Historical authoring status, retained for §§1–5:",
+    "`LOCAL CANDIDATE GO — AUTHORING SNAPSHOT BEFORE COMMIT/PUSH/MERGE — HOSTED CI PENDING`.",
+    "Section §6 is the authoritative canonical-integration evidence; this header correction changes no",
+    "runtime, UAT, release-date or production gate.",
+  ].join("\n");
+
+  assert.match(ci3RemediationText, new RegExp(explanatoryBlock, "m"));
+  assert.doesNotThrow(() => validate());
+  assert.throws(
+    () =>
+      validate({
+        ci3RemediationText: ci3RemediationText.replace(
+          explanatoryBlock,
+          [
+            "Current status for §§1–5:",
+            "`CANONICAL MERGED`.",
+            "Section §6 is the authoritative canonical-integration evidence.",
+          ].join("\n"),
+        ),
+      }),
+    /CI3 remediation must preserve the adjacent historical-versus-current explanation/,
+  );
+});
+
 test("accepts the current fixed 48-agent W1 control documents", () => {
   const result = validate();
 
