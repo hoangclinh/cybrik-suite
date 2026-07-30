@@ -3517,6 +3517,34 @@ test("requires canonical validation to execute the live-Git W1 control validator
   );
 });
 
+test("pins CI actions to reviewed Node 24 runtime commits", async () => {
+  const workflowText = await readFile(
+    join(repositoryRoot, ".github", "workflows", "contracts.yml"),
+    "utf8",
+  );
+
+  assert.equal(
+    (
+      workflowText.match(
+        /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/g,
+      ) ?? []
+    ).length,
+    2,
+  );
+  assert.equal(
+    (
+      workflowText.match(
+        /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/g,
+      ) ?? []
+    ).length,
+    1,
+  );
+  assert.doesNotMatch(
+    workflowText,
+    /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
+  );
+});
+
 test("rejects an unpinned GitHub action even when the line carries a comment", async () => {
   const [workflowText, packageText, orchestratorText] = await Promise.all([
     readFile(join(repositoryRoot, ".github", "workflows", "contracts.yml"), "utf8"),
