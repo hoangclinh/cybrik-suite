@@ -59,6 +59,8 @@ const readPacketJson = (relativePath) => {
   if (!existsSync(absolutePath)) return undefined;
   return JSON.parse(readFileSync(absolutePath, 'utf8'));
 };
+const readRepoText = (relativePath) =>
+  readFileSync(join(REPO_ROOT, relativePath), 'utf8');
 
 const jcsBuffer = (value) => Buffer.from(canonicalizeJcs(value), 'utf8');
 const b64u = (buffer) => Buffer.from(buffer).toString('base64url');
@@ -146,6 +148,47 @@ test('the frozen compact JWS is byte-exactly reproducible from the TEST-ONLY see
   assert.equal(jwkThumbprintKid(jwk), statement.kid);
   assert.equal(resignStatement(statement, privateKey), envelope.jws_compact);
   assert.equal(computeSignatureLocator(envelope.jws_compact), envelope.signature_locator);
+});
+
+test('the positive JWS is literal and its jwt allowlist is exact and fail-closed', () => {
+  const positivePath =
+    'contracts/examples/receipt-integrity/positive/receipt-signature-envelope.json';
+  const raw = readRepoText(positivePath);
+  const envelope = JSON.parse(raw);
+
+  assert.doesNotMatch(
+    raw,
+    /"jws_compact"\s*:\s*"\\u0065/,
+    'the positive compact JWS must not be hidden behind a JSON source escape',
+  );
+  assert.ok(
+    raw.includes(`  "jws_compact": "${envelope.jws_compact}",`),
+    'the source fixture must carry the exact parsed compact JWS bytes literally',
+  );
+  assert.equal(
+    computeSignatureLocator(envelope.jws_compact),
+    envelope.signature_locator,
+    'the locator must remain the digest of those exact compact JWS bytes',
+  );
+
+  const config = readRepoText('.gitleaks.toml');
+  const jwtBlocks = config
+    .split('[[allowlists]]')
+    .slice(1)
+    .filter((block) => block.includes('targetRules = ["jwt"]'));
+  assert.equal(jwtBlocks.length, 1, 'there must be exactly one jwt allowlist');
+  const effectiveLines = jwtBlocks[0]
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+  assert.deepEqual(effectiveLines, [
+    'description = "F8 TEST-ONLY positive receipt JWS vector (exact path and signature)"',
+    'targetRules = ["jwt"]',
+    'condition = "AND"',
+    'regexTarget = "line"',
+    "paths = ['''^contracts/examples/receipt-integrity/positive/receipt-signature-envelope\\.json$''']",
+    "regexes = ['''^\\s*\"jws_compact\": \"[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.IB9ZgpRgf0WNvMHwPnLc3nQJskAWiTG2LKmijLyrsunEzS3rDFUxsM6TalcFGlc9qoEyNdPpalnfwwo_lQ49DA\",$''']",
+  ]);
 });
 
 test('Ed25519 verification of the frozen vector succeeds and its trust bundle holds no private key', () => {
@@ -330,6 +373,24 @@ test('canonical npm validate directly executes F8 tests without changing W1 inve
     /validate-receipt-integrity\.test\.mjs/,
     'the additive F8 suite must not change the accepted W1 98-test inventory',
   );
+});
+
+test('F8 additions do not rewrite corpus-wide contract authority wording', () => {
+  const contractsReadme = readRepoText('contracts/README.md');
+  const schemaReadme = readRepoText('contracts/json-schema/README.md');
+  assert.ok(contractsReadme.includes(
+    'No contract has been accepted; no product may implement any of these until\n'
+      + 'explicit Founder acceptance (ADR-0001 D5).',
+  ));
+  assert.ok(contractsReadme.includes(
+    'Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold\n'
+      + 'placeholder OpenAPI/schema files as if they were accepted contracts.',
+  ));
+  assert.ok(schemaReadme.includes(
+    'Conformance fixtures: `../examples/`. Moving any file out of `PROPOSED` requires explicit Founder approval.',
+  ));
+  assert.match(contractsReadme, /F8 receipt-integrity signature profile packet/);
+  assert.match(schemaReadme, /F8 receipt-integrity signature profile/);
 });
 
 const SCHEMA_ID_BASE = 'https://contracts.cybrik.example/json-schema';
