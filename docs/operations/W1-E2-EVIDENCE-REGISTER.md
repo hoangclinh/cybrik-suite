@@ -2781,3 +2781,23 @@ Disposition: `LOCAL CANDIDATE GO`. Full records:
 The dependency-specific local CI3 blocker is cleared. No commit, push, canonical merge or hosted
 CI pass is claimed by this row. Runtime/local stack/demo/UAT stay `NO-GO` until G-C
 `stable-v1.0`; all release dates remain unchanged; production remains Founder-controlled.
+
+## 34. CI3 canonical merge and hosted evidence — 2026-07-30
+
+| Evidence | Exact result |
+|---|---|
+| Reviewed implementation | `f82f45e8d56be27651c56e8d1510877f48563224`, 15 paths, tree `f222fad6bc6d3682684a0975f47a5415f7f716dc` |
+| PR and merge | PR `https://github.com/hoangclinh/cybrik-suite/pull/1`; merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`; merge tree byte-identical |
+| Hosted push | run `30537452524`: both jobs pass |
+| Hosted PR | run `30537544800`: both jobs pass |
+| Hosted canonical | run `30537649671`: both jobs pass |
+| Required checks | strict `contract standards validation` and `secret-scan (gitleaks 8.30.1)`; app id 15368; admins enforced |
+| Ref safety | force-push disabled; deletion disabled; reviewed remote branch retained |
+| Rollback | normal `git revert -m 1 28c564eb…` plus required checks; not executed |
+
+Hosted P3 retained: the pinned GitHub actions target the deprecated Node 20 action runtime and
+GitHub forces their internal runtime to Node 24. The contract validator still ran under the
+explicitly installed Node.js 20.18.1. This maintenance warning is not a failed check.
+
+Dependency-specific CI3 activation is closed. Runtime/local stack/demo/UAT remain `NO-GO` until
+G-C `stable-v1.0`; release dates are unchanged; production remains Founder-controlled.

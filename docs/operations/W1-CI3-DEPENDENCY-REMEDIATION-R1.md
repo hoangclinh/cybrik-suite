@@ -90,3 +90,37 @@ runtime-product claim.
 
 Runtime, local stack, demo and UAT remain `NO-GO`; release dates are unchanged; production remains
 Founder-controlled.
+
+## 6. Canonical integration evidence
+
+The authoring snapshot above was executed after its gates passed:
+
+- implementation commit:
+  `f82f45e8d56be27651c56e8d1510877f48563224`;
+- branch: `codex/w1-ci3-dependency-remediation-r1`;
+- pull request: `https://github.com/hoangclinh/cybrik-suite/pull/1`;
+- canonical merge:
+  `28c564eb9b6853b73a18a59a2e84ba58fd67816a`;
+- merge parents: hosted `main` base
+  `5a4823f06ce9b12083e13cf9b1031f46130d90a8`, then reviewed implementation
+  `f82f45e8d56be27651c56e8d1510877f48563224`;
+- merge tree: `f222fad6bc6d3682684a0975f47a5415f7f716dc`, byte-identical to the
+  implementation tree;
+- push checks: run `30537452524`, both jobs passed;
+- pull-request checks: run `30537544800`, both jobs passed; and
+- post-merge canonical checks: run `30537649671`, both jobs passed.
+
+`main` protection is strict and requires the rendered check names
+`contract standards validation` and `secret-scan (gitleaks 8.30.1)`. Admin enforcement remains
+enabled; force-push and deletion remain disabled.
+
+Rollback is a normal merge revert, for example `git revert -m 1 28c564eb…`, followed by the same
+required checks. That command is documented only and was not run.
+
+Hosted runners emitted a nonblocking maintenance warning that the pinned GitHub actions still
+target the deprecated Node 20 action runtime and are being forced to Node 24. This is a new hosted
+`P3`; it does not mean the validator target changed — `actions/setup-node` installed and used the
+pinned Node.js 20.18.1 validator runtime. A separate action-pin refresh should remove the warning.
+
+Canonical integration changes no runtime/UAT decision, no release date and no production
+authority.

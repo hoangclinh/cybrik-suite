@@ -7120,3 +7120,27 @@ is deprecated `glob@7` maintenance, with no current npm advisory.
 The dependency-specific local blocker is cleared. Commit, push and canonical merge remain pending
 the clean-commit and hosted-required-check gates; no hosted pass is claimed. Runtime, local stack,
 demo and UAT remain `NO-GO` until G-C `stable-v1.0`; release dates are unchanged.
+
+## 22. CI3 canonical integration evidence — 2026-07-30
+
+CI3 dependency remediation is canonically merged:
+
+- reviewed implementation `f82f45e8d56be27651c56e8d1510877f48563224`;
+- PR `https://github.com/hoangclinh/cybrik-suite/pull/1`;
+- merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`;
+- merge tree `f222fad6bc6d3682684a0975f47a5415f7f716dc`, identical to the implementation
+  tree;
+- push run `30537452524`, PR run `30537544800` and canonical post-merge run `30537649671`:
+  `contract standards validation=PASS`,
+  `secret-scan (gitleaks 8.30.1)=PASS`; and
+- `main` strict protection requires exactly those two rendered check names, enforces admins and
+  continues to forbid force-push and deletion.
+
+The hosted Node 20 action-runtime deprecation annotation is retained as a nonblocking P3 for a
+separate action-pin refresh. The validator itself ran on Node.js 20.18.1. Rollback is a normal
+merge revert plus the same checks, never a force-push.
+
+This closes the dependency-specific CI3 activation blocker and makes the reviewed C1/G1 +
+corrected C2 control history canonical. It does not prove product runtime, local stack, demo or
+UAT; those remain `NO-GO` until G-C `stable-v1.0`. Release dates are unchanged and production
+remains Founder-controlled.
