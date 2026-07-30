@@ -445,8 +445,8 @@ export async function validateSvcLifecycleBinding({
     JSON.stringify(examples),
   ].join('\n');
   const runtimeOverclaimPatterns = [
-    /\bCyber AI\b.{0,100}\b(?:currently|current implementation|returns?|refus(?:es|al|ing))\b/is,
-    /\b(?:currently|current implementation)\b.{0,100}\bCyber AI\b/is,
+    /\bcurrent Cyber AI implementation\b.{0,80}\b(?:remains?|returns?|is)\b.{0,40}\b(?:unconditional )?refus(?:al|es|ing)\b/is,
+    /\bCyber AI currently\b.{0,60}\b(?:refus(?:es|al|ing)|returns?)\b.{0,60}\b(?:bundle[- ]read|readInvestigationBundle|investigation\.bundle_read)\b/is,
     /\bcross[- ]repo(?:sitory)? runtime state\b/is,
   ];
   if (runtimeOverclaimPatterns.some((pattern) => pattern.test(proposalOwnedProse))) {

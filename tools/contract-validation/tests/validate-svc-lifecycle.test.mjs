@@ -228,9 +228,20 @@ test('cross-repo runtime-state overclaim and weakened future gate fail closed', 
 
 test('canonical npm validate directly executes the lifecycle-delegation test suite', () => {
   const orchestrator = read('tools/contract-validation/validate.mjs');
+  const packageJson = JSON.parse(read('tools/contract-validation/package.json'));
+  assert.equal(packageJson.scripts.validate, 'node validate.mjs');
   assert.match(
     orchestrator,
     /['"]tests\/validate-svc-lifecycle\.test\.mjs['"]/,
+  );
+  const w1Inventory = orchestrator.slice(
+    orchestrator.indexOf('const W1_CONTRACT_TEST_FILES'),
+    orchestrator.indexOf('const W1_CONTRACT_TEST_COUNT'),
+  );
+  assert.doesNotMatch(
+    w1Inventory,
+    /validate-svc-lifecycle\.test\.mjs/,
+    'the additive suite must not change the accepted W1 98-test inventory',
   );
 });
 
