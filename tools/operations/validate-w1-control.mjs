@@ -97,8 +97,17 @@ const CI3_HISTORICAL_CURRENT_EXPLANATION = [
 ].join("\n");
 
 function validateCi3RemediationStatus(ci3RemediationText) {
-  const topLevelStatusMatch = ci3RemediationText.match(/^Status: `[^`\n]+`\.$/m);
-  const topLevelStatus = topLevelStatusMatch?.[0];
+  const topLevelStatusMatches = [
+    ...ci3RemediationText.matchAll(/^Status: `[^`\n]+`\.$/gm),
+  ];
+  if (topLevelStatusMatches.length !== 1) {
+    throw new Error(
+      "CI3 remediation must contain exactly one top-level Status line",
+    );
+  }
+
+  const [topLevelStatusMatch] = topLevelStatusMatches;
+  const topLevelStatus = topLevelStatusMatch[0];
   if (topLevelStatus !== CI3_CANONICAL_STATUS) {
     throw new Error(
       "CI3 remediation top-level status must record the canonical PR #1 merge",
