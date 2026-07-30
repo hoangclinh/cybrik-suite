@@ -85,6 +85,26 @@ const W1_CANONICAL_INTEGRATION = {
   ],
 };
 
+const CI3_CANONICAL_STATUS =
+  "Status: `CANONICAL MERGED 2026-07-30 — PR #1 / " +
+  "28c564eb9b6853b73a18a59a2e84ba58fd67816a`.";
+
+function validateCi3RemediationStatus(ci3RemediationText) {
+  const topLevelStatus = ci3RemediationText.match(/^Status: `[^`\n]+`\.$/m)?.[0];
+  if (topLevelStatus !== CI3_CANONICAL_STATUS) {
+    throw new Error(
+      "CI3 remediation top-level status must record the canonical PR #1 merge",
+    );
+  }
+
+  return {
+    lifecycle: "CANONICAL MERGED",
+    mergedOn: "2026-07-30",
+    pullRequest: 1,
+    merge: W1_CANONICAL_INTEGRATION.merge,
+  };
+}
+
 const W1_RECONCILIATION_HISTORICAL_COMMITS = [
   "3a2c71555a423465855ffaddcb663c8b704dbfbd",
   "a976a205601de22dae59e5112e37ae29707fda0e",
@@ -3636,6 +3656,7 @@ export function validateW1ControlDocuments({
   adrReadmeText,
   operationsReadmeText,
   actionRecordText,
+  ci3RemediationText,
   packetText,
 }) {
   const { taskIds, categoryCounts } = parseBoardTasks(boardText);
@@ -3664,6 +3685,7 @@ export function validateW1ControlDocuments({
   validateE2Register(e2RegisterText);
   validateSprint(sprintText);
   validateAdrCatalog(adrReadmeText);
+  const ci3Remediation = validateCi3RemediationStatus(ci3RemediationText);
   const w1C1Candidate = validateDualStateW1C1Provenance({
     e2RegisterText,
     boardText,
@@ -3771,6 +3793,7 @@ export function validateW1ControlDocuments({
     // candidate is *not* part of the accepted contract gate, and folding it in
     // there would be the very conflation these rules exist to prevent.
     w1C1CandidateDisposition: w1C1Candidate,
+    ci3Remediation,
     w1ReconciliationApplication,
     // The Suite LINE 1 publication measurement taken at the immutable base,
     // with this lane's offset and the derived post-commit prediction. Proposed
@@ -3833,6 +3856,11 @@ const CONTROL_DOCUMENT_PATHS = {
     "operations",
     "W1-CANONICAL-STATE-RECONCILIATION-R1.md",
   ],
+  ci3RemediationText: [
+    "docs",
+    "operations",
+    "W1-CI3-DEPENDENCY-REMEDIATION-R1.md",
+  ],
   packetText: [
     "docs",
     "operations",
@@ -3881,6 +3909,7 @@ async function main() {
       `GATE_A4_DISPOSITION=${JSON.stringify(result.gateA4Disposition)}, ` +
       `CONTRACT_GATE_DISPOSITION=${JSON.stringify(result.contractGateDisposition)}, ` +
       `W1_C1_CANDIDATE=${JSON.stringify(result.w1C1CandidateDisposition)}, ` +
+      `CI3_REMEDIATION=${JSON.stringify(result.ci3Remediation)}, ` +
       `W1_RECONCILIATION=${JSON.stringify(result.w1ReconciliationApplication)}, ` +
       `W1_TOPOLOGY=${JSON.stringify(result.reconciliationTopology)}, ` +
       `W1_CI=${JSON.stringify(result.ciWiring)}, ` +

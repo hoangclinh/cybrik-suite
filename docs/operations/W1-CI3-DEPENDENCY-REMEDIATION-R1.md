@@ -1,6 +1,11 @@
 # W1 CI3 Dependency Remediation R1
 
-Status: `LOCAL CANDIDATE GO — AUTHORING SNAPSHOT BEFORE COMMIT/PUSH/MERGE — HOSTED CI PENDING`.
+Status: `CANONICAL MERGED 2026-07-30 — PR #1 / 28c564eb9b6853b73a18a59a2e84ba58fd67816a`.
+
+Historical authoring status, retained for §§1–5:
+`LOCAL CANDIDATE GO — AUTHORING SNAPSHOT BEFORE COMMIT/PUSH/MERGE — HOSTED CI PENDING`.
+Section §6 is the authoritative canonical-integration evidence; this header correction changes no
+runtime, UAT, release-date or production gate.
 
 Base: `554ada18ee6855a967de8a5425efc5edf89bb908`.
 
