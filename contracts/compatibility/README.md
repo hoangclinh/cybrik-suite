@@ -29,6 +29,18 @@ ADR-0008 (the service-delegation seam, where `org_scope` is opaque/advisory), an
 feature-flag-OFF / backfill / rollback compatibility stance for the (separately gated, `NOT
 IMPLEMENTED`) SOC surface.
 
+`cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json` is a separate
+additive restriction profile over the accepted W2-F and investigation-lifecycle packets. It is
+**PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA) and reuses the accepted
+schemas unchanged. It records the exact `svc:cyber-ai-lifecycle` audience, three externally
+delegatable operation/scope pairs, the status/read treatment of `listInvestigationCheckpoints`,
+and the fail-closed rule that checkpoint producer writes are not delegatable. It also preserves
+`readInvestigationBundle` / `investigation.bundle_read` as an accepted business lifecycle
+operation with accepted v0.1.1 response contract while declining only W2-F delegation authority
+under this proposal: no caller may mint and no relying party may consume a bundle-read delegation
+token. Any future binding requires a separately accepted implementation and contract gate. Its
+fixtures prove static conformance only; they do not accept or implement a runtime.
+
 `cybrik-suite-investigation-packet.v1.manifest.json` (W0-I01 Investigation/Claim/Evidence/Bundle)
 is an **additive, disjoint** packet, `ACCEPTED FOR IMPLEMENTATION` at v0.1.0 (not stable v1/GA)
 by explicit Founder Option A with G-W0I01-1..5 `yes` on 2026-07-26. It closes the roadmap Week 0

@@ -62,6 +62,8 @@ const steps = [
   'validate-alert-context.mjs',
   'validate-alert-context-transport.mjs',
   'validate-investigation-lifecycle-proposal.mjs',
+  'validate-svc-lifecycle.mjs',
+  'tests/validate-svc-lifecycle.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;

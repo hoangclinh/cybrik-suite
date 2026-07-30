@@ -20,6 +20,8 @@
     "validate:w1:alert-context": "node validate-alert-context.mjs",
     "validate:w1:alert-context-transport": "node validate-alert-context-transport.mjs",
     "validate:w1:investigation-lifecycle": "node validate-investigation-lifecycle-proposal.mjs",
+    "validate:svc-lifecycle": "node validate-svc-lifecycle.mjs",
+    "test:svc-lifecycle": "node --test tests/validate-svc-lifecycle.test.mjs",
     "test:w1-contracts": "node validate.mjs --test-w1-contracts",
     "test:w1-control": "node --test ../operations/tests/validate-w1-control.test.mjs"
   },
