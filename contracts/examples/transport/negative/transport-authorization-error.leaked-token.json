@@ -1,0 +1,9 @@
+{
+  "type": "cybrik.transport.invalid_token",
+  "title": "invalid token",
+  "status": 401,
+  "error_class": "invalid_token",
+  "decision_id": "dec-neg-leak",
+  "fail_closed": true,
+  "access_token": "eyJ.secret.value"
+}

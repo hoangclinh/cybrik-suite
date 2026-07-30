@@ -1,0 +1,10 @@
+{
+  "type": "cybrik.transport.marking_escalation",
+  "title": "Requested data marking exceeds the delegation token authorized ceiling",
+  "status": 403,
+  "error_class": "marking_escalation",
+  "decision_id": "dec-err-0007-deny",
+  "fail_closed": true,
+  "detail": "The request marking is above the delegation token ceiling on the classification/TLP lattice.",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+}

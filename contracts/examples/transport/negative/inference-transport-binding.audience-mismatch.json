@@ -1,0 +1,96 @@
+{
+  "binding_id": "itb-sem-aud",
+  "transport": {
+    "protocol": "rest/json",
+    "mutual_tls": true,
+    "peer_cert_thumbprint": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    "trust_domain": "soc.internal.cybrik"
+  },
+  "rest_binding": {
+    "method": "POST",
+    "path_template": "/api/v1/inferences",
+    "operation": {
+      "name": "ai.inference.create",
+      "max_risk_class": "R1"
+    },
+    "requires_idempotency_key": true,
+    "retry": {
+      "retriable": true,
+      "is_safe": false,
+      "idempotency_guarded": true,
+      "max_attempts": 3
+    }
+  },
+  "presented_token": {
+    "header": {
+      "alg": "ES256",
+      "typ": "at+jwt",
+      "kid": "soc-mint-2026-07"
+    },
+    "claims": {
+      "iss": "spiffe://soc.internal.cybrik/mint/downstream",
+      "sub": "spiffe://soc.internal.cybrik/workload/alert-triage",
+      "aud": "svc:cyber-ai-inference",
+      "iat": 1899999960,
+      "nbf": 1899999960,
+      "exp": 1900000040,
+      "jti": "jti-soc-9f8e7d6c5b4a3210",
+      "cnf": {
+        "x5t#S256": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
+      },
+      "scope": "ai.inference:invoke ai.summarization:invoke",
+      "cybrik.tenant_id": "tenant-acme",
+      "cybrik.org_scope": "org:acme/soc/tier2",
+      "cybrik.actor": {
+        "type": "service",
+        "id": "spiffe://soc.internal.cybrik/workload/alert-triage",
+        "tenant_id": "tenant-acme"
+      },
+      "cybrik.operation": {
+        "name": "ai.inference.create",
+        "max_risk_class": "R1"
+      },
+      "cybrik.marking": {
+        "classification": "confidential",
+        "tlp": "TLP:AMBER"
+      }
+    }
+  },
+  "relying_party": {
+    "audience": "svc:soc-notifier",
+    "peer_cert_thumbprint": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    "trust_domain": "soc.internal.cybrik",
+    "accepted_issuers": [
+      "spiffe://soc.internal.cybrik/mint/downstream"
+    ]
+  },
+  "body_advisory": {
+    "tenant_id": "tenant-acme",
+    "actor": {
+      "type": "service",
+      "id": "spiffe://soc.internal.cybrik/workload/alert-triage",
+      "tenant_id": "tenant-acme"
+    },
+    "org_scope": "org:acme/soc/tier2",
+    "operation": {
+      "name": "ai.inference.create",
+      "max_risk_class": "R1"
+    },
+    "data_marking": {
+      "classification": "confidential",
+      "tlp": "TLP:AMBER"
+    }
+  },
+  "idempotency_key": "idem-inf-0001-abcdef01",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "deadline_seconds": 30,
+  "feature_flag": {
+    "name": "ai.inference.transport",
+    "enabled": true,
+    "disabled_behavior": "reject_unavailable"
+  },
+  "decision": {
+    "decision_id": "dec-inf-0001-permit",
+    "disposition": "permit"
+  }
+}

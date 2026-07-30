@@ -1,0 +1,8 @@
+{
+  "type": "cybrik.transport.internal",
+  "title": "server error",
+  "status": 500,
+  "error_class": "internal",
+  "decision_id": "dec-neg-badstatus",
+  "fail_closed": true
+}

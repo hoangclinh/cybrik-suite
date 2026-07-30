@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.transport-authorization-error.v1.schema.json",
+  "title": "CYBRIK inference-plane transport/authorization error v1",
+  "description": "Typed, provider-neutral error returned by the inference REST plane for a TRANSPORT or AUTHORIZATION failure (a call that never reaches the W2-D runtime) once the plane is bound to the W2-F trust seam (ADR-0008). Modeled on the RFC 9457 'problem details' shape (type/title/status/detail) with CYBRIK-namespaced fields. Every such error is fail-closed (fail_closed const true) and audited under a decision_id echoed here. It is DISTINCT from the W2-D content-level cybrik.model-inference-error.v1 (which describes a runtime that produced no result); an authorization denial never leaks a runtime detail, a token value, a certificate, or a stack. additionalProperties:false forbids a credential, key, or token value from ever being a field. $id uses the RFC 2606 .example documentation domain; it is an identifier, NOT an endpoint. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). Gate W2-I is NOT OPENED and no Founder acceptance has been recorded.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "title", "status", "error_class", "decision_id", "fail_closed"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "RFC 9457 problem type — a stable, vendor-neutral dotted token identifying the problem class (e.g. 'cybrik.transport.marking_escalation'). NOT a dereferenceable URL; no host or endpoint is carried.",
+      "pattern": "^cybrik\\.transport\\.[a-z][a-z0-9_]*$",
+      "minLength": 18,
+      "maxLength": 128
+    },
+    "title": {
+      "type": "string",
+      "description": "Short, human-readable, non-sensitive summary of the problem class. MUST NOT contain a token value, certificate, key, or other secret.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/httpErrorStatus" },
+    "error_class": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/transportErrorClass" },
+    "decision_id": { "$ref": "cybrik.transport-common-defs.v1.schema.json#/$defs/decisionId" },
+    "fail_closed": {
+      "type": "boolean",
+      "description": "Const true. Every typed transport/authorization error denies the call; there is no partial/soft authorization. A response claiming fail_closed=false is structurally impossible.",
+      "const": true
+    },
+    "detail": {
+      "type": "string",
+      "description": "Optional non-sensitive elaboration. MUST NOT echo a token, certificate thumbprint, key, header value, or request body content; an authorization denial reveals only the class, never the secret material that failed.",
+      "maxLength": 512
+    },
+    "retry_after_seconds": {
+      "type": "integer",
+      "description": "Optional. Present only for retriable statuses (429 rate_limited, 503 upstream_unavailable). Mirrors the Retry-After header. A retry is only safe for a safe or idempotency-guarded operation.",
+      "minimum": 0,
+      "maximum": 86400
+    },
+    "traceparent": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/traceparent" }
+  }
+}

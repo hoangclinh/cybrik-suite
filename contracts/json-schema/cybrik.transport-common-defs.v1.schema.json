@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.transport-common-defs.v1.schema.json",
+  "title": "CYBRIK inference-plane transport-binding common definitions v1",
+  "description": "Provider-neutral shared primitives for the W2-I inference-plane transport-binding packet: the contract that BINDS the ACCEPTED W2-D provider-neutral inference REST plane to the ACCEPTED W2-F internal service-delegation + mTLS workload-identity seam (ADR-0006 E2/E3; ADR-0008). ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet, the W2-D inference packet, and the W2-F service-delegation packet: this document REUSES accepted primitives from cybrik.common-defs.v1, cybrik.svc-common-defs.v1, cybrik.model-common-defs.v1, and cybrik.data-marking.v1 by $ref and never redefines or modifies them. It carries NO server, host, route, URL, credential, key, or secret. It grants NO model/vendor/tool/agent authority. The core SOC -> Cyber AI seam is versioned REST/JSON over mutually-authenticated mTLS; MCP is a Tool/Agent gateway adapter, NOT a trust boundary here, and does not alter REST inference compatibility. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). Gate W2-I is NOT OPENED and no Founder acceptance has been recorded.",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-format-pins": {
+    "jsonSchema": "2020-12",
+    "openApi": "3.1.x",
+    "asyncApi": "3.0.0"
+  },
+  "$defs": {
+    "transportProtocol": {
+      "type": "string",
+      "description": "The wire protocol of the core SOC -> Cyber AI inference seam. Const 'rest/json': versioned REST/JSON is the compatibility authority (packet invariant TT-1). MCP is a Tool/Agent gateway adapter, NEVER the inference trust boundary, and is structurally inexpressible here.",
+      "const": "rest/json"
+    },
+    "httpMethod": {
+      "type": "string",
+      "description": "The HTTP method the inference operation binds to. Only the safe read verb (GET) and the create verb (POST) are used by this plane; no PUT/PATCH/DELETE authority is granted over inference resources.",
+      "enum": ["GET", "POST"]
+    },
+    "pathTemplate": {
+      "type": "string",
+      "description": "Internal, versioned path template for an inference operation (e.g. '/api/v1/inferences'). MUST be an internal versioned '/api/v1/...' path; no host, scheme, query, or fragment is carried — this is a mapping token, not an operational URL.",
+      "pattern": "^/api/v1/[A-Za-z0-9._~/{}-]*$",
+      "minLength": 8,
+      "maxLength": 256
+    },
+    "retryDisposition": {
+      "type": "object",
+      "description": "Retry policy for an operation binding. Fail-safe: an operation is retriable ONLY if it is safe (GET) OR idempotency-key-guarded (POST create with a mandatory Idempotency-Key). A non-safe, non-idempotent operation MUST NOT be retried (retriable=false), because a blind retry could duplicate a side-effecting, billed inference. The if/then below makes retriable=true structurally impossible unless one of those two conditions holds.",
+      "additionalProperties": false,
+      "required": ["retriable", "is_safe", "idempotency_guarded"],
+      "properties": {
+        "retriable": {
+          "type": "boolean",
+          "description": "Whether the client MAY safely retry on a retriable transport error (429/503). Only true when is_safe OR idempotency_guarded."
+        },
+        "is_safe": {
+          "type": "boolean",
+          "description": "True for a side-effect-free read (GET)."
+        },
+        "idempotency_guarded": {
+          "type": "boolean",
+          "description": "True when the operation is guarded by a mandatory Idempotency-Key so a retry cannot duplicate a side effect."
+        },
+        "max_attempts": {
+          "type": "integer",
+          "description": "Optional bounded attempt ceiling for a retriable operation.",
+          "minimum": 1,
+          "maximum": 8
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "retriable": { "const": true } }, "required": ["retriable"] },
+          "then": {
+            "anyOf": [
+              { "properties": { "is_safe": { "const": true } }, "required": ["is_safe"] },
+              { "properties": { "idempotency_guarded": { "const": true } }, "required": ["idempotency_guarded"] }
+            ]
+          }
+        }
+      ]
+    },
+    "restBinding": {
+      "type": "object",
+      "description": "Binds one provider-neutral inference operation to its versioned REST verb + internal path, its neutral operation token, and its retry/idempotency disposition. Carries no host or URL. requires_idempotency_key is true for create (POST) operations and false for safe reads (GET).",
+      "additionalProperties": false,
+      "required": ["method", "path_template", "operation", "requires_idempotency_key", "retry"],
+      "properties": {
+        "method": { "$ref": "#/$defs/httpMethod" },
+        "path_template": { "$ref": "#/$defs/pathTemplate" },
+        "operation": { "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/operationRef" },
+        "requires_idempotency_key": {
+          "type": "boolean",
+          "description": "True when the operation is a create (POST) that MUST carry a mandatory Idempotency-Key (minLength 16). A GET read is false."
+        },
+        "retry": { "$ref": "#/$defs/retryDisposition" }
+      },
+      "allOf": [
+        {
+          "title": "TT-4 method/idempotency-policy agreement",
+          "description": "The verb and the idempotency policy MUST agree: a create (POST) requires_idempotency_key true, a safe read (GET) requires_idempotency_key false. Without this, a create could declare itself exempt from the mandatory Idempotency-Key and escape replay control, or a safe read could be forced to mint one. httpMethod is the closed GET|POST enum, so the else branch is exactly GET.",
+          "if": {
+            "type": "object",
+            "required": ["method"],
+            "properties": { "method": { "const": "POST" } }
+          },
+          "then": {
+            "type": "object",
+            "properties": { "requires_idempotency_key": { "const": true } }
+          },
+          "else": {
+            "type": "object",
+            "properties": { "requires_idempotency_key": { "const": false } }
+          }
+        }
+      ]
+    },
+    "decisionId": {
+      "type": "string",
+      "description": "Stable identifier of the relying party's authorization DECISION for a single presented request. Every permit/deny decision on this seam is audited under a decision_id (ADR-0008 D3; packet invariant TT-9); the id is echoed on the response (header + typed error body) so an audit trail correlates the wire decision to its record. Not a credential and not authority.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "transportErrorClass": {
+      "type": "string",
+      "description": "Typed, provider-neutral transport/authorization error class for the inference seam. Fail-closed: an unmapped condition MUST surface as 'internal' (HTTP 503-mapped) with no partial authorization, never be silently swallowed. Each class maps to exactly one HTTP status (see httpErrorStatus and the mapping notes). These are TRANSPORT/AUTHZ errors — distinct from the W2-D content-level cybrik.model-inference-error classes (which describe a runtime that produced no result).",
+      "enum": [
+        "unauthenticated",
+        "invalid_token",
+        "token_expired",
+        "audience_mismatch",
+        "proof_of_possession_failed",
+        "issuer_untrusted",
+        "cross_tenant",
+        "operation_mismatch",
+        "marking_escalation",
+        "org_scope_mismatch",
+        "replay_detected",
+        "idempotency_conflict",
+        "rate_limited",
+        "deadline_exceeded",
+        "feature_disabled",
+        "malformed_request",
+        "upstream_unavailable",
+        "internal"
+      ]
+    },
+    "httpErrorStatus": {
+      "type": "integer",
+      "description": "The typed HTTP status an authorization/transport error surfaces. Deliberately closed set: 400 malformed, 401 unauthenticated/invalid/expired token, 403 authorization denial (audience/pop/tenant/operation/marking/org/issuer/feature), 409 idempotency conflict, 422 semantically invalid request, 429 rate limited, 503 upstream/deadline/internal. No 5xx other than 503 is exposed (fail-closed uniformity).",
+      "enum": [400, 401, 403, 409, 422, 429, 503]
+    },
+    "featureFlagState": {
+      "type": "object",
+      "description": "Feature-flag gating state for an inference operation on this seam. DEFAULT OFF: 'enabled' defaults to false, so a new operation is dark until a Founder/operator turns it on. When disabled, the relying party applies 'disabled_behavior' — it never silently enables. The compatibility behavior for the alert-summarization operation is documented in the mapping notes.",
+      "additionalProperties": false,
+      "required": ["name", "enabled", "disabled_behavior"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Vendor-neutral flag token, dotted form, e.g. 'ai.summarization.transport'.",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "DEFAULT OFF. Whether the operation is currently served on this seam. Absent/false => the operation is dark and disabled_behavior applies.",
+          "default": false
+        },
+        "disabled_behavior": {
+          "type": "string",
+          "description": "Fail-closed disposition when the flag is off. 'reject_unavailable' => the relying party returns a typed 503 feature_disabled error and serves nothing; 'compatibility_passthrough' => the operation is routed to the pre-existing accepted W2-D behavior WITHOUT the new transport hardening being claimed (documented compatibility path only, never a silent security downgrade).",
+          "enum": ["reject_unavailable", "compatibility_passthrough"]
+        }
+      }
+    },
+    "authorizationDisposition": {
+      "type": "string",
+      "description": "The relying party's terminal authorization disposition for a presented request. 'permit' => all bindings held and the W2-D operation MAY proceed; 'deny' => at least one fail-closed check failed and a typed transportError is returned. There is no 'permit-with-warning'.",
+      "enum": ["permit", "deny"]
+    }
+  }
+}
