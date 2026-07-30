@@ -89,11 +89,32 @@ const CI3_CANONICAL_STATUS =
   "Status: `CANONICAL MERGED 2026-07-30 — PR #1 / " +
   "28c564eb9b6853b73a18a59a2e84ba58fd67816a`.";
 
+const CI3_HISTORICAL_CURRENT_EXPLANATION = [
+  "Historical authoring status, retained for §§1–5:",
+  "`LOCAL CANDIDATE GO — AUTHORING SNAPSHOT BEFORE COMMIT/PUSH/MERGE — HOSTED CI PENDING`.",
+  "Section §6 is the authoritative canonical-integration evidence; this header correction changes no",
+  "runtime, UAT, release-date or production gate.",
+].join("\n");
+
 function validateCi3RemediationStatus(ci3RemediationText) {
-  const topLevelStatus = ci3RemediationText.match(/^Status: `[^`\n]+`\.$/m)?.[0];
+  const topLevelStatusMatch = ci3RemediationText.match(/^Status: `[^`\n]+`\.$/m);
+  const topLevelStatus = topLevelStatusMatch?.[0];
   if (topLevelStatus !== CI3_CANONICAL_STATUS) {
     throw new Error(
       "CI3 remediation top-level status must record the canonical PR #1 merge",
+    );
+  }
+
+  const canonicalStatusContext =
+    `${CI3_CANONICAL_STATUS}\n\n${CI3_HISTORICAL_CURRENT_EXPLANATION}`;
+  if (
+    topLevelStatusMatch.index === undefined ||
+    !ci3RemediationText
+      .slice(topLevelStatusMatch.index)
+      .startsWith(canonicalStatusContext)
+  ) {
+    throw new Error(
+      "CI3 remediation must preserve the adjacent historical-versus-current explanation",
     );
   }
 
