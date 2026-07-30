@@ -3121,7 +3121,9 @@ export function validateW1CiWiring({
     "CI3 workflow must not grant write-all permissions",
   );
   const actionLines = [
-    ...workflowText.matchAll(/^\s*uses:\s*(\S+)(?:\s+#.*)?$/gm),
+    ...workflowText.matchAll(
+      /^[^\S\n]*uses:[^\S\n]*(\S+)(?:[^\S\n]+#.*)?[^\S\n]*$/gm,
+    ),
   ];
   if (actionLines.length === 0) {
     throw new Error("CI3 workflow must contain pinned GitHub actions");

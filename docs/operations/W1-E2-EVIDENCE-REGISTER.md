@@ -2812,7 +2812,7 @@ G-C `stable-v1.0`; release dates are unchanged; production remains Founder-contr
 | Validator runtime | pinned Node.js `24.18.1` Krypton LTS security release |
 | TDD | intended RED `0/1`; targeted GREEN `3/3` |
 | Full control | checksum-verified Node 24.18.1: `203/203 PASS`; line `97.62%`, branch `92.43%`, functions `98.89%` |
-| First independent review | Opus `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; P2 provenance and additive-runtime findings remediated, fresh review pending |
+| Independent reviews | Opus first `NO-GO`, `P0=0 P1=0 P2=2 P3=5`; second `NO-GO`, `P0=0 P1=0 P2=1 P3=5`; all three P2 findings have bounded remediations and RED/GREEN evidence, third review pending |
 | Current status | `LOCAL CANDIDATE GO — HOSTED EVIDENCE PENDING` |
 
 Independent review, hosted required checks, exact merge-tree verification and canonical

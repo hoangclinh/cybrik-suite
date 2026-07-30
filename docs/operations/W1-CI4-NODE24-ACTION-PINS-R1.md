@@ -76,7 +76,7 @@ that deprecated action-runtime fallback cannot silently persist.
 | RED | New exact-pin test executed against the old workflow: `tests 1`, `pass 0`, `fail 1`; intended mismatch `0 !== 2` for checkout |
 | GREEN | Targeted pin/unpinned/dependency-gate tests: `3/3 PASS` |
 | Full control on checksum-verified Node 24.18.1 | `203/203 PASS`; line `97.62%`, branch `92.43%`, functions `98.89%` |
-| Control validator | `PASS`, fixed roster `tasks=48`, reports validator Node `24.18.1` |
+| Control validator | `PASS`, fixed roster `tasks=48`; statically asserts configured workflow Node `24.18.1` |
 | Contract/dependency/security on Node 24.18.1 | Canonical validate pass; W1 contracts `98/98`; dependency compatibility `2/2`; audit 0; Spectral 0 errors/19 warnings; AsyncAPI 0 errors; gitleaks dir/git clean |
 | Hosted acceptance | Both required rendered checks pass on the PR and exact canonical merge; no Node 20 action-runtime annotation |
 
@@ -109,10 +109,33 @@ Opus run on the first GREEN candidate returned `NO-GO`, `P0=0 P1=0 P2=2 P3=5`:
 2. `P2-2` additive Node 20 action runtime not fail-closed — closed by explicit superseded-pin
    exclusion, exact total action-use count and negative tests executed through canonical
    validation.
-3. P3 job-scope/negative-coverage/grammar/check-name issues — closed by removing the redundant
-   whole-file Node assertion, adding checkout multiplicity and required-check-name guards, and
-   using singular/plural error wording. The Node-24-local-execution observation is closed by the
-   checksum-verified Node 24.18.1 full control/contract/audit run above.
+3. P3 job-scope/negative-coverage/grammar/check-name issues — current validator enforcement is
+   job-scoped; checkout multiplicity and both required-check names now have negative coverage;
+   error wording handles singular/plural. The test-level whole-file assertion is independent
+   test evidence, not the validator's runtime-proof mechanism. The Node-24-local-execution
+   observation is closed by the checksum-verified Node 24.18.1 full control/contract/audit run
+   above.
+
+The second Opus review returned `NO-GO`, `P0=0 P1=0 P2=1 P3=5`. Its remaining P2 reproduced a
+parser bypass: a fourth `uses:` line with trailing whitespace was invisible to the original
+extractor. A second RED checkpoint reproduces that bypass; the remediation constrains horizontal
+whitespace without crossing lines, then applies SHA validation, superseded-pin exclusion, total
+cardinality and exact multiplicity to the complete `uses:` set. The new trailing-whitespace
+negative and secret-scan rendered-name negative pass in the full Node 24 suite.
+
+Compact coordinator transcript for the fresh exact binary run:
+
+```text
+node-v24.18.1-darwin-arm64.tar.xz: OK
+node --version: v24.18.1
+node --test --experimental-test-coverage ...: tests 203, pass 203, fail 0
+coverage: line 97.62%, branch 92.43%, functions 98.89%
+node tools/operations/validate-w1-control.mjs: W1 control PASS, tasks=48
+npm audit --audit-level=high: found 0 vulnerabilities
+npm run validate: PASS; dependency compatibility 2/2; Spectral 0 errors/19 warnings; AsyncAPI 0 errors
+npm run test:w1-contracts: 98/98 PASS
+gitleaks dir/git 8.30.1: no leaks found
+```
 
 A fresh independent review of the remediated bytes remains mandatory; the adverse verdict is
 retained as history and is not rewritten as a pass.
