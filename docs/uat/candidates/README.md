@@ -20,9 +20,11 @@ Rules:
   when the result update is committed.
 - Current series status: `runtime-admission-ai-pg` consumed both original admitted ordinals. R1
   and R2 remain `NO-GO`. R3 records the one bounded `admitted_command_defect` recovery allowed by
-  the canonical validator, preserves both failure histories, and is `RUNTIME_AUTHORIZED` for
-  exactly one non-production PostgreSQL attempt with a distinct digest-pinned independent GO
-  review. It remains `not_run` with zero counts and grants no retry or broader authority.
+  the canonical validator, preserves both failure histories, and is also `NO-GO` after consuming
+  its one reviewed non-production PostgreSQL attempt. The exact test file reported `25 passed`
+  with no skips, including all 13 integration-marked tests, but the pre-run authorization artifact
+  incorrectly required literal `13 passed`. The mismatch is recorded without retry or broader
+  authority.
 - Any recovery must preserve every prior result and pass a separately reviewed admission boundary.
 - A missing runtime-admission item is `HOLD`.
 - Any failed tenant-isolation, authorization or secret-boundary check is `NO-GO`.

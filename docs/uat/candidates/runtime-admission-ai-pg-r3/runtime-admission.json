@@ -1,18 +1,18 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r3",
-  "recorded_at": "2026-07-31T06:24:20Z",
+  "recorded_at": "2026-07-31T08:43:29Z",
   "attempt_accounting": {
     "series_id": "runtime-admission-ai-pg",
     "attempt_ordinal": 3,
     "max_attempts": 2,
     "current_attempt": {
-      "status": "not_run",
-      "execution_authorized": true,
-      "executed_checks": 0,
-      "passed_checks": 0,
-      "failed_checks": 0,
-      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md",
-      "evidence_sha256": "49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504"
+      "status": "failed",
+      "execution_authorized": false,
+      "executed_checks": 6,
+      "passed_checks": 5,
+      "failed_checks": 1,
+      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/05-r3-runtime-result.md",
+      "evidence_sha256": "71041ecf06870cce1fc94911b9c57b90813cb510cb82347a28501d17621d8e23"
     },
     "recovery_override": {
       "kind": "admitted_command_defect",
@@ -234,7 +234,7 @@
     "feature_flags": [
       {
         "name": "cyber_ai_postgres_runtime_admission_ai_pg_r3",
-        "state": "runtime_authorized_one_attempt_not_run"
+        "state": "disabled_no_go_recovery_attempt_consumed"
       },
       {
         "name": "cyber_ai_http_full_stack_demo_uat_poc_rc_ga",
@@ -248,7 +248,7 @@
       },
       {
         "capability": "runtime_admission_ai_pg_r3",
-        "state": "runtime_authorized_one_attempt_not_run"
+        "state": "no_go_recovery_attempt_failed"
       }
     ]
   },
@@ -300,13 +300,13 @@
   "negative_smoke": {
     "tenant_isolation": [
       {
-        "name": "static preflight only: the exact PostgreSQL tenant-isolation tests, FORCE RLS policies and transaction-local tenant context remain in the pinned Cyber AI tree; no R3 runtime assertion has run",
+        "name": "runtime evidence: the exact admitted file completed 25 tests with no skips, including the file's 13 integration-marked tests covering durability, tenant-isolation, RLS and restricted-role authorization",
         "status": "pass"
       }
     ],
     "authorization": [
       {
-        "name": "static preflight only: the corrected seed preserves the restricted NOBYPASSRLS runtime role and no broader grant; independent command review and all R3 runtime assertions remain pending",
+        "name": "runtime evidence: the restricted NOBYPASSRLS role seed committed its transaction and the exact admitted file completed 25 tests with no skips, including the file's 13 integration-marked tests covering durability, tenant-isolation, RLS and restricted-role authorization",
         "status": "pass"
       }
     ],
@@ -322,12 +322,13 @@
     "high": 0,
     "notes": [
       "R1 and R2 remain immutable NO-GO records and both original ordinals remain consumed.",
-      "The R2 admitted-command defect has a prospective stdin-based correction pinned by SHA-256; the correction has not been executed.",
-      "The current product tree is unchanged from R2. open_findings.high is 0 only because the R2 command defect is superseded by this unexecuted prospective correction; it is not a product-runtime closure claim.",
+      "The R2 admitted-command defect was corrected prospectively and the stdin-based R3 seed committed its transaction successfully against PostgreSQL.",
+      "The exact admitted pytest command completed 25 tests with no skips, including 13 integration-marked tests. The R3 admission still fails because its authorization artifact incorrectly required the truthful report to say literal 13 passed.",
+      "open_findings.high is scoped to product-runtime security and correctness findings. It is 0 because no PostgreSQL, RLS, tenant-isolation or restricted-role test failed; the terminal acceptance-specification defect remains explicitly recorded here and in the result artifact.",
       "A distinct Claude Opus review artifact records GO for exactly one bounded non-production R3 PostgreSQL attempt and is pinned by SHA-256.",
       "The correction and review artifacts remain immutable historical snapshots: their older Suite tuple and pre-enabling candidate digest are superseded for execution by this record's immediate-parent Suite tuple, as required by the review.",
       "The first independent-review attempt timed out at 600 seconds without a verdict; the immutable HOLD history remains digest-pinned and no authority derives from that attempt.",
-      "R3 is RUNTIME_AUTHORIZED with execution_authorized true, status not_run and zero counts. Any failure spends the only recovery ordinal; no retry is authorized."
+      "R3 is NO-GO with execution_authorized false and counts 6 executed, 5 passed and 1 failed. The only recovery ordinal is consumed; no retry, corrected selector or out-of-band invocation is authorized."
     ]
   },
   "evidence": {
@@ -348,15 +349,20 @@
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md",
         "sha256": "49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/05-r3-runtime-result.md",
+        "sha256": "71041ecf06870cce1fc94911b9c57b90813cb510cb82347a28501d17621d8e23"
       }
     ],
     "limitations": [
-      "The corrected seed command is static design evidence and has not run against PostgreSQL.",
-      "Independent review authorizes exactly one bounded non-production PostgreSQL attempt; it proves no runtime outcome.",
+      "The one R3 recovery invocation ran and is consumed. Its exact test command reported 25 passed with no skips, while the authorization artifact required literal 13 passed.",
+      "The raw result is bounded PostgreSQL evidence but the exact acceptance mismatch makes the candidate NO-GO.",
       "Attempt accounting constrains candidate revisions and evidence records; it cannot observe an out-of-band command invocation.",
+      "The consumed ordinal does not mechanically prohibit a differently named future series. Any such work still requires a new separately reviewed admission that preserves all three terminal results and grants no automatic retry.",
       "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, GA, public release or production claim is authorized."
     ],
-    "final_profile_verdict": "RUNTIME_AUTHORIZED"
+    "final_profile_verdict": "NO-GO"
   },
   "network_exposure": {
     "mode": "local_only",
@@ -366,10 +372,10 @@
         "purpose": "prospective bounded local PostgreSQL 16 recovery proof only"
       }
     ],
-    "notes": "No listener has been opened. The one authorized attempt may bind only this loopback PostgreSQL port; no public listener, non-loopback bind, HTTP application surface or full stack is authorized."
+    "notes": "The consumed R3 attempt bound only this loopback PostgreSQL port. Rollback and stop completed, the listener is closed, and no public listener, non-loopback bind, HTTP application surface or full stack was opened."
   },
   "disposition": {
-    "profile": "RUNTIME_AUTHORIZED",
-    "rationale": "A distinct digest-pinned independent GO review authorizes exactly one bounded non-production R3 PostgreSQL attempt. R1/R2 history is preserved; status remains not_run with zero counts, and no readiness, UAT, release or production claim follows."
+    "profile": "NO-GO",
+    "rationale": "The one reviewed R3 invocation completed the exact PostgreSQL test file with 25 passing tests and no skips, but failed its exact authorization-artifact condition requiring literal 13 passed. The recovery ordinal is consumed, no retry is authorized, and no readiness, UAT, release or production claim follows."
   }
 }

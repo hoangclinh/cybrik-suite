@@ -1025,7 +1025,7 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only R3', async () => {
+test('committed runtime-admission assets preserve three terminal NO-GO results', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
@@ -1038,7 +1038,7 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only
   );
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'RUNTIME_AUTHORIZED');
+  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
@@ -1064,17 +1064,17 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only
   ));
   assert.equal(r3.attempt_accounting.attempt_ordinal, 3);
   assert.equal(r3.attempt_accounting.max_attempts, 2);
-  assert.equal(r3.attempt_accounting.current_attempt.status, 'not_run');
+  assert.equal(r3.attempt_accounting.current_attempt.status, 'failed');
   assert.deepEqual(r3.attempt_accounting.current_attempt, {
-    status: 'not_run',
-    execution_authorized: true,
-    executed_checks: 0,
-    passed_checks: 0,
-    failed_checks: 0,
+    status: 'failed',
+    execution_authorized: false,
+    executed_checks: 6,
+    passed_checks: 5,
+    failed_checks: 1,
     evidence_path:
-      'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md',
+      'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/05-r3-runtime-result.md',
     evidence_sha256:
-      '49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504',
+      '71041ecf06870cce1fc94911b9c57b90813cb510cb82347a28501d17621d8e23',
   });
   assert.deepEqual(
     r3.attempt_accounting.failure_history.map((attempt) => [
@@ -1132,8 +1132,8 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only
       ],
     ],
   );
-  assert.equal(r3.evidence.final_profile_verdict, 'RUNTIME_AUTHORIZED');
-  assert.equal(r3.disposition.profile, 'RUNTIME_AUTHORIZED');
+  assert.equal(r3.evidence.final_profile_verdict, 'NO-GO');
+  assert.equal(r3.disposition.profile, 'NO-GO');
   const reviewEvidence = read(
     'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/03-independent-runtime-review.md',
   );
@@ -1168,8 +1168,18 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only
     authorizationEvidence,
     /rejects more than one simultaneous `RUNTIME_AUTHORIZED` candidate even\s+across different series identifiers/,
   );
+  const resultEvidence = read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/05-r3-runtime-result.md',
+  );
+  assert.match(resultEvidence, /25 passed in 1\.59s/);
+  assert.match(
+    resultEvidence,
+    /Read-only inspection after containment found `25` test functions in the exact pinned file and `13`\s+`@pytest\.mark\.integration` decorators\./,
+  );
+  assert.match(resultEvidence, /Candidate R3 is \*\*NO-GO\*\*/);
+  assert.match(resultEvidence, /No retry, corrected command, substituted selector/);
   assert.match(read(README_PATH), /R3 records the one bounded/);
-  assert.match(read(README_PATH), /is `RUNTIME_AUTHORIZED` for/);
+  assert.match(read(README_PATH), /is also `NO-GO` after consuming/);
   assert.match(read(README_PATH), /Any recovery must preserve every prior result/);
 });
 
@@ -1304,7 +1314,11 @@ test('R3 correction uses one stdin-fed psql process and cannot retain the failed
     ...r3.negative_smoke.tenant_isolation,
     ...r3.negative_smoke.authorization,
   ]) {
-    assert.match(smoke.name, /^static preflight only:/);
+    assert.match(smoke.name, /^runtime evidence:/);
+    assert.match(
+      smoke.name,
+      /the file's 13 integration-marked tests covering durability, tenant-isolation, RLS and restricted-role authorization/,
+    );
   }
   assert.match(
     r3.negative_smoke.secret_boundary[0].name,
