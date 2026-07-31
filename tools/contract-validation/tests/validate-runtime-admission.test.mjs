@@ -232,6 +232,137 @@ const baseCandidate = ({
   };
 };
 
+const recoverySeries = ({
+  reviewStatus = 'pending',
+  executionAuthorized = false,
+  disposition = executionAuthorized ? 'RUNTIME_AUTHORIZED' : 'HOLD',
+  correctionContent = 'reviewed command correction\n',
+} = {}) => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const r1Content = 'attempt 1\n';
+  const r2Content = 'attempt 2\n';
+  const r1Path = currentAttemptArtifact(seriesId, 1);
+  const r2Path = currentAttemptArtifact(seriesId, 2);
+  const correctionPath = `${evidenceDir(seriesId, 3)}/01-command-correction.md`;
+  const reviewContent = 'independent review verdict GO\n';
+  const reviewPath = `${evidenceDir(seriesId, 3)}/02-independent-review.md`;
+
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    highFindings: 1,
+    disposition: 'NO-GO',
+  });
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 3,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    highFindings: 1,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r1Path,
+        evidence_sha256: sha256(r1Content),
+      },
+    ],
+    disposition: 'NO-GO',
+  });
+  const r3 = baseCandidate({
+    seriesId,
+    ordinal: 3,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r1Path,
+        evidence_sha256: sha256(r1Content),
+      },
+      {
+        candidate_id: candidateId(seriesId, 2),
+        attempt_ordinal: 2,
+        executed_checks: 4,
+        passed_checks: 3,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r2Path,
+        evidence_sha256: sha256(r2Content),
+      },
+    ],
+    disposition,
+  });
+  r3.attempt_accounting.recovery_override = {
+    kind: 'admitted_command_defect',
+    additional_attempts: 1,
+    terminal_candidate_id: candidateId(seriesId, 2),
+    terminal_attempt_ordinal: 2,
+    terminal_evidence_path: r2Path,
+    terminal_evidence_sha256: sha256(r2Content),
+    correction_evidence_path: correctionPath,
+    correction_evidence_sha256: sha256(correctionContent),
+    review_status: reviewStatus,
+  };
+  r3.evidence.artifacts.push({
+    path: correctionPath,
+    sha256: sha256(correctionContent),
+  });
+  const extraWrites = [
+    {
+      kind: 'text',
+      dir: evidenceDir(seriesId, 3),
+      path: correctionPath,
+      value: correctionContent,
+    },
+  ];
+  if (reviewStatus === 'independently_reviewed_go') {
+    r3.attempt_accounting.recovery_override.review_evidence_path = reviewPath;
+    r3.attempt_accounting.recovery_override.review_evidence_sha256 =
+      sha256(reviewContent);
+    r3.evidence.artifacts.push({
+      path: reviewPath,
+      sha256: sha256(reviewContent),
+    });
+    extraWrites.push({
+      kind: 'text',
+      dir: evidenceDir(seriesId, 3),
+      path: reviewPath,
+      value: reviewContent,
+    });
+  }
+
+  return {
+    seriesId,
+    r1,
+    r2,
+    r3,
+    correctionContent,
+    correctionPath,
+    reviewContent,
+    reviewPath,
+    extraWrites,
+  };
+};
+
 const withTempRepo = async ({
   candidates = [],
   extraWrites = [],
@@ -359,6 +490,286 @@ test('valid retired R1 NO-GO and authorized R2 patterns validate together', asyn
     assert.equal(byId.get(candidateId(seriesId, 1)).derivedDisposition, 'NO-GO');
     assert.equal(byId.get(candidateId(seriesId, 2)).declaredDisposition, 'RUNTIME_AUTHORIZED');
     assert.equal(byId.get(candidateId(seriesId, 2)).derivedDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('one command-defect recovery override preserves the exhausted series and stays HOLD', async () => {
+  const {
+    seriesId,
+    r1,
+    r2,
+    r3,
+    extraWrites,
+  } = recoverySeries();
+
+  await withTempRepo({
+    candidates: [r1, r2, r3],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    const r3Report = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 3),
+    );
+    assert.equal(r3Report.derivedDisposition, 'HOLD');
+  });
+});
+
+test('pending recovery review cannot authorize execution', async () => {
+  const {
+    r1,
+    r2,
+    r3,
+    extraWrites,
+  } = recoverySeries({ executionAuthorized: true });
+
+  await withTempRepo({
+    candidates: [r1, r2, r3],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'recovery execution requires independently_reviewed_go',
+    )));
+    assert.equal(report.candidates.at(-1).derivedDisposition, 'HOLD');
+  });
+});
+
+test('independently reviewed recovery with pinned review evidence may authorize one execution', async () => {
+  const {
+    seriesId,
+    r1,
+    r2,
+    r3,
+    extraWrites,
+  } = recoverySeries({
+    reviewStatus: 'independently_reviewed_go',
+    executionAuthorized: true,
+  });
+
+  await withTempRepo({
+    candidates: [r1, r2, r3],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    const r3Report = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 3),
+    );
+    assert.equal(r3Report.derivedDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('independent review status requires distinct, digest-pinned review evidence', async () => {
+  const missingReview = recoverySeries({
+    reviewStatus: 'independently_reviewed_go',
+    executionAuthorized: true,
+  });
+  delete missingReview.r3.attempt_accounting.recovery_override.review_evidence_path;
+  delete missingReview.r3.attempt_accounting.recovery_override.review_evidence_sha256;
+  missingReview.r3.evidence.artifacts = missingReview.r3.evidence.artifacts.filter(
+    (artifact) => artifact.path !== missingReview.reviewPath,
+  );
+  missingReview.extraWrites = missingReview.extraWrites.filter(
+    (write) => write.path !== missingReview.reviewPath,
+  );
+  await withTempRepo({
+    candidates: [missingReview.r1, missingReview.r2, missingReview.r3],
+    extraWrites: missingReview.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'schema /attempt_accounting/recovery_override must have required property',
+    )));
+  });
+
+  const reusedCorrection = recoverySeries({
+    reviewStatus: 'independently_reviewed_go',
+    executionAuthorized: true,
+  });
+  reusedCorrection.r3.attempt_accounting.recovery_override.review_evidence_path =
+    reusedCorrection.correctionPath;
+  reusedCorrection.r3.attempt_accounting.recovery_override.review_evidence_sha256 =
+    reusedCorrection.r3.attempt_accounting.recovery_override.correction_evidence_sha256;
+  await withTempRepo({
+    candidates: [reusedCorrection.r1, reusedCorrection.r2, reusedCorrection.r3],
+    extraWrites: reusedCorrection.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'recovery review evidence must be distinct from correction evidence',
+    )));
+  });
+
+  const reviewDigestDrift = recoverySeries({
+    reviewStatus: 'independently_reviewed_go',
+    executionAuthorized: true,
+  });
+  reviewDigestDrift.extraWrites.find(
+    (write) => write.path === reviewDigestDrift.reviewPath,
+  ).value = 'tampered independent review\n';
+  await withTempRepo({
+    candidates: [
+      reviewDigestDrift.r1,
+      reviewDigestDrift.r2,
+      reviewDigestDrift.r3,
+    ],
+    extraWrites: reviewDigestDrift.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'evidence artifact sha256 must match the recorded bytes',
+    )));
+  });
+
+  const pendingWithReviewBytes = recoverySeries();
+  pendingWithReviewBytes.r3.attempt_accounting.recovery_override.review_evidence_path =
+    pendingWithReviewBytes.reviewPath;
+  pendingWithReviewBytes.r3.attempt_accounting.recovery_override.review_evidence_sha256 =
+    sha256(pendingWithReviewBytes.reviewContent);
+  await withTempRepo({
+    candidates: [
+      pendingWithReviewBytes.r1,
+      pendingWithReviewBytes.r2,
+      pendingWithReviewBytes.r3,
+    ],
+    extraWrites: pendingWithReviewBytes.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'pending recovery review must not carry review evidence',
+    )));
+  });
+});
+
+test('recovery override cannot rebind or mutate terminal failure evidence', async () => {
+  const {
+    r1,
+    r2,
+    r3,
+    extraWrites,
+  } = recoverySeries();
+  r3.attempt_accounting.recovery_override.terminal_evidence_sha256 =
+    '0000000000000000000000000000000000000000000000000000000000000000';
+
+  await withTempRepo({
+    candidates: [r1, r2, r3],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'recovery_override terminal evidence must match the terminal candidate exactly',
+    )));
+  });
+});
+
+test('recovery correction evidence must exist, match its digest, and be registered', async () => {
+  const missingArtifact = recoverySeries();
+  missingArtifact.r3.evidence.artifacts =
+    missingArtifact.r3.evidence.artifacts.filter(
+      (artifact) => artifact.path !== missingArtifact.correctionPath,
+    );
+  await withTempRepo({
+    candidates: [missingArtifact.r1, missingArtifact.r2, missingArtifact.r3],
+    extraWrites: missingArtifact.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'recovery correction evidence must be listed in evidence.artifacts',
+    )));
+  });
+
+  const digestDrift = recoverySeries();
+  digestDrift.extraWrites[0].value = 'tampered command correction\n';
+  await withTempRepo({
+    candidates: [digestDrift.r1, digestDrift.r2, digestDrift.r3],
+    extraWrites: digestDrift.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'evidence artifact sha256 must match the recorded bytes',
+    )));
+  });
+});
+
+test('recovery override permits exactly one additional attempt and one override per series', async () => {
+  const tooManyAttempts = recoverySeries();
+  tooManyAttempts.r3.attempt_accounting.recovery_override.additional_attempts = 2;
+  await withTempRepo({
+    candidates: [tooManyAttempts.r1, tooManyAttempts.r2, tooManyAttempts.r3],
+    extraWrites: tooManyAttempts.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'schema /attempt_accounting/recovery_override/additional_attempts',
+    )));
+  });
+
+  const duplicateOverride = recoverySeries();
+  const r2CorrectionPath =
+    `${evidenceDir(duplicateOverride.seriesId, 2)}/03-command-correction.md`;
+  const r2CorrectionContent = 'invalid earlier override\n';
+  duplicateOverride.r2.attempt_accounting.recovery_override = {
+    ...duplicateOverride.r3.attempt_accounting.recovery_override,
+    correction_evidence_path: r2CorrectionPath,
+    correction_evidence_sha256: sha256(r2CorrectionContent),
+  };
+  duplicateOverride.r2.evidence.artifacts.push({
+    path: r2CorrectionPath,
+    sha256: sha256(r2CorrectionContent),
+  });
+  duplicateOverride.extraWrites.push({
+    kind: 'text',
+    dir: evidenceDir(duplicateOverride.seriesId, 2),
+    path: r2CorrectionPath,
+    value: r2CorrectionContent,
+  });
+  await withTempRepo({
+    candidates: [duplicateOverride.r1, duplicateOverride.r2, duplicateOverride.r3],
+    extraWrites: duplicateOverride.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'a series may contain at most one recovery_override',
+    )));
+  });
+});
+
+test('an ordinal beyond max_attempts remains rejected without a recovery override', async () => {
+  const candidate = baseCandidate({
+    ordinal: 3,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.failure_history = [
+    {
+      candidate_id: 'runtime-admission-ai-pg-r1',
+      attempt_ordinal: 1,
+      executed_checks: 1,
+      passed_checks: 0,
+      failed_checks: 1,
+      disposition: 'NO-GO',
+      evidence_path: 'docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/05-attempt-accounting.json',
+      evidence_sha256: sha256('prior 1\n'),
+    },
+    {
+      candidate_id: 'runtime-admission-ai-pg-r2',
+      attempt_ordinal: 2,
+      executed_checks: 1,
+      passed_checks: 0,
+      failed_checks: 1,
+      disposition: 'NO-GO',
+      evidence_path: 'docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/05-attempt-accounting.json',
+      evidence_sha256: sha256('prior 2\n'),
+    },
+  ];
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'attempt_ordinal must be <= max_attempts',
+    )));
   });
 });
 

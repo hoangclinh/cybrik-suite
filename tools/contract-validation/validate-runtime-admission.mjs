@@ -149,14 +149,18 @@ const validateRecordShape = (path, value) => {
   if (typeof value.recorded_at !== 'string' || Number.isNaN(Date.parse(value.recorded_at))) {
     errors.push(`${path}: recorded_at must be an ISO-8601 date-time`);
   }
-  if (!hasExactKeys(value.attempt_accounting, [
+  const attemptAccountingFields = [
     'series_id',
     'attempt_ordinal',
     'max_attempts',
     'current_attempt',
     'failure_history',
-  ])) {
-    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history`);
+  ];
+  if (Object.hasOwn(value.attempt_accounting, 'recovery_override')) {
+    attemptAccountingFields.push('recovery_override');
+  }
+  if (!hasExactKeys(value.attempt_accounting, attemptAccountingFields)) {
+    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history, plus only an optional recovery_override`);
   }
   if (!hasExactKeys(value.commit_tree, expectedRepositories)) {
     errors.push(`${path}: commit_tree must contain exactly four repositories`);
@@ -443,12 +447,77 @@ const validateEvidenceArtifacts = (root, candidate, path, errors) => {
 
 const validateAttemptAccounting = (root, candidate, path, errors) => {
   const accounting = candidate.attempt_accounting;
+  const recoveryOverride = accounting.recovery_override ?? null;
   const expectedCandidateId = `${accounting.series_id}-r${accounting.attempt_ordinal}`;
   if (candidate.candidate_id !== expectedCandidateId) {
     errors.push(`${path}: candidate_id must equal attempt_accounting series_id plus -r<attempt_ordinal>`);
   }
-  if (accounting.attempt_ordinal > accounting.max_attempts) {
+  const admittedOrdinalCeiling = accounting.max_attempts
+    + (recoveryOverride?.additional_attempts === 1 ? 1 : 0);
+  if (accounting.attempt_ordinal > admittedOrdinalCeiling) {
     errors.push(`${path}: attempt_accounting.attempt_ordinal must be <= max_attempts`);
+  }
+  if (recoveryOverride) {
+    if (accounting.attempt_ordinal !== accounting.max_attempts + 1) {
+      errors.push(`${path}: recovery_override is valid only at max_attempts + 1`);
+    }
+    if (
+      accounting.current_attempt.execution_authorized === true
+      && recoveryOverride.review_status !== 'independently_reviewed_go'
+    ) {
+      errors.push(`${path}: recovery execution requires independently_reviewed_go`);
+    }
+    validateRecordedArtifact({
+      root,
+      recordPath: `${path}: attempt_accounting.recovery_override`,
+      evidenceDir: candidate.evidence.directory,
+      artifactPath: recoveryOverride.correction_evidence_path,
+      artifactSha256: recoveryOverride.correction_evidence_sha256,
+      errors,
+      requireInsideEvidenceDir: true,
+    });
+    const correctionArtifactRecorded = candidate.evidence.artifacts.some(
+      (artifact) =>
+        artifact.path === recoveryOverride.correction_evidence_path
+        && artifact.sha256 === recoveryOverride.correction_evidence_sha256,
+    );
+    if (!correctionArtifactRecorded) {
+      errors.push(`${path}: recovery correction evidence must be listed in evidence.artifacts`);
+    }
+    if (
+      recoveryOverride.review_status === 'pending'
+      && (
+        recoveryOverride.review_evidence_path !== undefined
+        || recoveryOverride.review_evidence_sha256 !== undefined
+      )
+    ) {
+      errors.push(`${path}: pending recovery review must not carry review evidence`);
+    }
+    if (recoveryOverride.review_status === 'independently_reviewed_go') {
+      if (
+        recoveryOverride.review_evidence_path
+        === recoveryOverride.correction_evidence_path
+      ) {
+        errors.push(`${path}: recovery review evidence must be distinct from correction evidence`);
+      }
+      validateRecordedArtifact({
+        root,
+        recordPath: `${path}: attempt_accounting.recovery_override`,
+        evidenceDir: candidate.evidence.directory,
+        artifactPath: recoveryOverride.review_evidence_path,
+        artifactSha256: recoveryOverride.review_evidence_sha256,
+        errors,
+        requireInsideEvidenceDir: true,
+      });
+      const reviewArtifactRecorded = candidate.evidence.artifacts.some(
+        (artifact) =>
+          artifact.path === recoveryOverride.review_evidence_path
+          && artifact.sha256 === recoveryOverride.review_evidence_sha256,
+      );
+      if (!reviewArtifactRecorded) {
+        errors.push(`${path}: recovery review evidence must be listed in evidence.artifacts`);
+      }
+    }
   }
   if (accounting.failure_history.length !== accounting.attempt_ordinal - 1) {
     errors.push(`${path}: attempt_accounting.failure_history must contain exactly attempt_ordinal - 1 rows`);
@@ -539,6 +608,7 @@ const validateAttemptAccounting = (root, candidate, path, errors) => {
   return {
     currentAttemptStatus: accounting.current_attempt.status,
     executionAuthorized: accounting.current_attempt.execution_authorized,
+    recoveryOverride,
   };
 };
 
@@ -785,6 +855,14 @@ const validateCandidateRegistry = (records) => {
     );
     const firstRecord = seriesRecords[0];
     const seriesMaxAttempts = firstRecord.candidate.attempt_accounting.max_attempts;
+    const recoveryRecords = seriesRecords.filter(
+      (record) => record.candidate.attempt_accounting.recovery_override,
+    );
+    if (recoveryRecords.length > 1) {
+      for (const record of recoveryRecords) {
+        addFinding(record, 'a series may contain at most one recovery_override');
+      }
+    }
     for (const record of seriesRecords) {
       const accounting = record.candidate.attempt_accounting;
       if (accounting.max_attempts !== seriesMaxAttempts) {
@@ -834,6 +912,43 @@ const validateCandidateRegistry = (records) => {
           addFinding(
             record,
             'failure_history evidence must match the referenced prior candidate',
+          );
+        }
+      }
+
+      const recoveryOverride = accounting.recovery_override;
+      if (recoveryOverride) {
+        const terminalRecord = byCandidateId.get(
+          recoveryOverride.terminal_candidate_id,
+        );
+        if (!terminalRecord) {
+          addFinding(
+            record,
+            'recovery_override terminal_candidate_id must resolve to a registry record',
+          );
+          continue;
+        }
+        const terminalCandidate = terminalRecord.candidate;
+        const terminalAttempt = terminalCandidate.attempt_accounting.current_attempt;
+        if (
+          terminalCandidate.attempt_accounting.series_id !== accounting.series_id
+          || terminalCandidate.attempt_accounting.attempt_ordinal !== seriesMaxAttempts
+          || recoveryOverride.terminal_attempt_ordinal !== seriesMaxAttempts
+          || terminalCandidate.disposition.profile !== 'NO-GO'
+          || terminalAttempt.status !== 'failed'
+        ) {
+          addFinding(
+            record,
+            'recovery_override must bind the failed terminal NO-GO at max_attempts in the same series',
+          );
+        }
+        if (
+          recoveryOverride.terminal_evidence_path !== terminalAttempt.evidence_path
+          || recoveryOverride.terminal_evidence_sha256 !== terminalAttempt.evidence_sha256
+        ) {
+          addFinding(
+            record,
+            'recovery_override terminal evidence must match the terminal candidate exactly',
           );
         }
       }
