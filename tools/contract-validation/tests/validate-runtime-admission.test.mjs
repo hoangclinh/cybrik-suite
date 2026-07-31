@@ -362,6 +362,149 @@ test('valid retired R1 NO-GO and authorized R2 patterns validate together', asyn
   });
 });
 
+test('one command-defect recovery override preserves the exhausted series and stays HOLD', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const r1Content = 'attempt 1\n';
+  const r2Content = 'attempt 2\n';
+  const correctionContent = 'reviewed command correction\n';
+  const r1Path = currentAttemptArtifact(seriesId, 1);
+  const r2Path = currentAttemptArtifact(seriesId, 2);
+  const correctionPath = `${evidenceDir(seriesId, 3)}/01-command-correction.md`;
+
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    highFindings: 1,
+    disposition: 'NO-GO',
+  });
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 3,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    highFindings: 1,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r1Path,
+        evidence_sha256: sha256(r1Content),
+      },
+    ],
+    disposition: 'NO-GO',
+  });
+  const r3 = baseCandidate({
+    seriesId,
+    ordinal: 3,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r1Path,
+        evidence_sha256: sha256(r1Content),
+      },
+      {
+        candidate_id: candidateId(seriesId, 2),
+        attempt_ordinal: 2,
+        executed_checks: 4,
+        passed_checks: 3,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r2Path,
+        evidence_sha256: sha256(r2Content),
+      },
+    ],
+    disposition: 'HOLD',
+  });
+  r3.attempt_accounting.recovery_override = {
+    kind: 'admitted_command_defect',
+    additional_attempts: 1,
+    terminal_candidate_id: candidateId(seriesId, 2),
+    terminal_attempt_ordinal: 2,
+    terminal_evidence_path: r2Path,
+    terminal_evidence_sha256: sha256(r2Content),
+    correction_evidence_path: correctionPath,
+    correction_evidence_sha256: sha256(correctionContent),
+    review_status: 'pending',
+  };
+
+  await withTempRepo({
+    candidates: [r1, r2, r3],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 3),
+        path: correctionPath,
+        value: correctionContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    const r3Report = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 3),
+    );
+    assert.equal(r3Report.derivedDisposition, 'HOLD');
+  });
+});
+
+test('an ordinal beyond max_attempts remains rejected without a recovery override', async () => {
+  const candidate = baseCandidate({
+    ordinal: 3,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.failure_history = [
+    {
+      candidate_id: 'runtime-admission-ai-pg-r1',
+      attempt_ordinal: 1,
+      executed_checks: 1,
+      passed_checks: 0,
+      failed_checks: 1,
+      disposition: 'NO-GO',
+      evidence_path: 'docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/05-attempt-accounting.json',
+      evidence_sha256: sha256('prior 1\n'),
+    },
+    {
+      candidate_id: 'runtime-admission-ai-pg-r2',
+      attempt_ordinal: 2,
+      executed_checks: 1,
+      passed_checks: 0,
+      failed_checks: 1,
+      disposition: 'NO-GO',
+      evidence_path: 'docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/05-attempt-accounting.json',
+      evidence_sha256: sha256('prior 2\n'),
+    },
+  ];
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'attempt_ordinal must be <= max_attempts',
+    )));
+  });
+});
+
 test('candidate id suffix must match attempt_accounting series and ordinal', async () => {
   const candidate = baseCandidate();
   candidate.candidate_id = 'wrong-id';
