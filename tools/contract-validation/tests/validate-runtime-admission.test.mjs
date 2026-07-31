@@ -773,6 +773,68 @@ test('an ordinal beyond max_attempts remains rejected without a recovery overrid
   });
 });
 
+test('a recovery override cannot move from max_attempts plus one to a later ordinal', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const correctionContent = 'invalid late recovery correction\n';
+  const correctionPath = `${evidenceDir(seriesId, 4)}/01-command-correction.md`;
+  const r4 = baseCandidate({
+    seriesId,
+    ordinal: 4,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    history: [1, 2, 3].map((ordinal) => ({
+      candidate_id: candidateId(seriesId, ordinal),
+      attempt_ordinal: ordinal,
+      executed_checks: 1,
+      passed_checks: 0,
+      failed_checks: 1,
+      disposition: 'NO-GO',
+      evidence_path: currentAttemptArtifact(seriesId, ordinal),
+      evidence_sha256: sha256(`attempt ${ordinal}\n`),
+    })),
+    disposition: 'HOLD',
+  });
+  r4.attempt_accounting.recovery_override = {
+    kind: 'admitted_command_defect',
+    additional_attempts: 1,
+    terminal_candidate_id: candidateId(seriesId, 2),
+    terminal_attempt_ordinal: 2,
+    terminal_evidence_path: currentAttemptArtifact(seriesId, 2),
+    terminal_evidence_sha256: sha256('attempt 2\n'),
+    correction_evidence_path: correctionPath,
+    correction_evidence_sha256: sha256(correctionContent),
+    review_status: 'pending',
+  };
+  r4.evidence.artifacts.push({
+    path: correctionPath,
+    sha256: sha256(correctionContent),
+  });
+
+  await withTempRepo({
+    candidates: [r4],
+    extraWrites: [
+      ...[1, 2, 3].map((ordinal) => ({
+        kind: 'text',
+        dir: evidenceDir(seriesId, ordinal),
+        path: currentAttemptArtifact(seriesId, ordinal),
+        value: `attempt ${ordinal}\n`,
+      })),
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 4),
+        path: correctionPath,
+        value: correctionContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'recovery_override is valid only at max_attempts + 1',
+    )));
+  });
+});
+
 test('candidate id suffix must match attempt_accounting series and ordinal', async () => {
   const candidate = baseCandidate();
   candidate.candidate_id = 'wrong-id';
@@ -963,11 +1025,11 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets validate with retired R1 and failed R2', async () => {
+test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.counts.candidateFiles, 2);
+  assert.equal(report.counts.candidateFiles, 3);
   const byId = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
@@ -976,6 +1038,7 @@ test('committed runtime-admission assets validate with retired R1 and failed R2'
   );
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
+  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'HOLD');
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
@@ -995,7 +1058,140 @@ test('committed runtime-admission assets validate with retired R1 and failed R2'
   assert.equal(r2.attempt_accounting.max_attempts, 2);
   assert.equal(r2.evidence.final_profile_verdict, 'NO-GO');
   assert.equal(r2.disposition.profile, 'NO-GO');
-  assert.match(read(README_PATH), /consumed both admitted ordinals/);
+
+  const r3 = JSON.parse(read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json',
+  ));
+  assert.equal(r3.attempt_accounting.attempt_ordinal, 3);
+  assert.equal(r3.attempt_accounting.max_attempts, 2);
+  assert.equal(r3.attempt_accounting.current_attempt.status, 'not_run');
+  assert.equal(r3.attempt_accounting.current_attempt.execution_authorized, false);
+  assert.deepEqual(
+    r3.attempt_accounting.failure_history.map((attempt) => [
+      attempt.candidate_id,
+      attempt.evidence_sha256,
+    ]),
+    [
+      [
+        'runtime-admission-ai-pg-r1',
+        '52742f66e08766810e049a36b8c5dbdbac89dba33a43dc6825a00479fe491b6c',
+      ],
+      [
+        'runtime-admission-ai-pg-r2',
+        'c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7',
+      ],
+    ],
+  );
+  assert.deepEqual(r3.attempt_accounting.recovery_override, {
+    kind: 'admitted_command_defect',
+    additional_attempts: 1,
+    terminal_candidate_id: 'runtime-admission-ai-pg-r2',
+    terminal_attempt_ordinal: 2,
+    terminal_evidence_path:
+      'docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/02-r2-runtime-result.md',
+    terminal_evidence_sha256:
+      'c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7',
+    correction_evidence_path:
+      'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md',
+    correction_evidence_sha256:
+      'f23d0f4e1d3bb97aa0192d59e33f92e748cb11e5e216c8923a516303f13dcdb1',
+    review_status: 'pending',
+  });
+  assert.equal(r3.evidence.final_profile_verdict, 'HOLD');
+  assert.equal(r3.disposition.profile, 'HOLD');
+  assert.match(read(README_PATH), /R3 records the one bounded/);
+  assert.match(read(README_PATH), /Any recovery must preserve every prior result/);
+});
+
+test('R3 correction uses one stdin-fed psql process and cannot retain the failed -c form', () => {
+  const r3 = JSON.parse(read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json',
+  ));
+  const [seedCommand, cdCommand, testCommand] = r3.lifecycle_procedures.seed;
+  const correctionEvidence = read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md',
+  );
+  const bashBlocks = [...correctionEvidence.matchAll(/```bash\n([^\n]+)\n```/g)];
+  assert.equal(bashBlocks.length, 1);
+  assert.equal(seedCommand, bashBlocks[0][1]);
+  assert.match(seedCommand, /'\\set runtime_password'/);
+  assert.match(seedCommand, /printf '%s\\n'/);
+  assert.match(seedCommand, /\| docker exec -i /);
+  assert.match(seedCommand, /psql --single-transaction --set=ON_ERROR_STOP=1 /);
+  assert.match(seedCommand, /PASSWORD :'runtime_password'/);
+  assert.equal(
+    [...seedCommand.matchAll(
+      /"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;"/g,
+    )].length,
+    1,
+  );
+  assert.doesNotMatch(seedCommand, /\b(?:SUPERUSER|BYPASSRLS)\b/);
+  assert.equal([...seedCommand.matchAll(/\bGRANT\b/g)].length, 1);
+  assert.match(
+    seedCommand,
+    /NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS/,
+  );
+  assert.equal(
+    [...seedCommand.matchAll(
+      /GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat;/g,
+    )].length,
+    1,
+  );
+  assert.doesNotMatch(
+    seedCommand,
+    /\bpsql\b.*(?:\s-(?:c|f)(?:$|.)|--(?:command|file)(?:$|[=\s]))/,
+  );
+  assert.doesNotMatch(seedCommand, /--set=runtime_password/);
+  assert.doesNotMatch(seedCommand, /-e PGPASSWORD=/);
+  assert.equal([...seedCommand.matchAll(/\|/g)].length, 1);
+  assert.equal(
+    [...seedCommand.matchAll(/ALTER ROLE cybrik_ai_runtime_uat/g)].length,
+    1,
+  );
+  const lifecycleCommands = Object.values(r3.lifecycle_procedures).flat();
+  for (const command of lifecycleCommands) {
+    assert.doesNotMatch(
+      command,
+      /(?:AI_PG_(?:POSTGRES|RUNTIME)_PASSWORD|POSTGRES_PASSWORD|PGPASSWORD|runtime_password)=(?!(?:"|')?\$\{)(?:"[^"]*"|'[^']*'|[^\s;]+)/,
+    );
+    assert.doesNotMatch(
+      command,
+      /AI_API_POSTGRES_(?:ADMIN|RUNTIME)_DSN=(?:"|')?postgresql\+asyncpg:\/\/[^:]+:(?!\$\{)/,
+    );
+  }
+  const lifecycleText = JSON.stringify(r3.lifecycle_procedures);
+  assert.match(lifecycleText, /AI_PG_POSTGRES_PASSWORD must be exactly 64 lowercase hexadecimal characters/);
+  assert.match(lifecycleText, /AI_PG_RUNTIME_PASSWORD must be exactly 64 lowercase hexadecimal characters/);
+  assert.match(lifecycleText, /trap 'docker stop cybrik-ai-pg-uat-r3/);
+  assert.match(lifecycleText, /trap - EXIT INT TERM/);
+  assert.match(
+    r3.lifecycle_procedures.start.join('\n'),
+    /attempt=0; until docker exec .*attempt=\$\(\(attempt \+ 1\)\).*"\$\{attempt\}" -ge 60.*exit 70/,
+  );
+  assert.deepEqual({
+    tenant_isolation: r3.negative_smoke.tenant_isolation.map(({ status }) => status),
+    authorization: r3.negative_smoke.authorization.map(({ status }) => status),
+    secret_boundary: r3.negative_smoke.secret_boundary.map(({ status }) => status),
+  }, {
+    tenant_isolation: ['pass'],
+    authorization: ['pass'],
+    secret_boundary: ['pass'],
+  });
+  for (const smoke of [
+    ...r3.negative_smoke.tenant_isolation,
+    ...r3.negative_smoke.authorization,
+  ]) {
+    assert.match(smoke.name, /^static preflight only:/);
+  }
+  assert.match(
+    r3.negative_smoke.secret_boundary[0].name,
+    /^hosted required secret scans are green/,
+  );
+  assert.equal(cdCommand, 'cd "${CYBRIK_AI_REPO:?}"');
+  assert.equal(
+    testCommand,
+    'AI_API_POSTGRES_ADMIN_DSN="${AI_API_POSTGRES_ADMIN_DSN:?}" AI_API_POSTGRES_RUNTIME_DSN="${AI_API_POSTGRES_RUNTIME_DSN:?}" uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q',
+  );
 });
 
 test('mislocated runtime-admission records fail closed while unrelated candidate files stay ignored', async () => {

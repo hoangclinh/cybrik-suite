@@ -18,9 +18,11 @@ Rules:
 - Process rule: a completed runtime attempt must be recorded in a new result artifact and must not
   reuse the pre-run authorization artifact as result evidence; this distinction is review-enforced
   when the result update is committed.
-- Current series status: `runtime-admission-ai-pg` has consumed both admitted ordinals. R1 and R2
-  are `NO-GO`; neither record authorizes another execution. Any recovery must preserve both
-  histories and pass a separately reviewed admission boundary.
+- Current series status: `runtime-admission-ai-pg` consumed both original admitted ordinals. R1
+  and R2 remain `NO-GO`. R3 records the one bounded `admitted_command_defect` recovery allowed by
+  the canonical validator, preserves both failure histories, and remains `HOLD` with
+  `execution_authorized:false` while independent correction review is pending.
+- Any recovery must preserve every prior result and pass a separately reviewed admission boundary.
 - A missing runtime-admission item is `HOLD`.
 - Any failed tenant-isolation, authorization or secret-boundary check is `NO-GO`.
 - `RUNTIME_AUTHORIZED` permits bounded non-production execution only; it proves no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
