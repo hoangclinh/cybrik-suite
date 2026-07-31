@@ -1,6 +1,6 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r1",
-  "recorded_at": "2026-07-31T02:53:53Z",
+  "recorded_at": "2026-07-31T03:29:56Z",
   "commit_tree": {
     "suite": {
       "commit": "d564521b566417f60948081c6b816557f93f61a2",
@@ -11,8 +11,8 @@
       "tree": "16ef74d6f97cbf90a504bb3cee57a98712e40c56"
     },
     "cyber_ai": {
-      "commit": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
-      "tree": "54f782400729cea9ef9a03664e083093797fa9bb"
+      "commit": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+      "tree": "e2dd71b3387e668f76656f52a0e077de46eccb0d"
     },
     "tool_fabric": {
       "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
@@ -83,49 +83,49 @@
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "scaffold-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "lockfile-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "lint",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "type",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "test",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "build-offline",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "secret-scan",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
         "name": "security-supply-chain",
         "status": "success"
       },
@@ -265,6 +265,8 @@
     "notes": [
       "No open Critical or High finding is recorded on the bounded static admission path reviewed here.",
       "Direct pushes to protected main were server-rejected with GH006 and pull-request-required enforcement across all four repositories.",
+      "The first loopback attempt at the superseded Cyber AI tuple 8da372b6a2a9468c58ebfc2c3359c8409b8a7c86 failed before migration because the async SQLAlchemy runtime dependency greenlet was not installed on macOS arm64; the container was removed and the loopback port was confirmed closed.",
+      "Cyber AI commit 97a82b8e9e4788a1d588858f0eac1ca104a9236b makes greenlet a direct locked dependency, passes 831 no-DB tests with 13 PostgreSQL tests explicitly skipped, and has all eight required hosted checks green.",
       "This record authorizes one future loopback PostgreSQL 16 proof only; it does not claim that proof has already executed."
     ]
   },
@@ -273,11 +275,11 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/01-hosted-facts.json",
-        "sha256": "9cd73896d030f957475a24b9dc3b8259821ff8f8a60a83a0507fc9877d8d6eb9"
+        "sha256": "9b2c7859280910c8099b56b6a2bce0db6e6850a6973bed4ffe9aa49d5ade23c4"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/02-preflight-transcript.md",
-        "sha256": "e89a120d1f86870fe3c8c57a9b0171bc4f809b10026330d25fb022d87f16dfd4"
+        "sha256": "68961eebc613a88e4b987368a673b5e7d414c0b40351e4a12d137ad0fadd92ef"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/03-runtime-plan.md",
