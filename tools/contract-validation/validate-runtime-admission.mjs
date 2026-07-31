@@ -19,6 +19,7 @@ const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
 const CANDIDATE_ROOT = 'docs/uat/candidates';
+const SUITE_REFERENCE_PREFIX = 'cybrik-suite:';
 const FORBIDDEN_PROFILES = new Set([
   'DEMO_READY_LOCAL',
   'CUSTOMER_POC_READY',
@@ -169,9 +170,6 @@ const evaluateSmokeChecks = (checks, label, path, errors) => {
   }
   const hasFailure = checks.some((check) => check.status === 'fail');
   const hasHold = checks.some((check) => check.status === 'hold');
-  if (hasHold) {
-    errors.push(`${path}: ${label} must be pass before runtime admission`);
-  }
   if (hasFailure) {
     return 'fail';
   }
@@ -184,6 +182,38 @@ const evaluateSmokeChecks = (checks, label, path, errors) => {
 const isPathOutside = (basePath, targetPath) => {
   const delta = relative(basePath, targetPath);
   return delta === '..' || delta.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(delta);
+};
+
+const validateSuiteLocalReviewedContracts = (root, references, path, errors) => {
+  let valid = true;
+  for (const reference of references) {
+    if (!reference.startsWith(SUITE_REFERENCE_PREFIX)) continue;
+    const relativePath = reference.slice(SUITE_REFERENCE_PREFIX.length);
+    const resolvedPath = resolve(root, relativePath);
+    if (!relativePath || isAbsolute(relativePath) || isPathOutside(root, resolvedPath)) {
+      errors.push(`${path}: Suite-local reviewed contract must remain inside the repository root`);
+      valid = false;
+      continue;
+    }
+    try {
+      const linkStats = lstatSync(resolvedPath);
+      if (linkStats.isSymbolicLink() || !linkStats.isFile()) {
+        errors.push(`${path}: Suite-local reviewed contract must resolve to a regular file`);
+        valid = false;
+        continue;
+      }
+      const canonicalRoot = realpathSync(root);
+      const canonicalPath = realpathSync(resolvedPath);
+      if (isPathOutside(canonicalRoot, canonicalPath)) {
+        errors.push(`${path}: Suite-local reviewed contract must not escape through symlinks`);
+        valid = false;
+      }
+    } catch {
+      errors.push(`${path}: Suite-local reviewed contract must resolve to a regular file`);
+      valid = false;
+    }
+  }
+  return valid;
 };
 
 const validateRecordedArtifact = ({
@@ -525,6 +555,13 @@ const deriveDisposition = (root, candidate, path) => {
   if (!candidate.contracts.reviewed_contracts.length) {
     errors.push(`${path}: reviewed contracts must be explicit`);
     hold = true;
+  } else if (!validateSuiteLocalReviewedContracts(
+    root,
+    candidate.contracts.reviewed_contracts,
+    path,
+    errors,
+  )) {
+    hold = true;
   }
   if (!candidate.contracts.feature_flags.length) {
     errors.push(`${path}: feature flags must be explicit`);
@@ -594,7 +631,7 @@ const deriveDisposition = (root, candidate, path) => {
   }
 
   if ((candidate.open_findings.critical ?? 0) > 0 || (candidate.open_findings.high ?? 0) > 0) {
-    noGo = true;
+    hold = true;
   }
   if (!candidate.evidence.directory) {
     errors.push(`${path}: evidence directory is required`);

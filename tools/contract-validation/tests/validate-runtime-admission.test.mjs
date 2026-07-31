@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -399,6 +399,29 @@ const withTempRepo = async ({
       cpSync(sourceDir, join(tempRoot, dirname(entry.record_path)), {
         recursive: true,
       });
+    }
+    const records = [
+      ...committedLineagePolicy().legacy_candidates.map((entry) =>
+        JSON.parse(read(entry.record_path)),
+      ),
+      ...candidates,
+    ];
+    for (const record of records) {
+      for (const reference of record.contracts.reviewed_contracts) {
+        if (!reference.startsWith('cybrik-suite:')) continue;
+        const relativePath = reference.slice('cybrik-suite:'.length);
+        const sourcePath = resolve(ROOT, relativePath);
+        if (!sourcePath.startsWith(`${ROOT}/`)) continue;
+        try {
+          const stats = lstatSync(sourcePath);
+          if (!stats.isFile()) continue;
+        } catch {
+          continue;
+        }
+        const targetPath = join(tempRoot, relativePath);
+        mkdirSync(dirname(targetPath), { recursive: true });
+        cpSync(sourcePath, targetPath);
+      }
     }
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
@@ -1645,6 +1668,68 @@ test('hosted non-required job classes and lifecycle prerequisites remain explici
   });
 });
 
+test('Suite-local reviewed contract references must be contained regular files', async () => {
+  const invalidReferences = [
+    'cybrik-suite:docs/uat/does-not-exist.json',
+    'cybrik-suite:/tmp/outside-suite-contract.json',
+    'cybrik-suite:../outside-suite-contract.json',
+    'cybrik-suite:docs/uat',
+  ];
+  for (const reference of invalidReferences) {
+    const candidate = baseCandidate();
+    candidate.contracts.reviewed_contracts = [reference];
+    await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+      const report = await validateRuntimeAdmission({ root: tempRoot });
+      assert.ok(
+        report.errors.some((error) =>
+          error.includes('Suite-local reviewed contract'),
+        ),
+        `missing finding for ${reference}`,
+      );
+      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    });
+  }
+
+  const directSymlinkCandidate = baseCandidate();
+  directSymlinkCandidate.contracts.reviewed_contracts = [
+    'cybrik-suite:docs/uat/direct-contract-link.md',
+  ];
+  await withTempRepo({ candidates: [directSymlinkCandidate] }, async (tempRoot) => {
+    symlinkSync(
+      join(tempRoot, README_PATH),
+      join(tempRoot, 'docs/uat/direct-contract-link.md'),
+    );
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('Suite-local reviewed contract'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const externalDir = mkdtempSync(join(os.tmpdir(), 'runtime-admission-contract-'));
+  try {
+    writeFileSync(join(externalDir, 'contract.md'), 'outside\n', 'utf8');
+    const parentSymlinkCandidate = baseCandidate();
+    parentSymlinkCandidate.contracts.reviewed_contracts = [
+      'cybrik-suite:docs/uat/linked/contract.md',
+    ];
+    await withTempRepo({ candidates: [parentSymlinkCandidate] }, async (tempRoot) => {
+      symlinkSync(externalDir, join(tempRoot, 'docs/uat/linked'), 'dir');
+      const report = await validateRuntimeAdmission({ root: tempRoot });
+      assert.ok(
+        report.errors.some((error) =>
+          error.includes('Suite-local reviewed contract'),
+        ),
+      );
+      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    });
+  } finally {
+    rmSync(externalDir, { recursive: true, force: true });
+  }
+});
+
 test('test-data, network, and production boundaries fail closed', async () => {
   const invalidTestData = baseCandidate();
   invalidTestData.test_data.classification = 'production';
@@ -1681,7 +1766,7 @@ test('test-data, network, and production boundaries fail closed', async () => {
   });
 });
 
-test('smoke failures and open Critical or High findings truthfully derive NO-GO', async () => {
+test('smoke failures truthfully derive NO-GO', async () => {
   const smokeFailure = baseCandidate({
     authorizationSmoke: 'fail',
     disposition: 'NO-GO',
@@ -1691,15 +1776,39 @@ test('smoke failures and open Critical or High findings truthfully derive NO-GO'
     assert.deepEqual(report.errors, []);
     assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
+});
 
+test('open Critical or High findings before execution truthfully derive HOLD', async () => {
   const highFinding = baseCandidate({
     highFindings: 1,
-    disposition: 'NO-GO',
+    disposition: 'HOLD',
   });
   await withTempRepo({ candidates: [highFinding] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const criticalFinding = baseCandidate({
+    criticalFindings: 1,
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [criticalFinding] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('held negative smoke checks truthfully derive HOLD without structural errors', async () => {
+  const candidate = baseCandidate({
+    authorizationSmoke: 'hold',
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });
 
@@ -2002,7 +2111,7 @@ test('the registry cannot hold two independently authorized runtime candidates',
   });
 });
 
-test('a failed smoke cannot hide an unrecorded or held prerequisite smoke', async () => {
+test('a failed smoke cannot hide an unrecorded prerequisite while a held smoke remains valid evidence', async () => {
   const candidate = baseCandidate({
     authorizationSmoke: 'fail',
     disposition: 'NO-GO',
@@ -2017,11 +2126,7 @@ test('a failed smoke cannot hide an unrecorded or held prerequisite smoke', asyn
         error.includes('tenant-isolation smoke must contain at least one recorded check'),
       ),
     );
-    assert.ok(
-      report.errors.some((error) =>
-        error.includes('secret-boundary smoke must be pass before runtime admission'),
-      ),
-    );
+    assert.equal(report.errors.length, 1);
     assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
 });
