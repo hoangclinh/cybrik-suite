@@ -19,7 +19,7 @@ certificate-chain validation, revocation check, socket, container, database, dep
 hosted multi-repository checkout is exercised. The proof therefore must not be relabeled as
 UAT, mTLS, deployment readiness, or release readiness.
 
-## 2. Immutable candidate tuple
+## 2. Pinned candidate lineage and immutable product tuple
 
 | Repository | Commit | Tree |
 |---|---|---|
@@ -28,7 +28,9 @@ UAT, mTLS, deployment readiness, or release readiness.
 | Cyber AI Platform | `a7defd3a7b41faa8e654d6d7567cb2e59b9363fb` | `81e58824d95f800d8e6d424c25207901aceaccfa` |
 
 The runner rejects a product checkout unless both its commit and tree match this tuple and the
-checkout is clean. It also requires the Suite candidate to descend from the pinned Suite base.
+checkout is clean. It also requires a clean Suite checkout descended from the pinned Suite base.
+The immutable review commit, rather than a self-referential in-file hash, identifies the exact
+Suite harness bytes.
 
 ## 3. RED-first and GREEN evidence
 
@@ -56,7 +58,7 @@ This local result covers:
 3. deny-all transport failing closed through the SOC client's sanitized error while producing
    no run state;
 4. absence of status, cancel, checkpoint, and bundle methods from the SOC client surface; and
-5. the synthetic fixture's exact pin tuple and explicit nonclaims.
+5. the synthetic fixture's Suite-base lineage, exact product-pin tuple, and explicit nonclaims.
 
 ## 4. Secret and trust posture
 

@@ -85,6 +85,8 @@ git -C "$suite_root" cat-file -e "${suite_base_commit}^{commit}" 2>/dev/null \
   || die "Suite base tree mismatch"
 git -C "$suite_root" merge-base --is-ancestor "$suite_base_commit" HEAD \
   || die "Suite checkout is not descended from the pinned Suite base"
+[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all)" ]] \
+  || die "Suite checkout is not clean: $suite_root"
 
 verify_exact_checkout "SOC" "$soc_repo" "$soc_commit" "$soc_tree"
 verify_exact_checkout "Cyber AI" "$ai_repo" "$ai_commit" "$ai_tree"

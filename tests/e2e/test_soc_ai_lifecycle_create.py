@@ -330,7 +330,7 @@ def test_soc_client_introduces_no_other_public_lifecycle_surface() -> None:
     assert public.isdisjoint({"status", "cancel", "checkpoint", "bundle", "bundle_read"})
 
 
-def test_synthetic_fixture_pins_the_exact_candidate_tuple_and_nonclaims() -> None:
+def test_synthetic_fixture_pins_lineage_exact_products_and_nonclaims() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     assert fixture["status"] == [
         "SCAFFOLD",

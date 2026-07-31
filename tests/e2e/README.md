@@ -35,7 +35,8 @@ tests/e2e/run-soc-ai-lifecycle-create.sh \
   --ai-repo /absolute/path/to/pinned-cyber-ai
 ```
 
-The runner rejects relative paths, dirty product checkouts, and commit/tree mismatches before
-Python starts. It supplies the three product `src` roots through `PYTHONPATH`. The Python test
-imports normal package names and does not modify `sys.path` or use cross-repository relative
-imports, symlinks, submodules, or nested repositories.
+The runner rejects relative paths, a dirty Suite or product checkout, product commit/tree
+mismatches, and a Suite checkout outside the pinned base lineage before Python starts. It
+supplies the three product `src` roots through `PYTHONPATH`. The Python test imports normal
+package names and does not modify `sys.path` or use cross-repository relative imports, symlinks,
+submodules, or nested repositories.
