@@ -78,7 +78,7 @@ Post-migration runtime proof:
 cd "${CYBRIK_AI_REPO:?}"
 AI_API_POSTGRES_ADMIN_DSN="${AI_API_POSTGRES_ADMIN_DSN:?}" \
 AI_API_POSTGRES_RUNTIME_DSN="${AI_API_POSTGRES_RUNTIME_DSN:?}" \
-uv run pytest tests/ai_api/test_postgres_durable.py -q
+uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q
 ```
 
 Optional focused role proof:
@@ -87,7 +87,7 @@ Optional focused role proof:
 cd "${CYBRIK_AI_REPO:?}"
 AI_API_POSTGRES_ADMIN_DSN="${AI_API_POSTGRES_ADMIN_DSN:?}" \
 AI_API_POSTGRES_RUNTIME_DSN="${AI_API_POSTGRES_RUNTIME_DSN:?}" \
-uv run pytest tests/ai_api/test_postgres_durable.py -q -k "runtime_identity or role_is_nobypassrls"
+uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q -k "runtime_identity or role_is_nobypassrls"
 ```
 
 Rollback:
@@ -106,6 +106,12 @@ docker stop cybrik-ai-pg-uat-r1
 
 Notes:
 - The Alembic override is required because `services/ai-api/migrations/alembic.ini` hardcodes `sqlalchemy.url = postgresql+asyncpg://localhost/postgres`.
+- `--no-cov` is deliberate for this single-file runtime proof: repository-wide coverage remains
+  enforced by the full hosted `test` job, while this command's pass/fail signal is reserved for
+  the PostgreSQL migration, role, RLS, tenant-isolation, durability, and concurrency assertions.
+  At Cyber AI commit `97a82b8e9e4788a1d588858f0eac1ca104a9236b`, root `pyproject.toml`
+  directly declares `pytest-cov>=5.0.0` and configures
+  `--cov --cov-branch --cov-fail-under=60`; `uv run pytest --help` exposes `--no-cov`.
 - The downgrade intentionally removes schema-local objects only; the shared role `cybrik_ai_api_app` remains.
 - `cybrik_ai_runtime_uat` stays `NOINHERIT`; the proof relies on explicit `SET LOCAL ROLE cybrik_ai_api_app`.
 - No HTTP socket, web app, or full-stack demo is part of this authorized proof.

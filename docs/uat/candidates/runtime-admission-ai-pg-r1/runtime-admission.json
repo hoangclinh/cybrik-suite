@@ -1,6 +1,6 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r1",
-  "recorded_at": "2026-07-31T03:29:56Z",
+  "recorded_at": "2026-07-31T03:41:43Z",
   "commit_tree": {
     "suite": {
       "commit": "d564521b566417f60948081c6b816557f93f61a2",
@@ -232,7 +232,7 @@
     "seed": [
       "docker exec -e PGPASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" cybrik-ai-pg-uat-r1 psql --set=ON_ERROR_STOP=1 --set=runtime_password=\"${AI_PG_RUNTIME_PASSWORD:?}\" -U postgres -d postgres -c \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" -c \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS\" -c 'GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat'",
       "cd \"${CYBRIK_AI_REPO:?}\"",
-      "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" AI_API_POSTGRES_RUNTIME_DSN=\"${AI_API_POSTGRES_RUNTIME_DSN:?}\" uv run pytest tests/ai_api/test_postgres_durable.py -q"
+      "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" AI_API_POSTGRES_RUNTIME_DSN=\"${AI_API_POSTGRES_RUNTIME_DSN:?}\" uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q"
     ],
     "rollback": [
       "cd \"${CYBRIK_AI_REPO:?}\"",
@@ -283,7 +283,7 @@
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/03-runtime-plan.md",
-        "sha256": "b608d0e1f8258be70676dbfcb666ede3f12c9af583efaa7f6e97ea96164b5914"
+        "sha256": "d67c4b33221d764fffe5b9cad5a66d335719c0dbe10f3ee9a313bb953f0daafa"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/04-protection-facts.json",
