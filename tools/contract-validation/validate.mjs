@@ -51,7 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
-// These 21 validators cover the accepted corpus and additive proposal checks.
+// These 23 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -82,6 +82,12 @@ const steps = [
   'tests/validate-svc-lifecycle.test.mjs',
   'validate-runtime-admission.mjs',
   'tests/validate-runtime-admission.test.mjs',
+  // W2-K transport peer-evidence profile — PROPOSED, NOT ACCEPTED and NOT
+  // IMPLEMENTED. Server-neutral, fail-closed static conformance only; it
+  // opens no socket, selects no server, and grants no runtime, UAT, release,
+  // deployment or production authority.
+  'validate-transport-peer.mjs',
+  'tests/validate-transport-peer.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;
@@ -91,4 +97,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED and validate-resource-bounds for W2-H PROPOSED / NOT ACCEPTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H PROPOSED / NOT ACCEPTED, and validate-transport-peer for W2-K PROPOSED / NOT ACCEPTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
