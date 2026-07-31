@@ -78,8 +78,8 @@ const LIFECYCLE_INDEX_MARKERS = Object.freeze({
     '`cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`',
 });
 // R3: lifecycle agreement covers metadata-bearing schemas, manifests, docs and
-// indexes. It deliberately excludes the 18 emitted wire fixture instances,
-// which carry no governance lifecycle marker at all (see section 17 below).
+// indexes. It deliberately excludes 17 wire-instance fixtures and the non-wire
+// truth-table fixture; none carries a governance lifecycle marker (section 17).
 const LIFECYCLE_PATHS = [
   ...new Set([
     ...PACKET_DOC_PATHS,
@@ -1269,14 +1269,14 @@ test('neither transport-peer wire schema requires or defines an instance-level x
   }
 });
 
-test('none of the 18 emitted fixture instances carry x-cybrik-lifecycle', () => {
+test('none of the 18 governed fixture documents carry x-cybrik-lifecycle', () => {
   assert.equal(FIXTURE_ONLY_PATHS.length, 18);
   for (const relativePath of FIXTURE_ONLY_PATHS) {
     const text = read(relativePath);
     assert.doesNotMatch(
       text,
       /x-cybrik-lifecycle/,
-      `${relativePath}: emitted wire instance must carry no governance lifecycle metadata`,
+      `${relativePath}: fixture document must carry no governance lifecycle metadata`,
     );
     const value = JSON.parse(text);
     assert.equal(

@@ -114,11 +114,13 @@ The Codex Governor authorizes exactly 25 paths for R3, and no other:
 24. `contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json`
 25. `contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json`
 
-R3 removes `x-cybrik-lifecycle` only from the two wire schemas and the 18 emitted fixture
-instances, recuts the directly affected example and compatibility digests, and adds fail-closed
-tests plus the decision rationale in ADR-0013. Lifecycle remains packet governance metadata on the
-schema roots, examples manifest, compatibility manifest, ADR, and decision record. Reintroducing a
-governance marker into an evidence or denial instance is rejected by the schemas.
+R3 removes `x-cybrik-lifecycle` only from the two wire schemas and all 18 fixture documents: 17
+wire-instance fixtures plus one non-wire truth table. It recuts the directly affected example and
+compatibility digests and adds fail-closed tests plus the decision rationale in ADR-0013. Proposal
+lifecycle state remains represented by status metadata on the schema roots, examples manifest,
+compatibility manifest, ADR, and decision record. Reintroducing a governance marker into an
+evidence or denial instance is rejected by the schemas; the truth table remains digest-pinned and
+test-governed rather than wire-schema validated.
 
 This amendment grants no acceptance, runtime, UAT, release, deployment, or production authority.
 It authorizes no product implementation, server selection, dependency or lockfile change, workflow
