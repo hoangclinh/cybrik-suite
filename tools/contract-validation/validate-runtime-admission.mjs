@@ -191,7 +191,7 @@ const validateSuiteLocalReviewedContracts = (root, references, path, errors) => 
     const relativePath = reference.slice(SUITE_REFERENCE_PREFIX.length);
     const resolvedPath = resolve(root, relativePath);
     if (!relativePath || isAbsolute(relativePath) || isPathOutside(root, resolvedPath)) {
-      errors.push(`${path}: Suite-local reviewed contract must resolve to a regular file`);
+      errors.push(`${path}: Suite-local reviewed contract must remain inside the repository root`);
       valid = false;
       continue;
     }
@@ -199,6 +199,13 @@ const validateSuiteLocalReviewedContracts = (root, references, path, errors) => 
       const linkStats = lstatSync(resolvedPath);
       if (linkStats.isSymbolicLink() || !linkStats.isFile()) {
         errors.push(`${path}: Suite-local reviewed contract must resolve to a regular file`);
+        valid = false;
+        continue;
+      }
+      const canonicalRoot = realpathSync(root);
+      const canonicalPath = realpathSync(resolvedPath);
+      if (isPathOutside(canonicalRoot, canonicalPath)) {
+        errors.push(`${path}: Suite-local reviewed contract must not escape through symlinks`);
         valid = false;
       }
     } catch {
