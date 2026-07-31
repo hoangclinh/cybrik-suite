@@ -1025,7 +1025,7 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD', async () => {
+test('committed runtime-admission assets preserve R1/R2 NO-GO and authorize only R3', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
@@ -1038,7 +1038,7 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD',
   );
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'HOLD');
+  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'RUNTIME_AUTHORIZED');
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
@@ -1065,7 +1065,17 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD',
   assert.equal(r3.attempt_accounting.attempt_ordinal, 3);
   assert.equal(r3.attempt_accounting.max_attempts, 2);
   assert.equal(r3.attempt_accounting.current_attempt.status, 'not_run');
-  assert.equal(r3.attempt_accounting.current_attempt.execution_authorized, false);
+  assert.deepEqual(r3.attempt_accounting.current_attempt, {
+    status: 'not_run',
+    execution_authorized: true,
+    executed_checks: 0,
+    passed_checks: 0,
+    failed_checks: 0,
+    evidence_path:
+      'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md',
+    evidence_sha256:
+      '49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504',
+  });
   assert.deepEqual(
     r3.attempt_accounting.failure_history.map((attempt) => [
       attempt.candidate_id,
@@ -1095,11 +1105,71 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD',
       'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md',
     correction_evidence_sha256:
       '054254d1fb9b2e474d3942d273e875d0d92e143fd8a47d391380ce2e007162cb',
-    review_status: 'pending',
+    review_status: 'independently_reviewed_go',
+    review_evidence_path:
+      'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/03-independent-runtime-review.md',
+    review_evidence_sha256:
+      'de654a1c7e1ec7fca0bcea9c709bf20ac92d2c05dabd5fdc531315976dc5da04',
   });
-  assert.equal(r3.evidence.final_profile_verdict, 'HOLD');
-  assert.equal(r3.disposition.profile, 'HOLD');
+  assert.deepEqual(r3.commit_tree.suite, {
+    commit: 'c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd',
+    tree: 'b59af36b2dfea496b6745ed446573732e1b92751',
+  });
+  assert.deepEqual(
+    r3.hosted_ci.required_checks
+      .filter(({ repo }) => repo === 'suite')
+      .map(({ sha, name, status }) => [sha, name, status]),
+    [
+      [
+        'c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd',
+        'contract standards validation',
+        'success',
+      ],
+      [
+        'c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd',
+        'secret-scan',
+        'success',
+      ],
+    ],
+  );
+  assert.equal(r3.evidence.final_profile_verdict, 'RUNTIME_AUTHORIZED');
+  assert.equal(r3.disposition.profile, 'RUNTIME_AUTHORIZED');
+  const reviewEvidence = read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/03-independent-runtime-review.md',
+  );
+  assert.match(
+    reviewEvidence,
+    /\*\*GO — ONE BOUNDED NON-PRODUCTION R3 POSTGRESQL ATTEMPT ONLY\*\*/,
+  );
+  const authorizationEvidence = read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md',
+  );
+  assert.match(
+    authorizationEvidence,
+    /start` → `reset` → `seed` \(SQL\) → the pytest command → `rollback` → `stop/,
+  );
+  assert.match(
+    authorizationEvidence,
+    /A failure spends the only recovery\s+ordinal and requires a new truthful `NO-GO` result artifact/,
+  );
+  assert.match(
+    authorizationEvidence,
+    /becomes exercisable only after this exact five-path enabling update is merged to\s+canonical `main` and its rendered required checks are green/,
+  );
+  assert.match(
+    authorizationEvidence,
+    /`seed\[0\]` \(the stdin-fed SQL role setup\).*`seed\[2\]` \(the exact pytest command\)/s,
+  );
+  assert.match(
+    authorizationEvidence,
+    /pytest result reports `13 passed` and reports no skipped tests/,
+  );
+  assert.match(
+    authorizationEvidence,
+    /rejects more than one simultaneous `RUNTIME_AUTHORIZED` candidate even\s+across different series identifiers/,
+  );
   assert.match(read(README_PATH), /R3 records the one bounded/);
+  assert.match(read(README_PATH), /is `RUNTIME_AUTHORIZED` for/);
   assert.match(read(README_PATH), /Any recovery must preserve every prior result/);
 });
 

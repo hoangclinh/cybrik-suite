@@ -7,12 +7,12 @@
     "max_attempts": 2,
     "current_attempt": {
       "status": "not_run",
-      "execution_authorized": false,
+      "execution_authorized": true,
       "executed_checks": 0,
       "passed_checks": 0,
       "failed_checks": 0,
-      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/02-hold-status.md",
-      "evidence_sha256": "e013f9b0c914510c31f66c6b02b12005fe27dfe16e28003e0d995b1720379f10"
+      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md",
+      "evidence_sha256": "49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504"
     },
     "recovery_override": {
       "kind": "admitted_command_defect",
@@ -23,7 +23,9 @@
       "terminal_evidence_sha256": "c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7",
       "correction_evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md",
       "correction_evidence_sha256": "054254d1fb9b2e474d3942d273e875d0d92e143fd8a47d391380ce2e007162cb",
-      "review_status": "pending"
+      "review_status": "independently_reviewed_go",
+      "review_evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/03-independent-runtime-review.md",
+      "review_evidence_sha256": "de654a1c7e1ec7fca0bcea9c709bf20ac92d2c05dabd5fdc531315976dc5da04"
     },
     "failure_history": [
       {
@@ -50,8 +52,8 @@
   },
   "commit_tree": {
     "suite": {
-      "commit": "6278920d162c6ec30320699aa11c6fff9e00ad34",
-      "tree": "e75286a9ee00de72d2571ee05a9fe11953e515c8"
+      "commit": "c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd",
+      "tree": "b59af36b2dfea496b6745ed446573732e1b92751"
     },
     "soc": {
       "commit": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
@@ -70,13 +72,13 @@
     "required_checks": [
       {
         "repo": "suite",
-        "sha": "6278920d162c6ec30320699aa11c6fff9e00ad34",
+        "sha": "c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd",
         "name": "contract standards validation",
         "status": "success"
       },
       {
         "repo": "suite",
-        "sha": "6278920d162c6ec30320699aa11c6fff9e00ad34",
+        "sha": "c0ef0d3a41d10dbdd885fc38f9f1fc0db967b5bd",
         "name": "secret-scan",
         "status": "success"
       },
@@ -232,7 +234,7 @@
     "feature_flags": [
       {
         "name": "cyber_ai_postgres_runtime_admission_ai_pg_r3",
-        "state": "hold_pending_independent_review"
+        "state": "runtime_authorized_one_attempt_not_run"
       },
       {
         "name": "cyber_ai_http_full_stack_demo_uat_poc_rc_ga",
@@ -246,7 +248,7 @@
       },
       {
         "capability": "runtime_admission_ai_pg_r3",
-        "state": "hold_not_run_pending_independent_review"
+        "state": "runtime_authorized_one_attempt_not_run"
       }
     ]
   },
@@ -321,9 +323,11 @@
     "notes": [
       "R1 and R2 remain immutable NO-GO records and both original ordinals remain consumed.",
       "The R2 admitted-command defect has a prospective stdin-based correction pinned by SHA-256; the correction has not been executed.",
-      "The current product tree is unchanged from R2. open_findings.high is 0 only because the R2 command defect is superseded by this unexecuted prospective correction and remains gated by HOLD; it is not a product-runtime closure claim.",
-      "Independent Claude Opus review of the recovery-boundary implementation timed out at 600 seconds with exit code 124 and no verdict. The command-correction review_status remains pending.",
-      "R3 is HOLD with execution_authorized false. A separate exact-bit update with a distinct digest-pinned independent GO review artifact is required before any runtime invocation."
+      "The current product tree is unchanged from R2. open_findings.high is 0 only because the R2 command defect is superseded by this unexecuted prospective correction; it is not a product-runtime closure claim.",
+      "A distinct Claude Opus review artifact records GO for exactly one bounded non-production R3 PostgreSQL attempt and is pinned by SHA-256.",
+      "The correction and review artifacts remain immutable historical snapshots: their older Suite tuple and pre-enabling candidate digest are superseded for execution by this record's immediate-parent Suite tuple, as required by the review.",
+      "The first independent-review attempt timed out at 600 seconds without a verdict; the immutable HOLD history remains digest-pinned and no authority derives from that attempt.",
+      "R3 is RUNTIME_AUTHORIZED with execution_authorized true, status not_run and zero counts. Any failure spends the only recovery ordinal; no retry is authorized."
     ]
   },
   "evidence": {
@@ -336,15 +340,23 @@
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/02-hold-status.md",
         "sha256": "e013f9b0c914510c31f66c6b02b12005fe27dfe16e28003e0d995b1720379f10"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/03-independent-runtime-review.md",
+        "sha256": "de654a1c7e1ec7fca0bcea9c709bf20ac92d2c05dabd5fdc531315976dc5da04"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/04-runtime-authorization.md",
+        "sha256": "49f7bed4a6b660c025c7b226a98000b380883fa43a6fadcd13ffb3920052c504"
       }
     ],
     "limitations": [
       "The corrected seed command is static design evidence and has not run against PostgreSQL.",
-      "Independent review of the command correction remains pending; this candidate cannot authorize execution.",
+      "Independent review authorizes exactly one bounded non-production PostgreSQL attempt; it proves no runtime outcome.",
       "Attempt accounting constrains candidate revisions and evidence records; it cannot observe an out-of-band command invocation.",
       "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, GA, public release or production claim is authorized."
     ],
-    "final_profile_verdict": "HOLD"
+    "final_profile_verdict": "RUNTIME_AUTHORIZED"
   },
   "network_exposure": {
     "mode": "local_only",
@@ -354,10 +366,10 @@
         "purpose": "prospective bounded local PostgreSQL 16 recovery proof only"
       }
     ],
-    "notes": "No listener was opened for this HOLD candidate. No public listener, non-loopback bind, HTTP application surface or full stack is authorized."
+    "notes": "No listener has been opened. The one authorized attempt may bind only this loopback PostgreSQL port; no public listener, non-loopback bind, HTTP application surface or full stack is authorized."
   },
   "disposition": {
-    "profile": "HOLD",
-    "rationale": "The same-series recovery boundary and stdin-based command correction are recorded, but independent review remains pending and execution_authorized is false. R1/R2 history is preserved and no runtime action or readiness claim follows."
+    "profile": "RUNTIME_AUTHORIZED",
+    "rationale": "A distinct digest-pinned independent GO review authorizes exactly one bounded non-production R3 PostgreSQL attempt. R1/R2 history is preserved; status remains not_run with zero counts, and no readiness, UAT, release or production claim follows."
   }
 }
