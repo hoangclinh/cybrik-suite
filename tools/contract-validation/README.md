@@ -136,7 +136,8 @@ npm run test:runtime-admission
 
 It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape, validates the
 truthful HOLD template at `docs/uat/templates/runtime-admission.hold.json`, verifies the immutable
-legacy bridge at `docs/uat/runtime-admission-lineage-policy.json`, discovers only
+three-record legacy seal and the allowed capability/objective registry at
+`docs/uat/runtime-admission-lineage-policy.json`, discovers only
 `docs/uat/candidates/*/runtime-admission.json`, and fail-closes on missing gate items, duplicate or
 incomplete four-repo tuples, non-success required hosted checks, missing rollback/seed procedures,
 open Critical/High findings, cross-series terminal-objective reopening, historical-evidence

@@ -150,6 +150,11 @@ const baseCandidate = ({
         evidence_sha256: attemptSha,
       },
       failure_history: history,
+      objective_lineage: {
+        capability_id: 'cybrik.test.runtime-admission',
+        objective_id: seriesId,
+        historical_prerequisites: [],
+      },
     },
     commit_tree: {
       suite: { commit: HEX_40, tree: TREE_40 },
@@ -380,7 +385,7 @@ const withTempRepo = async ({
     stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
     stableWriteJson(
       join(tempRoot, LINEAGE_POLICY_PATH),
-      lineagePolicy ?? lineagePolicyFor(candidates),
+      lineagePolicy ?? lineagePolicyForCurrentCandidates(candidates),
     );
     for (const candidate of candidates) {
       const dir = join(tempRoot, candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
@@ -410,6 +415,9 @@ const withTempRepo = async ({
 
 const terminalRecoverySeries = () => {
   const series = recoverySeries();
+  delete series.r1.attempt_accounting.objective_lineage;
+  delete series.r2.attempt_accounting.objective_lineage;
+  delete series.r3.attempt_accounting.objective_lineage;
   series.r3.attempt_accounting.current_attempt = {
     status: 'failed',
     execution_authorized: false,
@@ -432,6 +440,16 @@ const lineagePolicyFor = (candidates, {
   objectiveId = 'bounded-postgres-runtime-v1',
 } = {}) => ({
   schema_version: '1.0.0',
+  allowed_objectives: [
+    {
+      capability_id: capabilityId,
+      objective_id: objectiveId,
+    },
+    {
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+    },
+  ],
   legacy_candidates: candidates.map((candidate) => ({
     candidate_id: candidate.candidate_id,
     series_id: candidate.attempt_accounting.series_id,
@@ -445,6 +463,30 @@ const lineagePolicyFor = (candidates, {
     recorded_disposition: candidate.disposition.profile,
   })),
 });
+
+const lineagePolicyForCurrentCandidates = (candidates) => {
+  const allowedByKey = new Map();
+  for (const candidate of candidates) {
+    const lineage = candidate.attempt_accounting.objective_lineage;
+    if (!lineage) continue;
+    const key = `${lineage.capability_id}\u0000${lineage.objective_id}`;
+    allowedByKey.set(key, {
+      capability_id: lineage.capability_id,
+      objective_id: lineage.objective_id,
+    });
+  }
+  if (allowedByKey.size === 0) {
+    allowedByKey.set('cybrik.test.runtime-admission\u0000empty-registry', {
+      capability_id: 'cybrik.test.runtime-admission',
+      objective_id: 'empty-registry',
+    });
+  }
+  return {
+    schema_version: '1.0.0',
+    allowed_objectives: [...allowedByKey.values()],
+    legacy_candidates: [],
+  };
+};
 
 const historicalPrerequisite = (candidate) => ({
   candidate_id: candidate.candidate_id,
@@ -481,6 +523,16 @@ test('exports include attempt_accounting in the candidate field contract', () =>
 test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 records', () => {
   const policy = JSON.parse(read(LINEAGE_POLICY_PATH));
   assert.equal(policy.schema_version, '1.0.0');
+  assert.deepEqual(policy.allowed_objectives, [
+    {
+      capability_id: 'cybrik.ai.durable-postgres',
+      objective_id: 'bounded-postgres-runtime-v1',
+    },
+    {
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+    },
+  ]);
   assert.deepEqual(
     policy.legacy_candidates.map((entry) => entry.candidate_id),
     [
@@ -496,6 +548,28 @@ test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 re
     assert.equal(entry.recorded_disposition, 'NO-GO');
     assert.equal(sha256(read(entry.record_path)), entry.record_sha256);
   }
+});
+
+test('standalone validator rejects any attempt to grandfather a fourth legacy candidate', async () => {
+  const policy = JSON.parse(read(LINEAGE_POLICY_PATH));
+  policy.legacy_candidates.push({
+    candidate_id: 'evil-series-r1',
+    series_id: 'evil-series',
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    record_path: 'docs/uat/candidates/evil-series-r1/runtime-admission.json',
+    record_sha256: '0'.repeat(64),
+    recorded_disposition: 'NO-GO',
+  });
+  const report = await validateRuntimeAdmission({
+    root: ROOT,
+    overrides: new Map([
+      [LINEAGE_POLICY_PATH, stableJson(policy)],
+    ]),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'legacy_candidates must equal the sealed R1/R2/R3 set exactly',
+  )));
 });
 
 test('candidate discovery still validates only docs/uat/candidates/*/runtime-admission.json', async () => {
@@ -1900,6 +1974,7 @@ test('a new series must declare objective lineage when terminal legacy records e
     executionAuthorized: false,
     disposition: 'HOLD',
   });
+  delete future.attempt_accounting.objective_lineage;
   const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
 
   await withTempRepo({
@@ -1970,7 +2045,7 @@ test('historical prerequisite evidence can never be promoted to execution author
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
-      'historical prerequisite evidence must be non-authorizing',
+      'schema /attempt_accounting/objective_lineage/historical_prerequisites/0/evidence_use must be equal to constant',
     )));
   });
 });
@@ -2020,11 +2095,10 @@ test('a new current attempt cannot reuse bytes accounted by a historical prerequ
     objective_id: 'golden-uat-v1',
     historical_prerequisites: [prerequisite],
   };
-  future.attempt_accounting.current_attempt.evidence_path = prerequisite.evidence_path;
   future.attempt_accounting.current_attempt.evidence_sha256 = prerequisite.evidence_sha256;
   future.evidence.artifacts = [
     {
-      path: prerequisite.evidence_path,
+      path: future.attempt_accounting.current_attempt.evidence_path,
       sha256: prerequisite.evidence_sha256,
     },
   ];
@@ -2040,12 +2114,204 @@ test('a new current attempt cannot reuse bytes accounted by a historical prerequ
         path: currentAttemptArtifact(terminal.seriesId, 3),
         value: 'attempt 3\n',
       },
+      {
+        kind: 'text',
+        dir: evidenceDir('golden-uat-suite', 1),
+        path: currentAttemptArtifact('golden-uat-suite', 1),
+        value: 'attempt 3\n',
+      },
     ],
     lineagePolicy,
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
       'current attempt evidence must be fresh and must not reuse historical prerequisite evidence',
+    )));
+  });
+});
+
+test('a terminal future objective cannot be reopened by another future series', async () => {
+  const legacy = terminalRecoverySeries();
+  const terminalFuture = baseCandidate({
+    seriesId: 'golden-uat-a',
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 5,
+    failedChecks: 1,
+    disposition: 'NO-GO',
+  });
+  terminalFuture.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const reopened = baseCandidate({
+    seriesId: 'golden-uat-b',
+    ordinal: 1,
+    maxAttempts: 1,
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  reopened.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3, terminalFuture, reopened],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.startsWith(candidateRecordPath('golden-uat-b', 1))
+      && error.includes(
+        'objective_lineage cannot reopen a terminal capability/objective under a new series_id',
+      )));
+  });
+});
+
+test('self-declared capability and objective aliases must be registered by policy', async () => {
+  const legacy = terminalRecoverySeries();
+  const alias = baseCandidate({
+    seriesId: 'runtime-admission-ai-pg-alias',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  alias.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.ai.durable-postgres-2',
+    objective_id: 'bounded-postgres-runtime-v2',
+    historical_prerequisites: [historicalPrerequisite(legacy.r3)],
+  };
+
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3, alias],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'objective_lineage capability_id/objective_id must be registered in allowed_objectives',
+    )));
+  });
+});
+
+test('duplicate and drifted historical prerequisites fail closed', async () => {
+  const legacy = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'golden-uat-suite',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  const prerequisite = historicalPrerequisite(legacy.r3);
+  future.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [
+      prerequisite,
+      {
+        ...prerequisite,
+        record_sha256: '0'.repeat(64),
+      },
+    ],
+  };
+
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3, future],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'historical prerequisite candidate_id values must be unique',
+    )));
+  });
+
+  future.attempt_accounting.objective_lineage.historical_prerequisites = [
+    {
+      ...prerequisite,
+      record_sha256: '0'.repeat(64),
+    },
+  ];
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3, future],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'historical prerequisite record path and digest must match the immutable lineage policy',
+    )));
+  });
+});
+
+test('lineage policy paths cannot escape the repository or resolve through symlinks', async () => {
+  const legacy = terminalRecoverySeries();
+  const traversalPolicy = lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]);
+  traversalPolicy.legacy_candidates[0].record_path = '../../../../etc/passwd';
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: traversalPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'record_path must stay inside the repository root',
+    )));
+    assert.ok(report.errors.every((error) => !error.includes('/etc/passwd')));
+  });
+
+  const symlinkPolicy = lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]);
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: symlinkPolicy,
+  }, async (tempRoot) => {
+    const recordPath = join(
+      tempRoot,
+      symlinkPolicy.legacy_candidates[0].record_path,
+    );
+    unlinkSync(recordPath);
+    symlinkSync(
+      resolve(tempRoot, symlinkPolicy.legacy_candidates[1].record_path),
+      recordPath,
+    );
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'record_path must resolve to a non-symlink regular file',
+    )));
+  });
+});
+
+test('malformed policy and non-NO-GO legacy enrollment fail closed', async () => {
+  const legacy = terminalRecoverySeries();
+  const malformedPolicy = lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]);
+  delete malformedPolicy.allowed_objectives;
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: malformedPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'must contain exactly schema_version, allowed_objectives and legacy_candidates',
+    )));
+  });
+
+  const authorizedLegacyPolicy = lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]);
+  authorizedLegacyPolicy.legacy_candidates[0].recorded_disposition =
+    'RUNTIME_AUTHORIZED';
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3],
+    extraWrites: legacy.extraWrites,
+    lineagePolicy: authorizedLegacyPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'a 64-hex digest and NO-GO disposition',
     )));
   });
 });

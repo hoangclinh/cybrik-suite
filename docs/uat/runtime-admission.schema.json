@@ -376,8 +376,7 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "evidence_use": {
-          "type": "string",
-          "enum": ["historical_prerequisite", "execution_authority"]
+          "const": "historical_prerequisite"
         }
       }
     },

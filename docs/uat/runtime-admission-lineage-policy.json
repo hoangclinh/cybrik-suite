@@ -1,5 +1,15 @@
 {
   "schema_version": "1.0.0",
+  "allowed_objectives": [
+    {
+      "capability_id": "cybrik.ai.durable-postgres",
+      "objective_id": "bounded-postgres-runtime-v1"
+    },
+    {
+      "capability_id": "cybrik.suite.golden-workflow",
+      "objective_id": "golden-uat-v1"
+    }
+  ],
   "legacy_candidates": [
     {
       "candidate_id": "runtime-admission-ai-pg-r1",

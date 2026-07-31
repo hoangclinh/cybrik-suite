@@ -17,14 +17,15 @@ Rules:
 - At most one registry candidate may derive `RUNTIME_AUTHORIZED`.
 - `docs/uat/runtime-admission-lineage-policy.json` is the immutable legacy bridge for the terminal
   R1/R2/R3 records. It pins each record by path and SHA-256 without changing those records. The
-  legacy list is closed: future candidates must not be added to it.
+  validator seals this exact three-entry list; future candidates cannot be added to it.
 - Every candidate not pinned by that legacy bridge must declare
   `attempt_accounting.objective_lineage` with stable `capability_id` and `objective_id`.
-  A terminal capability/objective cannot be reopened under another `series_id`.
+  The pair must be registered in the policy's `allowed_objectives`; a terminal pair cannot be
+  reopened under another `series_id`, including after a future series reaches terminal `NO-GO`.
 - Cross-series evidence may be referenced only as a digest-pinned
-  `historical_prerequisite`. It grants no execution authority, cannot be reused as the new
-  candidate's current-attempt evidence, and does not promote any runtime, UAT, POC, RC or release
-  verdict.
+  `historical_prerequisite`. It grants no execution authority; its bytes cannot be copied into the
+  new candidate's current attempt, evidence artifacts or failure history; and it does not promote
+  any runtime, UAT, POC, RC or release verdict.
 - Process rule: a completed runtime attempt must be recorded in a new result artifact and must not
   reuse the pre-run authorization artifact as result evidence; this distinction is review-enforced
   when the result update is committed.
