@@ -49,7 +49,11 @@ Codex performs and records the fallback review.
 ## 4. Unchanged program constraints
 
 - Every published release date and milestone remains unchanged.
-- Runtime, local stack, demo and UAT remain `NO-GO` until the existing G-C `stable-v1.0` trigger.
+- Non-production runtime, local stack, demo, UAT, controlled POC and RC work may proceed before the
+  dated stable-v1.0 checkpoint only under
+  [DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md](DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md).
+- The `2026-12-20` Founder stable-v1.0/public-GA go/no-go remains unchanged; early runtime evidence
+  or a correctly labelled internal build does not satisfy or move that checkpoint.
 - The fixed roster remains 48 immutable task identities; this delegation creates no task 49.
 - Production remains Founder-controlled even after a technical release gate passes.
 

@@ -106,6 +106,19 @@ const operationsReadmePath = join(
   "operations",
   "README.md",
 );
+const docsReadmePath = join(repositoryRoot, "docs", "README.md");
+const runtimeUatDecisionPath = join(
+  repositoryRoot,
+  "docs",
+  "operations",
+  "DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md",
+);
+const uatGateStandardPath = join(
+  repositoryRoot,
+  "docs",
+  "uat",
+  "UAT-GATE-STANDARD.md",
+);
 const actionRecordPath = join(
   repositoryRoot,
   "docs",
@@ -135,6 +148,9 @@ const [
   sprintText,
   adrReadmeText,
   operationsReadmeText,
+  docsReadmeText,
+  runtimeUatDecisionText,
+  uatGateStandardText,
   actionRecordText,
   ci3RemediationText,
   packetText,
@@ -154,6 +170,9 @@ const [
   readFile(sprintPath, "utf8"),
   readFile(adrReadmePath, "utf8"),
   readFile(operationsReadmePath, "utf8"),
+  readFile(docsReadmePath, "utf8"),
+  readFile(runtimeUatDecisionPath, "utf8"),
+  readFile(uatGateStandardPath, "utf8"),
   readFile(actionRecordPath, "utf8"),
   readFile(ci3RemediationPath, "utf8"),
   readFile(packetPath, "utf8"),
@@ -247,6 +266,9 @@ function validate(overrides = {}) {
     sprintText,
     adrReadmeText,
     operationsReadmeText,
+    docsReadmeText,
+    runtimeUatDecisionText,
+    uatGateStandardText,
     actionRecordText,
     ci3RemediationText,
     packetText,
@@ -1148,7 +1170,7 @@ test("rejects loss of the W1 read-ahead GO decision", () => {
   assert.throws(() => validate({ boardText: drifted }), /read-ahead.*GO/i);
 });
 
-test("requires current delegated Governor authority without opening runtime or production", () => {
+test("requires admission-gated non-production runtime authority with Founder-only production", () => {
   const currentHeader = boardText.slice(0, boardText.indexOf("## 1. Transition decision"));
 
   assert.match(
@@ -1163,8 +1185,145 @@ test("requires current delegated Governor authority without opening runtime or p
     boardText,
     /\| Routine delegated integration \| `GO — EVIDENCE GATED` \|/,
   );
-  assert.match(currentHeader, /production remains Founder-controlled/i);
+  assert.match(currentHeader, /production remains\s+Founder-controlled/i);
   assert.doesNotMatch(currentHeader, /Founder delegation remain absent/i);
+  assert.match(
+    runtimeUatDecisionText,
+    /Status: `ACTIVE — NON-PRODUCTION RUNTIME AUTHORITY`/,
+  );
+  assert.match(
+    runtimeUatDecisionText,
+    /decision is\s+not a prerequisite for collecting non-production runtime evidence\./,
+  );
+  assert.match(runtimeUatDecisionText, /stable-v1\.0 Founder go\/no-go remains `2026-12-20`/);
+  assert.match(
+    runtimeUatDecisionText,
+    /Public GA\/external-publication decisions and every production action remain Founder-controlled\./,
+  );
+  assert.match(
+    operationsReadmeText,
+    /\[DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31\.md\]/,
+  );
+  assert.match(
+    runtimeUatDecisionText,
+    /\.\.\/uat\/UAT-GATE-STANDARD\.md/,
+  );
+  assert.match(uatGateStandardText, /Status: `ACCEPTED`/);
+  assert.doesNotMatch(operationsReadmeText, /G-C runtime hold remain open/i);
+  assert.doesNotThrow(() => validate());
+});
+
+test("fails closed when the delegated Runtime/UAT decision or catalogs drift", () => {
+  const mutations = [
+    [
+      "governance record status",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "Status: `ACTIVE — NON-PRODUCTION RUNTIME AUTHORITY`.",
+          "Status: `DRAFT`.",
+        ),
+      },
+      /governance status/i,
+    ],
+    [
+      "effective time",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "Effective: `2026-07-31 07:00 Asia/Ho_Chi_Minh` (`2026-07-31 00:00 UTC`).",
+          "Effective: `2026-08-01 07:00 Asia/Ho_Chi_Minh`.",
+        ),
+      },
+      /governance status|effective time/i,
+    ],
+    [
+      "Founder directive provenance",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "“dựng local demo, UAT hoặc POC”",
+          "“prepare a demo later”",
+        ),
+      },
+      /verbatim Founder directive provenance/i,
+    ],
+    [
+      "admission gate",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "10. local-only or otherwise explicitly bounded network exposure.",
+          "10. network exposure as convenient.",
+        ),
+      },
+      /ten non-production admission requirements/i,
+    ],
+    [
+      "admission evidence location",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "`docs/uat/candidates/<candidate-id>/runtime-admission.json`",
+          "`tmp/runtime-admission.json`",
+        ),
+      },
+      /admission evidence location/i,
+    ],
+    [
+      "production boundary",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "every production action remain Founder-controlled",
+          "production actions may be delegated",
+        ),
+      },
+      /production and public GA Founder-controlled/i,
+    ],
+    [
+      "release window",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "`2026-12-21 → 2026-12-31`",
+          "`2026-12-01 → 2026-12-31`",
+        ),
+      },
+      /roadmap and release date/i,
+    ],
+    [
+      "readiness-profile classification",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "readiness profiles, not gate identifiers",
+          "release gate identifiers",
+        ),
+      },
+      /readiness labels/i,
+    ],
+    [
+      "top-level documentation catalog",
+      {
+        docsReadmeText: docsReadmeText.replace(
+          "bounded non-production runtime/demo/UAT execution `CONDITIONAL GO — ADMISSION GATED`",
+          "bounded non-production runtime/demo/UAT execution `GO`",
+        ),
+      },
+      /top-level documentation catalog/i,
+    ],
+    [
+      "accepted UAT gate standard",
+      {
+        runtimeUatDecisionText: runtimeUatDecisionText.replace(
+          "`../uat/UAT-GATE-STANDARD.md`",
+          "`../uat/OPTIONAL-UAT-NOTES.md`",
+        ),
+      },
+      /accepted UAT gate standard/i,
+    ],
+  ];
+
+  for (const [label, overrides, expected] of mutations) {
+    assert.throws(
+      () => validate(overrides),
+      expected,
+      label,
+    );
+  }
 });
 
 test("requires current register gates to supersede publication, merge, and CI-wiring blockers", () => {
@@ -1228,13 +1387,14 @@ test("requires a cataloged delegated-action record with exact rollback and revie
   );
 });
 
-test("reports 24 enforced blocker-4 rules after canonical-state activation", () => {
+test("reports 25 enforced blocker-4 rules after Runtime/UAT reconciliation", () => {
   const result = validate();
 
-  assert.equal(result.enforcementSurface.enforcedRules, 24);
+  assert.equal(result.enforcementSurface.enforcedRules, 25);
   assert.match(packetText, /\| 22 \| current canonical state \|/);
   assert.match(packetText, /\| 23 \| current delegated authority \|/);
   assert.match(packetText, /\| 24 \| canonical merge topology \|/);
+  assert.match(packetText, /\| 25 \| delegated Runtime\/UAT decision, accepted UAT standard and catalogs \|/);
 });
 
 test("reports historical rehearsal facts separately from current canonical state", () => {
@@ -1277,7 +1437,7 @@ test("rejects loss of W0 NO-GO closure or COMPLETE=0", () => {
   );
 });
 
-test("rejects promotion of W1 runtime writers from NO-GO", () => {
+test("rejects unconditional promotion of W1 runtime writers", () => {
   const drifted = boardText.replace(
     "W1 runtime writers remain\n  `NO-GO`",
     "W1 runtime writers are\n  `GO`",
@@ -2321,14 +2481,31 @@ const PACKET_ENFORCED_RULE_12_ROW =
   "are pinned byte-exact; the canonical file validator fails closed unless " +
   "the exact two rehearsal merge commits, ordered parents, trees, required " +
   "input objects and rehearsal-tip ancestry exist |";
+const PACKET_ENFORCED_RULE_23_ROW =
+  "| 23 | current delegated authority | the board must pin bounded product " +
+  "admission at `CONDITIONAL GO`, delegated technical integration at " +
+  "evidence-gated `GO`, runtime writers at `NO-GO`, non-production " +
+  "runtime/demo/UAT execution at admission-gated `CONDITIONAL GO`, and " +
+  "production as Founder-controlled |";
+const PACKET_ENFORCED_RULE_25_ROW =
+  "| 25 | delegated Runtime/UAT decision, accepted UAT standard and catalogs | " +
+  "the decision must pin governance status, effective time, Founder-directive " +
+  "provenance, admission and UAT-standard gates, evidence location, reserved " +
+  "boundaries, unchanged dates and readiness semantics; the top-level catalog " +
+  "must pin admission-gated execution with no readiness, and the operations " +
+  "catalog must link the decision |";
 const PACKET_UNENFORCED_NO_GO_LINE =
-  "- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack " +
-  "NO-GO 16 and the";
+  "- §8 NO-GO **1–13**, **16** and **17** — historical NO-GO 16 stays " +
+  "prose-only and is superseded";
+const PACKET_UNENFORCED_NO_GO_BULLET =
+  `${PACKET_UNENFORCED_NO_GO_LINE}\n` +
+  "  for forward-looking bounded non-production execution by the 2026-07-31 Runtime/UAT decision;\n" +
+  "  release-date NO-GO 17 stays **prose-only and unpinned**.";
 const PACKET_LIVE_GIT_SENTENCE =
   "**Live `git` topology is required and read fail-closed.** The canonical " +
   "file validator invokes";
 const PACKET_CURRENT_VERIFICATION_LABEL =
-  "**Current — W1 Lane 5 control reconciliation, this record.**";
+  "**Current — delegated Runtime/UAT reconciliation, this record.**";
 const PACKET_DATED_HISTORY_ROW =
   "| 2026-07-27 | W1-D04C dual-state provenance refresh | `PASS: tasks=48` | " +
   "RED `tests 100 · pass 78 · fail 22`, then `tests 100 · pass 100 · fail 0` |";
@@ -2338,7 +2515,7 @@ test("records the packet §9.1 machine-enforcement surface disclosure", () => {
 
   assert.deepEqual(result.enforcementSurface, {
     anchor: "§9.1",
-    enforcedRules: 24,
+    enforcedRules: 25,
     unenforcedNoGo: [16, 17],
     readsLiveGit: false,
   });
@@ -2373,7 +2550,7 @@ test("rejects a packet §9.1 that drifts on the enforced-rule inventory", () => 
   );
 });
 
-test("rejects a packet §9.1 whose enforced-rule numbering is not 1..24 contiguous", () => {
+test("rejects a packet §9.1 whose enforced-rule numbering is not 1..25 contiguous", () => {
   const drifted = replaceUnique(
     packetText,
     PACKET_ENFORCED_RULE_12_ROW,
@@ -2385,15 +2562,46 @@ test("rejects a packet §9.1 whose enforced-rule numbering is not 1..24 contiguo
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /§9\.1 enforced-rule inventory must be numbered 1..24 contiguously/,
+    /§9\.1 enforced-rule inventory must be numbered 1..25 contiguously/,
+  );
+});
+
+test("rejects the withdrawn runtime NO-GO claim in packet §9.1 rule 23", () => {
+  const drifted = replaceUnique(
+    packetText,
+    PACKET_ENFORCED_RULE_23_ROW,
+    PACKET_ENFORCED_RULE_23_ROW.replace(
+      "runtime/demo/UAT execution at admission-gated `CONDITIONAL GO`",
+      "runtime/demo/UAT execution at `GO`",
+    ),
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 enforced-rule inventory must stay pinned byte-exact/,
+  );
+});
+
+test("rejects removal of delegated Runtime/UAT enforcement rule 25", () => {
+  const drifted = replaceUnique(
+    packetText,
+    `${PACKET_ENFORCED_RULE_25_ROW}\n`,
+    "",
+  );
+
+  assert.throws(
+    () => validate({ packetText: drifted }),
+    /§9\.1 enforced-rule inventory/,
   );
 });
 
 test("rejects a packet §9.1 that omits NO-GO 16 and 17 from the unenforced list", () => {
   const drifted = replaceUnique(
     packetText,
-    PACKET_UNENFORCED_NO_GO_LINE,
-    "- §8 NO-GO **1–13** — including the",
+    PACKET_UNENFORCED_NO_GO_BULLET,
+    "- §8 NO-GO **1–13** — historical runtime restriction stays prose-only and is superseded\n" +
+      "  for forward-looking bounded non-production execution by the 2026-07-31 Runtime/UAT decision;\n" +
+      "  the release-date restriction stays **prose-only and unpinned**.",
   );
 
   assert.throws(
@@ -2486,7 +2694,7 @@ test("rejects a packet §9 that reports a dated test figure as the current resul
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /§9 must keep the current W1 Lane 5 verification result byte-exact/,
+    /§9 must keep the current W1 Lane 5 verification result and Runtime\/UAT reconciliation result byte-exact/,
   );
 });
 
@@ -3234,10 +3442,10 @@ test("rejects a §2.8 push-delta table whose rows no longer sum to the stated to
   );
 });
 
-// The Lane 5 and reconciliation rules added to the §9.1 inventory. Rule 24 is the
+// The Lane 5 and reconciliation rules added to the §9.1 inventory. Rule 25 is the
 // last row, so removing it leaves the remaining numbering contiguous and the
 // omission is caught only by the byte-exact row pin; rule 19 is a middle row,
-// so removing it also breaks the 1..24 contiguity. Both paths are exercised.
+// so removing it also breaks the 1..25 contiguity. Both paths are exercised.
 const PACKET_ENFORCED_RULE_19_ROW =
   "| 19 | all three control documents | every Lane 5 manifest, member set and content aggregate must appear exactly once and only on its own lane row; no aggregate or member set may be read against two lanes |";
 const PACKET_ENFORCED_RULE_24_ROW =
@@ -3246,7 +3454,7 @@ const PACKET_ENFORCED_RULE_24_ROW =
 test("reports the full §9.1 machine-enforcement inventory count", () => {
   const result = validate();
 
-  assert.equal(result.enforcementSurface.enforcedRules, 24);
+  assert.equal(result.enforcementSurface.enforcedRules, 25);
   assert.deepEqual(result.enforcementSurface.unenforcedNoGo, [16, 17]);
   assert.equal(result.enforcementSurface.readsLiveGit, false);
 });
@@ -3254,14 +3462,14 @@ test("reports the full §9.1 machine-enforcement inventory count", () => {
 test("rejects a §9.1 inventory that omits a Lane 5 enforced rule", () => {
   const drifted = replaceUnique(
     packetText,
-    `\n${PACKET_ENFORCED_RULE_24_ROW}`,
+    `\n${PACKET_ENFORCED_RULE_25_ROW}`,
     "",
   );
 
-  assert.equal(countOccurrences(drifted, "\n| 24 | "), 0);
+  assert.equal(countOccurrences(drifted, "\n| 25 | "), 0);
   assert.throws(
     () => validate({ packetText: drifted }),
-    /rule 24 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
+    /rule 25 is missing or has drifted[\s\S]*underclaim of the enforcement surface/,
   );
 });
 
@@ -3274,7 +3482,7 @@ test("rejects a §9.1 inventory that omits a middle rule and breaks the row numb
 
   assert.throws(
     () => validate({ packetText: drifted }),
-    /numbered 1\.\.24 contiguously; row 19 reads 20/,
+    /numbered 1\.\.25 contiguously; row 19 reads 20/,
   );
 });
 

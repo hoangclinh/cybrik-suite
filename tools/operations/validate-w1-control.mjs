@@ -622,6 +622,10 @@ function assertPinnedBlock(text, block, message) {
   assertIncludes(text, new RegExp(`^${escapeRegExp(block)}$`, "m"), message);
 }
 
+function assertLiteralIncludes(text, literal, message) {
+  if (!text.includes(literal)) throw new Error(message);
+}
+
 // Current-status guards apply to the leading status block only — everything
 // before the first `##` heading. Dated history sections deeper in a document
 // must stay free to quote the superseded `NOT OPEN` / `PROPOSED` wording.
@@ -683,12 +687,17 @@ function validateBoardGates(boardText) {
   assertIncludes(
     boardText,
     /\*\*Product-writer decision:\*\* `DEPENDENCY-READY BOUNDED PACKETS GO`; W1 runtime writers remain\s+`NO-GO`/,
-    "W1 runtime writers must remain NO-GO",
+    "W1 runtime writers must remain NO-GO; runtime execution authority is a separate row",
   );
   assertIncludes(
     boardText,
     /\*\*Integration decision:\*\* `DELEGATED TECHNICAL INTEGRATION GO — EVIDENCE GATED`/,
     "Delegated technical integration must remain evidence-gated GO",
+  );
+  assertIncludes(
+    currentStatusBlock(boardText),
+    /production remains\s+Founder-controlled/i,
+    "current delegated authority must keep production Founder-controlled",
   );
   assertIncludes(
     boardText,
@@ -699,6 +708,12 @@ function validateBoardGates(boardText) {
     boardText,
     /\| W1 product implementation \| `CONDITIONAL GO` \| Dependency-ready bounded packets may proceed with exact repo\/base\/path\/acceptance\/test scope \|/,
     "W1 product implementation must remain CONDITIONAL GO for bounded packets",
+  );
+  assertIncludes(
+    boardText,
+    /\| Non-production runtime\/demo\/UAT \| `CONDITIONAL GO — ADMISSION GATED` \| May run only under `DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31\.md`; opening execution authority proves no readiness profile \|/,
+    "Non-production runtime, demo and UAT must stay admission-gated and must prove no readiness " +
+      "profile merely by opening execution authority",
   );
   assertIncludes(
     boardText,
@@ -715,6 +730,245 @@ function validateBoardGates(boardText) {
     /Always label it `RB-001\(contract-forward-gap\)` and label the release blocker\s+`RB-001\(release-disclosure\)`; they are different concerns\./,
     "Both RB-001(contract-forward-gap) and RB-001(release-disclosure) labels are required",
   );
+}
+
+const RUNTIME_UAT_STATUS_BLOCK =
+  "Status: `ACTIVE — NON-PRODUCTION RUNTIME AUTHORITY`.\n\n" +
+  "Effective: `2026-07-31 07:00 Asia/Ho_Chi_Minh` (`2026-07-31 00:00 UTC`).\n\n" +
+  "This is the status of a governance record. It is not a product-readiness verdict.";
+
+const RUNTIME_UAT_FOUNDER_QUOTES = [
+  "“chạy test, lint, type check, build, local container và môi trường development”",
+  "“dựng local demo, UAT hoặc POC”",
+  "“phát hành internal build hoặc RC đúng cấp độ evidence.”",
+  "“anh cho em cả quyền push, merge nhánh chuẩn, release. Production vẫn do anh”",
+  "“external publication, public release tag hoặc GA go/no-go”",
+];
+
+const RUNTIME_UAT_ADMISSION_ITEMS = [
+  "1. the exact canonical commit and tree SHA for Suite, SOC, Cyber AI and Tool Fabric;",
+  "2. required hosted CI green for the exact candidate tuple, with skipped jobs called out;",
+  "3. the reviewed contracts, feature flags and capability lifecycle states used by the candidate;",
+  "4. synthetic, sanitized or otherwise approved test data only;",
+  "5. no production credentials, production configuration, production data or production traffic;",
+  "6. start, stop, reset and seed procedures with an explicit rollback path;",
+  "7. tenant-isolation and authorization-negative smoke tests for the exercised path;",
+  "8. no open Critical or High finding on the exercised path;",
+  "9. an evidence location for logs, digests, limitations and the final profile verdict; and",
+  "10. local-only or otherwise explicitly bounded network exposure.",
+];
+
+const RUNTIME_UAT_SUPERSESSION_ROWS = [
+  "| `W1-CANONICAL-STATE-RECONCILIATION-R1.md` | its forward-looking blanket runtime/local-stack/demo/UAT hold only |",
+  "| `W1-CI3-DEPENDENCY-REMEDIATION-R1.md` | its forward-looking blanket runtime/local-stack/demo/UAT hold only |",
+  "| `W1-CI4-NODE24-ACTION-PINS-R1.md` | its forward-looking blanket runtime/local-stack/demo/UAT hold only |",
+  "| `W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md` | §8 NO-GO 16 and the matching status rows only as a prohibition on future bounded non-production execution |",
+  "| `W1-BLOCKER-4-BALLOT-SUPPLEMENT-R1.md` | the matching forward-looking wait-until-stable restriction only |",
+  "| `W1-I03-PF-PERSIST-GRANT.md` and `W1-I03-PF-PERSIST-R2-EVIDENCE.md` | their matching forward-looking wait-until-stable restrictions only |",
+  "| `W1-I03-MARKING-FLOOR-R2-DECISION-PACKET.md` | its matching forward-looking no-local-stack restriction only |",
+  "| `W0-B05-INFERENCE-TRANSPORT-R3-EVIDENCE.md` | its matching forward-looking runtime/demo/UAT restriction only |",
+  "| `../adr/W1-CONTRACT-RECONCILIATION-APPLICATION.md` | its forward-looking runtime/local-stack/demo/UAT/POC/RC prohibition only |",
+  "| `../adr/FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md` | its matching forward-looking no-local-stack restriction only |",
+  "| the current header of `W1-48-AGENT-ROLLING-BOARD.md` | execution is replaced by the admission-gated current authority row; runtime writers remain `NO-GO` and all dated lane history is preserved |",
+  "| the current preamble of `W1-E2-EVIDENCE-REGISTER.md` | execution is replaced by the admission-gated current authority statement; runtime writers remain `NO-GO` and all dated evidence history is preserved |",
+];
+
+function validateRuntimeUatDecision({
+  runtimeUatDecisionText,
+  docsReadmeText,
+  operationsReadmeText,
+  uatGateStandardText,
+}) {
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    RUNTIME_UAT_STATUS_BLOCK,
+    "Runtime/UAT decision must pin its governance status and exact effective time",
+  );
+
+  for (const quote of RUNTIME_UAT_FOUNDER_QUOTES) {
+    assertLiteralIncludes(
+      runtimeUatDecisionText,
+      quote,
+      "Runtime/UAT decision must preserve the verbatim Founder directive provenance",
+    );
+  }
+
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "Public GA/external-publication decisions and every production action remain Founder-controlled.",
+    "Runtime/UAT decision must keep production and public GA Founder-controlled",
+  );
+  assertPinnedBlock(
+    runtimeUatDecisionText,
+    "This changes execution authority only. It does not open or promote any product writer or runtime\n" +
+      "writer; those lanes retain their separately recorded `NO-GO` or bounded implementation gates.",
+    "Runtime/UAT decision must separate execution authority from product and runtime writer authority",
+  );
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "No separate gate identifier\n   is created or used by this decision.",
+    "Runtime/UAT decision must not create a replacement gate identifier",
+  );
+  assertExcludes(
+    runtimeUatDecisionText,
+    /\bG-C\b/,
+    "Runtime/UAT decision must not use G-C as an operative gate identifier",
+  );
+
+  for (const row of RUNTIME_UAT_SUPERSESSION_ROWS) {
+    assertPinnedBlock(
+      runtimeUatDecisionText,
+      row,
+      "Runtime/UAT decision must pin every exact record and its narrow supersession scope",
+    );
+  }
+  assertExcludes(
+    runtimeUatDecisionText,
+    /current header and dated sections|current preamble and dated sections/i,
+    "Runtime/UAT decision must preserve dated historical sections",
+  );
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "Those records retain their measured evidence and historical dispositions.",
+    "Runtime/UAT decision must preserve historical evidence and dispositions",
+  );
+
+  for (const datePin of [
+    "W1 remains `2026-08-01 → 2026-08-23`",
+    "stable-v1.0 Founder go/no-go remains `2026-12-20`",
+    "published v1.0 release window remains `2026-12-21 → 2026-12-31`",
+  ]) {
+    assertLiteralIncludes(
+      runtimeUatDecisionText,
+      datePin,
+      "Runtime/UAT decision must preserve every roadmap and release date",
+    );
+  }
+
+  for (const item of RUNTIME_UAT_ADMISSION_ITEMS) {
+    assertPinnedBlock(
+      runtimeUatDecisionText,
+      item,
+      "Runtime/UAT decision must preserve all ten non-production admission requirements",
+    );
+  }
+  assertPinnedBlock(
+    runtimeUatDecisionText,
+    "A missing item is `HOLD`. A failed tenant-isolation, authorization or secret-boundary check is\n" +
+      "`NO-GO` and requires immediate stop and evidence preservation.",
+    "Runtime/UAT decision must fail closed on incomplete admission and boundary failures",
+  );
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "`docs/uat/candidates/<candidate-id>/runtime-admission.json`",
+    "Runtime/UAT decision must pin the candidate admission evidence location",
+  );
+  for (const evidenceKey of [
+    "`candidate_id`",
+    "`recorded_at`",
+    "`hosted_ci`",
+    "`contracts`",
+    "`test_data`",
+    "`production_exclusion`",
+    "`lifecycle_procedures`",
+    "`negative_smoke`",
+    "`open_findings`",
+    "`evidence`",
+    "`network_exposure`",
+    "`disposition`",
+  ]) {
+    assertLiteralIncludes(
+      runtimeUatDecisionText,
+      evidenceKey,
+      "Runtime/UAT admission record must retain its evidence-field contract",
+    );
+  }
+
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "`../uat/UAT-GATE-STANDARD.md`",
+    "Runtime/UAT decision must bind every UAT or UI/behavior wave to the accepted UAT gate standard",
+  );
+  for (const requirement of [
+    "The ten runtime-admission items alone cannot\nproduce a UAT pass, `DEMO_READY_LOCAL` or `CUSTOMER_POC_READY` verdict for such a wave.",
+    "persona matrix, VI/EN localization, accessibility, responsive coverage",
+    "negative-visibility evidence, screenshots/video, isolation log and evidence index remain\nmandatory.",
+    "No agent summary\nself-certifies a UAT pass.",
+  ]) {
+    assertLiteralIncludes(
+      runtimeUatDecisionText,
+      requirement,
+      "Runtime/UAT decision must preserve the accepted UAT evidence and ratification boundary",
+    );
+  }
+  assertIncludes(
+    uatGateStandardText,
+    /Status: `ACCEPTED` \(Gate W2-C1, 2026-07-24\)/,
+    "accepted UAT gate standard must retain its W2-C1 acceptance",
+  );
+  assertIncludes(
+    uatGateStandardText,
+    /Applies to: \*\*every UI\/behavior wave\*\* across all suite products \(mandatory suite standard\)/,
+    "accepted UAT gate standard must remain mandatory for every UI/behavior wave",
+  );
+  for (const persona of ["P1", "P2", "P3", "P4", "P5", "P6"]) {
+    assertIncludes(
+      uatGateStandardText,
+      new RegExp(`^\\| ${persona} \\|`, "m"),
+      `accepted UAT gate standard must retain persona ${persona}`,
+    );
+  }
+  for (const heading of [
+    "### 3.4 Accessibility",
+    "### 3.5 Responsive",
+    "### 3.6 Localization (Vietnamese / English)",
+    "## 4. Evidence requirements",
+    "## 5. Pass/fail rule",
+  ]) {
+    assertPinnedBlock(
+      uatGateStandardText,
+      heading,
+      "accepted UAT gate standard must retain its evidence and quality dimensions",
+    );
+  }
+
+  assertPinnedBlock(
+    runtimeUatDecisionText,
+    "`RUNTIME_AUTHORIZED`, `DEMO_READY_LOCAL`, `CUSTOMER_POC_READY`, `RC_READY` and\n" +
+      "`FULL_RELEASE_READY` are readiness profiles, not gate identifiers.",
+    "Runtime/UAT readiness labels must not be represented as gate identifiers",
+  );
+  assertLiteralIncludes(
+    runtimeUatDecisionText,
+    "This decision alone also authorizes no product-code or configuration change inside\n" +
+      "`cybrik-soc-command-center` or another product repository, no dependency installation, no\n" +
+      "database migration, no deployment and no formatter or auto-fixer.",
+    "Runtime/UAT decision must retain repository, dependency, migration, deployment and formatter boundaries",
+  );
+
+  assertIncludes(
+    docsReadmeText,
+    /W1 runtime writers `NO-GO`; bounded non-production runtime\/demo\/UAT execution `CONDITIONAL GO — ADMISSION GATED`/,
+    "top-level documentation catalog must separate writer NO-GO from admission-gated execution",
+  );
+  assertIncludes(
+    docsReadmeText,
+    /`DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31\.md` \(Founder-directed execution authority, no readiness implied\)/,
+    "top-level documentation catalog must link the Runtime/UAT decision and deny implied readiness",
+  );
+  assertIncludes(
+    operationsReadmeText,
+    /\[DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31\.md\]\(DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31\.md\)/,
+    "operations catalog must link the Runtime/UAT decision",
+  );
+
+  return {
+    status: "ACTIVE — NON-PRODUCTION RUNTIME AUTHORITY",
+    admittedByDefault: false,
+    evidencePath: "docs/uat/candidates/<candidate-id>/runtime-admission.json",
+    production: "FOUNDER-CONTROLLED",
+    publicGa: "FOUNDER-CONTROLLED",
+  };
 }
 
 function validateRoadmapDates(roadmapText) {
@@ -2418,15 +2672,16 @@ const PACKET_ENFORCED_RULE_ROWS = [
   "| 20 | §2.8 ↔ §7.1 | the Suite LINE 2 and SOC rows must agree on tip and count across both sections, exactly as Suite LINE 1 already must |",
   "| 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |",
   "| 22 | current canonical state | the reconciliation application, board, E2 register, blocker-4 packet and ADR catalog must all carry the canonical lifecycle and PR #1 merge; the E2 current-gate section must exclude superseded unpushed, unmerged and delegation-NO-GO claims |",
-  "| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime at `NO-GO` and production as Founder-controlled |",
+  "| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime writers at `NO-GO`, non-production runtime/demo/UAT execution at admission-gated `CONDITIONAL GO`, and production as Founder-controlled |",
   "| 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |",
+  "| 25 | delegated Runtime/UAT decision, accepted UAT standard and catalogs | the decision must pin governance status, effective time, Founder-directive provenance, admission and UAT-standard gates, evidence location, reserved boundaries, unchanged dates and readiness semantics; the top-level catalog must pin admission-gated execution with no readiness, and the operations catalog must link the decision |",
 ];
 
 const PACKET_UNENFORCED_BULLETS = [
   "- §1, §2.1–§2.7, §3, §4, §5 and §6 **in full** — every sentence, table and measured figure in them,\n  including the whole hosted-state audit and the secret-scan findings.",
   "- §2.8 beyond rules 1–2, 13 and 20: the Cyber AI, Fabric and Suite LINE 3 rows' tips and\n  ahead-counts.",
   "- §7 beyond rules 3, 13 and 20: §7.1 rows 1, 4 and 5 and all their figures, and all of §7.2, §7.3 and §7.4.",
-  "- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack NO-GO 16 and the\n  release-date NO-GO 17, which stay **prose-only and unpinned**.",
+  "- §8 NO-GO **1–13**, **16** and **17** — historical NO-GO 16 stays prose-only and is superseded\n  for forward-looking bounded non-production execution by the 2026-07-31 Runtime/UAT decision;\n  release-date NO-GO 17 stays **prose-only and unpinned**.",
   "- §9 outside §9.1: the status-and-ceiling table above.",
   "- §10 in full: every transcript path, byte count and record count.",
 ];
@@ -2457,7 +2712,7 @@ const PACKET_VERIFICATION_HISTORY_BLOCK =
   "RED `tests 131 · pass 115 · fail 16`, then `tests 131 · pass 131 · fail 0` |";
 
 const PACKET_CURRENT_VERIFICATION_BLOCK =
-  "**Current — W1 Lane 5 control reconciliation, this record.** Test-first RED " +
+  "**Historical — W1 Lane 5 control reconciliation.** Test-first RED " +
   "before any\nimplementation: `tests 172 · pass 95 · fail 77` — forty-one " +
   "tests added over the 131-test baseline;\nmost of those failures cascaded " +
   "from the first standalone-validator failure rather than being\nindependent " +
@@ -2470,7 +2725,15 @@ const PACKET_CURRENT_VERIFICATION_BLOCK =
   "`tasks=48`;\n`node --test tools/operations/tests/validate-w1-control.test.mjs` " +
   "→ **`tests 179 · pass 179 · fail 0`**.\nThe `131 · 131` and `172 · 172` " +
   "figures are earlier results, not the current count. CI3 is now\n" +
-  "prepared locally; no hosted run is claimed.";
+  "prepared locally; no hosted run is claimed.\n\n" +
+  "**Current — delegated Runtime/UAT reconciliation, this record.** Test-first RED against the\n" +
+  "pre-enforcement bytes: `tests 222 · pass 217 · fail 5`. At that measured RED, the decision,\n" +
+  "board and catalogs already carried the draft execution posture, while the shipping validator and\n" +
+  "packet inventory did not. Exactly five tests failed: decision/catalog drift enforcement,\n" +
+  "inventory count 25, numbering 1..25, corrected rule 23 and new rule 25. Final, against these bytes:\n" +
+  "`node tools/operations/validate-w1-control.mjs` → **PASS**, `tasks=48`,\n" +
+  "`enforcedRules=25`; `node --test tools/operations/tests/validate-w1-control.test.mjs` →\n" +
+  "**`tests 222 · pass 222 · fail 0`**. The 179-test result above is historical, not current.";
 
 // Affirmative overclaims only. §9.1 itself has to *name* the withdrawn wording
 // to withdraw it, so every pattern requires the asserting verb form: the
@@ -2579,11 +2842,11 @@ function validatePacketEnforcementSurface(packetText) {
     packetText,
     PACKET_CURRENT_VERIFICATION_BLOCK,
     "blocker-4 packet §9 must keep the current W1 Lane 5 verification result " +
-      "byte-exact — RED `tests 172 · pass 95 · fail 77`, the reviewed-NO-GO " +
+      "and Runtime/UAT reconciliation result byte-exact — RED `tests 172 · pass 95 · fail 77`, the reviewed-NO-GO " +
       "`tests 172 · pass 172 · fail 0`, the remediation RED `tests 179 · pass " +
       "176 · fail 3`, then `tests 179 · pass 179 · fail 0` with the validator " +
-      "`PASS: tasks=48`; an earlier figure may not be presented as the current " +
-      "count",
+      "`PASS: tasks=48`; followed by Runtime/UAT RED `tests 222 · pass 217 · fail 5` " +
+      "and final `tests 222 · pass 222 · fail 0` with 25 enforced rules",
   );
 
   if (numbers.length !== PACKET_ENFORCED_RULE_ROWS.length) {
@@ -3685,6 +3948,9 @@ export function validateW1ControlDocuments({
   sprintText,
   adrReadmeText,
   operationsReadmeText,
+  docsReadmeText,
+  runtimeUatDecisionText,
+  uatGateStandardText,
   actionRecordText,
   ci3RemediationText,
   packetText,
@@ -3715,6 +3981,12 @@ export function validateW1ControlDocuments({
   validateE2Register(e2RegisterText);
   validateSprint(sprintText);
   validateAdrCatalog(adrReadmeText);
+  const runtimeUatDecision = validateRuntimeUatDecision({
+    runtimeUatDecisionText,
+    docsReadmeText,
+    operationsReadmeText,
+    uatGateStandardText,
+  });
   const ci3Remediation = validateCi3RemediationStatus(ci3RemediationText);
   const w1C1Candidate = validateDualStateW1C1Provenance({
     e2RegisterText,
@@ -3824,6 +4096,7 @@ export function validateW1ControlDocuments({
     // there would be the very conflation these rules exist to prevent.
     w1C1CandidateDisposition: w1C1Candidate,
     ci3Remediation,
+    runtimeUatDecision,
     w1ReconciliationApplication,
     // The Suite LINE 1 publication measurement taken at the immutable base,
     // with this lane's offset and the derived post-commit prediction. Proposed
@@ -3881,6 +4154,13 @@ const CONTROL_DOCUMENT_PATHS = {
   sprintText: ["docs", "adr", "ADR-DECISION-SPRINT-2026-07.md"],
   adrReadmeText: ["docs", "adr", "README.md"],
   operationsReadmeText: ["docs", "operations", "README.md"],
+  docsReadmeText: ["docs", "README.md"],
+  runtimeUatDecisionText: [
+    "docs",
+    "operations",
+    "DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md",
+  ],
+  uatGateStandardText: ["docs", "uat", "UAT-GATE-STANDARD.md"],
   actionRecordText: [
     "docs",
     "operations",
@@ -3940,6 +4220,7 @@ async function main() {
       `CONTRACT_GATE_DISPOSITION=${JSON.stringify(result.contractGateDisposition)}, ` +
       `W1_C1_CANDIDATE=${JSON.stringify(result.w1C1CandidateDisposition)}, ` +
       `CI3_REMEDIATION=${JSON.stringify(result.ci3Remediation)}, ` +
+      `RUNTIME_UAT=${JSON.stringify(result.runtimeUatDecision)}, ` +
       `W1_RECONCILIATION=${JSON.stringify(result.w1ReconciliationApplication)}, ` +
       `W1_TOPOLOGY=${JSON.stringify(result.reconciliationTopology)}, ` +
       `W1_CI=${JSON.stringify(result.ciWiring)}, ` +

@@ -21,8 +21,11 @@
   `28c564eb9b6853b73a18a59a2e84ba58fd67816a`
 
 This register records exact current evidence without promoting a product runtime or release claim.
-W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Sections §1–§4 are
-control- and contract-scoped; §5 records reviewed local **product** commit evidence added on
+W0 remains `NO-GO` with `COMPLETE=0`; W1 runtime writers remain `NO-GO`. Under the 2026-07-31
+Runtime/UAT Reconciliation, bounded non-production runtime/demo/UAT execution is
+`CONDITIONAL GO — ADMISSION GATED`; this register supplies no such admission and proves no
+runtime profile. Sections §1–§4 are control- and contract-scoped; §5 records reviewed local
+**product** commit evidence added on
 2026-07-27 and promotes nothing; §6 records the later-same-day runtime-evidence reconciliation —
 including the 2026-07-27 W1-C1 transport-binding acceptance — and likewise promotes nothing beyond
 recording that acceptance; §7 records the third same-day HTTP-evidence reconciliation — a reopened
