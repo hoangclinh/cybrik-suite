@@ -1,0 +1,29 @@
+{
+  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "conveys_authorization": false,
+  "channel": {
+    "evidence_state": "present",
+    "mutual_tls": true,
+    "chain_verified": true,
+    "peer_thumbprint": {
+      "alg": "x5t#S256",
+      "value": "W2K_EXAMPLE_PEER_THUMBPRINT_VALUE_0000000AB"
+    },
+    "peer_thumbprint_source": "server_verified_chain"
+  },
+  "relying_party": {
+    "peer_cert_thumbprint": {
+      "alg": "x5t#S256",
+      "value": "W2K_EXAMPLE_OTHER_THUMBPRINT_VALUE_000000CD"
+    }
+  },
+  "token_confirmation": {
+    "cnf": {
+      "x5t#S256": "W2K_EXAMPLE_PEER_THUMBPRINT_VALUE_0000000AB"
+    }
+  },
+  "server_neutrality": {
+    "adapter_profile": "server-verified-chain-adapter",
+    "selected_server": null
+  }
+}

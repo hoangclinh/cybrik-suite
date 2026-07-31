@@ -124,6 +124,24 @@ properties over synthetic trees. Replay uses only fixture sequence numbers and a
 Status is **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**; green is static L1/L2 evidence only and
 is not runtime, UAT, T10/T11, release, deployment, or production proof.
 
+## Gate W2-K transport peer-evidence proposal
+
+Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Run the standalone checks with:
+
+```bash
+npm run validate:w2k:transport-peer
+npm run test:w2k:transport-peer
+```
+
+The profile is server-neutral and fail closed. It validates two schemas, 18 synthetic fixtures,
+three-way `x5t#S256` equality, no-degrade behavior, denial-class coverage, packet digests, and the
+absence of raw certificate or authorization material. It opens no socket and selects no server.
+
+Canonical registration is deferred: These 21 validators remain the current truthful orchestrator count,
+and the W2-I P2-3 additive-byte pin keeps the ADR catalog stable. A separate reconciliation
+must update those two pins together before W2-K can join `validate.mjs`. Standalone green is static
+proposal conformance only, not runtime, UAT, release, deployment, or production proof.
+
 ## Runtime-admission records
 
 The runtime-admission validator is a governance-record check for the 2026-07-31 non-production

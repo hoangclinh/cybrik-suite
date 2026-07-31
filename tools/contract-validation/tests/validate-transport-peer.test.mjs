@@ -173,6 +173,59 @@ test('both schemas compile under JSON Schema 2020-12 with every local $ref resol
   );
 });
 
+test('schema, fixture and accepted-dependency drift each fail closed with a rendered failure', () => {
+  const invalidSchema = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([[
+      'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
+      '{',
+    ]]),
+  });
+  assert.equal(invalidSchema.counts.unresolvedRefs, 1);
+  assert.ok(invalidSchema.errors.some((error) => /schema compilation/.test(error)));
+  const rendered = formatTransportPeerReport(invalidSchema);
+  assert.equal(rendered.exitCode, 1);
+  assert.match(rendered.stdout, /W2-K TRANSPORT PEER: FAIL/);
+
+  const positiveBytes = read(POSITIVE_EVIDENCE_FIXTURE);
+  const negativeSchemaPath =
+    'contracts/examples/transport-peer/negative-schema/peer-evidence.conveys-authorization-true.json';
+  const semanticPath =
+    'contracts/examples/transport-peer/negative-semantic/peer-evidence.chain-not-verified.json';
+  const rejectedPositive = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([[POSITIVE_EVIDENCE_FIXTURE, read(negativeSchemaPath)]]),
+  });
+  assert.ok(rejectedPositive.errors.some((error) => /positive fixture rejected/.test(error)));
+
+  const acceptedNegative = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([[negativeSchemaPath, positiveBytes]]),
+  });
+  assert.ok(acceptedNegative.errors.some((error) => /negative-schema fixture accepted/.test(error)));
+
+  const acceptedSemantic = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([[semanticPath, positiveBytes]]),
+  });
+  assert.ok(acceptedSemantic.errors.some((error) => /semantic denial mismatch/.test(error)));
+
+  const dependencyPath = Object.keys(ACCEPTED_DEPENDENCY_PINS)[0];
+  const driftedDependency = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([[dependencyPath, '{}\n']]),
+  });
+  assert.ok(
+    driftedDependency.errors.some((error) => /accepted dependency sha256 mismatch/.test(error)),
+  );
+
+  withTempPacketRoot((root) => {
+    copyPacketInto(root, { skip: new Set([dependencyPath]) });
+    const missingDependency = validateTransportPeerPacket({ root });
+    assert.ok(missingDependency.errors.some((error) => error.includes(dependencyPath)));
+  });
+});
+
 test('reused accepted primitives are $ref-ed from svc-common-defs, never redefined', () => {
   const evidence = readJson(
     'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
@@ -709,6 +762,41 @@ test('a tampered member digest and a missing packet path both fail closed', () =
     assert.ok(
       report.errors.some((error) => error.includes(dropped)),
       'a missing packet member must fail closed',
+    );
+  });
+});
+
+test('manifest member paths cannot escape the repository root', () => {
+  withTempPacketRoot((container) => {
+    const root = join(container, 'repo');
+    const escapedBytes = '{"outside":true}\n';
+    writeFileSync(join(container, 'outside.json'), escapedBytes);
+
+    const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+    const tampered = structuredClone(manifest);
+    tampered['x-cybrik-packet-integrity'].member_digests[0] = {
+      file: '../../outside.json',
+      sha256: sha256(escapedBytes),
+    };
+    tampered['x-cybrik-packet-integrity'].aggregate_sha256 = sha256(
+      Buffer.from(
+        [...tampered['x-cybrik-packet-integrity'].member_digests]
+          .sort((left, right) => left.file.localeCompare(right.file))
+          .map((entry) => `${entry.sha256}  ${entry.file}`)
+          .join('\n'),
+        'utf8',
+      ),
+    );
+
+    copyPacketInto(root, {
+      overrides: new Map([
+        [COMPATIBILITY_MANIFEST_PATH, `${JSON.stringify(tampered, null, 2)}\n`],
+      ]),
+    });
+    const report = validateTransportPeerPacket({ root });
+    assert.ok(
+      report.errors.some((error) => /outside repository root/.test(error)),
+      'a digest-valid manifest member outside the repository must still fail closed',
     );
   });
 });

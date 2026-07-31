@@ -8,3 +8,6 @@ Suite-level (cross-product) architecture documents. Product-internal architectur
 - `resource-bounds/` — **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** Gate W2-H static contract
   architecture for conserved call-tree credits and deterministic replay. It is not a runtime,
   T10/T11 measurement, UAT, release, deployment, or production design.
+- `transport-peer-evidence/` — **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** Gate W2-K
+  server-neutral, fail-closed peer-evidence adapter profile. It selects no server and proves no
+  runtime, UAT, release, deployment, or production readiness.

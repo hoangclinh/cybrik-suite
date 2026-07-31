@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.transport-peer-evidence.v1.schema.json",
+  "title": "CYBRIK server-neutral transport peer evidence v1",
+  "description": "Server-neutral description of what a relying party learned about its transport peer from the serving side of a mutually-authenticated TLS connection, and nothing else. This document is EVIDENCE, never AUTHORIZATION: it carries no token, no scope, no approval and no capability, and `conveys_authorization` is structurally pinned to false. Raw certificate material is structurally inexpressible — no PEM, no DER, no public key, no subject, no subject alternative name, and no caller- or header-asserted thumbprint has anywhere to live. The only admissible peer identifier is the RFC 8705 3.1 'x5t#S256' thumbprint, and it is REUSED by $ref from the ACCEPTED W2-F cybrik.svc-common-defs.v1 certThumbprint definition rather than restated here. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag. Gate W2-K, ADR-0013.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "x-cybrik-lifecycle",
+    "conveys_authorization",
+    "channel",
+    "server_neutrality"
+  ],
+  "properties": {
+    "x-cybrik-lifecycle": {
+      "const": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+      "description": "Instance-level lifecycle marker. Every W2-K document carries it so a fixture cannot be lifted out of the proposal and read as accepted material."
+    },
+    "conveys_authorization": {
+      "const": false,
+      "description": "Pinned false. Peer evidence never authorizes an operation; authorization stays in the ACCEPTED W2-F delegation-token layer."
+    },
+    "channel": {
+      "$ref": "#/$defs/channelEvidence"
+    },
+    "relying_party": {
+      "$ref": "#/$defs/relyingPartyObservation"
+    },
+    "token_confirmation": {
+      "$ref": "#/$defs/tokenConfirmation"
+    },
+    "server_neutrality": {
+      "$ref": "#/$defs/serverNeutrality"
+    }
+  },
+  "$defs": {
+    "channelEvidence": {
+      "type": "object",
+      "description": "What the serving side observed on the transport channel. `additionalProperties` is false so certificate material and header-asserted identity are structurally inexpressible, not merely discouraged.",
+      "additionalProperties": false,
+      "required": [
+        "evidence_state",
+        "mutual_tls",
+        "chain_verified"
+      ],
+      "properties": {
+        "evidence_state": {
+          "type": "string",
+          "enum": [
+            "present",
+            "absent",
+            "held"
+          ],
+          "description": "`present` only when the serving side actually supplied channel evidence. `absent` and `held` both fail closed; neither may degrade to an unauthenticated accept."
+        },
+        "mutual_tls": {
+          "type": "boolean",
+          "description": "True only when the peer presented a client certificate on a mutually-authenticated TLS connection."
+        },
+        "chain_verified": {
+          "type": "boolean",
+          "description": "True only when the serving side verified the peer chain against its configured trust anchors. An unverified chain is never upgraded by any later step."
+        },
+        "peer_thumbprint": {
+          "$ref": "#/$defs/peerThumbprint"
+        },
+        "peer_thumbprint_source": {
+          "$ref": "#/$defs/peerThumbprintSource"
+        }
+      }
+    },
+    "peerThumbprint": {
+      "type": "object",
+      "description": "The RFC 8705 3.1 certificate thumbprint of the transport peer. `alg` is pinned to x5t#S256, so a SHA-1 shaped or otherwise weaker thumbprint is structurally inexpressible. `value` REUSES the ACCEPTED W2-F certThumbprint definition by $ref and is deliberately not restated here.",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "value"
+      ],
+      "properties": {
+        "alg": {
+          "const": "x5t#S256"
+        },
+        "value": {
+          "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/certThumbprint"
+        }
+      }
+    },
+    "peerThumbprintSource": {
+      "type": "string",
+      "description": "Where the thumbprint came from. Only serving-side sources are expressible; a client-supplied, header, proxy-asserted or forwarded-client-cert source has no enumerated value and can never be stated.",
+      "enum": [
+        "server_verified_chain",
+        "server_unverified_transport"
+      ]
+    },
+    "relyingPartyObservation": {
+      "type": "object",
+      "description": "The thumbprint the relying party independently derived for the same peer. Its presence is what makes the three-way equality checkable; its absence is a denial, never an implicit match.",
+      "additionalProperties": false,
+      "required": [
+        "peer_cert_thumbprint"
+      ],
+      "properties": {
+        "peer_cert_thumbprint": {
+          "$ref": "#/$defs/peerThumbprint"
+        }
+      }
+    },
+    "tokenConfirmation": {
+      "type": "object",
+      "description": "The RFC 8705 confirmation method of the presented delegation token, REUSED by $ref from the ACCEPTED W2-F cnfConfirmation definition. This document restates neither the confirmation shape nor the thumbprint pattern.",
+      "additionalProperties": false,
+      "required": [
+        "cnf"
+      ],
+      "properties": {
+        "cnf": {
+          "$ref": "cybrik.svc-common-defs.v1.schema.json#/$defs/cnfConfirmation"
+        }
+      }
+    },
+    "serverNeutrality": {
+      "type": "object",
+      "description": "The packet selects no server. `selected_server` is pinned to null and `adapter_profile` admits exactly the server-verified-chain adapter, so the forbidden trusted-boundary shortcut cannot be expressed by any conforming document.",
+      "additionalProperties": false,
+      "required": [
+        "adapter_profile",
+        "selected_server"
+      ],
+      "properties": {
+        "adapter_profile": {
+          "$ref": "#/$defs/adapterProfile"
+        },
+        "selected_server": {
+          "type": "null"
+        }
+      }
+    },
+    "adapterProfile": {
+      "const": "server-verified-chain-adapter",
+      "description": "The only admissible adapter profile. A trusted-boundary adapter — one that would accept a peer identity asserted by an upstream hop instead of one verified by the serving side — is named only as forbidden and is inexpressible here."
+    }
+  }
+}

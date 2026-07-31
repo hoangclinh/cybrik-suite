@@ -77,3 +77,8 @@ validation notes). Nothing here is executable product code.
   conservation, no-mint spawn, tenant/org mismatch, idempotency conflict, double release,
   over-return, closed-parent denial, and root-cancel no-remint. Green proves static L1/L2
   conformance only, never runtime, UAT, T10/T11, release, deployment, or production readiness.
+- `transport-peer/` — Gate W2-K **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** fixtures: 3
+  positive, 7 negative-schema, and 8 negative-semantic cases covering verified-chain evidence,
+  three-way thumbprint equality, a complete no-degrade truth table, denial-class exhaustiveness,
+  absence/hold behavior, and structural exclusion of raw material and authority. No fixture opens a
+  socket or proves runtime, UAT, release, deployment, or production readiness.

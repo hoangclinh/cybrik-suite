@@ -1,0 +1,13 @@
+{
+  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "conveys_authorization": false,
+  "channel": {
+    "evidence_state": "absent",
+    "mutual_tls": false,
+    "chain_verified": false
+  },
+  "server_neutrality": {
+    "adapter_profile": "server-verified-chain-adapter",
+    "selected_server": null
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "denial_class": "TPE_RELYING_PARTY_THUMBPRINT_MISMATCH",
+  "message": "Transport peer evidence rejected: relying-party thumbprint mismatch.",
+  "fail_closed": true,
+  "degraded": false,
+  "peer_thumbprint": "REDACTED-NOT-MATERIAL"
+}

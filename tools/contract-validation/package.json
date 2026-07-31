@@ -26,6 +26,8 @@
     "test:w2i:transport": "node --test tests/validate-transport.test.mjs",
     "validate:w2h:resource-bounds": "node validate-resource-bounds.mjs",
     "test:w2h:resource-bounds": "node --test tests/validate-resource-bounds.test.mjs",
+    "validate:w2k:transport-peer": "node validate-transport-peer.mjs",
+    "test:w2k:transport-peer": "node --test tests/validate-transport-peer.test.mjs",
     "validate:svc-lifecycle": "node validate-svc-lifecycle.mjs",
     "test:svc-lifecycle": "node --test tests/validate-svc-lifecycle.test.mjs",
     "validate:runtime-admission": "node validate-runtime-admission.mjs",
