@@ -1,11 +1,11 @@
 # CYBRIK W2-F lifecycle-delegation binding notes v1
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA).
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA).
 
-This additive proposal restricts the accepted W2-F service-delegation validation view to the
+This accepted additive restriction profile binds the accepted W2-F service-delegation validation view to the
 accepted investigation-lifecycle surface. It reuses the accepted `cybrik.svc-*` schemas without
 modifying them and declares no new schema, endpoint, transport, runtime, deployment, release, or
-acceptance authority. The relying-party audience is exactly `svc:cyber-ai-lifecycle`.
+stable-version authority. The relying-party audience is exactly `svc:cyber-ai-lifecycle`.
 
 ## Exact external operation mapping
 
@@ -15,19 +15,19 @@ acceptance authority. The relying-party audience is exactly `svc:cyber-ai-lifecy
 | `getInvestigationStatus` | `investigation.status` | `investigation.lifecycle:read` | SOC may mint one short-lived request token. |
 | `listInvestigationCheckpoints` | `investigation.status` | `investigation.lifecycle:read` | This is an external read of producer-owned checkpoints, not a checkpoint write. |
 | `cancelInvestigation` | `investigation.cancel` | `investigation.lifecycle:cancel` | SOC may mint one short-lived request token. |
-| `readInvestigationBundle` | `investigation.bundle_read` | none | This is already an accepted business lifecycle operation with an accepted v0.1.1 response contract. This proposed binding grants it no delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this proposal. |
+| `readInvestigationBundle` | `investigation.bundle_read` | none | This is already an accepted business lifecycle operation with an accepted v0.1.1 response contract. This accepted binding grants it no delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this profile. |
 
 The exact-scope rule is deliberately singular: a lifecycle token contains exactly the one scope
 mapped to its operation. Extra scopes are rejected rather than treated as harmless.
 
-## Non-delegatable operations in this proposed binding
+## Non-delegatable operations in this accepted binding
 
 - `investigation.checkpoint` is an internal Cyber AI producer write. It is not delegatable by SOC.
 - `readInvestigationBundle` / `investigation.bundle_read` is already a declared accepted business
   lifecycle operation, and accepted v0.1.1 is the authoritative response profile for new bundle
-  reads. This proposal does not reopen or weaken that accepted contract. It declines only W2-F
+  reads. This profile does not reopen or weaken that accepted contract. It declines only W2-F
   delegation authority for this operation: no caller may mint and no relying party may consume a
-  bundle-read delegation token under this proposal. Any future bundle-read delegation binding
+  bundle-read delegation token under this accepted profile. Any future bundle-read delegation binding
   requires a separately accepted implementation and contract gate.
 
 ## Restriction over accepted W2-F
@@ -46,5 +46,5 @@ Every permitted call must satisfy all accepted W2-F checks and these additional 
    reusable for another.
 6. `jti` is single-use for its validity window. Replay is rejected.
 
-This proposal does not turn lifecycle delegation into a Fabric tool grant, approval, capability,
+This accepted-for-implementation profile does not turn lifecycle delegation into a Fabric tool grant, approval, capability,
 credential lease, action authority, MCP surface, or model-inference token.
