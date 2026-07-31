@@ -4090,11 +4090,11 @@ const ADR_README_W2H_ADDITIONS = [
 ];
 const ADR_README_W2K_ADDITIONS = [
   '\nThe W2-K transport peer-evidence packet adds ADR-0013 as\n' +
-    '`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-K authorizes only bounded proposal writing\n' +
-    'and static conformance under the delegated Governor decision; it does not accept ADR-0013 or\n' +
-    'authorize runtime, UAT, release, deployment, or production work.\n',
-  '\n| [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-K authorizes bounded proposal writing and static conformance only |',
-  '\n| [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded writer authorization for the server-neutral transport peer-evidence packet, amended R2 for canonical registration | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY`; assigns ADR-0013 at write time, authorizes only the exact proposal and registration paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |',
+    '`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. Gate W2-K accepts the exact v0.1.0 packet for\n' +
+    'implementation only under the delegated Governor R4 decision; it authorizes no runtime, UAT,\n' +
+    'release, deployment, or production work.\n',
+  '\n| [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |',
+  '\n| [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded proposal, registration, wire-cleanup, and atomic-acceptance authority for the server-neutral transport peer-evidence packet | R4 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |',
 ];
 const ADR_README_DELEGATION_RECONCILIATION = {
   current:
