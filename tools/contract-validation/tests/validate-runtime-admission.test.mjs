@@ -552,7 +552,7 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets validate with retired R1 and authorized R2', async () => {
+test('committed runtime-admission assets validate with retired R1 and failed R2', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
@@ -564,7 +564,27 @@ test('committed runtime-admission assets validate with retired R1 and authorized
     ]),
   );
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'RUNTIME_AUTHORIZED');
+  assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
+
+  const r2 = JSON.parse(read(
+    'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
+  ));
+  assert.deepEqual(r2.attempt_accounting.current_attempt, {
+    status: 'failed',
+    execution_authorized: false,
+    executed_checks: 4,
+    passed_checks: 3,
+    failed_checks: 1,
+    evidence_path:
+      'docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/02-r2-runtime-result.md',
+    evidence_sha256:
+      'c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7',
+  });
+  assert.equal(r2.attempt_accounting.attempt_ordinal, 2);
+  assert.equal(r2.attempt_accounting.max_attempts, 2);
+  assert.equal(r2.evidence.final_profile_verdict, 'NO-GO');
+  assert.equal(r2.disposition.profile, 'NO-GO');
+  assert.match(read(README_PATH), /consumed both admitted ordinals/);
 });
 
 test('mislocated runtime-admission records fail closed while unrelated candidate files stay ignored', async () => {
