@@ -1,0 +1,312 @@
+{
+  "candidate_id": "runtime-admission-ai-pg-r1",
+  "recorded_at": "2026-07-31T02:53:53Z",
+  "commit_tree": {
+    "suite": {
+      "commit": "d564521b566417f60948081c6b816557f93f61a2",
+      "tree": "4767e2226229f201300a64b757f4c4e12223001a"
+    },
+    "soc": {
+      "commit": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+      "tree": "16ef74d6f97cbf90a504bb3cee57a98712e40c56"
+    },
+    "cyber_ai": {
+      "commit": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+      "tree": "54f782400729cea9ef9a03664e083093797fa9bb"
+    },
+    "tool_fabric": {
+      "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "tree": "ca8b4a03116bea979de89b92b2f8fef4fd31e001"
+    }
+  },
+  "hosted_ci": {
+    "required_checks": [
+      {
+        "repo": "suite",
+        "sha": "d564521b566417f60948081c6b816557f93f61a2",
+        "name": "contract standards validation",
+        "status": "success"
+      },
+      {
+        "repo": "suite",
+        "sha": "d564521b566417f60948081c6b816557f93f61a2",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "api",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "backup-tool",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "dependency-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "e2e",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "sbom",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "web",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+        "name": "pf-workers",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "lockfile-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "lint",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "type",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "test",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "build-offline",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+        "name": "security-supply-chain",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "admission-gate",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "secret-scan",
+        "status": "success"
+      }
+    ],
+    "skipped_jobs": [
+      {
+        "repo": "tool_fabric",
+        "name": "executor",
+        "status": "skipped",
+        "reason": "Protected-context classification records executor as skipped and not required for this bounded candidate."
+      }
+    ],
+    "suppressed_jobs": [
+      {
+        "repo": "soc",
+        "name": "e2e-org",
+        "status": "suppressed",
+        "reason": "Workflow source sets if:false for the W2-J org-hierarchy UI RED lane."
+      },
+      {
+        "repo": "soc",
+        "name": "alert-context-route-db",
+        "status": "suppressed",
+        "reason": "Workflow source at 9d42a6dc3f9f5a25de75a79a887bafae74498152:.github/workflows/ci.yml sets if:false for static wiring only."
+      }
+    ]
+  },
+  "contracts": {
+    "reviewed_contracts": [
+      "cybrik-suite:docs/uat/runtime-admission.schema.json",
+      "cybrik-suite:tools/contract-validation/validate-runtime-admission.mjs",
+      "cybrik-cyber-ai-platform:docs/operations/AI-DURABLE-POSTGRES-SLICE.md",
+      "cybrik-cyber-ai-platform:services/ai-api/migrations/alembic.ini",
+      "cybrik-cyber-ai-platform:services/ai-api/migrations/versions/0001_ai_durable_postgres_slice.py",
+      "cybrik-cyber-ai-platform:services/ai-api/src/cybrik_ai_api/orchestration/postgres.py",
+      "cybrik-cyber-ai-platform:tests/ai_api/test_postgres_durable.py"
+    ],
+    "feature_flags": [
+      {
+        "name": "cyber_ai_postgres_runtime_admission_ai_pg_r1",
+        "state": "bounded_loopback_only"
+      },
+      {
+        "name": "cyber_ai_http_full_stack_demo_uat_poc_rc_ga",
+        "state": "not_authorized_by_this_record"
+      }
+    ],
+    "capability_lifecycle": [
+      {
+        "capability": "cyber_ai_postgres_durable_slice",
+        "state": "active_development_not_released"
+      },
+      {
+        "capability": "runtime_admission_ai_pg_r1",
+        "state": "authorized_for_one_future_loopback_postgresql16_proof_only"
+      }
+    ]
+  },
+  "test_data": {
+    "classification": "synthetic",
+    "approved": true,
+    "notes": "Only synthetic tenant, run, and credential-placeholder values are authorized. The record stores env-var names only and forbids production credentials, production data, and production traffic."
+  },
+  "production_exclusion": {
+    "no_production_credentials": true,
+    "no_production_configuration": true,
+    "no_production_data": true,
+    "no_production_traffic": true
+  },
+  "lifecycle_procedures": {
+    "start": [
+      "docker run --name cybrik-ai-pg-uat-r1 --rm -e POSTGRES_PASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" -p 127.0.0.1:55432:5432 -d postgres:16-alpine",
+      "until docker exec cybrik-ai-pg-uat-r1 pg_isready -U postgres -d postgres; do sleep 1; done",
+      "export AI_API_POSTGRES_ADMIN_DSN=\"postgresql+asyncpg://postgres:${AI_PG_POSTGRES_PASSWORD:?}@127.0.0.1:55432/postgres\"",
+      "export AI_API_POSTGRES_RUNTIME_DSN=\"postgresql+asyncpg://cybrik_ai_runtime_uat:${AI_PG_RUNTIME_PASSWORD:?}@127.0.0.1:55432/postgres\"",
+      "export CYBRIK_AI_REPO=\"${CYBRIK_AI_REPO:?}\""
+    ],
+    "stop": [
+      "docker stop cybrik-ai-pg-uat-r1"
+    ],
+    "reset": [
+      "cd \"${CYBRIK_AI_REPO:?}\"",
+      "uv sync --locked --all-groups",
+      "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" uv run python -c \"import os; from pathlib import Path; from alembic import command; from alembic.config import Config; root = Path.cwd(); cfg = Config(str(root / 'services' / 'ai-api' / 'migrations' / 'alembic.ini')); cfg.set_main_option('script_location', str(root / 'services' / 'ai-api' / 'migrations')); cfg.set_main_option('sqlalchemy.url', os.environ['AI_API_POSTGRES_ADMIN_DSN']); command.downgrade(cfg, 'base'); command.upgrade(cfg, 'head')\""
+    ],
+    "seed": [
+      "docker exec -e PGPASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" cybrik-ai-pg-uat-r1 psql --set=ON_ERROR_STOP=1 --set=runtime_password=\"${AI_PG_RUNTIME_PASSWORD:?}\" -U postgres -d postgres -c \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" -c \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS\" -c 'GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat'",
+      "cd \"${CYBRIK_AI_REPO:?}\"",
+      "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" AI_API_POSTGRES_RUNTIME_DSN=\"${AI_API_POSTGRES_RUNTIME_DSN:?}\" uv run pytest tests/ai_api/test_postgres_durable.py -q"
+    ],
+    "rollback": [
+      "cd \"${CYBRIK_AI_REPO:?}\"",
+      "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" uv run python -c \"import os; from pathlib import Path; from alembic import command; from alembic.config import Config; root = Path.cwd(); cfg = Config(str(root / 'services' / 'ai-api' / 'migrations' / 'alembic.ini')); cfg.set_main_option('script_location', str(root / 'services' / 'ai-api' / 'migrations')); cfg.set_main_option('sqlalchemy.url', os.environ['AI_API_POSTGRES_ADMIN_DSN']); command.downgrade(cfg, 'base')\""
+    ]
+  },
+  "negative_smoke": {
+    "tenant_isolation": [
+      {
+        "name": "static preflight pass only: reviewed FORCE RLS policies plus transaction-local runtime tenant context in migration and adapter source, and reviewed all 13 authored PostgreSQL integration negatives in tests/ai_api/test_postgres_durable.py; no live PostgreSQL runtime proof executed yet",
+        "status": "pass"
+      }
+    ],
+    "authorization": [
+      {
+        "name": "static preflight pass only: four no-DB guard tests pass for reserved runtime role rejection, blank tenant rejection twice, and malformed row typed failure; no live PostgreSQL runtime authorization proof executed yet",
+        "status": "pass"
+      }
+    ],
+    "secret_boundary": [
+      {
+        "name": "static preflight pass only: hosted secret-scan checks are green for Suite, SOC, Cyber AI, and Fabric, and this candidate stores only env-var names and synthetic DSN templates with no credential material",
+        "status": "pass"
+      }
+    ]
+  },
+  "open_findings": {
+    "critical": 0,
+    "high": 0,
+    "notes": [
+      "No open Critical or High finding is recorded on the bounded static admission path reviewed here.",
+      "Direct pushes to protected main were server-rejected with GH006 and pull-request-required enforcement across all four repositories.",
+      "This record authorizes one future loopback PostgreSQL 16 proof only; it does not claim that proof has already executed."
+    ]
+  },
+  "evidence": {
+    "directory": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence",
+    "artifacts": [
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/01-hosted-facts.json",
+        "sha256": "9cd73896d030f957475a24b9dc3b8259821ff8f8a60a83a0507fc9877d8d6eb9"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/02-preflight-transcript.md",
+        "sha256": "e89a120d1f86870fe3c8c57a9b0171bc4f809b10026330d25fb022d87f16dfd4"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/03-runtime-plan.md",
+        "sha256": "b608d0e1f8258be70676dbfcb666ede3f12c9af583efaa7f6e97ea96164b5914"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/04-protection-facts.json",
+        "sha256": "46e7a7ffad8d9b6e6a671d21ef76376a2974ae8f0065e30e83911d766a9d22ab"
+      }
+    ],
+    "limitations": [
+      "The 13 PostgreSQL integration tests in tests/ai_api/test_postgres_durable.py were not executed in this candidate turn.",
+      "This profile authorizes only one future loopback PostgreSQL 16 proof at 127.0.0.1:55432 with distinct admin and runtime principals.",
+      "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, or GA claim is made by this record."
+    ],
+    "final_profile_verdict": "RUNTIME_AUTHORIZED"
+  },
+  "network_exposure": {
+    "mode": "local_only",
+    "surfaces": [
+      {
+        "bind": "127.0.0.1:55432",
+        "purpose": "bounded local PostgreSQL 16 runtime proof only"
+      }
+    ],
+    "notes": "No public listener, no non-loopback bind, and no HTTP application surface are authorized by this record."
+  },
+  "disposition": {
+    "profile": "RUNTIME_AUTHORIZED",
+    "rationale": "Hosted required checks are green, protected-main direct pushes are rejected, static preflight safety labels are explicit, and the resulting authorization is limited to one future loopback Cyber AI PostgreSQL 16 proof with synthetic inputs only."
+  }
+}

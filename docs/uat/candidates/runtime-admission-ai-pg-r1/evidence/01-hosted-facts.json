@@ -1,0 +1,149 @@
+{
+  "candidate_id": "runtime-admission-ai-pg-r1",
+  "recorded_at": "2026-07-31T02:53:53Z",
+  "suite": {
+    "commit": "d564521b566417f60948081c6b816557f93f61a2",
+    "tree": "4767e2226229f201300a64b757f4c4e12223001a",
+    "workflow": "contracts",
+    "run_id": 30599828359,
+    "required_checks": [
+      {
+        "name": "contract standards validation",
+        "status": "success"
+      },
+      {
+        "name": "secret-scan",
+        "status": "success"
+      }
+    ]
+  },
+  "soc": {
+    "commit": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+    "tree": "16ef74d6f97cbf90a504bb3cee57a98712e40c56",
+    "workflow": "ci",
+    "run_id": 30598693305,
+    "required_checks": [
+      {
+        "name": "api",
+        "status": "success"
+      },
+      {
+        "name": "backup-tool",
+        "status": "success"
+      },
+      {
+        "name": "dependency-scan",
+        "status": "success"
+      },
+      {
+        "name": "e2e",
+        "status": "success"
+      },
+      {
+        "name": "sbom",
+        "status": "success"
+      },
+      {
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "name": "web",
+        "status": "success"
+      },
+      {
+        "name": "pf-workers",
+        "status": "success"
+      }
+    ],
+    "suppressed_jobs": [
+      {
+        "name": "e2e-org",
+        "status": "suppressed",
+        "reason": "workflow source sets if:false for W2-J UI RED"
+      },
+      {
+        "name": "alert-context-route-db",
+        "status": "suppressed",
+        "reason": "workflow source at 9d42a6dc3f9f5a25de75a79a887bafae74498152:.github/workflows/ci.yml sets if:false for static wiring only"
+      }
+    ]
+  },
+  "cyber_ai": {
+    "commit": "8da372b6a2a9468c58ebfc2c3359c8409b8a7c86",
+    "tree": "54f782400729cea9ef9a03664e083093797fa9bb",
+    "workflow": "ci",
+    "run_id": 30598946221,
+    "required_checks": [
+      {
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "name": "lockfile-integrity",
+        "status": "success"
+      },
+      {
+        "name": "lint",
+        "status": "success"
+      },
+      {
+        "name": "type",
+        "status": "success"
+      },
+      {
+        "name": "test",
+        "status": "success"
+      },
+      {
+        "name": "build-offline",
+        "status": "success"
+      },
+      {
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "name": "security-supply-chain",
+        "status": "success"
+      }
+    ]
+  },
+  "tool_fabric": {
+    "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+    "tree": "ca8b4a03116bea979de89b92b2f8fef4fd31e001",
+    "workflow": "ci",
+    "run_id": 30591694272,
+    "required_checks": [
+      {
+        "name": "admission-gate",
+        "status": "success"
+      },
+      {
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "name": "secret-scan",
+        "status": "success"
+      }
+    ],
+    "skipped_jobs": [
+      {
+        "name": "executor",
+        "status": "skipped",
+        "reason": "protected-context classification supplied by parent; not required for this candidate"
+      }
+    ],
+    "informational_successful_jobs": [
+      {
+        "name": "detect",
+        "status": "success"
+      },
+      {
+        "name": "control-plane",
+        "status": "success"
+      }
+    ]
+  }
+}

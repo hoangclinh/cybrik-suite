@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -324,7 +325,87 @@ const evaluateSmokeChecks = (checks, label, path, errors) => {
   return 'pass';
 };
 
-const deriveDisposition = (candidate, path) => {
+const isPathOutside = (basePath, targetPath) => {
+  const delta = relative(basePath, targetPath);
+  return delta === '..' || delta.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(delta);
+};
+
+const validateEvidenceArtifacts = (root, candidate, path, errors) => {
+  if (!candidate.evidence.directory) {
+    return;
+  }
+
+  const evidenceDirPath = candidate.evidence.directory;
+  if (isAbsolute(evidenceDirPath)) {
+    errors.push(`${path}: candidate.evidence.directory must stay inside the repository root`);
+    return;
+  }
+  const resolvedEvidenceDir = resolve(root, evidenceDirPath);
+  if (isPathOutside(root, resolvedEvidenceDir)) {
+    errors.push(`${path}: candidate.evidence.directory must stay inside the repository root`);
+    return;
+  }
+
+  for (const artifact of candidate.evidence.artifacts) {
+    if (isAbsolute(artifact.path)) {
+      errors.push(`${path}: evidence artifact paths must be relative to the repository root`);
+      continue;
+    }
+
+    const resolvedArtifactPath = resolve(root, artifact.path);
+    if (isPathOutside(root, resolvedArtifactPath)) {
+      errors.push(`${path}: evidence artifact paths must not traverse outside the repository root`);
+      continue;
+    }
+    if (isPathOutside(resolvedEvidenceDir, resolvedArtifactPath)) {
+      if (artifact.path.includes('..')) {
+        errors.push(`${path}: evidence artifact paths must not traverse outside the declared evidence directory`);
+      } else {
+        errors.push(`${path}: evidence artifacts must stay inside candidate.evidence.directory`);
+      }
+      continue;
+    }
+
+    let artifactLinkStats;
+    try {
+      artifactLinkStats = lstatSync(resolvedArtifactPath);
+    } catch {
+      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+      continue;
+    }
+    if (artifactLinkStats.isSymbolicLink()) {
+      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+      continue;
+    }
+
+    let artifactStats;
+    try {
+      artifactStats = statSync(resolvedArtifactPath);
+    } catch {
+      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+      continue;
+    }
+    if (!artifactStats.isFile()) {
+      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+      continue;
+    }
+
+    let bytes;
+    try {
+      bytes = readFileSync(resolvedArtifactPath);
+    } catch {
+      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+      continue;
+    }
+
+    const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+    if (actualSha256 !== artifact.sha256) {
+      errors.push(`${path}: evidence artifact sha256 must match the recorded bytes`);
+    }
+  }
+};
+
+const deriveDisposition = (root, candidate, path) => {
   const errors = [];
   let hold = false;
   let noGo = false;
@@ -442,6 +523,13 @@ const deriveDisposition = (candidate, path) => {
   } else if (candidate.evidence.artifacts.some((artifact) => !sha256Pattern.test(artifact.sha256))) {
     errors.push(`${path}: evidence must record valid artifact digests`);
     hold = true;
+  } else {
+    const evidenceErrors = [];
+    validateEvidenceArtifacts(root, candidate, path, evidenceErrors);
+    if (evidenceErrors.length > 0) {
+      errors.push(...evidenceErrors);
+      hold = true;
+    }
   }
   if (candidate.network_exposure.surfaces.length === 0) {
     errors.push(`${path}: network exposure must stay local-only or explicitly bounded`);
@@ -529,7 +617,7 @@ export async function validateRuntimeAdmission({
       }
       if (candidateErrors.length === 0) {
         try {
-          const result = deriveDisposition(candidate, path);
+          const result = deriveDisposition(root, candidate, path);
           declaredDisposition = result.declaredDisposition;
           derivedDisposition = result.derivedDisposition;
           candidateErrors.push(...result.errors);
