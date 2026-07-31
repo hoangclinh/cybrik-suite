@@ -1,7 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +17,7 @@ const DEFAULT_ROOT = resolve(HERE, '../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
+const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
 const CANDIDATE_ROOT = 'docs/uat/candidates';
 const FORBIDDEN_PROFILES = new Set([
   'DEMO_READY_LOCAL',
@@ -17,20 +25,37 @@ const FORBIDDEN_PROFILES = new Set([
   'RC_READY',
   'FULL_RELEASE_READY',
 ]);
-const sha1Pattern = /^[0-9a-f]{40}$/;
 const sha256Pattern = /^[0-9a-f]{64}$/;
-const allowedCheckStatuses = new Set(['success', 'failure', 'pending', 'cancelled']);
-const allowedSmokeStatuses = new Set(['pass', 'fail', 'hold']);
-const allowedProfiles = new Set([
-  'HOLD',
-  'NO-GO',
-  'RUNTIME_AUTHORIZED',
-  'DEMO_READY_LOCAL',
-  'CUSTOMER_POC_READY',
-  'RC_READY',
-  'FULL_RELEASE_READY',
-]);
 const allowedTestDataClasses = new Set(['synthetic', 'sanitized', 'approved_nonprod']);
+const SEALED_LEGACY_CANDIDATES = [
+  {
+    candidate_id: 'runtime-admission-ai-pg-r1',
+    series_id: 'runtime-admission-ai-pg',
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    record_path: 'docs/uat/candidates/runtime-admission-ai-pg-r1/runtime-admission.json',
+    record_sha256: '4838293a1eefda49f1bfbf27ee7cdc3f6b314576747002afcc3d7df9ad1c19cc',
+    recorded_disposition: 'NO-GO',
+  },
+  {
+    candidate_id: 'runtime-admission-ai-pg-r2',
+    series_id: 'runtime-admission-ai-pg',
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    record_path: 'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
+    record_sha256: '54d94d318e211502d66423c349c1d9b4e6461659baae2927d59f7f517a5bc48e',
+    recorded_disposition: 'NO-GO',
+  },
+  {
+    candidate_id: 'runtime-admission-ai-pg-r3',
+    series_id: 'runtime-admission-ai-pg',
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    record_path: 'docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json',
+    record_sha256: '72ec88e98023c5992d5e42c710d0632680158d13ecc0a1065795a0a9db4263e3',
+    recorded_disposition: 'NO-GO',
+  },
+];
 
 const dependencyRequire = () => {
   const localRequire = createRequire(join(HERE, 'package.json'));
@@ -137,192 +162,6 @@ const discoverCandidateFiles = (root) => {
     .sort();
 };
 
-const validateRecordShape = (path, value) => {
-  const errors = [];
-  if (!hasExactKeys(value, expectedCandidateFields)) {
-    errors.push(`${path}: top-level record must contain exactly ${expectedCandidateFields.join(', ')}`);
-    return errors;
-  }
-  if (typeof value.candidate_id !== 'string' || value.candidate_id.length === 0) {
-    errors.push(`${path}: candidate_id must be a non-empty string`);
-  }
-  if (typeof value.recorded_at !== 'string' || Number.isNaN(Date.parse(value.recorded_at))) {
-    errors.push(`${path}: recorded_at must be an ISO-8601 date-time`);
-  }
-  const attemptAccountingFields = [
-    'series_id',
-    'attempt_ordinal',
-    'max_attempts',
-    'current_attempt',
-    'failure_history',
-  ];
-  if (Object.hasOwn(value.attempt_accounting, 'recovery_override')) {
-    attemptAccountingFields.push('recovery_override');
-  }
-  if (!hasExactKeys(value.attempt_accounting, attemptAccountingFields)) {
-    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history, plus only an optional recovery_override`);
-  }
-  if (!hasExactKeys(value.commit_tree, expectedRepositories)) {
-    errors.push(`${path}: commit_tree must contain exactly four repositories`);
-  } else {
-    for (const repo of expectedRepositories) {
-      const tuple = value.commit_tree[repo];
-      if (!hasExactKeys(tuple, ['commit', 'tree'])) {
-        errors.push(`${path}: commit_tree.${repo} must contain commit and tree`);
-        continue;
-      }
-      if (!sha1Pattern.test(tuple.commit) || !sha1Pattern.test(tuple.tree)) {
-        errors.push(`${path}: commit_tree.${repo} commit/tree must be 40-hex`);
-      }
-    }
-  }
-  if (!hasExactKeys(value.hosted_ci, ['required_checks', 'skipped_jobs', 'suppressed_jobs'])) {
-    errors.push(`${path}: hosted_ci must contain required_checks, skipped_jobs and suppressed_jobs`);
-  } else {
-    if (!Array.isArray(value.hosted_ci.required_checks)) {
-      errors.push(`${path}: hosted_ci.required_checks must be an array`);
-    } else {
-      for (const item of value.hosted_ci.required_checks) {
-        if (!hasExactKeys(item, ['repo', 'sha', 'name', 'status'])) {
-          errors.push(`${path}: required hosted checks must enumerate repo, sha, name and status`);
-          continue;
-        }
-        if (
-          !expectedRepositories.includes(item.repo)
-          || !sha1Pattern.test(item.sha)
-          || typeof item.name !== 'string'
-          || item.name.length === 0
-          || !allowedCheckStatuses.has(item.status)
-        ) {
-          errors.push(`${path}: required hosted checks must enumerate valid repo, sha, name and status`);
-        }
-      }
-    }
-    for (const [key, expectedStatus] of [
-      ['skipped_jobs', 'skipped'],
-      ['suppressed_jobs', 'suppressed'],
-    ]) {
-      if (!Array.isArray(value.hosted_ci[key])) {
-        errors.push(`${path}: hosted_ci.${key} must be an array`);
-        continue;
-      }
-      for (const item of value.hosted_ci[key]) {
-        if (!hasExactKeys(item, ['repo', 'name', 'status', 'reason'])) {
-          errors.push(`${path}: ${key} entries must enumerate repo, name, status and reason`);
-          continue;
-        }
-        if (
-          !expectedRepositories.includes(item.repo)
-          || typeof item.name !== 'string'
-          || item.name.length === 0
-          || item.status !== expectedStatus
-          || typeof item.reason !== 'string'
-          || item.reason.length === 0
-        ) {
-          errors.push(`${path}: ${key} entries must use valid repo, name, ${expectedStatus} status and reason`);
-        }
-      }
-    }
-  }
-  if (!hasExactKeys(value.contracts, ['reviewed_contracts', 'feature_flags', 'capability_lifecycle'])) {
-    errors.push(`${path}: contracts must contain reviewed_contracts, feature_flags and capability_lifecycle`);
-  }
-  if (!hasExactKeys(value.test_data, ['classification', 'approved', 'notes'])) {
-    errors.push(`${path}: test_data must contain classification, approved and notes`);
-  } else if (!allowedTestDataClasses.has(value.test_data.classification)) {
-    errors.push(`${path}: test_data.classification must be synthetic, sanitized or approved_nonprod`);
-  }
-  if (!hasExactKeys(value.production_exclusion, [
-    'no_production_credentials',
-    'no_production_configuration',
-    'no_production_data',
-    'no_production_traffic',
-  ])) {
-    errors.push(`${path}: production_exclusion must contain the exact four production-boundary booleans`);
-  }
-  if (!hasExactKeys(value.lifecycle_procedures, ['start', 'stop', 'reset', 'seed', 'rollback'])) {
-    errors.push(`${path}: lifecycle_procedures must contain start, stop, reset, seed and rollback`);
-  } else {
-    for (const key of ['start', 'stop', 'reset', 'seed', 'rollback']) {
-      if (!Array.isArray(value.lifecycle_procedures[key]) || value.lifecycle_procedures[key].some((item) => typeof item !== 'string' || item.length === 0)) {
-        errors.push(`${path}: lifecycle_procedures.${key} must be an array of non-empty commands`);
-      }
-    }
-  }
-  if (!hasExactKeys(value.negative_smoke, ['tenant_isolation', 'authorization', 'secret_boundary'])) {
-    errors.push(`${path}: negative_smoke must contain tenant_isolation, authorization and secret_boundary`);
-  } else {
-    for (const key of ['tenant_isolation', 'authorization', 'secret_boundary']) {
-      if (!Array.isArray(value.negative_smoke[key])) {
-        errors.push(`${path}: negative_smoke.${key} must be an array`);
-        continue;
-      }
-      for (const item of value.negative_smoke[key]) {
-        if (
-          !hasExactKeys(item, ['name', 'status'])
-          || typeof item.name !== 'string'
-          || item.name.length === 0
-          || !allowedSmokeStatuses.has(item.status)
-        ) {
-          errors.push(`${path}: negative_smoke.${key} entries must contain name and pass/fail/hold status`);
-        }
-      }
-    }
-  }
-  if (!hasExactKeys(value.open_findings, ['critical', 'high', 'notes'])) {
-    errors.push(`${path}: open_findings must contain critical, high and notes`);
-  }
-  if (!hasExactKeys(value.evidence, ['directory', 'artifacts', 'limitations', 'final_profile_verdict'])) {
-    errors.push(`${path}: evidence must contain directory, artifacts, limitations and final_profile_verdict`);
-  } else {
-    if (!Array.isArray(value.evidence.artifacts)) {
-      errors.push(`${path}: evidence.artifacts must be an array`);
-    } else {
-      for (const artifact of value.evidence.artifacts) {
-        if (
-          !hasExactKeys(artifact, ['path', 'sha256'])
-          || typeof artifact.path !== 'string'
-          || artifact.path.length === 0
-          || !sha256Pattern.test(artifact.sha256)
-        ) {
-          errors.push(`${path}: evidence must record artifact digests`);
-        }
-      }
-    }
-    if (!allowedProfiles.has(value.evidence.final_profile_verdict)) {
-      errors.push(`${path}: evidence.final_profile_verdict must use a known profile label`);
-    }
-  }
-  if (!hasExactKeys(value.network_exposure, ['mode', 'surfaces', 'notes'])) {
-    errors.push(`${path}: network_exposure must contain mode, surfaces and notes`);
-  } else {
-    if (!['local_only', 'bounded_nonprod'].includes(value.network_exposure.mode)) {
-      errors.push(`${path}: network exposure must stay local-only or explicitly bounded`);
-    }
-    if (!Array.isArray(value.network_exposure.surfaces)) {
-      errors.push(`${path}: network_exposure.surfaces must be an array`);
-    } else {
-      for (const surface of value.network_exposure.surfaces) {
-        if (
-          !hasExactKeys(surface, ['bind', 'purpose'])
-          || typeof surface.bind !== 'string'
-          || surface.bind.length === 0
-          || typeof surface.purpose !== 'string'
-          || surface.purpose.length === 0
-        ) {
-          errors.push(`${path}: network_exposure.surfaces entries must contain bind and purpose`);
-        }
-      }
-    }
-  }
-  if (!hasExactKeys(value.disposition, ['profile', 'rationale'])) {
-    errors.push(`${path}: disposition must contain profile and rationale`);
-  } else if (!allowedProfiles.has(value.disposition.profile)) {
-    errors.push(`${path}: disposition.profile must use a known profile label`);
-  }
-  return errors;
-};
-
 const evaluateSmokeChecks = (checks, label, path, errors) => {
   if (!Array.isArray(checks) || checks.length === 0) {
     errors.push(`${path}: ${label} must contain at least one recorded check`);
@@ -411,6 +250,36 @@ const validateRecordedArtifact = ({
   if (!artifactStats.isFile()) {
     errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
     return;
+  }
+
+  let canonicalRoot;
+  let canonicalArtifactPath;
+  try {
+    canonicalRoot = realpathSync(root);
+    canonicalArtifactPath = realpathSync(resolvedArtifactPath);
+  } catch {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+  if (isPathOutside(canonicalRoot, canonicalArtifactPath)) {
+    errors.push(`${recordPath}: evidence artifact paths must not resolve outside the repository root`);
+    return;
+  }
+  if (requireInsideEvidenceDir) {
+    let canonicalEvidenceDir;
+    try {
+      canonicalEvidenceDir = realpathSync(resolve(root, evidenceDir));
+    } catch {
+      errors.push(`${recordPath}: candidate.evidence.directory must resolve inside the repository root`);
+      return;
+    }
+    if (
+      isPathOutside(canonicalRoot, canonicalEvidenceDir)
+      || isPathOutside(canonicalEvidenceDir, canonicalArtifactPath)
+    ) {
+      errors.push(`${recordPath}: evidence artifacts must resolve inside candidate.evidence.directory`);
+      return;
+    }
   }
 
   let bytes;
@@ -802,6 +671,442 @@ const validateTemplate = (template, path) => {
   return errors;
 };
 
+const validateLineagePolicy = ({
+  root,
+  overrides,
+  policy,
+  records,
+}) => {
+  const findings = [];
+  const addFinding = (path, message) => {
+    findings.push({ path, message: `${path}: ${message}` });
+  };
+  if (!hasExactKeys(policy, ['schema_version', 'allowed_objectives', 'legacy_candidates'])) {
+    addFinding(
+      LINEAGE_POLICY_PATH,
+      'must contain exactly schema_version, allowed_objectives and legacy_candidates',
+    );
+    return findings;
+  }
+  if (policy.schema_version !== '1.0.0') {
+    addFinding(LINEAGE_POLICY_PATH, 'schema_version must equal 1.0.0');
+  }
+  if (!Array.isArray(policy.allowed_objectives)) {
+    addFinding(LINEAGE_POLICY_PATH, 'allowed_objectives must be an array');
+    return findings;
+  }
+  const allowedObjectiveKeys = new Set();
+  for (const allowedObjective of policy.allowed_objectives) {
+    if (
+      !hasExactKeys(allowedObjective, ['capability_id', 'objective_id'])
+      || typeof allowedObjective.capability_id !== 'string'
+      || allowedObjective.capability_id.length === 0
+      || typeof allowedObjective.objective_id !== 'string'
+      || allowedObjective.objective_id.length === 0
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        'allowed_objectives entries must contain non-empty capability_id and objective_id',
+      );
+      continue;
+    }
+    const objectiveKey =
+      `${allowedObjective.capability_id}\u0000${allowedObjective.objective_id}`;
+    if (allowedObjectiveKeys.has(objectiveKey)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        'allowed_objectives capability_id/objective_id pairs must be unique',
+      );
+    }
+    allowedObjectiveKeys.add(objectiveKey);
+  }
+  if (allowedObjectiveKeys.size === 0) {
+    addFinding(LINEAGE_POLICY_PATH, 'allowed_objectives must not be empty');
+  }
+
+  if (!Array.isArray(policy.legacy_candidates)) {
+    addFinding(LINEAGE_POLICY_PATH, 'legacy_candidates must be an array');
+    return findings;
+  }
+  if (
+    JSON.stringify(policy.legacy_candidates) !== JSON.stringify(SEALED_LEGACY_CANDIDATES)
+  ) {
+    addFinding(
+      LINEAGE_POLICY_PATH,
+      'legacy_candidates must equal the sealed R1/R2/R3 set exactly; future candidates cannot be grandfathered',
+    );
+  }
+
+  const recordsById = new Map(
+    records.map((record) => [record.candidate.candidate_id, record]),
+  );
+  const legacyById = new Map();
+  const legacyByPath = new Map();
+  const entryFields = [
+    'candidate_id',
+    'series_id',
+    'capability_id',
+    'objective_id',
+    'record_path',
+    'record_sha256',
+    'recorded_disposition',
+  ];
+
+  for (const entry of policy.legacy_candidates) {
+    if (!hasExactKeys(entry, entryFields)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate entries must contain exactly ${entryFields.join(', ')}`,
+      );
+      continue;
+    }
+    if (
+      typeof entry.candidate_id !== 'string'
+      || entry.candidate_id.length === 0
+      || typeof entry.series_id !== 'string'
+      || entry.series_id.length === 0
+      || typeof entry.capability_id !== 'string'
+      || entry.capability_id.length === 0
+      || typeof entry.objective_id !== 'string'
+      || entry.objective_id.length === 0
+      || typeof entry.record_path !== 'string'
+      || entry.record_path.length === 0
+      || !sha256Pattern.test(entry.record_sha256)
+      || entry.recorded_disposition !== 'NO-GO'
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        'legacy candidate entries must use non-empty identifiers, a relative record path, a 64-hex digest and NO-GO disposition',
+      );
+      continue;
+    }
+    const entryObjectiveKey = `${entry.capability_id}\u0000${entry.objective_id}`;
+    if (!allowedObjectiveKeys.has(entryObjectiveKey)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} must use an allowed capability/objective pair`,
+      );
+    }
+    if (isAbsolute(entry.record_path)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must be relative to the repository root`,
+      );
+      continue;
+    }
+    const resolvedRecordPath = resolve(root, entry.record_path);
+    if (isPathOutside(root, resolvedRecordPath)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must stay inside the repository root`,
+      );
+      continue;
+    }
+    let recordLinkStats;
+    try {
+      recordLinkStats = lstatSync(resolvedRecordPath);
+    } catch {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must resolve to a readable regular file`,
+      );
+      continue;
+    }
+    if (recordLinkStats.isSymbolicLink() || !recordLinkStats.isFile()) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must resolve to a non-symlink regular file`,
+      );
+      continue;
+    }
+    let canonicalRoot;
+    let canonicalRecordPath;
+    try {
+      canonicalRoot = realpathSync(root);
+      canonicalRecordPath = realpathSync(resolvedRecordPath);
+    } catch {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must resolve to a readable regular file`,
+      );
+      continue;
+    }
+    if (isPathOutside(canonicalRoot, canonicalRecordPath)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must not resolve outside the repository root`,
+      );
+      continue;
+    }
+    if (legacyById.has(entry.candidate_id)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate_id ${entry.candidate_id} must be unique`,
+      );
+      continue;
+    }
+    if (legacyByPath.has(entry.record_path)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy record_path ${entry.record_path} must be unique`,
+      );
+      continue;
+    }
+    legacyById.set(entry.candidate_id, entry);
+    legacyByPath.set(entry.record_path, entry);
+
+    const record = recordsById.get(entry.candidate_id);
+    if (!record) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} must resolve to a schema-valid registry record`,
+      );
+      continue;
+    }
+    if (
+      record.path !== entry.record_path
+      || record.candidate.attempt_accounting.series_id !== entry.series_id
+      || record.candidate.disposition.profile !== entry.recorded_disposition
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} identity and disposition must match the pinned registry record`,
+      );
+      continue;
+    }
+    let recordBytes;
+    try {
+      recordBytes = readText(root, entry.record_path, overrides);
+    } catch (error) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} bytes are unreadable: ${error.message}`,
+      );
+      continue;
+    }
+    const actualRecordSha = createHash('sha256').update(recordBytes).digest('hex');
+    if (actualRecordSha !== entry.record_sha256) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_sha256 must match immutable record bytes`,
+      );
+    }
+  }
+
+  const evidenceOwnersBySha = new Map();
+  const evidenceDigestsByCandidateId = new Map();
+  for (const record of records) {
+    const candidate = record.candidate;
+    const evidenceDigests = new Set([
+      candidate.attempt_accounting.current_attempt.evidence_sha256,
+      ...candidate.evidence.artifacts.map((artifact) => artifact.sha256),
+      ...candidate.attempt_accounting.failure_history.map(
+        (historyRow) => historyRow.evidence_sha256,
+      ),
+    ]);
+    evidenceDigestsByCandidateId.set(candidate.candidate_id, evidenceDigests);
+    for (const digest of evidenceDigests) {
+      const owners = evidenceOwnersBySha.get(digest) ?? [];
+      owners.push({
+        candidateId: candidate.candidate_id,
+        seriesId: candidate.attempt_accounting.series_id,
+      });
+      evidenceOwnersBySha.set(digest, owners);
+    }
+  }
+  for (const record of records) {
+    const candidate = record.candidate;
+    const seriesId = candidate.attempt_accounting.series_id;
+    for (const digest of evidenceDigestsByCandidateId.get(candidate.candidate_id) ?? []) {
+      const foreignOwner = (evidenceOwnersBySha.get(digest) ?? []).find(
+        (owner) => owner.seriesId !== seriesId,
+      );
+      if (foreignOwner) {
+        addFinding(
+          record.path,
+          `cross-series execution evidence SHA-256 must be unique; digest is already owned by ${foreignOwner.candidateId}`,
+        );
+      }
+    }
+  }
+
+  const objectiveMetadataByCandidateId = new Map();
+  for (const entry of legacyById.values()) {
+    objectiveMetadataByCandidateId.set(entry.candidate_id, {
+      capability_id: entry.capability_id,
+      objective_id: entry.objective_id,
+    });
+  }
+  for (const record of records) {
+    if (legacyById.has(record.candidate.candidate_id)) continue;
+    const lineage = record.candidate.attempt_accounting.objective_lineage;
+    if (lineage) {
+      objectiveMetadataByCandidateId.set(record.candidate.candidate_id, {
+        capability_id: lineage.capability_id,
+        objective_id: lineage.objective_id,
+      });
+    }
+  }
+
+  const terminalObjectives = new Map();
+  for (const record of records) {
+    const objectiveMetadata =
+      objectiveMetadataByCandidateId.get(record.candidate.candidate_id);
+    if (!objectiveMetadata) continue;
+    const accounting = record.candidate.attempt_accounting;
+    const admittedCeiling = accounting.max_attempts
+      + (accounting.recovery_override?.additional_attempts === 1 ? 1 : 0);
+    if (
+      accounting.attempt_ordinal === admittedCeiling
+      && accounting.current_attempt.status === 'failed'
+      && record.candidate.disposition.profile === 'NO-GO'
+    ) {
+      const objectiveKey =
+        `${objectiveMetadata.capability_id}\u0000${objectiveMetadata.objective_id}`;
+      const terminalSeries = terminalObjectives.get(objectiveKey) ?? new Set();
+      terminalSeries.add(accounting.series_id);
+      terminalObjectives.set(objectiveKey, terminalSeries);
+    }
+  }
+
+  for (const record of records) {
+    const candidate = record.candidate;
+    const lineage = candidate.attempt_accounting.objective_lineage;
+    if (!lineage) {
+      if (!legacyById.has(candidate.candidate_id)) {
+        addFinding(
+          record.path,
+          'new runtime-admission series must declare objective_lineage',
+        );
+      }
+      continue;
+    }
+
+    const objectiveKey = `${lineage.capability_id}\u0000${lineage.objective_id}`;
+    if (!allowedObjectiveKeys.has(objectiveKey)) {
+      addFinding(
+        record.path,
+        'objective_lineage capability_id/objective_id must be registered in allowed_objectives',
+      );
+    }
+    const terminalSeries = terminalObjectives.get(objectiveKey) ?? new Set();
+    if (
+      [...terminalSeries].some(
+        (seriesId) => seriesId !== candidate.attempt_accounting.series_id,
+      )
+    ) {
+      addFinding(
+        record.path,
+        'objective_lineage cannot reopen a terminal capability/objective under a new series_id',
+      );
+    }
+
+    const seenPrerequisites = new Set();
+    for (const prerequisite of lineage.historical_prerequisites) {
+      if (prerequisite.evidence_use !== 'historical_prerequisite') {
+        addFinding(
+          record.path,
+          'historical prerequisite evidence must be non-authorizing',
+        );
+      }
+      if (seenPrerequisites.has(prerequisite.candidate_id)) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite candidate_id values must be unique',
+        );
+        continue;
+      }
+      seenPrerequisites.add(prerequisite.candidate_id);
+
+      const legacy = legacyById.get(prerequisite.candidate_id);
+      const priorRecord = recordsById.get(prerequisite.candidate_id);
+      if (!legacy || !priorRecord) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisites must resolve to an immutable legacy candidate',
+        );
+        continue;
+      }
+      if (
+        prerequisite.record_path !== legacy.record_path
+        || prerequisite.record_sha256 !== legacy.record_sha256
+      ) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite record path and digest must match the immutable lineage policy',
+        );
+      }
+      const priorCandidate = priorRecord.candidate;
+      if (
+        priorCandidate.disposition.profile !== 'NO-GO'
+        || priorCandidate.attempt_accounting.current_attempt.status !== 'failed'
+      ) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisites must reference a failed NO-GO legacy candidate',
+        );
+      }
+      const evidenceMatches = [
+        {
+          path: priorCandidate.attempt_accounting.current_attempt.evidence_path,
+          sha256: priorCandidate.attempt_accounting.current_attempt.evidence_sha256,
+        },
+        ...priorCandidate.evidence.artifacts,
+      ].some((artifact) =>
+        artifact.path === prerequisite.evidence_path
+        && artifact.sha256 === prerequisite.evidence_sha256);
+      if (!evidenceMatches) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite evidence must match evidence recorded by the legacy candidate',
+        );
+      }
+      const artifactErrors = [];
+      validateRecordedArtifact({
+        root,
+        recordPath: `${record.path}: attempt_accounting.objective_lineage`,
+        evidenceDir: candidate.evidence.directory,
+        artifactPath: prerequisite.evidence_path,
+        artifactSha256: prerequisite.evidence_sha256,
+        errors: artifactErrors,
+        requireInsideEvidenceDir: false,
+      });
+      for (const message of artifactErrors) {
+        findings.push({ path: record.path, message });
+      }
+      if (
+        candidate.attempt_accounting.current_attempt.evidence_path
+          === prerequisite.evidence_path
+        || candidate.attempt_accounting.current_attempt.evidence_sha256
+          === prerequisite.evidence_sha256
+      ) {
+        addFinding(
+          record.path,
+          'current attempt evidence must be fresh and must not reuse historical prerequisite evidence',
+        );
+      }
+      if (candidate.evidence.artifacts.some(
+        (artifact) => artifact.sha256 === prerequisite.evidence_sha256,
+      )) {
+        addFinding(
+          record.path,
+          'candidate evidence artifacts must not copy historical prerequisite bytes',
+        );
+      }
+      if (candidate.attempt_accounting.failure_history.some(
+        (historyRow) => historyRow.evidence_sha256 === prerequisite.evidence_sha256,
+      )) {
+        addFinding(
+          record.path,
+          'failure history must not reuse cross-series historical prerequisite bytes',
+        );
+      }
+    }
+  }
+
+  return findings;
+};
+
 const validateCandidateRegistry = (records) => {
   const findings = [];
   const byCandidateId = new Map();
@@ -968,6 +1273,7 @@ export async function validateRuntimeAdmission({
   }
   const validator = compileSchema(root, overrides, errors);
   const template = parseJson(root, TEMPLATE_PATH, overrides, errors);
+  const lineagePolicy = parseJson(root, LINEAGE_POLICY_PATH, overrides, errors);
   if (validator && template) {
     validateAgainstSchema(validator, TEMPLATE_PATH, template, errors);
   }
@@ -1022,7 +1328,16 @@ export async function validateRuntimeAdmission({
     reportsByPath.set(path, candidateReport);
   }
 
-  for (const finding of validateCandidateRegistry(registryRecords)) {
+  const registryFindings = validateCandidateRegistry(registryRecords);
+  if (lineagePolicy) {
+    registryFindings.push(...validateLineagePolicy({
+      root,
+      overrides,
+      policy: lineagePolicy,
+      records: registryRecords,
+    }));
+  }
+  for (const finding of registryFindings) {
     errors.push(finding.message);
     const candidateReport = reportsByPath.get(finding.path);
     if (candidateReport) {
@@ -1074,7 +1389,16 @@ const formatSummary = (report) => {
   return 0;
 };
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+export const isMainModule = (metaUrl, argvPath) => {
+  if (typeof metaUrl !== 'string' || typeof argvPath !== 'string') return false;
+  try {
+    return realpathSync(argvPath) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+};
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   const report = await validateRuntimeAdmission();
   process.exit(formatSummary(report));
 }
