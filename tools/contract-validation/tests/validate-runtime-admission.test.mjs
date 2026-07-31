@@ -1226,11 +1226,11 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve three terminal NO-GO results', async () => {
+test('committed runtime-admission assets preserve terminal NO-GO results and the new HOLD candidate', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.counts.candidateFiles, 3);
+  assert.equal(report.counts.candidateFiles, 4);
   const byId = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
@@ -1240,6 +1240,10 @@ test('committed runtime-admission assets preserve three terminal NO-GO results',
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
+  assert.equal(
+    byId.get('runtime-admission-soc-ai-lifecycle-mtls-r1'),
+    'HOLD',
+  );
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
