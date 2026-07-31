@@ -330,27 +330,31 @@ const deriveDisposition = (candidate, path) => {
   let noGo = false;
 
   const requiredChecks = candidate.hosted_ci.required_checks;
-  if (requiredChecks.length !== expectedRepositories.length) {
-    errors.push(`${path}: required hosted CI must cover each repository exactly once`);
+  const coveredRepos = new Set(requiredChecks.map((check) => check.repo));
+  if (!expectedRepositories.every((repo) => coveredRepos.has(repo))) {
+    errors.push(`${path}: required hosted CI must cover every repository at least once`);
     hold = true;
-  } else {
-    const repos = requiredChecks.map((check) => check.repo);
-    if (
-      new Set(repos).size !== expectedRepositories.length
-      || !expectedRepositories.every((repo) => repos.includes(repo))
-    ) {
-      errors.push(`${path}: required hosted CI must cover each repository exactly once`);
+  }
+
+  const requiredCheckPairs = new Set();
+  for (const check of requiredChecks) {
+    const pairKey = `${check.repo}\u0000${check.name}`;
+    if (requiredCheckPairs.has(pairKey)) {
+      errors.push(`${path}: required hosted checks must not duplicate repo and name pairs`);
       hold = true;
+      break;
     }
-    if (requiredChecks.some((check) => check.status !== 'success')) {
-      errors.push(`${path}: required hosted checks must all be success`);
+    requiredCheckPairs.add(pairKey);
+  }
+
+  if (requiredChecks.some((check) => check.status !== 'success')) {
+    errors.push(`${path}: required hosted checks must all be success`);
+    hold = true;
+  }
+  for (const check of requiredChecks) {
+    if (check.sha !== candidate.commit_tree[check.repo].commit) {
+      errors.push(`${path}: required check ${check.name} must point at the exact candidate tuple SHA`);
       hold = true;
-    }
-    for (const check of requiredChecks) {
-      if (check.sha !== candidate.commit_tree[check.repo].commit) {
-        errors.push(`${path}: required check ${check.name} must point at the exact candidate tuple SHA`);
-        hold = true;
-      }
     }
   }
 

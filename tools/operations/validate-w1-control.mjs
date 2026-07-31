@@ -3526,7 +3526,7 @@ export function validateW1CiWiring({
       "CI3 workflow must preserve the rendered contracts required-check name",
     );
   }
-  if (secretScanJobDocument?.name !== "secret-scan (gitleaks 8.30.1)") {
+  if (secretScanJobDocument?.name !== "secret-scan") {
     throw new Error(
       "CI3 workflow must preserve the rendered secret-scan required-check name",
     );

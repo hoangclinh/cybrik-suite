@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { parse as parseYaml } from 'yaml';
 
 import {
   FORBIDDEN_AUTHORITY_PROPERTY_KEYS,
@@ -64,6 +65,63 @@ const NEGATIVE_REPLAY_PATHS = [
   'contracts/examples/resource-bounds/negative-semantic/replay.parent-closed.json',
   'contracts/examples/resource-bounds/negative-semantic/replay.root-cancel-remint.json',
 ];
+
+const APPROVED_REQUIRED_CHECK_NAMES = Object.freeze([
+  'contract standards validation',
+  'secret-scan',
+]);
+const assertApprovedRequiredCheckNames = (checkNames) =>
+  assert.deepEqual([...checkNames].sort(), APPROVED_REQUIRED_CHECK_NAMES);
+
+test('required check names match the exact approved stable allowlist', () => {
+  const workflow = parseYaml(readText('.github/workflows/contracts.yml'));
+  const checkNames = Object.values(workflow.jobs)
+    .map((job) => job.name);
+
+  assertApprovedRequiredCheckNames(checkNames);
+  for (const unapprovedName of [
+    'secret-scan v8',
+    'secret-scan gitleaks-8',
+    'secret-scan gitleaks@8',
+    'secret-scan gitleaks:8',
+    'secret-scan gitleaks_v8',
+    'secret-scan gitleaks=8',
+    'secret-scan gitleaks/8',
+    'secret-scan gitleaks+8',
+    'secret-scan gitleaks#8',
+    'secret-scan gitleaks(8)',
+    'secret-scan gitleaks[8]',
+    'secret-scan gitleaks 8.30.1',
+    'secret-scan v8.30.1',
+    'secret-scan 2026-07-31',
+    'secret-scan build-123',
+    'secret-scan run #456',
+    'secret-scan sha256:deadbeef',
+    'secret-scan deadbeef',
+    'secret-scan phase-2',
+    'secret-scan wave 3',
+    'secret-scan shard:4',
+    'secret-scan tier_5',
+    'secret-scan line/6',
+    'build',
+    'test run',
+    'version compatibility',
+    'digest verification',
+  ]) {
+    assert.throws(
+      () =>
+        assertApprovedRequiredCheckNames([
+          'contract standards validation',
+          unapprovedName,
+        ]),
+      {
+        code: 'ERR_ASSERTION',
+        operator: 'deepStrictEqual',
+      },
+      unapprovedName,
+    );
+  }
+});
 
 test('the W2-H proposal packet is internally coherent but remains unaccepted', () => {
   const report = validateResourceBoundsProposal({ root: REPO_ROOT });

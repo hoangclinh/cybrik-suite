@@ -4156,7 +4156,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
   );
 
   const renamedSecretScanCheck = workflowText.replace(
-    "name: secret-scan (gitleaks 8.30.1)",
+    "name: secret-scan",
     "name: renamed secret scan",
   );
   assert.throws(
