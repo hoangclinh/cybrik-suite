@@ -4151,7 +4151,7 @@ test('P2-3: the intended ADR-0012 / W2-H registry entries remain proposal-only',
   assert.match(adr, /production remains\s+Founder-controlled/i);
 });
 
-test('P2-3: the intended ADR-0013 / W2-K registry entries remain proposal-only', () => {
+test('P2-3: the intended ADR-0013 / W2-K registry entries record bounded acceptance', () => {
   const adr = read(ADR_README_REL);
   assert.match(adr, /ADR-0013/, 'P2-3: docs/adr/README.md must register ADR-0013');
   assert.match(
@@ -4159,7 +4159,8 @@ test('P2-3: the intended ADR-0013 / W2-K registry entries remain proposal-only',
     /\[ADR-0013\]\(ADR-0013-transport-peer-evidence-adapter-profile\.md\)/,
     'P2-3: docs/adr/README.md must link the ADR-0013 document',
   );
-  assert.match(adr, /Gate W2-K authorizes bounded proposal writing and static conformance only/);
+  assert.match(adr, /Gate W2-K accepts the exact v0\.1\.0 packet for implementation only/);
+  assert.match(adr, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.match(adr, /DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE\.md/);
   assert.match(adr, /production remains\s+Founder-controlled/i);
 });
