@@ -40,11 +40,12 @@ from the chain verified by the serving process itself. Proxy or caller assertion
 
 ## Runtime boundary
 
-N2–N8 except N1, plus N10, receive static contract coverage only. N1 durable replay and N9 database
-unavailability remain runtime-only. Separate processes, a real loopback TLS socket, ephemeral
-out-of-repository development PKI, and PostgreSQL durability also remain runtime-only. This proposal
-satisfies none of the existing runtime-admission A1–A7 criteria and does not move that candidate out
-of HOLD.
+N2–N8 and N10 receive static contract coverage only; N1 and N9 have no static substitute. All
+N1–N10 nevertheless retain `runtime_status: requires_runtime`: static schema or inherited W2-F
+coverage never completes a held UAT smoke. Separate processes, a real loopback TLS socket, ephemeral
+out-of-repository development PKI, runtime logs and response headers, and PostgreSQL durability also
+remain runtime-only. This proposal satisfies none of the existing runtime-admission A1–A7 criteria
+and does not move that candidate out of HOLD.
 
 ## Resource-bounds non-goal
 

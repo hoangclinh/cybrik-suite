@@ -55,16 +55,16 @@
     "status": "NOT IMPLEMENTED"
   },
   "negative_test_map": [
-    { "id": "N1", "coverage": "requires_runtime", "basis": "Durable replay requires a real PostgreSQL-backed round trip." },
-    { "id": "N2", "coverage": "covered_statically", "basis": "Three-way thumbprint mismatch denies deterministically." },
-    { "id": "N3", "coverage": "covered_statically", "basis": "Audience remains an accepted W2-F token validation invariant." },
-    { "id": "N4", "coverage": "covered_statically", "basis": "Scope remains an accepted W2-F token validation invariant." },
-    { "id": "N5", "coverage": "covered_statically", "basis": "Operation binding remains an accepted W2-F token invariant." },
-    { "id": "N6", "coverage": "covered_statically", "basis": "Tenant mismatch remains an accepted W2-F fail-closed invariant." },
-    { "id": "N7", "coverage": "covered_statically", "basis": "Tenant-org advisory mismatch remains fail closed." },
-    { "id": "N8", "coverage": "covered_statically", "basis": "Absent or held channel evidence cannot degrade to accept." },
-    { "id": "N9", "coverage": "requires_runtime", "basis": "Database unavailability requires the future PostgreSQL harness." },
-    { "id": "N10", "coverage": "covered_statically", "basis": "Raw certificate, token and secret material is structurally inexpressible." }
+    { "id": "N1", "coverage": "requires_runtime", "runtime_status": "requires_runtime", "basis": "Durable replay requires a real PostgreSQL-backed round trip." },
+    { "id": "N2", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Three-way thumbprint mismatch denies deterministically at the contract layer; runtime UAT remains held." },
+    { "id": "N3", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Audience remains an accepted W2-F token validation invariant; runtime UAT remains held." },
+    { "id": "N4", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Scope remains an accepted W2-F token validation invariant; runtime UAT remains held." },
+    { "id": "N5", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Operation binding remains an accepted W2-F token invariant; runtime UAT remains held." },
+    { "id": "N6", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Tenant mismatch remains an accepted W2-F fail-closed invariant; runtime UAT remains held." },
+    { "id": "N7", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Tenant-org advisory mismatch remains fail closed; runtime UAT remains held." },
+    { "id": "N8", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Absent or held channel evidence cannot degrade to accept at the contract layer; runtime UAT remains held." },
+    { "id": "N9", "coverage": "requires_runtime", "runtime_status": "requires_runtime", "basis": "Database unavailability requires the future PostgreSQL harness." },
+    { "id": "N10", "coverage": "covered_statically", "runtime_status": "requires_runtime", "basis": "Evidence and error schemas exclude raw material; runtime logs and response headers remain held for UAT." }
   ],
   "runtime_only_properties": [
     "separate_process_boundary",
