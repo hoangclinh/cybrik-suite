@@ -1,18 +1,18 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r2",
-  "recorded_at": "2026-07-31T04:49:14Z",
+  "recorded_at": "2026-07-31T05:36:26Z",
   "attempt_accounting": {
     "series_id": "runtime-admission-ai-pg",
     "attempt_ordinal": 2,
     "max_attempts": 2,
     "current_attempt": {
-      "status": "not_run",
-      "execution_authorized": true,
-      "executed_checks": 0,
-      "passed_checks": 0,
-      "failed_checks": 0,
-      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/01-authorization.md",
-      "evidence_sha256": "cccf71ee324ff00b26e0e371ae10035fa65b8fdaaa15dffc4188ab3d13271754"
+      "status": "failed",
+      "execution_authorized": false,
+      "executed_checks": 4,
+      "passed_checks": 3,
+      "failed_checks": 1,
+      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/02-r2-runtime-result.md",
+      "evidence_sha256": "c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7"
     },
     "failure_history": [
       {
@@ -210,7 +210,7 @@
     "feature_flags": [
       {
         "name": "cyber_ai_postgres_runtime_admission_ai_pg_r2",
-        "state": "authorized_for_one_future_loopback_postgresql16_proof_only"
+        "state": "disabled_no_go_attempt_consumed"
       },
       {
         "name": "cyber_ai_http_full_stack_demo_uat_poc_rc_ga",
@@ -224,7 +224,7 @@
       },
       {
         "capability": "runtime_admission_ai_pg_r2",
-        "state": "authorized_for_one_future_loopback_postgresql16_proof_only"
+        "state": "no_go_attempt_consumed_no_further_execution_authority"
       }
     ]
   },
@@ -274,8 +274,8 @@
     ],
     "authorization": [
       {
-        "name": "static preflight pass: runtime-role restrictions, blank-tenant guards, malformed-row failure behavior, and runtime-principal NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS seed remain exact",
-        "status": "pass"
+        "name": "runtime-principal seed failed before the restricted role could be configured: the exact admitted psql -c statement rejected the :'runtime_password' token with a syntax error",
+        "status": "fail"
       }
     ],
     "secret_boundary": [
@@ -287,10 +287,11 @@
   },
   "open_findings": {
     "critical": 0,
-    "high": 0,
+    "high": 1,
     "notes": [
       "R1's conflict-classification High blocker is repaired at Cyber AI commit b55d1db3a55a2524707330cee2eaf6f78342cddd, independently reviewed GO, and green in all eight hosted required jobs.",
-      "The real PostgreSQL 16 R2 proof remains not run and is the only execution authorized by this record."
+      "R2 exposed an admitted-command blocker: psql did not substitute :'runtime_password' in the canonical -c seed statement, so the restricted runtime principal was not configured and pytest did not run.",
+      "Both admitted ordinals are consumed. No further runtime execution is authorized by this series."
     ]
   },
   "evidence": {
@@ -299,15 +300,19 @@
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/01-authorization.md",
         "sha256": "cccf71ee324ff00b26e0e371ae10035fa65b8fdaaa15dffc4188ab3d13271754"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/02-r2-runtime-result.md",
+        "sha256": "c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7"
       }
     ],
     "limitations": [
-      "The R2 PostgreSQL test command has not executed.",
-      "Only one future loopback PostgreSQL 16 proof is authorized.",
+      "The R2 PostgreSQL test command did not execute because the preceding admitted seed command failed.",
+      "The single R2 runtime invocation has been consumed and no further loopback PostgreSQL proof is authorized by this record.",
       "Attempt accounting constrains candidate revisions and evidence records; it cannot observe an out-of-band command invocation.",
       "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, GA, public release, or production claim is authorized."
     ],
-    "final_profile_verdict": "RUNTIME_AUTHORIZED"
+    "final_profile_verdict": "NO-GO"
   },
   "network_exposure": {
     "mode": "local_only",
@@ -317,10 +322,10 @@
         "purpose": "bounded local PostgreSQL 16 R2 proof only"
       }
     ],
-    "notes": "No public listener, non-loopback bind, HTTP application surface, or full stack is authorized."
+    "notes": "The bounded listener was removed after the failed attempt. No public listener, non-loopback bind, HTTP application surface, or full stack was used or authorized."
   },
   "disposition": {
-    "profile": "RUNTIME_AUTHORIZED",
-    "rationale": "R1 is retired NO-GO with exact failed-attempt evidence. The conflict classifier is repaired at a new exact Cyber AI tuple, independently reviewed GO, and green in all rendered required hosted jobs. R2 authorizes one future synthetic loopback PostgreSQL 16 proof only."
+    "profile": "NO-GO",
+    "rationale": "R2 consumed its single authorized invocation. Exact tuple, PostgreSQL readiness, dependency sync and migration reset passed, but the canonical psql seed command failed before runtime-principal configuration and before pytest. The container was removed and the loopback listener closed; no further execution is authorized by this series."
   }
 }
