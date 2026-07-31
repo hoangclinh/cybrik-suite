@@ -38,18 +38,19 @@ is selected, and that `:'name'` interpolates a set psql variable as a safely quo
 The correction keeps the reviewed role, privileges, synthetic environment-variable inputs and
 SQL semantics unchanged. Relative to R2, it restores one standard-input stream, makes the already
 observed PostgreSQL image digest explicit with `--pull=never`, adds 64-hex credential preflight,
-forwards admin credentials by environment-variable name rather than value-bearing argv, adds
-bounded readiness plus failure containment, unsets all credential variables on stop, and renames
+forwards admin credentials by environment-variable name rather than value-bearing argv, rejects a
+stale same-name container or occupied loopback port before arming cleanup, adds bounded TCP
+readiness plus failure containment, unsets all credential variables on stop, and renames
 the one disposable container for R3. It also replaces R2's command-line `--set=runtime_password`
 assignment with an unexecuted in-stream `\set runtime_password` meta-command. All three SQL
-statements run in one transaction through one
+statements run between explicit in-stream `BEGIN;` and `COMMIT;` commands through one
 `psql` process, so psql parses and interpolates `:'runtime_password'` before sending the statement
 to PostgreSQL. The image digest is the same
 `postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777`
 recorded for the R2 PostgreSQL 16.14 execution; this prevents tag drift and network pulls.
 
 ```bash
-{ printf '%s %s\n' '\set runtime_password' "${AI_PG_RUNTIME_PASSWORD:?}"; printf '%s\n' "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \$\$;" "ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;" "GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat;"; } | docker exec -i cybrik-ai-pg-uat-r3 psql --single-transaction --set=ON_ERROR_STOP=1 -U postgres -d postgres
+{ printf '%s %s\n' '\set runtime_password' "${AI_PG_RUNTIME_PASSWORD:?}"; printf '%s\n' "BEGIN;" "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \$\$;" "ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;" "GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat;" "COMMIT;"; } | docker exec -i cybrik-ai-pg-uat-r3 psql --set=ON_ERROR_STOP=1 -U postgres -d postgres
 ```
 
 The lifecycle requires both `AI_PG_POSTGRES_PASSWORD` and `AI_PG_RUNTIME_PASSWORD` to be exactly
@@ -59,12 +60,16 @@ runtime value only to the psql input stream, so the value is not placed in
 `docker exec` or `psql` process arguments. The admin password is inherited by the container
 through named environment forwarding (`-e POSTGRES_PASSWORD -e PGPASSWORD`) rather than a
 value-bearing command-line argument. Both values remain synthetic and are unset during
-containment. An `EXIT`/`INT`/`TERM` trap removes the container and unsets the values if any
-subsequent lifecycle command fails.
+containment. The lifecycle must execute from `start` through `reset`, `seed`, the test command,
+`rollback` and `stop` in that exact order inside one zsh session. `set -euo pipefail` and an
+`EXIT`/`INT`/`TERM` trap force failure containment; `docker rm -f` removes either a running or
+partially created R3 container and the trap unsets every credential-bearing variable.
 
 Required invariants:
 
-1. `--single-transaction` and `--set=ON_ERROR_STOP=1` remain enabled.
+1. Explicit in-stream `BEGIN;`/`COMMIT;` and `--set=ON_ERROR_STOP=1` remain enabled; psql's
+   `--single-transaction` flag is forbidden because the corrected source is stdin rather than
+   `-c`/`-f`.
 2. The SQL stream contains the same role-existence, `ALTER ROLE` and grant operations as R2.
 3. The role remains `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`.
 4. Only generated synthetic passwords may populate the two named environment variables.
@@ -72,7 +77,16 @@ Required invariants:
 6. A failure stops the lifecycle; no manual correction or out-of-band retry is permitted.
 7. `psql -c`, `psql --command`, `psql -f` and `psql --file`, including attached short-flag forms,
    are forbidden in the corrected seed.
-8. PostgreSQL readiness is bounded to 60 failed checks; timeout exits through the containment trap.
+8. The exact container name and loopback port must be unused before start; Docker and `lsof` must
+   be available, and the exact image digest must already exist locally.
+9. PostgreSQL readiness probes TCP at `127.0.0.1:5432` inside the container and is bounded to 60
+   failed checks; a second bounded probe confirms host-side `127.0.0.1:55432` reachability before
+   reset, and either timeout exits through the containment trap.
+10. All lifecycle entries execute in one zsh session with builtin `printf`; per-command shells are
+    forbidden.
+11. `CYBRIK_AI_REPO` must be clean at exact commit
+    `14d5919e1d80eac6fc22287a69a9476cac2b77a4`, tree
+    `b45620e6be501f37341e87a346d4d2ba518bf394`, before any container starts.
 
 ## Static verification and limitation
 
