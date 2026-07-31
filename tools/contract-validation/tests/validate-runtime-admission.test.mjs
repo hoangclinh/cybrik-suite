@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -15,13 +16,20 @@ const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const CANDIDATE_RELATIVE_PATH = 'docs/uat/candidates/candidate-001/runtime-admission.json';
+const CANDIDATE_EVIDENCE_DIR = 'docs/uat/candidates/candidate-001/evidence';
 const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
 const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
+const CANONICAL_ARTIFACTS = {
+  '01-session.log': 'session log\n',
+  '02-summary.txt': 'summary\n',
+};
 
 const read = (path) => readFileSync(resolve(ROOT, path), 'utf8');
 
 const stableWriteJson = (path, value) =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 const canonicalCandidate = () => ({
   candidate_id: 'candidate-001',
@@ -92,15 +100,15 @@ const canonicalCandidate = () => ({
     notes: [],
   },
   evidence: {
-    directory: 'docs/uat/candidates/candidate-001',
+    directory: CANDIDATE_EVIDENCE_DIR,
     artifacts: [
       {
-        path: 'session.log',
-        sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        path: `${CANDIDATE_EVIDENCE_DIR}/01-session.log`,
+        sha256: sha256(CANONICAL_ARTIFACTS['01-session.log']),
       },
       {
-        path: 'summary.txt',
-        sha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        path: `${CANDIDATE_EVIDENCE_DIR}/02-summary.txt`,
+        sha256: sha256(CANONICAL_ARTIFACTS['02-summary.txt']),
       },
     ],
     limitations: ['Local-only bounded execution.'],
@@ -129,6 +137,10 @@ const materializeRepo = ({ candidate, writes = [] } = {}) => {
   writeFileSync(join(tempRoot, TEMPLATE_PATH), read(TEMPLATE_PATH), 'utf8');
   if (candidate) {
     mkdirSync(join(tempRoot, 'docs/uat/candidates/candidate-001'), { recursive: true });
+    mkdirSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR), { recursive: true });
+    for (const [name, content] of Object.entries(CANONICAL_ARTIFACTS)) {
+      writeFileSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, name), content, 'utf8');
+    }
     stableWriteJson(join(tempRoot, CANDIDATE_RELATIVE_PATH), candidate);
   }
   for (const write of writes) {
@@ -147,7 +159,7 @@ const withTempRepo = (options, fn) => {
   }
 };
 
-test('repo runtime-admission assets validate with a truthful HOLD template and no fake candidate', async () => {
+test('repo runtime-admission assets validate with the committed runtime-admission-ai-pg-r1 candidate', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
 
   assert.deepEqual(report.errors, []);
@@ -167,8 +179,11 @@ test('repo runtime-admission assets validate with a truthful HOLD template and n
     'network_exposure',
     'disposition',
   ]);
-  assert.equal(report.counts.candidateFiles, 0);
+  assert.equal(report.counts.candidateFiles, 1);
   assert.equal(report.counts.templatesValidated, 1);
+  assert.equal(report.candidates[0].candidateId, 'runtime-admission-ai-pg-r1');
+  assert.equal(report.candidates[0].declaredDisposition, 'RUNTIME_AUTHORIZED');
+  assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
 });
 
 test('candidate discovery validates only docs/uat/candidates/*/runtime-admission.json', async () => {
@@ -365,6 +380,71 @@ test('evidence location and digests are mandatory', async () => {
   await withTempRepo({ candidate }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('schema /evidence/artifacts/0/sha256')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('evidence artifacts must exist, stay inside the evidence directory, and match their declared SHA-256', async () => {
+  const missingArtifact = canonicalCandidate();
+  await withTempRepo({ candidate: missingArtifact }, async (tempRoot) => {
+    unlinkSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'));
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact path must resolve to a readable regular file')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const mismatchedArtifact = canonicalCandidate();
+  await withTempRepo({ candidate: mismatchedArtifact }, async (tempRoot) => {
+    writeFileSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'), 'tampered\n', 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact sha256 must match the recorded bytes')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const absoluteArtifact = canonicalCandidate();
+  absoluteArtifact.evidence.artifacts[0].path = '/tmp/evil.log';
+  await withTempRepo({ candidate: absoluteArtifact }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact paths must be relative to the repository root')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const traversalArtifact = canonicalCandidate();
+  traversalArtifact.evidence.artifacts[0].path = 'docs/uat/candidates/candidate-001/evidence/../escape.log';
+  await withTempRepo({ candidate: traversalArtifact }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact paths must not traverse outside the declared evidence directory')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const outsideArtifact = canonicalCandidate();
+  outsideArtifact.evidence.artifacts[0].path = 'docs/uat/candidates/candidate-001/runtime-admission.json';
+  await withTempRepo({ candidate: outsideArtifact }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifacts must stay inside candidate.evidence.directory')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const symlinkArtifact = canonicalCandidate();
+  await withTempRepo({ candidate: symlinkArtifact }, async (tempRoot) => {
+    unlinkSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'));
+    symlinkSync(
+      join(tempRoot, CANDIDATE_RELATIVE_PATH),
+      join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'),
+    );
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact path must resolve to a readable regular file')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const absoluteEvidenceDirectory = canonicalCandidate();
+  absoluteEvidenceDirectory.evidence.directory = join(
+    os.tmpdir(),
+    'runtime-admission-absolute-evidence-dir',
+  );
+  await withTempRepo({ candidate: absoluteEvidenceDirectory }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('candidate.evidence.directory must stay inside the repository root')));
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });

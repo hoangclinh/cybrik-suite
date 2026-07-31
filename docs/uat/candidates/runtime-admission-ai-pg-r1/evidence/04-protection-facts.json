@@ -1,0 +1,37 @@
+{
+  "recorded_at": "2026-07-31T02:53:53Z",
+  "branch": "main",
+  "result": "server_rejected_direct_push",
+  "rejection_class": "GH006",
+  "facts": [
+    {
+      "repo": "suite",
+      "probe_commit": "e4b5bfcb2ae6dc34a188899c1deb79232163c627",
+      "base_commit": "d564521b566417f60948081c6b816557f93f61a2",
+      "expected_checks": "2/2",
+      "reason": "pull request required"
+    },
+    {
+      "repo": "soc",
+      "probe_commit": "f1e935ef19c514325b8e11122bc263922783f30c",
+      "base_commit": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
+      "expected_checks": "8/8",
+      "reason": "pull request required"
+    },
+    {
+      "repo": "cyber_ai",
+      "probe_commit": "3d1f6d3cf82ec809d015f26fe1fb43e08a834acc",
+      "base_commit": "cd04de32c17632d42bfe276796b2b1c440f4ee1a",
+      "expected_checks": "8/8",
+      "reason": "pull request required; local hook intentionally bypassed only to reach server"
+    },
+    {
+      "repo": "tool_fabric",
+      "probe_commit": "33258556673624d4800bc8b1e7e96899b428740d",
+      "base_commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "expected_checks": "3/3",
+      "reason": "pull request required"
+    }
+  ],
+  "base_refs_unchanged": true
+}
