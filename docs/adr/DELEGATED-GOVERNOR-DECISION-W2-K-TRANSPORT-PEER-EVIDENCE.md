@@ -1,6 +1,6 @@
 # Delegated Governor Decision — Gate W2-K transport peer evidence
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**.
+Current status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** under R4 below.
 
 Base commit: `3604c56507f5d3f831ff19b229b9cde5c508c6f3`.
 
@@ -127,3 +127,46 @@ It authorizes no product implementation, server selection, dependency or lockfil
 change, listener, process, database, container, migration, certificate handling, tag, publication,
 environment change, or production action. Anycorn `0.20.0` remains HOLD. Acceptance remains a
 future, separately reviewed decision and must not change a wire-contract byte.
+
+## R4 amendment — atomic acceptance for implementation
+
+Base commit: `ef61285f7674672007a7c3a76bae08d5b1d0ef70`.
+
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA).
+
+R4 supersedes the R2 acceptance denial and supersedes the R3 zero-wire-contract-byte sentence.
+Those clauses correctly prevented earlier proposal and cleanup scopes from silently accepting the
+packet, but they cannot remain the terminal disposition after a separately reviewed atomic
+acceptance. R4 permits governance-metadata and digest-only contract edits. It permits no wire semantic
+change: no JSON Schema constraint, property, required field, `$ref`, denial class,
+fixture payload, endpoint, or runtime behavior may change. All 18 fixture bytes remain byte-identical.
+
+The Codex Governor authorizes exactly 21 paths for R4, and no other:
+
+1. `docs/adr/DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md`
+2. `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`
+3. `docs/releases/GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01.md`
+4. `docs/releases/README.md`
+5. `docs/adr/README.md`
+6. `docs/architecture/README.md`
+7. `docs/architecture/transport-peer-evidence/README.md`
+8. `docs/architecture/transport-peer-evidence/01-server-candidate-matrix.md`
+9. `contracts/README.md`
+10. `contracts/json-schema/README.md`
+11. `contracts/examples/README.md`
+12. `contracts/compatibility/README.md`
+13. `tools/contract-validation/README.md`
+14. `tools/contract-validation/validate-transport-peer.mjs`
+15. `tools/contract-validation/tests/validate-transport-peer.test.mjs`
+16. `tools/contract-validation/tests/validate-transport.test.mjs`
+17. `tools/contract-validation/validate.mjs`
+18. `contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json`
+19. `contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json`
+20. `contracts/examples/transport-peer/examples-manifest.json`
+21. `contracts/compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`
+
+This decision accepts the exact W2-K v0.1.0 transport peer-evidence contract for product
+implementation. It is not an implementation result and grants no runtime, UAT, release, deployment, or production authority.
+It selects, installs, and pins no server; Anycorn `0.20.0`
+remains HOLD. A1–A7 remain open, N1 and N9 remain `requires_runtime`, and every later product,
+runtime-admission, UAT, release, deployment, and production action remains separately gated.

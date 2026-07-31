@@ -98,6 +98,10 @@ const LIFECYCLE_INDEX_PATHS = [
   'contracts/compatibility/README.md',
 ];
 const LIFECYCLE_INDEX_MARKERS = Object.freeze({
+  [ADR_PATH]: 'Status:',
+  [DECISION_PATH]: 'Current status:',
+  'docs/architecture/transport-peer-evidence/README.md': 'Status:',
+  'docs/architecture/transport-peer-evidence/01-server-candidate-matrix.md': 'Status:',
   'contracts/README.md': '## W2-K transport peer-evidence packet',
   'contracts/json-schema/README.md': '## W2-K transport peer evidence',
   'contracts/examples/README.md': '`transport-peer/`',

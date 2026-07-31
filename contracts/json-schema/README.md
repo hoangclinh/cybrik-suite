@@ -156,7 +156,7 @@ Inventory: `../compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.jso
 `../examples/resource-bounds/`. This packet defines no deadline or peak-memory conservation,
 server, endpoint, MCP tool, runtime, UAT, release, deployment, or production surface.
 
-## W2-K transport peer evidence (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`, v0.1.0)
+## W2-K transport peer evidence (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`, v0.1.0)
 
 - `cybrik.transport-peer-evidence.v1` — server-neutral channel evidence with `x5t#S256`,
   serving-side chain verification, three-way thumbprint equality inputs, and no authority axis.

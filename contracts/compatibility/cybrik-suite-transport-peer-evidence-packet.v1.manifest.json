@@ -1,15 +1,15 @@
 {
-  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
   "packet_version": "0.1.0",
   "gate": {
     "id": "W2-K",
     "adr": "ADR-0013",
-    "disposition": "OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY"
+    "disposition": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
   },
   "scope": "Server-neutral transport peer-evidence adapter conformance. Evidence only; no authorization, server selection, runtime, UAT, release or production authority.",
   "schemas": [
-    { "file": "json-schema/cybrik.transport-peer-evidence.v1.schema.json", "sha256": "2ed9850e6b790effe4ca2e476942fb56e762ddc103b8a1395534075e2e22eb2e" },
-    { "file": "json-schema/cybrik.transport-peer-evidence-error.v1.schema.json", "sha256": "9acf7a6484339f99193280ba138981169d01650bcc0d632cc858be4d627a1aaf" }
+    { "file": "json-schema/cybrik.transport-peer-evidence.v1.schema.json", "sha256": "97c8a7727b7e12fb3a4280cc3fcceb5a121f24e4e45dad564e55463223289529" },
+    { "file": "json-schema/cybrik.transport-peer-evidence-error.v1.schema.json", "sha256": "050d946423ebbed757383a5ec73d74263bbdcf2218990826c48bfd57cd8c95f0" }
   ],
   "dependencies_reused_unmodified": [
     { "file": "json-schema/cybrik.svc-common-defs.v1.schema.json", "sha256": "c1c884abd5587b7659b703d98e2b24019dfdb346950732c33541da6482889f40" }
@@ -105,7 +105,7 @@
   "x-cybrik-packet-integrity": {
     "member_count": 19,
     "member_digests": [
-      { "file": "examples/transport-peer/examples-manifest.json", "sha256": "96d0513d1bbb03e152d21d7a3d67d24ee9dec0afbc0d81699eb5fe806698ffbc" },
+      { "file": "examples/transport-peer/examples-manifest.json", "sha256": "fd23617db47f81497f11261aa19536c38a507cf46eb5c0bad84a01008acb687a" },
       { "file": "examples/transport-peer/negative-schema/peer-evidence-error.leaky-error-body.json", "sha256": "d0e4e535dfc19aa2a986125ba2febb0d3b503c1184671625cea58ed2efa23bef" },
       { "file": "examples/transport-peer/negative-schema/peer-evidence.client-supplied-thumbprint-source.json", "sha256": "ae9fa70e43576e6f36020819636bdd7ed3ccf4bb9664833e7af3ac23a7d1a850" },
       { "file": "examples/transport-peer/negative-schema/peer-evidence.conveys-authorization-true.json", "sha256": "549ebc752530f7bd59bff2ee276b850176d53cd50bec99e2f5ab9e8670686344" },
@@ -125,6 +125,6 @@
       { "file": "examples/transport-peer/positive/peer-evidence.verified-chain.json", "sha256": "ac2d73bf9f0346f2b4bdfbbb578af52777ecccd725d120c4788523a4a3b723dc" },
       { "file": "examples/transport-peer/positive/truth-table.no-degrade.json", "sha256": "3f9188cfd97908337dc3b8bdb3ea14fbf68125bfb04f423c30ea0a4643b2ea33" }
     ],
-    "aggregate_sha256": "58e5b365f069679edebb01d57708bf28e7ddf6015d88d27c4ce2503c80dc9fc2"
+    "aggregate_sha256": "74f0ac5dbfa194272f48192ae7ef664bb39b7b2227454078537bd8368a824780"
   }
 }

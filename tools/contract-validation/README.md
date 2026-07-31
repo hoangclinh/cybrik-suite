@@ -124,9 +124,9 @@ properties over synthetic trees. Replay uses only fixture sequence numbers and a
 Status is **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**; green is static L1/L2 evidence only and
 is not runtime, UAT, T10/T11, release, deployment, or production proof.
 
-## Gate W2-K transport peer-evidence proposal
+## Gate W2-K transport peer-evidence contract
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Run the standalone checks with:
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Run the standalone checks with:
 
 ```bash
 npm run validate:w2k:transport-peer
@@ -139,12 +139,12 @@ absence of raw certificate or authorization material. It opens no socket and sel
 
 Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
 `validate.mjs`; its header comment truthfully states These 23 validators, and its `ALL GREEN`
-banner names W2-K PROPOSED / NOT ACCEPTED. The W2-I P2-3 additive-byte pin now also carries the exact,
+banner names W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. The W2-I P2-3 additive-byte pin now also carries the exact,
 additive W2-K paragraph, ADR-0013 catalog row and Governor-decision row applied to
 `docs/adr/README.md`; every other byte of that catalog, including the W2-I/W2-H entries, is
-unchanged. Registration is orchestration and catalog bookkeeping only: it accepts no contract byte
-and grants no runtime, UAT, release, deployment, or production authority. Standalone green (via the
-scripts above) remains static proposal conformance only.
+unchanged outside the exact W2-K lifecycle addition. R4 acceptance authorizes contract-first
+implementation only and grants no runtime, UAT, release, deployment, or production authority.
+Standalone green (via the scripts above) remains static conformance only.
 
 ## Runtime-admission records
 
