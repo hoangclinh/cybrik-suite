@@ -2126,11 +2126,7 @@ test('a failed smoke cannot hide an unrecorded prerequisite while a held smoke r
         error.includes('tenant-isolation smoke must contain at least one recorded check'),
       ),
     );
-    assert.ok(
-      !report.errors.some((error) =>
-        error.includes('secret-boundary smoke must be pass before runtime admission'),
-      ),
-    );
+    assert.equal(report.errors.length, 1);
     assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
 });
