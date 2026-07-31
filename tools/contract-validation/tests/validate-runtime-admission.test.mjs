@@ -15,6 +15,7 @@ const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
+const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
 
 const read = (path) => readFileSync(resolve(ROOT, path), 'utf8');
 const stableWriteJson = (path, value) =>
@@ -31,6 +32,8 @@ const candidateId = (seriesId, ordinal) => `${seriesId}-r${ordinal}`;
 const candidateDir = (seriesId, ordinal) => `docs/uat/candidates/${candidateId(seriesId, ordinal)}`;
 const evidenceDir = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/evidence`;
 const currentAttemptArtifact = (seriesId, ordinal) => `${evidenceDir(seriesId, ordinal)}/05-attempt-accounting.json`;
+const candidateRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-admission.json`;
+const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 const templateRecord = () => ({
   candidate_id: 'template-hold',
@@ -366,6 +369,7 @@ const recoverySeries = ({
 const withTempRepo = async ({
   candidates = [],
   extraWrites = [],
+  lineagePolicy = null,
 } = {}, fn) => {
   const tempRoot = mkdtempSync(join(os.tmpdir(), 'runtime-admission-'));
   try {
@@ -374,6 +378,9 @@ const withTempRepo = async ({
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
     stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
+    if (lineagePolicy) {
+      stableWriteJson(join(tempRoot, LINEAGE_POLICY_PATH), lineagePolicy);
+    }
     for (const candidate of candidates) {
       const dir = join(tempRoot, candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
       const evDir = join(tempRoot, evidenceDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
@@ -399,6 +406,56 @@ const withTempRepo = async ({
     rmSync(tempRoot, { recursive: true, force: true });
   }
 };
+
+const terminalRecoverySeries = () => {
+  const series = recoverySeries();
+  series.r3.attempt_accounting.current_attempt = {
+    status: 'failed',
+    execution_authorized: false,
+    executed_checks: 6,
+    passed_checks: 5,
+    failed_checks: 1,
+    evidence_path: currentAttemptArtifact(series.seriesId, 3),
+    evidence_sha256: sha256('attempt 3\n'),
+  };
+  series.r3.evidence.final_profile_verdict = 'NO-GO';
+  series.r3.disposition = {
+    profile: 'NO-GO',
+    rationale: 'Terminal recovery attempt remains NO-GO.',
+  };
+  return series;
+};
+
+const lineagePolicyFor = (candidates, {
+  capabilityId = 'cybrik.ai.durable-postgres',
+  objectiveId = 'bounded-postgres-runtime-v1',
+} = {}) => ({
+  schema_version: '1.0.0',
+  legacy_candidates: candidates.map((candidate) => ({
+    candidate_id: candidate.candidate_id,
+    series_id: candidate.attempt_accounting.series_id,
+    capability_id: capabilityId,
+    objective_id: objectiveId,
+    record_path: candidateRecordPath(
+      candidate.attempt_accounting.series_id,
+      candidate.attempt_accounting.attempt_ordinal,
+    ),
+    record_sha256: sha256(stableJson(candidate)),
+    terminal_disposition: candidate.disposition.profile,
+  })),
+});
+
+const historicalPrerequisite = (candidate) => ({
+  candidate_id: candidate.candidate_id,
+  record_path: candidateRecordPath(
+    candidate.attempt_accounting.series_id,
+    candidate.attempt_accounting.attempt_ordinal,
+  ),
+  record_sha256: sha256(stableJson(candidate)),
+  evidence_path: candidate.attempt_accounting.current_attempt.evidence_path,
+  evidence_sha256: candidate.attempt_accounting.current_attempt.evidence_sha256,
+  evidence_use: 'historical_prerequisite',
+});
 
 test('exports include attempt_accounting in the candidate field contract', () => {
   assert.deepEqual(expectedRepositories, ['suite', 'soc', 'cyber_ai', 'tool_fabric']);
@@ -1811,5 +1868,119 @@ test('a failed smoke cannot hide an unrecorded or held prerequisite smoke', asyn
       ),
     );
     assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
+  });
+});
+
+test('a new series must declare objective lineage when terminal legacy records exist', async () => {
+  const terminal = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'golden-uat-suite',
+    ordinal: 1,
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+
+  await withTempRepo({
+    candidates: [terminal.r1, terminal.r2, terminal.r3, future],
+    extraWrites: terminal.extraWrites,
+    lineagePolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'new runtime-admission series must declare objective_lineage',
+    )));
+  });
+});
+
+test('a new series cannot reopen a terminal capability objective under another name', async () => {
+  const terminal = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'runtime-admission-ai-pg-retry',
+    ordinal: 1,
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  future.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    historical_prerequisites: [
+      historicalPrerequisite(terminal.r3),
+    ],
+  };
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+
+  await withTempRepo({
+    candidates: [terminal.r1, terminal.r2, terminal.r3, future],
+    extraWrites: terminal.extraWrites,
+    lineagePolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'objective_lineage cannot reopen a terminal capability/objective under a new series_id',
+    )));
+  });
+});
+
+test('historical prerequisite evidence can never be promoted to execution authority', async () => {
+  const terminal = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'golden-uat-suite',
+    ordinal: 1,
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  future.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [
+      {
+        ...historicalPrerequisite(terminal.r3),
+        evidence_use: 'execution_authority',
+      },
+    ],
+  };
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+
+  await withTempRepo({
+    candidates: [terminal.r1, terminal.r2, terminal.r3, future],
+    extraWrites: terminal.extraWrites,
+    lineagePolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'historical prerequisite evidence must be non-authorizing',
+    )));
+  });
+});
+
+test('a distinct future objective may cite terminal R3 only as historical prerequisite', async () => {
+  const terminal = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'golden-uat-suite',
+    ordinal: 1,
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  future.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [
+      historicalPrerequisite(terminal.r3),
+    ],
+  };
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+
+  await withTempRepo({
+    candidates: [terminal.r1, terminal.r2, terminal.r3, future],
+    extraWrites: terminal.extraWrites,
+    lineagePolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    const futureReport = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === future.candidate_id,
+    );
+    assert.equal(futureReport.derivedDisposition, 'HOLD');
   });
 });
