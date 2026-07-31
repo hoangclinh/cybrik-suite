@@ -68,6 +68,10 @@ const DECISION_RECORD =
 const FIXTURE_ROOT = 'contracts/examples/svc-lifecycle/';
 const NOW = 1900000000;
 const AUDIENCE = 'svc:cyber-ai-lifecycle';
+const WIRE_SCOPE = 'NO NEW SERVER / NO NEW ENDPOINT. '
+  + 'This accepted profile restricts authorization at the already accepted lifecycle seam only.';
+const MCP_SCOPE = 'OUT OF SCOPE. No MCP, capability, tool, action, approval, execution grant '
+  + 'or credential authority.';
 const ALLOWED = new Map([
   ['investigation.create', 'investigation.lifecycle:create'],
   ['investigation.status', 'investigation.lifecycle:read'],
@@ -355,6 +359,14 @@ export async function validateSvcLifecycleBinding({
     errors.push('compatibility manifest must remain v0.1.0 and not a bundle tag');
   }
   if (manifest?.audience !== AUDIENCE) errors.push(`manifest audience must equal ${AUDIENCE}`);
+  if (manifest?.wire_scope !== WIRE_SCOPE) {
+    errors.push('wire scope must deny every new server and endpoint');
+  }
+  if (manifest?.mcp_scope !== MCP_SCOPE) {
+    errors.push(
+      'MCP scope must deny Fabric, tool, action, approval, execution and credential authority',
+    );
+  }
   if (!stableEqual(manifest?.delegatable_operations, Object.fromEntries(ALLOWED))) {
     errors.push('manifest delegatable operation-to-scope map must remain exact');
   }

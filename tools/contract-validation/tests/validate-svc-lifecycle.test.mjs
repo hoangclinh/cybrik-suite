@@ -48,6 +48,10 @@ test('the exact lifecycle-delegation binding is accepted for implementation only
     JSON.stringify(manifest),
     /\b(?:This proposed binding|under this proposal)\b/i,
   );
+  assert.doesNotMatch(
+    read('contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md'),
+    /\b(?:This proposed binding|under this proposal)\b/i,
+  );
 });
 
 test('a lifecycle or acceptance half-flip fails closed', async () => {

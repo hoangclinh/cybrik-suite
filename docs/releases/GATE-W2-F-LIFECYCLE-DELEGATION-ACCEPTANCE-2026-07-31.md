@@ -43,8 +43,8 @@ durable replay behavior and degraded behavior in an admitted exact-build runtime
 
 ## Verification at the acceptance bytes
 
-- `node --test --experimental-test-coverage tests/validate-svc-lifecycle.test.mjs`: 21/21 pass;
-  93.02% line, 86.64% branch and 100% function coverage for the validator.
+- `node --test --experimental-test-coverage tests/validate-svc-lifecycle.test.mjs`: 22/22 pass;
+  93.15% line, 86.88% branch and 100% function coverage for the validator.
 - `npm audit --audit-level=high`: 0 vulnerabilities.
 - `npm run validate`: ALL GREEN across the registered mixed-lifecycle static contract corpus;
   OpenAPI validation has zero errors (existing style warnings remain warnings).

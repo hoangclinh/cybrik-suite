@@ -27,7 +27,7 @@ mapped to its operation. Extra scopes are rejected rather than treated as harmle
   lifecycle operation, and accepted v0.1.1 is the authoritative response profile for new bundle
   reads. This profile does not reopen or weaken that accepted contract. It declines only W2-F
   delegation authority for this operation: no caller may mint and no relying party may consume a
-  bundle-read delegation token under this proposal. Any future bundle-read delegation binding
+  bundle-read delegation token under this accepted profile. Any future bundle-read delegation binding
   requires a separately accepted implementation and contract gate.
 
 ## Restriction over accepted W2-F

@@ -7,7 +7,7 @@
   "x-cybrik-packet-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
   "audience": "svc:cyber-ai-lifecycle",
-  "wire_scope": "NO NEW SERVER / NO NEW ENDPOINT. This proposal restricts authorization at the already accepted lifecycle seam only.",
+  "wire_scope": "NO NEW SERVER / NO NEW ENDPOINT. This accepted profile restricts authorization at the already accepted lifecycle seam only.",
   "mcp_scope": "OUT OF SCOPE. No MCP, capability, tool, action, approval, execution grant or credential authority.",
   "reuses_accepted_unmodified": [
     "json-schema/cybrik.svc-common-defs.v1.schema.json",
@@ -98,7 +98,7 @@
     },
     {
       "id": "LSD-11",
-      "statement": "readInvestigationBundle / investigation.bundle_read remains an accepted business lifecycle operation with accepted v0.1.1 response contract. This proposed binding grants no W2-F bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this proposal. Any future binding requires a separately accepted implementation and contract gate."
+      "statement": "readInvestigationBundle / investigation.bundle_read remains an accepted business lifecycle operation with accepted v0.1.1 response contract. This accepted binding grants no W2-F bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token under this accepted profile. Any future binding requires a separately accepted implementation and contract gate."
     }
   ],
   "members": [
@@ -106,7 +106,7 @@
       "file": "adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
       "kind": "adapter-notes",
       "contract_version": "0.1.0",
-      "sha256": "a4deabb8b0d8fc71cba9b9a489ebd43cc0f5cb535743317ec02c766785e8c6f7"
+      "sha256": "ee2bc501f7b47bd95d227175e591af1c8bb9a1f468e4e557680520f94e18ac1b"
     },
     {
       "file": "examples/svc-lifecycle/examples-manifest.json",
