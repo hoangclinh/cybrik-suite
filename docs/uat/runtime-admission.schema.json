@@ -38,6 +38,7 @@
         "attempt_ordinal": { "type": "integer", "minimum": 1 },
         "max_attempts": { "type": "integer", "minimum": 1 },
         "current_attempt": { "$ref": "#/$defs/attemptResult" },
+        "recovery_override": { "$ref": "#/$defs/recoveryOverride" },
         "failure_history": {
           "type": "array",
           "items": { "$ref": "#/$defs/failedAttemptRef" }
@@ -266,6 +267,66 @@
         "evidence_path": { "type": "string", "minLength": 1 },
         "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
+    },
+    "recoveryOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "additional_attempts",
+        "terminal_candidate_id",
+        "terminal_attempt_ordinal",
+        "terminal_evidence_path",
+        "terminal_evidence_sha256",
+        "correction_evidence_path",
+        "correction_evidence_sha256",
+        "review_status"
+      ],
+      "properties": {
+        "kind": { "const": "admitted_command_defect" },
+        "additional_attempts": { "const": 1 },
+        "terminal_candidate_id": { "type": "string", "minLength": 1 },
+        "terminal_attempt_ordinal": { "type": "integer", "minimum": 1 },
+        "terminal_evidence_path": { "type": "string", "minLength": 1 },
+        "terminal_evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "correction_evidence_path": { "type": "string", "minLength": 1 },
+        "correction_evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "review_status": {
+          "type": "string",
+          "enum": ["pending", "independently_reviewed_go"]
+        },
+        "review_evidence_path": { "type": "string", "minLength": 1 },
+        "review_evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "review_status": { "const": "independently_reviewed_go" }
+            },
+            "required": ["review_status"]
+          },
+          "then": {
+            "properties": {
+              "review_evidence_path": { "type": "string", "minLength": 1 },
+              "review_evidence_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": ["review_evidence_path", "review_evidence_sha256"]
+          }
+        }
+      ]
     },
     "hostedCheck": {
       "type": "object",
