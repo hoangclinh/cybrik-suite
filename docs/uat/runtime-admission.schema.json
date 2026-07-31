@@ -7,6 +7,7 @@
   "required": [
     "candidate_id",
     "recorded_at",
+    "attempt_accounting",
     "commit_tree",
     "hosted_ci",
     "contracts",
@@ -22,6 +23,27 @@
   "properties": {
     "candidate_id": { "type": "string", "minLength": 1 },
     "recorded_at": { "type": "string", "format": "date-time" },
+    "attempt_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_id",
+        "attempt_ordinal",
+        "max_attempts",
+        "current_attempt",
+        "failure_history"
+      ],
+      "properties": {
+        "series_id": { "type": "string", "minLength": 1 },
+        "attempt_ordinal": { "type": "integer", "minimum": 1 },
+        "max_attempts": { "type": "integer", "minimum": 1 },
+        "current_attempt": { "$ref": "#/$defs/attemptResult" },
+        "failure_history": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/failedAttemptRef" }
+        }
+      }
+    },
     "commit_tree": {
       "type": "object",
       "additionalProperties": false,
@@ -197,6 +219,52 @@
       "properties": {
         "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "attemptResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "execution_authorized",
+        "executed_checks",
+        "passed_checks",
+        "failed_checks",
+        "evidence_path",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "status": { "type": "string", "enum": ["not_run", "passed", "failed"] },
+        "execution_authorized": { "type": "boolean" },
+        "executed_checks": { "type": "integer", "minimum": 0 },
+        "passed_checks": { "type": "integer", "minimum": 0 },
+        "failed_checks": { "type": "integer", "minimum": 0 },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "failedAttemptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "attempt_ordinal",
+        "executed_checks",
+        "passed_checks",
+        "failed_checks",
+        "disposition",
+        "evidence_path",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "attempt_ordinal": { "type": "integer", "minimum": 1 },
+        "executed_checks": { "type": "integer", "minimum": 1 },
+        "passed_checks": { "type": "integer", "minimum": 0 },
+        "failed_checks": { "type": "integer", "minimum": 1 },
+        "disposition": { "type": "string", "enum": ["NO-GO"] },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     },
     "hostedCheck": {

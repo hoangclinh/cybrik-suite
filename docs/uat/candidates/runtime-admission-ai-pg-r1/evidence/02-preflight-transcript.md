@@ -27,6 +27,14 @@ Contained prior attempt:
   A further failure makes R1 NO-GO and requires a new candidate with schema-enforced attempt
   accounting.
 
+Final R1 result:
+- Attempt 3 reached PostgreSQL 16.14, locked sync, Alembic reset, and runtime-principal seed.
+- The exact PostgreSQL test command returned 18 passed and 1 failed. The remaining failure exposed
+  an adapter defect: an `outbox_pkey` unique violation was raised as
+  `DurableExecutionUnavailable` instead of returning `DurableAdvanceStatus.conflict`.
+- Container removal and loopback-port closure both passed.
+- Candidate R1 is NO-GO. See `evidence/05-attempt3-runtime-result.md`.
+
 Preflight smoke labels:
 - `tenant_isolation_static_preflight_pass`: reviewed the durable-slice migration and adapter source for `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`, per-table tenant policies, and transaction-local `SET LOCAL ROLE cybrik_ai_api_app` plus `set_config('app.tenant_id', ...)`; also reviewed the authored 13 PostgreSQL integration negatives in `tests/ai_api/test_postgres_durable.py`. This is not runtime proof.
 - `authorization_static_preflight_pass`: reviewed the four no-DB guard tests that already pass without a live PostgreSQL instance:

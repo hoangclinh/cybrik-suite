@@ -15,60 +15,61 @@ const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
-const CANDIDATE_RELATIVE_PATH = 'docs/uat/candidates/candidate-001/runtime-admission.json';
-const CANDIDATE_EVIDENCE_DIR = 'docs/uat/candidates/candidate-001/evidence';
-const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
-const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
-const CANONICAL_ARTIFACTS = {
-  '01-session.log': 'session log\n',
-  '02-summary.txt': 'summary\n',
-};
 
 const read = (path) => readFileSync(resolve(ROOT, path), 'utf8');
-
 const stableWriteJson = (path, value) =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
-const canonicalCandidate = () => ({
-  candidate_id: 'candidate-001',
+const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
+const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
+const SOC_SHA = '1111111111111111111111111111111111111111';
+const CYBER_SHA = '2222222222222222222222222222222222222222';
+const FABRIC_SHA = '3333333333333333333333333333333333333333';
+
+const candidateId = (seriesId, ordinal) => `${seriesId}-r${ordinal}`;
+const candidateDir = (seriesId, ordinal) => `docs/uat/candidates/${candidateId(seriesId, ordinal)}`;
+const evidenceDir = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/evidence`;
+const currentAttemptArtifact = (seriesId, ordinal) => `${evidenceDir(seriesId, ordinal)}/05-attempt-accounting.json`;
+
+const templateRecord = () => ({
+  candidate_id: 'template-hold',
   recorded_at: '2026-07-31T00:00:00Z',
+  attempt_accounting: {
+    series_id: 'template-hold',
+    attempt_ordinal: 1,
+    max_attempts: 1,
+    current_attempt: {
+      status: 'not_run',
+      execution_authorized: false,
+      executed_checks: 0,
+      passed_checks: 0,
+      failed_checks: 0,
+      evidence_path: 'docs/uat/templates/runtime-admission.template.txt',
+      evidence_sha256: '0000000000000000000000000000000000000000000000000000000000000000',
+    },
+    failure_history: [],
+  },
   commit_tree: {
-    suite: { commit: HEX_40, tree: TREE_40 },
-    soc: { commit: '1111111111111111111111111111111111111111', tree: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
-    cyber_ai: { commit: '2222222222222222222222222222222222222222', tree: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
-    tool_fabric: { commit: '3333333333333333333333333333333333333333', tree: 'cccccccccccccccccccccccccccccccccccccccc' },
+    suite: { commit: '0000000000000000000000000000000000000000', tree: '0000000000000000000000000000000000000000' },
+    soc: { commit: '0000000000000000000000000000000000000000', tree: '0000000000000000000000000000000000000000' },
+    cyber_ai: { commit: '0000000000000000000000000000000000000000', tree: '0000000000000000000000000000000000000000' },
+    tool_fabric: { commit: '0000000000000000000000000000000000000000', tree: '0000000000000000000000000000000000000000' },
   },
   hosted_ci: {
-    required_checks: [
-      { repo: 'suite', sha: HEX_40, name: 'contracts', status: 'success' },
-      { repo: 'soc', sha: '1111111111111111111111111111111111111111', name: 'soc-ci', status: 'success' },
-      { repo: 'cyber_ai', sha: '2222222222222222222222222222222222222222', name: 'cyber-ai-ci', status: 'success' },
-      { repo: 'tool_fabric', sha: '3333333333333333333333333333333333333333', name: 'fabric-ci', status: 'success' },
-    ],
-    skipped_jobs: [
-      { repo: 'soc', name: 'e2e-org', status: 'skipped', reason: 'out of exercised path' },
-    ],
-    suppressed_jobs: [
-      { repo: 'tool_fabric', name: 'alert-context-route-db', status: 'suppressed', reason: 'feature-off and unwired' },
-    ],
+    required_checks: [],
+    skipped_jobs: [],
+    suppressed_jobs: [],
   },
   contracts: {
-    reviewed_contracts: [
-      'contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json',
-    ],
-    feature_flags: [
-      { name: 'CYBRIK_RUNTIME_ADMISSION_EXAMPLE', state: 'off' },
-    ],
-    capability_lifecycle: [
-      { capability: 'soc.get_alert_context', state: 'accepted_for_implementation' },
-    ],
+    reviewed_contracts: [],
+    feature_flags: [],
+    capability_lifecycle: [],
   },
   test_data: {
     classification: 'synthetic',
-    approved: true,
-    notes: 'Synthetic fixtures only.',
+    approved: false,
+    notes: 'Template placeholder only.',
   },
   production_exclusion: {
     no_production_credentials: true,
@@ -77,96 +78,203 @@ const canonicalCandidate = () => ({
     no_production_traffic: true,
   },
   lifecycle_procedures: {
-    start: ['docker compose up -d'],
-    stop: ['docker compose down --remove-orphans'],
-    reset: ['docker compose down -v'],
-    seed: ['node tools/seed-synthetic.mjs'],
-    rollback: ['docker compose down --remove-orphans && git checkout --detach 0123456789abcdef0123456789abcdef01234567'],
+    start: [],
+    stop: [],
+    reset: [],
+    seed: [],
+    rollback: [],
   },
   negative_smoke: {
-    tenant_isolation: [
-      { name: 'cross-tenant case read', status: 'pass' },
-    ],
-    authorization: [
-      { name: 'ungranted descendant raw data read', status: 'pass' },
-    ],
-    secret_boundary: [
-      { name: 'production secret mount blocked', status: 'pass' },
-    ],
+    tenant_isolation: [{ name: 'Template only.', status: 'hold' }],
+    authorization: [{ name: 'Template only.', status: 'hold' }],
+    secret_boundary: [{ name: 'Template only.', status: 'hold' }],
   },
   open_findings: {
     critical: 0,
     high: 0,
-    notes: [],
+    notes: ['Template only.'],
   },
   evidence: {
-    directory: CANDIDATE_EVIDENCE_DIR,
-    artifacts: [
-      {
-        path: `${CANDIDATE_EVIDENCE_DIR}/01-session.log`,
-        sha256: sha256(CANONICAL_ARTIFACTS['01-session.log']),
-      },
-      {
-        path: `${CANDIDATE_EVIDENCE_DIR}/02-summary.txt`,
-        sha256: sha256(CANONICAL_ARTIFACTS['02-summary.txt']),
-      },
-    ],
-    limitations: ['Local-only bounded execution.'],
-    final_profile_verdict: 'RUNTIME_AUTHORIZED',
+    directory: 'docs/uat/candidates/<candidate-id>',
+    artifacts: [],
+    limitations: ['Template only. No execution evidence is recorded here.'],
+    final_profile_verdict: 'HOLD',
   },
   network_exposure: {
     mode: 'local_only',
-    surfaces: [
-      { bind: '127.0.0.1:3000', purpose: 'analyst UI' },
-      { bind: '127.0.0.1:8000', purpose: 'API' },
-    ],
-    notes: 'Loopback-only exposure.',
+    surfaces: [],
+    notes: 'Template only.',
   },
   disposition: {
-    profile: 'RUNTIME_AUTHORIZED',
-    rationale: 'All ten runtime-admission items are complete and passing.',
+    profile: 'HOLD',
+    rationale: 'Template only.',
   },
 });
 
-const materializeRepo = ({ candidate, writes = [] } = {}) => {
-  const tempRoot = mkdtempSync(join(os.tmpdir(), 'runtime-admission-'));
-  mkdirSync(join(tempRoot, 'docs/uat/candidates'), { recursive: true });
-  mkdirSync(join(tempRoot, 'docs/uat/templates'), { recursive: true });
-  writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
-  writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
-  writeFileSync(join(tempRoot, TEMPLATE_PATH), read(TEMPLATE_PATH), 'utf8');
-  if (candidate) {
-    mkdirSync(join(tempRoot, 'docs/uat/candidates/candidate-001'), { recursive: true });
-    mkdirSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR), { recursive: true });
-    for (const [name, content] of Object.entries(CANONICAL_ARTIFACTS)) {
-      writeFileSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, name), content, 'utf8');
-    }
-    stableWriteJson(join(tempRoot, CANDIDATE_RELATIVE_PATH), candidate);
-  }
-  for (const write of writes) {
-    mkdirSync(join(tempRoot, write.dir), { recursive: true });
-    stableWriteJson(join(tempRoot, write.path), write.value);
-  }
-  return tempRoot;
+const baseCandidate = ({
+  seriesId = 'runtime-admission-ai-pg',
+  ordinal = 1,
+  maxAttempts = 2,
+  currentStatus = 'not_run',
+  executionAuthorized = true,
+  passedChecks = 0,
+  failedChecks = 0,
+  history = [],
+  highFindings = 0,
+  criticalFindings = 0,
+  authorizationSmoke = 'pass',
+  disposition = 'RUNTIME_AUTHORIZED',
+  evidenceContent = `attempt ${ordinal}\n`,
+} = {}) => {
+  const executedChecks = passedChecks + failedChecks;
+  const dir = evidenceDir(seriesId, ordinal);
+  const attemptPath = currentAttemptArtifact(seriesId, ordinal);
+  const attemptSha = sha256(evidenceContent);
+  return {
+    candidate_id: candidateId(seriesId, ordinal),
+    recorded_at: '2026-07-31T00:00:00Z',
+    attempt_accounting: {
+      series_id: seriesId,
+      attempt_ordinal: ordinal,
+      max_attempts: maxAttempts,
+      current_attempt: {
+        status: currentStatus,
+        execution_authorized: executionAuthorized,
+        executed_checks: executedChecks,
+        passed_checks: passedChecks,
+        failed_checks: failedChecks,
+        evidence_path: attemptPath,
+        evidence_sha256: attemptSha,
+      },
+      failure_history: history,
+    },
+    commit_tree: {
+      suite: { commit: HEX_40, tree: TREE_40 },
+      soc: { commit: SOC_SHA, tree: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      cyber_ai: { commit: CYBER_SHA, tree: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+      tool_fabric: { commit: FABRIC_SHA, tree: 'cccccccccccccccccccccccccccccccccccccccc' },
+    },
+    hosted_ci: {
+      required_checks: [
+        { repo: 'suite', sha: HEX_40, name: 'contracts', status: 'success' },
+        { repo: 'soc', sha: SOC_SHA, name: 'soc-ci', status: 'success' },
+        { repo: 'cyber_ai', sha: CYBER_SHA, name: 'cyber-ai-ci', status: 'success' },
+        { repo: 'tool_fabric', sha: FABRIC_SHA, name: 'fabric-ci', status: 'success' },
+      ],
+      skipped_jobs: [
+        { repo: 'soc', name: 'e2e-org', status: 'skipped', reason: 'out of exercised path' },
+      ],
+      suppressed_jobs: [
+        { repo: 'tool_fabric', name: 'alert-context-route-db', status: 'suppressed', reason: 'feature-off and unwired' },
+      ],
+    },
+    contracts: {
+      reviewed_contracts: [
+        'contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json',
+      ],
+      feature_flags: [
+        { name: 'CYBRIK_RUNTIME_ADMISSION_EXAMPLE', state: 'off' },
+      ],
+      capability_lifecycle: [
+        { capability: 'soc.get_alert_context', state: 'accepted_for_implementation' },
+      ],
+    },
+    test_data: {
+      classification: 'synthetic',
+      approved: true,
+      notes: 'Synthetic fixtures only.',
+    },
+    production_exclusion: {
+      no_production_credentials: true,
+      no_production_configuration: true,
+      no_production_data: true,
+      no_production_traffic: true,
+    },
+    lifecycle_procedures: {
+      start: ['docker compose up -d'],
+      stop: ['docker compose down --remove-orphans'],
+      reset: ['docker compose down -v'],
+      seed: ['node tools/seed-synthetic.mjs'],
+      rollback: ['docker compose down --remove-orphans'],
+    },
+    negative_smoke: {
+      tenant_isolation: [{ name: 'cross-tenant case read', status: 'pass' }],
+      authorization: [{ name: 'ungranted descendant raw data read', status: authorizationSmoke }],
+      secret_boundary: [{ name: 'production secret mount blocked', status: 'pass' }],
+    },
+    open_findings: {
+      critical: criticalFindings,
+      high: highFindings,
+      notes: [],
+    },
+    evidence: {
+      directory: dir,
+      artifacts: [
+        {
+          path: attemptPath,
+          sha256: attemptSha,
+        },
+      ],
+      limitations: ['Local-only bounded execution.'],
+      final_profile_verdict: disposition,
+    },
+    network_exposure: {
+      mode: 'local_only',
+      surfaces: [
+        { bind: '127.0.0.1:3000', purpose: 'analyst UI' },
+      ],
+      notes: 'Loopback-only exposure.',
+    },
+    disposition: {
+      profile: disposition,
+      rationale: 'Candidate rationale.',
+    },
+  };
 };
 
-const withTempRepo = (options, fn) => {
-  const tempRoot = materializeRepo(options);
+const withTempRepo = async ({
+  candidates = [],
+  extraWrites = [],
+} = {}, fn) => {
+  const tempRoot = mkdtempSync(join(os.tmpdir(), 'runtime-admission-'));
   try {
-    return fn(tempRoot);
+    mkdirSync(join(tempRoot, 'docs/uat/candidates'), { recursive: true });
+    mkdirSync(join(tempRoot, 'docs/uat/templates'), { recursive: true });
+    writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
+    writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
+    stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
+    for (const candidate of candidates) {
+      const dir = join(tempRoot, candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
+      const evDir = join(tempRoot, evidenceDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
+      mkdirSync(dir, { recursive: true });
+      mkdirSync(evDir, { recursive: true });
+      writeFileSync(
+        join(tempRoot, candidate.attempt_accounting.current_attempt.evidence_path),
+        `attempt ${candidate.attempt_accounting.attempt_ordinal}\n`,
+        'utf8',
+      );
+      stableWriteJson(join(tempRoot, `${candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal)}/runtime-admission.json`), candidate);
+    }
+    for (const write of extraWrites) {
+      mkdirSync(join(tempRoot, write.dir), { recursive: true });
+      if (write.kind === 'json') {
+        stableWriteJson(join(tempRoot, write.path), write.value);
+      } else {
+        writeFileSync(join(tempRoot, write.path), write.value, 'utf8');
+      }
+    }
+    await fn(tempRoot);
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
 };
 
-test('repo runtime-admission assets validate with the committed runtime-admission-ai-pg-r1 candidate', async () => {
-  const report = await validateRuntimeAdmission({ root: ROOT });
-
-  assert.deepEqual(report.errors, []);
+test('exports include attempt_accounting in the candidate field contract', () => {
   assert.deepEqual(expectedRepositories, ['suite', 'soc', 'cyber_ai', 'tool_fabric']);
   assert.deepEqual(expectedCandidateFields, [
     'candidate_id',
     'recorded_at',
+    'attempt_accounting',
     'commit_tree',
     'hosted_ci',
     'contracts',
@@ -179,26 +287,21 @@ test('repo runtime-admission assets validate with the committed runtime-admissio
     'network_exposure',
     'disposition',
   ]);
-  assert.equal(report.counts.candidateFiles, 1);
-  assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.candidates[0].candidateId, 'runtime-admission-ai-pg-r1');
-  assert.equal(report.candidates[0].declaredDisposition, 'RUNTIME_AUTHORIZED');
-  assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
 });
 
-test('candidate discovery validates only docs/uat/candidates/*/runtime-admission.json', async () => {
-  await withTempRepo({ candidate: canonicalCandidate() }, async (tempRoot) => {
-    writeFileSync(
-      join(tempRoot, 'docs/uat/candidates/README.md'),
-      '# local note\n',
-      'utf8',
-    );
-    mkdirSync(join(tempRoot, 'docs/uat/candidates/not-a-candidate'), { recursive: true });
-    stableWriteJson(
-      join(tempRoot, 'docs/uat/candidates/not-a-candidate/ignored.json'),
-      canonicalCandidate(),
-    );
-
+test('candidate discovery still validates only docs/uat/candidates/*/runtime-admission.json', async () => {
+  const candidate = baseCandidate();
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'json',
+        dir: 'docs/uat/candidates/not-a-candidate',
+        path: 'docs/uat/candidates/not-a-candidate/ignored.json',
+        value: candidate,
+      },
+    ],
+  }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
     assert.equal(report.counts.candidateFiles, 1);
@@ -206,288 +309,743 @@ test('candidate discovery validates only docs/uat/candidates/*/runtime-admission
   });
 });
 
-test('mislocated runtime-admission.json files under candidates fail closed while README remains allowed', async () => {
-  await withTempRepo({
-    candidate: canonicalCandidate(),
-    writes: [
+test('valid retired R1 NO-GO and authorized R2 patterns validate together', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const r1AttemptContent = '{"attempt":1,"result":"failed"}\n';
+  const r1AttemptPath = currentAttemptArtifact(seriesId, 1);
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+    evidenceContent: r1AttemptContent,
+  });
+  r1.attempt_accounting.current_attempt.evidence_sha256 = sha256(r1AttemptContent);
+
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    passedChecks: 0,
+    failedChecks: 0,
+    history: [
       {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: r1AttemptPath,
+        evidence_sha256: sha256(r1AttemptContent),
+      },
+    ],
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+
+  await withTempRepo({ candidates: [r1, r2] }, async (tempRoot) => {
+    writeFileSync(join(tempRoot, r1AttemptPath), r1AttemptContent, 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.candidateFiles, 2);
+    const byId = new Map(report.candidates.map((candidateReport) => [candidateReport.candidateId, candidateReport]));
+    assert.equal(byId.get(candidateId(seriesId, 1)).declaredDisposition, 'NO-GO');
+    assert.equal(byId.get(candidateId(seriesId, 1)).derivedDisposition, 'NO-GO');
+    assert.equal(byId.get(candidateId(seriesId, 2)).declaredDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(byId.get(candidateId(seriesId, 2)).derivedDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('candidate id suffix must match attempt_accounting series and ordinal', async () => {
+  const candidate = baseCandidate();
+  candidate.candidate_id = 'wrong-id';
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('candidate_id must equal attempt_accounting series_id plus -r<attempt_ordinal>')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('attempt ordinal must not exceed max and failure history length must equal ordinal minus one', async () => {
+  const candidate = baseCandidate({
+    ordinal: 2,
+    maxAttempts: 1,
+    history: [],
+  });
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('attempt_ordinal must be <= max_attempts')));
+    assert.ok(report.errors.some((error) => error.includes('failure_history must contain exactly attempt_ordinal - 1 rows')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('failure history ordinals must be unique contiguous and match exact prior candidate ids', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 3,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256('attempt 1\n'),
+      },
+      {
+        candidate_id: 'wrong-prior-id',
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 17,
+        failed_checks: 2,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256('attempt 1\n'),
+      },
+    ],
+  });
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: currentAttemptArtifact(seriesId, 1),
+        value: 'attempt 1\n',
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('failure_history attempt_ordinal values must be unique')));
+    assert.ok(report.errors.some((error) => error.includes('failure_history must enumerate every prior ordinal exactly once')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('attempt count totals and status semantics are enforced', async () => {
+  const candidate = baseCandidate();
+  candidate.attempt_accounting.current_attempt.executed_checks = 2;
+  candidate.attempt_accounting.current_attempt.passed_checks = 1;
+  candidate.attempt_accounting.current_attempt.failed_checks = 0;
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('status not_run requires all counts to be zero')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('execution_authorized true is valid only for not_run and false for passed or failed', async () => {
+  const passedCandidate = baseCandidate({
+    currentStatus: 'passed',
+    executionAuthorized: true,
+    passedChecks: 19,
+    failedChecks: 0,
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [passedCandidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('execution_authorized must be false for status passed')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('not_run plus execution_authorized false truthfully derives HOLD', async () => {
+  const candidate = baseCandidate({
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('passed attempts truthfully derive HOLD', async () => {
+  const candidate = baseCandidate({
+    currentStatus: 'passed',
+    executionAuthorized: false,
+    passedChecks: 19,
+    failedChecks: 0,
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('failed current attempts truthfully derive NO-GO without structural validator errors', async () => {
+  const candidate = baseCandidate({
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    highFindings: 1,
+    disposition: 'NO-GO',
+  });
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
+  });
+});
+
+test('current attempt evidence must stay inside the current evidence directory', async () => {
+  const candidate = baseCandidate();
+  candidate.attempt_accounting.current_attempt.evidence_path = `${candidateDir('runtime-admission-ai-pg', 1)}/runtime-admission.json`;
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifacts must stay inside candidate.evidence.directory')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('failure history evidence may point to prior candidate evidence but must resolve and match SHA-256', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const priorPath = currentAttemptArtifact(seriesId, 1);
+  const priorContent = 'retired prior attempt\n';
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: priorPath,
+        evidence_sha256: sha256('wrong bytes\n'),
+      },
+    ],
+  });
+
+  await withTempRepo({
+    candidates: [r2],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: priorPath,
+        value: priorContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('evidence artifact sha256 must match the recorded bytes')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('committed runtime-admission assets validate with retired R1 and authorized R2', async () => {
+  const report = await validateRuntimeAdmission({ root: ROOT });
+  assert.deepEqual(report.errors, []);
+  assert.equal(report.counts.templatesValidated, 1);
+  assert.equal(report.counts.candidateFiles, 2);
+  const byId = new Map(
+    report.candidates.map((candidateReport) => [
+      candidateReport.candidateId,
+      candidateReport.derivedDisposition,
+    ]),
+  );
+  assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
+  assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'RUNTIME_AUTHORIZED');
+});
+
+test('mislocated runtime-admission records fail closed while unrelated candidate files stay ignored', async () => {
+  const candidate = baseCandidate();
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'json',
         dir: 'docs/uat/candidates',
         path: 'docs/uat/candidates/runtime-admission.json',
-        value: canonicalCandidate(),
+        value: candidate,
       },
       {
-        dir: 'docs/uat/candidates/nested/wrong-depth',
-        path: 'docs/uat/candidates/nested/wrong-depth/runtime-admission.json',
-        value: canonicalCandidate(),
-      },
-      {
-        dir: 'docs/uat/candidates/stray',
-        path: 'docs/uat/candidates/stray/runtime-admission.txt',
-        value: canonicalCandidate(),
+        kind: 'json',
+        dir: 'docs/uat/candidates/not-a-candidate',
+        path: 'docs/uat/candidates/not-a-candidate/ignored.json',
+        value: candidate,
       },
     ],
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('mislocated runtime-admission.json')));
     assert.equal(report.counts.candidateFiles, 1);
-    assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
 });
 
-test('a complete candidate can be RUNTIME_AUTHORIZED and must not imply a stronger profile', async () => {
-  await withTempRepo({ candidate: canonicalCandidate() }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.deepEqual(report.errors, []);
-    assert.equal(report.candidates[0].declaredDisposition, 'RUNTIME_AUTHORIZED');
-    assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
-  });
-});
-
-test('multiple unique success checks per repository can still be RUNTIME_AUTHORIZED', async () => {
-  const candidate = canonicalCandidate();
-  candidate.hosted_ci.required_checks.push(
-    { repo: 'suite', sha: HEX_40, name: 'lint', status: 'success' },
-    { repo: 'soc', sha: '1111111111111111111111111111111111111111', name: 'soc-smoke', status: 'success' },
-  );
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.deepEqual(report.errors, []);
-    assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
-  });
-});
-
-test('missing commit_tree repositories still fail closed at schema validation', async () => {
-  const missingRepo = canonicalCandidate();
+test('commit tuples and rendered required checks remain complete, exact, and unique', async () => {
+  const missingRepo = baseCandidate();
   delete missingRepo.commit_tree.tool_fabric;
-  await withTempRepo({ candidate: missingRepo }, async (tempRoot) => {
+  await withTempRepo({ candidates: [missingRepo] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('schema /commit_tree')));
   });
-});
 
-test('required hosted checks must cover every repository at least once and reject duplicate repo-name pairs', async () => {
-  const missingRequiredRepo = canonicalCandidate();
-  missingRequiredRepo.hosted_ci.required_checks = missingRequiredRepo.hosted_ci.required_checks.filter(
-    (check) => check.repo !== 'tool_fabric',
-  );
-
-  await withTempRepo({ candidate: missingRequiredRepo }, async (tempRoot) => {
+  const missingRequiredRepo = baseCandidate();
+  missingRequiredRepo.hosted_ci.required_checks =
+    missingRequiredRepo.hosted_ci.required_checks.filter(
+      (check) => check.repo !== 'tool_fabric',
+    );
+  await withTempRepo({ candidates: [missingRequiredRepo] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('required hosted CI must cover every repository at least once')));
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('required hosted CI must cover every repository at least once'),
+      ),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 
-  const duplicateRequiredCheck = canonicalCandidate();
+  const duplicateRequiredCheck = baseCandidate();
   duplicateRequiredCheck.hosted_ci.required_checks.push({
     repo: 'suite',
     sha: HEX_40,
     name: 'contracts',
     status: 'success',
   });
-
-  await withTempRepo({ candidate: duplicateRequiredCheck }, async (tempRoot) => {
+  await withTempRepo({ candidates: [duplicateRequiredCheck] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('required hosted checks must not duplicate repo and name pairs')));
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('required hosted checks must not duplicate repo and name pairs'),
+      ),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const multipleUniqueChecks = baseCandidate();
+  multipleUniqueChecks.hosted_ci.required_checks.push({
+    repo: 'suite',
+    sha: HEX_40,
+    name: 'secret-scan',
+    status: 'success',
+  });
+  await withTempRepo({ candidates: [multipleUniqueChecks] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
 });
 
-test('required hosted checks must enumerate rendered names and separate skipped and suppressed jobs', async () => {
-  const candidate = canonicalCandidate();
-  delete candidate.hosted_ci.skipped_jobs;
-  candidate.hosted_ci.required_checks[0].status = 'pending';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+test('hosted non-required job classes and lifecycle prerequisites remain explicit', async () => {
+  const malformedHosted = baseCandidate();
+  delete malformedHosted.hosted_ci.skipped_jobs;
+  malformedHosted.hosted_ci.required_checks[0].status = 'pending';
+  await withTempRepo({ candidates: [malformedHosted] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('skipped_jobs')));
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
-});
 
-test('contracts, flags and lifecycle state must be explicit', async () => {
-  const candidate = canonicalCandidate();
-  candidate.contracts.feature_flags = [];
-  candidate.contracts.capability_lifecycle = [];
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+  const missingPrerequisites = baseCandidate();
+  missingPrerequisites.contracts.feature_flags = [];
+  missingPrerequisites.contracts.capability_lifecycle = [];
+  missingPrerequisites.lifecycle_procedures.rollback = [];
+  await withTempRepo({ candidates: [missingPrerequisites] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('feature flags')));
     assert.ok(report.errors.some((error) => error.includes('capability lifecycle')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-});
-
-test('test data must remain synthetic, sanitized or otherwise explicitly approved', async () => {
-  const candidate = canonicalCandidate();
-  candidate.test_data.classification = 'production';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('schema /test_data/classification')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-});
-
-test('any production-boundary failure is NO-GO', async () => {
-  const candidate = canonicalCandidate();
-  candidate.production_exclusion.no_production_credentials = false;
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('no production credentials')));
-    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
-  });
-});
-
-test('start stop reset seed and rollback commands are all mandatory', async () => {
-  const candidate = canonicalCandidate();
-  candidate.lifecycle_procedures.rollback = [];
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('rollback')));
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });
 
-test('tenant isolation authorization and secret-boundary smoke failures are NO-GO', async () => {
-  const candidate = canonicalCandidate();
-  candidate.negative_smoke.authorization[0].status = 'fail';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+test('test-data, network, and production boundaries fail closed', async () => {
+  const invalidTestData = baseCandidate();
+  invalidTestData.test_data.classification = 'production';
+  await withTempRepo({ candidates: [invalidTestData] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('authorization-negative smoke')));
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('schema /test_data/classification'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const invalidNetwork = baseCandidate();
+  invalidNetwork.network_exposure.mode = 'public';
+  await withTempRepo({ candidates: [invalidNetwork] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('schema /network_exposure/mode'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const productionBoundaryFailure = baseCandidate();
+  productionBoundaryFailure.production_exclusion.no_production_credentials = false;
+  await withTempRepo({ candidates: [productionBoundaryFailure] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) => error.includes('no production credentials')),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
 });
 
-test('open Critical or High findings fail closed', async () => {
-  const candidate = canonicalCandidate();
-  candidate.open_findings.high = 1;
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+test('smoke failures and open Critical or High findings truthfully derive NO-GO', async () => {
+  const smokeFailure = baseCandidate({
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+  });
+  await withTempRepo({ candidates: [smokeFailure] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('open Critical or High finding')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
+  });
+
+  const highFinding = baseCandidate({
+    highFindings: 1,
+    disposition: 'NO-GO',
+  });
+  await withTempRepo({ candidates: [highFinding] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
 });
 
-test('evidence location and digests are mandatory', async () => {
-  const candidate = canonicalCandidate();
-  candidate.evidence.artifacts[0].sha256 = 'not-a-digest';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('schema /evidence/artifacts/0/sha256')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-});
-
-test('evidence artifacts must exist, stay inside the evidence directory, and match their declared SHA-256', async () => {
-  const missingArtifact = canonicalCandidate();
-  await withTempRepo({ candidate: missingArtifact }, async (tempRoot) => {
-    unlinkSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'));
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifact path must resolve to a readable regular file')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-
-  const mismatchedArtifact = canonicalCandidate();
-  await withTempRepo({ candidate: mismatchedArtifact }, async (tempRoot) => {
-    writeFileSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'), 'tampered\n', 'utf8');
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifact sha256 must match the recorded bytes')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-
-  const absoluteArtifact = canonicalCandidate();
-  absoluteArtifact.evidence.artifacts[0].path = '/tmp/evil.log';
-  await withTempRepo({ candidate: absoluteArtifact }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifact paths must be relative to the repository root')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-
-  const traversalArtifact = canonicalCandidate();
-  traversalArtifact.evidence.artifacts[0].path = 'docs/uat/candidates/candidate-001/evidence/../escape.log';
-  await withTempRepo({ candidate: traversalArtifact }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifact paths must not traverse outside the declared evidence directory')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-
-  const outsideArtifact = canonicalCandidate();
-  outsideArtifact.evidence.artifacts[0].path = 'docs/uat/candidates/candidate-001/runtime-admission.json';
-  await withTempRepo({ candidate: outsideArtifact }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifacts must stay inside candidate.evidence.directory')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-  });
-
-  const symlinkArtifact = canonicalCandidate();
-  await withTempRepo({ candidate: symlinkArtifact }, async (tempRoot) => {
-    unlinkSync(join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'));
-    symlinkSync(
-      join(tempRoot, CANDIDATE_RELATIVE_PATH),
-      join(tempRoot, CANDIDATE_EVIDENCE_DIR, '01-session.log'),
+test('candidate evidence must exist, remain regular and contained, and match its digest', async () => {
+  const missingArtifact = baseCandidate();
+  await withTempRepo({ candidates: [missingArtifact] }, async (tempRoot) => {
+    unlinkSync(
+      join(
+        tempRoot,
+        missingArtifact.attempt_accounting.current_attempt.evidence_path,
+      ),
     );
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('evidence artifact path must resolve to a readable regular file')));
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifact path must resolve to a readable regular file'),
+      ),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 
-  const absoluteEvidenceDirectory = canonicalCandidate();
+  const mismatchedArtifact = baseCandidate();
+  await withTempRepo({ candidates: [mismatchedArtifact] }, async (tempRoot) => {
+    writeFileSync(
+      join(
+        tempRoot,
+        mismatchedArtifact.attempt_accounting.current_attempt.evidence_path,
+      ),
+      'tampered\n',
+      'utf8',
+    );
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifact sha256 must match the recorded bytes'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const absoluteArtifact = baseCandidate();
+  absoluteArtifact.evidence.artifacts[0].path = '/tmp/evil.log';
+  await withTempRepo({ candidates: [absoluteArtifact] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifact paths must be relative to the repository root'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const traversalArtifact = baseCandidate();
+  traversalArtifact.evidence.artifacts[0].path =
+    `${traversalArtifact.evidence.directory}/../escape.log`;
+  await withTempRepo({ candidates: [traversalArtifact] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifact paths must not traverse outside the declared evidence directory'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const outsideArtifact = baseCandidate();
+  outsideArtifact.evidence.artifacts[0].path =
+    `${candidateDir('runtime-admission-ai-pg', 1)}/runtime-admission.json`;
+  await withTempRepo({ candidates: [outsideArtifact] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifacts must stay inside candidate.evidence.directory'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const symlinkArtifact = baseCandidate();
+  await withTempRepo({ candidates: [symlinkArtifact] }, async (tempRoot) => {
+    const artifactPath = join(
+      tempRoot,
+      symlinkArtifact.attempt_accounting.current_attempt.evidence_path,
+    );
+    unlinkSync(artifactPath);
+    symlinkSync(
+      join(
+        tempRoot,
+        candidateDir('runtime-admission-ai-pg', 1),
+        'runtime-admission.json',
+      ),
+      artifactPath,
+    );
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('evidence artifact path must resolve to a readable regular file'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const absoluteEvidenceDirectory = baseCandidate();
   absoluteEvidenceDirectory.evidence.directory = join(
     os.tmpdir(),
     'runtime-admission-absolute-evidence-dir',
   );
-  await withTempRepo({ candidate: absoluteEvidenceDirectory }, async (tempRoot) => {
+  await withTempRepo({ candidates: [absoluteEvidenceDirectory] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('candidate.evidence.directory must stay inside the repository root')));
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('candidate.evidence.directory must stay inside the repository root'),
+      ),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });
 
-test('network exposure must stay local-only or explicitly bounded', async () => {
-  const candidate = canonicalCandidate();
-  candidate.network_exposure.mode = 'public';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+test('readiness overclaims and schema-invalid truthy values are rejected before authorization', async () => {
+  const overclaim = baseCandidate();
+  overclaim.disposition.profile = 'DEMO_READY_LOCAL';
+  overclaim.evidence.final_profile_verdict = 'DEMO_READY_LOCAL';
+  await withTempRepo({ candidates: [overclaim] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('schema /network_exposure/mode')));
-    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('must never imply DEMO_READY_LOCAL'),
+      ),
+    );
+    assert.notEqual(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
-});
 
-test('readiness overclaim is rejected even when the underlying runtime-admission record is complete', async () => {
-  const candidate = canonicalCandidate();
-  candidate.disposition.profile = 'DEMO_READY_LOCAL';
-  candidate.evidence.final_profile_verdict = 'DEMO_READY_LOCAL';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
-    const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('must never imply DEMO_READY_LOCAL')));
-  });
-});
-
-test('schema-invalid truthy and negative values fail closed before semantic derivation', async () => {
-  const candidate = canonicalCandidate();
-  candidate.test_data.approved = 'yes';
-  candidate.contracts.reviewed_contracts = 'contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json';
-  candidate.contracts.feature_flags = 'CYBRIK_RUNTIME_ADMISSION_EXAMPLE=off';
-  candidate.contracts.capability_lifecycle = 'soc.get_alert_context';
-  candidate.open_findings.critical = -1;
-  candidate.open_findings.high = -1;
-  candidate.disposition.rationale = '';
-
-  await withTempRepo({ candidate }, async (tempRoot) => {
+  const invalidShape = baseCandidate();
+  invalidShape.test_data.approved = 'yes';
+  invalidShape.contracts.reviewed_contracts =
+    'contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json';
+  invalidShape.open_findings.critical = -1;
+  invalidShape.disposition.rationale = '';
+  await withTempRepo({ candidates: [invalidShape] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('schema')));
-    assert.ok(report.errors.some((error) => error.includes('test_data/approved')));
-    assert.ok(report.errors.some((error) => error.includes('contracts/reviewed_contracts')));
-    assert.ok(report.errors.some((error) => error.includes('open_findings/critical')));
+    assert.ok(
+      report.errors.some((error) => error.includes('test_data/approved')),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('contracts/reviewed_contracts'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) => error.includes('open_findings/critical')),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
-    assert.notEqual(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('candidate directory identity and series identity cannot reopen a prior NO-GO ordinal', async () => {
+  const candidate = baseCandidate();
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'json',
+        dir: 'docs/uat/candidates/reopened-r1',
+        path: 'docs/uat/candidates/reopened-r1/runtime-admission.json',
+        value: candidate,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('parent directory must equal candidate_id'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('candidate_id must be unique across the registry'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('series_id and attempt_ordinal must be unique'),
+      ),
+    );
+  });
+});
+
+test('failure history must match the exact prior candidate and preserve the original series budget', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const priorPath = currentAttemptArtifact(seriesId, 1);
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    disposition: 'NO-GO',
+  });
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 3,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 17,
+        failed_checks: 2,
+        disposition: 'NO-GO',
+        evidence_path: priorPath,
+        evidence_sha256: sha256('attempt 1\n'),
+      },
+    ],
+  });
+
+  await withTempRepo({ candidates: [r1, r2] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('max_attempts must match the first candidate in the series'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('failure_history counts must match the referenced prior candidate'),
+      ),
+    );
+  });
+});
+
+test('failure history cannot cite evidence without the referenced prior candidate record', async () => {
+  const seriesId = 'runtime-admission-ai-pg';
+  const priorPath = currentAttemptArtifact(seriesId, 1);
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: priorPath,
+        evidence_sha256: sha256('attempt 1\n'),
+      },
+    ],
+  });
+
+  await withTempRepo({
+    candidates: [r2],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: priorPath,
+        value: 'attempt 1\n',
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('must resolve to a registry record'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('the registry cannot hold two independently authorized runtime candidates', async () => {
+  const first = baseCandidate({
+    seriesId: 'runtime-admission-ai-pg',
+    ordinal: 1,
+  });
+  const second = baseCandidate({
+    seriesId: 'runtime-admission-ai-pg-b',
+    ordinal: 1,
+  });
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate'),
+      ),
+    );
+    assert.equal(
+      report.candidates.filter(
+        (candidateReport) =>
+          candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED',
+      ).length,
+      0,
+    );
+  });
+});
+
+test('a failed smoke cannot hide an unrecorded or held prerequisite smoke', async () => {
+  const candidate = baseCandidate({
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+  });
+  candidate.negative_smoke.tenant_isolation = [];
+  candidate.negative_smoke.secret_boundary[0].status = 'hold';
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('tenant-isolation smoke must contain at least one recorded check'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('secret-boundary smoke must be pass before runtime admission'),
+      ),
+    );
+    assert.equal(report.candidates[0].derivedDisposition, 'NO-GO');
   });
 });

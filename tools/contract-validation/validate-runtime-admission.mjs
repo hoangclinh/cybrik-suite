@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +57,7 @@ export const expectedRepositories = ['suite', 'soc', 'cyber_ai', 'tool_fabric'];
 export const expectedCandidateFields = [
   'candidate_id',
   'recorded_at',
+  'attempt_accounting',
   'commit_tree',
   'hosted_ci',
   'contracts',
@@ -147,6 +148,15 @@ const validateRecordShape = (path, value) => {
   }
   if (typeof value.recorded_at !== 'string' || Number.isNaN(Date.parse(value.recorded_at))) {
     errors.push(`${path}: recorded_at must be an ISO-8601 date-time`);
+  }
+  if (!hasExactKeys(value.attempt_accounting, [
+    'series_id',
+    'attempt_ordinal',
+    'max_attempts',
+    'current_attempt',
+    'failure_history',
+  ])) {
+    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history`);
   }
   if (!hasExactKeys(value.commit_tree, expectedRepositories)) {
     errors.push(`${path}: commit_tree must contain exactly four repositories`);
@@ -314,12 +324,15 @@ const evaluateSmokeChecks = (checks, label, path, errors) => {
     errors.push(`${path}: ${label} must contain at least one recorded check`);
     return 'hold';
   }
-  if (checks.some((check) => check.status === 'fail')) {
-    errors.push(`${path}: failed ${label} is NO-GO`);
+  const hasFailure = checks.some((check) => check.status === 'fail');
+  const hasHold = checks.some((check) => check.status === 'hold');
+  if (hasHold) {
+    errors.push(`${path}: ${label} must be pass before runtime admission`);
+  }
+  if (hasFailure) {
     return 'fail';
   }
-  if (checks.some((check) => check.status !== 'pass')) {
-    errors.push(`${path}: ${label} must be pass before runtime admission`);
+  if (hasHold) {
     return 'hold';
   }
   return 'pass';
@@ -330,85 +343,216 @@ const isPathOutside = (basePath, targetPath) => {
   return delta === '..' || delta.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(delta);
 };
 
+const validateRecordedArtifact = ({
+  root,
+  recordPath,
+  evidenceDir,
+  artifactPath,
+  artifactSha256,
+  errors,
+  requireInsideEvidenceDir,
+}) => {
+  if (!artifactPath) {
+    return;
+  }
+
+  if (isAbsolute(artifactPath)) {
+    errors.push(`${recordPath}: evidence artifact paths must be relative to the repository root`);
+    return;
+  }
+  const resolvedArtifactPath = resolve(root, artifactPath);
+  if (isPathOutside(root, resolvedArtifactPath)) {
+    errors.push(`${recordPath}: evidence artifact paths must not traverse outside the repository root`);
+    return;
+  }
+  if (requireInsideEvidenceDir) {
+    if (isAbsolute(evidenceDir)) {
+      errors.push(`${recordPath}: candidate.evidence.directory must stay inside the repository root`);
+      return;
+    }
+    const resolvedEvidenceDir = resolve(root, evidenceDir);
+    if (isPathOutside(root, resolvedEvidenceDir)) {
+      errors.push(`${recordPath}: candidate.evidence.directory must stay inside the repository root`);
+      return;
+    }
+    if (isPathOutside(resolvedEvidenceDir, resolvedArtifactPath)) {
+      if (artifactPath.includes('..')) {
+        errors.push(`${recordPath}: evidence artifact paths must not traverse outside the declared evidence directory`);
+      } else {
+        errors.push(`${recordPath}: evidence artifacts must stay inside candidate.evidence.directory`);
+      }
+      return;
+    }
+  }
+
+  let artifactLinkStats;
+  try {
+    artifactLinkStats = lstatSync(resolvedArtifactPath);
+  } catch {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+  if (artifactLinkStats.isSymbolicLink()) {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+
+  let artifactStats;
+  try {
+    artifactStats = statSync(resolvedArtifactPath);
+  } catch {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+  if (!artifactStats.isFile()) {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+
+  let bytes;
+  try {
+    bytes = readFileSync(resolvedArtifactPath);
+  } catch {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+
+  const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+  if (actualSha256 !== artifactSha256) {
+    errors.push(`${recordPath}: evidence artifact sha256 must match the recorded bytes`);
+  }
+};
+
 const validateEvidenceArtifacts = (root, candidate, path, errors) => {
   if (!candidate.evidence.directory) {
     return;
   }
 
-  const evidenceDirPath = candidate.evidence.directory;
-  if (isAbsolute(evidenceDirPath)) {
-    errors.push(`${path}: candidate.evidence.directory must stay inside the repository root`);
-    return;
-  }
-  const resolvedEvidenceDir = resolve(root, evidenceDirPath);
-  if (isPathOutside(root, resolvedEvidenceDir)) {
-    errors.push(`${path}: candidate.evidence.directory must stay inside the repository root`);
-    return;
-  }
-
   for (const artifact of candidate.evidence.artifacts) {
-    if (isAbsolute(artifact.path)) {
-      errors.push(`${path}: evidence artifact paths must be relative to the repository root`);
-      continue;
-    }
+    validateRecordedArtifact({
+      root,
+      recordPath: path,
+      evidenceDir: candidate.evidence.directory,
+      artifactPath: artifact.path,
+      artifactSha256: artifact.sha256,
+      errors,
+      requireInsideEvidenceDir: true,
+    });
+  }
+};
 
-    const resolvedArtifactPath = resolve(root, artifact.path);
-    if (isPathOutside(root, resolvedArtifactPath)) {
-      errors.push(`${path}: evidence artifact paths must not traverse outside the repository root`);
-      continue;
+const validateAttemptAccounting = (root, candidate, path, errors) => {
+  const accounting = candidate.attempt_accounting;
+  const expectedCandidateId = `${accounting.series_id}-r${accounting.attempt_ordinal}`;
+  if (candidate.candidate_id !== expectedCandidateId) {
+    errors.push(`${path}: candidate_id must equal attempt_accounting series_id plus -r<attempt_ordinal>`);
+  }
+  if (accounting.attempt_ordinal > accounting.max_attempts) {
+    errors.push(`${path}: attempt_accounting.attempt_ordinal must be <= max_attempts`);
+  }
+  if (accounting.failure_history.length !== accounting.attempt_ordinal - 1) {
+    errors.push(`${path}: attempt_accounting.failure_history must contain exactly attempt_ordinal - 1 rows`);
+  }
+
+  const validateCounts = (subjectPath, record, { allowZeroExecution, requireNoGoDisposition = false } = {}) => {
+    if (record.executed_checks !== record.passed_checks + record.failed_checks) {
+      errors.push(`${subjectPath}: executed_checks must equal passed_checks + failed_checks`);
     }
-    if (isPathOutside(resolvedEvidenceDir, resolvedArtifactPath)) {
-      if (artifact.path.includes('..')) {
-        errors.push(`${path}: evidence artifact paths must not traverse outside the declared evidence directory`);
-      } else {
-        errors.push(`${path}: evidence artifacts must stay inside candidate.evidence.directory`);
+    if (record.status === 'not_run') {
+      if (!(record.executed_checks === 0 && record.passed_checks === 0 && record.failed_checks === 0)) {
+        errors.push(`${subjectPath}: status not_run requires all counts to be zero`);
       }
-      continue;
     }
+    if (record.status === 'passed') {
+      if (!(record.executed_checks > 0 && record.failed_checks === 0)) {
+        errors.push(`${subjectPath}: status passed requires executed_checks > 0 and failed_checks = 0`);
+      }
+      if (record.execution_authorized !== false) {
+        errors.push(`${subjectPath}: execution_authorized must be false for status passed`);
+      }
+    }
+    if (record.status === 'failed') {
+      if (!(record.executed_checks > 0 && record.failed_checks > 0)) {
+        errors.push(`${subjectPath}: status failed requires executed_checks > 0 and failed_checks > 0`);
+      }
+      if (record.execution_authorized !== false) {
+        errors.push(`${subjectPath}: execution_authorized must be false for status failed`);
+      }
+    }
+    if (!allowZeroExecution && record.executed_checks === 0) {
+      errors.push(`${subjectPath}: executed_checks must be > 0 for historical failed attempts`);
+    }
+    if (requireNoGoDisposition && record.disposition !== 'NO-GO') {
+      errors.push(`${subjectPath}: failure_history disposition must stay NO-GO`);
+    }
+  };
 
-    let artifactLinkStats;
-    try {
-      artifactLinkStats = lstatSync(resolvedArtifactPath);
-    } catch {
-      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
-      continue;
-    }
-    if (artifactLinkStats.isSymbolicLink()) {
-      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
-      continue;
-    }
+  validateCounts(`${path}: attempt_accounting.current_attempt`, accounting.current_attempt, {
+    allowZeroExecution: true,
+  });
+  validateRecordedArtifact({
+    root,
+    recordPath: `${path}: attempt_accounting.current_attempt`,
+    evidenceDir: candidate.evidence.directory,
+    artifactPath: accounting.current_attempt.evidence_path,
+    artifactSha256: accounting.current_attempt.evidence_sha256,
+    errors,
+    requireInsideEvidenceDir: true,
+  });
 
-    let artifactStats;
-    try {
-      artifactStats = statSync(resolvedArtifactPath);
-    } catch {
-      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
+  const seenOrdinals = new Set();
+  for (const historyRow of accounting.failure_history) {
+    const subjectPath = `${path}: attempt_accounting.failure_history`;
+    if (seenOrdinals.has(historyRow.attempt_ordinal)) {
+      errors.push(`${subjectPath}: failure_history attempt_ordinal values must be unique`);
       continue;
     }
-    if (!artifactStats.isFile()) {
-      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
-      continue;
+    seenOrdinals.add(historyRow.attempt_ordinal);
+    const expectedHistoryCandidateId = `${accounting.series_id}-r${historyRow.attempt_ordinal}`;
+    if (historyRow.candidate_id !== expectedHistoryCandidateId) {
+      errors.push(`${subjectPath}: failure_history candidate_id must match the exact prior attempt identifier`);
     }
-
-    let bytes;
-    try {
-      bytes = readFileSync(resolvedArtifactPath);
-    } catch {
-      errors.push(`${path}: evidence artifact path must resolve to a readable regular file`);
-      continue;
-    }
-
-    const actualSha256 = createHash('sha256').update(bytes).digest('hex');
-    if (actualSha256 !== artifact.sha256) {
-      errors.push(`${path}: evidence artifact sha256 must match the recorded bytes`);
+    validateCounts(subjectPath, {
+      ...historyRow,
+      status: 'failed',
+      execution_authorized: false,
+    }, {
+      allowZeroExecution: false,
+      requireNoGoDisposition: true,
+    });
+    validateRecordedArtifact({
+      root,
+      recordPath: subjectPath,
+      evidenceDir: candidate.evidence.directory,
+      artifactPath: historyRow.evidence_path,
+      artifactSha256: historyRow.evidence_sha256,
+      errors,
+      requireInsideEvidenceDir: false,
+    });
+  }
+  for (let ordinal = 1; ordinal < accounting.attempt_ordinal; ordinal += 1) {
+    if (!seenOrdinals.has(ordinal)) {
+      errors.push(`${path}: attempt_accounting.failure_history must enumerate every prior ordinal exactly once`);
     }
   }
+
+  return {
+    currentAttemptStatus: accounting.current_attempt.status,
+    executionAuthorized: accounting.current_attempt.execution_authorized,
+  };
 };
 
 const deriveDisposition = (root, candidate, path) => {
   const errors = [];
   let hold = false;
   let noGo = false;
+
+  const attemptErrors = [];
+  const attemptAccounting = validateAttemptAccounting(root, candidate, path, attemptErrors);
+  if (attemptErrors.length > 0) {
+    errors.push(...attemptErrors);
+    hold = true;
+  }
 
   const requiredChecks = candidate.hosted_ci.required_checks;
   const coveredRepos = new Set(requiredChecks.map((check) => check.repo));
@@ -505,13 +649,13 @@ const deriveDisposition = (root, candidate, path) => {
   );
   if ([tenantSmoke, authSmoke, secretSmoke].includes('fail')) {
     noGo = true;
-  } else if ([tenantSmoke, authSmoke, secretSmoke].includes('hold')) {
+  }
+  if ([tenantSmoke, authSmoke, secretSmoke].includes('hold')) {
     hold = true;
   }
 
   if ((candidate.open_findings.critical ?? 0) > 0 || (candidate.open_findings.high ?? 0) > 0) {
-    errors.push(`${path}: open Critical or High finding on the exercised path blocks runtime admission`);
-    hold = true;
+    noGo = true;
   }
   if (!candidate.evidence.directory) {
     errors.push(`${path}: evidence directory is required`);
@@ -551,6 +695,14 @@ const deriveDisposition = (root, candidate, path) => {
     hold = true;
   }
 
+  if (attemptAccounting.currentAttemptStatus === 'failed') {
+    noGo = true;
+  } else if (attemptAccounting.currentAttemptStatus === 'passed') {
+    hold = true;
+  } else if (attemptAccounting.currentAttemptStatus === 'not_run' && attemptAccounting.executionAuthorized !== true) {
+    hold = true;
+  }
+
   const derivedDisposition = noGo ? 'NO-GO' : hold ? 'HOLD' : 'RUNTIME_AUTHORIZED';
   if (declaredProfile !== derivedDisposition) {
     errors.push(`${path}: disposition.profile must equal derived runtime admission disposition ${derivedDisposition}`);
@@ -580,6 +732,117 @@ const validateTemplate = (template, path) => {
   return errors;
 };
 
+const validateCandidateRegistry = (records) => {
+  const findings = [];
+  const byCandidateId = new Map();
+  const bySeriesOrdinal = new Map();
+  const bySeries = new Map();
+  const addFinding = (record, message) => {
+    findings.push({
+      path: record.path,
+      message: `${record.path}: ${message}`,
+    });
+  };
+
+  for (const record of records) {
+    const { candidate, path } = record;
+    const parentDirectory = basename(dirname(path));
+    if (parentDirectory !== candidate.candidate_id) {
+      addFinding(record, 'parent directory must equal candidate_id');
+    }
+
+    const existingCandidate = byCandidateId.get(candidate.candidate_id);
+    if (existingCandidate) {
+      addFinding(record, 'candidate_id must be unique across the registry');
+      addFinding(existingCandidate, 'candidate_id must be unique across the registry');
+    } else {
+      byCandidateId.set(candidate.candidate_id, record);
+    }
+
+    const accounting = candidate.attempt_accounting;
+    const seriesOrdinalKey = `${accounting.series_id}\u0000${accounting.attempt_ordinal}`;
+    const existingSeriesOrdinal = bySeriesOrdinal.get(seriesOrdinalKey);
+    if (existingSeriesOrdinal) {
+      addFinding(record, 'series_id and attempt_ordinal must be unique across the registry');
+      addFinding(
+        existingSeriesOrdinal,
+        'series_id and attempt_ordinal must be unique across the registry',
+      );
+    } else {
+      bySeriesOrdinal.set(seriesOrdinalKey, record);
+    }
+
+    const seriesRecords = bySeries.get(accounting.series_id) ?? [];
+    seriesRecords.push(record);
+    bySeries.set(accounting.series_id, seriesRecords);
+  }
+
+  for (const seriesRecords of bySeries.values()) {
+    seriesRecords.sort(
+      (left, right) =>
+        left.candidate.attempt_accounting.attempt_ordinal
+        - right.candidate.attempt_accounting.attempt_ordinal,
+    );
+    const firstRecord = seriesRecords[0];
+    const seriesMaxAttempts = firstRecord.candidate.attempt_accounting.max_attempts;
+    for (const record of seriesRecords) {
+      const accounting = record.candidate.attempt_accounting;
+      if (accounting.max_attempts !== seriesMaxAttempts) {
+        addFinding(
+          record,
+          'max_attempts must match the first candidate in the series',
+        );
+      }
+
+      for (const historyRow of accounting.failure_history) {
+        const priorRecord = byCandidateId.get(historyRow.candidate_id);
+        if (!priorRecord) {
+          addFinding(
+            record,
+            `failure_history candidate ${historyRow.candidate_id} must resolve to a registry record`,
+          );
+          continue;
+        }
+        const priorCandidate = priorRecord.candidate;
+        const priorAttempt = priorCandidate.attempt_accounting.current_attempt;
+        if (
+          priorCandidate.attempt_accounting.series_id !== accounting.series_id
+          || priorCandidate.attempt_accounting.attempt_ordinal
+            !== historyRow.attempt_ordinal
+          || priorCandidate.disposition.profile !== 'NO-GO'
+          || priorAttempt.status !== 'failed'
+        ) {
+          addFinding(
+            record,
+            'failure_history must reference a failed NO-GO candidate in the same series',
+          );
+        }
+        if (
+          priorAttempt.executed_checks !== historyRow.executed_checks
+          || priorAttempt.passed_checks !== historyRow.passed_checks
+          || priorAttempt.failed_checks !== historyRow.failed_checks
+        ) {
+          addFinding(
+            record,
+            'failure_history counts must match the referenced prior candidate',
+          );
+        }
+        if (
+          priorAttempt.evidence_path !== historyRow.evidence_path
+          || priorAttempt.evidence_sha256 !== historyRow.evidence_sha256
+        ) {
+          addFinding(
+            record,
+            'failure_history evidence must match the referenced prior candidate',
+          );
+        }
+      }
+    }
+  }
+
+  return findings;
+};
+
 export async function validateRuntimeAdmission({
   root = DEFAULT_ROOT,
   overrides = new Map(),
@@ -605,15 +868,18 @@ export async function validateRuntimeAdmission({
     }
   }
   const candidates = [];
+  const registryRecords = [];
+  const reportsByPath = new Map();
   for (const path of candidateFiles) {
     const candidateErrors = [];
     const candidate = parseJson(root, path, overrides, candidateErrors);
     let declaredDisposition = null;
     let derivedDisposition = 'HOLD';
+    let schemaValid = false;
     if (candidate) {
       declaredDisposition = candidate.disposition?.profile ?? null;
       if (validator) {
-        validateAgainstSchema(validator, path, candidate, candidateErrors);
+        schemaValid = validateAgainstSchema(validator, path, candidate, candidateErrors);
       }
       if (candidateErrors.length === 0) {
         try {
@@ -626,14 +892,45 @@ export async function validateRuntimeAdmission({
         }
       }
     }
+    if (candidate && schemaValid) {
+      registryRecords.push({ path, candidate });
+    }
     errors.push(...candidateErrors);
-    candidates.push({
+    const candidateReport = {
       path,
       candidateId: candidate?.candidate_id ?? null,
       declaredDisposition,
       derivedDisposition,
       errors: candidateErrors,
-    });
+    };
+    candidates.push(candidateReport);
+    reportsByPath.set(path, candidateReport);
+  }
+
+  for (const finding of validateCandidateRegistry(registryRecords)) {
+    errors.push(finding.message);
+    const candidateReport = reportsByPath.get(finding.path);
+    if (candidateReport) {
+      candidateReport.errors.push(finding.message);
+      if (candidateReport.derivedDisposition !== 'NO-GO') {
+        candidateReport.derivedDisposition = 'HOLD';
+      }
+    }
+  }
+
+  const authorizedCandidates = candidates.filter(
+    (candidateReport) =>
+      candidateReport.errors.length === 0
+      && candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED',
+  );
+  if (authorizedCandidates.length > 1) {
+    for (const candidateReport of authorizedCandidates) {
+      const message =
+        `${candidateReport.path}: registry may contain at most one RUNTIME_AUTHORIZED candidate`;
+      errors.push(message);
+      candidateReport.errors.push(message);
+      candidateReport.derivedDisposition = 'HOLD';
+    }
   }
 
   return {
