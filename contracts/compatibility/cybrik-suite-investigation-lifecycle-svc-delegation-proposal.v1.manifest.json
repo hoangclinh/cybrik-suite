@@ -1,8 +1,8 @@
 {
   "title": "CYBRIK investigation-lifecycle service-delegation binding proposal v1",
-  "description": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. Additive restriction profile binding the accepted W2-F service-delegation validation view to the accepted investigation-lifecycle surface. It introduces no schema, server, endpoint, runtime, deployment, acceptance, stable bundle, release, Fabric authority or production claim.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "description": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED. Additive restriction profile binding the accepted W2-F service-delegation validation view to the accepted investigation-lifecycle surface. It introduces no schema, server, endpoint, runtime, deployment, stable bundle, release, Fabric authority or production claim.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-implemented": false,
   "x-cybrik-packet-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
@@ -41,7 +41,7 @@
       "delegated": false,
       "mint_token": false,
       "consume_token": false,
-      "reason": "PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY",
+      "reason": "ACCEPTED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY",
       "future_binding_gate": "SEPARATELY_ACCEPTED_IMPLEMENTATION_AND_CONTRACT_GATE_REQUIRED"
     }
   },
@@ -106,13 +106,13 @@
       "file": "adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
       "kind": "adapter-notes",
       "contract_version": "0.1.0",
-      "sha256": "6d7ec7349be46984dc6376f393005ad773aa268273bec461bb31b6c5d8bca79c"
+      "sha256": "a4deabb8b0d8fc71cba9b9a489ebd43cc0f5cb535743317ec02c766785e8c6f7"
     },
     {
       "file": "examples/svc-lifecycle/examples-manifest.json",
       "kind": "examples-manifest",
       "contract_version": "0.1.0",
-      "sha256": "dfdcbea4743a4473b2e9b56d579dcee5d51e214c528dfa6b10c1ae1e91d3f8d6"
+      "sha256": "e194d1797ee88fe734a9c02045f4e2b00a9c43b4666093504a98dc48f8431966"
     },
     {
       "file": "examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json",
@@ -201,16 +201,19 @@
   ],
   "gate": {
     "id": "W2-F-LIFECYCLE-BINDING",
-    "status": "NOT OPENED",
-    "decision": "No acceptance decision is recorded. Green static validation is evidence only."
+    "status": "ACCEPTED FOR IMPLEMENTATION",
+    "decision": "Accepted for implementation under Founder-delegated technical authority on 2026-07-31. Green static validation remains evidence only."
   },
   "acceptance": {
-    "status": "NOT ACCEPTED",
+    "status": "ACCEPTED FOR IMPLEMENTATION",
     "implementation": "NOT IMPLEMENTED",
+    "decided_on": "2026-07-31",
+    "decided_by": "Codex Governor under Founder-delegated technical authority",
+    "decision_record": "docs/releases/GATE-W2-F-LIFECYCLE-DELEGATION-ACCEPTANCE-2026-07-31.md",
     "non_claims": [
-      "No product runtime, route, socket, mTLS deployment or token mint/verifier wiring exists because of this proposal.",
+      "Acceptance proves no product runtime, route, socket, mTLS deployment or token mint/verifier wiring.",
       "No checkpoint write or bundle-read delegation is authorized.",
-      "No CI, canonical merge, release, stable v1/GA or production action is implied."
+      "No release, stable v1/GA or production action is authorized."
     ]
   }
 }

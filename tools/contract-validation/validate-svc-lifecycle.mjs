@@ -1,8 +1,9 @@
-// Static validator for the PROPOSED lifecycle-delegation binding packet.
+// Static validator for the ACCEPTED-FOR-IMPLEMENTATION lifecycle-delegation
+// binding packet.
 //
 // This packet restricts the already-accepted W2-F validation view to the
 // accepted investigation-lifecycle operations. It creates no schema, endpoint,
-// runtime, deployment, acceptance, or release authority.
+// runtime, deployment, stable-version, or release authority.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -62,6 +63,8 @@ const ACCEPTED_LIFECYCLE_MANIFEST =
   'contracts/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json';
 const ACCEPTED_LIFECYCLE_OPENAPI =
   'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
+const DECISION_RECORD =
+  'docs/releases/GATE-W2-F-LIFECYCLE-DELEGATION-ACCEPTANCE-2026-07-31.md';
 const FIXTURE_ROOT = 'contracts/examples/svc-lifecycle/';
 const NOW = 1900000000;
 const AUDIENCE = 'svc:cyber-ai-lifecycle';
@@ -275,7 +278,7 @@ export async function validateSvcLifecycleBinding({
     }
   }
   if (errors.some((error) => error.startsWith('missing required'))) {
-    return { status: 'PROPOSED', notAccepted: true, counts, errors };
+    return { status: 'UNKNOWN', notAccepted: undefined, counts, errors };
   }
 
   const manifest = parseJson(root, MANIFEST, overrides, errors);
@@ -340,10 +343,12 @@ export async function validateSvcLifecycleBinding({
     );
   }
 
-  if (manifest?.['x-cybrik-status'] !== 'PROPOSED'
-    || manifest?.['x-cybrik-not-accepted'] !== true
+  if (manifest?.['x-cybrik-status'] !== 'ACCEPTED FOR IMPLEMENTATION'
+    || manifest?.['x-cybrik-not-accepted'] !== false
     || manifest?.['x-cybrik-implemented'] !== false) {
-    errors.push('compatibility manifest must remain PROPOSED / NOT ACCEPTED / NOT IMPLEMENTED');
+    errors.push(
+      'compatibility manifest must remain ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED',
+    );
   }
   if (manifest?.['x-cybrik-packet-version'] !== '0.1.0'
     || manifest?.['x-cybrik-is-bundle-tag'] !== false) {
@@ -401,7 +406,7 @@ export async function validateSvcLifecycleBinding({
     errors.push('readInvestigationBundle must not mint or consume a delegation token');
   }
   if (bundleDelegation?.reason
-      !== 'PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY'
+      !== 'ACCEPTED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY'
     || bundleDelegation?.future_binding_gate
       !== 'SEPARATELY_ACCEPTED_IMPLEMENTATION_AND_CONTRACT_GATE_REQUIRED') {
     errors.push(
@@ -409,9 +414,24 @@ export async function validateSvcLifecycleBinding({
         + 'and contract gate',
     );
   }
+  const acceptance = manifest?.acceptance;
+  const expectedNonClaims = [
+    'Acceptance proves no product runtime, route, socket, mTLS deployment or token mint/verifier wiring.',
+    'No checkpoint write or bundle-read delegation is authorized.',
+    'No release, stable v1/GA or production action is authorized.',
+  ];
+  if (manifest?.gate?.status !== 'ACCEPTED FOR IMPLEMENTATION'
+    || acceptance?.status !== 'ACCEPTED FOR IMPLEMENTATION'
+    || acceptance?.implementation !== 'NOT IMPLEMENTED'
+    || acceptance?.decided_on !== '2026-07-31'
+    || !/Founder-delegated technical authority/.test(acceptance?.decided_by || '')
+    || acceptance?.decision_record
+      !== DECISION_RECORD
+    || !stableEqual(acceptance?.non_claims, expectedNonClaims)) {
+    errors.push('accepted lifecycle-delegation metadata must remain complete and exact');
+  }
   for (const phrase of [
-    'PROPOSED',
-    'NOT ACCEPTED',
+    'ACCEPTED FOR IMPLEMENTATION',
     'NOT IMPLEMENTED',
     'investigation.checkpoint',
     'investigation.bundle_read',
@@ -427,6 +447,7 @@ export async function validateSvcLifecycleBinding({
 
   let contractsReadme = '';
   let compatibilityReadme = '';
+  let decisionRecord = '';
   try {
     contractsReadme = readSource(root, 'contracts/README.md', overrides);
     compatibilityReadme = readSource(
@@ -434,8 +455,29 @@ export async function validateSvcLifecycleBinding({
       'contracts/compatibility/README.md',
       overrides,
     );
+    decisionRecord = readSource(root, DECISION_RECORD, overrides);
   } catch (error) {
-    errors.push(`proposal README cannot be read: ${error.message}`);
+    errors.push(`accepted lifecycle-delegation record cannot be read: ${error.message}`);
+  }
+  for (const [path, prose] of [
+    ['contracts/README.md', contractsReadme],
+    ['contracts/compatibility/README.md', compatibilityReadme],
+  ]) {
+    if (!prose.includes('ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED')
+      || !prose.includes('W2-F-LIFECYCLE-BINDING, 2026-07-31')) {
+      errors.push(`${path}: accepted lifecycle-delegation status and gate must remain explicit`);
+    }
+  }
+  for (const phrase of [
+    'ACCEPTED FOR IMPLEMENTATION',
+    'Founder-delegated technical authority',
+    '`investigation.checkpoint` remains',
+    '`investigation.bundle_read` receives no delegation authority',
+    'proves no local stack, UAT',
+  ]) {
+    if (!decisionRecord.includes(phrase)) {
+      errors.push(`decision record must state '${phrase}'`);
+    }
   }
   const proposalOwnedProse = [
     notes,
@@ -480,8 +522,8 @@ export async function validateSvcLifecycleBinding({
     }
   }
 
-  if (examples?.['x-cybrik-status'] !== 'PROPOSED'
-    || examples?.['x-cybrik-not-accepted'] !== true
+  if (examples?.['x-cybrik-status'] !== 'ACCEPTED FOR IMPLEMENTATION'
+    || examples?.['x-cybrik-not-accepted'] !== false
     || examples?.test_reference_clock_epoch_seconds !== NOW) {
     errors.push('examples manifest lifecycle or reference clock is invalid');
   }
@@ -574,7 +616,7 @@ export async function validateSvcLifecycleBinding({
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const report = await validateSvcLifecycleBinding();
-  console.log('=== PROPOSED lifecycle-delegation binding — static validation ===');
+  console.log('=== ACCEPTED lifecycle-delegation binding — static validation ===');
   console.log('counts:', JSON.stringify(report.counts));
   if (report.errors.length) {
     console.error(`FAIL — ${report.errors.length} error(s):`);
@@ -582,7 +624,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(1);
   }
   console.log(
-    'OK — proposal fixtures and bindings are internally consistent. '
-      + 'This is not acceptance, runtime, deployment, or release proof.',
+    'OK — accepted-for-implementation fixtures and bindings are internally consistent. '
+      + 'This is not runtime, deployment, stable-version, or release proof.',
   );
 }

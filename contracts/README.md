@@ -41,16 +41,17 @@ inference-operation mapping notes under `adapters/`, its own compatibility manif
 keeps the external-authority (A05) boundary distinct (ADR-0007 OD-3). See
 `compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json`.
 
-The **investigation-lifecycle service-delegation binding** is an additive restriction proposal,
-status **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA). It reuses the
+The **investigation-lifecycle service-delegation binding** is an additive restriction profile,
+status **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** (v0.1.0; not stable v1/GA; Gate
+W2-F-LIFECYCLE-BINDING, 2026-07-31). It reuses the
 accepted W2-F schemas unchanged and fixes the relying-party audience to
 `svc:cyber-ai-lifecycle`. Only `investigation.create`, `investigation.status`, and
 `investigation.cancel` are externally delegatable, with one exact scope each. The
 `listInvestigationCheckpoints` REST read maps to `investigation.status`/read;
 `investigation.checkpoint` remains an internal producer write. `readInvestigationBundle` /
 `investigation.bundle_read` is already an accepted business lifecycle operation with the accepted
-v0.1.1 response contract; this proposed binding grants it no delegation authority, so no caller
-may mint and no relying party may consume a bundle-read delegation token under this proposal. Any
+v0.1.1 response contract; this accepted binding grants it no delegation authority, so no caller
+may mint and no relying party may consume a bundle-read delegation token under this profile. Any
 future binding requires a separately accepted implementation and contract gate. See
 `compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json`.
 

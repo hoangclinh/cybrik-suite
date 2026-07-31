@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -14,6 +15,11 @@ const mutateJson = (path, mutate) => {
   const value = JSON.parse(read(path));
   mutate(value);
   return new Map([[path, `${JSON.stringify(value, null, 2)}\n`]]);
+};
+const mutatedJsonEntry = (path, mutate) => {
+  const value = JSON.parse(read(path));
+  mutate(value);
+  return [path, `${JSON.stringify(value, null, 2)}\n`];
 };
 
 test('the exact lifecycle-delegation binding is accepted for implementation only', async () => {
@@ -190,7 +196,7 @@ test('bundle-read nondelegation is a Suite contract rule with no cross-repo runt
   const disposition = manifest.delegation_disposition.readInvestigationBundle;
   assert.equal(
     disposition.reason,
-    'PROPOSED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY',
+    'ACCEPTED_BINDING_GRANTS_NO_BUNDLE_READ_DELEGATION_AUTHORITY',
   );
   assert.equal(disposition.delegated, false);
   assert.equal(disposition.mint_token, false);
@@ -292,4 +298,189 @@ test('both previously reviewed bundle-read runtime overclaims remain rejected', 
       overclaim,
     );
   }
+});
+
+test('a missing packet root fails closed before dependency or fixture validation', async () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'cybrik-svc-lifecycle-missing-'));
+  try {
+    const report = await validateSvcLifecycleBinding({ root });
+    assert.equal(report.status, 'UNKNOWN');
+    assert.equal(report.notAccepted, undefined);
+    assert.equal(report.counts.packetFiles, 0);
+    assert.equal(report.errors.length, expectedPacketPaths.length);
+    assert.ok(report.errors.every((error) => error.startsWith(
+      'missing required lifecycle-delegation packet file:',
+    )));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('accepted lifecycle source status, version, and OpenAPI response drift fail closed', async () => {
+  const lifecyclePath =
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json';
+  const openApiPath =
+    'contracts/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: new Map([
+      mutatedJsonEntry(lifecyclePath, (manifest) => {
+        manifest['x-cybrik-status'] = 'PROPOSED';
+        manifest.supersession_mapping.accepted_successor.contract_version = '0.1.0';
+      }),
+      [openApiPath, read(openApiPath).replace(
+        /^\s{6}operationId:\s*readInvestigationBundle\s*$/m,
+        '      operationId: removedBundleRead',
+      )],
+    ]),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'accepted lifecycle source must remain ACCEPTED FOR IMPLEMENTATION',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'accepted readInvestigationBundle must retain its declared 200 response',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'accepted lifecycle source must retain v0.1.1',
+  )));
+});
+
+test('packet identity, acceptance metadata, and nondelegation inventory drift fail closed', async () => {
+  const path =
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: mutateJson(path, (manifest) => {
+      manifest['x-cybrik-packet-version'] = '1.0.0';
+      manifest['x-cybrik-is-bundle-tag'] = true;
+      manifest.non_delegatable_operations = ['investigation.checkpoint'];
+      manifest.accepted_source_cross_check.response_profile = 'drifted';
+      manifest.acceptance.decided_on = '2099-01-01';
+    }),
+  });
+  for (const expected of [
+    'must remain v0.1.0 and not a bundle tag',
+    'non-delegatable operation inventory must remain exact',
+    'accepted-source cross-check must distinguish',
+    'accepted lifecycle-delegation metadata must remain complete and exact',
+  ]) {
+    assert.ok(report.errors.some((error) => error.includes(expected)), expected);
+  }
+});
+
+test('mapping notes and accepted README lifecycle language are mandatory', async () => {
+  const notesPath =
+    'contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: new Map([
+      [notesPath, read(notesPath).replace('ACCEPTED FOR IMPLEMENTATION', 'status omitted')],
+      ['contracts/README.md', read('contracts/README.md').replace(
+        'W2-F-LIFECYCLE-BINDING, 2026-07-31',
+        'lifecycle gate omitted',
+      )],
+      [
+        'docs/releases/GATE-W2-F-LIFECYCLE-DELEGATION-ACCEPTANCE-2026-07-31.md',
+        '# decision record omitted\n',
+      ],
+    ]),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    "mapping notes must state 'ACCEPTED FOR IMPLEMENTATION'",
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'manifest member sha256 mismatch for adapters/',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'contracts/README.md: accepted lifecycle-delegation status and gate must remain explicit',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    "decision record must state 'Founder-delegated technical authority'",
+  )));
+});
+
+test('member inventory, member digest, and accepted-source ownership drift fail closed', async () => {
+  const path =
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: mutateJson(path, (manifest) => {
+      manifest.members.pop();
+      manifest.members[0].sha256 = '0'.repeat(64);
+      manifest.members.push({
+        file: manifest.reuses_accepted_unmodified[0],
+        kind: 'invalid-overlap',
+        contract_version: '0.1.0',
+        sha256: '0'.repeat(64),
+      });
+      manifest.members.push({ ...manifest.members[0] });
+    }),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'manifest member inventory must contain each non-manifest packet file exactly once',
+  )));
+  assert.ok(report.errors.some((error) => error.includes('manifest member inventory missing')));
+  assert.ok(report.errors.some((error) => error.includes('manifest member sha256 mismatch')));
+  assert.ok(report.errors.some((error) => error.includes(
+    'reused accepted member must not also be owned by proposal',
+  )));
+});
+
+test('examples inventory and trust metadata drift fail closed without hiding fixture checks', async () => {
+  const examplesPath = 'contracts/examples/svc-lifecycle/examples-manifest.json';
+  const trustPath =
+    'contracts/examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: new Map([
+      mutatedJsonEntry(examplesPath, (manifest) => {
+        manifest.test_reference_clock_epoch_seconds = 0;
+        manifest.examples = manifest.examples.filter(
+          (row) => row.file !== 'positive/svc-lifecycle-cancel-request.json',
+        );
+      }),
+      mutatedJsonEntry(trustPath, (trust) => {
+        trust.self_audience = 'svc:wrong';
+        trust.max_token_ttl_seconds = 121;
+        trust.require_cnf = false;
+      }),
+    ]),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'examples manifest lifecycle or reference clock is invalid',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'examples manifest fixture count mismatch',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'examples manifest missing fixture positive/svc-lifecycle-cancel-request.json',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'positive trust metadata must pin lifecycle audience, cnf, mTLS and 120s TTL',
+  )));
+});
+
+test('positive request rejects untrusted issuer, trust domain, time, and malformed token shape', async () => {
+  const path =
+    'contracts/examples/svc-lifecycle/positive/svc-lifecycle-create-request.json';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: mutateJson(path, (request) => {
+      request.relying_party.trust_domain = 'wrong.example';
+      request.presented_token.claims.iss = 'https://untrusted.example';
+      request.presented_token.claims.exp = 1900000201;
+      request.presented_token.header.typ = 'JWT';
+      request.presented_token.header.alg = 'HS256';
+      delete request.presented_token.header.kid;
+      request.presented_token.claims.jti = 'short';
+    }),
+  });
+  const joined = report.errors.join('\n');
+  assert.match(joined, /positive fixture violations:.*TRUST_DOMAIN/);
+  assert.match(joined, /positive fixture violations:.*PINNED_TRUST/);
+  assert.match(joined, /positive fixture violations:.*TIME/);
+  assert.match(joined, /token typ must be at\+jwt/);
+  assert.match(joined, /token alg must be asymmetric/);
+  assert.match(joined, /token kid required/);
+  assert.match(joined, /token jti too short/);
 });

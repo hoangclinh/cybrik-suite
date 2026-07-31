@@ -1,9 +1,9 @@
 {
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-implemented": false,
   "x-cybrik-contract-version": "0.1.0",
-  "description": "Static conformance fixtures for the PROPOSED lifecycle restriction over accepted W2-F. Positive requests must satisfy the lifecycle audience, mTLS/cnf, <=120s, tenant/org/actor, operation, exact-scope, marking and replay rules. Negative-semantic fixtures remain structurally valid W2-F validation views but must be rejected by the named runtime invariant. Green tests do not imply acceptance or implementation.",
+  "description": "Static conformance fixtures for the ACCEPTED FOR IMPLEMENTATION lifecycle restriction over accepted W2-F. Positive requests must satisfy the lifecycle audience, mTLS/cnf, <=120s, tenant/org/actor, operation, exact-scope, marking and replay rules. Negative-semantic fixtures remain structurally valid W2-F validation views but must be rejected by the named runtime invariant. Green tests do not imply implementation, deployment, stable v1/GA or release readiness.",
   "test_reference_clock_epoch_seconds": 1900000000,
   "examples": [
     {
@@ -75,7 +75,7 @@
     {
       "file": "negative-semantic/svc-lifecycle-request.bundle-read-not-delegatable.json",
       "kind": "negative-semantic",
-      "invariant": "LSD-11 readInvestigationBundle is an accepted business lifecycle operation with an accepted v0.1.1 response contract, but this proposed W2-F binding grants no bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token; any future binding requires a separately accepted implementation and contract gate"
+      "invariant": "LSD-11 readInvestigationBundle is an accepted business lifecycle operation with an accepted v0.1.1 response contract, but this accepted W2-F binding grants no bundle-read delegation authority: no caller may mint and no relying party may consume a bundle-read delegation token; any future binding requires a separately accepted implementation and contract gate"
     }
   ]
 }
