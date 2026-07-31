@@ -877,7 +877,6 @@ const validateLineagePolicy = ({
   overrides,
   policy,
   records,
-  enforceCommittedLegacySeal,
 }) => {
   const findings = [];
   const addFinding = (path, message) => {
@@ -931,8 +930,7 @@ const validateLineagePolicy = ({
     return findings;
   }
   if (
-    enforceCommittedLegacySeal
-    && JSON.stringify(policy.legacy_candidates) !== JSON.stringify(SEALED_LEGACY_CANDIDATES)
+    JSON.stringify(policy.legacy_candidates) !== JSON.stringify(SEALED_LEGACY_CANDIDATES)
   ) {
     addFinding(
       LINEAGE_POLICY_PATH,
@@ -1469,7 +1467,6 @@ const validateCandidateRegistry = (records) => {
 export async function validateRuntimeAdmission({
   root = DEFAULT_ROOT,
   overrides = new Map(),
-  enforceCommittedLegacySeal = resolve(root) === DEFAULT_ROOT,
 } = {}) {
   const errors = [];
   if (!existsSync(join(root, README_PATH))) {
@@ -1539,7 +1536,6 @@ export async function validateRuntimeAdmission({
       overrides,
       policy: lineagePolicy,
       records: registryRecords,
-      enforceCommittedLegacySeal,
     }));
   }
   for (const finding of registryFindings) {

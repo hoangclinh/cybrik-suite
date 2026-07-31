@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -22,12 +22,15 @@ const read = (path) => readFileSync(resolve(ROOT, path), 'utf8');
 const stableWriteJson = (path, value) =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const committedLineagePolicy = () => JSON.parse(read(LINEAGE_POLICY_PATH));
 
 const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
 const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
 const SOC_SHA = '1111111111111111111111111111111111111111';
 const CYBER_SHA = '2222222222222222222222222222222222222222';
 const FABRIC_SHA = '3333333333333333333333333333333333333333';
+const TEST_SERIES = 'aaa-test-runtime-admission';
+const RECOVERY_SERIES = 'aaa-test-runtime-recovery';
 
 const candidateId = (seriesId, ordinal) => `${seriesId}-r${ordinal}`;
 const candidateDir = (seriesId, ordinal) => `docs/uat/candidates/${candidateId(seriesId, ordinal)}`;
@@ -116,7 +119,7 @@ const templateRecord = () => ({
 });
 
 const baseCandidate = ({
-  seriesId = 'runtime-admission-ai-pg',
+  seriesId = TEST_SERIES,
   ordinal = 1,
   maxAttempts = 2,
   currentStatus = 'not_run',
@@ -255,7 +258,7 @@ const recoverySeries = ({
   disposition = executionAuthorized ? 'RUNTIME_AUTHORIZED' : 'HOLD',
   correctionContent = 'reviewed command correction\n',
 } = {}) => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = RECOVERY_SERIES;
   const r1Content = 'attempt 1\n';
   const r2Content = 'attempt 2\n';
   const r1Path = currentAttemptArtifact(seriesId, 1);
@@ -391,6 +394,12 @@ const withTempRepo = async ({
   try {
     mkdirSync(join(tempRoot, 'docs/uat/candidates'), { recursive: true });
     mkdirSync(join(tempRoot, 'docs/uat/templates'), { recursive: true });
+    for (const entry of committedLineagePolicy().legacy_candidates) {
+      const sourceDir = resolve(ROOT, dirname(entry.record_path));
+      cpSync(sourceDir, join(tempRoot, dirname(entry.record_path)), {
+        recursive: true,
+      });
+    }
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
     stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
@@ -398,7 +407,11 @@ const withTempRepo = async ({
       join(tempRoot, LINEAGE_POLICY_PATH),
       lineagePolicy ?? lineagePolicyForCurrentCandidates(candidates),
     );
+    const sealedCandidateIds = new Set(
+      committedLineagePolicy().legacy_candidates.map((entry) => entry.candidate_id),
+    );
     for (const candidate of candidates) {
+      if (sealedCandidateIds.has(candidate.candidate_id)) continue;
       const dir = join(tempRoot, candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
       const evDir = join(tempRoot, evidenceDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal));
       mkdirSync(dir, { recursive: true });
@@ -425,35 +438,25 @@ const withTempRepo = async ({
 };
 
 const terminalRecoverySeries = () => {
-  const series = recoverySeries();
-  delete series.r1.attempt_accounting.objective_lineage;
-  delete series.r2.attempt_accounting.objective_lineage;
-  delete series.r3.attempt_accounting.objective_lineage;
-  series.r3.attempt_accounting.current_attempt = {
-    status: 'failed',
-    execution_authorized: false,
-    executed_checks: 6,
-    passed_checks: 5,
-    failed_checks: 1,
-    evidence_path: currentAttemptArtifact(series.seriesId, 3),
-    evidence_sha256: sha256('attempt 3\n'),
+  const candidates = committedLineagePolicy().legacy_candidates.map(
+    (entry) => JSON.parse(read(entry.record_path)),
+  );
+  return {
+    seriesId: candidates[0].attempt_accounting.series_id,
+    r1: candidates[0],
+    r2: candidates[1],
+    r3: candidates[2],
+    extraWrites: [],
   };
-  series.r3.__testEvidenceContent = 'attempt 3\n';
-  series.r3.evidence.artifacts[0].sha256 = sha256('attempt 3\n');
-  series.r3.evidence.final_profile_verdict = 'NO-GO';
-  series.r3.disposition = {
-    profile: 'NO-GO',
-    rationale: 'Terminal recovery attempt remains NO-GO.',
-  };
-  return series;
 };
 
 const lineagePolicyFor = (candidates, {
   capabilityId = 'cybrik.ai.durable-postgres',
   objectiveId = 'bounded-postgres-runtime-v1',
-} = {}) => ({
-  schema_version: '1.0.0',
-  allowed_objectives: [
+} = {}) => {
+  const policy = committedLineagePolicy();
+  policy.allowed_objectives = [
+    ...policy.allowed_objectives,
     {
       capability_id: capabilityId,
       objective_id: objectiveId,
@@ -462,23 +465,18 @@ const lineagePolicyFor = (candidates, {
       capability_id: 'cybrik.suite.golden-workflow',
       objective_id: 'golden-uat-v1',
     },
-  ],
-  legacy_candidates: candidates.map((candidate) => ({
-    candidate_id: candidate.candidate_id,
-    series_id: candidate.attempt_accounting.series_id,
-    capability_id: capabilityId,
-    objective_id: objectiveId,
-    record_path: candidateRecordPath(
-      candidate.attempt_accounting.series_id,
-      candidate.attempt_accounting.attempt_ordinal,
-    ),
-    record_sha256: sha256(stableJson(candidate)),
-    recorded_disposition: candidate.disposition.profile,
-  })),
-});
+  ];
+  policy.allowed_objectives = [...new Map(policy.allowed_objectives.map(
+    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
+  )).values()];
+  return policy;
+};
 
 const lineagePolicyForCurrentCandidates = (candidates) => {
-  const allowedByKey = new Map();
+  const policy = committedLineagePolicy();
+  const allowedByKey = new Map(policy.allowed_objectives.map(
+    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
+  ));
   for (const candidate of candidates) {
     const lineage = candidate.attempt_accounting.objective_lineage;
     if (!lineage) continue;
@@ -488,17 +486,8 @@ const lineagePolicyForCurrentCandidates = (candidates) => {
       objective_id: lineage.objective_id,
     });
   }
-  if (allowedByKey.size === 0) {
-    allowedByKey.set('cybrik.test.runtime-admission\u0000empty-registry', {
-      capability_id: 'cybrik.test.runtime-admission',
-      objective_id: 'empty-registry',
-    });
-  }
-  return {
-    schema_version: '1.0.0',
-    allowed_objectives: [...allowedByKey.values()],
-    legacy_candidates: [],
-  };
+  policy.allowed_objectives = [...allowedByKey.values()];
+  return policy;
 };
 
 const historicalPrerequisite = (candidate) => ({
@@ -620,13 +609,13 @@ test('candidate discovery still validates only docs/uat/candidates/*/runtime-adm
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 1);
+    assert.equal(report.counts.candidateFiles, 4);
     assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
 });
 
 test('valid retired R1 NO-GO and authorized R2 patterns validate together', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-two-attempts';
   const r1AttemptContent = '{"attempt":1,"result":"failed"}\n';
   const r1AttemptPath = currentAttemptArtifact(seriesId, 1);
   const r1 = baseCandidate({
@@ -669,7 +658,7 @@ test('valid retired R1 NO-GO and authorized R2 patterns validate together', asyn
     writeFileSync(join(tempRoot, r1AttemptPath), r1AttemptContent, 'utf8');
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 2);
+    assert.equal(report.counts.candidateFiles, 5);
     const byId = new Map(report.candidates.map((candidateReport) => [candidateReport.candidateId, candidateReport]));
     assert.equal(byId.get(candidateId(seriesId, 1)).declaredDisposition, 'NO-GO');
     assert.equal(byId.get(candidateId(seriesId, 1)).derivedDisposition, 'NO-GO');
@@ -716,7 +705,10 @@ test('pending recovery review cannot authorize execution', async () => {
     assert.ok(report.errors.some((error) => error.includes(
       'recovery execution requires independently_reviewed_go',
     )));
-    assert.equal(report.candidates.at(-1).derivedDisposition, 'HOLD');
+    const r3Report = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === r3.candidate_id,
+    );
+    assert.equal(r3Report.derivedDisposition, 'HOLD');
   });
 });
 
@@ -959,7 +951,7 @@ test('an ordinal beyond max_attempts remains rejected without a recovery overrid
 });
 
 test('a recovery override cannot move from max_attempts plus one to a later ordinal', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-history-ordinals';
   const correctionContent = 'invalid late recovery correction\n';
   const correctionPath = `${evidenceDir(seriesId, 4)}/01-command-correction.md`;
   const r4 = baseCandidate({
@@ -1045,7 +1037,7 @@ test('attempt ordinal must not exceed max and failure history length must equal 
 });
 
 test('failure history ordinals must be unique contiguous and match exact prior candidate ids', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-history-ordinals';
   const candidate = baseCandidate({
     seriesId,
     ordinal: 3,
@@ -1164,7 +1156,8 @@ test('failed current attempts truthfully derive NO-GO without structural validat
 
 test('current attempt evidence must stay inside the current evidence directory', async () => {
   const candidate = baseCandidate();
-  candidate.attempt_accounting.current_attempt.evidence_path = `${candidateDir('runtime-admission-ai-pg', 1)}/runtime-admission.json`;
+  candidate.attempt_accounting.current_attempt.evidence_path =
+    `${candidateDir(candidate.attempt_accounting.series_id, 1)}/runtime-admission.json`;
   await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('evidence artifacts must stay inside candidate.evidence.directory')));
@@ -1173,7 +1166,7 @@ test('current attempt evidence must stay inside the current evidence directory',
 });
 
 test('failure history evidence may point to prior candidate evidence but must resolve and match SHA-256', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-prior-evidence';
   const priorPath = currentAttemptArtifact(seriesId, 1);
   const priorContent = 'retired prior attempt\n';
   const r2 = baseCandidate({
@@ -1537,7 +1530,7 @@ test('mislocated runtime-admission records fail closed while unrelated candidate
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('mislocated runtime-admission.json')));
-    assert.equal(report.counts.candidateFiles, 1);
+    assert.equal(report.counts.candidateFiles, 4);
   });
 });
 
@@ -1740,7 +1733,7 @@ test('candidate evidence must exist, remain regular and contained, and match its
 
   const outsideArtifact = baseCandidate();
   outsideArtifact.evidence.artifacts[0].path =
-    `${candidateDir('runtime-admission-ai-pg', 1)}/runtime-admission.json`;
+    `${candidateDir(outsideArtifact.attempt_accounting.series_id, 1)}/runtime-admission.json`;
   await withTempRepo({ candidates: [outsideArtifact] }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(
@@ -1761,7 +1754,7 @@ test('candidate evidence must exist, remain regular and contained, and match its
     symlinkSync(
       join(
         tempRoot,
-        candidateDir('runtime-admission-ai-pg', 1),
+        candidateDir(symlinkArtifact.attempt_accounting.series_id, 1),
         'runtime-admission.json',
       ),
       artifactPath,
@@ -1862,7 +1855,7 @@ test('candidate directory identity and series identity cannot reopen a prior NO-
 });
 
 test('failure history must match the exact prior candidate and preserve the original series budget', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-missing-prior';
   const priorPath = currentAttemptArtifact(seriesId, 1);
   const r1 = baseCandidate({
     seriesId,
@@ -1908,7 +1901,7 @@ test('failure history must match the exact prior candidate and preserve the orig
 });
 
 test('failure history cannot cite evidence without the referenced prior candidate record', async () => {
-  const seriesId = 'runtime-admission-ai-pg';
+  const seriesId = 'aaa-test-missing-prior';
   const priorPath = currentAttemptArtifact(seriesId, 1);
   const r2 = baseCandidate({
     seriesId,
@@ -1950,11 +1943,11 @@ test('failure history cannot cite evidence without the referenced prior candidat
 
 test('the registry cannot hold two independently authorized runtime candidates', async () => {
   const first = baseCandidate({
-    seriesId: 'runtime-admission-ai-pg',
+    seriesId: 'aaa-test-authorized-a',
     ordinal: 1,
   });
   const second = baseCandidate({
-    seriesId: 'runtime-admission-ai-pg-b',
+    seriesId: 'aaa-test-authorized-b',
     ordinal: 1,
   });
 
@@ -2414,7 +2407,10 @@ test('evidence cannot escape through a symlinked parent directory', async () => 
       assert.ok(report.errors.some((error) =>
         error.includes('evidence artifact paths must not resolve outside the repository root')
         || error.includes('evidence artifacts must resolve inside candidate.evidence.directory')));
-      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+      const candidateReport = report.candidates.find(
+        (item) => item.candidateId === candidate.candidate_id,
+      );
+      assert.equal(candidateReport.derivedDisposition, 'HOLD');
     });
   } finally {
     rmSync(outsideDir, { recursive: true, force: true });
