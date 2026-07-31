@@ -62,6 +62,30 @@ const DECISION_PATH =
   'docs/adr/DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md';
 const VALIDATOR_PATH = 'tools/contract-validation/validate-transport-peer.mjs';
 const ORCHESTRATOR_PATH = 'tools/contract-validation/validate.mjs';
+const LIFECYCLE_INDEX_PATHS = [
+  'contracts/README.md',
+  'contracts/json-schema/README.md',
+  'contracts/examples/README.md',
+  'docs/architecture/README.md',
+  'contracts/compatibility/README.md',
+];
+const LIFECYCLE_PATHS = [
+  ...new Set([
+    ...PACKET_DOC_PATHS,
+    ...expectedPacketPaths,
+    ...LIFECYCLE_INDEX_PATHS,
+  ]),
+].filter((path) => path.endsWith('.md') || path.endsWith('.json'));
+
+const lifecycleMismatches = (overrides = new Map()) => {
+  const readLifecycleText = (relativePath) =>
+    overrides.get(relativePath) ?? read(relativePath);
+  const manifest = JSON.parse(readLifecycleText(COMPATIBILITY_MANIFEST_PATH));
+  const expectedStatus = manifest['x-cybrik-status'];
+  return LIFECYCLE_PATHS.filter(
+    (relativePath) => !readLifecycleText(relativePath).includes(expectedStatus),
+  );
+};
 
 const collectKeys = (value, output = []) => {
   if (Array.isArray(value)) {
@@ -143,15 +167,21 @@ test('the W2-K peer-evidence packet is coherent but remains PROPOSED and unaccep
 
 // --- 2. status honesty -------------------------------------------------------
 
-test('every new artifact declares PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED', () => {
-  const texts = [...PACKET_DOC_PATHS, ...expectedPacketPaths]
-    .filter((path) => path.endsWith('.md') || path.endsWith('.json'))
-    .map((path) => [path, read(path)]);
+test('every lifecycle surface agrees with the compatibility-manifest source of truth', () => {
+  assert.deepEqual(lifecycleMismatches(), []);
+});
 
-  for (const [path, text] of texts) {
-    for (const required of ['PROPOSED', 'NOT ACCEPTED', 'NOT IMPLEMENTED']) {
-      assert.ok(text.includes(required), `${path}: missing ${required}`);
-    }
+test('a manifest-only lifecycle flip fails closed across packet and index surfaces', () => {
+  const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+  manifest['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+  const mismatches = lifecycleMismatches(
+    new Map([
+      [COMPATIBILITY_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`],
+    ]),
+  );
+  assert.ok(mismatches.length > 0, 'a half-flip must never pass lifecycle agreement');
+  for (const relativePath of LIFECYCLE_INDEX_PATHS) {
+    assert.ok(mismatches.includes(relativePath), `${relativePath}: half-flip must be detected`);
   }
 });
 
@@ -1038,14 +1068,11 @@ test('the package registers focused W2-K commands without changing canonical ent
   );
 });
 
-test('orchestrator and ADR-catalog registration are deferred, and the deferral is recorded', () => {
+test('orchestrator and ADR-catalog registration are complete, and completion is truthfully recorded', () => {
   const orchestrator = read(ORCHESTRATOR_PATH);
 
-  // Deliberately absent: registering the step would force the header count to
-  // 23, which the pinned W2-H assertion `/These 21 validators/` rejects, while
-  // leaving it at 21 would break the W2-I step-count honesty assertion. Both
-  // pins live in test files outside this gate's write scope.
-  assert.doesNotMatch(orchestrator, /validate-transport-peer/);
+  assert.match(orchestrator, /'validate-transport-peer\.mjs'/);
+  assert.match(orchestrator, /'tests\/validate-transport-peer\.test\.mjs'/);
 
   const stepBlock = orchestrator.match(/const steps = \[([\s\S]*?)\];/);
   assert.ok(stepBlock);
@@ -1058,20 +1085,56 @@ test('orchestrator and ADR-catalog registration are deferred, and the deferral i
     assert.equal(claim, actualSteps, 'the orchestrator step count must stay truthful');
   }
 
-  // The ADR catalog row is deferred for the same reason: docs/adr/README.md is
-  // byte-pinned by the W2-I P2-3 additive-byte assertion.
-  assert.doesNotMatch(read('docs/adr/README.md'), /ADR-0013/);
+  const bannerMatch = orchestrator.match(/console\.log\((['"`])(ALL GREEN[\s\S]*?)\1\)/);
+  assert.ok(bannerMatch, 'the orchestrator must emit an ALL GREEN success banner to disclose against');
+  assert.match(
+    bannerMatch[2],
+    /W2-K PROPOSED \/ NOT ACCEPTED/,
+    'the ALL GREEN banner must disclose the W2-K PROPOSED / NOT ACCEPTED step',
+  );
+  assert.match(bannerMatch[2], /validate-transport-peer/);
+
+  // The ADR catalog row is now registered: docs/adr/README.md carries the
+  // additive W2-K paragraph and ADR-0013 row under the W2-I P2-3 additive-byte
+  // pin, which now also names the exact W2-K additions.
+  const adrReadme = read('docs/adr/README.md');
+  assert.match(adrReadme, /ADR-0013/);
+  assert.match(
+    adrReadme,
+    /\[ADR-0013\]\(ADR-0013-transport-peer-evidence-adapter-profile\.md\)/,
+  );
+  assert.match(
+    adrReadme,
+    /Gate W2-K authorizes bounded proposal writing and static conformance only/,
+  );
 
   for (const relativePath of [DECISION_PATH, 'tools/contract-validation/README.md']) {
     const text = read(relativePath);
-    assert.match(text, /These 21 validators/, `${relativePath}: name the W2-H pin`);
-    assert.match(text, /P2-3/, `${relativePath}: name the W2-I byte pin`);
     assert.match(
       text,
-      /deferred/i,
-      `${relativePath}: the deferral must be stated, not silent`,
+      new RegExp(`These ${actualSteps} validators`, 'i'),
+      `${relativePath}: name the current truthful step count`,
+    );
+    assert.match(text, /P2-3/, `${relativePath}: name the W2-I byte pin that now also carries the W2-K additions`);
+    assert.match(
+      text,
+      /registration is complete/i,
+      `${relativePath}: registration completion must be stated, not silent`,
     );
   }
+});
+
+test('the ADR-0013 catalog row and ADR file agree with the manifest lifecycle', () => {
+  const status = readJson(COMPATIBILITY_MANIFEST_PATH)['x-cybrik-status'];
+  const adr = read(ADR_PATH);
+  const row = read('docs/adr/README.md')
+    .split('\n')
+    .find((line) =>
+      line.includes('[ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md)'),
+    );
+  assert.ok(row, 'the authoritative ADR catalog must register ADR-0013');
+  assert.ok(adr.includes(status), `${ADR_PATH}: lifecycle must match the packet manifest`);
+  assert.ok(row.includes(status), 'the ADR-0013 catalog row must match the packet manifest');
 });
 
 // --- 15. gate identity, ADR number and decision record -----------------------
