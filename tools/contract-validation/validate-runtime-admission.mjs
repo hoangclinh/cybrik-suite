@@ -10,6 +10,7 @@ const DEFAULT_ROOT = resolve(HERE, '../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
+const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
 const CANDIDATE_ROOT = 'docs/uat/candidates';
 const FORBIDDEN_PROFILES = new Set([
   'DEMO_READY_LOCAL',
@@ -159,8 +160,11 @@ const validateRecordShape = (path, value) => {
   if (Object.hasOwn(value.attempt_accounting, 'recovery_override')) {
     attemptAccountingFields.push('recovery_override');
   }
+  if (Object.hasOwn(value.attempt_accounting, 'objective_lineage')) {
+    attemptAccountingFields.push('objective_lineage');
+  }
   if (!hasExactKeys(value.attempt_accounting, attemptAccountingFields)) {
-    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history, plus only an optional recovery_override`);
+    errors.push(`${path}: attempt_accounting must contain series_id, attempt_ordinal, max_attempts, current_attempt and failure_history, plus only optional recovery_override and objective_lineage`);
   }
   if (!hasExactKeys(value.commit_tree, expectedRepositories)) {
     errors.push(`${path}: commit_tree must contain exactly four repositories`);
@@ -802,6 +806,257 @@ const validateTemplate = (template, path) => {
   return errors;
 };
 
+const validateLineagePolicy = ({
+  root,
+  overrides,
+  policy,
+  records,
+}) => {
+  const findings = [];
+  const addFinding = (path, message) => {
+    findings.push({ path, message: `${path}: ${message}` });
+  };
+  if (!hasExactKeys(policy, ['schema_version', 'legacy_candidates'])) {
+    addFinding(
+      LINEAGE_POLICY_PATH,
+      'must contain exactly schema_version and legacy_candidates',
+    );
+    return findings;
+  }
+  if (policy.schema_version !== '1.0.0') {
+    addFinding(LINEAGE_POLICY_PATH, 'schema_version must equal 1.0.0');
+  }
+  if (!Array.isArray(policy.legacy_candidates)) {
+    addFinding(LINEAGE_POLICY_PATH, 'legacy_candidates must be an array');
+    return findings;
+  }
+
+  const recordsById = new Map(
+    records.map((record) => [record.candidate.candidate_id, record]),
+  );
+  const legacyById = new Map();
+  const legacyByPath = new Map();
+  const entryFields = [
+    'candidate_id',
+    'series_id',
+    'capability_id',
+    'objective_id',
+    'record_path',
+    'record_sha256',
+    'recorded_disposition',
+  ];
+
+  for (const entry of policy.legacy_candidates) {
+    if (!hasExactKeys(entry, entryFields)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate entries must contain exactly ${entryFields.join(', ')}`,
+      );
+      continue;
+    }
+    if (
+      typeof entry.candidate_id !== 'string'
+      || entry.candidate_id.length === 0
+      || typeof entry.series_id !== 'string'
+      || entry.series_id.length === 0
+      || typeof entry.capability_id !== 'string'
+      || entry.capability_id.length === 0
+      || typeof entry.objective_id !== 'string'
+      || entry.objective_id.length === 0
+      || typeof entry.record_path !== 'string'
+      || entry.record_path.length === 0
+      || !sha256Pattern.test(entry.record_sha256)
+      || !allowedProfiles.has(entry.recorded_disposition)
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        'legacy candidate entries must use non-empty identifiers, a relative record path, a 64-hex digest and a known disposition',
+      );
+      continue;
+    }
+    if (legacyById.has(entry.candidate_id)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate_id ${entry.candidate_id} must be unique`,
+      );
+      continue;
+    }
+    if (legacyByPath.has(entry.record_path)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy record_path ${entry.record_path} must be unique`,
+      );
+      continue;
+    }
+    legacyById.set(entry.candidate_id, entry);
+    legacyByPath.set(entry.record_path, entry);
+
+    const record = recordsById.get(entry.candidate_id);
+    if (!record) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} must resolve to a schema-valid registry record`,
+      );
+      continue;
+    }
+    if (
+      record.path !== entry.record_path
+      || record.candidate.attempt_accounting.series_id !== entry.series_id
+      || record.candidate.disposition.profile !== entry.recorded_disposition
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} identity and disposition must match the pinned registry record`,
+      );
+    }
+    let recordBytes;
+    try {
+      recordBytes = readText(root, entry.record_path, overrides);
+    } catch (error) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} bytes are unreadable: ${error.message}`,
+      );
+      continue;
+    }
+    const actualRecordSha = createHash('sha256').update(recordBytes).digest('hex');
+    if (actualRecordSha !== entry.record_sha256) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_sha256 must match immutable record bytes`,
+      );
+    }
+  }
+
+  const terminalObjectives = new Map();
+  for (const entry of legacyById.values()) {
+    const record = recordsById.get(entry.candidate_id);
+    if (!record) continue;
+    const accounting = record.candidate.attempt_accounting;
+    const admittedCeiling = accounting.max_attempts
+      + (accounting.recovery_override?.additional_attempts === 1 ? 1 : 0);
+    if (
+      accounting.attempt_ordinal === admittedCeiling
+      && accounting.current_attempt.status === 'failed'
+      && record.candidate.disposition.profile === 'NO-GO'
+    ) {
+      const objectiveKey = `${entry.capability_id}\u0000${entry.objective_id}`;
+      terminalObjectives.set(objectiveKey, entry.series_id);
+    }
+  }
+
+  for (const record of records) {
+    const candidate = record.candidate;
+    if (legacyById.has(candidate.candidate_id)) continue;
+    const lineage = candidate.attempt_accounting.objective_lineage;
+    if (!lineage) {
+      addFinding(
+        record.path,
+        'new runtime-admission series must declare objective_lineage',
+      );
+      continue;
+    }
+
+    const objectiveKey = `${lineage.capability_id}\u0000${lineage.objective_id}`;
+    const terminalSeries = terminalObjectives.get(objectiveKey);
+    if (
+      terminalSeries
+      && terminalSeries !== candidate.attempt_accounting.series_id
+    ) {
+      addFinding(
+        record.path,
+        'objective_lineage cannot reopen a terminal capability/objective under a new series_id',
+      );
+    }
+
+    const seenPrerequisites = new Set();
+    for (const prerequisite of lineage.historical_prerequisites) {
+      if (prerequisite.evidence_use !== 'historical_prerequisite') {
+        addFinding(
+          record.path,
+          'historical prerequisite evidence must be non-authorizing',
+        );
+      }
+      if (seenPrerequisites.has(prerequisite.candidate_id)) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite candidate_id values must be unique',
+        );
+        continue;
+      }
+      seenPrerequisites.add(prerequisite.candidate_id);
+
+      const legacy = legacyById.get(prerequisite.candidate_id);
+      const priorRecord = recordsById.get(prerequisite.candidate_id);
+      if (!legacy || !priorRecord) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisites must resolve to an immutable legacy candidate',
+        );
+        continue;
+      }
+      if (
+        prerequisite.record_path !== legacy.record_path
+        || prerequisite.record_sha256 !== legacy.record_sha256
+      ) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite record path and digest must match the immutable lineage policy',
+        );
+      }
+      const priorCandidate = priorRecord.candidate;
+      if (
+        priorCandidate.disposition.profile !== 'NO-GO'
+        || priorCandidate.attempt_accounting.current_attempt.status !== 'failed'
+      ) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisites must reference a failed NO-GO legacy candidate',
+        );
+      }
+      const evidenceMatches = [
+        {
+          path: priorCandidate.attempt_accounting.current_attempt.evidence_path,
+          sha256: priorCandidate.attempt_accounting.current_attempt.evidence_sha256,
+        },
+        ...priorCandidate.evidence.artifacts,
+      ].some((artifact) =>
+        artifact.path === prerequisite.evidence_path
+        && artifact.sha256 === prerequisite.evidence_sha256);
+      if (!evidenceMatches) {
+        addFinding(
+          record.path,
+          'objective_lineage historical prerequisite evidence must match evidence recorded by the legacy candidate',
+        );
+      }
+      const artifactErrors = [];
+      validateRecordedArtifact({
+        root,
+        recordPath: `${record.path}: attempt_accounting.objective_lineage`,
+        evidenceDir: candidate.evidence.directory,
+        artifactPath: prerequisite.evidence_path,
+        artifactSha256: prerequisite.evidence_sha256,
+        errors: artifactErrors,
+        requireInsideEvidenceDir: false,
+      });
+      for (const message of artifactErrors) {
+        findings.push({ path: record.path, message });
+      }
+      if (
+        candidate.attempt_accounting.current_attempt.evidence_path
+          === prerequisite.evidence_path
+      ) {
+        addFinding(
+          record.path,
+          'current attempt evidence must be fresh and must not reuse historical prerequisite evidence',
+        );
+      }
+    }
+  }
+
+  return findings;
+};
+
 const validateCandidateRegistry = (records) => {
   const findings = [];
   const byCandidateId = new Map();
@@ -968,6 +1223,7 @@ export async function validateRuntimeAdmission({
   }
   const validator = compileSchema(root, overrides, errors);
   const template = parseJson(root, TEMPLATE_PATH, overrides, errors);
+  const lineagePolicy = parseJson(root, LINEAGE_POLICY_PATH, overrides, errors);
   if (validator && template) {
     validateAgainstSchema(validator, TEMPLATE_PATH, template, errors);
   }
@@ -1022,7 +1278,16 @@ export async function validateRuntimeAdmission({
     reportsByPath.set(path, candidateReport);
   }
 
-  for (const finding of validateCandidateRegistry(registryRecords)) {
+  const registryFindings = validateCandidateRegistry(registryRecords);
+  if (lineagePolicy) {
+    registryFindings.push(...validateLineagePolicy({
+      root,
+      overrides,
+      policy: lineagePolicy,
+      records: registryRecords,
+    }));
+  }
+  for (const finding of registryFindings) {
     errors.push(finding.message);
     const candidateReport = reportsByPath.get(finding.path);
     if (candidateReport) {

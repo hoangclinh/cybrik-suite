@@ -39,6 +39,7 @@
         "max_attempts": { "type": "integer", "minimum": 1 },
         "current_attempt": { "$ref": "#/$defs/attemptResult" },
         "recovery_override": { "$ref": "#/$defs/recoveryOverride" },
+        "objective_lineage": { "$ref": "#/$defs/objectiveLineage" },
         "failure_history": {
           "type": "array",
           "items": { "$ref": "#/$defs/failedAttemptRef" }
@@ -327,6 +328,58 @@
           }
         }
       ]
+    },
+    "objectiveLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "objective_id",
+        "historical_prerequisites"
+      ],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "objective_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "historical_prerequisites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/historicalPrerequisite" }
+        }
+      }
+    },
+    "historicalPrerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "record_path",
+        "record_sha256",
+        "evidence_path",
+        "evidence_sha256",
+        "evidence_use"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "record_path": { "type": "string", "minLength": 1 },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_use": {
+          "type": "string",
+          "enum": ["historical_prerequisite", "execution_authority"]
+        }
+      }
     },
     "hostedCheck": {
       "type": "object",

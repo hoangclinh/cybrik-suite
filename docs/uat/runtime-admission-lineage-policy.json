@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "legacy_candidates": [
+    {
+      "candidate_id": "runtime-admission-ai-pg-r1",
+      "series_id": "runtime-admission-ai-pg",
+      "capability_id": "cybrik.ai.durable-postgres",
+      "objective_id": "bounded-postgres-runtime-v1",
+      "record_path": "docs/uat/candidates/runtime-admission-ai-pg-r1/runtime-admission.json",
+      "record_sha256": "4838293a1eefda49f1bfbf27ee7cdc3f6b314576747002afcc3d7df9ad1c19cc",
+      "recorded_disposition": "NO-GO"
+    },
+    {
+      "candidate_id": "runtime-admission-ai-pg-r2",
+      "series_id": "runtime-admission-ai-pg",
+      "capability_id": "cybrik.ai.durable-postgres",
+      "objective_id": "bounded-postgres-runtime-v1",
+      "record_path": "docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json",
+      "record_sha256": "54d94d318e211502d66423c349c1d9b4e6461659baae2927d59f7f517a5bc48e",
+      "recorded_disposition": "NO-GO"
+    },
+    {
+      "candidate_id": "runtime-admission-ai-pg-r3",
+      "series_id": "runtime-admission-ai-pg",
+      "capability_id": "cybrik.ai.durable-postgres",
+      "objective_id": "bounded-postgres-runtime-v1",
+      "record_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json",
+      "record_sha256": "72ec88e98023c5992d5e42c710d0632680158d13ecc0a1065795a0a9db4263e3",
+      "recorded_disposition": "NO-GO"
+    }
+  ]
+}

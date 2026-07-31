@@ -15,6 +15,16 @@ Rules:
   must resolve to the exact prior failed `NO-GO` candidate and match its counts, evidence path and
   evidence SHA-256.
 - At most one registry candidate may derive `RUNTIME_AUTHORIZED`.
+- `docs/uat/runtime-admission-lineage-policy.json` is the immutable legacy bridge for the terminal
+  R1/R2/R3 records. It pins each record by path and SHA-256 without changing those records. The
+  legacy list is closed: future candidates must not be added to it.
+- Every candidate not pinned by that legacy bridge must declare
+  `attempt_accounting.objective_lineage` with stable `capability_id` and `objective_id`.
+  A terminal capability/objective cannot be reopened under another `series_id`.
+- Cross-series evidence may be referenced only as a digest-pinned
+  `historical_prerequisite`. It grants no execution authority, cannot be reused as the new
+  candidate's current-attempt evidence, and does not promote any runtime, UAT, POC, RC or release
+  verdict.
 - Process rule: a completed runtime attempt must be recorded in a new result artifact and must not
   reuse the pre-run authorization artifact as result evidence; this distinction is review-enforced
   when the result update is committed.
@@ -25,7 +35,9 @@ Rules:
   with no skips, including all 13 integration-marked tests, but the pre-run authorization artifact
   incorrectly required literal `13 passed`. The mismatch is recorded without retry or broader
   authority.
-- Any recovery must preserve every prior result and pass a separately reviewed admission boundary.
+- Any recovery must preserve every prior result. A later, genuinely distinct objective does so
+  through the immutable lineage policy and a separately reviewed admission boundary; it cannot
+  reinterpret R3 or create another PostgreSQL retry.
 - A missing runtime-admission item is `HOLD`.
 - Any failed tenant-isolation, authorization or secret-boundary check is `NO-GO`.
 - `RUNTIME_AUTHORIZED` permits bounded non-production execution only; it proves no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
