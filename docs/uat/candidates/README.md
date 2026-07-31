@@ -37,6 +37,15 @@ Rules:
   with no skips, including all 13 integration-marked tests, but the pre-run authorization artifact
   incorrectly required literal `13 passed`. The mismatch is recorded without retry or broader
   authority.
+- Current series status: `runtime-admission-soc-ai-lifecycle-mtls` is a distinct objective
+  (`cybrik.suite.golden-workflow` / `golden-uat-v1`) and is `HOLD` at attempt `1` of `2`, with
+  `not_run` status, `execution_authorized` `false` and zero executed, passed and failed checks. No
+  separate-process mTLS harness exists, all ten required negative tests are unwritten, and a
+  HIGH-severity blocking finding is open on the prospective exercised transport dependency Anycorn,
+  whose latest release does not contain the upstream hardened-SSL-options fix. The two loopback
+  binds it names are proposals; no listener is opened. It pins `runtime-admission-ai-pg-r3` only as
+  a non-authorizing `historical_prerequisite`, which grants no execution authority and does not
+  reopen the terminal R1/R2/R3 results.
 - Any recovery must preserve every prior result. A later, genuinely distinct objective does so
   through the immutable lineage policy and a separately reviewed admission boundary; it cannot
   reinterpret R3 or create another PostgreSQL retry.

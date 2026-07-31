@@ -1,0 +1,396 @@
+{
+  "candidate_id": "runtime-admission-soc-ai-lifecycle-mtls-r1",
+  "recorded_at": "2026-07-31T17:29:11Z",
+  "attempt_accounting": {
+    "series_id": "runtime-admission-soc-ai-lifecycle-mtls",
+    "attempt_ordinal": 1,
+    "max_attempts": 2,
+    "current_attempt": {
+      "status": "not_run",
+      "execution_authorized": false,
+      "executed_checks": 0,
+      "passed_checks": 0,
+      "failed_checks": 0,
+      "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
+      "evidence_sha256": "24f4c2ca6013cb742d7e6c4f3d6de13cfb6fce4cad484678395318488f3ba9f6"
+    },
+    "objective_lineage": {
+      "capability_id": "cybrik.suite.golden-workflow",
+      "objective_id": "golden-uat-v1",
+      "historical_prerequisites": [
+        {
+          "candidate_id": "runtime-admission-ai-pg-r3",
+          "record_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json",
+          "record_sha256": "72ec88e98023c5992d5e42c710d0632680158d13ecc0a1065795a0a9db4263e3",
+          "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/05-r3-runtime-result.md",
+          "evidence_sha256": "71041ecf06870cce1fc94911b9c57b90813cb510cb82347a28501d17621d8e23",
+          "evidence_use": "historical_prerequisite"
+        }
+      ]
+    },
+    "failure_history": []
+  },
+  "commit_tree": {
+    "suite": {
+      "commit": "fc413f288b40138e5d11e1ddae34e64ca007fc5f",
+      "tree": "1376da058c2fe83f6a2c0b110c72a74f4575f12b"
+    },
+    "soc": {
+      "commit": "abfdfde96afc6daa2868694de993c623daa8862e",
+      "tree": "241ef24a33246918ff5cf133e7d8d004823fdf06"
+    },
+    "cyber_ai": {
+      "commit": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+      "tree": "244140e3aacd783b1bea7542f9f56ffc46cedc86"
+    },
+    "tool_fabric": {
+      "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "tree": "ca8b4a03116bea979de89b92b2f8fef4fd31e001"
+    }
+  },
+  "hosted_ci": {
+    "required_checks": [
+      {
+        "repo": "suite",
+        "sha": "fc413f288b40138e5d11e1ddae34e64ca007fc5f",
+        "name": "contract standards validation",
+        "status": "success"
+      },
+      {
+        "repo": "suite",
+        "sha": "fc413f288b40138e5d11e1ddae34e64ca007fc5f",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "api",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "backup-tool",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "dependency-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "e2e",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "sbom",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "web",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "abfdfde96afc6daa2868694de993c623daa8862e",
+        "name": "pf-workers",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "lockfile-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "lint",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "type",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "test",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "build-offline",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "789614144686dab88500dd2bfecdd608ef0a8b8f",
+        "name": "security-supply-chain",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "admission-gate",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "secret-scan",
+        "status": "success"
+      }
+    ],
+    "skipped_jobs": [
+      {
+        "repo": "tool_fabric",
+        "name": "executor",
+        "status": "skipped",
+        "reason": "Non-required job. The check run is skipped and is not a rendered required check for this candidate; control-plane and detect are deliberately not recorded as required because the create-only SOC to AI path does not exercise them."
+      }
+    ],
+    "suppressed_jobs": [
+      {
+        "repo": "soc",
+        "name": "e2e-org",
+        "status": "suppressed",
+        "reason": "Non-required job. The check run is skipped because the workflow source retains if:false."
+      },
+      {
+        "repo": "soc",
+        "name": "alert-context-route-db",
+        "status": "suppressed",
+        "reason": "Non-required job. The check run is skipped because the workflow source retains if:false."
+      }
+    ]
+  },
+  "contracts": {
+    "reviewed_contracts": [
+      "cybrik-suite:docs/uat/runtime-admission.schema.json",
+      "cybrik-suite:docs/uat/runtime-admission-lineage-policy.json",
+      "cybrik-suite:docs/uat/UAT-GATE-STANDARD.md",
+      "cybrik-suite:tools/contract-validation/validate-runtime-admission.mjs",
+      "cybrik-suite:contracts/json-schema/cybrik.svc-delegation-request.v1.schema.json",
+      "cybrik-suite:contracts/json-schema/cybrik.svc-delegation-token.v1.schema.json",
+      "cybrik-suite:contracts/json-schema/cybrik.svc-trust-metadata.v1.schema.json",
+      "cybrik-suite:contracts/json-schema/cybrik.svc-common-defs.v1.schema.json",
+      "cybrik-suite:contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json",
+      "cybrik-suite:contracts/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md",
+      "cybrik-suite:docs/releases/GATE-W2-F-LIFECYCLE-DELEGATION-ACCEPTANCE-2026-07-31.md",
+      "cybrik-suite:docs/operations/W1-SOC-AI-LIFECYCLE-GOLDEN-SOSIM-EVIDENCE.md",
+      "cybrik-suite:tests/e2e/test_soc_ai_lifecycle_create.py",
+      "cybrik-suite:integration/fixtures/soc-ai-lifecycle-create-sosim.v1.json"
+    ],
+    "feature_flags": [
+      {
+        "name": "suite_soc_ai_lifecycle_mtls_separate_process_harness",
+        "state": "not_implemented_hold_no_harness_exists"
+      },
+      {
+        "name": "cyber_ai_asgi_tls_transport_resolver",
+        "state": "present_but_unwired_by_default_no_bound_tls_server"
+      },
+      {
+        "name": "suite_soc_ai_lifecycle_uat_demo_poc_rc_ga",
+        "state": "not_authorized_by_this_record"
+      }
+    ],
+    "capability_lifecycle": [
+      {
+        "capability": "suite_soc_ai_lifecycle_golden_sosim",
+        "state": "in_process_only_not_uat_not_mtls_not_deployment"
+      },
+      {
+        "capability": "soc_lifecycle_create_client_caller_owned_mtls",
+        "state": "present_create_only_no_soc_product_change_required"
+      },
+      {
+        "capability": "cyber_ai_postgres_lifecycle_runtime_composition",
+        "state": "present_not_exercised_by_this_record"
+      },
+      {
+        "capability": "tool_fabric_pinned_for_tuple_governance_only",
+        "state": "not_technically_exercised_by_create_only_path"
+      },
+      {
+        "capability": "runtime_admission_soc_ai_lifecycle_mtls_r1",
+        "state": "hold_design_only_execution_unauthorized"
+      }
+    ]
+  },
+  "test_data": {
+    "classification": "synthetic",
+    "approved": true,
+    "notes": "Prospective data policy only; no data has been generated, loaded or handled by this record. If this candidate is ever authorized, only generated synthetic tenant, org, actor, case and payload values are permitted, together with ephemeral dev-only PKI material created outside any repository working tree and destroyed on teardown. No customer data, production logs, production configuration or production credentials are permitted, and no credential value is retained in any artifact."
+  },
+  "production_exclusion": {
+    "no_production_credentials": true,
+    "no_production_configuration": true,
+    "no_production_data": true,
+    "no_production_traffic": true
+  },
+  "lifecycle_procedures": {
+    "start": [
+      "HOLD - not executable. No start procedure is authorized or defined. No process, container, database, ASGI TLS server or listener may be started by this record.",
+      "HOLD - a start procedure may only be authored after the Anycorn blocker in evidence/01-hold-status.md section 4 is closed and the separate-process harness in evidence/02-architecture-and-acceptance.md section 3 exists.",
+      "HOLD - no runnable command is recorded here deliberately, so that no operator or agent can execute this record by copying it."
+    ],
+    "stop": [
+      "HOLD - not executable. Nothing is started by this record, so nothing can be stopped.",
+      "HOLD - a stop procedure must be authored together with the start procedure and must guarantee listener closure and destruction of ephemeral dev-only PKI material."
+    ],
+    "reset": [
+      "HOLD - not executable. No schema, migration or state exists to reset under this record.",
+      "HOLD - a reset procedure must be authored to restore the prospective PostgreSQL durable-replay store to a known empty state before each attempt."
+    ],
+    "seed": [
+      "HOLD - not executable. No seed is authorized and no data is generated by this record.",
+      "HOLD - a seed procedure must generate synthetic tenants, orgs, actors and delegation material only, and must never write a real credential into the repository."
+    ],
+    "rollback": [
+      "HOLD - not executable. There is nothing to roll back because nothing runs under this record.",
+      "HOLD - a rollback procedure must be authored to drop prospective durable-replay state and revoke ephemeral dev-only PKI material before this candidate can leave HOLD."
+    ]
+  },
+  "negative_smoke": {
+    "tenant_isolation": [
+      {
+        "name": "N6 cross-tenant request rejected without leaking existence - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N7 tenant-org advisory mismatch rejected - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N1 replay of an accepted delegation request rejected with durable PostgreSQL replay state - not written, not run",
+        "status": "hold"
+      }
+    ],
+    "authorization": [
+      {
+        "name": "N2 token cnf thumbprint mismatch against the presented client certificate rejected - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N3 wrong audience rejected - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N4 wrong scope rejected - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N5 wrong operation rejected on a create-only token - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N8 missing ASGI TLS extension fails closed and never degrades to an unauthenticated accept - not written, not run",
+        "status": "hold"
+      },
+      {
+        "name": "N9 PostgreSQL unavailable fails closed rather than accepting without durable replay state - not written, not run",
+        "status": "hold"
+      }
+    ],
+    "secret_boundary": [
+      {
+        "name": "N10 no key, token, cnf value, DSN password or certificate private material appears in any log, error body, response header or evidence artifact - not written, not run",
+        "status": "hold"
+      }
+    ]
+  },
+  "open_findings": {
+    "critical": 0,
+    "high": 1,
+    "notes": [
+      "HIGH severity, blocking, prospective exercised transport dependency: Anycorn has no release containing upstream fix commit 9eabf20e22bb2fe4987110bebf05eb822517f754 dated 2026-07-29, which preserves hardened SSL options. Latest release is 0.20.0, PyPI upload 2026-07-28, release tag commit f81a302a2cf3ea36093372e2f62283d945d47fe6, official wheel SHA-256 43fcf5ade1b727f3a39b5bff0305012262be9b9993150dd312d626126382c8a1 and official sdist SHA-256 e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927. Raw 0.20.0 is therefore NO-GO for production and HOLD for this UAT candidate. Nothing is added, installed or pinned by this record. Acceptable unblock is a release containing 9eabf20 followed by artifact and transitive lock review and an empirical ASGI TLS-extension probe, or a separately audited internal patch proposal approved before installation. Official sources: https://pypi.org/pypi/anycorn/json and https://github.com/davidbrochart/anycorn/commit/9eabf20e22bb2fe4987110bebf05eb822517f754 and https://asgi.readthedocs.io/en/latest/implementations.html and https://asgi.readthedocs.io/en/latest/specs/tls.html",
+      "No harness exists. The required separate-process, real-loopback-TLS, ephemeral out-of-repo dev PKI, synthetic-data, PostgreSQL-durable-replay and cnf-to-client-certificate-thumbprint properties are design only.",
+      "The Suite golden SOSIM harness is in-process and is not UAT, not mTLS and not a deployment. It is not evidence for any acceptance criterion of this candidate.",
+      "The SOC LifecycleCreateClient already accepts a caller-owned mTLS httpx.AsyncClient on a create-only issuer path, so no minimal SOC product change is required for a Suite-owned separate-process harness.",
+      "Cyber AI main carries a bounded opt-in AsgiTlsTransportResolver and PostgreSQL lifecycle runtime composition, but the resolver remains unwired by default and no bound ASGI TLS server or deployment exists.",
+      "Tool Fabric is pinned for suite tuple and governance completeness only and is not technically exercised by the create-only SOC to AI path. control-plane and detect are deliberately not recorded as required checks; the non-required executor job is recorded as skipped.",
+      "All ten required negative tests are recorded as hold. None is written and none has run.",
+      "This record grants no execution authority. It opens no listener, installs nothing, runs no stack, container, database or migration, and handles no secret.",
+      "The referenced runtime-admission-ai-pg-r3 material is a historical prerequisite only. It grants no execution authority and does not reopen the terminal R1, R2 and R3 results, which remain immutable NO-GO."
+    ]
+  },
+  "evidence": {
+    "directory": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence",
+    "artifacts": [
+      {
+        "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
+        "sha256": "24f4c2ca6013cb742d7e6c4f3d6de13cfb6fce4cad484678395318488f3ba9f6"
+      },
+      {
+        "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md",
+        "sha256": "67ce4f248b58bfced535db71764a7ce97ca7c7b24937d100191092d27b4ea2a6"
+      }
+    ],
+    "limitations": [
+      "No execution evidence exists. The current attempt is not_run with zero executed, passed and failed checks and execution_authorized false.",
+      "A HIGH severity blocking finding is open on the prospective exercised transport dependency Anycorn; see open_findings.notes for the exact release, digest, commit and unblock facts.",
+      "The recorded lifecycle procedures are deliberately non-executable HOLD statements. No runnable command is provided, so this record cannot be executed by copying it.",
+      "All negative smoke rows are hold. No tenant-isolation, authorization or secret-boundary check has been written or run.",
+      "The two network surfaces are prospective proposals only. No listener is opened by this record.",
+      "test_data.approved true is a prospective data policy statement only; no data has been generated, loaded or handled.",
+      "The historical prerequisite runtime-admission-ai-pg-r3 is non-authorizing and does not reopen the terminal PostgreSQL R1, R2 and R3 results.",
+      "Any UAT claim is additionally bound by docs/uat/UAT-GATE-STANDARD.md. This record grants no UAT pass, demo, POC, RC, GA, public release or production claim."
+    ],
+    "final_profile_verdict": "HOLD"
+  },
+  "network_exposure": {
+    "mode": "local_only",
+    "surfaces": [
+      {
+        "bind": "127.0.0.1:58443",
+        "purpose": "prospective AI HTTPS mTLS ASGI listener for a future separate-process harness; not opened by this record"
+      },
+      {
+        "bind": "127.0.0.1:55432",
+        "purpose": "prospective loopback PostgreSQL durable-replay backing store for a future separate-process harness; not opened by this record"
+      }
+    ],
+    "notes": "Both binds are prospective proposals recorded so that a future authorization review has an exact bounded surface to approve or reject. No listener is opened by this record. No non-loopback bind, no public listener, no HTTP or HTTPS application surface and no full stack is started, and none is authorized."
+  },
+  "disposition": {
+    "profile": "HOLD",
+    "rationale": "Design-only candidate. No separate-process mTLS harness exists, all ten required negative tests are unwritten, and a HIGH severity blocking finding is open on the prospective exercised transport dependency Anycorn, whose latest release 0.20.0 does not contain upstream fix commit 9eabf20e22bb2fe4987110bebf05eb822517f754. Execution stays unauthorized with status not_run and zero counts. The referenced runtime-admission-ai-pg-r3 material is a non-authorizing historical prerequisite that does not reopen the terminal PostgreSQL R1, R2 and R3 results. No UAT, demo, POC, RC, GA, public release or production claim follows."
+  }
+}
