@@ -42,7 +42,8 @@ independent review, and hosted required checks are recorded. Acceptance remains 
 
 ## R2 amendment — canonical registration reconciliation
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (unchanged). This amendment closes only the
+Historical R2 status at that amendment: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (unchanged).
+This amendment closed only the
 deferred-registration item above; it does not reopen or widen the Decision or Denial list.
 
 The Codex Governor authorizes exactly these seven paths for the R2 canonical-registration
@@ -63,9 +64,10 @@ catalog row, and Governor-decision row via the existing W2-I P2-3 additive-byte 
 carries the exact W2-K additions. No other file changes, and no packet schema, fixture, or manifest
 byte under `contracts/` changes.
 
-This amendment explicitly denies:
+Before R4 superseded its acceptance boundary, this amendment explicitly denied:
 
-- ADR-0013 acceptance or any change to its `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` status;
+- ADR-0013 acceptance or any change to its then-current
+  `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` status;
 - any contract-byte change — no JSON Schema, fixture, example, or compatibility-manifest byte under
   `contracts/` may change under this authority;
 - runtime authority — no socket, listener, database, container, or process;
@@ -84,7 +86,7 @@ proof.
 
 Base commit: `440dc0e86e0453e74c71ef85a01be777ba674b7c`.
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (unchanged).
+Historical R3 status at that amendment: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (unchanged).
 
 The Codex Governor authorizes exactly 25 paths for R3, and no other:
 
