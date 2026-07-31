@@ -125,8 +125,8 @@ Every entry below must be written and must demonstrably fail closed before this 
 | N10 | Secret leakage | No key, token, `cnf` value, DSN password or certificate private material appears in any log, error body, response header or evidence artifact | — |
 
 N2, N8, N9 and N10 have no pre-existing contract example and must be authored as part of the
-harness. N1 and N6–N7 additionally satisfy the tenant-isolation smoke row; N2–N5 and N8–N9
-satisfy the authorization smoke row; N10 satisfies the secret-boundary smoke row.
+harness. N6–N7 satisfy the tenant-isolation smoke row; N1–N5 and N8–N9 satisfy the authorization
+smoke row; N10 satisfies the secret-boundary smoke row.
 
 ---
 
@@ -200,7 +200,7 @@ objective. This candidate is a distinct objective and creates no PostgreSQL retr
 
 This candidate packet writes exactly this document, `01-hold-status.md`, the candidate
 `runtime-admission.json`, one registry paragraph in `docs/uat/candidates/README.md`, and the
-committed-candidate assertion in
+committed-candidate test title, registry-size pin and disposition assertion in
 `tools/contract-validation/tests/validate-runtime-admission.test.mjs`.
 
 The prerequisite validator semantics and Suite-local reference containment were reviewed and

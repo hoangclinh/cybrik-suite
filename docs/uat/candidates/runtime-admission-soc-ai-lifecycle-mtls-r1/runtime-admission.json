@@ -12,7 +12,7 @@
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-      "evidence_sha256": "24f4c2ca6013cb742d7e6c4f3d6de13cfb6fce4cad484678395318488f3ba9f6"
+      "evidence_sha256": "c61cdd418425789c894989f758ce5adcd0b60e0b4d1f7c3d29d7b37139c8fde5"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -215,6 +215,7 @@
       "cybrik-suite:docs/releases/GATE-W2-F-LIFECYCLE-DELEGATION-ACCEPTANCE-2026-07-31.md",
       "cybrik-suite:docs/operations/W1-SOC-AI-LIFECYCLE-GOLDEN-SOSIM-EVIDENCE.md",
       "cybrik-suite:tests/e2e/test_soc_ai_lifecycle_create.py",
+      "cybrik-suite:tests/e2e/run-soc-ai-lifecycle-create.sh",
       "cybrik-suite:integration/fixtures/soc-ai-lifecycle-create-sosim.v1.json"
     ],
     "feature_flags": [
@@ -297,13 +298,13 @@
       {
         "name": "N7 tenant-org advisory mismatch rejected - not written, not run",
         "status": "hold"
-      },
-      {
-        "name": "N1 replay of an accepted delegation request rejected with durable PostgreSQL replay state - not written, not run",
-        "status": "hold"
       }
     ],
     "authorization": [
+      {
+        "name": "N1 replay of an accepted delegation request rejected with durable PostgreSQL replay state - not written, not run",
+        "status": "hold"
+      },
       {
         "name": "N2 token cnf thumbprint mismatch against the presented client certificate rejected - not written, not run",
         "status": "hold"
@@ -356,11 +357,11 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-        "sha256": "24f4c2ca6013cb742d7e6c4f3d6de13cfb6fce4cad484678395318488f3ba9f6"
+        "sha256": "c61cdd418425789c894989f758ce5adcd0b60e0b4d1f7c3d29d7b37139c8fde5"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md",
-        "sha256": "67ce4f248b58bfced535db71764a7ce97ca7c7b24937d100191092d27b4ea2a6"
+        "sha256": "7afd213db65d77cde0ef7f1f422e4cfda8b06070f2fb10420da200fd5f3abae2"
       }
     ],
     "limitations": [

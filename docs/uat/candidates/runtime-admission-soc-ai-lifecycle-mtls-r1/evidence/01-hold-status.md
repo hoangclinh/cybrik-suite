@@ -115,7 +115,7 @@ Promotion out of `HOLD` requires a separate, separately reviewed exact-bit updat
 
 1. closes the Anycorn finding by one of the two acceptable unblocks in §4, with artifact digests and
    an empirical ASGI TLS-extension probe result recorded;
-2. records the harness design in §`02-architecture-and-acceptance.md` as implemented, with the
+2. records the harness design in `02-architecture-and-acceptance.md` as implemented, with the
    exact separate-process, real-loopback-TLS, ephemeral out-of-repo dev PKI and PostgreSQL
    durable-replay properties evidenced;
 3. records every negative test in the required set as written and passing;
