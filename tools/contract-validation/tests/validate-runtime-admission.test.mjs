@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -399,6 +399,29 @@ const withTempRepo = async ({
       cpSync(sourceDir, join(tempRoot, dirname(entry.record_path)), {
         recursive: true,
       });
+    }
+    const records = [
+      ...committedLineagePolicy().legacy_candidates.map((entry) =>
+        JSON.parse(read(entry.record_path)),
+      ),
+      ...candidates,
+    ];
+    for (const record of records) {
+      for (const reference of record.contracts.reviewed_contracts) {
+        if (!reference.startsWith('cybrik-suite:')) continue;
+        const relativePath = reference.slice('cybrik-suite:'.length);
+        const sourcePath = resolve(ROOT, relativePath);
+        if (!sourcePath.startsWith(`${ROOT}/`)) continue;
+        try {
+          const stats = lstatSync(sourcePath);
+          if (!stats.isFile()) continue;
+        } catch {
+          continue;
+        }
+        const targetPath = join(tempRoot, relativePath);
+        mkdirSync(dirname(targetPath), { recursive: true });
+        cpSync(sourcePath, targetPath);
+      }
     }
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
@@ -1203,11 +1226,11 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve terminal results and the new HOLD candidate', async () => {
+test('committed runtime-admission assets preserve three terminal NO-GO results', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.counts.candidateFiles, 4);
+  assert.equal(report.counts.candidateFiles, 3);
   const byId = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
@@ -1217,10 +1240,6 @@ test('committed runtime-admission assets preserve terminal results and the new H
   assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
   assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
-  assert.equal(
-    byId.get('runtime-admission-soc-ai-lifecycle-mtls-r1'),
-    'HOLD',
-  );
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
@@ -1645,6 +1664,23 @@ test('hosted non-required job classes and lifecycle prerequisites remain explici
     assert.ok(report.errors.some((error) => error.includes('feature flags')));
     assert.ok(report.errors.some((error) => error.includes('capability lifecycle')));
     assert.ok(report.errors.some((error) => error.includes('rollback')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
+test('Suite-local reviewed contract references must resolve to regular files', async () => {
+  const candidate = baseCandidate();
+  candidate.contracts.reviewed_contracts = [
+    'cybrik-suite:docs/uat/does-not-exist.json',
+  ];
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('Suite-local reviewed contract must resolve to a regular file'),
+      ),
+    );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });
