@@ -1,9 +1,9 @@
-// Gate W2-K server-neutral transport peer-evidence adapter proposal tests.
+// Gate W2-K server-neutral transport peer-evidence adapter contract tests.
 //
-// Green proves only deterministic Suite-side static conformance for a PROPOSED
-// packet. It accepts no ADR, implements no adapter, opens no socket, starts no
-// server, installs no dependency, satisfies no UAT or runtime admission, and
-// grants no release or production authority.
+// Green proves only deterministic Suite-side static conformance for a packet
+// accepted for implementation but not implemented. It opens no socket, starts
+// no server, installs no dependency, satisfies no UAT or runtime admission,
+// and grants no release or production authority.
 //
 // This harness reads repository bytes and, for fail-closed probes, writes only
 // inside an OS temporary directory that it creates and removes itself.
@@ -60,8 +60,36 @@ const POSITIVE_EVIDENCE_FIXTURE =
 const ADR_PATH = 'docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md';
 const DECISION_PATH =
   'docs/adr/DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md';
+const ACCEPTANCE_RECORD_PATH =
+  'docs/releases/GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01.md';
+const RELEASE_INDEX_PATH = 'docs/releases/README.md';
 const VALIDATOR_PATH = 'tools/contract-validation/validate-transport-peer.mjs';
 const ORCHESTRATOR_PATH = 'tools/contract-validation/validate.mjs';
+const ACCEPTED_STATUS = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+const PROPOSED_STATUS = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+const R4_AUTHORIZED_PATHS = Object.freeze([
+  'docs/adr/DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md',
+  'docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md',
+  'docs/releases/GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01.md',
+  'docs/releases/README.md',
+  'docs/adr/README.md',
+  'docs/architecture/README.md',
+  'docs/architecture/transport-peer-evidence/README.md',
+  'docs/architecture/transport-peer-evidence/01-server-candidate-matrix.md',
+  'contracts/README.md',
+  'contracts/json-schema/README.md',
+  'contracts/examples/README.md',
+  'contracts/compatibility/README.md',
+  'tools/contract-validation/README.md',
+  'tools/contract-validation/validate-transport-peer.mjs',
+  'tools/contract-validation/tests/validate-transport-peer.test.mjs',
+  'tools/contract-validation/tests/validate-transport.test.mjs',
+  'tools/contract-validation/validate.mjs',
+  'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
+  'contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json',
+  'contracts/examples/transport-peer/examples-manifest.json',
+  'contracts/compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json',
+]);
 const LIFECYCLE_INDEX_PATHS = [
   'contracts/README.md',
   'contracts/json-schema/README.md',
@@ -125,6 +153,27 @@ const collectKeys = (value, output = []) => {
   return output;
 };
 
+const semanticProjectionSha256 = (schemaPath) => {
+  const projection = structuredClone(readJson(schemaPath));
+  for (const key of [
+    'description',
+    'x-cybrik-status',
+    'x-cybrik-not-accepted',
+    'x-cybrik-not-implemented',
+  ]) delete projection[key];
+  return sha256(JSON.stringify(projection));
+};
+
+const fixtureByteAggregateSha256 = () => {
+  const entries = readJson(EXAMPLES_MANIFEST_PATH).fixtures
+    .map((entry) => ({
+      file: entry.file,
+      sha256: sha256(read(`contracts/examples/transport-peer/${entry.file}`)),
+    }))
+    .sort((left, right) => left.file.localeCompare(right.file));
+  return sha256(entries.map((entry) => `${entry.sha256}  ${entry.file}`).join('\n'));
+};
+
 const withTempPacketRoot = (run) => {
   const base = realpathSync(tmpdir());
   const root = mkdtempSync(join(base, 'cybrik-w2k-'));
@@ -158,20 +207,20 @@ const copyPacketInto = (root, { skip = new Set(), overrides = new Map() } = {}) 
   return root;
 };
 
-// --- 1. the packet is internally coherent and stays unaccepted ---------------
+// --- 1. the packet is internally coherent and accepted for implementation ----
 
-test('the W2-K peer-evidence packet is coherent but remains PROPOSED and unaccepted', () => {
+test('the W2-K peer-evidence packet is accepted for implementation but not implemented', () => {
   const report = validateTransportPeerPacket({ root: REPO_ROOT });
 
   assert.deepEqual(report.errors, []);
-  assert.equal(report.status, 'PROPOSED');
-  assert.equal(report.notAccepted, true);
+  assert.equal(report.status, 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(report.notAccepted, false);
   assert.equal(report.notImplemented, true);
   assert.equal(report.packetVersion, '0.1.0');
   assert.equal(report.gate, 'W2-K');
   assert.equal(
     report.gateDisposition,
-    'OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY',
+    'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED',
   );
   assert.equal(report.counts.schemasCompiled, 2);
   assert.equal(report.counts.positiveFixtures, 3);
@@ -186,7 +235,7 @@ test('the W2-K peer-evidence packet is coherent but remains PROPOSED and unaccep
 
   const rendered = formatTransportPeerReport(report);
   assert.equal(rendered.exitCode, 0);
-  assert.match(rendered.stdout, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/);
+  assert.match(rendered.stdout, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.doesNotMatch(rendered.stdout, /\b(?:runtime|UAT|production) (?:verified|proven|ready)\b/i);
 });
 
@@ -195,15 +244,15 @@ test('the W2-K peer-evidence packet is coherent but remains PROPOSED and unaccep
 test('every lifecycle surface agrees with the compatibility-manifest source of truth', () => {
   assert.equal(
     readJson(COMPATIBILITY_MANIFEST_PATH)['x-cybrik-status'],
-    'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED',
-    'R2 registration is lifecycle-neutral and must not perform acceptance',
+    ACCEPTED_STATUS,
+    'R4 acceptance must be atomic across every lifecycle carrier',
   );
   assert.deepEqual(lifecycleMismatches(), []);
 });
 
 test('a manifest-only lifecycle flip fails closed across packet and index surfaces', () => {
   const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
-  manifest['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+  manifest['x-cybrik-status'] = PROPOSED_STATUS;
   const mismatches = lifecycleMismatches(
     new Map([
       [COMPATIBILITY_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`],
@@ -218,8 +267,8 @@ test('a manifest-only lifecycle flip fails closed across packet and index surfac
 });
 
 test('each W2-K index section fails closed without borrowing an adjacent gate status', () => {
-  const proposed = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
-  const overclaim = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+  const accepted = ACCEPTED_STATUS;
+  const staleProposal = PROPOSED_STATUS;
   for (const relativePath of LIFECYCLE_INDEX_PATHS) {
     const text = read(relativePath);
     const markerIndex = text.indexOf(LIFECYCLE_INDEX_MARKERS[relativePath]);
@@ -227,8 +276,8 @@ test('each W2-K index section fails closed without borrowing an adjacent gate st
     const paragraphEnd = text.indexOf('\n\n', markerIndex);
     const end = paragraphEnd < 0 ? text.length : paragraphEnd;
     const section = text.slice(markerIndex, end);
-    assert.ok(section.includes(proposed), `${relativePath}: W2-K status must be local`);
-    const mutated = `${text.slice(0, markerIndex)}${section.replace(proposed, overclaim)}${text.slice(end)}`;
+    assert.ok(section.includes(accepted), `${relativePath}: W2-K status must be local`);
+    const mutated = `${text.slice(0, markerIndex)}${section.replace(accepted, staleProposal)}${text.slice(end)}`;
     assert.ok(
       lifecycleMismatches(new Map([[relativePath, mutated]])).includes(relativePath),
       `${relativePath}: adjacent packet text must not mask a W2-K overclaim`,
@@ -1140,8 +1189,8 @@ test('orchestrator and ADR-catalog registration are complete, and completion is 
   assert.ok(bannerMatch, 'the orchestrator must emit an ALL GREEN success banner to disclose against');
   assert.match(
     bannerMatch[2],
-    /W2-K PROPOSED \/ NOT ACCEPTED/,
-    'the ALL GREEN banner must disclose the W2-K PROPOSED / NOT ACCEPTED step',
+    /W2-K ACCEPTED FOR IMPLEMENTATION \/ NOT IMPLEMENTED/,
+    'the ALL GREEN banner must disclose the bounded W2-K implementation status',
   );
   assert.match(bannerMatch[2], /validate-transport-peer/);
 
@@ -1156,7 +1205,7 @@ test('orchestrator and ADR-catalog registration are complete, and completion is 
   );
   assert.match(
     adrReadme,
-    /Gate W2-K authorizes bounded proposal writing and static conformance only/,
+    /Gate W2-K accepts the exact v0\.1\.0 packet for implementation only/,
   );
 
   for (const relativePath of [DECISION_PATH, 'tools/contract-validation/README.md']) {
@@ -1197,7 +1246,7 @@ test('W2-K and ADR-0013 are free identifiers in this tree', () => {
 
   const adr = read(ADR_PATH);
   assert.match(adr, /^# ADR-0013/m);
-  assert.match(adr, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/);
+  assert.match(adr, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.match(adr, /## Decision/m);
 
   // The collision scan is a recorded, reproducible claim, not prose.
@@ -1312,10 +1361,10 @@ test('reintroducing x-cybrik-lifecycle on a wire instance is structurally reject
   );
 });
 
-test('proposal anti-lifting stays pinned at manifest metadata even though wire fixtures carry no lifecycle marker', () => {
+test('accepted lifecycle stays packet metadata while wire fixtures carry no lifecycle marker', () => {
   const examplesManifest = readJson(EXAMPLES_MANIFEST_PATH);
   const compatibilityManifest = readJson(COMPATIBILITY_MANIFEST_PATH);
-  const expectedStatus = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+  const expectedStatus = ACCEPTED_STATUS;
 
   assert.equal(examplesManifest['x-cybrik-status'], expectedStatus);
   assert.equal(compatibilityManifest['x-cybrik-status'], expectedStatus);
@@ -1338,6 +1387,84 @@ test('the R3 authority and ADR explicitly record governance-free wire instances'
   assert.match(decision, /no acceptance, runtime, UAT, release, deployment, or production authority/i);
   assert.match(adr, /governance lifecycle metadata belongs to packet metadata/i);
   assert.match(adr, /wire evidence and denial instances carry none/i);
+});
+
+// --- 18. R4 atomic acceptance for implementation ----------------------------
+
+test('R4 changes governance metadata without changing either wire schema semantic projection', () => {
+  const evidenceSchema = readJson(
+    'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
+  );
+  const errorSchema = readJson(
+    'contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json',
+  );
+
+  for (const schema of [evidenceSchema, errorSchema]) {
+    assert.equal(schema['x-cybrik-status'], ACCEPTED_STATUS);
+    assert.equal(schema['x-cybrik-not-accepted'], false);
+    assert.equal(schema['x-cybrik-not-implemented'], true);
+  }
+  assert.equal(
+    semanticProjectionSha256(
+      'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
+    ),
+    '815f720d7c88a181e9e6bac03f85b5ed6cf257eb6199dacb692337bfe5a84d4f',
+  );
+  assert.equal(
+    semanticProjectionSha256(
+      'contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json',
+    ),
+    '9c09ddb6875be7af051323de9545b070f8360c5ea61a99f61eaed89bd0a66d4d',
+  );
+});
+
+test('R4 preserves all 18 fixture bytes exactly and recuts only packet governance digests', () => {
+  assert.equal(
+    fixtureByteAggregateSha256(),
+    '5f00075311fd2405ea6933084d87f53ef4e3b74c0c9542d14caf8de26ccd0dec',
+  );
+  const examplesManifest = readJson(EXAMPLES_MANIFEST_PATH);
+  const compatibilityManifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+  assert.equal(examplesManifest['x-cybrik-status'], ACCEPTED_STATUS);
+  assert.equal(compatibilityManifest['x-cybrik-status'], ACCEPTED_STATUS);
+  assert.equal(
+    compatibilityManifest.gate.disposition,
+    'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED',
+  );
+  assert.deepEqual(lifecycleMismatches(), []);
+});
+
+test('R4 authority supersedes prior denials and is exactly bounded to 21 paths', () => {
+  const decision = read(DECISION_PATH);
+  const match = decision.match(
+    /## R4 amendment — atomic acceptance for implementation([\s\S]*?)(?=\n## |$)/,
+  );
+  assert.ok(match, 'the delegated Governor decision must contain the R4 acceptance amendment');
+  const r4 = match[1];
+  const listedPaths = [...r4.matchAll(/^\d+\. `([^`]+)`/gm)].map((entry) => entry[1]);
+  assert.equal(listedPaths.length, 21);
+  assert.deepEqual(new Set(listedPaths), new Set(R4_AUTHORIZED_PATHS));
+  assert.match(r4, /supersedes the R2 acceptance denial/i);
+  assert.match(r4, /supersedes the R3 zero-wire-contract-byte sentence/i);
+  assert.match(r4, /governance-metadata and digest-only/i);
+  assert.match(r4, /no wire semantic/i);
+  assert.match(r4, /18 fixture bytes remain byte-identical/i);
+  assert.match(r4, /no runtime, UAT, release, deployment, or production authority/i);
+});
+
+test('the R4 gate record proves bounded acceptance and retains every runtime HOLD', () => {
+  const record = read(ACCEPTANCE_RECORD_PATH);
+  assert.match(record, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
+  assert.match(record, /ef61285f7674672007a7c3a76bae08d5b1d0ef70/);
+  assert.match(record, /5f00075311fd2405ea6933084d87f53ef4e3b74c0c9542d14caf8de26ccd0dec/);
+  assert.match(record, /A1–A7 remain OPEN/);
+  assert.match(record, /N1 and N9 remain `requires_runtime`/);
+  assert.match(record, /Anycorn `0\.20\.0` remains HOLD/);
+  assert.match(record, /no runtime, UAT, release, deployment, or production authority/i);
+  assert.match(
+    read(RELEASE_INDEX_PATH),
+    /GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01\.md/,
+  );
 });
 
 test('documentation references other repositories only in repository-qualified form', () => {
