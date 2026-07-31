@@ -181,6 +181,11 @@ test('the W2-K peer-evidence packet is coherent but remains PROPOSED and unaccep
 // --- 2. status honesty -------------------------------------------------------
 
 test('every lifecycle surface agrees with the compatibility-manifest source of truth', () => {
+  assert.equal(
+    readJson(COMPATIBILITY_MANIFEST_PATH)['x-cybrik-status'],
+    'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED',
+    'R2 registration is lifecycle-neutral and must not perform acceptance',
+  );
   assert.deepEqual(lifecycleMismatches(), []);
 });
 
@@ -193,7 +198,9 @@ test('a manifest-only lifecycle flip fails closed across packet and index surfac
     ]),
   );
   assert.ok(mismatches.length > 0, 'a half-flip must never pass lifecycle agreement');
-  for (const relativePath of LIFECYCLE_INDEX_PATHS) {
+  for (const relativePath of LIFECYCLE_PATHS.filter(
+    (path) => path !== COMPATIBILITY_MANIFEST_PATH,
+  )) {
     assert.ok(mismatches.includes(relativePath), `${relativePath}: half-flip must be detected`);
   }
 });
