@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -583,6 +583,26 @@ test('standalone validator rejects any attempt to grandfather a fourth legacy ca
   assert.ok(report.errors.some((error) => error.includes(
     'legacy_candidates must equal the sealed R1/R2/R3 set exactly',
   )));
+});
+
+test('copied repository root preserves the exact immutable legacy seal', async () => {
+  const tempRoot = mkdtempSync(join(os.tmpdir(), 'runtime-admission-copy-'));
+  try {
+    cpSync(resolve(ROOT, 'docs/uat'), join(tempRoot, 'docs/uat'), {
+      recursive: true,
+    });
+    const policyPath = join(tempRoot, LINEAGE_POLICY_PATH);
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    policy.legacy_candidates.reverse();
+    stableWriteJson(policyPath, policy);
+
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'legacy_candidates must equal the sealed R1/R2/R3 set exactly',
+    )));
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('candidate discovery still validates only docs/uat/candidates/*/runtime-admission.json', async () => {
