@@ -228,19 +228,53 @@ test('a complete candidate can be RUNTIME_AUTHORIZED and must not imply a strong
   });
 });
 
-test('missing or duplicate repositories fail closed', async () => {
+test('multiple unique success checks per repository can still be RUNTIME_AUTHORIZED', async () => {
+  const candidate = canonicalCandidate();
+  candidate.hosted_ci.required_checks.push(
+    { repo: 'suite', sha: HEX_40, name: 'lint', status: 'success' },
+    { repo: 'soc', sha: '1111111111111111111111111111111111111111', name: 'soc-smoke', status: 'success' },
+  );
+
+  await withTempRepo({ candidate }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('missing commit_tree repositories still fail closed at schema validation', async () => {
   const missingRepo = canonicalCandidate();
   delete missingRepo.commit_tree.tool_fabric;
   await withTempRepo({ candidate: missingRepo }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('schema /commit_tree')));
   });
+});
 
-  const duplicateRepo = canonicalCandidate();
-  duplicateRepo.hosted_ci.required_checks[3].repo = 'soc';
-  await withTempRepo({ candidate: duplicateRepo }, async (tempRoot) => {
+test('required hosted checks must cover every repository at least once and reject duplicate repo-name pairs', async () => {
+  const missingRequiredRepo = canonicalCandidate();
+  missingRequiredRepo.hosted_ci.required_checks = missingRequiredRepo.hosted_ci.required_checks.filter(
+    (check) => check.repo !== 'tool_fabric',
+  );
+
+  await withTempRepo({ candidate: missingRequiredRepo }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
-    assert.ok(report.errors.some((error) => error.includes('required hosted CI must cover each repository exactly once')));
+    assert.ok(report.errors.some((error) => error.includes('required hosted CI must cover every repository at least once')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const duplicateRequiredCheck = canonicalCandidate();
+  duplicateRequiredCheck.hosted_ci.required_checks.push({
+    repo: 'suite',
+    sha: HEX_40,
+    name: 'contracts',
+    status: 'success',
+  });
+
+  await withTempRepo({ candidate: duplicateRequiredCheck }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes('required hosted checks must not duplicate repo and name pairs')));
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
 });
 
