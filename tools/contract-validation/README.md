@@ -137,10 +137,14 @@ The profile is server-neutral and fail closed. It validates two schemas, 18 synt
 three-way `x5t#S256` equality, no-degrade behavior, denial-class coverage, packet digests, and the
 absence of raw certificate or authorization material. It opens no socket and selects no server.
 
-Canonical registration is deferred: These 21 validators remain the current truthful orchestrator count,
-and the W2-I P2-3 additive-byte pin keeps the ADR catalog stable. A separate reconciliation
-must update those two pins together before W2-K can join `validate.mjs`. Standalone green is static
-proposal conformance only, not runtime, UAT, release, deployment, or production proof.
+Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
+`validate.mjs`; its header comment truthfully states These 23 validators, and its `ALL GREEN`
+banner names W2-K PROPOSED / NOT ACCEPTED. The W2-I P2-3 additive-byte pin now also carries the exact,
+additive W2-K paragraph, ADR-0013 catalog row and Governor-decision row applied to
+`docs/adr/README.md`; every other byte of that catalog, including the W2-I/W2-H entries, is
+unchanged. Registration is orchestration and catalog bookkeeping only: it accepts no contract byte
+and grants no runtime, UAT, release, deployment, or production authority. Standalone green (via the
+scripts above) remains static proposal conformance only.
 
 ## Runtime-admission records
 
