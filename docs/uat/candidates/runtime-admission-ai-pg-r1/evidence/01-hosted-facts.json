@@ -1,6 +1,6 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r1",
-  "recorded_at": "2026-07-31T03:29:56Z",
+  "recorded_at": "2026-07-31T03:59:58Z",
   "suite": {
     "commit": "d564521b566417f60948081c6b816557f93f61a2",
     "tree": "4767e2226229f201300a64b757f4c4e12223001a",
@@ -70,10 +70,10 @@
     ]
   },
   "cyber_ai": {
-    "commit": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
-    "tree": "e2dd71b3387e668f76656f52a0e077de46eccb0d",
+    "commit": "48309201c84543ece44c81a5967865ef6c17f784",
+    "tree": "baadaacc15e24d19baf3b3383afa05a6851e20f0",
     "workflow": "ci",
-    "run_id": 30601517961,
+    "run_id": 30602887814,
     "required_checks": [
       {
         "name": "scaffold-integrity",

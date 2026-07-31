@@ -109,7 +109,7 @@ Notes:
 - `--no-cov` is deliberate for this single-file runtime proof: repository-wide coverage remains
   enforced by the full hosted `test` job, while this command's pass/fail signal is reserved for
   the PostgreSQL migration, role, RLS, tenant-isolation, durability, and concurrency assertions.
-  At Cyber AI commit `97a82b8e9e4788a1d588858f0eac1ca104a9236b`, root `pyproject.toml`
+  At Cyber AI commit `48309201c84543ece44c81a5967865ef6c17f784`, root `pyproject.toml`
   directly declares `pytest-cov>=5.0.0` and configures
   `--cov --cov-branch --cov-fail-under=60`; `uv run pytest --help` exposes `--no-cov`.
 - The downgrade intentionally removes schema-local objects only; the shared role `cybrik_ai_api_app` remains.
