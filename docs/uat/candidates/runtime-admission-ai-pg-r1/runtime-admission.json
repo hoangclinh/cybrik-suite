@@ -1,6 +1,6 @@
 {
   "candidate_id": "runtime-admission-ai-pg-r1",
-  "recorded_at": "2026-07-31T03:41:43Z",
+  "recorded_at": "2026-07-31T03:59:58Z",
   "commit_tree": {
     "suite": {
       "commit": "d564521b566417f60948081c6b816557f93f61a2",
@@ -11,8 +11,8 @@
       "tree": "16ef74d6f97cbf90a504bb3cee57a98712e40c56"
     },
     "cyber_ai": {
-      "commit": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
-      "tree": "e2dd71b3387e668f76656f52a0e077de46eccb0d"
+      "commit": "48309201c84543ece44c81a5967865ef6c17f784",
+      "tree": "baadaacc15e24d19baf3b3383afa05a6851e20f0"
     },
     "tool_fabric": {
       "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
@@ -83,49 +83,49 @@
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "scaffold-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "lockfile-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "lint",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "type",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "test",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "build-offline",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "secret-scan",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "97a82b8e9e4788a1d588858f0eac1ca104a9236b",
+        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
         "name": "security-supply-chain",
         "status": "success"
       },
@@ -242,13 +242,13 @@
   "negative_smoke": {
     "tenant_isolation": [
       {
-        "name": "static preflight pass only: reviewed FORCE RLS policies plus transaction-local runtime tenant context in migration and adapter source, and reviewed all 13 authored PostgreSQL integration negatives in tests/ai_api/test_postgres_durable.py; no live PostgreSQL runtime proof executed yet",
+        "name": "static preflight pass only: reviewed FORCE RLS policies plus transaction-local runtime tenant context in migration and adapter source, and reviewed all 13 authored PostgreSQL integration negatives in tests/ai_api/test_postgres_durable.py; attempt 2 reached PostgreSQL 16.14 migration and role seed but no integration assertion completed successfully",
         "status": "pass"
       }
     ],
     "authorization": [
       {
-        "name": "static preflight pass only: four no-DB guard tests pass for reserved runtime role rejection, blank tenant rejection twice, and malformed row typed failure; no live PostgreSQL runtime authorization proof executed yet",
+        "name": "static preflight pass only: four no-DB authorization guard tests pass for reserved runtime role rejection, blank tenant rejection twice, and malformed row typed failure; attempt 2 reached PostgreSQL 16.14 migration and role seed but no integration assertion completed successfully",
         "status": "pass"
       }
     ],
@@ -266,8 +266,9 @@
       "No open Critical or High finding is recorded on the bounded static admission path reviewed here.",
       "Direct pushes to protected main were server-rejected with GH006 and pull-request-required enforcement across all four repositories.",
       "The first loopback attempt at the superseded Cyber AI tuple 8da372b6a2a9468c58ebfc2c3359c8409b8a7c86 failed before migration because the async SQLAlchemy runtime dependency greenlet was not installed on macOS arm64; the container was removed and the loopback port was confirmed closed.",
-      "Cyber AI commit 97a82b8e9e4788a1d588858f0eac1ca104a9236b makes greenlet a direct locked dependency, passes 831 no-DB tests with 13 PostgreSQL tests explicitly skipped, and has all eight required hosted checks green.",
-      "This record authorizes one future loopback PostgreSQL 16 proof only; it does not claim that proof has already executed."
+      "The second loopback attempt at Cyber AI tuple 97a82b8e9e4788a1d588858f0eac1ca104a9236b passed PostgreSQL 16.14 startup, locked sync, Alembic reset, and runtime-principal seed, then failed all 13 PostgreSQL integration tests before their assertions because the synchronous test reset invoked Alembic asyncio.run inside pytest's active event loop; five no-DB tests passed (one dependency-closure test plus four authorization guards), the container was removed, and the loopback port was confirmed closed.",
+      "Cyber AI commit 48309201c84543ece44c81a5967865ef6c17f784 moves the test-only Alembic reset to a worker thread, adds one no-DB regression test for that event-loop boundary, passes 832 no-DB tests with 13 PostgreSQL tests explicitly skipped, and has all eight required hosted checks green.",
+      "This record authorizes the third and final R1 attempt: one future loopback PostgreSQL 16 proof only. Any further failure flips R1 to NO-GO and requires a new candidate with schema-enforced attempt accounting; this record does not claim that the proof has already executed."
     ]
   },
   "evidence": {
@@ -275,15 +276,15 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/01-hosted-facts.json",
-        "sha256": "9b2c7859280910c8099b56b6a2bce0db6e6850a6973bed4ffe9aa49d5ade23c4"
+        "sha256": "7786f632b8df037b3b1c8420f52f873eea7e4ef2c0b0e7fd735fdebf82bb7fba"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/02-preflight-transcript.md",
-        "sha256": "68961eebc613a88e4b987368a673b5e7d414c0b40351e4a12d137ad0fadd92ef"
+        "sha256": "dccb8c9001b5692b1c9a898847f073d29907e0da27e355d25a3aab5bae2916f8"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/03-runtime-plan.md",
-        "sha256": "d67c4b33221d764fffe5b9cad5a66d335719c0dbe10f3ee9a313bb953f0daafa"
+        "sha256": "17f03e9bea28596c58d849c9c351640d098f8bbafbe9e1f4701f8c91d154ce12"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/04-protection-facts.json",
