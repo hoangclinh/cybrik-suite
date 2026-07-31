@@ -77,13 +77,20 @@ const LIFECYCLE_INDEX_MARKERS = Object.freeze({
   'contracts/compatibility/README.md':
     '`cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`',
 });
+// R3: lifecycle agreement covers metadata-bearing schemas, manifests, docs and
+// indexes. It deliberately excludes the 18 emitted wire fixture instances,
+// which carry no governance lifecycle marker at all (see section 17 below).
 const LIFECYCLE_PATHS = [
   ...new Set([
     ...PACKET_DOC_PATHS,
-    ...expectedPacketPaths,
+    EXAMPLES_MANIFEST_PATH,
     ...LIFECYCLE_INDEX_PATHS,
   ]),
 ].filter((path) => path.endsWith('.md') || path.endsWith('.json'));
+
+const FIXTURE_ONLY_PATHS = expectedPacketPaths.filter(
+  (path) => path !== EXAMPLES_MANIFEST_PATH,
+);
 
 const lifecycleMismatches = (overrides = new Map()) => {
   const readLifecycleText = (relativePath) =>
@@ -1235,6 +1242,92 @@ test('the Governor decision states bounded authority and an explicit denial list
 });
 
 // --- 16. documentation uses repository-qualified references ------------------
+
+// --- 17. R3 wire cleanup: no governance lifecycle metadata on the wire ------
+
+test('neither transport-peer wire schema requires or defines an instance-level x-cybrik-lifecycle property', () => {
+  for (const schemaPath of [
+    'contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json',
+    'contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json',
+  ]) {
+    const schema = readJson(schemaPath);
+    assert.equal(
+      Object.hasOwn(schema.properties, 'x-cybrik-lifecycle'),
+      false,
+      `${schemaPath}: schema must not define an instance property named x-cybrik-lifecycle`,
+    );
+    assert.equal(
+      schema.required.includes('x-cybrik-lifecycle'),
+      false,
+      `${schemaPath}: schema must not require an instance property named x-cybrik-lifecycle`,
+    );
+    assert.doesNotMatch(
+      JSON.stringify(schema),
+      /Instance-level lifecycle marker/,
+      `${schemaPath}: no description may claim x-cybrik-lifecycle is instance-level`,
+    );
+  }
+});
+
+test('none of the 18 emitted fixture instances carry x-cybrik-lifecycle', () => {
+  assert.equal(FIXTURE_ONLY_PATHS.length, 18);
+  for (const relativePath of FIXTURE_ONLY_PATHS) {
+    const text = read(relativePath);
+    assert.doesNotMatch(
+      text,
+      /x-cybrik-lifecycle/,
+      `${relativePath}: emitted wire instance must carry no governance lifecycle metadata`,
+    );
+    const value = JSON.parse(text);
+    assert.equal(
+      collectKeys(value).includes('x-cybrik-lifecycle'),
+      false,
+      `${relativePath}: parsed instance must not contain x-cybrik-lifecycle anywhere`,
+    );
+  }
+});
+
+test('reintroducing x-cybrik-lifecycle on a wire instance is structurally rejected', () => {
+  const report = validateTransportPeerPacket({ root: REPO_ROOT });
+  assert.deepEqual(report.errors, []);
+
+  const evidence = structuredClone(readJson(POSITIVE_EVIDENCE_FIXTURE));
+  evidence['x-cybrik-lifecycle'] = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+  assert.equal(
+    report.validateEvidence(evidence),
+    false,
+    'a wire evidence instance must not be able to carry governance lifecycle metadata',
+  );
+
+  const errorBody = structuredClone(
+    readJson(
+      'contracts/examples/transport-peer/positive/peer-evidence-error.chain-not-verified.json',
+    ),
+  );
+  errorBody['x-cybrik-lifecycle'] = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+  assert.equal(
+    report.validateError(errorBody),
+    false,
+    'a wire error instance must not be able to carry governance lifecycle metadata',
+  );
+});
+
+test('proposal anti-lifting stays pinned at manifest metadata even though wire fixtures carry no lifecycle marker', () => {
+  const examplesManifest = readJson(EXAMPLES_MANIFEST_PATH);
+  const compatibilityManifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+  const expectedStatus = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+
+  assert.equal(examplesManifest['x-cybrik-status'], expectedStatus);
+  assert.equal(compatibilityManifest['x-cybrik-status'], expectedStatus);
+  for (const entry of examplesManifest.fixtures) {
+    assert.equal(
+      Object.hasOwn(entry, 'x-cybrik-lifecycle'),
+      false,
+      `${entry.file}: manifest fixture entry must not carry a per-fixture x-cybrik-lifecycle field`,
+    );
+  }
+  assert.deepEqual(lifecycleMismatches(), []);
+});
 
 test('documentation references other repositories only in repository-qualified form', () => {
   for (const relativePath of PACKET_DOC_PATHS) {
