@@ -10,7 +10,14 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { realpathSync } from 'node:fs';
@@ -414,6 +421,25 @@ test('the no-degrade truth table accepts exactly mutual_tls + chain_verified + t
   }
 });
 
+test('the no-degrade truth table is derived from the reference predicate', () => {
+  const valid = readJson(POSITIVE_EVIDENCE_FIXTURE);
+  for (const row of noDegradeTruthTable()) {
+    const evidence = structuredClone(valid);
+    evidence.channel.mutual_tls = row.mutual_tls;
+    evidence.channel.chain_verified = row.chain_verified;
+    if (!row.thumbprint_present) delete evidence.channel.peer_thumbprint;
+    const verdict = evaluatePeerEvidence(evidence);
+    assert.deepEqual(
+      {
+        accepted: row.accepted,
+        denialClass: row.denialClass,
+        degraded: row.degraded,
+      },
+      verdict,
+    );
+  }
+});
+
 // --- 6. fail-closed denial-class fixture exhaustiveness ----------------------
 
 test('every declared denial class has exactly one negative-semantic fixture', () => {
@@ -469,6 +495,18 @@ test('held and absent channel evidence fail closed and never fall through', () =
   for (const malformed of [undefined, null, {}, { channel: null }, { channel: {} }]) {
     assert.doesNotThrow(() => evaluatePeerEvidence(malformed));
     assert.equal(evaluatePeerEvidence(malformed).accepted, false);
+  }
+});
+
+test('every non-present evidence state fails closed, including out-of-enum values', () => {
+  const valid = readJson(POSITIVE_EVIDENCE_FIXTURE);
+  for (const state of ['degraded', 'partial', 'PRESENT', 42, true, null]) {
+    const evidence = structuredClone(valid);
+    evidence.channel.evidence_state = state;
+    const verdict = evaluatePeerEvidence(evidence);
+    assert.equal(verdict.accepted, false, `${String(state)} must never fall through`);
+    assert.equal(verdict.degraded, false);
+    assert.equal(verdict.denialClass, 'TPE_CHANNEL_EVIDENCE_ABSENT');
   }
 });
 
@@ -683,9 +721,18 @@ test('N1..N10 are each mapped exactly once as covered_statically or requires_run
     manifest.negative_test_map.map((entry) => ({
       id: entry.id,
       coverage: entry.coverage,
+      runtime_status: entry.runtime_status,
     })),
-    NEGATIVE_TEST_MAP.map((entry) => ({ id: entry.id, coverage: entry.coverage })),
+    NEGATIVE_TEST_MAP.map((entry) => ({
+      id: entry.id,
+      coverage: entry.coverage,
+      runtime_status: entry.runtime_status,
+    })),
     'the manifest and the validator must share one N-map source of truth',
+  );
+  assert.ok(
+    manifest.negative_test_map.every((entry) => entry.runtime_status === 'requires_runtime'),
+    'static contract coverage must never be mistaken for completed runtime UAT',
   );
 });
 
@@ -801,16 +848,44 @@ test('manifest member paths cannot escape the repository root', () => {
   });
 });
 
+test('standalone validation requires packet integrity and the exact member inventory', () => {
+  const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+  const withoutIntegrity = structuredClone(manifest);
+  delete withoutIntegrity['x-cybrik-packet-integrity'];
+  const missingIntegrity = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([
+      [COMPATIBILITY_MANIFEST_PATH, `${JSON.stringify(withoutIntegrity, null, 2)}\n`],
+    ]),
+  });
+  assert.ok(missingIntegrity.errors.some((error) => /packet integrity is required/.test(error)));
+
+  const withoutMember = structuredClone(manifest);
+  withoutMember.members.pop();
+  const missingMember = validateTransportPeerPacket({
+    root: REPO_ROOT,
+    overrides: new Map([
+      [COMPATIBILITY_MANIFEST_PATH, `${JSON.stringify(withoutMember, null, 2)}\n`],
+    ]),
+  });
+  assert.ok(missingMember.errors.some((error) => /member inventory mismatch/.test(error)));
+});
+
 test('every fixture is pinned by digest in the examples manifest with no orphans', () => {
   const manifest = readJson(EXAMPLES_MANIFEST_PATH);
   const declared = manifest.fixtures.map(
     (entry) => `contracts/examples/transport-peer/${entry.file}`,
   );
-  const onDisk = expectedPacketPaths.filter(
-    (path) =>
-      path.startsWith('contracts/examples/transport-peer/') &&
-      path !== EXAMPLES_MANIFEST_PATH,
-  );
+  const walk = (directory, prefix = '') =>
+    readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      return entry.isDirectory()
+        ? walk(join(directory, entry.name), relativePath)
+        : [relativePath];
+    });
+  const onDisk = walk(join(REPO_ROOT, 'contracts/examples/transport-peer'))
+    .filter((path) => path.endsWith('.json') && path !== 'examples-manifest.json')
+    .map((path) => `contracts/examples/transport-peer/${path}`);
 
   assert.deepEqual([...declared].sort(), [...onDisk].sort());
   assert.equal(new Set(declared).size, declared.length);

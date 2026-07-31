@@ -79,16 +79,16 @@ export const FORBIDDEN_CHANNEL_PROPERTY_KEYS = Object.freeze([
 ]);
 
 export const NEGATIVE_TEST_MAP = Object.freeze([
-  { id: 'N1', coverage: 'requires_runtime', basis: 'Durable replay requires a real PostgreSQL-backed round trip.' },
-  { id: 'N2', coverage: 'covered_statically', basis: 'Three-way thumbprint mismatch denies deterministically.' },
-  { id: 'N3', coverage: 'covered_statically', basis: 'Audience remains an accepted W2-F token validation invariant.' },
-  { id: 'N4', coverage: 'covered_statically', basis: 'Scope remains an accepted W2-F token validation invariant.' },
-  { id: 'N5', coverage: 'covered_statically', basis: 'Operation binding remains an accepted W2-F token invariant.' },
-  { id: 'N6', coverage: 'covered_statically', basis: 'Tenant mismatch remains an accepted W2-F fail-closed invariant.' },
-  { id: 'N7', coverage: 'covered_statically', basis: 'Tenant-org advisory mismatch remains fail closed.' },
-  { id: 'N8', coverage: 'covered_statically', basis: 'Absent or held channel evidence cannot degrade to accept.' },
-  { id: 'N9', coverage: 'requires_runtime', basis: 'Database unavailability requires the future PostgreSQL harness.' },
-  { id: 'N10', coverage: 'covered_statically', basis: 'Raw certificate, token and secret material is structurally inexpressible.' },
+  { id: 'N1', coverage: 'requires_runtime', runtime_status: 'requires_runtime', basis: 'Durable replay requires a real PostgreSQL-backed round trip.' },
+  { id: 'N2', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Three-way thumbprint mismatch denies deterministically at the contract layer; runtime UAT remains held.' },
+  { id: 'N3', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Audience remains an accepted W2-F token validation invariant; runtime UAT remains held.' },
+  { id: 'N4', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Scope remains an accepted W2-F token validation invariant; runtime UAT remains held.' },
+  { id: 'N5', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Operation binding remains an accepted W2-F token invariant; runtime UAT remains held.' },
+  { id: 'N6', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Tenant mismatch remains an accepted W2-F fail-closed invariant; runtime UAT remains held.' },
+  { id: 'N7', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Tenant-org advisory mismatch remains fail closed; runtime UAT remains held.' },
+  { id: 'N8', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Absent or held channel evidence cannot degrade to accept at the contract layer; runtime UAT remains held.' },
+  { id: 'N9', coverage: 'requires_runtime', runtime_status: 'requires_runtime', basis: 'Database unavailability requires the future PostgreSQL harness.' },
+  { id: 'N10', coverage: 'covered_statically', runtime_status: 'requires_runtime', basis: 'Evidence and error schemas exclude raw material; runtime logs and response headers remain held for UAT.' },
 ]);
 
 export const RUNTIME_ONLY_PROPERTIES = Object.freeze([
@@ -133,10 +133,10 @@ const deny = (denialClass) => ({
 
 export const evaluatePeerEvidence = (evidence) => {
   const channel = evidence?.channel;
-  if (!channel || channel.evidence_state === 'absent' || !channel.evidence_state) {
+  if (!channel || channel.evidence_state !== 'present') {
+    if (channel?.evidence_state === 'held') return deny('TPE_CHANNEL_EVIDENCE_HELD');
     return deny('TPE_CHANNEL_EVIDENCE_ABSENT');
   }
-  if (channel.evidence_state === 'held') return deny('TPE_CHANNEL_EVIDENCE_HELD');
   if (channel.mutual_tls !== true) return deny('TPE_NOT_MUTUAL_TLS');
   if (channel.chain_verified !== true) return deny('TPE_CHAIN_NOT_VERIFIED');
   const peer = channel.peer_thumbprint?.value;
@@ -155,20 +155,35 @@ export const evaluatePeerEvidence = (evidence) => {
 
 export const noDegradeTruthTable = () => {
   const rows = [];
+  const thumbprint = 'A'.repeat(43);
   for (const mutualTls of [false, true]) {
     for (const chainVerified of [false, true]) {
       for (const thumbprintPresent of [false, true]) {
-        let denialClass = null;
-        if (!mutualTls) denialClass = 'TPE_NOT_MUTUAL_TLS';
-        else if (!chainVerified) denialClass = 'TPE_CHAIN_NOT_VERIFIED';
-        else if (!thumbprintPresent) denialClass = 'TPE_PEER_THUMBPRINT_ABSENT';
+        const evidence = {
+          channel: {
+            evidence_state: 'present',
+            mutual_tls: mutualTls,
+            chain_verified: chainVerified,
+            ...(thumbprintPresent
+              ? {
+                  peer_thumbprint: { alg: 'x5t#S256', value: thumbprint },
+                  peer_thumbprint_source: 'server_verified_chain',
+                }
+              : {}),
+          },
+          relying_party: {
+            peer_cert_thumbprint: { alg: 'x5t#S256', value: thumbprint },
+          },
+          token_confirmation: { cnf: { 'x5t#S256': thumbprint } },
+        };
+        const verdict = evaluatePeerEvidence(evidence);
         rows.push({
           mutual_tls: mutualTls,
           chain_verified: chainVerified,
           thumbprint_present: thumbprintPresent,
-          accepted: denialClass === null,
-          denialClass,
-          degraded: false,
+          accepted: verdict.accepted,
+          denialClass: verdict.denialClass,
+          degraded: verdict.degraded,
         });
       }
     }
@@ -287,7 +302,31 @@ export const validateTransportPeerPacket = ({
   }
 
   const integrity = compatibilityManifest?.['x-cybrik-packet-integrity'];
-  if (integrity) {
+  const expectedMemberNames = expectedPacketPaths.map((entry) =>
+    entry.replace(/^contracts\//, ''),
+  );
+  const declaredMembers = compatibilityManifest?.members;
+  if (
+    !Array.isArray(declaredMembers) ||
+    declaredMembers.length !== expectedMemberNames.length ||
+    JSON.stringify([...declaredMembers].sort()) !==
+      JSON.stringify([...expectedMemberNames].sort())
+  ) {
+    errors.push(`${COMPATIBILITY_MANIFEST_PATH}: member inventory mismatch`);
+  }
+  if (!integrity) {
+    errors.push(`${COMPATIBILITY_MANIFEST_PATH}: packet integrity is required`);
+  } else {
+    const digestMembers = integrity.member_digests?.map((entry) => entry.file);
+    if (
+      integrity.member_count !== expectedMemberNames.length ||
+      !Array.isArray(digestMembers) ||
+      digestMembers.length !== expectedMemberNames.length ||
+      JSON.stringify([...digestMembers].sort()) !==
+        JSON.stringify([...expectedMemberNames].sort())
+    ) {
+      errors.push(`${COMPATIBILITY_MANIFEST_PATH}: integrity member inventory mismatch`);
+    }
     for (const entry of integrity.member_digests ?? []) {
       const relativePath = `contracts/${entry.file}`;
       try {
