@@ -19,8 +19,10 @@ deployment, database, credential or release authority.
 
 The current integration line above supersedes only undated or forward-looking claims below that
 W1-C1, W1-C2, W1-G1, CONTROL9 or CI3 are still local-only/noncanonical. Dated sections remain
-historical evidence. Runtime/local stack/demo/UAT remain `NO-GO` until the existing G-C
-`stable-v1.0` trigger; production remains Founder-controlled.
+historical evidence. The 2026-07-31 Runtime/UAT Reconciliation supersedes forward-looking blanket
+runtime holds: bounded non-production runtime/local stack/demo/UAT may proceed only after its
+technical admission gate passes. No runtime readiness is implied; production remains
+Founder-controlled.
 
 ## 1. Transition decision
 
@@ -47,6 +49,7 @@ Therefore:
 | W1 product implementation | `CONDITIONAL GO` | Dependency-ready bounded packets may proceed with exact repo/base/path/acceptance/test scope |
 | W1 integration/live shadow | `HOLD` | Requires accepted contracts, product revisions and explicit integration authority |
 | Routine delegated integration | `GO — EVIDENCE GATED` | Governor may review, commit, push and merge after exact-scope verification and hosted required checks |
+| Non-production runtime/demo/UAT | `CONDITIONAL GO — ADMISSION GATED` | May run only under `DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md`; opening execution authority proves no readiness profile |
 | External release | `NO-GO` | Release-register RB-001 responsible-disclosure blocker remains open |
 
 The contract packet's historical approval-ingress forward gap also uses the string `RB-001`.

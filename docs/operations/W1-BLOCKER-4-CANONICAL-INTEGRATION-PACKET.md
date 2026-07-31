@@ -1147,9 +1147,9 @@ product runtime, hosted-CI or release evidence.
 
 Every row above is the result **on its date, against the bytes of that record**. The `77 · 77`,
 `100 · 100`, `115 · 115` and `131 · 131` figures are **dated history, not the current count** —
-only the paragraph below is current. None of them is withdrawn.
+the current result is identified explicitly after the Lane 5 history below. None is withdrawn.
 
-**Current — W1 Lane 5 control reconciliation, this record.** Test-first RED before any
+**Historical — W1 Lane 5 control reconciliation.** Test-first RED before any
 implementation: `tests 172 · pass 95 · fail 77` — forty-one tests added over the 131-test baseline;
 most of those failures cascaded from the first standalone-validator failure rather than being
 independent defects. That first pass reached `tests 172 · pass 172 · fail 0`, and the independent
@@ -1160,6 +1160,15 @@ tests, three of them measured RED against the un-hardened exemption scanner — 
 `node --test tools/operations/tests/validate-w1-control.test.mjs` → **`tests 179 · pass 179 · fail 0`**.
 The `131 · 131` and `172 · 172` figures are earlier results, not the current count. CI3 is now
 prepared locally; no hosted run is claimed.
+
+**Current — delegated Runtime/UAT reconciliation, this record.** Test-first RED against the
+pre-enforcement bytes: `tests 222 · pass 217 · fail 5`. At that measured RED, the decision,
+board and catalogs already carried the draft execution posture, while the shipping validator and
+packet inventory did not. Exactly five tests failed: decision/catalog drift enforcement,
+inventory count 25, numbering 1..25, corrected rule 23 and new rule 25. Final, against these bytes:
+`node tools/operations/validate-w1-control.mjs` → **PASS**, `tasks=48`,
+`enforcedRules=25`; `node --test tools/operations/tests/validate-w1-control.test.mjs` →
+**`tests 222 · pass 222 · fail 0`**. The 179-test result above is historical, not current.
 
 ### 9.1 Machine-enforcement surface — exactly what the validator checks
 
@@ -1194,8 +1203,9 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 | 20 | §2.8 ↔ §7.1 | the Suite LINE 2 and SOC rows must agree on tip and count across both sections, exactly as Suite LINE 1 already must |
 | 21 | whole corpus | no self identity for this record — no Lane 5 commit SHA, tree or `SCOPE-AGG-SHA256/v1` value may be stated or predicted anywhere; the predicted count is derived in the validator from base + offset and is never a literal |
 | 22 | current canonical state | the reconciliation application, board, E2 register, blocker-4 packet and ADR catalog must all carry the canonical lifecycle and PR #1 merge; the E2 current-gate section must exclude superseded unpushed, unmerged and delegation-NO-GO claims |
-| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime at `NO-GO` and production as Founder-controlled |
+| 23 | current delegated authority | the board must pin bounded product admission at `CONDITIONAL GO`, delegated technical integration at evidence-gated `GO`, runtime writers at `NO-GO`, non-production runtime/demo/UAT execution at admission-gated `CONDITIONAL GO`, and production as Founder-controlled |
 | 24 | canonical merge topology | live Git must contain PR #1 merge `28c564e…` with its exact ordered parents and tree, the rehearsal tip must be its ancestor, and repository `HEAD` must descend from it |
+| 25 | delegated Runtime/UAT decision, accepted UAT standard and catalogs | the decision must pin governance status, effective time, Founder-directive provenance, admission and UAT-standard gates, evidence location, reserved boundaries, unchanged dates and readiness semantics; the top-level catalog must pin admission-gated execution with no readiness, and the operations catalog must link the decision |
 
 **Not enforced — equally complete, so no reader infers coverage that does not exist.**
 
@@ -1204,8 +1214,9 @@ and is **itself machine-pinned** — the validator fails closed if it drifts in 
 - §2.8 beyond rules 1–2, 13 and 20: the Cyber AI, Fabric and Suite LINE 3 rows' tips and
   ahead-counts.
 - §7 beyond rules 3, 13 and 20: §7.1 rows 1, 4 and 5 and all their figures, and all of §7.2, §7.3 and §7.4.
-- §8 NO-GO **1–13**, **16** and **17** — including the runtime/local-stack NO-GO 16 and the
-  release-date NO-GO 17, which stay **prose-only and unpinned**.
+- §8 NO-GO **1–13**, **16** and **17** — historical NO-GO 16 stays prose-only and is superseded
+  for forward-looking bounded non-production execution by the 2026-07-31 Runtime/UAT decision;
+  release-date NO-GO 17 stays **prose-only and unpinned**.
 - §9 outside §9.1: the status-and-ceiling table above.
 - §10 in full: every transcript path, byte count and record count.
 

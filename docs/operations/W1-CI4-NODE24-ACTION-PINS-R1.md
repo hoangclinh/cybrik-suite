@@ -193,6 +193,7 @@ the infrastructure failure above remain dated history and are not rewritten as a
 | Protection | strict required checks remain `contract standards validation` and `secret-scan (gitleaks 8.30.1)`; app id 15368; admins enforced; force-push and deletion disabled |
 
 `W1-CI4` is `CANONICAL MERGED`. This is static CI/control evidence only. It proves no product
-runtime, local stack, demo, UAT, deployment or production state. Runtime/local stack/demo/UAT
-remain `NO-GO` until G-C `stable-v1.0`; release dates remain unchanged; production remains
-Founder-controlled.
+runtime, local stack, demo, UAT, deployment or production state. Its original blanket runtime hold
+is dated historical governance and is superseded for forward-looking non-production execution by
+`DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md`; release dates remain unchanged and
+production remains Founder-controlled.
