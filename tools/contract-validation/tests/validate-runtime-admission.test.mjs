@@ -1588,6 +1588,40 @@ test('commit tuples and rendered required checks remain complete, exact, and uni
   });
 });
 
+test('hosted checks, evidence readiness, and disposition drift fail closed together', async () => {
+  const candidate = baseCandidate();
+  candidate.hosted_ci.required_checks[0].status = 'failure';
+  candidate.hosted_ci.required_checks[1].sha = '0'.repeat(40);
+  candidate.contracts.reviewed_contracts = [];
+  candidate.test_data.approved = false;
+  candidate.evidence.artifacts = [];
+  candidate.network_exposure.surfaces = [];
+  candidate.evidence.final_profile_verdict = 'HOLD';
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    for (const expected of [
+      'required hosted checks must all be success',
+      'must point at the exact candidate tuple SHA',
+      'reviewed contracts must be explicit',
+      'test data must be explicitly approved for non-production use',
+      'evidence must record artifact digests',
+      'network exposure must stay local-only or explicitly bounded',
+      'disposition.profile must match evidence.final_profile_verdict',
+      'disposition.profile must equal derived runtime admission disposition HOLD',
+    ]) {
+      assert.ok(
+        report.errors.some((error) => error.includes(expected)),
+        `missing fail-closed finding: ${expected}`,
+      );
+    }
+    const candidateReport = report.candidates.find(
+      (item) => item.candidateId === candidate.candidate_id,
+    );
+    assert.equal(candidateReport.derivedDisposition, 'HOLD');
+  });
+});
+
 test('hosted non-required job classes and lifecycle prerequisites remain explicit', async () => {
   const malformedHosted = baseCandidate();
   delete malformedHosted.hosted_ci.skipped_jobs;
