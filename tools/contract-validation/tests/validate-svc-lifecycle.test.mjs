@@ -16,14 +16,28 @@ const mutateJson = (path, mutate) => {
   return new Map([[path, `${JSON.stringify(value, null, 2)}\n`]]);
 };
 
-test('the exact lifecycle-delegation proposal is coherent but remains unaccepted', async () => {
+test('the exact lifecycle-delegation binding is accepted for implementation only', async () => {
   const report = await validateSvcLifecycleBinding({ root: ROOT });
   assert.deepEqual(report.errors, []);
-  assert.equal(report.status, 'PROPOSED');
-  assert.equal(report.notAccepted, true);
+  assert.equal(report.status, 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(report.notAccepted, false);
   assert.equal(report.counts.packetFiles, expectedPacketPaths.length);
   assert.equal(report.counts.positiveFixtures, 4);
   assert.equal(report.counts.negativeSemanticFixtures, 10);
+
+  const manifest = JSON.parse(read(
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json',
+  ));
+  assert.equal(manifest.gate.status, 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(manifest.acceptance.status, 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(manifest.acceptance.implementation, 'NOT IMPLEMENTED');
+  assert.equal(manifest.acceptance.decided_on, '2026-07-31');
+  assert.match(manifest.acceptance.decided_by, /Founder-delegated technical authority/);
+  assert.equal(manifest['x-cybrik-is-bundle-tag'], false);
+  assert.deepEqual(manifest.non_delegatable_operations, [
+    'investigation.checkpoint',
+    'investigation.bundle_read',
+  ]);
 });
 
 test('a lifecycle or acceptance half-flip fails closed', async () => {
@@ -32,13 +46,13 @@ test('a lifecycle or acceptance half-flip fails closed', async () => {
   const report = await validateSvcLifecycleBinding({
     root: ROOT,
     overrides: mutateJson(path, (manifest) => {
-      manifest['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
-      manifest['x-cybrik-not-accepted'] = false;
-      manifest['x-cybrik-implemented'] = true;
+      manifest['x-cybrik-status'] = 'PROPOSED';
+      manifest['x-cybrik-not-accepted'] = true;
+      manifest.acceptance.status = 'NOT ACCEPTED';
     }),
   });
   assert.ok(report.errors.some((error) => error.includes(
-    'must remain PROPOSED / NOT ACCEPTED / NOT IMPLEMENTED',
+    'must remain ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED',
   )));
 });
 
