@@ -22,7 +22,7 @@
       "terminal_evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/02-r2-runtime-result.md",
       "terminal_evidence_sha256": "c8f4f4bcdf7e31329e46f73de1db1463034de4416c60b46125b18cd2479f2ef7",
       "correction_evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md",
-      "correction_evidence_sha256": "f23d0f4e1d3bb97aa0192d59e33f92e748cb11e5e216c8923a516303f13dcdb1",
+      "correction_evidence_sha256": "054254d1fb9b2e474d3942d273e875d0d92e143fd8a47d391380ce2e007162cb",
       "review_status": "pending"
     },
     "failure_history": [
@@ -263,17 +263,20 @@
   },
   "lifecycle_procedures": {
     "start": [
+      "set -euo pipefail",
       "case \"${AI_PG_POSTGRES_PASSWORD:?}\" in (*[!0-9a-f]*|'') echo 'AI_PG_POSTGRES_PASSWORD must be exactly 64 lowercase hexadecimal characters' >&2; exit 64;; esac; if [ \"${#AI_PG_POSTGRES_PASSWORD}\" -ne 64 ]; then echo 'AI_PG_POSTGRES_PASSWORD must be exactly 64 lowercase hexadecimal characters' >&2; exit 64; fi; case \"${AI_PG_RUNTIME_PASSWORD:?}\" in (*[!0-9a-f]*|'') echo 'AI_PG_RUNTIME_PASSWORD must be exactly 64 lowercase hexadecimal characters' >&2; exit 64;; esac; if [ \"${#AI_PG_RUNTIME_PASSWORD}\" -ne 64 ]; then echo 'AI_PG_RUNTIME_PASSWORD must be exactly 64 lowercase hexadecimal characters' >&2; exit 64; fi",
+      "if [ -z \"${ZSH_VERSION:-}\" ]; then echo 'the admitted R3 lifecycle requires one zsh session' >&2; exit 75; fi; if [ \"$(whence -w printf)\" != 'printf: builtin' ]; then echo 'zsh builtin printf is required for the admitted R3 lifecycle' >&2; exit 75; fi; command -v git >/dev/null 2>&1 || { echo 'git is required for the admitted R3 lifecycle' >&2; exit 72; }; command -v python3 >/dev/null 2>&1 || { echo 'python3 is required for host-side TCP readiness' >&2; exit 72; }; test \"$(git -C \"${CYBRIK_AI_REPO:?}\" rev-parse HEAD)\" = '14d5919e1d80eac6fc22287a69a9476cac2b77a4' || { echo 'CYBRIK_AI_REPO commit does not match the admitted Cyber AI commit' >&2; exit 76; }; test \"$(git -C \"${CYBRIK_AI_REPO:?}\" rev-parse 'HEAD^{tree}')\" = 'b45620e6be501f37341e87a346d4d2ba518bf394' || { echo 'CYBRIK_AI_REPO tree does not match the admitted Cyber AI tree' >&2; exit 76; }; test -z \"$(git -C \"${CYBRIK_AI_REPO:?}\" status --porcelain --untracked-files=all)\" || { echo 'CYBRIK_AI_REPO must be clean for the admitted R3 lifecycle' >&2; exit 76; }; command -v docker >/dev/null 2>&1 || { echo 'docker is required for the admitted R3 lifecycle' >&2; exit 72; }; docker info >/dev/null 2>&1 || { echo 'docker daemon is unavailable for the admitted R3 lifecycle' >&2; exit 72; }; docker image inspect postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777 >/dev/null 2>&1 || { echo 'the admitted PostgreSQL image digest is absent' >&2; exit 74; }; command -v lsof >/dev/null 2>&1 || { echo 'lsof is required for the admitted R3 lifecycle' >&2; exit 72; }; if docker container inspect cybrik-ai-pg-uat-r3 >/dev/null 2>&1; then echo 'container cybrik-ai-pg-uat-r3 must not exist before the admitted R3 lifecycle' >&2; exit 73; fi; if lsof -nP -iTCP:55432 -sTCP:LISTEN >/dev/null 2>&1; then echo '127.0.0.1:55432 must be free before the admitted R3 lifecycle' >&2; exit 73; fi",
+      "trap 'docker rm -f cybrik-ai-pg-uat-r3 >/dev/null 2>&1 || true; unset POSTGRES_PASSWORD PGPASSWORD AI_PG_POSTGRES_PASSWORD AI_PG_RUNTIME_PASSWORD AI_API_POSTGRES_ADMIN_DSN AI_API_POSTGRES_RUNTIME_DSN' EXIT INT TERM",
       "export POSTGRES_PASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" PGPASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\"",
-      "trap 'docker stop cybrik-ai-pg-uat-r3 >/dev/null 2>&1 || true; unset POSTGRES_PASSWORD PGPASSWORD AI_PG_POSTGRES_PASSWORD AI_PG_RUNTIME_PASSWORD AI_API_POSTGRES_ADMIN_DSN AI_API_POSTGRES_RUNTIME_DSN' EXIT INT TERM",
       "docker run --pull=never --name cybrik-ai-pg-uat-r3 --rm -e POSTGRES_PASSWORD -e PGPASSWORD -p 127.0.0.1:55432:5432 -d postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
-      "attempt=0; until docker exec cybrik-ai-pg-uat-r3 pg_isready -U postgres -d postgres; do attempt=$((attempt + 1)); if [ \"${attempt}\" -ge 60 ]; then echo 'PostgreSQL readiness timed out after 60 failed checks' >&2; exit 70; fi; sleep 1; done",
+      "attempt=0; until docker exec cybrik-ai-pg-uat-r3 pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres; do attempt=$((attempt + 1)); if [ \"${attempt}\" -ge 60 ]; then echo 'PostgreSQL TCP readiness timed out after 60 failed checks' >&2; exit 70; fi; sleep 1; done",
+      "attempt=0; until python3 -c \"import socket; connection = socket.create_connection(('127.0.0.1', 55432), timeout=1); connection.close()\"; do attempt=$((attempt + 1)); if [ \"${attempt}\" -ge 60 ]; then echo 'PostgreSQL host-side TCP mapping timed out after 60 failed checks' >&2; exit 71; fi; sleep 1; done",
       "export AI_API_POSTGRES_ADMIN_DSN=\"postgresql+asyncpg://postgres:${AI_PG_POSTGRES_PASSWORD:?}@127.0.0.1:55432/postgres\"",
       "export AI_API_POSTGRES_RUNTIME_DSN=\"postgresql+asyncpg://cybrik_ai_runtime_uat:${AI_PG_RUNTIME_PASSWORD:?}@127.0.0.1:55432/postgres\"",
       "export CYBRIK_AI_REPO=\"${CYBRIK_AI_REPO:?}\""
     ],
     "stop": [
-      "docker stop cybrik-ai-pg-uat-r3",
+      "docker rm -f cybrik-ai-pg-uat-r3 >/dev/null 2>&1 || true",
       "unset POSTGRES_PASSWORD PGPASSWORD AI_PG_POSTGRES_PASSWORD AI_PG_RUNTIME_PASSWORD AI_API_POSTGRES_ADMIN_DSN AI_API_POSTGRES_RUNTIME_DSN",
       "trap - EXIT INT TERM"
     ],
@@ -283,7 +286,7 @@
       "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" uv run python -c \"import os; from pathlib import Path; from alembic import command; from alembic.config import Config; root = Path.cwd(); cfg = Config(str(root / 'services' / 'ai-api' / 'migrations' / 'alembic.ini')); cfg.set_main_option('script_location', str(root / 'services' / 'ai-api' / 'migrations')); cfg.set_main_option('sqlalchemy.url', os.environ['AI_API_POSTGRES_ADMIN_DSN']); command.downgrade(cfg, 'base'); command.upgrade(cfg, 'head')\""
     ],
     "seed": [
-      "{ printf '%s %s\\n' '\\set runtime_password' \"${AI_PG_RUNTIME_PASSWORD:?}\"; printf '%s\\n' \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;\" \"GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat;\"; } | docker exec -i cybrik-ai-pg-uat-r3 psql --single-transaction --set=ON_ERROR_STOP=1 -U postgres -d postgres",
+      "{ printf '%s %s\\n' '\\set runtime_password' \"${AI_PG_RUNTIME_PASSWORD:?}\"; printf '%s\\n' \"BEGIN;\" \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;\" \"GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat;\" \"COMMIT;\"; } | docker exec -i cybrik-ai-pg-uat-r3 psql --set=ON_ERROR_STOP=1 -U postgres -d postgres",
       "cd \"${CYBRIK_AI_REPO:?}\"",
       "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" AI_API_POSTGRES_RUNTIME_DSN=\"${AI_API_POSTGRES_RUNTIME_DSN:?}\" uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q"
     ],
@@ -328,7 +331,7 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md",
-        "sha256": "f23d0f4e1d3bb97aa0192d59e33f92e748cb11e5e216c8923a516303f13dcdb1"
+        "sha256": "054254d1fb9b2e474d3942d273e875d0d92e143fd8a47d391380ce2e007162cb"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/02-hold-status.md",

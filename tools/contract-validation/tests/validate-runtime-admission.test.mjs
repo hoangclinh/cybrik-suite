@@ -1094,7 +1094,7 @@ test('committed runtime-admission assets preserve R1/R2 NO-GO and keep R3 HOLD',
     correction_evidence_path:
       'docs/uat/candidates/runtime-admission-ai-pg-r3/evidence/01-command-correction.md',
     correction_evidence_sha256:
-      'f23d0f4e1d3bb97aa0192d59e33f92e748cb11e5e216c8923a516303f13dcdb1',
+      '054254d1fb9b2e474d3942d273e875d0d92e143fd8a47d391380ce2e007162cb',
     review_status: 'pending',
   });
   assert.equal(r3.evidence.final_profile_verdict, 'HOLD');
@@ -1117,7 +1117,10 @@ test('R3 correction uses one stdin-fed psql process and cannot retain the failed
   assert.match(seedCommand, /'\\set runtime_password'/);
   assert.match(seedCommand, /printf '%s\\n'/);
   assert.match(seedCommand, /\| docker exec -i /);
-  assert.match(seedCommand, /psql --single-transaction --set=ON_ERROR_STOP=1 /);
+  assert.match(seedCommand, /psql --set=ON_ERROR_STOP=1 /);
+  assert.doesNotMatch(seedCommand, /--single-transaction/);
+  assert.equal([...seedCommand.matchAll(/"BEGIN;"/g)].length, 1);
+  assert.equal([...seedCommand.matchAll(/"COMMIT;"/g)].length, 1);
   assert.match(seedCommand, /PASSWORD :'runtime_password'/);
   assert.equal(
     [...seedCommand.matchAll(
@@ -1162,11 +1165,61 @@ test('R3 correction uses one stdin-fed psql process and cannot retain the failed
   const lifecycleText = JSON.stringify(r3.lifecycle_procedures);
   assert.match(lifecycleText, /AI_PG_POSTGRES_PASSWORD must be exactly 64 lowercase hexadecimal characters/);
   assert.match(lifecycleText, /AI_PG_RUNTIME_PASSWORD must be exactly 64 lowercase hexadecimal characters/);
-  assert.match(lifecycleText, /trap 'docker stop cybrik-ai-pg-uat-r3/);
+  assert.match(lifecycleText, /trap 'docker rm -f cybrik-ai-pg-uat-r3/);
   assert.match(lifecycleText, /trap - EXIT INT TERM/);
+  const startCommands = r3.lifecycle_procedures.start;
+  const preflightIndex = startCommands.findIndex((command) => command.includes('docker container inspect'));
+  const trapIndex = startCommands.findIndex((command) => command.startsWith("trap 'docker rm -f"));
+  const exportIndex = startCommands.findIndex((command) => command.startsWith('export POSTGRES_PASSWORD='));
+  const dockerRunIndex = startCommands.findIndex((command) => command.startsWith('docker run '));
+  const readinessIndex = startCommands.findIndex((command) => command.includes('pg_isready'));
+  const hostReadinessIndex = startCommands.findIndex((command) => command.includes('socket.create_connection'));
+  assert.equal(startCommands[0], 'set -euo pipefail');
+  assert.equal(preflightIndex, 2);
+  assert.ok(preflightIndex < trapIndex);
+  assert.ok(trapIndex < exportIndex);
+  assert.ok(exportIndex < dockerRunIndex);
+  assert.ok(dockerRunIndex < readinessIndex);
+  assert.ok(readinessIndex < hostReadinessIndex);
+  assert.match(startCommands[1], /AI_PG_POSTGRES_PASSWORD must be exactly 64/);
+  assert.match(startCommands[1], /AI_PG_RUNTIME_PASSWORD must be exactly 64/);
+  assert.match(startCommands[preflightIndex], /ZSH_VERSION/);
+  assert.match(startCommands[preflightIndex], /whence -w printf/);
+  assert.match(startCommands[preflightIndex], /printf: builtin/);
+  assert.match(startCommands[preflightIndex], /14d5919e1d80eac6fc22287a69a9476cac2b77a4/);
+  assert.match(startCommands[preflightIndex], /b45620e6be501f37341e87a346d4d2ba518bf394/);
+  assert.match(startCommands[preflightIndex], /status --porcelain --untracked-files=all/);
+  assert.match(startCommands[preflightIndex], /command -v docker .*docker info /);
+  assert.match(startCommands[preflightIndex], /command -v python3 /);
   assert.match(
-    r3.lifecycle_procedures.start.join('\n'),
-    /attempt=0; until docker exec .*attempt=\$\(\(attempt \+ 1\)\).*"\$\{attempt\}" -ge 60.*exit 70/,
+    startCommands[preflightIndex],
+    /docker image inspect postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777/,
+  );
+  assert.match(startCommands[preflightIndex], /command -v lsof /);
+  assert.match(startCommands[preflightIndex], /docker container inspect cybrik-ai-pg-uat-r3/);
+  assert.match(startCommands[preflightIndex], /lsof -nP -iTCP:55432 -sTCP:LISTEN/);
+  assert.match(startCommands[preflightIndex], /exit 72/);
+  assert.match(startCommands[preflightIndex], /exit 73/);
+  assert.match(startCommands[preflightIndex], /exit 74/);
+  assert.match(startCommands[preflightIndex], /exit 75/);
+  assert.match(startCommands[preflightIndex], /exit 76/);
+  assert.match(
+    startCommands[dockerRunIndex],
+    /--pull=never .* -p 127\.0\.0\.1:55432:5432 .*postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777/,
+  );
+  assert.match(startCommands.join('\n'), /127\.0\.0\.1:55432\/postgres/);
+  assert.equal(r3.network_exposure.surfaces[0].bind, '127.0.0.1:55432');
+  assert.equal(
+    r3.lifecycle_procedures.stop[0],
+    'docker rm -f cybrik-ai-pg-uat-r3 >/dev/null 2>&1 || true',
+  );
+  assert.match(
+    startCommands.join('\n'),
+    /attempt=0; until docker exec .*pg_isready -h 127\.0\.0\.1 -p 5432 .*attempt=\$\(\(attempt \+ 1\)\).*"\$\{attempt\}" -ge 60.*exit 70/,
+  );
+  assert.match(
+    startCommands[hostReadinessIndex],
+    /socket\.create_connection\(\('127\.0\.0\.1', 55432\), timeout=1\).*"\$\{attempt\}" -ge 60.*exit 71/,
   );
   assert.deepEqual({
     tenant_isolation: r3.negative_smoke.tenant_isolation.map(({ status }) => status),
