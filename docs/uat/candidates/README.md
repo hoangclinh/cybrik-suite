@@ -25,7 +25,8 @@ Rules:
 - Cross-series evidence may be referenced only as a digest-pinned
   `historical_prerequisite`. It grants no execution authority; its bytes cannot be copied into the
   new candidate's current attempt, evidence artifacts or failure history; and it does not promote
-  any runtime, UAT, POC, RC or release verdict.
+  any runtime, UAT, POC, RC or release verdict. Registry-wide SHA-256 ownership enforces this even
+  when a candidate omits the prerequisite declaration.
 - Process rule: a completed runtime attempt must be recorded in a new result artifact and must not
   reuse the pre-run authorization artifact as result evidence; this distinction is review-enforced
   when the result update is committed.

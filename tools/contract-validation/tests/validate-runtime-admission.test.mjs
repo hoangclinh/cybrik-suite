@@ -8,6 +8,7 @@ import test from 'node:test';
 import {
   expectedCandidateFields,
   expectedRepositories,
+  isMainModule,
   validateRuntimeAdmission,
 } from '../validate-runtime-admission.mjs';
 
@@ -127,13 +128,15 @@ const baseCandidate = ({
   criticalFindings = 0,
   authorizationSmoke = 'pass',
   disposition = 'RUNTIME_AUTHORIZED',
-  evidenceContent = `attempt ${ordinal}\n`,
+  evidenceContent,
 } = {}) => {
+  const resolvedEvidenceContent =
+    evidenceContent ?? `attempt ${seriesId} ${ordinal}\n`;
   const executedChecks = passedChecks + failedChecks;
   const dir = evidenceDir(seriesId, ordinal);
   const attemptPath = currentAttemptArtifact(seriesId, ordinal);
-  const attemptSha = sha256(evidenceContent);
-  return {
+  const attemptSha = sha256(resolvedEvidenceContent);
+  const candidate = {
     candidate_id: candidateId(seriesId, ordinal),
     recorded_at: '2026-07-31T00:00:00Z',
     attempt_accounting: {
@@ -238,6 +241,12 @@ const baseCandidate = ({
       rationale: 'Candidate rationale.',
     },
   };
+  Object.defineProperty(candidate, '__testEvidenceContent', {
+    value: resolvedEvidenceContent,
+    enumerable: false,
+    writable: true,
+  });
+  return candidate;
 };
 
 const recoverySeries = ({
@@ -265,6 +274,7 @@ const recoverySeries = ({
     authorizationSmoke: 'fail',
     highFindings: 1,
     disposition: 'NO-GO',
+    evidenceContent: r1Content,
   });
   const r2 = baseCandidate({
     seriesId,
@@ -288,6 +298,7 @@ const recoverySeries = ({
       },
     ],
     disposition: 'NO-GO',
+    evidenceContent: r2Content,
   });
   const r3 = baseCandidate({
     seriesId,
@@ -394,7 +405,7 @@ const withTempRepo = async ({
       mkdirSync(evDir, { recursive: true });
       writeFileSync(
         join(tempRoot, candidate.attempt_accounting.current_attempt.evidence_path),
-        `attempt ${candidate.attempt_accounting.attempt_ordinal}\n`,
+        candidate.__testEvidenceContent,
         'utf8',
       );
       stableWriteJson(join(tempRoot, `${candidateDir(candidate.attempt_accounting.series_id, candidate.attempt_accounting.attempt_ordinal)}/runtime-admission.json`), candidate);
@@ -427,6 +438,8 @@ const terminalRecoverySeries = () => {
     evidence_path: currentAttemptArtifact(series.seriesId, 3),
     evidence_sha256: sha256('attempt 3\n'),
   };
+  series.r3.__testEvidenceContent = 'attempt 3\n';
+  series.r3.evidence.artifacts[0].sha256 = sha256('attempt 3\n');
   series.r3.evidence.final_profile_verdict = 'NO-GO';
   series.r3.disposition = {
     profile: 'NO-GO',
@@ -2314,4 +2327,99 @@ test('malformed policy and non-NO-GO legacy enrollment fail closed', async () =>
       'a 64-hex digest and NO-GO disposition',
     )));
   });
+});
+
+test('undeclared cross-series byte reuse is rejected registry-wide', async () => {
+  const legacy = terminalRecoverySeries();
+  const future = baseCandidate({
+    seriesId: 'golden-uat-suite',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  future.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const copiedDigest = legacy.r3.attempt_accounting.current_attempt.evidence_sha256;
+  future.attempt_accounting.current_attempt.evidence_sha256 = copiedDigest;
+  future.evidence.artifacts[0].sha256 = copiedDigest;
+
+  await withTempRepo({
+    candidates: [legacy.r1, legacy.r2, legacy.r3, future],
+    extraWrites: [
+      ...legacy.extraWrites,
+      {
+        kind: 'text',
+        dir: evidenceDir('golden-uat-suite', 1),
+        path: currentAttemptArtifact('golden-uat-suite', 1),
+        value: 'attempt 3\n',
+      },
+    ],
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'cross-series execution evidence SHA-256 must be unique',
+    )));
+    const futureReport = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === future.candidate_id,
+    );
+    assert.equal(futureReport.derivedDisposition, 'HOLD');
+  });
+});
+
+test('evidence cannot escape through a symlinked parent directory', async () => {
+  const candidate = baseCandidate({
+    seriesId: 'symlink-parent-probe',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  const outsideContent = 'outside evidence must never be admitted\n';
+  const linkedArtifactPath =
+    `${evidenceDir('symlink-parent-probe', 1)}/linked/secret.md`;
+  candidate.evidence.artifacts.push({
+    path: linkedArtifactPath,
+    sha256: sha256(outsideContent),
+  });
+  const outsideDir = mkdtempSync(join(os.tmpdir(), 'runtime-admission-outside-'));
+  try {
+    writeFileSync(join(outsideDir, 'secret.md'), outsideContent, 'utf8');
+    await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+      symlinkSync(
+        outsideDir,
+        join(tempRoot, evidenceDir('symlink-parent-probe', 1), 'linked'),
+      );
+      const report = await validateRuntimeAdmission({ root: tempRoot });
+      assert.ok(report.errors.some((error) =>
+        error.includes('evidence artifact paths must not resolve outside the repository root')
+        || error.includes('evidence artifacts must resolve inside candidate.evidence.directory')));
+      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    });
+  } finally {
+    rmSync(outsideDir, { recursive: true, force: true });
+  }
+});
+
+test('main-module guard resolves symlinked entry paths', () => {
+  const tempRoot = mkdtempSync(join(os.tmpdir(), 'runtime-admission-main-'));
+  try {
+    const validatorPath = resolve(
+      ROOT,
+      'tools/contract-validation/validate-runtime-admission.mjs',
+    );
+    const symlinkPath = join(tempRoot, 'runtime-admission-link.mjs');
+    symlinkSync(validatorPath, symlinkPath);
+    assert.equal(
+      isMainModule(
+        new URL('../validate-runtime-admission.mjs', import.meta.url).href,
+        symlinkPath,
+      ),
+      true,
+    );
+    assert.equal(isMainModule('not-a-url', symlinkPath), false);
+    assert.equal(isMainModule(import.meta.url, undefined), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
 });

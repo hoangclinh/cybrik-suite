@@ -141,6 +141,7 @@ three-record legacy seal and the allowed capability/objective registry at
 `docs/uat/candidates/*/runtime-admission.json`, and fail-closes on missing gate items, duplicate or
 incomplete four-repo tuples, non-success required hosted checks, missing rollback/seed procedures,
 open Critical/High findings, cross-series terminal-objective reopening, historical-evidence
-promotion, stronger-profile overclaim, or any failed tenant-isolation,
+promotion or byte reuse, canonical-path escape through symlinked parents, stronger-profile
+overclaim, or any failed tenant-isolation,
 authorization or secret-boundary check. A green result validates static runtime-admission records
 only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.

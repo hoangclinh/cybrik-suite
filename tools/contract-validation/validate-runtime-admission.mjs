@@ -1,7 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -444,6 +451,36 @@ const validateRecordedArtifact = ({
   if (!artifactStats.isFile()) {
     errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
     return;
+  }
+
+  let canonicalRoot;
+  let canonicalArtifactPath;
+  try {
+    canonicalRoot = realpathSync(root);
+    canonicalArtifactPath = realpathSync(resolvedArtifactPath);
+  } catch {
+    errors.push(`${recordPath}: evidence artifact path must resolve to a readable regular file`);
+    return;
+  }
+  if (isPathOutside(canonicalRoot, canonicalArtifactPath)) {
+    errors.push(`${recordPath}: evidence artifact paths must not resolve outside the repository root`);
+    return;
+  }
+  if (requireInsideEvidenceDir) {
+    let canonicalEvidenceDir;
+    try {
+      canonicalEvidenceDir = realpathSync(resolve(root, evidenceDir));
+    } catch {
+      errors.push(`${recordPath}: candidate.evidence.directory must resolve inside the repository root`);
+      return;
+    }
+    if (
+      isPathOutside(canonicalRoot, canonicalEvidenceDir)
+      || isPathOutside(canonicalEvidenceDir, canonicalArtifactPath)
+    ) {
+      errors.push(`${recordPath}: evidence artifacts must resolve inside candidate.evidence.directory`);
+      return;
+    }
   }
 
   let bytes;
@@ -985,6 +1022,25 @@ const validateLineagePolicy = ({
       );
       continue;
     }
+    let canonicalRoot;
+    let canonicalRecordPath;
+    try {
+      canonicalRoot = realpathSync(root);
+      canonicalRecordPath = realpathSync(resolvedRecordPath);
+    } catch {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must resolve to a readable regular file`,
+      );
+      continue;
+    }
+    if (isPathOutside(canonicalRoot, canonicalRecordPath)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `legacy candidate ${entry.candidate_id} record_path must not resolve outside the repository root`,
+      );
+      continue;
+    }
     if (legacyById.has(entry.candidate_id)) {
       addFinding(
         LINEAGE_POLICY_PATH,
@@ -1037,6 +1093,43 @@ const validateLineagePolicy = ({
         LINEAGE_POLICY_PATH,
         `legacy candidate ${entry.candidate_id} record_sha256 must match immutable record bytes`,
       );
+    }
+  }
+
+  const evidenceOwnersBySha = new Map();
+  const evidenceDigestsByCandidateId = new Map();
+  for (const record of records) {
+    const candidate = record.candidate;
+    const evidenceDigests = new Set([
+      candidate.attempt_accounting.current_attempt.evidence_sha256,
+      ...candidate.evidence.artifacts.map((artifact) => artifact.sha256),
+      ...candidate.attempt_accounting.failure_history.map(
+        (historyRow) => historyRow.evidence_sha256,
+      ),
+    ]);
+    evidenceDigestsByCandidateId.set(candidate.candidate_id, evidenceDigests);
+    for (const digest of evidenceDigests) {
+      const owners = evidenceOwnersBySha.get(digest) ?? [];
+      owners.push({
+        candidateId: candidate.candidate_id,
+        seriesId: candidate.attempt_accounting.series_id,
+      });
+      evidenceOwnersBySha.set(digest, owners);
+    }
+  }
+  for (const record of records) {
+    const candidate = record.candidate;
+    const seriesId = candidate.attempt_accounting.series_id;
+    for (const digest of evidenceDigestsByCandidateId.get(candidate.candidate_id) ?? []) {
+      const foreignOwner = (evidenceOwnersBySha.get(digest) ?? []).find(
+        (owner) => owner.seriesId !== seriesId,
+      );
+      if (foreignOwner) {
+        addFinding(
+          record.path,
+          `cross-series execution evidence SHA-256 must be unique; digest is already owned by ${foreignOwner.candidateId}`,
+        );
+      }
     }
   }
 
@@ -1501,7 +1594,16 @@ const formatSummary = (report) => {
   return 0;
 };
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+export const isMainModule = (metaUrl, argvPath) => {
+  if (typeof metaUrl !== 'string' || typeof argvPath !== 'string') return false;
+  try {
+    return realpathSync(argvPath) === realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return false;
+  }
+};
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   const report = await validateRuntimeAdmission();
   process.exit(formatSummary(report));
 }
