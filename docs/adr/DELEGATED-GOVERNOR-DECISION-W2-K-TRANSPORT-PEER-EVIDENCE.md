@@ -79,3 +79,49 @@ Canonical registration is orchestration and catalog bookkeeping only. `npm run v
 the W2-K step, and the ADR catalog listing ADR-0013, remain static conformance and documentation
 signals; neither is acceptance, implementation, runtime, UAT, release, deployment, or production
 proof.
+
+## R3 amendment — governance-free wire instances
+
+Base commit: `440dc0e86e0453e74c71ef85a01be777ba674b7c`.
+
+Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** (unchanged).
+
+The Codex Governor authorizes exactly 25 paths for R3, and no other:
+
+1. `docs/adr/DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md` (this file)
+2. `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`
+3. `tools/contract-validation/tests/validate-transport-peer.test.mjs`
+4. `contracts/compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`
+5. `contracts/examples/transport-peer/examples-manifest.json`
+6. `contracts/examples/transport-peer/negative-schema/peer-evidence-error.leaky-error-body.json`
+7. `contracts/examples/transport-peer/negative-schema/peer-evidence.client-supplied-thumbprint-source.json`
+8. `contracts/examples/transport-peer/negative-schema/peer-evidence.conveys-authorization-true.json`
+9. `contracts/examples/transport-peer/negative-schema/peer-evidence.raw-certificate-material.json`
+10. `contracts/examples/transport-peer/negative-schema/peer-evidence.root-authority-axis.json`
+11. `contracts/examples/transport-peer/negative-schema/peer-evidence.sha1-thumbprint-alg.json`
+12. `contracts/examples/transport-peer/negative-schema/peer-evidence.trusted-boundary-adapter.json`
+13. `contracts/examples/transport-peer/negative-semantic/peer-evidence.chain-not-verified.json`
+14. `contracts/examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-absent.json`
+15. `contracts/examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-held.json`
+16. `contracts/examples/transport-peer/negative-semantic/peer-evidence.not-mutual-tls.json`
+17. `contracts/examples/transport-peer/negative-semantic/peer-evidence.peer-thumbprint-absent.json`
+18. `contracts/examples/transport-peer/negative-semantic/peer-evidence.relying-party-thumbprint-mismatch.json`
+19. `contracts/examples/transport-peer/negative-semantic/peer-evidence.token-cnf-thumbprint-mismatch.json`
+20. `contracts/examples/transport-peer/negative-semantic/peer-evidence.unverified-thumbprint-source.json`
+21. `contracts/examples/transport-peer/positive/peer-evidence-error.chain-not-verified.json`
+22. `contracts/examples/transport-peer/positive/peer-evidence.verified-chain.json`
+23. `contracts/examples/transport-peer/positive/truth-table.no-degrade.json`
+24. `contracts/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json`
+25. `contracts/json-schema/cybrik.transport-peer-evidence.v1.schema.json`
+
+R3 removes `x-cybrik-lifecycle` only from the two wire schemas and the 18 emitted fixture
+instances, recuts the directly affected example and compatibility digests, and adds fail-closed
+tests plus the decision rationale in ADR-0013. Lifecycle remains packet governance metadata on the
+schema roots, examples manifest, compatibility manifest, ADR, and decision record. Reintroducing a
+governance marker into an evidence or denial instance is rejected by the schemas.
+
+This amendment grants no acceptance, runtime, UAT, release, deployment, or production authority.
+It authorizes no product implementation, server selection, dependency or lockfile change, workflow
+change, listener, process, database, container, migration, certificate handling, tag, publication,
+environment change, or production action. Anycorn `0.20.0` remains HOLD. Acceptance remains a
+future, separately reviewed decision and must not change a wire-contract byte.

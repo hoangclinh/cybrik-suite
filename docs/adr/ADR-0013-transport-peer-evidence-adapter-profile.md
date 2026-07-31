@@ -29,6 +29,12 @@ Absent, held, unverified, mismatched, or incomplete evidence denies. No degraded
 fallback exists. Evidence carries no permission, role, capability, scope, approval, token, raw
 certificate, public key, subject, SAN, secret, or private material.
 
+Governance lifecycle metadata belongs to packet metadata; wire evidence and denial instances carry none.
+The proposal status remains explicit on the schema roots, examples manifest, compatibility
+manifest, this ADR, and the delegated decision record. Both wire schemas use
+`additionalProperties: false`, so adding `x-cybrik-lifecycle` to an emitted instance fails closed
+rather than lifting packet governance into the transport payload.
+
 ## Server neutrality
 
 No server is selected, installed, or pinned. Anycorn `0.20.0` remains **HOLD** under the existing
