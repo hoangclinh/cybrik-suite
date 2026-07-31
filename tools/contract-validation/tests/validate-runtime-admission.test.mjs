@@ -1668,21 +1668,66 @@ test('hosted non-required job classes and lifecycle prerequisites remain explici
   });
 });
 
-test('Suite-local reviewed contract references must resolve to regular files', async () => {
-  const candidate = baseCandidate();
-  candidate.contracts.reviewed_contracts = [
+test('Suite-local reviewed contract references must be contained regular files', async () => {
+  const invalidReferences = [
     'cybrik-suite:docs/uat/does-not-exist.json',
+    'cybrik-suite:/tmp/outside-suite-contract.json',
+    'cybrik-suite:../outside-suite-contract.json',
+    'cybrik-suite:docs/uat',
   ];
+  for (const reference of invalidReferences) {
+    const candidate = baseCandidate();
+    candidate.contracts.reviewed_contracts = [reference];
+    await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+      const report = await validateRuntimeAdmission({ root: tempRoot });
+      assert.ok(
+        report.errors.some((error) =>
+          error.includes('Suite-local reviewed contract'),
+        ),
+        `missing finding for ${reference}`,
+      );
+      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    });
+  }
 
-  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+  const directSymlinkCandidate = baseCandidate();
+  directSymlinkCandidate.contracts.reviewed_contracts = [
+    'cybrik-suite:docs/uat/direct-contract-link.md',
+  ];
+  await withTempRepo({ candidates: [directSymlinkCandidate] }, async (tempRoot) => {
+    symlinkSync(
+      join(tempRoot, README_PATH),
+      join(tempRoot, 'docs/uat/direct-contract-link.md'),
+    );
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(
       report.errors.some((error) =>
-        error.includes('Suite-local reviewed contract must resolve to a regular file'),
+        error.includes('Suite-local reviewed contract'),
       ),
     );
     assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
   });
+
+  const externalDir = mkdtempSync(join(os.tmpdir(), 'runtime-admission-contract-'));
+  try {
+    writeFileSync(join(externalDir, 'contract.md'), 'outside\n', 'utf8');
+    const parentSymlinkCandidate = baseCandidate();
+    parentSymlinkCandidate.contracts.reviewed_contracts = [
+      'cybrik-suite:docs/uat/linked/contract.md',
+    ];
+    await withTempRepo({ candidates: [parentSymlinkCandidate] }, async (tempRoot) => {
+      symlinkSync(externalDir, join(tempRoot, 'docs/uat/linked'), 'dir');
+      const report = await validateRuntimeAdmission({ root: tempRoot });
+      assert.ok(
+        report.errors.some((error) =>
+          error.includes('Suite-local reviewed contract'),
+        ),
+      );
+      assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+    });
+  } finally {
+    rmSync(externalDir, { recursive: true, force: true });
+  }
 });
 
 test('test-data, network, and production boundaries fail closed', async () => {
