@@ -1,5 +1,4 @@
 {
-  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
   "rule": "no-degrade",
   "description": "Exhaustive truth table over the three channel axes. Exactly one of the eight combinations is accepted; the other seven deny, and no row degrades to an unauthenticated or partially-authenticated accept.",
   "axes": [

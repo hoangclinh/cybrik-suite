@@ -11,16 +11,11 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "x-cybrik-lifecycle",
     "conveys_authorization",
     "channel",
     "server_neutrality"
   ],
   "properties": {
-    "x-cybrik-lifecycle": {
-      "const": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
-      "description": "Instance-level lifecycle marker. Every W2-K document carries it so a fixture cannot be lifted out of the proposal and read as accepted material."
-    },
     "conveys_authorization": {
       "const": false,
       "description": "Pinned false. Peer evidence never authorizes an operation; authorization stays in the ACCEPTED W2-F delegation-token layer."
