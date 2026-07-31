@@ -21,6 +21,7 @@ absent.
 Run with exact pinned, clean SOC and Cyber AI worktrees:
 
 ```bash
+SUITE_EXPECTED_HEAD=<reviewed-40-hex-suite-commit> \
 SOC_REPO=/absolute/path/to/pinned-soc \
 CYBER_AI_REPO=/absolute/path/to/pinned-cyber-ai \
 PYTHON=/absolute/path/to/python \
@@ -31,12 +32,14 @@ Equivalent flags are available:
 
 ```bash
 tests/e2e/run-soc-ai-lifecycle-create.sh \
+  --suite-head <reviewed-40-hex-suite-commit> \
   --soc-repo /absolute/path/to/pinned-soc \
   --ai-repo /absolute/path/to/pinned-cyber-ai
 ```
 
-The runner rejects relative paths, a dirty Suite or product checkout, product commit/tree
-mismatches, and a Suite checkout outside the pinned base lineage before Python starts. It
-supplies the three product `src` roots through `PYTHONPATH`. The Python test imports normal
-package names and does not modify `sys.path` or use cross-repository relative imports, symlinks,
-submodules, or nested repositories.
+The runner requires the exact reviewed Suite HEAD as an external gate input. It rejects a Suite
+HEAD mismatch, relative paths, a dirty Suite or product checkout, product commit/tree mismatches,
+and a Suite checkout outside the pinned base lineage before Python starts. It supplies the three
+product `src` roots through `PYTHONPATH`. The Python test imports normal package names and does
+not modify `sys.path` or use cross-repository relative imports, symlinks, submodules, or nested
+repositories.

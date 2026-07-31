@@ -14,13 +14,14 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 suite_root="$(cd -- "$script_dir/../.." && pwd -P)"
 soc_repo="${SOC_REPO:-}"
 ai_repo="${CYBER_AI_REPO:-${AI_REPO:-}}"
+suite_expected_head="${SUITE_EXPECTED_HEAD:-}"
 python_bin="${PYTHON:-python3}"
 pytest_args=()
 has_pytest_args=false
 
 usage() {
-  echo "usage: $0 --soc-repo /absolute/path --ai-repo /absolute/path [-- pytest-args...]" >&2
-  echo "or set SOC_REPO, CYBER_AI_REPO (or AI_REPO), and optionally PYTHON" >&2
+  echo "usage: $0 --suite-head 40hex --soc-repo /absolute/path --ai-repo /absolute/path [-- pytest-args...]" >&2
+  echo "or set SUITE_EXPECTED_HEAD, SOC_REPO, CYBER_AI_REPO (or AI_REPO), and optionally PYTHON" >&2
 }
 
 die() {
@@ -33,6 +34,11 @@ while (($#)); do
     --soc-repo)
       (($# >= 2)) || die "--soc-repo requires a path"
       soc_repo="$2"
+      shift 2
+      ;;
+    --suite-head)
+      (($# >= 2)) || die "--suite-head requires a commit"
+      suite_expected_head="$2"
       shift 2
       ;;
     --ai-repo)
@@ -59,6 +65,8 @@ done
 
 [[ "$soc_repo" == /* ]] || die "SOC repo path must be absolute"
 [[ "$ai_repo" == /* ]] || die "Cyber AI repo path must be absolute"
+[[ "$suite_expected_head" =~ ^[0-9a-f]{40}$ ]] \
+  || die "Suite expected HEAD must be an exact lowercase 40-hex commit"
 
 verify_exact_checkout() {
   local label="$1"
@@ -81,6 +89,8 @@ verify_exact_checkout() {
 
 git -C "$suite_root" cat-file -e "${suite_base_commit}^{commit}" 2>/dev/null \
   || die "Suite base commit is unavailable"
+[[ "$(git -C "$suite_root" rev-parse HEAD)" == "$suite_expected_head" ]] \
+  || die "Suite HEAD does not match the reviewed candidate: expected $suite_expected_head"
 [[ "$(git -C "$suite_root" show -s --format=%T "$suite_base_commit")" == "$suite_base_tree" ]] \
   || die "Suite base tree mismatch"
 git -C "$suite_root" merge-base --is-ancestor "$suite_base_commit" HEAD \

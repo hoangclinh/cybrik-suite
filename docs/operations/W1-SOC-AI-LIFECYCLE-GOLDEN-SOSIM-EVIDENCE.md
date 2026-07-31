@@ -28,9 +28,10 @@ UAT, mTLS, deployment readiness, or release readiness.
 | Cyber AI Platform | `a7defd3a7b41faa8e654d6d7567cb2e59b9363fb` | `81e58824d95f800d8e6d424c25207901aceaccfa` |
 
 The runner rejects a product checkout unless both its commit and tree match this tuple and the
-checkout is clean. It also requires a clean Suite checkout descended from the pinned Suite base.
-The immutable review commit, rather than a self-referential in-file hash, identifies the exact
-Suite harness bytes.
+checkout is clean. It also requires a clean Suite checkout descended from the pinned Suite base
+and exact equality between Suite `HEAD` and the externally supplied reviewed-candidate commit.
+That required external input avoids a self-referential in-file commit hash while still binding a
+review or CI execution to exact Suite harness bytes.
 
 ## 3. RED-first and GREEN evidence
 
@@ -65,8 +66,9 @@ This local result covers:
 The test generates an ephemeral ES256 private key at runtime. The key remains in process memory,
 is never written or printed, and is exposed to Cyber AI only as a public JWK. The fixture stores
 no token, private key, certificate, customer identifier, production log, or hosted-environment
-fact. Cyber AI still performs real signature, pinned-trust, claim, scope, proof-of-possession,
-and replay verification; only the peer transport identity is supplied by a test fake.
+fact. Cyber AI performs real signature, pinned-trust, claim, scope, and proof-of-possession
+verification and composes the real replay guard; only the peer transport identity is supplied by
+a test fake. This four-test Suite slice does not itself exercise duplicate-token replay refusal.
 
 ## 5. Gate disposition and remaining blockers
 
