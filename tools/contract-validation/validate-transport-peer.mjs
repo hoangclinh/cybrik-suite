@@ -1,5 +1,6 @@
-// Gate W2-K server-neutral transport peer-evidence proposal validator.
-// Static, deterministic and read-only. Green means PROPOSED conformance only.
+// Gate W2-K server-neutral transport peer-evidence contract validator.
+// Static, deterministic and read-only. Green means accepted-for-implementation
+// conformance only; it proves no implementation or runtime result.
 
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
@@ -9,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
-const STATUS = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+const STATUS = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
 
 export const EXAMPLES_MANIFEST_PATH =
   'contracts/examples/transport-peer/examples-manifest.json';

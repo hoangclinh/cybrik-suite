@@ -1,5 +1,5 @@
 {
-  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
   "packet_version": "0.1.0",
   "gate": "W2-K",
   "fixtures": [

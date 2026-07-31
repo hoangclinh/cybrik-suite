@@ -63,7 +63,7 @@ SCOPE`. Acceptance authorizes contract-first implementation only; it proves no p
 consumer and does not close TR-5.
 
 `cybrik-suite-transport-peer-evidence-packet.v1.manifest.json` is the Gate W2-K
-**PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** server-neutral adapter packet. It pins the synthetic
+**ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** server-neutral adapter packet. It pins the synthetic
 fixture corpus, records all server candidates as unselected/uninstalled/unpinned, and preserves the
 Anycorn `0.20.0` HOLD. Static green conveys no runtime, UAT, release, deployment, or production
 authority.

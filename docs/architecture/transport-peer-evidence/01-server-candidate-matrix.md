@@ -1,6 +1,6 @@
 # Server candidate matrix
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Gate W2-K.
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Gate W2-K, v0.1.0; not stable v1/GA.
 
 | Candidate | Selected | Installed | Pinned | Disposition | Reason |
 |---|---:|---:|---:|---|---|

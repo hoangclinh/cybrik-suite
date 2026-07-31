@@ -119,9 +119,9 @@ deployment, or production authority follows. See
 `compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json` and
 `../docs/adr/ADR-0012-resource-bounds-contract-profile.md`.
 
-## W2-K transport peer-evidence packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+## W2-K transport peer-evidence packet (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`)
 
-This additive v0.1.0 proposal defines server-neutral, fail-closed evidence derived from a
+This additive v0.1.0 accepted contract defines server-neutral, fail-closed evidence derived from a
 serving-side verified mutual-TLS chain. It reuses the accepted W2-F certificate-thumbprint
 primitive, selects no server, conveys no authorization, and makes raw certificate material
 structurally inexpressible. Anycorn `0.20.0` remains HOLD and is not installed or pinned.

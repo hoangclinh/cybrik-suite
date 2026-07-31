@@ -1,6 +1,6 @@
 # ADR-0013 — Transport peer-evidence adapter profile
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Gate W2-K static proposal only.
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Gate W2-K, v0.1.0; not stable v1/GA.
 
 ## Context
 
@@ -16,7 +16,7 @@ authorization behavior on `cybrik-soc-command-center`, `cybrik-cyber-ai-platform
 
 ## Decision
 
-Propose `cybrik.transport-peer-evidence.v1` and its fail-closed error vocabulary as a
+Accept `cybrik.transport-peer-evidence.v1` and its fail-closed error vocabulary as a
 server-neutral adapter profile. A conforming evidence object is acceptable only when:
 
 1. channel evidence is present;
@@ -30,7 +30,7 @@ fallback exists. Evidence carries no permission, role, capability, scope, approv
 certificate, public key, subject, SAN, secret, or private material.
 
 Governance lifecycle metadata belongs to packet metadata; wire evidence and denial instances carry none.
-The proposal status remains explicit on the schema roots, examples manifest, compatibility
+The accepted-for-implementation status remains explicit on the schema roots, examples manifest, compatibility
 manifest, this ADR, and the delegated decision record. Both wire schemas use
 `additionalProperties: false`, so adding `x-cybrik-lifecycle` to an emitted instance fails closed
 rather than lifting packet governance into the transport payload.
@@ -50,7 +50,7 @@ N2–N8 and N10 receive static contract coverage only; N1 and N9 have no static 
 N1–N10 nevertheless retain `runtime_status: requires_runtime`: static schema or inherited W2-F
 coverage never completes a held UAT smoke. Separate processes, a real loopback TLS socket, ephemeral
 out-of-repository development PKI, runtime logs and response headers, and PostgreSQL durability also
-remain runtime-only. This proposal satisfies none of the existing runtime-admission A1–A7 criteria
+remain runtime-only. This profile satisfies none of the existing runtime-admission A1–A7 criteria
 and does not move that candidate out of HOLD.
 
 ## Resource-bounds non-goal
@@ -65,5 +65,5 @@ evidence object. This ADR modifies no W2-H artifact and does not claim T11 measu
 - A client or header can never synthesize peer evidence.
 - W2-I remains proposed and one-directional: this ADR refines evidence derivation without accepting
   W2-I or modifying its bytes.
-- Green validators mean **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** static conformance only, never
+- Green validators mean **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** static conformance only, never
   UAT, deployment, release, GA, or production readiness.
