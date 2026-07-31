@@ -123,3 +123,21 @@ declared resource invariant, checks packet/member digests, and runs seeded conse
 properties over synthetic trees. Replay uses only fixture sequence numbers and a virtual clock.
 Status is **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**; green is static L1/L2 evidence only and
 is not runtime, UAT, T10/T11, release, deployment, or production proof.
+
+## Runtime-admission records
+
+The runtime-admission validator is a governance-record check for the 2026-07-31 non-production
+runtime authority decision:
+
+```bash
+npm run validate:runtime-admission
+npm run test:runtime-admission
+```
+
+It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape, validates the truthful HOLD template at
+`docs/uat/templates/runtime-admission.hold.json`, discovers only
+`docs/uat/candidates/*/runtime-admission.json`, and fail-closes on missing gate items, duplicate or
+incomplete four-repo tuples, non-success required hosted checks, missing rollback/seed procedures,
+open Critical/High findings, stronger-profile overclaim, or any failed tenant-isolation,
+authorization or secret-boundary check. A green result validates static runtime-admission records
+only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.

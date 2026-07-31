@@ -1,0 +1,94 @@
+{
+  "candidate_id": "template-hold",
+  "recorded_at": "2026-07-31T00:00:00Z",
+  "commit_tree": {
+    "suite": {
+      "commit": "0000000000000000000000000000000000000000",
+      "tree": "0000000000000000000000000000000000000000"
+    },
+    "soc": {
+      "commit": "0000000000000000000000000000000000000000",
+      "tree": "0000000000000000000000000000000000000000"
+    },
+    "cyber_ai": {
+      "commit": "0000000000000000000000000000000000000000",
+      "tree": "0000000000000000000000000000000000000000"
+    },
+    "tool_fabric": {
+      "commit": "0000000000000000000000000000000000000000",
+      "tree": "0000000000000000000000000000000000000000"
+    }
+  },
+  "hosted_ci": {
+    "required_checks": [],
+    "skipped_jobs": [],
+    "suppressed_jobs": []
+  },
+  "contracts": {
+    "reviewed_contracts": [],
+    "feature_flags": [],
+    "capability_lifecycle": []
+  },
+  "test_data": {
+    "classification": "synthetic",
+    "approved": false,
+    "notes": "Template placeholder only. Replace with the exact approved non-production test-data classification before execution."
+  },
+  "production_exclusion": {
+    "no_production_credentials": true,
+    "no_production_configuration": true,
+    "no_production_data": true,
+    "no_production_traffic": true
+  },
+  "lifecycle_procedures": {
+    "start": [],
+    "stop": [],
+    "reset": [],
+    "seed": [],
+    "rollback": []
+  },
+  "negative_smoke": {
+    "tenant_isolation": [
+      {
+        "name": "Record exact cross-tenant negative smoke before execution.",
+        "status": "hold"
+      }
+    ],
+    "authorization": [
+      {
+        "name": "Record exact authorization-negative smoke before execution.",
+        "status": "hold"
+      }
+    ],
+    "secret_boundary": [
+      {
+        "name": "Record exact secret-boundary smoke before execution.",
+        "status": "hold"
+      }
+    ]
+  },
+  "open_findings": {
+    "critical": 0,
+    "high": 0,
+    "notes": [
+      "Replace with the exercised-path finding review before execution."
+    ]
+  },
+  "evidence": {
+    "directory": "docs/uat/candidates/<candidate-id>",
+    "artifacts": [],
+    "limitations": [
+      "Template only. No execution evidence is recorded here."
+    ],
+    "final_profile_verdict": "HOLD"
+  },
+  "network_exposure": {
+    "mode": "local_only",
+    "surfaces": [],
+    "notes": "Template only. Record exact bounded listeners before execution."
+  },
+  "disposition": {
+    "profile": "HOLD",
+    "rationale": "Template only. Runtime remains HOLD until the exact ten admission items are recorded for a real candidate."
+  }
+}
