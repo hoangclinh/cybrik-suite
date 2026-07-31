@@ -96,7 +96,12 @@ const lifecycleMismatches = (overrides = new Map()) => {
     if (!marker) return !text.includes(expectedStatus);
     const markerIndex = text.indexOf(marker);
     if (markerIndex < 0) return true;
-    return !text.slice(markerIndex, markerIndex + 600).includes(expectedStatus);
+    const paragraphEnd = text.indexOf('\n\n', markerIndex);
+    const section = text.slice(
+      markerIndex,
+      paragraphEnd < 0 ? text.length : paragraphEnd,
+    );
+    return !section.includes(expectedStatus);
   });
 };
 
@@ -202,6 +207,25 @@ test('a manifest-only lifecycle flip fails closed across packet and index surfac
     (path) => path !== COMPATIBILITY_MANIFEST_PATH,
   )) {
     assert.ok(mismatches.includes(relativePath), `${relativePath}: half-flip must be detected`);
+  }
+});
+
+test('each W2-K index section fails closed without borrowing an adjacent gate status', () => {
+  const proposed = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+  const overclaim = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+  for (const relativePath of LIFECYCLE_INDEX_PATHS) {
+    const text = read(relativePath);
+    const markerIndex = text.indexOf(LIFECYCLE_INDEX_MARKERS[relativePath]);
+    assert.ok(markerIndex >= 0, `${relativePath}: W2-K marker must exist`);
+    const paragraphEnd = text.indexOf('\n\n', markerIndex);
+    const end = paragraphEnd < 0 ? text.length : paragraphEnd;
+    const section = text.slice(markerIndex, end);
+    assert.ok(section.includes(proposed), `${relativePath}: W2-K status must be local`);
+    const mutated = `${text.slice(0, markerIndex)}${section.replace(proposed, overclaim)}${text.slice(end)}`;
+    assert.ok(
+      lifecycleMismatches(new Map([[relativePath, mutated]])).includes(relativePath),
+      `${relativePath}: adjacent packet text must not mask a W2-K overclaim`,
+    );
   }
 });
 
