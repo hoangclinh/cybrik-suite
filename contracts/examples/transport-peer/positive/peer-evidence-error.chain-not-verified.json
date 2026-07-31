@@ -1,5 +1,4 @@
 {
-  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
   "denial_class": "TPE_CHAIN_NOT_VERIFIED",
   "message": "Transport peer evidence rejected: the serving side did not verify the peer chain against its configured trust anchors.",
   "fail_closed": true,

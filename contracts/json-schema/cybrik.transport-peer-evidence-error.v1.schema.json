@@ -11,17 +11,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "x-cybrik-lifecycle",
     "denial_class",
     "message",
     "fail_closed",
     "degraded"
   ],
   "properties": {
-    "x-cybrik-lifecycle": {
-      "const": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
-      "description": "Instance-level lifecycle marker. Every W2-K document carries it so a fixture cannot be lifted out of the proposal and read as accepted material."
-    },
     "denial_class": {
       "type": "string",
       "description": "Exactly one TPE_* denial class. The catalog is closed: a denial that is not in this enum cannot be emitted, and every member is exercised by exactly one negative-semantic fixture.",

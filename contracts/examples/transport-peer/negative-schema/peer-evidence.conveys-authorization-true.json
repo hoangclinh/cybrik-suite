@@ -1,5 +1,4 @@
 {
-  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
   "conveys_authorization": true,
   "channel": {
     "evidence_state": "present",
