@@ -1,6 +1,7 @@
 # tests/ — Suite-level tests
 
-Status: `SCAFFOLD` — **no tests exist yet.** Subdirectories are intentionally empty.
+Status: `ACTIVE TEST SCAFFOLD` — one Suite-owned cross-product SOSIM exists under `e2e/`.
+It is test-only evidence, not UAT, mTLS, deployment, or release proof.
 
 | Directory | Will contain |
 |---|---|
@@ -8,4 +9,6 @@ Status: `SCAFFOLD` — **no tests exist yet.** Subdirectories are intentionally 
 | `e2e/` | End-to-end scenarios spanning two or more products |
 
 Product-internal tests live in each product repository. Only cross-product verification
-belongs here. Test data must be synthetic — see `SECURITY.md`.
+belongs here. The current SOC-to-Cyber-AI lifecycle-create harness executes both products
+in-process at exact immutable pins and deliberately excludes sockets, containers, databases,
+and production trust. Test data must be synthetic — see `SECURITY.md` and `e2e/README.md`.

@@ -1,0 +1,50 @@
+{
+  "schema_version": "soc-ai-lifecycle-create-sosim.v1",
+  "status": [
+    "SCAFFOLD",
+    "TEST-ONLY",
+    "SOSIM",
+    "NOT UAT",
+    "NOT mTLS",
+    "NOT deployment",
+    "NOT release proof"
+  ],
+  "candidate_pins": {
+    "suite_base": {
+      "commit": "ae0998ea7661fd47bb33d7328c4f811671429a72",
+      "tree": "3e6a02b12892c25c73bd0d392de0f0c6b6665e10"
+    },
+    "soc": {
+      "commit": "abfdfde96afc6daa2868694de993c623daa8862e",
+      "tree": "241ef24a33246918ff5cf133e7d8d004823fdf06"
+    },
+    "cyber_ai": {
+      "commit": "a7defd3a7b41faa8e654d6d7567cb2e59b9363fb",
+      "tree": "81e58824d95f800d8e6d424c25207901aceaccfa"
+    }
+  },
+  "scenario": {
+    "name": "trusted SOC lifecycle create reaches the in-process Cyber AI producer",
+    "audience": "svc:cyber-ai-lifecycle",
+    "operation": "investigation.create",
+    "scope": [
+      "investigation.lifecycle:create"
+    ],
+    "transport": "httpx.ASGITransport with a test-only trusted resolver",
+    "signing": "runtime-generated in-memory ES256 test key",
+    "relying_party": [
+      "PinnedTrustProvider",
+      "CryptographySignatureVerifier",
+      "InMemoryReplayStore"
+    ],
+    "producer_storage": "in-memory test stores",
+    "negative": "deny-all transport returns the SOC client's sanitized refusal and stores no run",
+    "excluded_soc_client_surface": [
+      "status",
+      "cancel",
+      "checkpoint",
+      "bundle",
+      "bundle_read"
+    ]
+  }
+}
