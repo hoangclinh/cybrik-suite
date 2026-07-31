@@ -51,7 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
-// These 19 validators cover the accepted corpus and additive proposal checks.
+// These 21 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -80,6 +80,8 @@ const steps = [
   'tests/validate-resource-bounds.test.mjs',
   'validate-svc-lifecycle.mjs',
   'tests/validate-svc-lifecycle.test.mjs',
+  'validate-runtime-admission.mjs',
+  'tests/validate-runtime-admission.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;

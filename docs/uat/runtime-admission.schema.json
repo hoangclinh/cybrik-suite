@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/docs/uat/runtime-admission.schema.json",
+  "title": "CYBRIK runtime admission record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_id",
+    "recorded_at",
+    "commit_tree",
+    "hosted_ci",
+    "contracts",
+    "test_data",
+    "production_exclusion",
+    "lifecycle_procedures",
+    "negative_smoke",
+    "open_findings",
+    "evidence",
+    "network_exposure",
+    "disposition"
+  ],
+  "properties": {
+    "candidate_id": { "type": "string", "minLength": 1 },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "commit_tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "soc", "cyber_ai", "tool_fabric"],
+      "properties": {
+        "suite": { "$ref": "#/$defs/repoTuple" },
+        "soc": { "$ref": "#/$defs/repoTuple" },
+        "cyber_ai": { "$ref": "#/$defs/repoTuple" },
+        "tool_fabric": { "$ref": "#/$defs/repoTuple" }
+      }
+    },
+    "hosted_ci": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_checks", "skipped_jobs", "suppressed_jobs"],
+      "properties": {
+        "required_checks": { "type": "array", "items": { "$ref": "#/$defs/hostedCheck" } },
+        "skipped_jobs": { "type": "array", "items": { "$ref": "#/$defs/nonRequiredHostedJob" } },
+        "suppressed_jobs": { "type": "array", "items": { "$ref": "#/$defs/nonRequiredHostedJob" } }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_contracts", "feature_flags", "capability_lifecycle"],
+      "properties": {
+        "reviewed_contracts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "feature_flags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "state"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "state": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "capability_lifecycle": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capability", "state"],
+            "properties": {
+              "capability": { "type": "string", "minLength": 1 },
+              "state": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "test_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "approved", "notes"],
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["synthetic", "sanitized", "approved_nonprod"]
+        },
+        "approved": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "production_exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_production_credentials",
+        "no_production_configuration",
+        "no_production_data",
+        "no_production_traffic"
+      ],
+      "properties": {
+        "no_production_credentials": { "type": "boolean" },
+        "no_production_configuration": { "type": "boolean" },
+        "no_production_data": { "type": "boolean" },
+        "no_production_traffic": { "type": "boolean" }
+      }
+    },
+    "lifecycle_procedures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "stop", "reset", "seed", "rollback"],
+      "properties": {
+        "start": { "$ref": "#/$defs/commandList" },
+        "stop": { "$ref": "#/$defs/commandList" },
+        "reset": { "$ref": "#/$defs/commandList" },
+        "seed": { "$ref": "#/$defs/commandList" },
+        "rollback": { "$ref": "#/$defs/commandList" }
+      }
+    },
+    "negative_smoke": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_isolation", "authorization", "secret_boundary"],
+      "properties": {
+        "tenant_isolation": { "type": "array", "items": { "$ref": "#/$defs/smokeCheck" } },
+        "authorization": { "type": "array", "items": { "$ref": "#/$defs/smokeCheck" } },
+        "secret_boundary": { "type": "array", "items": { "$ref": "#/$defs/smokeCheck" } }
+      }
+    },
+    "open_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "high", "notes"],
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "artifacts", "limitations", "final_profile_verdict"],
+      "properties": {
+        "directory": { "type": "string", "minLength": 1 },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "limitations": { "type": "array", "items": { "type": "string" } },
+        "final_profile_verdict": { "$ref": "#/$defs/dispositionProfile" }
+      }
+    },
+    "network_exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "surfaces", "notes"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["local_only", "bounded_nonprod"] },
+        "surfaces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bind", "purpose"],
+            "properties": {
+              "bind": { "type": "string", "minLength": 1 },
+              "purpose": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "rationale"],
+      "properties": {
+        "profile": { "$ref": "#/$defs/dispositionProfile" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "repoTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "hostedCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "sha", "name", "status"],
+      "properties": {
+        "repo": { "type": "string", "enum": ["suite", "soc", "cyber_ai", "tool_fabric"] },
+        "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["success", "failure", "pending", "cancelled"] }
+      }
+    },
+    "nonRequiredHostedJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "name", "status", "reason"],
+      "properties": {
+        "repo": { "type": "string", "enum": ["suite", "soc", "cyber_ai", "tool_fabric"] },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["skipped", "suppressed"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "commandList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "smokeCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["pass", "fail", "hold"] }
+      }
+    },
+    "dispositionProfile": {
+      "type": "string",
+      "enum": [
+        "HOLD",
+        "NO-GO",
+        "RUNTIME_AUTHORIZED",
+        "DEMO_READY_LOCAL",
+        "CUSTOMER_POC_READY",
+        "RC_READY",
+        "FULL_RELEASE_READY"
+      ]
+    }
+  }
+}

@@ -378,7 +378,7 @@ test('canonical orchestration registers proposal drift checks without changing W
   const orchestrator = readText('tools/contract-validation/validate.mjs');
   assert.match(orchestrator, /validate-resource-bounds\.mjs/);
   assert.match(orchestrator, /tests\/validate-resource-bounds\.test\.mjs/);
-  assert.match(orchestrator, /These 19 validators/);
+  assert.match(orchestrator, /These 21 validators/);
   assert.match(orchestrator, /W2-H PROPOSED \/ NOT ACCEPTED/);
   assert.match(orchestrator, /const W1_CONTRACT_TEST_COUNT = 98;/);
   assert.doesNotMatch(
