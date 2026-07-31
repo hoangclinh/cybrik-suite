@@ -69,6 +69,14 @@ const LIFECYCLE_INDEX_PATHS = [
   'docs/architecture/README.md',
   'contracts/compatibility/README.md',
 ];
+const LIFECYCLE_INDEX_MARKERS = Object.freeze({
+  'contracts/README.md': '## W2-K transport peer-evidence packet',
+  'contracts/json-schema/README.md': '## W2-K transport peer evidence',
+  'contracts/examples/README.md': '`transport-peer/`',
+  'docs/architecture/README.md': '`transport-peer-evidence/`',
+  'contracts/compatibility/README.md':
+    '`cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`',
+});
 const LIFECYCLE_PATHS = [
   ...new Set([
     ...PACKET_DOC_PATHS,
@@ -82,9 +90,14 @@ const lifecycleMismatches = (overrides = new Map()) => {
     overrides.get(relativePath) ?? read(relativePath);
   const manifest = JSON.parse(readLifecycleText(COMPATIBILITY_MANIFEST_PATH));
   const expectedStatus = manifest['x-cybrik-status'];
-  return LIFECYCLE_PATHS.filter(
-    (relativePath) => !readLifecycleText(relativePath).includes(expectedStatus),
-  );
+  return LIFECYCLE_PATHS.filter((relativePath) => {
+    const text = readLifecycleText(relativePath);
+    const marker = LIFECYCLE_INDEX_MARKERS[relativePath];
+    if (!marker) return !text.includes(expectedStatus);
+    const markerIndex = text.indexOf(marker);
+    if (markerIndex < 0) return true;
+    return !text.slice(markerIndex, markerIndex + 600).includes(expectedStatus);
+  });
 };
 
 const collectKeys = (value, output = []) => {
