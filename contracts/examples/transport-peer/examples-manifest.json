@@ -1,0 +1,25 @@
+{
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "packet_version": "0.1.0",
+  "gate": "W2-K",
+  "fixtures": [
+    { "file": "positive/peer-evidence.verified-chain.json", "kind": "positive", "schema": "evidence", "sha256": "baf164015fa7df399fecbd5d5d439d9c4682a2358d04e06fd1da6937ff8beee1" },
+    { "file": "positive/peer-evidence-error.chain-not-verified.json", "kind": "positive", "schema": "error", "sha256": "e7016d697dbeaa6d149d6a7c096548d1a8f54ddb81717f8fef1b0e4a47e99dc9" },
+    { "file": "positive/truth-table.no-degrade.json", "kind": "positive", "schema": "truth-table", "sha256": "eb3f3a8e8b98ab1b210da197a765ee25d25b1012624a07a482de0702ba37ff2a" },
+    { "file": "negative-schema/peer-evidence-error.leaky-error-body.json", "kind": "negative-schema", "schema": "error", "sha256": "7587582f55891a2ad3ffb427a2ba59552c64993f7d6fca0646e14be48d8f00bd" },
+    { "file": "negative-schema/peer-evidence.client-supplied-thumbprint-source.json", "kind": "negative-schema", "schema": "evidence", "sha256": "73e67ab4fc57a2e8c5670c4a0e12b2325530f07da415571fa2a967d7f61db8d3" },
+    { "file": "negative-schema/peer-evidence.conveys-authorization-true.json", "kind": "negative-schema", "schema": "evidence", "sha256": "c342f9cad86a28d3084b065367ba25f52b2c9d6480625bbdf54d89dba32f5946" },
+    { "file": "negative-schema/peer-evidence.raw-certificate-material.json", "kind": "negative-schema", "schema": "evidence", "sha256": "821dc8d14d4656a7adef758c94f3f88de24f84addb67ff1141fb5bcafc1a9f7f" },
+    { "file": "negative-schema/peer-evidence.root-authority-axis.json", "kind": "negative-schema", "schema": "evidence", "sha256": "3a48853a7484e5881ac30d7e580f11364ecfc6aea6b55058a9e308a0faeaeae9" },
+    { "file": "negative-schema/peer-evidence.sha1-thumbprint-alg.json", "kind": "negative-schema", "schema": "evidence", "sha256": "a8296b86b4e23c42fe30822865bd0a66baceb59c05d61d32aeccfc570cc57168" },
+    { "file": "negative-schema/peer-evidence.trusted-boundary-adapter.json", "kind": "negative-schema", "schema": "evidence", "sha256": "82065d4aa5b417023a27b69e63eb8b00c76e776fba7ea26484a4c451b3cd9e9b" },
+    { "file": "negative-semantic/peer-evidence.chain-not-verified.json", "kind": "negative-semantic", "expected_denial_class": "TPE_CHAIN_NOT_VERIFIED", "sha256": "6b9f1d88f8b0664de9a72a4ac928d473b744c7864d057266f062b3c352ff248a" },
+    { "file": "negative-semantic/peer-evidence.channel-evidence-absent.json", "kind": "negative-semantic", "expected_denial_class": "TPE_CHANNEL_EVIDENCE_ABSENT", "sha256": "84781df737a70d592a493c0b7b01173c7d65c8c9969cbadc56041c6fca5b20d5" },
+    { "file": "negative-semantic/peer-evidence.channel-evidence-held.json", "kind": "negative-semantic", "expected_denial_class": "TPE_CHANNEL_EVIDENCE_HELD", "sha256": "3e637c7b723994dbd6998b87b903220c82e07814569243b3b7c73ec3cbcd2592" },
+    { "file": "negative-semantic/peer-evidence.not-mutual-tls.json", "kind": "negative-semantic", "expected_denial_class": "TPE_NOT_MUTUAL_TLS", "sha256": "9cee1d06d6f46b6f7d2b57ce1568c4a1ecec534d8d3546b858adca4aee596b73" },
+    { "file": "negative-semantic/peer-evidence.peer-thumbprint-absent.json", "kind": "negative-semantic", "expected_denial_class": "TPE_PEER_THUMBPRINT_ABSENT", "sha256": "8dd6c9231f5dbc515644f3075e41ea84416dba35a7fc757273be0487616ed455" },
+    { "file": "negative-semantic/peer-evidence.relying-party-thumbprint-mismatch.json", "kind": "negative-semantic", "expected_denial_class": "TPE_RELYING_PARTY_THUMBPRINT_MISMATCH", "sha256": "b7901da39863699a07803febd6cf30122b37227c7a5eb321c588f73bdcd7ee4b" },
+    { "file": "negative-semantic/peer-evidence.token-cnf-thumbprint-mismatch.json", "kind": "negative-semantic", "expected_denial_class": "TPE_TOKEN_CNF_THUMBPRINT_MISMATCH", "sha256": "5948c4b89fe904d3c7096e3c84ed47c78c810040c95568cbb60f975ed358a033" },
+    { "file": "negative-semantic/peer-evidence.unverified-thumbprint-source.json", "kind": "negative-semantic", "expected_denial_class": "TPE_UNVERIFIED_THUMBPRINT_SOURCE", "sha256": "20eb8f4d41e3b0446a094570619b8c48238e51a7e46aad231e6e4b5785db4f0b" }
+  ]
+}

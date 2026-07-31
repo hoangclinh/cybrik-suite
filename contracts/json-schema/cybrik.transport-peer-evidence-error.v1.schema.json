@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.transport-peer-evidence-error.v1.schema.json",
+  "title": "CYBRIK transport peer-evidence denial v1",
+  "description": "The typed denial body a relying party emits when transport peer evidence is not acceptable. It is fail-closed by construction (`fail_closed` pinned true, `degraded` pinned false) and it has nowhere to carry material: no thumbprint, no confirmation, no token, no certificate and no authorization property exists, and `additionalProperties` is false. The denial-class vocabulary TPE_* is deliberately disjoint from the accepted RES_*, SVC_* and BUDGET_* families. $id uses the RFC 2606 reserved .example documentation domain; it is a stable identifier, NOT an operational endpoint. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag. Gate W2-K, ADR-0013.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "x-cybrik-lifecycle",
+    "denial_class",
+    "message",
+    "fail_closed",
+    "degraded"
+  ],
+  "properties": {
+    "x-cybrik-lifecycle": {
+      "const": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+      "description": "Instance-level lifecycle marker. Every W2-K document carries it so a fixture cannot be lifted out of the proposal and read as accepted material."
+    },
+    "denial_class": {
+      "type": "string",
+      "description": "Exactly one TPE_* denial class. The catalog is closed: a denial that is not in this enum cannot be emitted, and every member is exercised by exactly one negative-semantic fixture.",
+      "enum": [
+        "TPE_CHAIN_NOT_VERIFIED",
+        "TPE_CHANNEL_EVIDENCE_ABSENT",
+        "TPE_CHANNEL_EVIDENCE_HELD",
+        "TPE_NOT_MUTUAL_TLS",
+        "TPE_PEER_THUMBPRINT_ABSENT",
+        "TPE_RELYING_PARTY_THUMBPRINT_MISMATCH",
+        "TPE_TOKEN_CNF_THUMBPRINT_MISMATCH",
+        "TPE_UNVERIFIED_THUMBPRINT_SOURCE"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Operator-facing text. Bounded, and structurally unable to carry material because no thumbprint, token or certificate property exists on this body at all.",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "fail_closed": {
+      "const": true,
+      "description": "Pinned true. A denial never leaves the connection in an accepted state."
+    },
+    "degraded": {
+      "const": false,
+      "description": "Pinned false. There is no degraded, partially-authenticated or best-effort accept anywhere in this profile."
+    }
+  }
+}

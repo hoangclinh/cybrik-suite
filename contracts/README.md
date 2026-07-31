@@ -118,3 +118,14 @@ no implicit mapping. No OpenAPI, AsyncAPI, MCP, endpoint, runtime, UAT, T10/T11,
 deployment, or production authority follows. See
 `compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json` and
 `../docs/adr/ADR-0012-resource-bounds-contract-profile.md`.
+
+## W2-K transport peer-evidence packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+
+This additive v0.1.0 proposal defines server-neutral, fail-closed evidence derived from a
+serving-side verified mutual-TLS chain. It reuses the accepted W2-F certificate-thumbprint
+primitive, selects no server, conveys no authorization, and makes raw certificate material
+structurally inexpressible. Anycorn `0.20.0` remains HOLD and is not installed or pinned.
+
+The validator and fixtures are static-only. Separate processes, loopback TLS, development PKI,
+PostgreSQL durability, UAT, release, deployment, and production remain out of scope. Inventory:
+`compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`.

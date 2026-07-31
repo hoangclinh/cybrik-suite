@@ -62,6 +62,12 @@ NO ENDPOINT` (JSON Schema payloads only; no OpenAPI/AsyncAPI/MCP delta) and `mcp
 SCOPE`. Acceptance authorizes contract-first implementation only; it proves no product runtime
 consumer and does not close TR-5.
 
+`cybrik-suite-transport-peer-evidence-packet.v1.manifest.json` is the Gate W2-K
+**PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** server-neutral adapter packet. It pins the synthetic
+fixture corpus, records all server candidates as unselected/uninstalled/unpinned, and preserves the
+Anycorn `0.20.0` HOLD. Static green conveys no runtime, UAT, release, deployment, or production
+authority.
+
 `cybrik-suite-resource-bounds-packet.v1.manifest.json` is the Gate W2-H
 **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** resource-accounting packet (v0.1.0, not a bundle
 tag). It inventories six `cybrik.res-*` schemas plus the deterministic fixture/replay corpus and

@@ -1,0 +1,130 @@
+{
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "packet_version": "0.1.0",
+  "gate": {
+    "id": "W2-K",
+    "adr": "ADR-0013",
+    "disposition": "OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY"
+  },
+  "scope": "Server-neutral transport peer-evidence adapter conformance. Evidence only; no authorization, server selection, runtime, UAT, release or production authority.",
+  "schemas": [
+    { "file": "json-schema/cybrik.transport-peer-evidence.v1.schema.json", "sha256": "6ade0f05441a9167b2599a46aff77fffe48f344a52fd9d0394ed1e01e284b188" },
+    { "file": "json-schema/cybrik.transport-peer-evidence-error.v1.schema.json", "sha256": "07a59c0d7436200f79f349cfc70a36a5ee333a2293245299b4a521a645895a47" }
+  ],
+  "dependencies_reused_unmodified": [
+    { "file": "json-schema/cybrik.svc-common-defs.v1.schema.json", "sha256": "c1c884abd5587b7659b703d98e2b24019dfdb346950732c33541da6482889f40" }
+  ],
+  "server_neutrality": {
+    "server_neutral": true,
+    "selected_server": null,
+    "selection_deferred_until_runtime_conformance": true
+  },
+  "server_candidates": [
+    {
+      "id": "anycorn",
+      "version_considered": "0.20.0",
+      "disposition": "HOLD",
+      "selected": false,
+      "installed": false,
+      "pinned": false,
+      "blocking_finding": {
+        "severity": "HIGH",
+        "recorded_at": "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md"
+      }
+    },
+    {
+      "id": "hypercorn",
+      "version_considered": null,
+      "disposition": "UNASSESSED",
+      "selected": false,
+      "installed": false,
+      "pinned": false
+    },
+    {
+      "id": "granian",
+      "version_considered": null,
+      "disposition": "UNASSESSED",
+      "selected": false,
+      "installed": false,
+      "pinned": false
+    }
+  ],
+  "future_local_harness_profile": {
+    "required_adapter": "server-verified-chain-adapter",
+    "forbidden_adapters": ["trusted-boundary-adapter"],
+    "status": "NOT IMPLEMENTED"
+  },
+  "negative_test_map": [
+    { "id": "N1", "coverage": "requires_runtime", "basis": "Durable replay requires a real PostgreSQL-backed round trip." },
+    { "id": "N2", "coverage": "covered_statically", "basis": "Three-way thumbprint mismatch denies deterministically." },
+    { "id": "N3", "coverage": "covered_statically", "basis": "Audience remains an accepted W2-F token validation invariant." },
+    { "id": "N4", "coverage": "covered_statically", "basis": "Scope remains an accepted W2-F token validation invariant." },
+    { "id": "N5", "coverage": "covered_statically", "basis": "Operation binding remains an accepted W2-F token invariant." },
+    { "id": "N6", "coverage": "covered_statically", "basis": "Tenant mismatch remains an accepted W2-F fail-closed invariant." },
+    { "id": "N7", "coverage": "covered_statically", "basis": "Tenant-org advisory mismatch remains fail closed." },
+    { "id": "N8", "coverage": "covered_statically", "basis": "Absent or held channel evidence cannot degrade to accept." },
+    { "id": "N9", "coverage": "requires_runtime", "basis": "Database unavailability requires the future PostgreSQL harness." },
+    { "id": "N10", "coverage": "covered_statically", "basis": "Raw certificate, token and secret material is structurally inexpressible." }
+  ],
+  "runtime_only_properties": [
+    "separate_process_boundary",
+    "loopback_tls_socket",
+    "ephemeral_out_of_repo_dev_pki",
+    "postgresql_durable_replay"
+  ],
+  "evidence": {
+    "runtime_coverage_claimed": false,
+    "not_claimed": [
+      "runtime or integration",
+      "UAT pass",
+      "server selection",
+      "release or production readiness"
+    ]
+  },
+  "members": [
+    "examples/transport-peer/examples-manifest.json",
+    "examples/transport-peer/negative-schema/peer-evidence-error.leaky-error-body.json",
+    "examples/transport-peer/negative-schema/peer-evidence.client-supplied-thumbprint-source.json",
+    "examples/transport-peer/negative-schema/peer-evidence.conveys-authorization-true.json",
+    "examples/transport-peer/negative-schema/peer-evidence.raw-certificate-material.json",
+    "examples/transport-peer/negative-schema/peer-evidence.root-authority-axis.json",
+    "examples/transport-peer/negative-schema/peer-evidence.sha1-thumbprint-alg.json",
+    "examples/transport-peer/negative-schema/peer-evidence.trusted-boundary-adapter.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.chain-not-verified.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-absent.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-held.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.not-mutual-tls.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.peer-thumbprint-absent.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.relying-party-thumbprint-mismatch.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.token-cnf-thumbprint-mismatch.json",
+    "examples/transport-peer/negative-semantic/peer-evidence.unverified-thumbprint-source.json",
+    "examples/transport-peer/positive/peer-evidence-error.chain-not-verified.json",
+    "examples/transport-peer/positive/peer-evidence.verified-chain.json",
+    "examples/transport-peer/positive/truth-table.no-degrade.json"
+  ],
+  "x-cybrik-packet-integrity": {
+    "member_count": 19,
+    "member_digests": [
+      { "file": "examples/transport-peer/examples-manifest.json", "sha256": "f65f165167e71c867b3971c517051e68131ee94e02a57fbc477c657ac1263f0d" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence-error.leaky-error-body.json", "sha256": "7587582f55891a2ad3ffb427a2ba59552c64993f7d6fca0646e14be48d8f00bd" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.client-supplied-thumbprint-source.json", "sha256": "73e67ab4fc57a2e8c5670c4a0e12b2325530f07da415571fa2a967d7f61db8d3" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.conveys-authorization-true.json", "sha256": "c342f9cad86a28d3084b065367ba25f52b2c9d6480625bbdf54d89dba32f5946" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.raw-certificate-material.json", "sha256": "821dc8d14d4656a7adef758c94f3f88de24f84addb67ff1141fb5bcafc1a9f7f" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.root-authority-axis.json", "sha256": "3a48853a7484e5881ac30d7e580f11364ecfc6aea6b55058a9e308a0faeaeae9" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.sha1-thumbprint-alg.json", "sha256": "a8296b86b4e23c42fe30822865bd0a66baceb59c05d61d32aeccfc570cc57168" },
+      { "file": "examples/transport-peer/negative-schema/peer-evidence.trusted-boundary-adapter.json", "sha256": "82065d4aa5b417023a27b69e63eb8b00c76e776fba7ea26484a4c451b3cd9e9b" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.chain-not-verified.json", "sha256": "6b9f1d88f8b0664de9a72a4ac928d473b744c7864d057266f062b3c352ff248a" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-absent.json", "sha256": "84781df737a70d592a493c0b7b01173c7d65c8c9969cbadc56041c6fca5b20d5" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.channel-evidence-held.json", "sha256": "3e637c7b723994dbd6998b87b903220c82e07814569243b3b7c73ec3cbcd2592" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.not-mutual-tls.json", "sha256": "9cee1d06d6f46b6f7d2b57ce1568c4a1ecec534d8d3546b858adca4aee596b73" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.peer-thumbprint-absent.json", "sha256": "8dd6c9231f5dbc515644f3075e41ea84416dba35a7fc757273be0487616ed455" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.relying-party-thumbprint-mismatch.json", "sha256": "b7901da39863699a07803febd6cf30122b37227c7a5eb321c588f73bdcd7ee4b" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.token-cnf-thumbprint-mismatch.json", "sha256": "5948c4b89fe904d3c7096e3c84ed47c78c810040c95568cbb60f975ed358a033" },
+      { "file": "examples/transport-peer/negative-semantic/peer-evidence.unverified-thumbprint-source.json", "sha256": "20eb8f4d41e3b0446a094570619b8c48238e51a7e46aad231e6e4b5785db4f0b" },
+      { "file": "examples/transport-peer/positive/peer-evidence-error.chain-not-verified.json", "sha256": "e7016d697dbeaa6d149d6a7c096548d1a8f54ddb81717f8fef1b0e4a47e99dc9" },
+      { "file": "examples/transport-peer/positive/peer-evidence.verified-chain.json", "sha256": "baf164015fa7df399fecbd5d5d439d9c4682a2358d04e06fd1da6937ff8beee1" },
+      { "file": "examples/transport-peer/positive/truth-table.no-degrade.json", "sha256": "eb3f3a8e8b98ab1b210da197a765ee25d25b1012624a07a482de0702ba37ff2a" }
+    ],
+    "aggregate_sha256": "4c8189f9132b3a7460856b3b165918bb78887fa7b26c28b13457b094166ad629"
+  }
+}

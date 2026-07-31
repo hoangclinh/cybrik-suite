@@ -1,0 +1,68 @@
+{
+  "x-cybrik-lifecycle": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "rule": "no-degrade",
+  "description": "Exhaustive truth table over the three channel axes. Exactly one of the eight combinations is accepted; the other seven deny, and no row degrades to an unauthenticated or partially-authenticated accept.",
+  "axes": [
+    "mutual_tls",
+    "chain_verified",
+    "thumbprint_present"
+  ],
+  "rows": [
+    {
+      "mutual_tls": false,
+      "chain_verified": false,
+      "thumbprint_present": false,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_NOT_MUTUAL_TLS"
+    },
+    {
+      "mutual_tls": false,
+      "chain_verified": false,
+      "thumbprint_present": true,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_NOT_MUTUAL_TLS"
+    },
+    {
+      "mutual_tls": false,
+      "chain_verified": true,
+      "thumbprint_present": false,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_NOT_MUTUAL_TLS"
+    },
+    {
+      "mutual_tls": false,
+      "chain_verified": true,
+      "thumbprint_present": true,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_NOT_MUTUAL_TLS"
+    },
+    {
+      "mutual_tls": true,
+      "chain_verified": false,
+      "thumbprint_present": false,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_CHAIN_NOT_VERIFIED"
+    },
+    {
+      "mutual_tls": true,
+      "chain_verified": false,
+      "thumbprint_present": true,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_CHAIN_NOT_VERIFIED"
+    },
+    {
+      "mutual_tls": true,
+      "chain_verified": true,
+      "thumbprint_present": false,
+      "expected_accepted": false,
+      "expected_denial_class": "TPE_PEER_THUMBPRINT_ABSENT"
+    },
+    {
+      "mutual_tls": true,
+      "chain_verified": true,
+      "thumbprint_present": true,
+      "expected_accepted": true,
+      "expected_denial_class": null
+    }
+  ]
+}
