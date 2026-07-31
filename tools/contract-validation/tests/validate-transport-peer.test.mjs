@@ -1329,6 +1329,17 @@ test('proposal anti-lifting stays pinned at manifest metadata even though wire f
   assert.deepEqual(lifecycleMismatches(), []);
 });
 
+test('the R3 authority and ADR explicitly record governance-free wire instances', () => {
+  const decision = read(DECISION_PATH);
+  const adr = read(ADR_PATH);
+  assert.match(decision, /## R3 amendment — governance-free wire instances/);
+  assert.match(decision, /exactly 25 paths/i);
+  assert.match(decision, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/);
+  assert.match(decision, /no acceptance, runtime, UAT, release, deployment, or production authority/i);
+  assert.match(adr, /governance lifecycle metadata belongs to packet metadata/i);
+  assert.match(adr, /wire evidence and denial instances carry none/i);
+});
+
 test('documentation references other repositories only in repository-qualified form', () => {
   for (const relativePath of PACKET_DOC_PATHS) {
     const text = read(relativePath);
