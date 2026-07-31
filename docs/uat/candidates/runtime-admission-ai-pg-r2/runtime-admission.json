@@ -1,33 +1,44 @@
 {
-  "candidate_id": "runtime-admission-ai-pg-r1",
-  "recorded_at": "2026-07-31T04:14:04Z",
+  "candidate_id": "runtime-admission-ai-pg-r2",
+  "recorded_at": "2026-07-31T04:49:14Z",
   "attempt_accounting": {
     "series_id": "runtime-admission-ai-pg",
-    "attempt_ordinal": 1,
+    "attempt_ordinal": 2,
     "max_attempts": 2,
     "current_attempt": {
-      "status": "failed",
-      "execution_authorized": false,
-      "executed_checks": 19,
-      "passed_checks": 18,
-      "failed_checks": 1,
-      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/05-attempt3-runtime-result.md",
-      "evidence_sha256": "52742f66e08766810e049a36b8c5dbdbac89dba33a43dc6825a00479fe491b6c"
+      "status": "not_run",
+      "execution_authorized": true,
+      "executed_checks": 0,
+      "passed_checks": 0,
+      "failed_checks": 0,
+      "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/01-authorization.md",
+      "evidence_sha256": "cccf71ee324ff00b26e0e371ae10035fa65b8fdaaa15dffc4188ab3d13271754"
     },
-    "failure_history": []
+    "failure_history": [
+      {
+        "candidate_id": "runtime-admission-ai-pg-r1",
+        "attempt_ordinal": 1,
+        "executed_checks": 19,
+        "passed_checks": 18,
+        "failed_checks": 1,
+        "disposition": "NO-GO",
+        "evidence_path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/05-attempt3-runtime-result.md",
+        "evidence_sha256": "52742f66e08766810e049a36b8c5dbdbac89dba33a43dc6825a00479fe491b6c"
+      }
+    ]
   },
   "commit_tree": {
     "suite": {
-      "commit": "d564521b566417f60948081c6b816557f93f61a2",
-      "tree": "4767e2226229f201300a64b757f4c4e12223001a"
+      "commit": "0ec429a8280d6ca2ad85833f8983b4123e4a3e60",
+      "tree": "51ea95b966fb09a446bed41b6736cf3bf37cd4a5"
     },
     "soc": {
       "commit": "9d42a6dc3f9f5a25de75a79a887bafae74498152",
       "tree": "16ef74d6f97cbf90a504bb3cee57a98712e40c56"
     },
     "cyber_ai": {
-      "commit": "48309201c84543ece44c81a5967865ef6c17f784",
-      "tree": "baadaacc15e24d19baf3b3383afa05a6851e20f0"
+      "commit": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
+      "tree": "b45620e6be501f37341e87a346d4d2ba518bf394"
     },
     "tool_fabric": {
       "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
@@ -38,13 +49,13 @@
     "required_checks": [
       {
         "repo": "suite",
-        "sha": "d564521b566417f60948081c6b816557f93f61a2",
+        "sha": "0ec429a8280d6ca2ad85833f8983b4123e4a3e60",
         "name": "contract standards validation",
         "status": "success"
       },
       {
         "repo": "suite",
-        "sha": "d564521b566417f60948081c6b816557f93f61a2",
+        "sha": "0ec429a8280d6ca2ad85833f8983b4123e4a3e60",
         "name": "secret-scan",
         "status": "success"
       },
@@ -98,49 +109,49 @@
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "scaffold-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "lockfile-integrity",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "lint",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "type",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "test",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "build-offline",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "secret-scan",
         "status": "success"
       },
       {
         "repo": "cyber_ai",
-        "sha": "48309201c84543ece44c81a5967865ef6c17f784",
+        "sha": "b55d1db3a55a2524707330cee2eaf6f78342cddd",
         "name": "security-supply-chain",
         "status": "success"
       },
@@ -168,7 +179,7 @@
         "repo": "tool_fabric",
         "name": "executor",
         "status": "skipped",
-        "reason": "Protected-context classification records executor as skipped and not required for this bounded candidate."
+        "reason": "Protected-context classification records executor as skipped and not required for this bounded PostgreSQL candidate."
       }
     ],
     "suppressed_jobs": [
@@ -198,8 +209,8 @@
     ],
     "feature_flags": [
       {
-        "name": "cyber_ai_postgres_runtime_admission_ai_pg_r1",
-        "state": "disabled_r1_no_go"
+        "name": "cyber_ai_postgres_runtime_admission_ai_pg_r2",
+        "state": "authorized_for_one_future_loopback_postgresql16_proof_only"
       },
       {
         "name": "cyber_ai_http_full_stack_demo_uat_poc_rc_ga",
@@ -212,15 +223,15 @@
         "state": "active_development_not_released"
       },
       {
-        "capability": "runtime_admission_ai_pg_r1",
-        "state": "no_go_final_attempt_failed"
+        "capability": "runtime_admission_ai_pg_r2",
+        "state": "authorized_for_one_future_loopback_postgresql16_proof_only"
       }
     ]
   },
   "test_data": {
     "classification": "synthetic",
     "approved": true,
-    "notes": "Only synthetic tenant, run, and credential-placeholder values are authorized. The record stores env-var names only and forbids production credentials, production data, and production traffic."
+    "notes": "Only generated synthetic tenant, run, and credential values are authorized. The record stores environment-variable names only and forbids production credentials, configuration, data, and traffic."
   },
   "production_exclusion": {
     "no_production_credentials": true,
@@ -230,14 +241,14 @@
   },
   "lifecycle_procedures": {
     "start": [
-      "docker run --name cybrik-ai-pg-uat-r1 --rm -e POSTGRES_PASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" -p 127.0.0.1:55432:5432 -d postgres:16-alpine",
-      "until docker exec cybrik-ai-pg-uat-r1 pg_isready -U postgres -d postgres; do sleep 1; done",
+      "docker run --name cybrik-ai-pg-uat-r2 --rm -e POSTGRES_PASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" -p 127.0.0.1:55432:5432 -d postgres:16-alpine",
+      "until docker exec cybrik-ai-pg-uat-r2 pg_isready -U postgres -d postgres; do sleep 1; done",
       "export AI_API_POSTGRES_ADMIN_DSN=\"postgresql+asyncpg://postgres:${AI_PG_POSTGRES_PASSWORD:?}@127.0.0.1:55432/postgres\"",
       "export AI_API_POSTGRES_RUNTIME_DSN=\"postgresql+asyncpg://cybrik_ai_runtime_uat:${AI_PG_RUNTIME_PASSWORD:?}@127.0.0.1:55432/postgres\"",
       "export CYBRIK_AI_REPO=\"${CYBRIK_AI_REPO:?}\""
     ],
     "stop": [
-      "docker stop cybrik-ai-pg-uat-r1"
+      "docker stop cybrik-ai-pg-uat-r2"
     ],
     "reset": [
       "cd \"${CYBRIK_AI_REPO:?}\"",
@@ -245,7 +256,7 @@
       "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" uv run python -c \"import os; from pathlib import Path; from alembic import command; from alembic.config import Config; root = Path.cwd(); cfg = Config(str(root / 'services' / 'ai-api' / 'migrations' / 'alembic.ini')); cfg.set_main_option('script_location', str(root / 'services' / 'ai-api' / 'migrations')); cfg.set_main_option('sqlalchemy.url', os.environ['AI_API_POSTGRES_ADMIN_DSN']); command.downgrade(cfg, 'base'); command.upgrade(cfg, 'head')\""
     ],
     "seed": [
-      "docker exec -e PGPASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" cybrik-ai-pg-uat-r1 psql --set=ON_ERROR_STOP=1 --set=runtime_password=\"${AI_PG_RUNTIME_PASSWORD:?}\" -U postgres -d postgres -c \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" -c \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS\" -c 'GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat'",
+      "docker exec -e PGPASSWORD=\"${AI_PG_POSTGRES_PASSWORD:?}\" cybrik-ai-pg-uat-r2 psql --set=ON_ERROR_STOP=1 --set=runtime_password=\"${AI_PG_RUNTIME_PASSWORD:?}\" -U postgres -d postgres -c \"DO \\$\\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cybrik_ai_runtime_uat') THEN CREATE ROLE cybrik_ai_runtime_uat LOGIN; END IF; END \\$\\$;\" -c \"ALTER ROLE cybrik_ai_runtime_uat LOGIN PASSWORD :'runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS\" -c 'GRANT cybrik_ai_api_app TO cybrik_ai_runtime_uat'",
       "cd \"${CYBRIK_AI_REPO:?}\"",
       "AI_API_POSTGRES_ADMIN_DSN=\"${AI_API_POSTGRES_ADMIN_DSN:?}\" AI_API_POSTGRES_RUNTIME_DSN=\"${AI_API_POSTGRES_RUNTIME_DSN:?}\" uv run pytest --no-cov tests/ai_api/test_postgres_durable.py -q"
     ],
@@ -257,79 +268,59 @@
   "negative_smoke": {
     "tenant_isolation": [
       {
-        "name": "static preflight pass only: reviewed FORCE RLS policies plus transaction-local runtime tenant context in migration and adapter source, and reviewed all 13 authored PostgreSQL integration negatives in tests/ai_api/test_postgres_durable.py; attempt 2 reached PostgreSQL 16.14 migration and role seed but no integration assertion completed successfully",
+        "name": "static preflight pass: FORCE RLS policies, transaction-local tenant context, and the exact PostgreSQL tenant-isolation tests remain present; R1's final PostgreSQL run reached and passed every exercised check except the separately identified outbox conflict-classification case",
         "status": "pass"
       }
     ],
     "authorization": [
       {
-        "name": "static preflight pass only: four no-DB authorization guard tests pass for reserved runtime role rejection, blank tenant rejection twice, and malformed row typed failure; attempt 2 reached PostgreSQL 16.14 migration and role seed but no integration assertion completed successfully",
+        "name": "static preflight pass: runtime-role restrictions, blank-tenant guards, malformed-row failure behavior, and runtime-principal NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS seed remain exact",
         "status": "pass"
       }
     ],
     "secret_boundary": [
       {
-        "name": "static preflight pass only: hosted secret-scan checks are green for Suite, SOC, Cyber AI, and Fabric, and this candidate stores only env-var names and synthetic DSN templates with no credential material",
+        "name": "hosted secret-scan checks are green for Suite, SOC, Cyber AI, and Tool Fabric; the record contains only environment-variable names and synthetic DSN templates",
         "status": "pass"
       }
     ]
   },
   "open_findings": {
     "critical": 0,
-    "high": 1,
+    "high": 0,
     "notes": [
-      "No open Critical or High finding is recorded on the bounded static admission path reviewed here.",
-      "Direct pushes to protected main were server-rejected with GH006 and pull-request-required enforcement across all four repositories.",
-      "The first loopback attempt at the superseded Cyber AI tuple 8da372b6a2a9468c58ebfc2c3359c8409b8a7c86 failed before migration because the async SQLAlchemy runtime dependency greenlet was not installed on macOS arm64; the container was removed and the loopback port was confirmed closed.",
-      "The second loopback attempt at Cyber AI tuple 97a82b8e9e4788a1d588858f0eac1ca104a9236b passed PostgreSQL 16.14 startup, locked sync, Alembic reset, and runtime-principal seed, then failed all 13 PostgreSQL integration tests before their assertions because the synchronous test reset invoked Alembic asyncio.run inside pytest's active event loop; five no-DB tests passed (one dependency-closure test plus four authorization guards), the container was removed, and the loopback port was confirmed closed.",
-      "Cyber AI commit 48309201c84543ece44c81a5967865ef6c17f784 moves the test-only Alembic reset to a worker thread, adds one no-DB regression test for that event-loop boundary, passes 832 no-DB tests with 13 PostgreSQL tests explicitly skipped, and has all eight required hosted checks green.",
-      "The third and final R1 attempt passed PostgreSQL 16.14 startup, locked sync, Alembic reset, runtime-principal seed, and 18 of 19 tests; test_advance_and_stage_rolls_back_if_outbox_insert_fails exposed a High release blocker because an outbox_pkey unique violation was raised as DurableExecutionUnavailable instead of returning DurableAdvanceStatus.conflict.",
-      "R1 is NO-GO. Container removal and loopback-port closure passed. Any new proof requires a new candidate with schema-enforced attempt accounting and a new exact Cyber AI tuple."
+      "R1's conflict-classification High blocker is repaired at Cyber AI commit b55d1db3a55a2524707330cee2eaf6f78342cddd, independently reviewed GO, and green in all eight hosted required jobs.",
+      "The real PostgreSQL 16 R2 proof remains not run and is the only execution authorized by this record."
     ]
   },
   "evidence": {
-    "directory": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence",
+    "directory": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence",
     "artifacts": [
       {
-        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/01-hosted-facts.json",
-        "sha256": "7786f632b8df037b3b1c8420f52f873eea7e4ef2c0b0e7fd735fdebf82bb7fba"
-      },
-      {
-        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/02-preflight-transcript.md",
-        "sha256": "2b7e64c019cc7bc92debf3ff8726b59547192bbd549f5e2b67a9357cc1fde898"
-      },
-      {
-        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/03-runtime-plan.md",
-        "sha256": "17f03e9bea28596c58d849c9c351640d098f8bbafbe9e1f4701f8c91d154ce12"
-      },
-      {
-        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/04-protection-facts.json",
-        "sha256": "46e7a7ffad8d9b6e6a671d21ef76376a2974ae8f0065e30e83911d766a9d22ab"
-      },
-      {
-        "path": "docs/uat/candidates/runtime-admission-ai-pg-r1/evidence/05-attempt3-runtime-result.md",
-        "sha256": "52742f66e08766810e049a36b8c5dbdbac89dba33a43dc6825a00479fe491b6c"
+        "path": "docs/uat/candidates/runtime-admission-ai-pg-r2/evidence/01-authorization.md",
+        "sha256": "cccf71ee324ff00b26e0e371ae10035fa65b8fdaaa15dffc4188ab3d13271754"
       }
     ],
     "limitations": [
-      "Attempt 3 executed all 19 tests against PostgreSQL 16.14: 18 passed and one conflict-classification test failed.",
-      "Candidate R1 is closed NO-GO and authorizes no further runtime execution.",
-      "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, or GA claim is made by this record."
+      "The R2 PostgreSQL test command has not executed.",
+      "Only one future loopback PostgreSQL 16 proof is authorized.",
+      "Attempt accounting constrains candidate revisions and evidence records; it cannot observe an out-of-band command invocation.",
+      "No HTTP socket, outbox worker, full stack, demo, UAT, POC, RC, GA, public release, or production claim is authorized."
     ],
-    "final_profile_verdict": "NO-GO"
+    "final_profile_verdict": "RUNTIME_AUTHORIZED"
   },
   "network_exposure": {
     "mode": "local_only",
     "surfaces": [
       {
         "bind": "127.0.0.1:55432",
-        "purpose": "bounded local PostgreSQL 16 runtime proof only"
+        "purpose": "bounded local PostgreSQL 16 R2 proof only"
       }
     ],
-    "notes": "No public listener, no non-loopback bind, and no HTTP application surface are authorized by this record."
+    "notes": "No public listener, non-loopback bind, HTTP application surface, or full stack is authorized."
   },
   "disposition": {
-    "profile": "NO-GO",
-    "rationale": "The final R1 proof returned 18 passed and one failed PostgreSQL test: outbox_pkey unique violation was misclassified as storage unavailable instead of a durable conflict. R1 is closed; containment passed and no stronger readiness claim is permitted."
+    "profile": "RUNTIME_AUTHORIZED",
+    "rationale": "R1 is retired NO-GO with exact failed-attempt evidence. The conflict classifier is repaired at a new exact Cyber AI tuple, independently reviewed GO, and green in all rendered required hosted jobs. R2 authorizes one future synthetic loopback PostgreSQL 16 proof only."
   }
 }

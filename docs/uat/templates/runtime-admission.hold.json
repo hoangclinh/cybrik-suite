@@ -1,6 +1,21 @@
 {
   "candidate_id": "template-hold",
   "recorded_at": "2026-07-31T00:00:00Z",
+  "attempt_accounting": {
+    "series_id": "template-hold",
+    "attempt_ordinal": 1,
+    "max_attempts": 1,
+    "current_attempt": {
+      "status": "not_run",
+      "execution_authorized": false,
+      "executed_checks": 0,
+      "passed_checks": 0,
+      "failed_checks": 0,
+      "evidence_path": "docs/uat/candidates/<candidate-id>/evidence/<attempt-evidence-file>",
+      "evidence_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "failure_history": []
+  },
   "commit_tree": {
     "suite": {
       "commit": "0000000000000000000000000000000000000000",
