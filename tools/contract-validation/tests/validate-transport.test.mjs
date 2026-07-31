@@ -4088,6 +4088,14 @@ const ADR_README_W2H_ADDITIONS = [
   '\n| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |',
   '\n| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY` (2026-07-31); assigns ADR-0012 at write time, authorizes only the exact proposal paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |',
 ];
+const ADR_README_W2K_ADDITIONS = [
+  '\nThe W2-K transport peer-evidence packet adds ADR-0013 as\n' +
+    '`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-K authorizes only bounded proposal writing\n' +
+    'and static conformance under the delegated Governor decision; it does not accept ADR-0013 or\n' +
+    'authorize runtime, UAT, release, deployment, or production work.\n',
+  '\n| [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-K authorizes bounded proposal writing and static conformance only |',
+  '\n| [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded writer authorization for the server-neutral transport peer-evidence packet, amended R2 for canonical registration | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY`; assigns ADR-0013 at write time, authorizes only the exact proposal and registration paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |',
+];
 const ADR_README_DELEGATION_RECONCILIATION = {
   current:
     'Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a\n' +
@@ -4105,6 +4113,7 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
   for (const addition of [
     ...ADR_README_W2I_ADDITIONS,
     ...ADR_README_W2H_ADDITIONS,
+    ...ADR_README_W2K_ADDITIONS,
   ]) {
     const occurrences = normalized.split(addition).length - 1;
     assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
@@ -4139,6 +4148,19 @@ test('P2-3: the intended ADR-0012 / W2-H registry entries remain proposal-only',
   assert.match(adr, /ADR-0012/, 'P2-3: docs/adr/README.md must register ADR-0012');
   assert.match(adr, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/, 'P2-3: ADR-0012 must remain proposal-only');
   assert.match(adr, /DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL\.md/);
+  assert.match(adr, /production remains\s+Founder-controlled/i);
+});
+
+test('P2-3: the intended ADR-0013 / W2-K registry entries remain proposal-only', () => {
+  const adr = read(ADR_README_REL);
+  assert.match(adr, /ADR-0013/, 'P2-3: docs/adr/README.md must register ADR-0013');
+  assert.match(
+    adr,
+    /\[ADR-0013\]\(ADR-0013-transport-peer-evidence-adapter-profile\.md\)/,
+    'P2-3: docs/adr/README.md must link the ADR-0013 document',
+  );
+  assert.match(adr, /Gate W2-K authorizes bounded proposal writing and static conformance only/);
+  assert.match(adr, /DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE\.md/);
   assert.match(adr, /production remains\s+Founder-controlled/i);
 });
 

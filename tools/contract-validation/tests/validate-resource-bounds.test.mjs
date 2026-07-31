@@ -436,7 +436,14 @@ test('canonical orchestration registers proposal drift checks without changing W
   const orchestrator = readText('tools/contract-validation/validate.mjs');
   assert.match(orchestrator, /validate-resource-bounds\.mjs/);
   assert.match(orchestrator, /tests\/validate-resource-bounds\.test\.mjs/);
-  assert.match(orchestrator, /These 21 validators/);
+  const stepsBlock = orchestrator.match(/const steps = \[([\s\S]*?)\];/);
+  assert.ok(stepsBlock, 'the orchestrator must declare its validation steps as a literal array');
+  const actualStepCount = [...stepsBlock[1].matchAll(/'([^']+\.mjs)'/g)].length;
+  assert.match(
+    orchestrator,
+    new RegExp(`These ${actualStepCount} validators`),
+    'the header comment must state the true, current step count rather than a stale pin',
+  );
   assert.match(orchestrator, /W2-H PROPOSED \/ NOT ACCEPTED/);
   assert.match(orchestrator, /const W1_CONTRACT_TEST_COUNT = 98;/);
   assert.doesNotMatch(
