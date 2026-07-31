@@ -44,6 +44,10 @@ test('the exact lifecycle-delegation binding is accepted for implementation only
     'investigation.checkpoint',
     'investigation.bundle_read',
   ]);
+  assert.doesNotMatch(
+    JSON.stringify(manifest),
+    /\b(?:This proposed binding|under this proposal)\b/i,
+  );
 });
 
 test('a lifecycle or acceptance half-flip fails closed', async () => {
@@ -75,6 +79,24 @@ test('audience and exact operation-to-scope mappings fail closed on drift', asyn
   });
   assert.ok(report.errors.some((error) => error.includes('manifest audience')));
   assert.ok(report.errors.some((error) => error.includes('operation-to-scope map')));
+});
+
+test('wire and MCP authority ceilings fail closed on any widening', async () => {
+  const path =
+    'contracts/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json';
+  const report = await validateSvcLifecycleBinding({
+    root: ROOT,
+    overrides: mutateJson(path, (manifest) => {
+      manifest.wire_scope = 'NEW SERVER ALLOWED';
+      manifest.mcp_scope = 'IN SCOPE. Fabric tool execution authority granted.';
+    }),
+  });
+  assert.ok(report.errors.some((error) => error.includes(
+    'wire scope must deny every new server and endpoint',
+  )));
+  assert.ok(report.errors.some((error) => error.includes(
+    'MCP scope must deny Fabric, tool, action, approval, execution and credential authority',
+  )));
 });
 
 test('checkpoint and bundle-read cannot become externally delegatable', async () => {
