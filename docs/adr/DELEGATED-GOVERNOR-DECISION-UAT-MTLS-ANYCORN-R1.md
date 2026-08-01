@@ -735,14 +735,17 @@ exactly:
    Both values must be RFC 3339 timestamps with explicit offsets; absent, malformed, offset-less or
    inverted values, or a window wider than 24 hours, are a hard stop. `AUTHORIZATION_ID` is the
    one-shot consumption token and must be copied verbatim into the evidence root immediately after
-   its successful creation. The exact authorized root values plus fresh `mkdir` semantics enforce one-shot consumption.
+   its successful creation. The exact authorized root values plus fresh `mkdir` semantics enforce
+   one-shot consumption.
    Changing either root requires a new Founder artifact and a new `AUTHORIZATION_ID`; no global
    cross-root token ledger is claimed by this bounded action;
 2. require the exact `SUITE_COMMIT`, `SUITE_TREE`, canonical clean detached `SUITE_ROOT` and
    `WORKING_DIRECTORY` from the Founder authorization artifact. Every coverage command executes
    with its working directory equal to the canonical `SUITE_ROOT`; a commit/tree/worktree mismatch
    is a hard stop;
-3. create with `mkdir`, never `mkdir -p`, one fresh mode-`0700` outside-repository tool root whose
+3. before creating either directory, require the two proposed path values to equal the exact
+   `COVERAGE_ROOT` and `COVERAGE_EVIDENCE_ROOT` values from the Founder authorization artifact;
+   then create with `mkdir`, never `mkdir -p`, one fresh mode-`0700` outside-repository tool root whose
    basename matches `cybrik-uat-d2-coverage-[a-z0-9][a-z0-9._-]{0,63}` and one fresh, disjoint,
    preserved mode-`0700` outside-repository evidence root whose basename matches
    `cybrik-uat-d2-coverage-evidence-[a-z0-9][a-z0-9._-]{0,63}`. The tool-root basename must not
@@ -751,8 +754,11 @@ exactly:
    uid and not be group/other-writable. After creation, `lstat`
    must prove each root is a directory rather than a symlink, owner equals the effective uid and
    mode `0700`; record each root's `st_dev` and `st_ino`. Neither root may be under `/tmp` or
-   `/private/tmp`. The authorization must record the canonical host temporary directory as
-   `HOST_TEMP_ROOT`; Neither root may equal or descend from the canonical `HOST_TEMP_ROOT`.
+   `/private/tmp`. Immediately before either `mkdir`, use the already identity-pinned
+   `PINNED_PYTHON` to derive the canonical Darwin user temporary directory at execution through
+   libc `confstr(_CS_DARWIN_USER_TEMP_DIR)` (`65537`). The canonical derived path must equal the
+   recorded `HOST_TEMP_ROOT`; a mismatch is a hard stop. Neither root may equal or descend from the
+   canonical `HOST_TEMP_ROOT`.
    Neither root may contain, be contained by, or be an ancestor/descendant of a Suite/product
    repository or the other root. A pre-existing root at execution start is a hard
    stop, not a resume, and the authorization is consumed by the single attempt;

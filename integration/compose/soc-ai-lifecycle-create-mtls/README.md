@@ -137,8 +137,9 @@ one outside-repository-only, pip-free stdlib extraction of the exact SHA-256-pin
 `7.15.2` macOS arm64 CPython 3.12 wheel into a fresh tool-only target directory. A second disjoint,
 non-temporary evidence root is preserved on success, failure and rollback. The one-shot Founder
 artifact pins the clean Suite commit/tree/worktree, working directory, interpreter and symlink
-chain, exact wheel URL/size/digest, canonical OSV request digest, complete network closure, three
-authorized tool subpaths and rollback. A non-empty OSV result, pre-existing root, missing test
+chain, canonical Darwin host-temp derivation/pin, exact wheel URL/size/digest, canonical OSV
+request digest, complete network closure, three authorized tool subpaths and rollback. A non-empty
+OSV result, pre-existing root, missing test
 closure or identity mismatch stops before extraction. No package installer, index, build frontend
 or lifecycle script is invoked. The action changes neither this harness lock nor any product
 environment and may select only the eight exact import-inert unit/static test files; the guarded D2
