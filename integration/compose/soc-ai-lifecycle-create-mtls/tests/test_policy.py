@@ -596,6 +596,7 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     )
     assert "coverage report --rcfile=/dev/null" in normalized
     assert "coverage json --rcfile=/dev/null" in normalized
+    assert "coverage run --rcfile=/dev/null --branch" in normalized
     assert "cd <SUITE_ROOT>" in decision
     assert decision.count("<PINNED_PYTHON> -m coverage ") == 3
     assert "at least 80% line coverage and at least 80% branch coverage" in normalized
@@ -650,6 +651,10 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
     assert "pure stdlib and import-inert" in normalized
     assert "Coverage.py JSON format 3" in normalized
     assert "58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2" in section
+    assert "8eb1f796e71ea4a57f4f9919dbbd3a2810182a7fb2cb1cffb861c861173ab754" in section
+    assert "8294b5ef2ade283e167029b7ecf8cabdcbf9e1f527b98ee93c2d6bd1f980be0b" in section
+    assert "from the first body statement through the last body statement" in normalized
+    assert "no excluded line anywhere in the measured package" in normalized
     assert "not-applicable-no-static-branch" in section
     assert "critical source range may contain no excluded line" in normalized
     assert "`# pragma: no cover` or `# pragma: no branch`" in normalized

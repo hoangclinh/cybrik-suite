@@ -4576,6 +4576,10 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   assert.match(section, /pure stdlib and import-inert/);
   assert.match(section, /Coverage\.py JSON format 3/);
   assert.match(section, /58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2/);
+  assert.match(section, /8eb1f796e71ea4a57f4f9919dbbd3a2810182a7fb2cb1cffb861c861173ab754/);
+  assert.match(section, /8294b5ef2ade283e167029b7ecf8cabdcbf9e1f527b98ee93c2d6bd1f980be0b/);
+  assert.match(section, /from the first body statement through the last body statement/);
+  assert.match(section, /no excluded line anywhere in the measured package/);
   assert.match(section, /not-applicable-no-static-branch/);
   assert.match(section, /critical source range may contain no excluded line/);
   assert.match(section, /`# pragma: no cover` or\s+`# pragma: no branch`/);

@@ -68,7 +68,10 @@ def _summary(
         "percent_statements_covered": statement_percent,
         "percent_statements_covered_display": f"{statement_percent:.0f}",
         "num_branches": branch_total,
-        "num_partial_branches": 0,
+        "num_partial_branches": len(
+            {arc[0] for arc in executed_branches}
+            & {arc[0] for arc in missing_branches}
+        ),
         "covered_branches": len(executed_branches),
         "missing_branches": len(missing_branches),
         "percent_branches_covered": branch_percent,
@@ -85,7 +88,8 @@ def _file_report(source: str) -> dict[str, object]:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         assert node.end_lineno is not None
-        lines = list(range(node.lineno, node.end_lineno + 1))
+        file_lines = list(range(node.lineno, node.end_lineno + 1))
+        lines = list(range(node.body[0].lineno, node.body[-1].end_lineno + 1))
         branch_node = next(
             (child for child in ast.walk(node) if isinstance(child, ast.If)), None
         )
@@ -97,7 +101,7 @@ def _file_report(source: str) -> dict[str, object]:
             if branch_node is not None
             else []
         )
-        executed_lines.update(lines)
+        executed_lines.update(file_lines)
         executed_branches.extend(branches)
         functions[node.name] = {
             "executed_lines": lines,
@@ -421,6 +425,21 @@ def test_package_branch_ratio_below_eighty_percent_fails(tmp_path: Path) -> None
     assert completed.stderr.strip() == "package_branch_coverage_below_80"
 
 
+def test_package_source_may_not_use_any_excluded_line(tmp_path: Path) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    key = (PACKAGE_REL / "support.py").as_posix()
+    file_report = report["files"][key]
+    assert isinstance(file_report, dict)
+    line = file_report["executed_lines"].pop()
+    file_report["excluded_lines"].append(line)
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "package_source_excluded"
+
+
 @pytest.mark.parametrize(
     ("field", "reason"),
     (
@@ -478,12 +497,23 @@ def test_critical_symbol_may_not_exclude_a_source_line(tmp_path: Path) -> None:
     assert completed.stderr.strip() == "critical_source_excluded"
 
 
-def test_critical_symbol_may_not_use_no_branch_pragma(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "marker",
+    (
+        "# pragma: no branch",
+        "# pragma: nobranch",
+        "# pragma nobranch",
+        "#pragma:no branch",
+    ),
+)
+def test_critical_symbol_may_not_use_any_default_no_branch_pragma(
+    tmp_path: Path, marker: str
+) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
     source_path = suite_root / PACKAGE_REL / "server.py"
     source_path.write_text(
         source_path.read_text(encoding="utf-8").replace(
-            "if value:", "if value:  # pragma: no branch", 1
+            "if value:", f"if value:  {marker}", 1
         ),
         encoding="utf-8",
     )
@@ -493,6 +523,22 @@ def test_critical_symbol_may_not_use_no_branch_pragma(tmp_path: Path) -> None:
 
     assert completed.returncode == 2
     assert completed.stderr.strip() == "critical_source_exclusion_marker"
+
+
+def test_partial_branch_summary_must_match_the_arc_facts(tmp_path: Path) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    key = (PACKAGE_REL / "server.py").as_posix()
+    file_report = report["files"][key]
+    assert isinstance(file_report, dict)
+    summary = file_report["summary"]
+    assert isinstance(summary, dict)
+    summary["num_partial_branches"] = 99
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "coverage_summary_mismatch"
 
 
 def test_arc_free_critical_symbol_rejects_invented_branch_facts(
