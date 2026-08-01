@@ -222,7 +222,11 @@ command, for example:
 
 ```sh
 PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
-  python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests
+  python3 -m pytest \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_evidence.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_procedure.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_case_inventory.py
 ```
 
 ### 6.2 D1 preparation and separately gated K5 control carriers
@@ -306,7 +310,7 @@ Committed-byte provenance tests must never import `anycorn`. Artifact-dependent 
 bounded `CYBRIK_UAT_D1_ARTIFACT_DIR` when invoked and fail closed when it is absent. They are
 explicit D1 targets outside the dependency-neutral clean-checkout target, not `skip`, `xfail` or
 `todo`; the committed clean-checkout suite remains green without an ephemeral artifact.
-The dependency-neutral command must name its five existing test files explicitly rather than
+The dependency-neutral command must name its four existing test files explicitly rather than
 discovering the whole `tests/` directory. D1 artifact commands likewise name only their explicit
 artifact targets after setting `CYBRIK_UAT_D1_ARTIFACT_DIR`; collection-time imports may not turn an
 unselected test into a missing-dependency failure.

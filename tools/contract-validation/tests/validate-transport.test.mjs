@@ -4297,7 +4297,7 @@ const extractD1R2Additions = (decision) => {
   const section = mdSection(decision, '6. Prospective owner paths split by gate');
   assert.ok(section !== null, 'the mTLS decision must retain its exact section 6');
   const match = section.match(
-    /S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:\n\n((?:- `[^`]+`\n){3})(?!- `)/,
+    /S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:\n\n((?:- `[^`]+`\n){3})\n`test_policy\.py` must separate/,
   );
   assert.ok(match, 'S1 R2 must declare one exact three-path D1 allowlist amendment');
   return [...match[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
@@ -4319,6 +4319,12 @@ test('UAT mTLS S1 R2 keeps uv.lock registry-only and pins B1 outside the solver'
     /No raw Anycorn distribution may enter the solver, `uv\.lock` or the\s+installed environment/,
   );
   assert.match(decision, /official `0\.20\.0` sdist is fetched only as hashed build input/);
+  const sdistSha = 'e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927';
+  assert.equal(
+    countOf(decision, sdistSha),
+    2,
+    'the official source-fact pin and D1 endpoint gate must carry the same exact sdist SHA-256',
+  );
 });
 
 test('UAT mTLS S1 R2 expands D1 by exactly the three required existing paths', () => {
@@ -4353,7 +4359,7 @@ test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rule
   assert.match(decision, /wheelhouse, cache and clean build workspaces remain outside the repository/);
   assert.match(decision, /offline reinstall proof is scoped to the exact recorded platform/);
   assert.match(decision, /ephemeral gitignored `dist\/`/);
-  assert.match(decision, /dependency-neutral command must name its five existing test files explicitly/);
+  assert.match(decision, /dependency-neutral command must name its four existing test files explicitly/);
   assert.match(decision, /collection-time imports may not turn an\s+unselected test into a missing-dependency failure/);
 });
 
@@ -4367,6 +4373,22 @@ test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases re
   );
   assert.ok(d1Match, 'section 10 must retain one bounded D1 gate before D2');
   const d1 = d1Match[1];
+  const outboundMatch = d1.match(
+    /closed D1 HTTPS set:\n\n([\s\S]*?)\n\nD1 also permits/,
+  );
+  assert.ok(outboundMatch, 'Gate D1 must expose one finite closed HTTPS bullet list');
+  const outboundBullets = outboundMatch[1]
+    .split('\n')
+    .filter((line) => line.startsWith('- '));
+  assert.deepEqual(
+    outboundBullets,
+    [
+      '- `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;',
+      '- the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its',
+      '- `https://api.osv.dev/v1/querybatch` for the advisory-database query; and',
+      '- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed',
+    ],
+  );
 
   for (const required of [
     'https://pypi.org/pypi/anycorn/0.20.0/json',
@@ -4380,11 +4402,13 @@ test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases re
   }
   assert.match(d1, /explicitly widens the superseded sdist\/build-only outbound\s+wording/);
   assert.match(d1, /no listener, server, database, migration or product-runtime\s+authority/i);
-  assert.match(gate, /S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
-  assert.match(gate, /D1 remains \*\*HOLD\*\*/);
-  assert.match(gate, /D2 remains \*\*HOLD\*\*/);
-  assert.match(gate, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
-  assert.match(gate, /Release dates remain unchanged/);
+  const r2 = mdSection(gate, 'S1 R2 D1 clarification');
+  assert.ok(r2 !== null, 'the gate record must retain one exact S1 R2 clarification section');
+  assert.match(r2, /S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
+  assert.match(r2, /D1 remains \*\*HOLD\*\*/);
+  assert.match(r2, /D2 remains \*\*HOLD\*\*/);
+  assert.match(r2, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
+  assert.match(r2, /Release dates remain\s+unchanged/);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
   assert.doesNotMatch(gate, /installed=true|pinned=true/);
