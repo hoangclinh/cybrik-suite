@@ -46,7 +46,9 @@ Two independent reasons, either of which alone is sufficient:
    Anycorn — the prospective ASGI server for the AI-side HTTPS/mTLS listener — has no release that
    contains the upstream fix preserving hardened SSL options. Details in §4.
 
-Execution stays unauthorized until both are closed by a separately reviewed admission update.
+The committed candidate stays unauthorized while those blockers remain. A future exact-bit
+preflight update may authorize one bounded `not_run` attempt under the two-phase sequence in §7;
+that authorization is not a claim that runtime evidence already exists.
 
 ## 4. Blocking upstream finding — Anycorn (HIGH, prospective exercised transport dependency)
 
@@ -109,9 +111,46 @@ The `cybrik.ai.durable-postgres` / `bounded-postgres-runtime-v1` objective stays
 candidate is a distinct objective (`cybrik.suite.golden-workflow` / `golden-uat-v1`) and creates no
 PostgreSQL retry, no corrected selector and no out-of-band invocation of any prior attempt.
 
-## 7. Promotion path
+## 7. Two-phase admission sequencing
 
-Promotion out of `HOLD` requires a separate, separately reviewed exact-bit update that at minimum:
+Accepting this sequence resolves only the process circularity. It does not authorize execution,
+install a dependency, open a listener, start PostgreSQL or change the current committed facts:
+`execution_authorized=false`, status `not_run`, counts `0 / 0 / 0`, one open High finding, all
+negative-smoke rows `hold`, and disposition `HOLD`.
+
+### Phase A — preflight admission
+
+A future, separately reviewed exact-bit admission update may set `execution_authorized=true` for
+exactly one bounded attempt while its status is still `not_run`. Before that update, all of the
+following preflight evidence must exist at one re-pinned four-repository tuple:
+
+1. the exact dependency artifact, lock, patch, SBOM, VEX and supply-chain review are complete;
+2. the separate-process harness and all N1–N10 tests are authored and independently reviewed but
+   have not been executed;
+3. start, stop, reset, seed and rollback procedures, synthetic-only data policy, loopback-only
+   exposure and production exclusions are exact and reviewable;
+4. all rendered required checks are refreshed and green; and
+5. an independent preflight `GO` artifact authorizes only the exact attempt, paths and digests.
+
+During Phase A the candidate remains `HOLD`: the open High and every unexecuted smoke row remain
+truthful. Preflight authorization is permission to obtain empirical evidence, not evidence closure.
+
+### Phase B — bounded execution and evidence closure
+
+The admitted attempt may run once within its exact local-only boundary. Immediately after the run,
+the integrator must set `execution_authorized=false`, record status `passed` or `failed`, record
+exact executed/passed/failed counts, and capture the A1–A4 empirical artifacts. A failed attempt
+derives `NO-GO`. A passed attempt remains `HOLD` under the current validator and proceeds to the
+separate UAT Gate Standard; it does not itself establish a UAT pass or `DEMO_READY_LOCAL`.
+
+The A1–A7 criteria in `02-architecture-and-acceptance.md` are completed during evidence closure
+after the bounded execution. They are not prerequisites that must already contain runtime results
+before Phase A can authorize the one attempt needed to produce those results.
+
+## 8. Evidence-closure and promotion path
+
+After a Phase B execution, evidence closure requires a separate, independently reviewed exact-bit
+update that at minimum:
 
 1. closes the Anycorn finding by one of the two acceptable unblocks in §4, with artifact digests and
    an empirical ASGI TLS-extension probe result recorded;
@@ -124,5 +163,6 @@ Promotion out of `HOLD` requires a separate, separately reviewed exact-bit updat
 6. passes the runtime-admission validator, the full relevant Suite checks and all hosted required
    checks at an exact re-pinned tuple.
 
-After any admitted execution, its outcome must be recorded in a **new** result artifact. This
-pre-run HOLD artifact cannot be reused as runtime-result evidence.
+The outcome must be recorded in a **new** result artifact. This pre-run HOLD artifact cannot be
+reused as runtime-result evidence. Completing A1–A7 admits the result to the separate UAT gate; it
+does not silently promote this runtime-admission record or grant any release status.
