@@ -43,6 +43,7 @@ def _summary(
     executed_branches: list[list[int]],
     missing_branches: list[list[int]],
     excluded_lines: list[int] | None = None,
+    partial_branches: int | None = None,
 ) -> dict[str, int | float | str]:
     excluded_lines = excluded_lines or []
     statement_total = len(executed_lines) + len(missing_lines)
@@ -68,9 +69,13 @@ def _summary(
         "percent_statements_covered": statement_percent,
         "percent_statements_covered_display": f"{statement_percent:.0f}",
         "num_branches": branch_total,
-        "num_partial_branches": len(
-            {arc[0] for arc in executed_branches}
-            & {arc[0] for arc in missing_branches}
+        "num_partial_branches": (
+            partial_branches
+            if partial_branches is not None
+            else len(
+                {arc[0] for arc in executed_branches}
+                & {arc[0] for arc in missing_branches}
+            )
         ),
         "covered_branches": len(executed_branches),
         "missing_branches": len(missing_branches),
@@ -160,6 +165,7 @@ def _sync_report(report: dict[str, object]) -> None:
     all_excluded_lines: list[int] = []
     all_branches: list[list[int]] = []
     all_missing_branches: list[list[int]] = []
+    all_partial_branches = 0
     for file_report in files.values():
         assert isinstance(file_report, dict)
         executed_lines = file_report["executed_lines"]
@@ -172,13 +178,15 @@ def _sync_report(report: dict[str, object]) -> None:
         assert isinstance(executed_branches, list)
         assert isinstance(missing_branches, list)
         assert isinstance(excluded_lines, list)
-        file_report["summary"] = _summary(
+        file_summary = _summary(
             executed_lines,
             missing_lines,
             executed_branches,
             missing_branches,
             excluded_lines,
         )
+        file_report["summary"] = file_summary
+        all_partial_branches += int(file_summary["num_partial_branches"])
         all_lines.extend(executed_lines)
         all_missing_lines.extend(missing_lines)
         all_excluded_lines.extend(excluded_lines)
@@ -202,6 +210,7 @@ def _sync_report(report: dict[str, object]) -> None:
         all_branches,
         all_missing_branches,
         all_excluded_lines,
+        all_partial_branches,
     )
 
 
@@ -553,8 +562,9 @@ def test_arc_free_critical_symbol_rejects_invented_branch_facts(
     region = functions["validate_evidence"]
     assert isinstance(region, dict)
     start = region["start_line"]
-    assert isinstance(start, int)
-    invented = [[start, start + 1], [start + 1, -start]]
+    body = region["executed_lines"][0]
+    assert isinstance(start, int) and isinstance(body, int)
+    invented = [[body, body], [body, -start]]
     region["executed_branches"] = invented
     file_report["executed_branches"].extend(invented)
     _rewrite(report_path, report)

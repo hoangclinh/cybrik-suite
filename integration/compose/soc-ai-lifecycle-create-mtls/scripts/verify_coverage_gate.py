@@ -50,7 +50,7 @@ STATIC_BRANCH_NODES: Final = (
     ast.comprehension,
 )
 EXCLUSION_MARKER: Final = re.compile(
-    r"#\s*pragma:\s*no\s+(?:cover|branch)\b", re.IGNORECASE
+    r"#\s*pragma[:\s]?\s*no\s*(?:cover|branch)\b", re.IGNORECASE
 )
 
 
@@ -294,12 +294,16 @@ def _facts(record: dict[str, object], *, max_line: int) -> CoverageFacts:
 
 def _check_summary(summary_value: object, facts: CoverageFacts) -> None:
     summary = _mapping(summary_value, "coverage_summary_invalid")
+    partial_branch_sources = {arc[:-1] for arc in facts.executed_branches} & {
+        arc[:-1] for arc in facts.missing_branches
+    }
     expected = {
         "covered_lines": facts.line_covered,
         "num_statements": facts.line_total,
         "missing_lines": len(facts.missing_lines),
         "excluded_lines": len(facts.excluded_lines),
         "num_branches": facts.branch_total,
+        "num_partial_branches": len(partial_branch_sources),
         "covered_branches": facts.branch_covered,
         "missing_branches": len(facts.missing_branches),
     }
@@ -456,6 +460,10 @@ def _critical_result(
         _fail("critical_symbol_not_exact")
     start = node.lineno
     end = node.end_lineno
+    region_start = node.body[0].lineno
+    region_end = node.body[-1].end_lineno
+    if region_end is None:
+        _fail("critical_symbol_not_exact")
     if _has_exclusion_marker(source, start=start, end=end):
         _fail("critical_source_exclusion_marker")
     raw_region = file.functions.get(function)
@@ -470,19 +478,29 @@ def _critical_result(
 
     file_range = CoverageFacts(
         executed_lines=frozenset(
-            line for line in file.facts.executed_lines if start <= line <= end
+            line
+            for line in file.facts.executed_lines
+            if region_start <= line <= region_end
         ),
         missing_lines=frozenset(
-            line for line in file.facts.missing_lines if start <= line <= end
+            line
+            for line in file.facts.missing_lines
+            if region_start <= line <= region_end
         ),
         excluded_lines=frozenset(
-            line for line in file.facts.excluded_lines if start <= line <= end
+            line
+            for line in file.facts.excluded_lines
+            if region_start <= line <= region_end
         ),
         executed_branches=frozenset(
-            arc for arc in file.facts.executed_branches if start <= arc[0] <= end
+            arc
+            for arc in file.facts.executed_branches
+            if region_start <= arc[0] <= region_end
         ),
         missing_branches=frozenset(
-            arc for arc in file.facts.missing_branches if start <= arc[0] <= end
+            arc
+            for arc in file.facts.missing_branches
+            if region_start <= arc[0] <= region_end
         ),
     )
     if region_facts != file_range:
@@ -513,6 +531,8 @@ def _critical_result(
         "symbol": f"{module}.{function}",
         "start_line": start,
         "end_line": end,
+        "region_start_line": region_start,
+        "region_end_line": region_end,
         "line_covered": region_facts.line_covered,
         "line_total": region_facts.line_total,
         "line_ratio": line_ratio,
@@ -563,6 +583,8 @@ def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
         if file is None:
             _fail("critical_module_missing")
         critical.append(_critical_result(file, module=module, function=function))
+    if aggregate.excluded_lines:
+        _fail("package_source_excluded")
 
     return {
         "status": "PASS",

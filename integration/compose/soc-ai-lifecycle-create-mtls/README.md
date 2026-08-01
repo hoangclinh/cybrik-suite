@@ -152,10 +152,14 @@ The pure-stdlib, import-inert `scripts/verify_coverage_gate.py` independently ch
 Coverage.py 7.15.2 JSON format-3 report. It requires the exact package file set, recomputes package
 line and branch ratios separately, cross-checks report summaries, and binds each critical function
 to its current top-level AST range and branch arcs. Critical ranges cannot use exclusions or
-coverage pragmas. The two AST arc-free functions keep 100% line coverage and record the bounded
+any Coverage.py default coverage-pragma spelling, and the measured package permits no excluded
+line. Function region facts are matched from the first body statement through the last body
+statement while the producer `start_line` remains bound to the top-level declaration. The two AST
+arc-free functions keep 100% line coverage and record the bounded
 branch result `not-applicable-no-static-branch`; every branch-bearing critical function requires a
-non-empty, 100%-covered branch denominator. The verifier writes one fresh atomic, no-overwrite,
-mode-`0600` PASS or FAIL result beside the input without importing the harness or Coverage.py.
+non-empty, 100%-covered branch denominator, with `num_partial_branches` independently
+cross-checked. The verifier writes one fresh atomic, no-overwrite, mode-`0600` PASS or FAIL result
+beside the input without importing the harness or Coverage.py.
 
 The preceding measurement must run after the literal `cd <SUITE_ROOT>` and pass
 `--rcfile=/dev/null` to each of `coverage run`, `coverage report` and `coverage json`, as fixed by
