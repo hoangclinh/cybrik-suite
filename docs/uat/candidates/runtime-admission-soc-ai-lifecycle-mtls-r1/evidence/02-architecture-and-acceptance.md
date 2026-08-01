@@ -227,6 +227,6 @@ committed-candidate test title, registry-size pin and disposition assertion in
 
 The prerequisite validator semantics and Suite-local reference containment were reviewed and
 merged separately in Suite PR `#29`; they are not modified by this packet. The A0 amendment adds
-only the accepted two-phase sequencing language, one fail-closed validator test and the matching
-machine-readable process flag. It authorizes no dependency install, formatter run, socket open,
+only the accepted two-phase sequencing language, one process-language/flag/current-state pin and
+the matching machine-readable process flag. It authorizes no dependency install, formatter run, socket open,
 stack or container start, database start, migration, or secret handling.
