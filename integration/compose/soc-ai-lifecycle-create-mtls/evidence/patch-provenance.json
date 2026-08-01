@@ -5,8 +5,8 @@
     "backend": "uv_build-fast-path",
     "backend_version": "0.11.16",
     "build_dirs": [
-      "/private/tmp/cybrik-d1-b1-final.e9zdJo/build-a",
-      "/private/tmp/cybrik-d1-b1-final.e9zdJo/build-b"
+      "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/build-a",
+      "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/build-b"
     ],
     "lc_all": "C",
     "pip_version": "26.1.1",

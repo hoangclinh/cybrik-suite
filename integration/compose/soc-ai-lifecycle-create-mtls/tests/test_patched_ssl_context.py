@@ -150,3 +150,5 @@ print(json.dumps({
     assert probe["no_ticket_seed_preserved"] is True
     assert probe["socket_calls"] == 0
     assert evidence["ssl_context_probe"] == probe
+    canonical_probe = json.dumps(probe, sort_keys=True, separators=(",", ":")).encode()
+    assert evidence["ssl_context_probe_sha256"] == hashlib.sha256(canonical_probe).hexdigest()

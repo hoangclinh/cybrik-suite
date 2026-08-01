@@ -1,0 +1,923 @@
+{
+  "artifact_id": "anycorn-cybrik-uat-b1",
+  "generated_from": {
+    "internal_wheel_sha256": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+    "requirements_sha256": "93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603",
+    "sbom_sha256": "7702ea5d3a63d9cbd4fbf00e1aeeee51efe0df3fe3a8d979669bd441e82752dd",
+    "uv_lock_sha256": "e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add"
+  },
+  "inventory_scope": "exact_offline_d1_environment",
+  "legal_approval": false,
+  "package_count": 57,
+  "packages": [
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "alembic",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.18.5"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "annotated-doc",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.0.5"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "annotated-types",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.8.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [],
+        "license_value": null
+      },
+      "name": "anycorn",
+      "normalized_license": "MIT",
+      "source_scope": "separate_b1_wheel",
+      "version": "0.20.0+cybrik.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "anyio",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "4.14.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "argon2-cffi",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "25.1.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "argon2-cffi-bindings",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "25.1.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "Apache-2.0",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "asyncpg",
+      "normalized_license": "Apache-2.0",
+      "source_scope": "lock_closure",
+      "version": "0.31.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MPL-2.0"
+      },
+      "name": "certifi",
+      "normalized_license": "MPL-2.0",
+      "source_scope": "lock_closure",
+      "version": "2026.7.22"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT-0",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "cffi",
+      "normalized_license": "MIT-0",
+      "source_scope": "lock_closure",
+      "version": "2.1.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.txt"
+        ],
+        "license_value": null
+      },
+      "name": "click",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "8.4.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "Apache-2.0 OR BSD-3-Clause",
+        "license_files": [
+          "LICENSE",
+          "LICENSE.APACHE",
+          "LICENSE.BSD"
+        ],
+        "license_value": null
+      },
+      "name": "cryptography",
+      "normalized_license": "Apache-2.0 OR BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "50.0.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: ISC License (ISCL)"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "ISC"
+      },
+      "name": "dnspython",
+      "normalized_license": "ISC",
+      "source_scope": "lock_closure",
+      "version": "2.8.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: The Unlicense (Unlicense)"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "Unlicense"
+      },
+      "name": "email-validator",
+      "normalized_license": "Unlicense",
+      "source_scope": "lock_closure",
+      "version": "2.3.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "fastapi",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.141.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT AND PSF-2.0",
+        "license_files": [
+          "LICENSE",
+          "LICENSE.PSF"
+        ],
+        "license_value": null
+      },
+      "name": "greenlet",
+      "normalized_license": "MIT AND PSF-2.0",
+      "source_scope": "lock_closure",
+      "version": "3.5.4"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE.txt"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "h11",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.16.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "h2",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "4.4.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "hpack",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "4.2.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.md"
+        ],
+        "license_value": null
+      },
+      "name": "httpcore",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "1.0.9"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE",
+          "vendor/http-parser/LICENSE-MIT",
+          "vendor/llhttp/LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "httptools",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.8.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: BSD License"
+        ],
+        "license_expression": null,
+        "license_files": [],
+        "license_value": "BSD-3-Clause"
+      },
+      "name": "httpx",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "0.28.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "hyperframe",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "6.1.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.md"
+        ],
+        "license_value": null
+      },
+      "name": "idna",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "3.18"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "iniconfig",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.3.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "Mako",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.3.12"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE",
+          "LICENSE.markdown-it"
+        ],
+        "license_value": null
+      },
+      "name": "markdown-it-py",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "4.2.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.txt"
+        ],
+        "license_value": null
+      },
+      "name": "MarkupSafe",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "3.0.3"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "Apache-2.0",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "maxminddb",
+      "normalized_license": "Apache-2.0",
+      "source_scope": "lock_closure",
+      "version": "2.8.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [],
+        "license_value": null
+      },
+      "name": "mdurl",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.1.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "Apache-2.0 OR BSD-2-Clause",
+        "license_files": [
+          "LICENSE",
+          "LICENSE.APACHE",
+          "LICENSE.BSD"
+        ],
+        "license_value": null
+      },
+      "name": "packaging",
+      "normalized_license": "Apache-2.0 OR BSD-2-Clause",
+      "source_scope": "lock_closure",
+      "version": "26.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "pluggy",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.6.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT License"
+      },
+      "name": "priority",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.0.0"
+    },
+    {
+      "disposition": "review_required",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "LGPL with exceptions"
+      },
+      "name": "psycopg2-binary",
+      "normalized_license": "LGPL-with-exceptions",
+      "source_scope": "lock_closure",
+      "version": "2.9.12"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pycparser",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "3.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pydantic",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.13.4"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pydantic-settings",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.14.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pydantic_core",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.46.4"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-2-Clause",
+        "license_files": [
+          "AUTHORS",
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "Pygments",
+      "normalized_license": "BSD-2-Clause",
+      "source_scope": "lock_closure",
+      "version": "2.20.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "AUTHORS.rst",
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "PyJWT",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.13.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pytest",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "9.1.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "Apache-2.0",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "pytest-asyncio",
+      "normalized_license": "Apache-2.0",
+      "source_scope": "lock_closure",
+      "version": "1.4.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "BSD-3-Clause"
+      },
+      "name": "python-dotenv",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "1.2.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "PyYAML",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "6.0.3"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "redis",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "7.4.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "rich",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "15.0.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "rich-click",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.9.8"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE",
+          "LICENSE.APACHE2",
+          "LICENSE.MIT"
+        ],
+        "license_value": "MIT OR Apache-2.0"
+      },
+      "name": "sniffio",
+      "normalized_license": "MIT OR Apache-2.0",
+      "source_scope": "lock_closure",
+      "version": "1.3.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "SQLAlchemy",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "2.0.51"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.md"
+        ],
+        "license_value": null
+      },
+      "name": "starlette",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "1.3.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "typing-inspection",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.4.2"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "PSF-2.0",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "typing_extensions",
+      "normalized_license": "PSF-2.0",
+      "source_scope": "lock_closure",
+      "version": "4.16.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE.md"
+        ],
+        "license_value": null
+      },
+      "name": "uvicorn",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "0.52.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: Apache Software License",
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE-APACHE",
+          "LICENSE-MIT"
+        ],
+        "license_value": "MIT License"
+      },
+      "name": "uvloop",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "0.22.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [
+          "License :: OSI Approved :: MIT License"
+        ],
+        "license_expression": null,
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": "MIT"
+      },
+      "name": "watchfiles",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.2.0"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "BSD-3-Clause",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "websockets",
+      "normalized_license": "BSD-3-Clause",
+      "source_scope": "lock_closure",
+      "version": "17.0.1"
+    },
+    {
+      "disposition": "inventory_only",
+      "metadata": {
+        "license_classifiers": [],
+        "license_expression": "MIT",
+        "license_files": [
+          "LICENSE"
+        ],
+        "license_value": null
+      },
+      "name": "wsproto",
+      "normalized_license": "MIT",
+      "source_scope": "lock_closure",
+      "version": "1.3.2"
+    }
+  ],
+  "review_required_count": 1
+}
