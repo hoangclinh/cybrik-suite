@@ -21,7 +21,16 @@ _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls
 def _command(**overrides: object) -> procedure.Command:
     base = procedure.Command(
         step="start",
-        argv=("python3", "-m", "cybrik_suite_uat_mtls.harness", "start"),
+        argv=(
+            "python3",
+            "-m",
+            "cybrik_suite_uat_mtls.harness",
+            "start",
+            "--ai-bind",
+            "127.0.0.1:58443",
+            "--postgres-bind",
+            "127.0.0.1:55432",
+        ),
         description="authored blueprint only",
         authorizing_gate="D2",
     )
@@ -145,6 +154,10 @@ def test_procedure_module_defines_no_execution_helper() -> None:
             procedure.ARGV_NOT_ALLOWLISTED,
         ),
         (
+            {"argv": ("python3", "-m", "cybrik_suite_uat_mtls.harness", "start")},
+            procedure.ARGV_NOT_ALLOWLISTED,
+        ),
+        (
             {"argv": ("python3", "-m", "cybrik_suite_uat_mtls.harness", "stop")},
             procedure.ARGV_NOT_ALLOWLISTED,
         ),
@@ -191,7 +204,20 @@ def _procedure_with(steps: tuple[str, ...]) -> procedure.Procedure:
         commands=tuple(
             _command(
                 step=step,
-                argv=("python3", "-m", "cybrik_suite_uat_mtls.harness", step),
+                argv=(
+                    (
+                        "python3",
+                        "-m",
+                        "cybrik_suite_uat_mtls.harness",
+                        "start",
+                        "--ai-bind",
+                        "127.0.0.1:58443",
+                        "--postgres-bind",
+                        "127.0.0.1:55432",
+                    )
+                    if step == "start"
+                    else ("python3", "-m", "cybrik_suite_uat_mtls.harness", step)
+                ),
             )
             for step in steps
         ),

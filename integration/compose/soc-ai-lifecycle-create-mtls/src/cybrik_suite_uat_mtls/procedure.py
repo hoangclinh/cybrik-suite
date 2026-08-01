@@ -123,9 +123,10 @@ def validate_command(candidate: object) -> Command:
         if evidence.secret_reason(token) is not None:
             raise ProcedureViolation(ARGV_SECRET_BEARING)
     base_argv = _HARNESS_PREFIX + (candidate.step,)
-    allowed_argv = (base_argv,)
     if candidate.step == "start":
-        allowed_argv = allowed_argv + (base_argv + _START_BIND_ARGUMENTS,)
+        allowed_argv = (base_argv + _START_BIND_ARGUMENTS,)
+    else:
+        allowed_argv = (base_argv,)
     if candidate.argv not in allowed_argv:
         raise ProcedureViolation(ARGV_NOT_ALLOWLISTED)
     if candidate.authorizing_gate not in _ALLOWED_GATES:

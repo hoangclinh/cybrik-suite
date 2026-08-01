@@ -94,6 +94,19 @@ def test_secret_reason_returns_none_for_safe_text() -> None:
     assert evidence.secret_reason("case N1 rejected the replay") is None
 
 
+@pytest.mark.parametrize(
+    "text",
+    (
+        "see https://docs.example/a:b@c for detail",
+        "https://example.com/adr:sec@v1",
+    ),
+)
+def test_documentation_urls_are_not_misclassified_as_credentialed_dsns(
+    text: str,
+) -> None:
+    assert evidence.secret_reason(text) is None
+
+
 # --------------------------------------------------------------------------
 # Rejected shapes — fail closed, never redact
 # --------------------------------------------------------------------------
@@ -117,6 +130,20 @@ def test_secret_reason_returns_none_for_safe_text() -> None:
         ({"token": "x"}, evidence.SECRET_BEARING_KEY),
         ({"bearer": "x"}, evidence.SECRET_BEARING_KEY),
         ({"jwt": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"dbpassword": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"apikey": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"accesstoken": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"clientsecret": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"authtoken": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"privatekey": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"pgpass": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"passphrase": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"credentials": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"x-api-key": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"signing_key": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"key_material": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"cookie": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"connection_string": "x"}, evidence.SECRET_BEARING_KEY),
         ({"certificate_pem": "x"}, evidence.SECRET_BEARING_KEY),
         ({"password_sha256": _DIGEST}, evidence.SECRET_BEARING_KEY),
         ({"authorization_id": "abc"}, evidence.SECRET_BEARING_KEY),
@@ -161,6 +188,13 @@ def test_secret_reason_returns_none_for_safe_text() -> None:
         ({"note": "x" * 1025}, evidence.VALUE_TOO_LONG),
         (
             {"items": tuple(range(evidence.MAX_CONTAINER_ITEMS + 1))},
+            evidence.CONTAINER_TOO_LARGE,
+        ),
+        (
+            {
+                f"field_{index}": index
+                for index in range(evidence.MAX_CONTAINER_ITEMS + 1)
+            },
             evidence.CONTAINER_TOO_LARGE,
         ),
         ({"magnitude": 1 << evidence.MAX_INTEGER_BITS}, evidence.INTEGER_OUT_OF_RANGE),

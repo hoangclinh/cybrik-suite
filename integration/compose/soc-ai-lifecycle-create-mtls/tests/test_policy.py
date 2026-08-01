@@ -18,7 +18,9 @@ import pytest
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
-_SOURCE_FILES = ("__init__.py", "policy.py", "evidence.py", "procedure.py")
+_SOURCE_FILES = tuple(
+    sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
+)
 
 _ALLOWED_IMPORT_ROOTS = frozenset(
     {"__future__", "collections", "dataclasses", "re", "types", "typing"}
@@ -108,6 +110,13 @@ def _called_names(tree: ast.Module) -> set[str]:
 # --------------------------------------------------------------------------
 # Static purity of the authored source package
 # --------------------------------------------------------------------------
+
+
+def test_source_inventory_covers_every_python_module_recursively() -> None:
+    assert _SOURCE_FILES
+    assert _SOURCE_FILES == tuple(
+        sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
+    )
 
 
 @pytest.mark.parametrize("source_file", _SOURCE_FILES)
