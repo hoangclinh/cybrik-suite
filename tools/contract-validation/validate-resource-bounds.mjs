@@ -83,6 +83,7 @@ const POSITIVE_PATHS = [
   'contracts/examples/resource-bounds/positive/bounds-error.standalone.json',
   'contracts/examples/resource-bounds/positive/replay.conserved-tree.json',
   'contracts/examples/resource-bounds/positive/replay.denied-admission.json',
+  'contracts/examples/resource-bounds/positive/replay.denied-then-admitted.json',
 ];
 
 const NEGATIVE_SCHEMA_PATHS = [
@@ -111,6 +112,10 @@ const NEGATIVE_SEMANTIC_PATHS = [
   'contracts/examples/resource-bounds/negative-semantic/replay.root-binding-mismatch.json',
   'contracts/examples/resource-bounds/negative-semantic/replay.root-closure-accounting-mismatch.json',
   'contracts/examples/resource-bounds/negative-semantic/replay.sequence-gap.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.closure-settlement-split-mismatch.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.record-sequence-mismatch.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.denial-unjustified.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.denial-idempotency-conflict.json',
 ];
 
 export const EXAMPLES_MANIFEST_PATH =
@@ -171,8 +176,42 @@ export const vectorSubtract = (left, right) => {
   );
 };
 
-const canonicalRequestDigest = (request) =>
-  sha256(Buffer.from(JSON.stringify(request), 'utf8'));
+// C4: the canonical idempotent request identity. Exactly three fields are
+// excluded — the two ledger-position fields, which C2 pins to the envelope, and
+// the optimistic-concurrency assertion, which is re-read at issue time. Every
+// other field is bound, so a key can never be reused for a materially different
+// draw. Exclusion from the identity is not exemption from validation: the
+// positional fields are still bound by C2 and expected_version is still checked
+// against the parent's current version.
+const canonicalRequestIdentity = (request) => {
+  const identity = stableClone(request);
+  delete identity.sequence;
+  delete identity.virtual_time_ms;
+  if (identity.parent && typeof identity.parent === 'object') {
+    delete identity.parent.expected_version;
+  }
+  return identity;
+};
+
+// C4: the admitted result projection. Exactly the two position fields are
+// excluded, because the re-issue occupies a different ledger position; C2 binds
+// each of them to its own envelope instead, so neither is left unchecked.
+const admittedResultProjection = (result) => {
+  const projection = stableClone(result);
+  delete projection.sequence;
+  delete projection.virtual_time_ms;
+  return projection;
+};
+
+// C2: the nested public records one ledger event carries. A reserve event is
+// one atomic admission result group, so its request and its result are both
+// nested records of the same position.
+const NESTED_RECORD_SELECTORS = {
+  grant: [(payload) => payload],
+  reserve: [(payload) => payload?.request, (payload) => payload?.result],
+  release: [(payload) => payload],
+  'root-closure': [(payload) => payload],
+};
 
 const replayFailure = ({ code, trace, root }) => ({
   accepted: false,
@@ -208,6 +247,10 @@ export function replayResourceCase(fixture) {
   let root;
   let expectedSequence = 1;
   let previousVirtualTime = -1;
+  // C1: the ledger-derived half of a closure settlement. Every validated
+  // release adds its declared consumed credit here, so a terminal closure is
+  // reconciled against the ledger rather than against an arithmetic identity.
+  let accumulatedConsumed = zeroVector();
 
   const fail = (code) => replayFailure({ code, trace, root });
   // B2: a record's root binding is an identity statement about which tree it
@@ -239,6 +282,34 @@ export function replayResourceCase(fixture) {
     }
     expectedSequence += 1;
     previousVirtualTime = event.virtual_time_ms;
+
+    // C2: envelope and nested-record ordering must agree. The dense envelope
+    // check above runs first, so a ledger that both skips a position and
+    // misreports it inside a payload still fails on the dense rule. A nested
+    // record stamped earlier than its envelope asserts that virtual time ran
+    // backwards inside one ledger position and takes the rollback code; a
+    // nested record stamped later is a record field failing to equal the
+    // replayed state that produced it, which is a result mismatch.
+    const selectors = NESTED_RECORD_SELECTORS[event.kind];
+    if (!selectors) return fail('RES_RESULT_MISMATCH');
+    const nestedRecords = selectors.map((select) => select(event.payload));
+    if (nestedRecords.some((record) => !record || typeof record !== 'object')) {
+      return fail('RES_RESULT_MISMATCH');
+    }
+    for (const record of nestedRecords) {
+      if (record.sequence !== event.sequence) {
+        return fail('RES_SEQUENCE_VIOLATION');
+      }
+      if (
+        !Number.isInteger(record.virtual_time_ms)
+        || record.virtual_time_ms < event.virtual_time_ms
+      ) {
+        return fail('RES_VIRTUAL_TIME_ROLLBACK');
+      }
+      if (record.virtual_time_ms > event.virtual_time_ms) {
+        return fail('RES_RESULT_MISMATCH');
+      }
+    }
 
     if (event.kind === 'grant') {
       const grant = event.payload;
@@ -295,14 +366,36 @@ export function replayResourceCase(fixture) {
         return fail('RES_PARENT_NOT_FOUND');
       }
 
-      const requestDigest = canonicalRequestDigest(request);
-      const resultDigest = canonicalRequestDigest(result);
+      // C4: mutation is refused. An event whose key is already bound but whose
+      // canonical identity differs in any bound field conflicts, whether the
+      // prior binding was denied or admitted.
+      const identity = canonicalRequestIdentity(request);
       const prior = idempotency.get(request.idempotency_key);
-      if (prior && prior.requestDigest !== requestDigest) {
+      if (prior && !isDeepStrictEqual(prior.identity, identity)) {
         return fail('RES_IDEMPOTENCY_CONFLICT');
       }
-      if (prior) {
-        if (prior.resultDigest !== resultDigest) {
+
+      const parent = getParent(request.parent);
+      if (!parent) return fail('RES_PARENT_NOT_FOUND');
+      if (parent.closed) return fail('RES_PARENT_CLOSED');
+      // C4: the version guard now covers identity-matching re-issues too. R2
+      // short-circuited an already-bound key before this point; removing that
+      // bypass is coverage, not reordering — the check keeps the place R2 gave
+      // it on a first presentation. Excluding expected_version from the
+      // identity recognizes the same request across a version change; it is not
+      // permission to re-present a stale assertion.
+      if (request.parent.expected_version !== parent.version) {
+        return fail('RES_VERSION_CONFLICT');
+      }
+
+      // C4: admitted is final. An identity-matching event after an admitted
+      // binding changes no state and re-draws nothing, and its result must
+      // reproduce the recorded original under the admitted result projection.
+      // The comparison is against the recorded original rather than a
+      // recomputation from current state — that is what makes it an idempotent
+      // replay instead of a second admission.
+      if (prior?.status === 'admitted') {
+        if (!isDeepStrictEqual(admittedResultProjection(result), prior.projection)) {
           return fail('RES_RESULT_MISMATCH');
         }
         trace.push({
@@ -315,24 +408,35 @@ export function replayResourceCase(fixture) {
         continue;
       }
 
-      const parent = getParent(request.parent);
-      if (!parent) return fail('RES_PARENT_NOT_FOUND');
-      if (parent.closed) return fail('RES_PARENT_CLOSED');
-      if (request.parent.expected_version !== parent.version) {
-        return fail('RES_VERSION_CONFLICT');
-      }
+      // C3: a request is inadmissible exactly when it exceeds the parent's
+      // remainder in at least one dimension.
+      const admissible = vectorLessThanOrEqual(request.requested, parent.remaining);
 
       // B4: a denied admission is a real, representable outcome. It carries
       // exactly one RES_* error and no reservation, moves neither the parent's
       // version nor its remainder, is recorded in the trace, and the tree
       // continues from the state the denial left alone.
+      //
+      // C3: the denial must additionally be justified by the replayed state. A
+      // refusal the state does not justify, and a refusal under any code other
+      // than the one the state implies, are both result mismatches.
+      // RES_INSUFFICIENT_REMAINDER is the only denial code derivable at this
+      // point by construction; a record presented against a missing parent, a
+      // closed parent, a closed root, a foreign root, or a stale expected
+      // version does not describe an admission outcome and was already refused
+      // above under the code each of those checks carries.
+      //
+      // C4: a repeat denial must still be true — when a denied binding is
+      // re-presented, this same derivation runs against the current state, so a
+      // stale denial the peer state has since cleared is a result mismatch.
       if (result.status === 'denied') {
         const denialError = result.error;
         if (
-          result.reservation !== undefined
+          admissible
+          || result.reservation !== undefined
           || !denialError
           || typeof denialError !== 'object'
-          || !REPLAY_ERROR_CODES.includes(denialError.code)
+          || denialError.code !== 'RES_INSUFFICIENT_REMAINDER'
           || result.request_id !== request.request_id
           || result.parent_version_before !== parent.version
           || result.parent_version_after !== parent.version
@@ -340,6 +444,9 @@ export function replayResourceCase(fixture) {
         ) {
           return fail('RES_RESULT_MISMATCH');
         }
+        // C4: the key binds on denial as well as on admission, so a later
+        // re-use of it cannot carry different content.
+        idempotency.set(request.idempotency_key, { identity, status: 'denied' });
         trace.push({
           kind: 'reserve',
           sequence: event.sequence,
@@ -352,7 +459,7 @@ export function replayResourceCase(fixture) {
         continue;
       }
 
-      if (!vectorLessThanOrEqual(request.requested, parent.remaining)) {
+      if (!admissible) {
         return fail('RES_INSUFFICIENT_REMAINDER');
       }
       if (result?.status !== 'admitted' || !result.reservation) {
@@ -389,9 +496,12 @@ export function replayResourceCase(fixture) {
         version: result.reservation.state_version,
         closed: false,
       });
+      // C4: peer state may clear a denial. A cleared denial draws the parent
+      // down exactly as a first admission would and replaces the binding.
       idempotency.set(request.idempotency_key, {
-        requestDigest,
-        resultDigest,
+        identity,
+        status: 'admitted',
+        projection: admittedResultProjection(result),
       });
       trace.push({
         kind: 'reserve',
@@ -450,6 +560,9 @@ export function replayResourceCase(fixture) {
       reservation.remaining = zeroVector();
       reservation.version += 1;
       reservation.closed = true;
+      // C1: this release is now validated, so its consumed credit joins the
+      // running total a later closure settles against.
+      accumulatedConsumed = vectorAdd(accumulatedConsumed, release.consumed);
       trace.push({
         kind: 'release',
         sequence: event.sequence,
@@ -489,8 +602,27 @@ export function replayResourceCase(fixture) {
       ) {
         return fail('RES_VERSION_CONFLICT');
       }
+      // C1: both halves of the settlement are derived from the ledger replay
+      // has already validated, so a sum-correct but split-wrong closure is
+      // refused. This is declared contract-credit accounting: final_consumed is
+      // the sum of credits ledger records declared consumed and final_unused is
+      // credit the ledger never spent — neither is sampled, metered, or
+      // observed from any running system. The closure reason is not an input to
+      // the arithmetic: credit still held by a reservation open at a cancelled
+      // closure was never spent, so it belongs to final_unused and is
+      // extinguished. The sum equality survives as a corollary of the two split
+      // equalities and is kept explicit so the invariant stays legible.
+      const openReservationRemainder = [...reservations.values()]
+        .filter((reservation) => !reservation.closed)
+        .reduce(
+          (sum, reservation) => vectorAdd(sum, reservation.remaining),
+          zeroVector(),
+        );
+      const derivedUnused = vectorAdd(root.remaining, openReservationRemainder);
       if (
-        !vectorsEqual(
+        !vectorsEqual(closure.final_consumed, accumulatedConsumed)
+        || !vectorsEqual(closure.final_unused, derivedUnused)
+        || !vectorsEqual(
           vectorAdd(closure.final_consumed, closure.final_unused),
           root.bounds,
         )

@@ -1,0 +1,95 @@
+{
+  "case_id": "replay.denial-idempotency-conflict",
+  "credential_context": { "tenant_id": "tenant-blue", "org_scope_ref": { "org_id": "org-blue" } },
+  "events": [
+    {
+      "sequence": 1,
+      "virtual_time_ms": 1000,
+      "kind": "grant",
+      "payload": {
+        "grant_id": "rbg_denialidem000001",
+        "tenant_id": "tenant-blue",
+        "org_scope_ref": { "org_id": "org-blue" },
+        "bounds": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
+        "state_version": 1,
+        "sequence": 1,
+        "virtual_time_ms": 1000,
+        "confers_authority": false
+      }
+    },
+    {
+      "sequence": 2,
+      "virtual_time_ms": 1010,
+      "kind": "reserve",
+      "payload": {
+        "request": {
+          "request_id": "rsq_denialidem000001",
+          "idempotency_key": "idem.denial-idempotency.0001",
+          "tenant_id": "tenant-blue",
+          "org_scope_ref": { "org_id": "org-blue" },
+          "root": { "kind": "grant", "id": "rbg_denialidem000001" },
+          "parent": { "kind": "grant", "id": "rbg_denialidem000001", "expected_version": 1 },
+          "requested": { "cpu_millis": 12, "memory_byte_millis": 12, "model_tokens": 12, "tool_calls": 12, "retrieved_bytes": 12, "egress_bytes": 12 },
+          "sequence": 2,
+          "virtual_time_ms": 1010,
+          "confers_authority": false
+        },
+        "result": {
+          "request_id": "rsq_denialidem000001",
+          "status": "denied",
+          "root": { "kind": "grant", "id": "rbg_denialidem000001" },
+          "error": {
+            "code": "RES_INSUFFICIENT_REMAINDER",
+            "message": "The open parent has insufficient remaining conserved credit.",
+            "retriable": true,
+            "fail_closed": true
+          },
+          "parent_version_before": 1,
+          "parent_version_after": 1,
+          "parent_remaining_after": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
+          "sequence": 2,
+          "virtual_time_ms": 1010,
+          "confers_authority": false
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "virtual_time_ms": 1020,
+      "kind": "reserve",
+      "payload": {
+        "request": {
+          "request_id": "rsq_denialidem000002",
+          "idempotency_key": "idem.denial-idempotency.0001",
+          "tenant_id": "tenant-blue",
+          "org_scope_ref": { "org_id": "org-blue" },
+          "root": { "kind": "grant", "id": "rbg_denialidem000001" },
+          "parent": { "kind": "grant", "id": "rbg_denialidem000001", "expected_version": 1 },
+          "requested": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
+          "sequence": 3,
+          "virtual_time_ms": 1020,
+          "confers_authority": false
+        },
+        "result": {
+          "request_id": "rsq_denialidem000002",
+          "status": "admitted",
+          "root": { "kind": "grant", "id": "rbg_denialidem000001" },
+          "reservation": {
+            "reservation_id": "rsr_denialidem000002",
+            "reserved": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
+            "remaining": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
+            "state_version": 1,
+            "status": "open"
+          },
+          "parent_version_before": 1,
+          "parent_version_after": 2,
+          "parent_remaining_after": { "cpu_millis": 6, "memory_byte_millis": 6, "model_tokens": 6, "tool_calls": 6, "retrieved_bytes": 6, "egress_bytes": 6 },
+          "sequence": 3,
+          "virtual_time_ms": 1020,
+          "confers_authority": false
+        }
+      }
+    }
+  ],
+  "expected": { "accepted": false, "error_codes": ["RES_IDEMPOTENCY_CONFLICT"] }
+}

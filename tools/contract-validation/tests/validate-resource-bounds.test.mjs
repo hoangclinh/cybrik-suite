@@ -267,6 +267,17 @@ test('idempotent replay binds both the original request and its exact result', (
 
   secondReserve.payload.request = structuredClone(firstReserve.payload.request);
   secondReserve.payload.result = structuredClone(firstReserve.payload.result);
+  // W2-H/R3.1: the clone carries the first event's position and its now-stale
+  // expected_version. C2 binds every nested record to its own envelope and C4
+  // removes the admitted-key short circuit that let R2 skip both checks, so the
+  // clone is rebased onto the second event's position and the parent's current
+  // version — restoring the three values the fixture's second event carried
+  // before the clone, and leaving the fixture itself byte-identical.
+  for (const record of [secondReserve.payload.request, secondReserve.payload.result]) {
+    record.sequence = 3;
+    record.virtual_time_ms = 1020;
+  }
+  secondReserve.payload.request.parent.expected_version = 2;
   assert.equal(replayResourceCase(fixture).accepted, true);
 
   secondReserve.payload.result.parent_version_after += 1;
@@ -1704,7 +1715,7 @@ test('C3: a denial is accepted only when the replayed state makes it inadmissibl
   const caseFor = ({ requested, code }) => {
     const denial = buildDeniedReserveEvent({
       sequence: 2, virtualTimeMs: 1010, grantId,
-      requestId: 'rsq_denialtruth00001', idempotencyKey: 'idem.denialtruth.00001',
+      requestId: 'rsq_denialtruth00001', idempotencyKey: 'idem.aaaaaaaaaaaaaaaa',
       requested, parentVersion: 1, parentRemaining: bounds,
     });
     if (code) denial.payload.result.error.code = code;

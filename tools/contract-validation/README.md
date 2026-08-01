@@ -117,8 +117,8 @@ npm run validate:w2h:resource-bounds
 npm run test:w2h:resource-bounds
 ```
 
-It compiles seven JSON Schema 2020-12 documents, validates 9 positive and rejects 10
-negative-schema fixtures, requires each of 12 negative-semantic replay cases to fail exactly its
+It compiles seven JSON Schema 2020-12 documents, validates 10 positive and rejects 10
+negative-schema fixtures, requires each of 16 negative-semantic replay cases to fail exactly its
 declared resource invariant, checks packet/member digests, and runs seeded conservation
 properties over synthetic trees covering admission, release return-and-consume, and terminal root
 closure. Replay uses only fixture sequence numbers and a virtual clock.
