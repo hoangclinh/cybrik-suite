@@ -4569,6 +4569,7 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
 
   assert.match(section, /Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`/);
   assert.doesNotMatch(section, /<PINNED_PYTHON> -m pip install/);
+  assert.doesNotMatch(section, /\bpip install\b|ensurepip|uv pip/);
   assert.match(section, /<PINNED_PYTHON> -m zipfile -e/);
   assert.match(section, /No package installer, index, build frontend or lifecycle script\s+is invoked/);
   assert.match(section, /c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7/);
@@ -4581,7 +4582,15 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /tool-root basename must not\s+begin `cybrik-uat-d2-coverage-evidence-`/);
   assert.match(section, /pre-existing root[\s\S]{0,120}hard\s+stop, not a resume/);
   assert.match(section, /authorization is consumed by the single attempt/);
+  assert.match(section, /execution must begin at or after `AUTHORIZED_AT` and strictly before `AUTHORIZATION_EXPIRES_AT`/);
+  assert.match(section, /window wider than 24 hours[^\n]+hard stop/);
+  assert.match(section, /`AUTHORIZATION_ID`[^\n]+consumption token/);
   assert.match(section, /`coverage\.json` and `coverage-gate\.json` SHA-256 digests/);
+  assert.match(section, /exactly one OSV POST must complete and be evaluated before extraction/);
+  assert.match(section, /skipped, non-`200`, timed out or unparsable OSV response is a hard stop/);
+  assert.match(section, /PYTHONDONTWRITEBYTECODE=1/);
+  assert.match(section, /-p no:cacheprovider/);
+  assert.match(section, /git status --porcelain -uall --ignored/);
 
   const fieldsMatch = section.match(
     /authorization artifact must contain exactly these standalone fields[\s\S]{0,120}:\n\n```text\n([\s\S]*?)\n```/,
@@ -4612,12 +4621,38 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
     'WHEEL_SHA256',
     'OSV_ENDPOINT',
     'OSV_REQUEST_SHA256',
+    'NETWORK_CLIENT',
+    'NETWORK_CLIENT_REALPATH',
+    'NETWORK_CLIENT_SHA256',
+    'NETWORK_CLIENT_VERSION',
     'NETWORK_POLICY',
+    'FETCH_COMMAND',
+    'OSV_REQUEST_COMMAND',
     'EXTRACTION_COMMAND',
     'AUTHORIZED_TOOL_SUBPATHS',
     'ONE_SHOT',
     'ROLLBACK',
   ]);
+
+  const values = new Map(
+    fieldsMatch[1].split('\n').map((line) => {
+      const index = line.indexOf('=');
+      return [line.slice(0, index), line.slice(index + 1)];
+    }),
+  );
+  assert.equal(values.get('HEAD_MODE'), 'detached');
+  assert.equal(values.get('NETWORK_CLIENT'), '/usr/bin/curl');
+  assert.equal(values.get('NETWORK_CLIENT_REALPATH'), '/usr/bin/curl');
+  assert.equal(values.get('NETWORK_CLIENT_SHA256'), '5ab042572ea0e068644e3b8f9e8dd1ad197bfcf33d199316615b46ddc4390a41');
+  assert.equal(values.get('NETWORK_POLICY'), 'wheel-url-and-one-osv-post-only-no-other-network');
+  assert.equal(values.get('AUTHORIZED_TOOL_SUBPATHS'), 'wheel,site-packages,data');
+  assert.equal(values.get('ONE_SHOT'), 'true');
+  assert.match(values.get('FETCH_COMMAND'), /^\/usr\/bin\/curl /);
+  assert.match(values.get('OSV_REQUEST_COMMAND'), /^\/usr\/bin\/curl /);
+  assert.equal(
+    values.get('EXTRACTION_COMMAND'),
+    '<PINNED_PYTHON> -m zipfile -e <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl <COVERAGE_ROOT>/site-packages',
+  );
 
   assert.match(section, /`<COVERAGE_ROOT>\/wheel`/);
   assert.match(section, /`<COVERAGE_ROOT>\/site-packages`/);
