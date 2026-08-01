@@ -560,6 +560,60 @@ def test_d2_p0_discloses_the_unsatisfied_phase_a_coverage_gate() -> None:
     )
 
 
+def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    normalized = " ".join(decision.split())
+    normalized_readme = " ".join(harness_readme.split())
+
+    assert "Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal" in decision
+    assert "PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION" in decision
+    assert "coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl" in decision
+    assert (
+        "b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73" in decision
+    )
+    assert "--no-index --no-deps --target" in normalized
+    assert "221943" in decision
+    assert "files.pythonhosted.org/packages/06/d1/" in decision
+    assert (
+        "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623" in decision
+    )
+    assert "mode-`0700`" in decision
+    assert "cybrik-uat-d2-coverage-[a-z0-9]" in decision
+    assert "cybrik-uat-d2-coverage-evidence-" in decision
+    assert "PINNED_PYTHON_REALPATH=" in decision
+    assert "its single link target must be `python3.12`" in normalized
+    assert "https://api.osv.dev/v1/query" in decision
+    assert "must not edit `pyproject.toml`, `uv.lock`" in normalized
+    assert "--source=<SUITE_ROOT>/integration/compose/" in decision
+    assert (
+        "--deselect=<SUITE_ROOT>/integration/compose/"
+        "soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::"
+        "test_authorized_runtime_attempt_executes_the_red_green_sequence" in decision
+    )
+    assert "coverage report --data-file=" in normalized
+    assert "coverage json --data-file=" in normalized
+    assert "at least 80% line coverage and at least 80% branch coverage" in normalized
+    for critical in (
+        "server.build_patched_ssl_context",
+        "policy.parse_loopback_bind",
+        "policy.validate_proposed_bind",
+        "evidence.secret_reason",
+        "evidence.validate_evidence",
+        "harness._assert_ssl_context_evidence",
+        "harness.teardown",
+        "harness.verify_absent",
+    ):
+        assert critical in decision
+    assert "remove only the isolated tool root on failure or rollback" in normalized
+    assert "The evidence root must remain intact for review" in normalized
+    assert "No successful install or measurement by itself opens Phase A" in normalized
+    assert "UAT-MTLS-D2-COV-P0" in harness_readme
+    assert "authorizes nothing until Founder approval is recorded" in normalized_readme
+
+
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
     readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     expected = (

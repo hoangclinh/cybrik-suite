@@ -713,6 +713,106 @@ absence before the request; a paused or merely timing-out database is not suffic
 D2 remains **HOLD**. UAT, `DEMO_READY_LOCAL`, POC, RC, stable-v1, GA, public release and production
 remain **NO-GO**. Production and public GA remain Founder-controlled. Release dates remain unchanged.
 
+### Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal
+
+Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`.
+
+The merged D2-P0 candidate is canonical at Suite commit
+`fd19b88e9cf40704284f0494f6dc8349e7c45a0c`. Its section 7.3 coverage gate remains unsatisfied
+because the exact D1 Python environment, the host Python and the preserved download caches contain
+neither `coverage` nor `pytest-cov`. Passing test counts are not coverage evidence.
+
+This proposal requests one dependency-install action that is isolated from the Suite lock and
+every product environment. Installing the verifier and passing the coverage gate are deliberately
+separate outcomes: the exact installation may complete while coverage remains `HOLD`; it creates
+no pressure to reinterpret a failed measurement as success. The action must not edit
+`pyproject.toml`, `uv.lock`, the D1 SBOM/VEX/license packet, any product repository, workflow,
+release manifest or runtime-admission carrier. If approved, the maximum dependency action is
+exactly:
+
+1. create one fresh mode-`0700` outside-repository root whose basename matches
+   `cybrik-uat-d2-coverage-[a-z0-9][a-z0-9._-]{0,63}`;
+2. create one fresh, disjoint, preserved mode-`0700` outside-repository evidence root whose
+   basename matches `cybrik-uat-d2-coverage-evidence-[a-z0-9][a-z0-9._-]{0,63}`; neither root may
+   contain, be contained by, or be an ancestor/descendant of a Suite/product repository or the
+   other root;
+3. fetch only
+   `coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl` from
+   `https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl`;
+   the only other permitted network call is the exact JSON POST already described below to
+   `https://api.osv.dev/v1/query`; PyPI project metadata, alternate mirrors and indexes are not
+   execution inputs;
+4. require size `221943` and SHA-256
+   `b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73` before any install;
+5. use only the absolute `PINNED_PYTHON=` path and `PINNED_PYTHON_REALPATH=` recorded in the
+   Founder authorization artifact. `PINNED_PYTHON` may be the exact D1 offline-venv `python`
+   symlink so its already-pinned test closure is available, but it may have no symlinked parent,
+   its single link target must be `python3.12`, and `realpath(PINNED_PYTHON)` must equal the recorded
+   regular `PINNED_PYTHON_REALPATH`. The resolved executable must report CPython `3.12.13` and have
+   SHA-256 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`;
+6. install with the exact absolute interpreter command `<PINNED_PYTHON> -m pip install --no-index
+   --no-deps --target <COVERAGE_ROOT>/site-packages
+   <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl`; the command may not
+   mutate `PATH`, use another index/distribution, run a lifecycle script or alter an existing
+   environment;
+7. record the wheel, interpreter, command, installed `coverage.__version__`, root identities and
+   OSV response digests in the preserved evidence root. Only these integrity checks define
+   `D2-COV-P0-INSTALL=PASS`; the coverage percentage remains a separate `HOLD` gate;
+8. remove only the isolated tool root on failure or rollback, after writing a bounded secret-free
+   failure record. The evidence root must remain intact for review.
+
+After the one exact installation, ordinary test-only changes may improve coverage without another
+dependency install. Each measurement must use the same pinned interpreter and the literal command
+shape below; `<SUITE_ROOT>`, `<COVERAGE_ROOT>` and `<COVERAGE_EVIDENCE_ROOT>` are exact absolute
+standalone lines in the authorization artifact, not caller-selected PATH values:
+
+```text
+COVERAGE_FILE=<COVERAGE_ROOT>/data/.coverage \
+PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src \
+<PINNED_PYTHON> -m coverage run --branch \
+  --source=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls \
+  -m pytest -q -o addopts= \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_evidence.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_procedure.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_case_inventory.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py \
+  --deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence
+
+PYTHONPATH=<COVERAGE_ROOT>/site-packages \
+<PINNED_PYTHON> -m coverage report --data-file=<COVERAGE_ROOT>/data/.coverage --fail-under=80
+
+PYTHONPATH=<COVERAGE_ROOT>/site-packages \
+<PINNED_PYTHON> -m coverage json --data-file=<COVERAGE_ROOT>/data/.coverage \
+  -o <COVERAGE_EVIDENCE_ROOT>/coverage.json
+```
+
+A bounded stdlib verifier must recompute line and branch ratios independently from
+`coverage.json`; combined `coverage report` percentage alone is insufficient. `PASS` requires at
+least 80% line coverage and at least 80% branch coverage across the full
+`src/cybrik_suite_uat_mtls` package. It also requires 100% line and branch coverage, measured by
+exact AST-derived source ranges and branch arcs, for:
+
+- `server.build_patched_ssl_context`;
+- `policy.parse_loopback_bind` and `policy.validate_proposed_bind`;
+- `evidence.secret_reason` and `evidence.validate_evidence`;
+- `harness._assert_ssl_context_evidence`, `harness.teardown` and `harness.verify_absent`.
+
+These critical paths must be reached with import-inert fakes, monkeypatches and temporary roots;
+the gate does not defer them to runtime and does not permit Anycorn resolution, B1 restoration,
+listeners, containers, PKI, migrations or N1–N10. No successful install or measurement by itself
+opens Phase A, authorizes B1 recovery or grants UAT/release credit.
+
+The official PyPI release JSON at `https://pypi.org/pypi/coverage/7.15.2/json` had SHA-256
+`771ec4e205bcffa75b9592bcd3dc144475f38561d4a22ffcfa8f9a5852cc337c` at the point of inspection;
+that mutable project-document digest is informational, not a future equality gate. The exact
+OSV query for PyPI `coverage` version `7.15.2` returned no vulnerabilities; its raw `{}` response
+had SHA-256 `44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a`.
+These are proposal facts, not an install, audit artifact, coverage result or risk acceptance.
+
 ### Gate UAT-MTLS-D2 — real runtime execution
 
 Current state: `HOLD — SEPARATE REVIEWED RUNTIME-ADMISSION UPDATE REQUIRED`.
