@@ -172,3 +172,25 @@ implementation. It is not an implementation result and grants no runtime, UAT, r
 It selects, installs, and pins no server; Anycorn `0.20.0`
 remains HOLD. A1–A7 remain open, N1 and N9 remain `requires_runtime`, and every later product,
 runtime-admission, UAT, release, deployment, and production action remains separately gated.
+
+## R5 amendment — K5 live-fact metadata/control and S1 evaluation boundary
+
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. K5 authorizes metadata/control changes
+only in the eight existing W2-K carriers: this decision, ADR-0013, the compatibility manifest,
+`contracts/README.md`, `contracts/compatibility/README.md`, the server-candidate matrix, the W2-K
+gate record, and the W2-K test. Every wire schema, fixture, member digest and aggregate digest
+remains byte-identical.
+
+Raw Anycorn `0.20.0` remains `id=anycorn`,
+`artifact_scope=official_upstream_distribution`, unselected, `installed=false`, `pinned=false` and
+HOLD with its High finding. Hypercorn and Granian receive the same artifact scope and remain
+unassessed/uninstalled/unpinned. S1 admits only the distinct B1 row
+`id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, for bounded isolated UAT evaluation. B1 is
+`selected=false`, `installed=false`, `pinned=false`, and HOLD; its only install scope is
+`suite_uat_tool_lock_only`. ID plus artifact scope is authoritative, so PEP 440 public-version
+equivalence cannot collapse B1 into the raw release.
+
+The packet retains `server_neutral=true` and `selected_server=null`. D1 remains **HOLD** and alone
+may flip B1 `installed` and `pinned` atomically after the exact artifact exists. D2 remains
+**HOLD**. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 grant no dependency, runtime,
+release, deployment, or production authority.

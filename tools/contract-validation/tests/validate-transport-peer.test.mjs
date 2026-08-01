@@ -918,10 +918,10 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
     assert.match(text, /S1/);
     assert.match(text, /installed=false/);
     assert.match(text, /pinned=false/);
-    assert.match(text, /D1[^\n]*HOLD/i);
-    assert.match(text, /D2[^\n]*HOLD/i);
+    assert.match(text, /D1[\s\S]{0,160}HOLD/i);
+    assert.match(text, /D2[\s\S]{0,160}HOLD/i);
     assert.match(text, /selected_server=null/);
-    assert.match(text, /raw[^\n]*Anycorn[^\n]*0\.20\.0[^\n]*HOLD/i);
+    assert.match(text, /raw[\s\S]{0,80}Anycorn[\s\S]{0,80}0\.20\.0[\s\S]{0,160}HOLD/i);
   }
   assert.match(proposal, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.doesNotMatch(proposal, /DECISION PROPOSAL — ANYCORN UNSELECTED/);

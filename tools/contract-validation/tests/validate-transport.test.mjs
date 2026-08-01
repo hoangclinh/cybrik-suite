@@ -4100,6 +4100,12 @@ const ADR_README_W2K_ADDITIONS = [
   '\n| [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |',
   '\n| [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded proposal, registration, wire-cleanup, and atomic-acceptance authority for the server-neutral transport peer-evidence packet | R4 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |',
 ];
+const ADR_README_UAT_MTLS_ADDITIONS = [
+  '\nThe UAT mTLS Anycorn decision is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. K5 records the\n' +
+    'W2-K live-fact metadata/control amendment and S1 admits B1 only for bounded isolated UAT evaluation.\n' +
+    'B1 remains uninstalled, unpinned, unselected and HOLD; D1/D2 remain HOLD and no release gate opens.\n',
+  '\n| [DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md](DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md) | Bounded internal Anycorn B1 evaluation decision for SOC→AI lifecycle mTLS UAT | K5/S1 record `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; B1 remains `installed=false`, `pinned=false`, product `selected=false`, and HOLD; D1/D2 and release remain separate gates |',
+];
 const ADR_README_DELEGATION_RECONCILIATION = {
   current:
     'Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a\n' +
@@ -4118,6 +4124,7 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
     ...ADR_README_W2I_ADDITIONS,
     ...ADR_README_W2H_ADDITIONS,
     ...ADR_README_W2K_ADDITIONS,
+    ...ADR_README_UAT_MTLS_ADDITIONS,
   ]) {
     const occurrences = normalized.split(addition).length - 1;
     assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
