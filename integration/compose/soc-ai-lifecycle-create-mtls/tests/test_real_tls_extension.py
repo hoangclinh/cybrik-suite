@@ -8,9 +8,14 @@ separately authorized runtime target.
 from __future__ import annotations
 
 import ast
+import ssl
+import sys
+import types
 from pathlib import Path
 
+import pytest
 from cybrik_suite_uat_mtls import policy
+from cybrik_suite_uat_mtls import server as runtime_server
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SERVER = _ROOT / "src/cybrik_suite_uat_mtls/server.py"
@@ -26,6 +31,7 @@ def test_server_declares_the_exact_pinned_b1_builder_reference() -> None:
     source = _SERVER.read_text(encoding="utf-8") if _SERVER.is_file() else ""
     assert source
     assert _B1_SHA256 in source
+    assert "installed_modules != wheel_modules" in source
     tree = _server_tree()
     assignments = {
         target.id
@@ -83,3 +89,35 @@ def test_tls_extension_evidence_is_preserved_and_asserted_before_rollback() -> N
         "server_certificate_present",
     ):
         assert required in harness
+
+
+def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeContext:
+        minimum_version: object | None = None
+        maximum_version: object | None = None
+        verify_mode: object | None = None
+
+    context = FakeContext()
+
+    class FakeConfig:
+        def create_ssl_context(self) -> FakeContext:
+            return context
+
+    anycorn_module = types.ModuleType("anycorn")
+    config_module = types.ModuleType("anycorn.config")
+    config_module.Config = FakeConfig
+    anycorn_module.config = config_module
+    monkeypatch.setitem(sys.modules, "anycorn", anycorn_module)
+    monkeypatch.setitem(sys.modules, "anycorn.config", config_module)
+    monkeypatch.setattr(
+        runtime_server, "_verify_b1_artifact", lambda: Path("pinned.whl")
+    )
+
+    configured = runtime_server.build_patched_ssl_context(FakeConfig())
+
+    assert configured is context
+    assert context.minimum_version is ssl.TLSVersion.TLSv1_3
+    assert context.maximum_version is ssl.TLSVersion.TLSv1_3
+    assert context.verify_mode is ssl.CERT_REQUIRED

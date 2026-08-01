@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import procedure
 
 _ROOT = Path(__file__).resolve().parents[1]

@@ -6,7 +6,6 @@ import ast
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import harness
 
 _SRC = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls"
@@ -62,10 +61,10 @@ def test_cleanup_rejects_repository_nested_runtime_root_without_deleting_it(
     roots = {name: tmp_path / name for name in ("soc", "ai", "fabric")}
     for root in roots.values():
         root.mkdir()
-    nested = roots["soc"] / "must-survive"
+    nested = roots["soc"] / "cybrik-uat-d2-runtime-must-survive"
     nested.mkdir()
     (nested / "marker").write_text("synthetic", encoding="utf-8")
-    evidence_root = tmp_path / "evidence"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-reject"
     monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(nested))
     monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
     monkeypatch.setenv("CYBRIK_UAT_D2_SOC_REPO", str(roots["soc"]))
@@ -83,3 +82,31 @@ def test_runner_reports_cleanup_failure_instead_of_suppressing_it() -> None:
     ).read_text(encoding="utf-8")
     assert "rollback >/dev/null 2>&1 || true" not in runner
     assert "cleanup failed" in runner
+
+
+def test_teardown_removes_only_the_bounded_runtime_root_and_is_idempotent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    roots = {name: tmp_path / name for name in ("soc", "ai", "fabric")}
+    for root in roots.values():
+        root.mkdir()
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-unit"
+    pki_root = runtime_root / "pki"
+    pki_root.mkdir(parents=True)
+    (pki_root / "server-key.pem").write_text("synthetic", encoding="ascii")
+    (runtime_root / "postgres-password").write_text("a" * 64, encoding="ascii")
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-unit"
+    evidence_root.mkdir()
+    (evidence_root / "preserve.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
+    monkeypatch.setenv("CYBRIK_UAT_D2_SOC_REPO", str(roots["soc"]))
+    monkeypatch.setenv("CYBRIK_UAT_D2_AI_REPO", str(roots["ai"]))
+    monkeypatch.setenv("CYBRIK_UAT_D2_FABRIC_REPO", str(roots["fabric"]))
+    monkeypatch.setattr(harness.store, "stop", lambda: None)
+
+    harness.teardown()
+    harness.teardown()
+
+    assert not runtime_root.exists()
+    assert (evidence_root / "preserve.json").read_text(encoding="utf-8") == "{}"

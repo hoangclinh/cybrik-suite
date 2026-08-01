@@ -40,6 +40,6 @@ def test_runtime_cases_prove_persistence_outage_and_secret_boundaries() -> None:
         "postgres_rls_isolation_verified",
     ):
         assert required in source or required in harness
-    assert "store.stop()\n        assert store.verify_absent()" in harness
+    assert "if not store.verify_absent()" in harness
     assert 'results.append(_run_case("N9"' in harness
     assert "store.pause()" not in harness

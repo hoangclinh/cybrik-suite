@@ -156,7 +156,9 @@ def test_runtime_modules_have_no_import_time_process_io_or_network_calls() -> No
         import_time_nodes = [
             node
             for statement in tree.body
-            if not isinstance(statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            if not isinstance(
+                statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+            )
             for node in ast.walk(statement)
         ]
         risky = {
