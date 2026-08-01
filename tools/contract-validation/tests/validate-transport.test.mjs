@@ -4311,6 +4311,14 @@ const UAT_MTLS_D2_P0_AUTHORING_PATHS = [
   'tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh',
   'tools/contract-validation/tests/validate-transport.test.mjs',
 ];
+const UAT_MTLS_D2_COV_P1_AUTHORING_PATHS = [
+  'docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md',
+  'integration/compose/soc-ai-lifecycle-create-mtls/README.md',
+  'integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py',
+  'tools/contract-validation/tests/validate-transport.test.mjs',
+];
 
 const extractD1R2Additions = (decision) => {
   const section = mdSection(decision, '6. Prospective owner paths split by gate');
@@ -4549,5 +4557,30 @@ test('UAT mTLS D2-P0 authoring reconciles the closed D1 scope without opening ru
   assert.match(section, /`anycorn\.config\.Config\.create_ssl_context`/);
   assert.match(section, /`d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`/);
   assert.match(section, /TLSv1\.3/);
+});
+
+test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate credit', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const match = decision.match(
+    /### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
+  );
+  assert.ok(match, 'the ADR must define one D2-COV-P1 verifier-authoring gate before D2 runtime');
+  const section = match[1];
+  assert.match(section, /Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`/);
+  const scopeMatch = section.match(
+    /maximum authoring scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path/,
+  );
+  assert.ok(scopeMatch, 'D2-COV-P1 must expose one exact six-path authoring list');
+  const paths = [...scopeMatch[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
+  assert.deepEqual(paths, UAT_MTLS_D2_COV_P1_AUTHORING_PATHS);
+  assert.match(section, /pure stdlib and import-inert/);
+  assert.match(section, /Coverage\.py JSON format 3/);
+  assert.match(section, /mode-`0600`/);
+  assert.match(section, /PASS and FAIL/);
+  assert.match(section, /does not install Coverage\.py/);
+  assert.match(section, /does not satisfy the section 7\.3 coverage gate/);
+  assert.match(section, /does not open Phase A/);
+  assert.match(section, /D2 remains \*\*HOLD\*\*/);
+  assert.match(section, /Release dates remain unchanged/);
 });
 // <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END

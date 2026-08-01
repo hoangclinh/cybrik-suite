@@ -11,6 +11,7 @@ import ast
 import dataclasses
 import hashlib
 import json
+import re
 import sys
 import types
 from pathlib import Path
@@ -612,6 +613,44 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     assert "No successful install or measurement by itself opens Phase A" in normalized
     assert "UAT-MTLS-D2-COV-P0" in harness_readme
     assert "authorizes nothing until Founder approval is recorded" in normalized_readme
+
+
+def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring"
+        r"([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)",
+        decision,
+    )
+    assert match is not None
+    section = match.group(1)
+    scope = re.search(
+        r"maximum authoring scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path",
+        section,
+    )
+    assert scope is not None
+    assert re.findall(r"^- `([^`]+)`$", scope.group(1), re.MULTILINE) == [
+        "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/README.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py",
+        "tools/contract-validation/tests/validate-transport.test.mjs",
+    ]
+    normalized = " ".join(section.split())
+    assert "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD" in section
+    assert "pure stdlib and import-inert" in normalized
+    assert "Coverage.py JSON format 3" in normalized
+    assert "mode-`0600`" in section
+    assert "PASS and FAIL" in section
+    assert "does not install Coverage.py" in normalized
+    assert "does not satisfy the section 7.3 coverage gate" in normalized
+    assert "does not open Phase A" in normalized
+    assert "verify_coverage_gate.py" in harness_readme
+    assert "--result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json" in harness_readme
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
