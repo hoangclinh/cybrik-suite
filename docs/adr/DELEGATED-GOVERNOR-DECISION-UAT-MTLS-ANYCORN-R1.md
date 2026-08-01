@@ -548,7 +548,12 @@ wheelhouse purpose explicit. The final prospective authority is this closed D1 H
 
 S1 R3 replaces the batch endpoint because it returns only vulnerability identifiers and modified
 timestamps, which cannot evaluate D1's Critical/High HOLD rule. The isolated tooling environment
-must use an exact-hash tooling closure containing `pip-audit==2.10.1`; its audit command is exactly:
+must use an exact-hash tooling closure containing `pip-audit==2.10.1`. In its separate
+`tooling-requirements.txt`, every tooling requirement is `==` pinned with at least one `--hash=sha256:`.
+The same recorded CPython executable downloads only wheels with `--require-hashes` and
+`--only-binary=:all:` into a separate outside-repository tooling wheelhouse.
+The offline tooling install uses `--no-index`, `--find-links` and `--require-hashes`.
+The tooling requirements and every tooling-wheel digest enter D1 evidence; its audit command is exactly:
 
 ```text
 pip-audit \
