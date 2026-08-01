@@ -934,6 +934,14 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
     assert.match(text, /selected_server=null/);
     assert.match(text, /raw(?: official)? Anycorn `0\.20\.0`[\s\S]{0,100}remains[\s\S]{0,240}HOLD/i);
   }
+  assert.match(
+    gate,
+    /D1 live-fact supersession[\s\S]*installed=true[\s\S]*pinned=true[\s\S]*selected=false/,
+  );
+  assert.match(
+    proposal,
+    /Current B1 live facts: `installed=true`, `pinned=true`, product `selected=false`/,
+  );
   for (const text of [w2kDecision, w2kGate]) {
     assert.match(text, /D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN/);
     assert.match(text, /installed=true/);

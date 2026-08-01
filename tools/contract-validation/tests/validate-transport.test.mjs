@@ -4101,7 +4101,7 @@ const ADR_README_W2K_ADDITIONS = [
   '\n| [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded proposal, registration, wire-cleanup, and atomic-acceptance authority for the server-neutral transport peer-evidence packet | R4 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |',
 ];
 const ADR_README_UAT_MTLS_ADDITIONS = [
-  '\nThe UAT mTLS Anycorn decision is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. K5 records the\n' +
+  '\nThe UAT mTLS Anycorn decision is `D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME AUTHORED NOT RUN — D2 HOLD`. K5 records the\n' +
     'W2-K live-fact metadata/control amendment and S1 admits B1 only for bounded isolated UAT evaluation.\n' +
     'At `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, B1 is `installed=true`, `pinned=true`,\n' +
     'product `selected=false` and HOLD; D2 remains HOLD and no release gate opens.\n',
@@ -4458,7 +4458,7 @@ test('UAT mTLS S1 R3 controls remain pinned after D1 live-fact supersession', ()
     'no extra index or host',
     '`--no-index`, `--find-links` and `--require-hashes`',
     'fresh cache',
-    'removed after acceptance evidence no longer needs them',
+    '`Suite Integration/Release` owner must delete the outside-repository D1 artifact root within 24 hours after D1 merge',
     'raw Anycorn wheel is never downloaded or installed',
   ]) {
     assert.ok(d1.includes(provenanceControl), `S1 R3 must retain provenance control: ${provenanceControl}`);
@@ -4496,6 +4496,10 @@ test('UAT mTLS S1 R3 controls remain pinned after D1 live-fact supersession', ()
   assert.equal((self.match(/^\/\/ <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END$/gm) ?? []).length, 1);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
+  assert.match(
+    gate,
+    /Outcome: \*\*K5 IMPLEMENTED BY D1 ARTIFACT ONLY; S1 HISTORICAL ACCEPTANCE; D2 HOLD — RUNTIME NOT RUN\*\*\./,
+  );
   const d1Live = mdSection(gate, 'D1 live-fact supersession');
   assert.ok(d1Live !== null, 'the S1 gate must carry one current D1 live-fact supersession');
   assert.match(d1Live, /D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN/);

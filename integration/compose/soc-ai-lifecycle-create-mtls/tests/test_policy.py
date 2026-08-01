@@ -483,6 +483,15 @@ def test_d1_delegated_authority_is_recorded_without_opening_runtime() -> None:
         _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
     ).read_text(encoding="utf-8")
     assert "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`" in decision
+    assert "Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`" in decision
+    assert (
+        "Current state: `ACCEPTED — B1 BOUNDED EVALUATION ARTIFACT IMPLEMENTED — RUNTIME NOT RUN`"
+        in decision
+    )
+    assert (
+        "Current B1 live facts: `installed=true`, `pinned=true`, product `selected=false`"
+        in decision
+    )
     assert "Founder-delegated Codex Governor operating authority" in decision
     assert "DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md" in decision
     assert "D2 remains **HOLD**" in decision
