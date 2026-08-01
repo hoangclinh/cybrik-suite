@@ -49,7 +49,11 @@ _BEARER_PATTERN: Final = r"\bbearer[ \t]+\S+"
 _AUTHORIZATION_PATTERN: Final = r"\bauthorization\s*[:=]"
 _PEM_PRIVATE_PATTERN: Final = r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
 _PEM_PATTERN: Final = r"-----BEGIN [A-Z0-9 ]+-----"
-_CREDENTIALED_DSN_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s@:]+:[^\s@]+@"
+_CREDENTIALED_DSN_PATTERN: Final = (
+    r"\b(?:jdbc:)?(?:postgres(?:ql)?|mysql|mariadb|mssql|mongodb(?:\+srv)?|"
+    r"redis|rediss|amqp|amqps)://[^\s@:]+:[^\s@]+@"
+)
+_CREDENTIALED_URI_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@"
 _JSON_CREDENTIAL_PATTERN: Final = (
     r"[\"'](?:authorization|password|passwd|pwd|client_secret|api_key|token|cnf)"
     r"[\"']\s*:"
@@ -95,6 +99,24 @@ _SAFE_KEY_EXACT: Final = frozenset(
         "token_id",
     }
 )
+_SECRET_KEY_FLAT: Final = frozenset(
+    {
+        "accesstoken",
+        "apikey",
+        "authtoken",
+        "clientsecret",
+        "connectionstring",
+        "cookie",
+        "credentials",
+        "dbpassword",
+        "keymaterial",
+        "passphrase",
+        "pgpass",
+        "privatekey",
+        "signingkey",
+        "xapikey",
+    }
+)
 
 
 class EvidenceRejected(Exception):
@@ -116,6 +138,8 @@ def _secret_key(key: str) -> bool:
         return False
     if canonical in _SECRET_KEY_EXACT:
         return True
+    if canonical.replace("_", "") in _SECRET_KEY_FLAT:
+        return True
     parts = frozenset(part for part in canonical.split("_") if part)
     return bool(parts & _SECRET_KEY_PARTS)
 
@@ -136,6 +160,8 @@ def secret_reason(text: object) -> str | None:
     if re.search(_PEM_PATTERN, text, re.IGNORECASE) is not None:
         return PEM_BLOCK_NOT_PERMITTED
     if re.search(_CREDENTIALED_DSN_PATTERN, text, re.IGNORECASE) is not None:
+        return DSN_CREDENTIALS
+    if re.search(_CREDENTIALED_URI_PATTERN, text, re.IGNORECASE) is not None:
         return DSN_CREDENTIALS
     if re.search(_JSON_CREDENTIAL_PATTERN, text, re.IGNORECASE) is not None:
         return INLINE_CREDENTIAL_ASSIGNMENT
