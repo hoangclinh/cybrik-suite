@@ -4559,6 +4559,72 @@ test('UAT mTLS D2-P0 authoring reconciles the closed D1 scope without opening ru
   assert.match(section, /TLSv1\.3/);
 });
 
+test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-shot action', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const match = decision.match(
+    /### Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal([\s\S]*?)(?=\n### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring)/,
+  );
+  assert.ok(match, 'the ADR must define one D2-COV-P0 dependency proposal before verifier authoring');
+  const section = match[1];
+
+  assert.match(section, /Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`/);
+  assert.doesNotMatch(section, /<PINNED_PYTHON> -m pip install/);
+  assert.match(section, /<PINNED_PYTHON> -m zipfile -e/);
+  assert.match(section, /No package installer, index, build frontend or lifecycle script is invoked/);
+  assert.match(section, /c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7/);
+  assert.match(section, /non-empty OSV vulnerability result is a hard stop before extraction/);
+  assert.match(section, /raw\.githubusercontent\.com[^\n]+authoring-time provenance[^\n]+not execution inputs/);
+  assert.match(section, /evidence root may not be under `\/tmp` or `\/private\/tmp`/);
+  assert.match(section, /owner equals the effective uid/);
+  assert.match(section, /mode `0700`/);
+  assert.match(section, /`st_dev` and `st_ino`/);
+  assert.match(section, /pre-existing root[^\n]+hard stop[^\n]+not a resume/);
+  assert.match(section, /authorization is consumed by the single attempt/);
+  assert.match(section, /`coverage\.json` and `coverage-gate\.json` SHA-256 digests/);
+
+  const fieldsMatch = section.match(
+    /authorization artifact must contain exactly these standalone fields[^\n]*:\n\n```text\n([\s\S]*?)\n```/,
+  );
+  assert.ok(fieldsMatch, 'D2-COV-P0 must expose one exact standalone authorization field set');
+  const fields = [...fieldsMatch[1].matchAll(/^([A-Z0-9_]+)=/gm)].map((item) => item[1]);
+  assert.deepEqual(fields, [
+    'D2_COV_P0',
+    'AUTHORIZATION_ID',
+    'AUTHORIZED_BY',
+    'AUTHORIZED_AT',
+    'AUTHORIZATION_EXPIRES_AT',
+    'SUITE_COMMIT',
+    'SUITE_TREE',
+    'SUITE_ROOT',
+    'WORKING_DIRECTORY',
+    'COVERAGE_ROOT',
+    'COVERAGE_EVIDENCE_ROOT',
+    'PINNED_PYTHON',
+    'PINNED_PYTHON_REALPATH',
+    'PINNED_PYTHON_SHA256',
+    'PYTHON_VERSION',
+    'PYTEST_VERSION',
+    'WHEEL_FILENAME',
+    'WHEEL_URL',
+    'WHEEL_SIZE',
+    'WHEEL_SHA256',
+    'OSV_ENDPOINT',
+    'OSV_REQUEST_SHA256',
+    'NETWORK_POLICY',
+    'EXTRACTION_COMMAND',
+    'AUTHORIZED_TOOL_SUBPATHS',
+    'ONE_SHOT',
+    'ROLLBACK',
+  ]);
+
+  assert.match(section, /`<COVERAGE_ROOT>\/wheel`/);
+  assert.match(section, /`<COVERAGE_ROOT>\/site-packages`/);
+  assert.match(section, /`<COVERAGE_ROOT>\/data`/);
+  assert.match(section, /working directory equal to the canonical `SUITE_ROOT`/);
+  assert.match(section, /D2 remains \*\*HOLD\*\*/);
+  assert.match(section, /Release dates remain unchanged/);
+});
+
 test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate credit', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const match = decision.match(
