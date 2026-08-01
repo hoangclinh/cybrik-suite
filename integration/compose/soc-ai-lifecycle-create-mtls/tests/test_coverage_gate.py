@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import shutil
 import stat
 import subprocess
 import sys
@@ -551,6 +552,28 @@ def test_duplicate_branch_arc_is_rejected_instead_of_inflating_coverage(
     assert completed.stderr.strip() == "duplicate_coverage_fact"
 
 
+def test_deeply_nested_json_fails_with_a_stable_reason(tmp_path: Path) -> None:
+    suite_root, report_path, _ = _fixture(tmp_path)
+    report_path.write_text("[" * 2_000 + "]" * 2_000, encoding="utf-8")
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "coverage_json_root_not_object"
+    assert str(tmp_path) not in completed.stderr
+
+
+def test_package_root_race_fails_with_a_stable_reason(tmp_path: Path) -> None:
+    suite_root, report_path, _ = _fixture(tmp_path)
+    shutil.rmtree(suite_root / PACKAGE_REL)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "package_root_invalid"
+    assert str(tmp_path) not in completed.stderr
+
+
 def test_critical_symbol_range_must_match_the_current_source_ast(
     tmp_path: Path,
 ) -> None:
@@ -605,6 +628,27 @@ def test_result_writer_converts_io_failure_to_a_stable_gate_reason(
 
     assert str(exc_info.value) == "result_json_write_failed"
     assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_result_writer_converts_entropy_failure_to_a_stable_gate_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = importlib.util.spec_from_file_location("d2_coverage_verifier_entropy", VERIFY)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    def fail_entropy(_: int) -> str:
+        raise OSError("caller-controlled-path")
+
+    monkeypatch.setattr(module.secrets, "token_hex", fail_entropy)
+
+    with pytest.raises(module.GateFailure) as exc_info:
+        module._write_result(tmp_path / "coverage-gate.json", {"status": "PASS"})
+
+    assert str(exc_info.value) == "result_json_write_failed"
     assert list(tmp_path.iterdir()) == []
 
 
