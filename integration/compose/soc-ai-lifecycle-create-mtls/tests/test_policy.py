@@ -553,6 +553,12 @@ def test_d2_p0_discloses_the_unsatisfied_phase_a_coverage_gate() -> None:
         assert "100% coverage of the critical paths" in normalized
         assert "separate bounded coverage-tooling action" in normalized
 
+    assert (
+        "test_lifecycle_runtime.py::"
+        "test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure"
+        in harness_readme
+    )
+
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
     readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")

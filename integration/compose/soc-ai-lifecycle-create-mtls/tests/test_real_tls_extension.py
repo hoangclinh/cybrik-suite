@@ -135,6 +135,20 @@ def test_ssl_context_evidence_is_recomputed_instead_of_trusting_booleans(
     path.write_text(
         json.dumps(
             {
+                "baseline_options": int(ssl.OP_NO_COMPRESSION),
+                "hardened_options_preserved": True,
+                "no_compression_verified": True,
+                "result_options": result,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(runtime_harness.RuntimeAuthorizationError):
+        runtime_harness._assert_ssl_context_evidence(tmp_path)
+
+    path.write_text(
+        json.dumps(
+            {
                 "baseline_options": baseline,
                 "hardened_options_preserved": True,
                 "no_compression_verified": True,
@@ -145,6 +159,18 @@ def test_ssl_context_evidence_is_recomputed_instead_of_trusting_booleans(
     )
     with pytest.raises(runtime_harness.RuntimeAuthorizationError):
         runtime_harness._assert_ssl_context_evidence(tmp_path)
+
+
+def test_every_runtime_evidence_write_is_exclusive_durable_and_mode_bounded() -> None:
+    server = _SERVER.read_text(encoding="utf-8")
+    harness = (_SERVER.parent / "harness.py").read_text(encoding="utf-8")
+
+    for source, minimum_calls in ((server, 3), (harness, 2)):
+        assert "_write_atomic_evidence" in source
+        assert source.count("_write_atomic_evidence(") >= minimum_calls
+        assert "os.O_EXCL" in source
+        assert "0o600" in source
+        assert "os.fsync" in source
 
 
 def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
