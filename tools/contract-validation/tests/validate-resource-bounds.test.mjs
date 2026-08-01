@@ -828,7 +828,7 @@ test('B1: closureReason is hoisted once into common-defs and shared verbatim by 
   }
 });
 
-test('B3: res-bounds-error retriable becomes a code-derived mapping, true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN', () => {
+test('R4: res-bounds-error retriable is code-derived and true only for RES_INSUFFICIENT_REMAINDER', () => {
   const schema = readJson(RES_BOUNDS_ERROR);
   assert.notDeepEqual(schema.properties.retriable, { const: false });
   assert.equal(schema.properties.fail_closed.const, true);
@@ -848,9 +848,12 @@ test('B3: res-bounds-error retriable becomes a code-derived mapping, true only f
 
   const RETRIABLE_CODES = new Set([
     'RES_INSUFFICIENT_REMAINDER',
-    'RES_ACTIVE_CHILDREN',
   ]);
-  assert.equal(RETRIABLE_CODES.size, 2);
+  assert.equal(RETRIABLE_CODES.size, 1);
+  assert.deepEqual(
+    schema.if.properties.code.enum,
+    ['RES_INSUFFICIENT_REMAINDER'],
+  );
   for (const code of REPLAY_ERROR_CODES) {
     const expectedRetriable = RETRIABLE_CODES.has(code);
     assert.equal(
@@ -864,6 +867,16 @@ test('B3: res-bounds-error retriable becomes a code-derived mapping, true only f
       `${code} retriable:${!expectedRetriable} must be structurally invalid`,
     );
   }
+
+});
+
+test('R4: the RES_ACTIVE_CHILDREN positive fixture witnesses the withdrawn retriability', () => {
+  const activeChildren = readJson(
+    'contracts/examples/resource-bounds/positive/bounds-error.standalone.json',
+  );
+  assert.equal(activeChildren.code, 'RES_ACTIVE_CHILDREN');
+  assert.equal(activeChildren.retriable, false);
+  assert.equal(activeChildren.fail_closed, true);
 });
 
 test('B3: the packet\'s own denial fixtures already reflect the flipped code-derived retriable mapping', () => {
@@ -1460,8 +1473,9 @@ test('the compatibility manifest recomputes to member_count 45 while the accepte
 //
 // These tests describe the replay rules authorized by decision section 7 and
 // therefore fail against the R2 implementation. A green result here after
-// C1-C4 land is still static L1/L2 conformance only: it accepts no ADR, closes
-// no RES_ACTIVE_CHILDREN retriability gap, and measures nothing running.
+// C1-C4 land is still static L1/L2 conformance only: it accepts no ADR and
+// measures nothing running. R4 later closes the RES_ACTIVE_CHILDREN claim by
+// withdrawing retriability, not by demonstrating a retried release.
 // ---------------------------------------------------------------------------
 
 const RES_BOUNDS_ERROR_RETRIABLE_MISMATCH =
@@ -1927,6 +1941,14 @@ test('C1-C4: the packet registers exactly the five authorized R3 fixtures and to
 
 test('C1-C4: the compatibility manifest states the settlement, ordering, and canonical-identity rules the packet enforces', () => {
   const manifest = readJson(COMPATIBILITY_MANIFEST);
+  const boundsErrorSchema = readJson(RES_BOUNDS_ERROR);
+  const semanticsErrorReporting = readText(
+    'docs/architecture/resource-bounds/01-contract-semantics.md',
+  ).split(/^## /m).find((section) => section.startsWith('Error reporting'));
+  assert.ok(
+    semanticsErrorReporting,
+    'the semantics doc must keep an Error reporting section',
+  );
 
   // The three authorized wording sites. Each keeps every R2 statement it
   // already makes and gains exactly the rule C1, C2, or C4 now enforces —
@@ -1958,15 +1980,30 @@ test('C1-C4: the compatibility manifest states the settlement, ordering, and can
       /inside one ledger position/i,
     ]],
     ['authority_model.error_retriability', manifest.authority_model.error_retriability, [
-      // C4: the third canonical-intent site. The mapping does not move; only
-      // what re-issuing "the same request" means.
-      /true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN/,
+      // C4 established canonical identity; R4 moves the mapping to its one
+      // derivable true code and explains why the release refusal is false.
+      /true only for RES_INSUFFICIENT_REMAINDER\./,
       /canonical/i,
       /sequence/,
       /virtual_time_ms/,
       /parent\.expected_version/,
+      /RES_ACTIVE_CHILDREN/,
+      /target\.expected_version/,
+      /RES_VERSION_CONFLICT/,
       /grants no capacity, admission, queue position, priority, or authority/,
       /fail_closed stays true for every code/,
+    ]],
+    ['res-bounds-error.retriable.description', boundsErrorSchema.properties.retriable.description, [
+      /true only for RES_INSUFFICIENT_REMAINDER\./,
+      /RES_ACTIVE_CHILDREN/,
+      /target\.expected_version/,
+      /RES_VERSION_CONFLICT/,
+    ]],
+    ['01-contract-semantics Error reporting', semanticsErrorReporting, [
+      /true only for RES_INSUFFICIENT_REMAINDER\./,
+      /RES_ACTIVE_CHILDREN/,
+      /target\.expected_version/,
+      /RES_VERSION_CONFLICT/,
     ]],
   ];
   for (const [site, text, patterns] of WORDING_SITES) {
@@ -1976,6 +2013,7 @@ test('C1-C4: the compatibility manifest states the settlement, ordering, and can
     manifest.authority_model.error_retriability,
     /byte-identical re-issue/i,
   );
+  assert.doesNotMatch(semanticsErrorReporting, /remains unproved/i);
 
   // The one deliberately retained occurrence: it is about RES_VERSION_CONFLICT,
   // where a literal-byte re-issue genuinely can never succeed. Reconciling it
