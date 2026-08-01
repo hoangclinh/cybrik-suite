@@ -4103,8 +4103,9 @@ const ADR_README_W2K_ADDITIONS = [
 const ADR_README_UAT_MTLS_ADDITIONS = [
   '\nThe UAT mTLS Anycorn decision is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. K5 records the\n' +
     'W2-K live-fact metadata/control amendment and S1 admits B1 only for bounded isolated UAT evaluation.\n' +
-    'B1 remains uninstalled, unpinned, unselected and HOLD; D1/D2 remain HOLD and no release gate opens.\n',
-  '\n| [DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md](DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md) | Bounded internal Anycorn B1 evaluation decision for SOC→AI lifecycle mTLS UAT | K5/S1 record `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; B1 remains `installed=false`, `pinned=false`, product `selected=false`, and HOLD; D1/D2 and release remain separate gates |',
+    'At `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, B1 is `installed=true`, `pinned=true`,\n' +
+    'product `selected=false` and HOLD; D2 remains HOLD and no release gate opens.\n',
+  '\n| [DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md](DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md) | Bounded internal Anycorn B1 evaluation decision for SOC→AI lifecycle mTLS UAT | D1 records the exact isolated B1 artifact as `installed=true`, `pinned=true`, product `selected=false`, and HOLD; D2 and release remain separate gates |',
 ];
 const ADR_README_DELEGATION_RECONCILIATION = {
   current:
@@ -4457,7 +4458,7 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
     'no extra index or host',
     '`--no-index`, `--find-links` and `--require-hashes`',
     'fresh cache',
-    'removed after evidence capture',
+    'removed after acceptance evidence no longer needs them',
     'raw Anycorn wheel is never downloaded or installed',
   ]) {
     assert.ok(d1.includes(provenanceControl), `S1 R3 must retain provenance control: ${provenanceControl}`);
@@ -4466,7 +4467,8 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   const r2 = mdSection(gate, 'S1 R2 D1 clarification');
   assert.ok(r2 !== null, 'the gate record must retain one exact S1 R2 clarification section');
   assert.match(r2, /S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
-  assert.match(r2, /D1 remains \*\*HOLD\*\*/);
+  assert.match(r2, /Historical pre-D1 record/);
+  assert.match(r2, /At R2 acceptance, D1 remained \*\*HOLD\*\*/);
   assert.match(r2, /D2 remains \*\*HOLD\*\*/);
   assert.match(r2, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
   assert.match(r2, /Release dates remain\s+unchanged/);
@@ -4476,13 +4478,14 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.match(r3, /S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
   assert.match(r3, /`https:\/\/api\.osv\.dev\/v1\/query`/);
   assert.doesNotMatch(r3, /querybatch/);
-  assert.match(r3, /D1 remains \*\*HOLD\*\*/);
+  assert.match(r3, /Historical pre-D1 record/);
+  assert.match(r3, /At R3 acceptance, D1 remained \*\*HOLD\*\*/);
   assert.match(r3, /D2 remains \*\*HOLD\*\*/);
   assert.match(r3, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
   assert.match(r3, /Release dates remain\s+unchanged/);
   assert.match(
     decision,
-    /- \*\*S1 R3 endpoint correction:\*\* `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`/,
+    /- \*\*S1 R3 endpoint correction \(historical pre-D1\):\*\* `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`/,
   );
   assert.match(
     decision,
@@ -4493,6 +4496,12 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.equal((self.match(/^\/\/ <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END$/gm) ?? []).length, 1);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
-  assert.doesNotMatch(gate, /installed=true|pinned=true/);
+  const d1Live = mdSection(gate, 'D1 live-fact supersession');
+  assert.ok(d1Live !== null, 'the S1 gate must carry one current D1 live-fact supersession');
+  assert.match(d1Live, /D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN/);
+  assert.match(d1Live, /installed=true/);
+  assert.match(d1Live, /pinned=true/);
+  assert.match(d1Live, /D2 remains \*\*HOLD\*\*/);
+  assert.match(d1Live, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
 });
 // <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END

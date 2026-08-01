@@ -81,6 +81,13 @@ def _normalized_name(requirement: str) -> str:
     return name.casefold().replace("_", "-")
 
 
+def _normalize_osv_severity(vulnerability: dict[str, object]) -> str:
+    database_specific = vulnerability.get("database_specific", {})
+    raw = database_specific.get("severity") if isinstance(database_specific, dict) else None
+    severity = raw.upper() if isinstance(raw, str) else "UNKNOWN"
+    return severity if severity in {"CRITICAL", "HIGH", "MODERATE", "LOW"} else "UNKNOWN"
+
+
 @pytest.fixture(scope="module")
 def artifact_dir() -> Path:
     raw = os.environ.get("CYBRIK_UAT_D1_ARTIFACT_DIR")
@@ -296,6 +303,10 @@ def test_audit_tooling_and_osv_evidence_are_hash_pinned_and_fail_closed(
     control_ids = {item["id"] for item in control_response.get("vulns", [])}
     assert positive_control["expected_vulnerability_ids"]
     assert set(positive_control["expected_vulnerability_ids"]) <= control_ids
+    control_severities = {
+        _normalize_osv_severity(item) for item in control_response.get("vulns", [])
+    }
+    assert control_severities & {"CRITICAL", "HIGH", "UNKNOWN"}
     assert positive_control["blocking_severity_observed"] is True
 
     findings = audit["findings"]
@@ -335,10 +346,7 @@ def test_raw_osv_records_have_no_transitive_critical_high_or_unknown(
         assert _sha256(raw_path) == query["raw_response_sha256"]
         response = json.loads(raw_path.read_text(encoding="utf-8"))
         for vulnerability in response.get("vulns", []):
-            raw_severity = vulnerability.get("database_specific", {}).get("severity")
-            severity = raw_severity.upper() if isinstance(raw_severity, str) else "UNKNOWN"
-            if severity not in {"CRITICAL", "HIGH", "MODERATE", "LOW"}:
-                severity = "UNKNOWN"
+            severity = _normalize_osv_severity(vulnerability)
             findings.append(
                 {
                     "id": vulnerability["id"],

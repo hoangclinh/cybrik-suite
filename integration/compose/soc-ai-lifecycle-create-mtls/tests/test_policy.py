@@ -484,7 +484,24 @@ def test_d1_delegated_authority_is_recorded_without_opening_runtime() -> None:
     ).read_text(encoding="utf-8")
     assert "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`" in decision
     assert "Founder-delegated Codex Governor operating authority" in decision
+    assert "DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md" in decision
     assert "D2 remains **HOLD**" in decision
+
+
+def test_d1_authority_provenance_reconciles_the_controlling_records() -> None:
+    claude = (_REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    reconciliation = (
+        _REPO_ROOT
+        / "docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md"
+    ).read_text(encoding="utf-8")
+
+    assert "UAT-MTLS-D1 exact-action exception" in claude
+    assert "D1 dependency/build/evidence scope only" in claude
+    assert "Appendix B. Exact UAT-MTLS-D1 dependency authorization" in reconciliation
+    assert "anh cho em quyền review và thay founder quyết định" in reconciliation
+    assert "Production vẫn do anh" in reconciliation
+    assert "UAT-MTLS-D1=AUTHORIZED-EXACT-ACTION" in reconciliation
+    assert "UAT-MTLS-D2=HOLD" in reconciliation
 
 
 def test_runtime_admission_carriers_pin_d1_but_retain_zero_runtime_state() -> None:
