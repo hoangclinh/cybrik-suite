@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import stat
 import subprocess
@@ -21,11 +22,16 @@ CRITICAL = {
     "evidence.py": ("secret_reason", "validate_evidence"),
     "harness.py": ("_assert_ssl_context_evidence", "teardown", "verify_absent"),
 }
+ARC_FREE_CRITICAL = {"validate_evidence", "verify_absent"}
 
 
 def _source(function_names: tuple[str, ...]) -> str:
     return "\n\n".join(
-        f"def {name}(value):\n    if value:\n        return 1\n    return 0\n"
+        (
+            f"def {name}(value):\n    return value\n"
+            if name in ARC_FREE_CRITICAL
+            else f"def {name}(value):\n    if value:\n        return 1\n    return 0\n"
+        )
         for name in function_names
     )
 
@@ -35,7 +41,9 @@ def _summary(
     missing_lines: list[int],
     executed_branches: list[list[int]],
     missing_branches: list[list[int]],
+    excluded_lines: list[int] | None = None,
 ) -> dict[str, int | float | str]:
+    excluded_lines = excluded_lines or []
     statement_total = len(executed_lines) + len(missing_lines)
     branch_total = len(executed_branches) + len(missing_branches)
     statement_percent = (
@@ -55,7 +63,7 @@ def _summary(
         "percent_covered": combined_percent,
         "percent_covered_display": f"{combined_percent:.0f}",
         "missing_lines": len(missing_lines),
-        "excluded_lines": 0,
+        "excluded_lines": len(excluded_lines),
         "percent_statements_covered": statement_percent,
         "percent_statements_covered_display": f"{statement_percent:.0f}",
         "num_branches": branch_total,
@@ -77,13 +85,17 @@ def _file_report(source: str) -> dict[str, object]:
             continue
         assert node.end_lineno is not None
         lines = list(range(node.lineno, node.end_lineno + 1))
-        branch_source = next(
-            child.lineno for child in ast.walk(node) if isinstance(child, ast.If)
+        branch_node = next(
+            (child for child in ast.walk(node) if isinstance(child, ast.If)), None
         )
-        branches = [
-            [branch_source, branch_source + 1],
-            [branch_source, node.end_lineno],
-        ]
+        branches = (
+            [
+                [branch_node.lineno, branch_node.lineno + 1],
+                [branch_node.lineno, node.end_lineno],
+            ]
+            if branch_node is not None
+            else []
+        )
         executed_lines.update(lines)
         executed_branches.extend(branches)
         functions[node.name] = {
@@ -140,6 +152,7 @@ def _sync_report(report: dict[str, object]) -> None:
     assert isinstance(files, dict)
     all_lines: list[int] = []
     all_missing_lines: list[int] = []
+    all_excluded_lines: list[int] = []
     all_branches: list[list[int]] = []
     all_missing_branches: list[list[int]] = []
     for file_report in files.values():
@@ -148,18 +161,22 @@ def _sync_report(report: dict[str, object]) -> None:
         missing_lines = file_report["missing_lines"]
         executed_branches = file_report["executed_branches"]
         missing_branches = file_report["missing_branches"]
+        excluded_lines = file_report["excluded_lines"]
         assert isinstance(executed_lines, list)
         assert isinstance(missing_lines, list)
         assert isinstance(executed_branches, list)
         assert isinstance(missing_branches, list)
+        assert isinstance(excluded_lines, list)
         file_report["summary"] = _summary(
             executed_lines,
             missing_lines,
             executed_branches,
             missing_branches,
+            excluded_lines,
         )
         all_lines.extend(executed_lines)
         all_missing_lines.extend(missing_lines)
+        all_excluded_lines.extend(excluded_lines)
         all_branches.extend(executed_branches)
         all_missing_branches.extend(missing_branches)
         functions = file_report["functions"]
@@ -172,12 +189,14 @@ def _sync_report(report: dict[str, object]) -> None:
                 function_report["missing_lines"],
                 function_report["executed_branches"],
                 function_report["missing_branches"],
+                function_report["excluded_lines"],
             )
     report["totals"] = _summary(
         all_lines,
         all_missing_lines,
         all_branches,
         all_missing_branches,
+        all_excluded_lines,
     )
 
 
@@ -255,8 +274,8 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
     assert json.loads(result_path.read_text(encoding="utf-8")) == result
     assert stat.S_IMODE(result_path.stat().st_mode) == 0o600
     assert result["status"] == "PASS"
-    assert result["line"] == {"covered": 72, "ratio": 1.0, "total": 72}
-    assert result["branch"] == {"covered": 16, "ratio": 1.0, "total": 16}
+    assert result["line"] == {"covered": 68, "ratio": 1.0, "total": 68}
+    assert result["branch"] == {"covered": 12, "ratio": 1.0, "total": 12}
     assert [row["symbol"] for row in result["critical"]] == [
         "server.build_patched_ssl_context",
         "policy.parse_loopback_bind",
@@ -268,7 +287,25 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
         "harness.verify_absent",
     ]
     assert all(row["line_ratio"] == 1.0 for row in result["critical"])
-    assert all(row["branch_ratio"] == 1.0 for row in result["critical"])
+    critical = {row["symbol"]: row for row in result["critical"]}
+    assert critical["evidence.validate_evidence"]["branch"] == {
+        "covered": 0,
+        "requirement": "not-applicable-no-static-branch",
+        "ratio": None,
+        "total": 0,
+    }
+    assert critical["harness.verify_absent"]["branch"] == {
+        "covered": 0,
+        "requirement": "not-applicable-no-static-branch",
+        "ratio": None,
+        "total": 0,
+    }
+    assert all(
+        row["branch"]["ratio"] == 1.0
+        for symbol, row in critical.items()
+        if symbol
+        not in {"evidence.validate_evidence", "harness.verify_absent"}
+    )
 
 
 @pytest.mark.parametrize(
@@ -403,6 +440,44 @@ def test_critical_symbol_requires_one_hundred_percent_line_and_branch_coverage(
     assert completed.stderr.strip() == reason
 
 
+def test_critical_symbol_may_not_exclude_a_source_line(tmp_path: Path) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    key = (PACKAGE_REL / "server.py").as_posix()
+    file_report = report["files"][key]
+    assert isinstance(file_report, dict)
+    functions = file_report["functions"]
+    assert isinstance(functions, dict)
+    region = functions["build_patched_ssl_context"]
+    assert isinstance(region, dict)
+    line = region["executed_lines"].pop()
+    region["excluded_lines"].append(line)
+    file_report["executed_lines"].remove(line)
+    file_report["excluded_lines"].append(line)
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "critical_source_excluded"
+
+
+def test_critical_symbol_may_not_use_no_branch_pragma(tmp_path: Path) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    source_path = suite_root / PACKAGE_REL / "server.py"
+    source_path.write_text(
+        source_path.read_text(encoding="utf-8").replace(
+            "if value:", "if value:  # pragma: no branch", 1
+        ),
+        encoding="utf-8",
+    )
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "critical_source_exclusion_marker"
+
+
 def test_summary_count_mismatch_cannot_create_a_false_green(tmp_path: Path) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
     key = (PACKAGE_REL / "policy.py").as_posix()
@@ -468,3 +543,26 @@ def test_result_artifact_must_be_fresh_in_the_coverage_evidence_root(
     assert completed.returncode == 2
     assert completed.stderr.strip() == "result_json_must_be_fresh"
     assert result_path.read_text(encoding="utf-8") == "preserve"
+
+
+def test_result_writer_converts_io_failure_to_a_stable_gate_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spec = importlib.util.spec_from_file_location("d2_coverage_verifier", VERIFY)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    destination = tmp_path / "coverage-gate.json"
+
+    def fail_fsync(_: int) -> None:
+        raise OSError("caller-controlled-path")
+
+    monkeypatch.setattr(module.os, "fsync", fail_fsync)
+
+    with pytest.raises(module.GateFailure) as exc_info:
+        module._write_result(destination, {"status": "PASS"})
+
+    assert str(exc_info.value) == "result_json_write_failed"
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
