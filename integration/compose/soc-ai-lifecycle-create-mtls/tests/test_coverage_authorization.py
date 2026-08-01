@@ -233,3 +233,61 @@ def test_observation_refuses_unvalidated_executable_before_subprocess(
     with pytest.raises(authorization.AuthorizationFailure) as error:
         authorization.collect_observed(fields)
     assert error.value.reason == "observation_input_invalid"
+
+
+def test_consume_anchors_every_creation_to_verified_directory_descriptors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = _fields(tmp_path)
+    raw = _text(fields).encode()
+    resolved = authorization.validate_authorization(fields, _observed(fields))
+    original_mkdir = authorization.os.mkdir
+    observed_calls: list[tuple[object, int | None]] = []
+
+    def anchored_mkdir(
+        path: object, mode: int = 0o777, *, dir_fd: int | None = None
+    ) -> None:
+        observed_calls.append((path, dir_fd))
+        original_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(authorization.os, "mkdir", anchored_mkdir)
+    authorization.consume_authorization(resolved, raw)
+
+    assert len(observed_calls) == 5
+    assert all(dir_fd is not None for _, dir_fd in observed_calls)
+    assert [str(path) for path, _ in observed_calls] == [
+        Path(fields["COVERAGE_EVIDENCE_ROOT"]).name,
+        Path(fields["COVERAGE_ROOT"]).name,
+        "wheel",
+        "site-packages",
+        "data",
+    ]
+
+
+def test_consume_preserves_failure_evidence_when_tool_root_creation_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = _fields(tmp_path)
+    raw = _text(fields).encode()
+    resolved = authorization.validate_authorization(fields, _observed(fields))
+    original_mkdir = authorization.os.mkdir
+    tool_name = Path(fields["COVERAGE_ROOT"]).name
+
+    def racing_mkdir(
+        path: object, mode: int = 0o777, *, dir_fd: int | None = None
+    ) -> None:
+        if str(path) == tool_name:
+            raise FileExistsError(tool_name)
+        original_mkdir(path, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(authorization.os, "mkdir", racing_mkdir)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.consume_authorization(resolved, raw)
+
+    assert error.value.reason == "authorization_root_not_fresh"
+    evidence_root = Path(fields["COVERAGE_EVIDENCE_ROOT"])
+    assert json.loads((evidence_root / "authorization-failure.json").read_text()) == {
+        "reason": "authorization_root_not_fresh",
+        "status": "failed_pre_network",
+    }
+    assert not Path(fields["COVERAGE_ROOT"]).exists()
