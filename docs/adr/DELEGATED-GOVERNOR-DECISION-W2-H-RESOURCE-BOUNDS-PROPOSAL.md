@@ -1781,3 +1781,67 @@ If the audit instrument's C1–C4 differ from what is written here, or if the
 packet bytes at write time differ from the facts recorded above, **this section
 governs the write** and the divergence is a stop condition under G-W2H-6, to be
 raised before any further byte is written — not silently reconciled.
+
+## 8. R3.1 amendment — rebase the admitted-idempotency regression case
+
+**Disposition:** `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+
+- **Amendment date:** 2026-08-01 (`Asia/Ho_Chi_Minh`)
+- **Decider:** Codex Governor under
+  `docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`
+- **Amendment identity:** `W2-H/R3.1`
+- **Base:** `c543ebe` — the R3 RED test pin at which the conflict was found
+- **Basis:** the R3 RED review
+
+The R3 RED review found one pre-existing R2 test case that conflicts with the
+literal C2 and C4 rules in §7.2. In
+`idempotent replay binds both the original request and its exact result`, the
+second event clones the first request and result byte-for-byte. It therefore
+carries the first event's nested `sequence` and `virtual_time_ms` at a later
+envelope position and repeats the first event's now-stale
+`parent.expected_version`. R2 accepted that case only because its admitted-key
+short circuit bypassed both checks. C4 explicitly removes that bypass for every
+identity-matching re-issue. Keeping the test unchanged would require an
+exception to C2/C4 and would contradict the canonical identity and current
+version rules this amendment exists to enforce.
+
+R3.1 therefore adds exactly one authorized edit to the test-file inventory in
+§7.3.3:
+
+- after cloning the original admitted request and result, rebase only the
+  positional fields `sequence` and `virtual_time_ms` in both nested records to
+  the second event's envelope, and set `request.parent.expected_version` to the
+  parent's current version at that position; the literal values are
+  `sequence: 3`, `virtual_time_ms: 1020`, and
+  `parent.expected_version: 2`, restoring the three values the fixture's
+  second event carried before the clone while leaving the fixture itself
+  byte-identical;
+- preserve the test title and every existing assertion: the conforming
+  admitted replay remains accepted, and mutating
+  `result.parent_version_after` remains rejected with
+  `RES_RESULT_MISMATCH`; and
+- do not change any other bound request field or admitted-result projection
+  field. In particular, the result's recorded
+  `parent_version_before`/`parent_version_after` and
+  `parent_remaining_after` continue to reproduce the original admission; they
+  are not recomputed from current state.
+
+This makes the §7.3.3 test-file list four kinds of edit rather than three:
+the second existing-case rebase is exactly this one C2/C4 case, and no other
+existing case may be rebased. Every other limit in that list stays unchanged.
+
+This is a test rebase, not a semantic exception. The implementation must still
+apply C2 nested/envelope coherence and the current-`expected_version` guard to
+**every** identity-matching re-issue, including an already-admitted binding.
+No admitted-path short circuit may bypass either check. The idempotent
+comparison relaxations remain exactly the two §7.2 C4 already defines and no
+others: the canonical idempotent request identity's exclusion of `sequence`,
+`virtual_time_ms`, and `parent.expected_version`, and the admitted result
+projection's exclusion of `sequence` and `virtual_time_ms`. C2 independently
+binds every excluded positional field to its own envelope, and the
+current-version guard independently binds `parent.expected_version`.
+
+All other R3 scope, counts, gates, disclaimers, and authority boundaries remain
+unchanged. R3.1 authorizes no new path, fixture, schema, error code, dependency,
+runtime proof, acceptance, commit, push, merge, release, production action, or
+release-date change.
