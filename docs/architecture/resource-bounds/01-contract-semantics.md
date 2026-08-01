@@ -20,8 +20,13 @@ child.reserved[d] = child.remaining[d] = requested[d]
 
 The result is all-or-nothing: `admitted` carries one reservation and no error;
 `denied` carries one fail-closed `RES_*` error and no reservation. A denial
-does not change the parent version or remainder. Replay accepts a denial as a
-real outcome: it is recorded, and the tree continues from the untouched state.
+does not change the parent version or remainder. Replay accepts a recorded
+denial only when the replayed state makes the request inadmissible and the
+error carries the code that state implies. The idempotency key binds on denial
+as well as admission over the canonical request identity, which excludes only
+`sequence`, `virtual_time_ms`, and `parent.expected_version`. A retry must use
+the parent's current `expected_version`; when peer state returns enough credit,
+the same canonical request may transition from denial to admission.
 
 Every non-grant record — reservation request, reservation result, release, and
 root closure — names the root grant whose tree it belongs to. That binding is
@@ -36,6 +41,13 @@ takes no such property; it is the root.
 Within one root tree, sequences start at `1` and increase by exactly `1`, with
 no gap, no repeat, and no reordering; a violation is `RES_SEQUENCE_VIOLATION`.
 The rule enforced is dense, not merely monotone.
+
+Every nested public record carries exactly its envelope's `sequence` and
+`virtual_time_ms`. A nested sequence mismatch is `RES_SEQUENCE_VIOLATION`.
+Nested virtual time earlier than the envelope is
+`RES_VIRTUAL_TIME_ROLLBACK`, including time running backwards inside one
+ledger position; nested virtual time later than the envelope is
+`RES_RESULT_MISMATCH`.
 
 A dense sequence from `1` means
 **exactly one serialization point per root tree**.
@@ -87,6 +99,13 @@ closure.final_consumed[d] + closure.final_unused[d]
   = closing grant.bounds[d]
 ```
 
+Both halves are derived from the validated ledger. `final_consumed` is the
+accumulated `consumed` of every validated release in the tree;
+`final_unused` is the closing root's remainder plus every still-open
+reservation's remainder immediately before closure. Credit held by an open
+reservation at cancelled closure is therefore unused and extinguished. This is
+declared contract-credit accounting, not physical runtime measurement.
+
 The root's remaining credit becomes zero and every still-open descendant is
 closed with zero remaining. A root closure returns credit to nobody — the root
 has no parent — and mints nothing: the unused remainder is extinguished, not
@@ -104,10 +123,15 @@ accepted member.
 `cybrik.res-bounds-error.v1` is the standalone failure document for every
 `res-*` operation without a dedicated result schema. `retriable` is derived
 from `code`, not asserted independently: it is `true` for exactly
-`RES_INSUFFICIENT_REMAINDER` and `RES_ACTIVE_CHILDREN`, where a byte-identical
-re-issue could later succeed because *peer* state changed, and `false` for
-every other code — including `RES_VERSION_CONFLICT` and
-`RES_IDEMPOTENCY_CONFLICT`, where the caller must change the bytes.
+`RES_INSUFFICIENT_REMAINDER` and `RES_ACTIVE_CHILDREN`. A re-issue preserves
+the canonical request identity, excluding exactly `sequence`,
+`virtual_time_ms`, and `parent.expected_version`; every other request field is
+bound, the positional fields must match their new envelope, and the expected
+version must match current parent state. Peer state may therefore let the same
+canonical request later succeed. The hint is `false` for every other code —
+including `RES_VERSION_CONFLICT` and `RES_IDEMPOTENCY_CONFLICT`, where the
+caller must correct the failing assertion or request identity. The declared
+retriability of `RES_ACTIVE_CHILDREN` remains unproved by this packet.
 `fail_closed` is `true` for all fifteen codes. `retriable` is advisory: it
 grants no capacity, admission, queue position, priority, or authority, and a
 retriable error is a refusal exactly as complete as a non-retriable one.

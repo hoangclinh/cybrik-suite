@@ -37,7 +37,7 @@
       "file": "positive/root-closure.completed.json",
       "kind": "positive",
       "schema": "cybrik.res-root-closure.v1.schema.json",
-      "sha256": "9b37184456336e0a82ecb545f6e9408642ca742297d7297ac355d857c416acf2"
+      "sha256": "e87bbd0aef312d2480fec8828c13a90fc98c374a4d6c53a8552a15391b8cac9f"
     },
     {
       "file": "positive/bounds-error.standalone.json",
@@ -54,6 +54,11 @@
       "file": "positive/replay.denied-admission.json",
       "kind": "positive",
       "sha256": "1c3aa357a04330f76cb1ccdb79ec504756a0a3f32e492bff333d40edf83f7058"
+    },
+    {
+      "file": "positive/replay.denied-then-admitted.json",
+      "kind": "positive",
+      "sha256": "4217b8d66a8c554f3f25ebb246a7c7cb37b13616844d2c96831d18a732a11b7f"
     },
     {
       "file": "negative-schema/bounds-grant.authority-token.json",
@@ -186,6 +191,30 @@
       "kind": "negative-semantic",
       "expected_error": "RES_SEQUENCE_VIOLATION",
       "sha256": "3dd43e4d0597f44e92d8902c5acc8f7375958ff422e42105e3d0c04c16adcbd6"
+    },
+    {
+      "file": "negative-semantic/replay.closure-settlement-split-mismatch.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_RELEASE_ACCOUNTING_MISMATCH",
+      "sha256": "04b4f026ee6eb1e0d392fb7323ef4d290f5685f015e5eeea4d3c604eecda2fae"
+    },
+    {
+      "file": "negative-semantic/replay.record-sequence-mismatch.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_SEQUENCE_VIOLATION",
+      "sha256": "bfa4e01ed2e3b4c1424e068f221331eb069b993832244bf3612b8a46ce5d88c7"
+    },
+    {
+      "file": "negative-semantic/replay.denial-unjustified.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_RESULT_MISMATCH",
+      "sha256": "ce1fbd57f92dbdba37fe880076436a2ad75bcc0f4f03075fb588cb9ea00997b2"
+    },
+    {
+      "file": "negative-semantic/replay.denial-idempotency-conflict.json",
+      "kind": "negative-semantic",
+      "expected_error": "RES_IDEMPOTENCY_CONFLICT",
+      "sha256": "150d79038c69ca44c17ee558c60d22b345c78a11666fb0e2fcce5c3af54fc707"
     }
   ]
 }

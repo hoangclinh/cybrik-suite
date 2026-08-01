@@ -21,6 +21,13 @@ by the fixture and never moves backward. No wall clock, random source,
 network, service, database, broker, container, or concurrency primitive is
 consulted.
 
+Every nested public record carries exactly its envelope's `sequence` and
+`virtual_time_ms`. A nested sequence mismatch is
+`RES_SEQUENCE_VIOLATION`; nested time earlier than the envelope is
+`RES_VIRTUAL_TIME_ROLLBACK`, including time running backwards inside one
+ledger position, while nested time later than the envelope is
+`RES_RESULT_MISMATCH`.
+
 Event kinds are:
 
 - `grant`: a public bounds-grant payload;
@@ -60,6 +67,13 @@ original bounds dimension by dimension; the root is left with zero remaining,
 every still-open descendant is closed with zero remaining, and the unused
 remainder is extinguished rather than returned or re-minted.
 
+The denied-then-admitted positive replay binds a justified denial, returns
+credit through a sibling release, and admits the same canonical request with
+the parent's current version. A later identity-matching event reproduces the
+recorded admitted result projection exactly. Its terminal closure derives
+`final_consumed` from validated releases and `final_unused` from the root plus
+all still-open reservation remainders, exercising both halves of settlement.
+
 ## Negative proof
 
 Each semantic negative replay is structurally valid and fails exactly one
@@ -67,6 +81,12 @@ named invariant: parent overdraw, no-mint spawn, tenant mismatch, org-scope
 mismatch, idempotency conflict, double release, over-return accounting,
 closed-parent admission, root-closure remint, foreign root binding,
 root-closure accounting mismatch, or a sequence gap.
+
+The R3 negatives additionally pin a sum-correct but ledger-wrong closure
+split, nested-record/envelope sequence mismatch, an unjustified denial, and a
+denial-bound idempotency conflict. In-memory cases cover the two virtual-time
+directions, wrong denial code, stale version and denial, and admitted-result
+projection drift without multiplying fixtures.
 
 Negative-schema fixtures are separate. They prove that authority-shaped extra
 properties, zero grant/request vectors, short idempotency keys, mixed

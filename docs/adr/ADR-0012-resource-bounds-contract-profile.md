@@ -50,9 +50,10 @@ therefore permits only finite admitted fanout even when logical fanout is
 unbounded. Depth is an independent control and is neither inferred from nor
 substituted for conservation.
 
-Every request names a parent kind, identifier, and expected version. Every
-event carries a strictly monotone sequence and fixture-supplied virtual time.
-These are replay/accounting fields only.
+Every request names a parent kind, identifier, and expected version. Within a
+root tree, event sequence starts at one and increases densely by exactly one.
+Every nested public record carries exactly its envelope's sequence and
+fixture-supplied virtual time. These are replay/accounting fields only.
 
 ### Release and closure
 
@@ -64,6 +65,12 @@ Only the unused `returned` vector may rejoin a still-open parent. `consumed`
 never returns. A reservation is terminal after one valid release; a closed
 root or reservation never reopens. Root cancellation closes the full subtree
 and no later release or spawn may re-mint any of its credit.
+
+Closure settlement is derived from the validated ledger: final consumed credit
+is accumulated from validated releases, while final unused credit is the
+closing root's remainder plus every still-open reservation's remainder
+immediately before closure. This is contract-credit accounting, not physical
+runtime measurement.
 
 Root-cancel propagation depends on accepted W1-C2 lifecycle semantics.
 Durable no-remint accounting depends on accepted ADR-0003. These are
@@ -105,7 +112,7 @@ the disjoint `RES_*` namespace.
 - `cybrik.res-bounds-error.v1.schema.json`
 
 The compatibility manifest pins the seven schemas, the examples manifest, all
-31 fixtures, and itself using a non-circular self-digest algorithm.
+36 fixtures, and itself using a non-circular self-digest algorithm.
 
 ## Evidence ceiling
 
