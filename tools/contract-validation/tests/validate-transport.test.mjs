@@ -4576,7 +4576,10 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /non-empty OSV vulnerability result is a\s+hard stop before extraction/);
   assert.match(section, /raw\.githubusercontent\.com[^\n]+authoring-time provenance[^\n]+not execution inputs/);
   assert.match(section, /Neither root may be under `\/tmp` or\s+`\/private\/tmp`/);
-  assert.match(section, /Neither root may equal or descend from the canonical `HOST_TEMP_ROOT`/);
+  assert.match(section, /derive the canonical Darwin user temporary directory at execution/);
+  assert.match(section, /must equal the recorded `HOST_TEMP_ROOT`/);
+  assert.match(section, /equal the exact `COVERAGE_ROOT` and `COVERAGE_EVIDENCE_ROOT` values from the Founder/);
+  assert.match(section, /neither root may equal or descend from the canonical `HOST_TEMP_ROOT`/i);
   assert.match(section, /owner equals the effective uid/);
   assert.match(section, /mode `0700`/);
   assert.match(section, /`st_dev` and `st_ino`/);

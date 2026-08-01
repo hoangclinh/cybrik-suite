@@ -575,7 +575,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     assert (
         "b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73" in decision
     )
-    assert "--no-index --no-deps --target" in normalized
+    assert "--no-index --no-deps --target" not in normalized
+    assert "<PINNED_PYTHON> -m zipfile -e" in normalized
+    for forbidden_installer in ("pip install", "ensurepip", "uv pip"):
+        assert forbidden_installer not in normalized
     assert "221943" in decision
     assert "files.pythonhosted.org/packages/06/d1/" in decision
     assert (
@@ -611,8 +614,15 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         "harness.verify_absent",
     ):
         assert critical in decision
-    assert "remove only the isolated tool root on failure or rollback" in normalized
-    assert "The evidence root must remain intact for review" in normalized
+    assert "remove only the isolated tool root and preserve the evidence root" in normalized
+    assert "HOST_TEMP_ROOT=" in decision
+    assert "derive the canonical Darwin user temporary directory at execution" in normalized
+    assert "must equal the recorded `HOST_TEMP_ROOT`" in normalized
+    assert (
+        "equal the exact `COVERAGE_ROOT` and `COVERAGE_EVIDENCE_ROOT` values from the Founder"
+        in normalized
+    )
+    assert "canonical Darwin host-temp derivation/pin" in normalized_readme
     assert "No successful install or measurement by itself opens Phase A" in normalized
     assert "UAT-MTLS-D2-COV-P0" in harness_readme
     assert "authorizes nothing until Founder approval is recorded" in normalized_readme
