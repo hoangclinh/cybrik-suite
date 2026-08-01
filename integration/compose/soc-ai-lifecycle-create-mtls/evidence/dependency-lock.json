@@ -1,0 +1,247 @@
+{
+  "artifact_root": "/private/tmp/cybrik-d1-b1-final.e9zdJo",
+  "python_executable": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12",
+  "python_executable_sha256": "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623",
+  "python_version": "3.12.13",
+  "pip_version": "26.1.1",
+  "uv_version": "0.11.16",
+  "uv_lock_sha256": "2adfb7c36306b3cb87939b62b651d6fc4f402f6b1dc7ed6747a356b90607c61f",
+  "requirements_sha256": "9ca95b901f4dd7ff8d0aaae26885169c424ab7eda2c2cbba616d9ef6f839f507",
+  "index_url": "https://pypi.org/simple",
+  "cache_dir": "/private/tmp/cybrik-d1-b1-final.e9zdJo/pip-cache",
+  "wheelhouse": "/private/tmp/cybrik-d1-b1-final.e9zdJo/wheelhouse",
+  "wheel_count": 56,
+  "anycorn_in_lock": false,
+  "anycorn_in_requirements": false,
+  "anycorn_in_wheelhouse": false,
+  "lock_command": "/opt/homebrew/bin/uv lock --python /Users/hoanglinh/.local/bin/python3.12 --default-index https://pypi.org/simple --no-sources --no-config --cache-dir /tmp/cybrik-d1-b1-final.e9zdJo/uv-lock-cache",
+  "export_command": "/opt/homebrew/bin/uv export --format requirements.txt --locked --no-emit-project --no-emit-local --no-sources --group test --no-config --cache-dir /tmp/cybrik-d1-b1-final.e9zdJo/uv-export-cache --output-file /tmp/cybrik-d1-b1-final.e9zdJo/uv-exported-requirements.txt",
+  "download_command": "/Users/hoanglinh/.local/bin/python3.12 -m pip download --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --cache-dir /tmp/cybrik-d1-b1-final.e9zdJo/pip-cache --dest /tmp/cybrik-d1-b1-final.e9zdJo/wheelhouse -r /tmp/cybrik-d1-b1-final.e9zdJo/uv-exported-requirements.txt",
+  "wheels": [
+    {
+      "filename": "alembic-1.18.5-py3-none-any.whl",
+      "sha256": "06d8ba9d04558022f5395e9317de03d270f3dced49cee01f89fe7a13c26f14bc"
+    },
+    {
+      "filename": "annotated_doc-0.0.5-py3-none-any.whl",
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101"
+    },
+    {
+      "filename": "annotated_types-0.8.0-py3-none-any.whl",
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0"
+    },
+    {
+      "filename": "anyio-4.14.2-py3-none-any.whl",
+      "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494"
+    },
+    {
+      "filename": "argon2_cffi-25.1.0-py3-none-any.whl",
+      "sha256": "fdc8b074db390fccb6eb4a3604ae7231f219aa669a2652e0f20e16ba513d5741"
+    },
+    {
+      "filename": "argon2_cffi_bindings-25.1.0-cp39-abi3-macosx_11_0_arm64.whl",
+      "sha256": "7aef0c91e2c0fbca6fc68e7555aa60ef7008a739cbe045541e438373bc54d2b0"
+    },
+    {
+      "filename": "asyncpg-0.31.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "0c89ccf741c067614c9b5fc7f1fc6f3b61ab05ae4aaa966e6fd6b93097c7d20d"
+    },
+    {
+      "filename": "certifi-2026.7.22-py3-none-any.whl",
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"
+    },
+    {
+      "filename": "cffi-2.1.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "78474632761faa0fb96f30b1c928c84ebcf68713cbb80d15bab09dfe61640fde"
+    },
+    {
+      "filename": "click-8.4.2-py3-none-any.whl",
+      "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76"
+    },
+    {
+      "filename": "cryptography-46.0.7-cp311-abi3-macosx_10_9_universal2.whl",
+      "sha256": "ea42cbe97209df307fdc3b155f1b6fa2577c0defa8f1f7d3be7d31d189108ad4"
+    },
+    {
+      "filename": "dnspython-2.8.0-py3-none-any.whl",
+      "sha256": "01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af"
+    },
+    {
+      "filename": "email_validator-2.3.0-py3-none-any.whl",
+      "sha256": "80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4"
+    },
+    {
+      "filename": "fastapi-0.141.1-py3-none-any.whl",
+      "sha256": "bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"
+    },
+    {
+      "filename": "greenlet-3.5.4-cp312-cp312-macosx_11_0_universal2.whl",
+      "sha256": "3d66250e8b09f182ede05490998c818b5961f7a3640332d44c4927caec7bbfe4"
+    },
+    {
+      "filename": "h11-0.16.0-py3-none-any.whl",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"
+    },
+    {
+      "filename": "h2-4.4.0-py3-none-any.whl",
+      "sha256": "6acffe1aeab79098d7eb0f8385c1add11f2c7a94815f6fa2b7060eeddee3d87c"
+    },
+    {
+      "filename": "hpack-4.2.0-py3-none-any.whl",
+      "sha256": "858ac0b02280fa582b5080d68db0899c62a80375e0e5413a74970c5e518b6986"
+    },
+    {
+      "filename": "httpcore-1.0.9-py3-none-any.whl",
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55"
+    },
+    {
+      "filename": "httptools-0.8.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "5931891fb7b441b8a3853cf1b85c82c903defce084dd5f6771ca46e31bf862c5"
+    },
+    {
+      "filename": "httpx-0.28.1-py3-none-any.whl",
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"
+    },
+    {
+      "filename": "hyperframe-6.1.0-py3-none-any.whl",
+      "sha256": "b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5"
+    },
+    {
+      "filename": "idna-3.18-py3-none-any.whl",
+      "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2"
+    },
+    {
+      "filename": "iniconfig-2.3.0-py3-none-any.whl",
+      "sha256": "f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"
+    },
+    {
+      "filename": "mako-1.3.12-py3-none-any.whl",
+      "sha256": "8f61569480282dbf557145ce441e4ba888be453c30989f879f0d652e39f53ea9"
+    },
+    {
+      "filename": "markdown_it_py-4.2.0-py3-none-any.whl",
+      "sha256": "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a"
+    },
+    {
+      "filename": "markupsafe-3.0.3-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "1872df69a4de6aead3491198eaf13810b565bdbeec3ae2dc8780f14458ec73ce"
+    },
+    {
+      "filename": "maxminddb-2.8.2-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "b23103a754ff1e795d6e107ae23bf9b3360bce9e9bff08c58e388dc2f3fd85ad"
+    },
+    {
+      "filename": "mdurl-0.1.2-py3-none-any.whl",
+      "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"
+    },
+    {
+      "filename": "packaging-26.2-py3-none-any.whl",
+      "sha256": "5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e"
+    },
+    {
+      "filename": "pluggy-1.6.0-py3-none-any.whl",
+      "sha256": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"
+    },
+    {
+      "filename": "priority-2.0.0-py3-none-any.whl",
+      "sha256": "6f8eefce5f3ad59baf2c080a664037bb4725cd0a790d53d59ab4059288faf6aa"
+    },
+    {
+      "filename": "psycopg2_binary-2.9.12-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "d3227a3bc228c10d21011a99245edca923e4e8bf461857e869a507d9a41fe9f6"
+    },
+    {
+      "filename": "pycparser-3.0-py3-none-any.whl",
+      "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"
+    },
+    {
+      "filename": "pydantic-2.13.4-py3-none-any.whl",
+      "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
+    },
+    {
+      "filename": "pydantic_core-2.46.4-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "962ccbab7b642487b1d8b7df90ef677e03134cf1fd8880bf698649b22a69371f"
+    },
+    {
+      "filename": "pydantic_settings-2.14.2-py3-none-any.whl",
+      "sha256": "a20c97b37910b6550d5ea50fbcc2d4187defe58cd57070b73863d069419c9440"
+    },
+    {
+      "filename": "pygments-2.20.0-py3-none-any.whl",
+      "sha256": "81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176"
+    },
+    {
+      "filename": "pyjwt-2.13.0-py3-none-any.whl",
+      "sha256": "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728"
+    },
+    {
+      "filename": "pytest-9.1.1-py3-none-any.whl",
+      "sha256": "37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c"
+    },
+    {
+      "filename": "pytest_asyncio-1.4.0-py3-none-any.whl",
+      "sha256": "933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1"
+    },
+    {
+      "filename": "python_dotenv-1.2.2-py3-none-any.whl",
+      "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a"
+    },
+    {
+      "filename": "pyyaml-6.0.3-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0"
+    },
+    {
+      "filename": "redis-7.4.1-py3-none-any.whl",
+      "sha256": "1fa4647af1c5e93a2c685aa248ee44cce092691146d41390518dabe9a99839b0"
+    },
+    {
+      "filename": "rich-15.0.0-py3-none-any.whl",
+      "sha256": "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb"
+    },
+    {
+      "filename": "rich_click-1.9.8-py3-none-any.whl",
+      "sha256": "12873865396e6927835d4eabb1cc3996edcd65b7ac9b2391a29eca4f335a2f93"
+    },
+    {
+      "filename": "sniffio-1.3.1-py3-none-any.whl",
+      "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"
+    },
+    {
+      "filename": "sqlalchemy-2.0.51-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "7d78702b26ba1c18b2d0fb2ea940ba7f17a9581b42e8361ff93920ebbee1235a"
+    },
+    {
+      "filename": "starlette-1.3.1-py3-none-any.whl",
+      "sha256": "c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6"
+    },
+    {
+      "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    },
+    {
+      "filename": "typing_inspection-0.4.2-py3-none-any.whl",
+      "sha256": "4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7"
+    },
+    {
+      "filename": "uvicorn-0.52.0-py3-none-any.whl",
+      "sha256": "3d887809810b89ed33501bcf0a9aba469b06ecd608158efce04bd6b48d8c9b08"
+    },
+    {
+      "filename": "uvloop-0.22.1-cp312-cp312-macosx_10_13_universal2.whl",
+      "sha256": "fe94b4564e865d968414598eea1a6de60adba0c040ba4ed05ac1300de402cd42"
+    },
+    {
+      "filename": "watchfiles-1.2.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "2d95ddc1eb6914154253d239089900813f6a767e174b8e6a50e7fdacb7e4236c"
+    },
+    {
+      "filename": "websockets-17.0.1-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "c23e532c8a2325a1e7486de8763a60dc43e83f01bcaeca07e3ba79652c156db1"
+    },
+    {
+      "filename": "wsproto-1.3.2-py3-none-any.whl",
+      "sha256": "61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584"
+    }
+  ]
+}
+

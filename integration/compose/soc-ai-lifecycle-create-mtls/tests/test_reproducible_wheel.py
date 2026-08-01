@@ -103,7 +103,7 @@ def test_registry_lock_contains_the_harness_closure_but_never_anycorn() -> None:
     for package in packages:
         source = package.get("source")
         if package["name"] == "cybrik-suite-uat-mtls":
-            assert source is None
+            assert source == {"virtual": "."}
             continue
         assert source == {"registry": "https://pypi.org/simple"}
 

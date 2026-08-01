@@ -1,0 +1,22 @@
+{
+  "result": "pass",
+  "network": "disabled",
+  "fresh_environment": true,
+  "environment": "/private/tmp/cybrik-d1-b1-final.e9zdJo/offline-venv-r2",
+  "installer_python": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12",
+  "installer_pip_version": "26.1.1",
+  "requirements_install": {
+    "no_index": true,
+    "find_links": "/private/tmp/cybrik-d1-b1-final.e9zdJo/wheelhouse",
+    "require_hashes": true
+  },
+  "b1_install": {
+    "no_deps": true,
+    "sha256_verified": true,
+    "version": "0.20.0+cybrik.1"
+  },
+  "installed_b1_sha256": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+  "requirements_command": "PIP_NO_INDEX=1 /Users/hoanglinh/.local/bin/python3.12 -m pip --python /tmp/cybrik-d1-b1-final.e9zdJo/offline-venv-r2 install --no-index --find-links /tmp/cybrik-d1-b1-final.e9zdJo/wheelhouse --require-hashes --cache-dir /tmp/cybrik-d1-b1-final.e9zdJo/offline-cache-r2 -r /tmp/cybrik-d1-b1-final.e9zdJo/uv-exported-requirements.txt",
+  "b1_command": "PIP_NO_INDEX=1 /Users/hoanglinh/.local/bin/python3.12 -m pip --python /tmp/cybrik-d1-b1-final.e9zdJo/offline-venv-r2 install --no-index --no-deps /tmp/cybrik-d1-b1-final.e9zdJo/build-a/dist/anycorn-0.20.0+cybrik.1-py3-none-any.whl"
+}
+
