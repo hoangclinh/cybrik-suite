@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 VERIFY = Path(__file__).parents[1] / "scripts" / "verify_coverage_gate.py"
 PACKAGE_REL = Path(
     "integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls"
@@ -25,10 +24,7 @@ CRITICAL = {
 
 def _source(function_names: tuple[str, ...]) -> str:
     return "\n\n".join(
-        f"def {name}(value):\n"
-        "    if value:\n"
-        "        return 1\n"
-        "    return 0\n"
+        f"def {name}(value):\n    if value:\n        return 1\n    return 0\n"
         for name in function_names
     )
 
@@ -41,11 +37,17 @@ def _summary(
 ) -> dict[str, int | float | str]:
     statement_total = len(executed_lines) + len(missing_lines)
     branch_total = len(executed_branches) + len(missing_branches)
-    statement_percent = 100.0 * len(executed_lines) / statement_total if statement_total else 100.0
-    branch_percent = 100.0 * len(executed_branches) / branch_total if branch_total else 100.0
+    statement_percent = (
+        100.0 * len(executed_lines) / statement_total if statement_total else 100.0
+    )
+    branch_percent = (
+        100.0 * len(executed_branches) / branch_total if branch_total else 100.0
+    )
     combined_total = statement_total + branch_total
     combined_covered = len(executed_lines) + len(executed_branches)
-    combined_percent = 100.0 * combined_covered / combined_total if combined_total else 100.0
+    combined_percent = (
+        100.0 * combined_covered / combined_total if combined_total else 100.0
+    )
     return {
         "covered_lines": len(executed_lines),
         "num_statements": statement_total,
@@ -77,7 +79,10 @@ def _file_report(source: str) -> dict[str, object]:
         branch_source = next(
             child.lineno for child in ast.walk(node) if isinstance(child, ast.If)
         )
-        branches = [[branch_source, branch_source + 1], [branch_source, node.end_lineno]]
+        branches = [
+            [branch_source, branch_source + 1],
+            [branch_source, node.end_lineno],
+        ]
         executed_lines.update(lines)
         executed_branches.extend(branches)
         functions[node.name] = {
@@ -418,7 +423,9 @@ def test_duplicate_branch_arc_is_rejected_instead_of_inflating_coverage(
     assert completed.stderr.strip() == "duplicate_coverage_fact"
 
 
-def test_critical_symbol_range_must_match_the_current_source_ast(tmp_path: Path) -> None:
+def test_critical_symbol_range_must_match_the_current_source_ast(
+    tmp_path: Path,
+) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
     key = (PACKAGE_REL / "evidence.py").as_posix()
     file_report = report["files"][key]
