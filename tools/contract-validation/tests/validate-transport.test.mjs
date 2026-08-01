@@ -4254,7 +4254,7 @@ test('P2-4: any executable main guard compares normalized real paths', () => {
   );
 });
 
-// >>> UAT-MTLS-S1-R2-D1-CLARIFICATION-BEGIN
+// >>> UAT-MTLS-S1-R2-R3-D1-CONTROLS-BEGIN
 // These witnesses keep the accepted K5/S1 boundary executable while D1 remains HOLD. They read
 // governance bytes only: no package resolution, artifact, process, listener or runtime is needed.
 const UAT_MTLS_DECISION_REL =
@@ -4386,7 +4386,7 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
       '- `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;',
       '- the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its',
       '- `https://api.osv.dev/v1/query` for the per-package advisory-database query; and',
-      '- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed',
+      '- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` wheels needed',
     ],
   );
 
@@ -4403,21 +4403,59 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.doesNotMatch(d1, /querybatch/);
   assert.match(decision, /vulnerability scan, recording each finding's severity/);
   assert.match(d1, /`pip-audit==2\.10\.1`/);
-  assert.match(d1, /--vulnerability-service osv/);
-  assert.match(d1, /--osv-url https:\/\/api\.osv\.dev\/v1\/query/);
-  assert.match(d1, /--require-hashes/);
-  assert.match(d1, /--disable-pip/);
-  assert.match(d1, /--no-deps/);
-  assert.match(d1, /python3\.12 -m pip download/);
-  assert.match(d1, /--only-binary=:all:/);
-  assert.match(d1, /--index-url https:\/\/pypi\.org\/simple/);
-  assert.match(d1, /--cache-dir <OUTSIDE_REPO>\/pip-cache/);
-  assert.match(d1, /--dest <OUTSIDE_REPO>\/wheelhouse/);
+  assert.match(d1, /exact-hash tooling closure containing `pip-audit==2\.10\.1`/);
+  const auditCommandMatch = d1.match(/its audit command is exactly:\n\n```text\n([\s\S]*?)\n```/);
+  assert.ok(auditCommandMatch, 'S1 R3 must retain one exact pip-audit command block');
+  assert.equal(
+    auditCommandMatch[1],
+    [
+      'pip-audit \\',
+      '  --vulnerability-service osv \\',
+      '  --osv-url https://api.osv.dev/v1/query \\',
+      '  --require-hashes \\',
+      '  --disable-pip \\',
+      '  --no-deps \\',
+      '  -r <OUTSIDE_REPO>/uv-exported-requirements.txt',
+    ].join('\n'),
+  );
+  const wheelhouseCommandMatch = d1.match(/must create the wheelhouse with this exact command:\n\n```text\n([\s\S]*?)\n```/);
+  assert.ok(wheelhouseCommandMatch, 'S1 R3 must retain one exact wheelhouse command block');
+  assert.equal(
+    wheelhouseCommandMatch[1],
+    [
+      'umask 022',
+      '<PINNED_PYTHON_3_12_13> -m pip download \\',
+      '  --require-hashes \\',
+      '  --only-binary=:all: \\',
+      '  --index-url https://pypi.org/simple \\',
+      '  --cache-dir <OUTSIDE_REPO>/pip-cache \\',
+      '  --dest <OUTSIDE_REPO>/wheelhouse \\',
+      '  -r <OUTSIDE_REPO>/uv-exported-requirements.txt',
+    ].join('\n'),
+  );
   assert.match(d1, /CPython `3\.12\.13`/);
   assert.match(d1, /pip `26\.1\.1`/);
   assert.match(d1, /uv `0\.11\.16`/);
   assert.doesNotMatch(d1, /uv pip download/);
-  assert.match(d1, /explicitly widens the superseded sdist\/build-only outbound\s+wording/);
+  assert.match(d1, /registry-only UAT transitive-closure wheelhouse and the isolated/);
+  assert.match(d1, /R2 opened the endpoint categories; S1 R3 corrects the OSV path and makes the\s+wheelhouse purpose explicit/);
+  assert.match(d1, /pip-audit output records affected package\/version, vulnerability IDs and fix versions/);
+  assert.match(d1, /raw OSV response for every audited package\/version/);
+  assert.match(d1, /`database_specific\.severity`/);
+  assert.match(d1, /missing, unrecognized or conflicting severity is `UNKNOWN`/);
+  assert.match(d1, /Any `CRITICAL`, `HIGH` or `UNKNOWN` finding keeps the candidate `HOLD`/);
+  for (const provenanceControl of [
+    'independently recomputed per-wheel SHA-256 values',
+    'every wheelhouse member is a wheel',
+    '`anycorn` is absent',
+    'no extra index or host',
+    '`--no-index`, `--find-links` and `--require-hashes`',
+    'fresh cache',
+    'removed after evidence capture',
+    'raw Anycorn wheel is never downloaded or installed',
+  ]) {
+    assert.ok(d1.includes(provenanceControl), `S1 R3 must retain provenance control: ${provenanceControl}`);
+  }
   assert.match(d1, /no listener, server, database, migration or product-runtime\s+authority/i);
   const r2 = mdSection(gate, 'S1 R2 D1 clarification');
   assert.ok(r2 !== null, 'the gate record must retain one exact S1 R2 clarification section');
@@ -4426,6 +4464,7 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.match(r2, /D2 remains \*\*HOLD\*\*/);
   assert.match(r2, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
   assert.match(r2, /Release dates remain\s+unchanged/);
+  assert.match(r2, /`https:\/\/api\.osv\.dev\/v1\/querybatch`/);
   const r3 = mdSection(gate, 'S1 R3 D1 endpoint correction');
   assert.ok(r3 !== null, 'the gate record must add one exact S1 R3 endpoint-correction section');
   assert.match(r3, /S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
@@ -4439,4 +4478,4 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
   assert.doesNotMatch(gate, /installed=true|pinned=true/);
 });
-// <<< UAT-MTLS-S1-R2-D1-CLARIFICATION-END
+// <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END
