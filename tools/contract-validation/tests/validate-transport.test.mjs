@@ -4578,7 +4578,7 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   assert.match(section, /58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2/);
   assert.match(section, /not-applicable-no-static-branch/);
   assert.match(section, /critical source range may contain no excluded line/);
-  assert.match(section, /`# pragma: no cover` or `# pragma: no branch`/);
+  assert.match(section, /`# pragma: no cover` or\s+`# pragma: no branch`/);
   assert.match(section, /mode-`0600`/);
   assert.match(section, /PASS and FAIL/);
   assert.match(section, /does not install Coverage\.py/);
