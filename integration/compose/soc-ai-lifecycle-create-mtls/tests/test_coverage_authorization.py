@@ -12,11 +12,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = (
-    Path(__file__).parents[1]
-    / "scripts"
-    / "validate_coverage_authorization.py"
-)
+SCRIPT = Path(__file__).parents[1] / "scripts" / "validate_coverage_authorization.py"
 SPEC = importlib.util.spec_from_file_location("validate_coverage_authorization", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 authorization = importlib.util.module_from_spec(SPEC)
@@ -197,9 +193,12 @@ def test_consume_creates_exact_roots_and_cannot_be_replayed(tmp_path: Path) -> N
     assert stat.S_IMODE(tool_root.stat().st_mode) == 0o700
     assert stat.S_IMODE(evidence_root.stat().st_mode) == 0o700
     assert (evidence_root / "authorization.env").read_bytes() == raw
-    assert json.loads((evidence_root / "authorization-consumption.json").read_text())[
-        "authorization_id"
-    ] == fields["AUTHORIZATION_ID"]
+    assert (
+        json.loads((evidence_root / "authorization-consumption.json").read_text())[
+            "authorization_id"
+        ]
+        == fields["AUTHORIZATION_ID"]
+    )
     assert record["authorization_id"] == fields["AUTHORIZATION_ID"]
 
     with pytest.raises(authorization.AuthorizationFailure) as error:
@@ -211,6 +210,24 @@ def test_invalid_authorization_performs_no_filesystem_action(tmp_path: Path) -> 
     fields = _fields(tmp_path)
     fields["PINNED_CLOSURE_SHA256"] = "d" * 64
     with pytest.raises(authorization.AuthorizationFailure):
-        authorization.validate_authorization(fields, _observed(_fields(tmp_path / "other")))
+        authorization.validate_authorization(
+            fields, _observed(_fields(tmp_path / "other"))
+        )
     assert not Path(fields["COVERAGE_ROOT"]).exists()
     assert not Path(fields["COVERAGE_EVIDENCE_ROOT"]).exists()
+
+
+def test_observation_refuses_unvalidated_executable_before_subprocess(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = _fields(tmp_path)
+    fields["PINNED_PYTHON"] = "/bin/echo"
+    fields["PINNED_PYTHON_REALPATH"] = "/bin/echo"
+
+    def unexpected_run(*args: object, **kwargs: object) -> str:
+        pytest.fail(f"subprocess reached before authorization validation: {args!r} {kwargs!r}")
+
+    monkeypatch.setattr(authorization, "_run", unexpected_run)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.collect_observed(fields)
+    assert error.value.reason == "observation_input_invalid"
