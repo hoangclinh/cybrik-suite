@@ -60,6 +60,34 @@ change B1 to installed/pinned after the exact artifact exists. D2 remains **HOLD
 future gate that may authorize a bounded runtime attempt. The raw-release High remains open.
 UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
+## S1 R2 D1 clarification
+
+The delegated Governor accepts the technical clarification
+`S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`.
+It repairs D1's lock, exact-path and evidence-authority contradictions without opening D1 or
+changing the K5/S1 outcome:
+
+- the dedicated `uv.lock` is registry-only for the third-party closure with exact hashes;
+  `anycorn` is absent from the solver and lock, while the exact B1 wheel is pinned separately by
+  SHA-256 and installed offline with `--no-deps` after a fail-closed hash check;
+- D1's future maximum scope adds only the existing `test_policy.py` and two harness README files
+  needed to preserve truthful inventory, purity coverage and authored/not-run status;
+- clean-checkout tests require no ephemeral artifact; explicit artifact targets use the bounded
+  `CYBRIK_UAT_D1_ARTIFACT_DIR` contract and fail closed rather than becoming skip/xfail/todo;
+- deterministic proof adds `umask 022` and two distinct absolute build directories;
+- CycloneDX SBOM and VEX use their own schema validators, while only bounded digests/summaries enter
+  the unchanged custom evidence sanitizer;
+- wheelhouse, cache and build workspaces stay outside the repository, the offline proof is scoped
+  to the exact platform, and rollback includes the ephemeral gitignored `dist/` artifact;
+- if the Founder later grants D1, outbound authority is limited to pinned `pypi.org` and
+  `files.pythonhosted.org` endpoints, the named advisory-database endpoint, isolated
+  SBOM/license/audit tooling resolution, and exact build-backend child processes.
+
+D1 remains **HOLD** pending the explicit Founder grant. D2 remains **HOLD** pending its separate
+reviewed runtime admission. Raw Anycorn remains HOLD; B1 remains `installed=false`, `pinned=false`
+and product `selected=false`. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. Release dates remain
+unchanged.
+
 ## Authority boundary
 
 K5 and S1 authorize no dependency resolution, build, installation, process, listener, socket,
