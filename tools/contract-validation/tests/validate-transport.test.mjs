@@ -4538,7 +4538,7 @@ test('UAT mTLS S1 R3 controls remain pinned after D1 live-fact supersession', ()
 test('UAT mTLS D2-P0 authoring reconciles the closed D1 scope without opening runtime', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const match = decision.match(
-    /### Gate UAT-MTLS-D2-P0 — preflight authoring([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
+    /### Gate UAT-MTLS-D2-P0 — preflight authoring([\s\S]*?)(?=\n### Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal)/,
   );
   assert.ok(match, 'the ADR must define one D2-P0 authoring gate immediately before D2 runtime');
   const section = match[1];
@@ -4575,6 +4575,10 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   assert.deepEqual(paths, UAT_MTLS_D2_COV_P1_AUTHORING_PATHS);
   assert.match(section, /pure stdlib and import-inert/);
   assert.match(section, /Coverage\.py JSON format 3/);
+  assert.match(section, /58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2/);
+  assert.match(section, /not-applicable-no-static-branch/);
+  assert.match(section, /critical source range may contain no excluded line/);
+  assert.match(section, /`# pragma: no cover` or `# pragma: no branch`/);
   assert.match(section, /mode-`0600`/);
   assert.match(section, /PASS and FAIL/);
   assert.match(section, /does not install Coverage\.py/);
