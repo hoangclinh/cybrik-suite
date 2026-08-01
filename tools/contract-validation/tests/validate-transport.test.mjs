@@ -4364,7 +4364,7 @@ test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rule
   assert.match(decision, /collection-time imports may not turn an\s+unselected test into a missing-dependency failure/);
 });
 
-test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse while D1 remains HOLD', () => {
+test('UAT mTLS S1 R3 controls remain pinned after D1 live-fact supersession', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const gate = read(UAT_MTLS_GATE_REL);
   const executionSection = mdSection(decision, '10. Execution and evidence gates');
@@ -4489,7 +4489,7 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   );
   assert.match(
     decision,
-    /- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`/,
+    /- `S1-R3-D1-ENDPOINT-CORRECTION=HISTORICAL-PRE-D1-ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`/,
   );
   const self = read('tools/contract-validation/tests/validate-transport.test.mjs');
   assert.equal((self.match(/^\/\/ >>> UAT-MTLS-S1-R2-R3-D1-CONTROLS-BEGIN$/gm) ?? []).length, 1);

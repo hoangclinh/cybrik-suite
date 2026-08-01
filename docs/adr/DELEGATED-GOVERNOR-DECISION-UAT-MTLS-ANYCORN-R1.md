@@ -3,9 +3,9 @@
 - **Task ID:** `UAT-MTLS-AI-SERVER-UNBLOCK-R1`
 - **Task-ID boundary:** this is a coordinator-delegated decision label, not a new identity in the
   fixed 48-task roster.
-- **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED — B1 UAT EVALUATION ADMITTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
-- **S1 R2 clarification:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
-- **S1 R3 endpoint correction:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
+- **Status:** `D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME AUTHORED NOT RUN — D2 HOLD`
+- **S1 R2 clarification (historical pre-D1):** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
+- **S1 R3 endpoint correction (historical pre-D1):** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
 - **Date:** 2026-08-01
 - **Canonical base:** `cybrik-suite@0766f31ca7ec283755c5ace5bc94f9df7cd05f1c`
 - **Ownership cell:** Suite Integration/Release; Cyber AI Runtime/Safety is a read-only consumer
@@ -20,12 +20,13 @@ an internal UAT-only `anycorn==0.20.0+cybrik.1` wheel reproducibly built from th
 behavioral fix and the local-version metadata change.
 The raw official `0.20.0` wheel remains unselected, uninstalled, unpinned and `HOLD`.
 
-This record prepares a candidate-specific compensating-control design and prospective RED→GREEN
-task packet. It does **not** accept the design, amend admission sequencing, admit a candidate for
-evaluation or authorize implementation. W2-K is an already-decided server-neutral profile and
-explicitly keeps the official upstream Anycorn `0.20.0` distributions unselected, uninstalled,
-unpinned and on `HOLD`. B1 therefore requires a separately reviewed W2-K R5 metadata/control
-amendment before its isolated UAT installation; this proposal does not itself amend W2-K:
+This record originated as the candidate-specific compensating-control design and RED→GREEN task
+packet. A0, K5 and S1 subsequently accepted the sequencing, metadata-control amendment and bounded
+evaluation admission; the exact D1 action then produced the isolated dependency artifact and its
+evidence. It still authorizes no D2 runtime, product/server selection, POC, RC, stable-v1, GA or
+production action. W2-K remains server-neutral and keeps the official upstream Anycorn `0.20.0`
+distributions unselected, uninstalled, unpinned and on `HOLD`. The distinct B1 artifact remains
+confined to `suite_uat_tool_lock_only` and product `selected=false`:
 
 - `docs/releases/GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01.md`;
 - `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`;
@@ -537,14 +538,17 @@ dependency installation, local build/UAT preparation, repository commits, push, 
 release while retaining production and public GA control with the Founder. Under that authority,
 Codex admitted and completed only the closed D1 dependency/build/evidence scope below. This record
 does not widen the reviewed paths or endpoints, does not authorize D2, and does not claim UAT,
-demo, POC, RC, stable-v1, GA or production readiness. D2 remains **HOLD**.
+demo, POC, RC, stable-v1, GA or production readiness. The exact authority chain and consumed action
+are recorded in
+`docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md` Appendix B.
+D2 remains **HOLD**.
 
-The requested authority, if granted, must be bounded to resolving/installing the dedicated
+The granted and exercised authority was bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
 running dependency-only tests.
 
 R2 opened the endpoint categories; S1 R3 corrects the OSV path and makes the
-wheelhouse purpose explicit. The final prospective authority is this closed D1 HTTPS set:
+wheelhouse purpose explicit. The exercised authority used only this closed D1 HTTPS set:
 
 - `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;
 - the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its
@@ -609,14 +613,15 @@ wheelhouse paths, total wheel count, and independently recomputed per-wheel SHA-
 the exported hashes. It must assert that every wheelhouse member is a wheel, `anycorn` is absent
 from both the lock-derived requirements and wheelhouse, no extra index or host and no repository
 write occurred, and the offline proof uses `--no-index`, `--find-links` and `--require-hashes` with
-a fresh cache distinct from the download cache. All cache/build workspaces are removed after evidence capture.
+a fresh cache distinct from the download cache. Review workspaces are retained only through
+independent review and explicit artifact-dependent verification, then removed after acceptance evidence no longer needs them.
 The B1 wheel remains a separate exact-hash input installed offline with
 `--no-deps`; the raw Anycorn wheel is never downloaded or installed.
 
 D1 also permits the exact build-backend child processes needed for the two reproducibility builds.
 This enumerated widening grants no listener, server, database, migration or product-runtime
-authority and no product dependency change. D1 cannot open before A0 and K5 are accepted and S1
-admits option B1.
+authority and no product dependency change. D1 opened only after A0 and K5 were accepted and S1
+admitted option B1.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
@@ -689,15 +694,15 @@ remains.
 ## 13. Governor disposition
 
 - `PROPOSAL-B1=RECOMMEND`
-- `IMPLEMENTATION=NOT-IMPLEMENTED`
+- `RUNTIME-IMPLEMENTATION=NOT-IMPLEMENTED`
 - `ADMISSION-SEQUENCING-A0=ACCEPTED-SEQUENCE-CURRENT-ATTEMPT-UNAUTHORIZED`
 - `UAT-CANDIDATE-EVALUATION=ACCEPTED-S1-BOUNDED-ISOLATED-NOT-IMPLEMENTED`
 - `SERVER-SELECTION=DEFERRED`
 - `RAW-ANYCORN-0.20.0=HOLD`
 - `PRODUCT-DEPENDENCY-CHANGES=DENY`
-- `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
-- `S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
-- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
+- `W2K-R5-METADATA-CONTROL-AMENDMENT=IMPLEMENTED-BY-D1-ARTIFACT-ONLY`
+- `S1-R2-D1-CLARIFICATION=HISTORICAL-PRE-D1-ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
+- `S1-R3-D1-ENDPOINT-CORRECTION=HISTORICAL-PRE-D1-ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
 - `DEPENDENCY-INSTALLATION=D1-COMPLETE-ISOLATED-UAT-ARTIFACT-ONLY`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`

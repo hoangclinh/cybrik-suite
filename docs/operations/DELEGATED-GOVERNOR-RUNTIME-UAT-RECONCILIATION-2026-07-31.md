@@ -172,3 +172,31 @@ authority into public publication or GA authority.
 The source directives originated in the Founder task thread and had no prior independent
 in-repository artifact. This appendix becomes their reviewable repository provenance record; it
 does not claim an earlier repository source.
+
+## Appendix B. Exact UAT-MTLS-D1 dependency authorization
+
+Source: Founder directives in the same Cybrik Governor task, applied on `2026-08-01`. The authority
+chain is reproduced verbatim before the Governor's exact-action decision:
+
+- “Thay vì cần Ballot hoặc chấp thuận từ anh, anh cho em quyền review và thay founder quyết định”
+- “anh cho em cả quyền push, merge nhánh chuẩn, release. Production vẫn do anh”
+
+These directives delegate non-production operating decisions to the Codex Governor while retaining
+production with the Founder. Acting under that delegation, the Codex Governor records:
+
+- `UAT-MTLS-D1=AUTHORIZED-EXACT-ACTION`;
+- authority is limited to the exact D1 paths, HTTPS endpoints, pinned tools, isolated dependency
+  environment, build, audit, SBOM/VEX, license inventory, offline reinstall and dependency-only
+  tests enumerated in
+  `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md` §6.2 and Gate UAT-MTLS-D1;
+- the action is consumed by the isolated B1 artifact and evidence on the D1 branch; it grants no
+  reusable or product-wide dependency authority;
+- raw official Anycorn remains uninstalled/unpinned, product `selected=false`, and the internal B1
+  artifact remains confined to `suite_uat_tool_lock_only`;
+- `UAT-MTLS-D2=HOLD`; no listener, product process, PostgreSQL runtime, migration, certificate,
+  secret, customer data, deployment, public release, GA or production action is authorized; and
+- production and public GA remain Founder-controlled.
+
+This appendix is the separately recorded exact-action authorization required by §5. It supersedes
+only §5's default dependency-installation HOLD for this consumed D1 action. Every other reserved
+boundary remains unchanged.

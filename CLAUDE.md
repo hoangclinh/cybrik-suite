@@ -51,9 +51,15 @@ Explicit Founder approval is still required for:
 - remote repository settings not covered by a separately recorded authorization;
 - any change inside `cybrik-soc-command-center` (including replacing its docs with pointers —
   that is a separate migration requiring its own approval);
-- dependency installation, database migration, deployment, or running formatters/auto-fixers
-  in any repository; and
+- dependency installation (except the consumed UAT-MTLS-D1 exact-action exception below), database
+  migration, deployment, or running formatters/auto-fixers in any repository; and
 - purchasing or changing third-party billing.
+
+UAT-MTLS-D1 exact-action exception: Appendix B of
+`docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md` records the Founder
+delegation chain and the Codex Governor's one exact authorization for the D1 dependency/build/evidence scope only.
+That exception is consumed and complete; it is not reusable
+for D2, another dependency change, product selection, runtime, deployment or production.
 
 ## Data-handling boundary
 
