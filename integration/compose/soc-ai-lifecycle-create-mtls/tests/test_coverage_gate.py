@@ -303,8 +303,7 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
     assert all(
         row["branch"]["ratio"] == 1.0
         for symbol, row in critical.items()
-        if symbol
-        not in {"evidence.validate_evidence", "harness.verify_absent"}
+        if symbol not in {"evidence.validate_evidence", "harness.verify_absent"}
     )
 
 
@@ -312,6 +311,7 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
     ("meta_key", "value", "reason"),
     (
         ("format", 2, "coverage_json_format_not_three"),
+        ("format", 3.0, "coverage_json_format_not_three"),
         ("version", "7.15.1", "coverage_version_mismatch"),
         ("branch_coverage", False, "branch_coverage_not_enabled"),
     ),
@@ -360,6 +360,22 @@ def test_reported_source_may_not_escape_the_suite_root(tmp_path: Path) -> None:
 
     assert completed.returncode == 2
     assert completed.stderr.strip() == "reported_file_outside_package"
+
+
+def test_reported_source_key_must_be_canonical(tmp_path: Path) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    files = report["files"]
+    assert isinstance(files, dict)
+    canonical = (PACKAGE_REL / "server.py").as_posix()
+    files[(PACKAGE_REL / "unused" / ".." / "server.py").as_posix()] = files.pop(
+        canonical
+    )
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "reported_file_not_canonical"
 
 
 def test_package_line_ratio_below_eighty_percent_fails(tmp_path: Path) -> None:
@@ -478,6 +494,30 @@ def test_critical_symbol_may_not_use_no_branch_pragma(tmp_path: Path) -> None:
     assert completed.stderr.strip() == "critical_source_exclusion_marker"
 
 
+def test_arc_free_critical_symbol_rejects_invented_branch_facts(
+    tmp_path: Path,
+) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    key = (PACKAGE_REL / "evidence.py").as_posix()
+    file_report = report["files"][key]
+    assert isinstance(file_report, dict)
+    functions = file_report["functions"]
+    assert isinstance(functions, dict)
+    region = functions["validate_evidence"]
+    assert isinstance(region, dict)
+    start = region["start_line"]
+    assert isinstance(start, int)
+    invented = [[start, start + 1], [start + 1, -start]]
+    region["executed_branches"] = invented
+    file_report["executed_branches"].extend(invented)
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "critical_branch_coverage_unexpected"
+
+
 def test_summary_count_mismatch_cannot_create_a_false_green(tmp_path: Path) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
     key = (PACKAGE_REL / "policy.py").as_posix()
@@ -566,3 +606,14 @@ def test_result_writer_converts_io_failure_to_a_stable_gate_reason(
     assert str(exc_info.value) == "result_json_write_failed"
     assert not destination.exists()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_stale_legacy_temp_name_cannot_wedge_a_fresh_result(tmp_path: Path) -> None:
+    suite_root, report_path, _ = _fixture(tmp_path)
+    stale = report_path.with_name("coverage-gate.tmp")
+    stale.write_text("preserve", encoding="utf-8")
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 0, completed.stderr
+    assert stale.read_text(encoding="utf-8") == "preserve"

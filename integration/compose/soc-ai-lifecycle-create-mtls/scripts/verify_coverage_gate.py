@@ -7,10 +7,13 @@ the UAT harness, restore B1, open listeners, or grant runtime authority.
 from __future__ import annotations
 
 import ast
+import io
 import json
 import os
 import re
+import secrets
 import sys
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -34,6 +37,20 @@ CRITICAL_SYMBOLS: Final = (
     ("harness", "_assert_ssl_context_evidence"),
     ("harness", "teardown"),
     ("harness", "verify_absent"),
+)
+STATIC_BRANCH_NODES: Final = (
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Try,
+    ast.TryStar,
+    ast.Match,
+    ast.IfExp,
+    ast.comprehension,
+)
+EXCLUSION_MARKER: Final = re.compile(
+    r"#\s*pragma:\s*no\s+(?:cover|branch)\b", re.IGNORECASE
 )
 
 
@@ -142,7 +159,11 @@ def _fresh_result_path(raw: str, *, suite_root: Path, coverage_json: Path) -> Pa
         _fail("coverage_evidence_root_name_invalid")
     if parent.stat().st_mode & 0o777 != 0o700:
         _fail("coverage_evidence_root_mode_invalid")
-    if parent == suite_root or parent.is_relative_to(suite_root):
+    if (
+        parent == suite_root
+        or parent.is_relative_to(suite_root)
+        or suite_root.is_relative_to(parent)
+    ):
         _fail("result_json_must_be_outside_suite")
     if candidate.exists() or candidate.is_symlink():
         _fail("result_json_must_be_fresh")
@@ -150,20 +171,26 @@ def _fresh_result_path(raw: str, *, suite_root: Path, coverage_json: Path) -> Pa
 
 
 def _write_result(destination: Path, record: dict[str, object]) -> None:
-    temporary = destination.with_suffix(".tmp")
+    temporary = destination.with_name(
+        f".{destination.name}.{secrets.token_hex(16)}.tmp"
+    )
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
+    descriptor: int | None = None
+    published_identity: tuple[int, int] | None = None
     try:
         descriptor = os.open(temporary, flags, 0o600)
-    except OSError:
-        _fail("result_json_write_failed")
-    try:
+        os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            descriptor = None
             stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, destination)
+        temporary_stat = temporary.stat(follow_symlinks=False)
+        published_identity = (temporary_stat.st_dev, temporary_stat.st_ino)
+        os.link(temporary, destination, follow_symlinks=False)
+        temporary.unlink()
         directory_flags = os.O_RDONLY
         if hasattr(os, "O_DIRECTORY"):
             directory_flags |= os.O_DIRECTORY
@@ -172,9 +199,27 @@ def _write_result(destination: Path, record: dict[str, object]) -> None:
             os.fsync(directory_descriptor)
         finally:
             os.close(directory_descriptor)
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
+    except (OSError, ValueError):
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if published_identity is not None:
+            try:
+                destination_stat = destination.stat(follow_symlinks=False)
+                if (
+                    destination_stat.st_dev,
+                    destination_stat.st_ino,
+                ) == published_identity:
+                    destination.unlink()
+            except OSError:
+                pass
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        _fail("result_json_write_failed")
 
 
 def _mapping(value: object, reason: str) -> dict[str, object]:
@@ -264,6 +309,8 @@ def _reported_path(key: str, *, suite_root: Path, package_root: Path) -> Path:
     lexical = candidate.resolve(strict=False)
     if lexical.suffix != ".py" or not lexical.is_relative_to(package_root):
         _fail("reported_file_outside_package")
+    if lexical != candidate:
+        _fail("reported_file_not_canonical")
     try:
         resolved = candidate.resolve(strict=True)
     except OSError:
@@ -369,6 +416,25 @@ def _top_level_function(
     return matches[0]
 
 
+def _has_static_branch(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(
+        isinstance(descendant, STATIC_BRANCH_NODES) for descendant in ast.walk(node)
+    )
+
+
+def _has_exclusion_marker(source: str, *, start: int, end: int) -> bool:
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        return any(
+            token.type == tokenize.COMMENT
+            and start <= token.start[0] <= end
+            and EXCLUSION_MARKER.search(token.string) is not None
+            for token in tokens
+        )
+    except (IndentationError, tokenize.TokenError):
+        _fail("critical_source_syntax_invalid")
+
+
 def _critical_result(
     file: FileCoverage, *, module: str, function: str
 ) -> dict[str, object]:
@@ -377,9 +443,12 @@ def _critical_result(
     except (OSError, UnicodeError):
         _fail("critical_source_unreadable")
     node = _top_level_function(source, function)
-    assert node.end_lineno is not None
+    if node.end_lineno is None:
+        _fail("critical_symbol_not_exact")
     start = node.lineno
     end = node.end_lineno
+    if _has_exclusion_marker(source, start=start, end=end):
+        _fail("critical_source_exclusion_marker")
     raw_region = file.functions.get(function)
     region = _mapping(raw_region, "critical_region_missing")
     if (
@@ -409,20 +478,28 @@ def _critical_result(
     )
     if region_facts != file_range:
         _fail("critical_ast_range_mismatch")
+    if region_facts.excluded_lines:
+        _fail("critical_source_excluded")
     line_ratio = _ratio(
         region_facts.line_covered,
         region_facts.line_total,
         "critical_line_coverage_empty",
     )
-    branch_ratio = _ratio(
-        region_facts.branch_covered,
-        region_facts.branch_total,
-        "critical_branch_coverage_empty",
-    )
     if line_ratio != 1.0:
         _fail("critical_line_coverage_incomplete")
-    if branch_ratio != 1.0:
-        _fail("critical_branch_coverage_incomplete")
+    has_static_branch = _has_static_branch(node)
+    if region_facts.branch_total == 0:
+        if has_static_branch:
+            _fail("critical_branch_coverage_empty")
+        branch_ratio: float | None = None
+        branch_requirement = "not-applicable-no-static-branch"
+    else:
+        if not has_static_branch:
+            _fail("critical_branch_coverage_unexpected")
+        branch_ratio = region_facts.branch_covered / region_facts.branch_total
+        branch_requirement = "one-hundred-percent"
+        if branch_ratio != 1.0:
+            _fail("critical_branch_coverage_incomplete")
     return {
         "symbol": f"{module}.{function}",
         "start_line": start,
@@ -430,15 +507,18 @@ def _critical_result(
         "line_covered": region_facts.line_covered,
         "line_total": region_facts.line_total,
         "line_ratio": line_ratio,
-        "branch_covered": region_facts.branch_covered,
-        "branch_total": region_facts.branch_total,
-        "branch_ratio": branch_ratio,
+        "branch": {
+            "covered": region_facts.branch_covered,
+            "total": region_facts.branch_total,
+            "ratio": branch_ratio,
+            "requirement": branch_requirement,
+        },
     }
 
 
 def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
     meta = _mapping(report.get("meta"), "coverage_meta_invalid")
-    if meta.get("format") != PINNED_JSON_FORMAT:
+    if type(meta.get("format")) is not int or meta["format"] != PINNED_JSON_FORMAT:
         _fail("coverage_json_format_not_three")
     if meta.get("version") != PINNED_COVERAGE_VERSION:
         _fail("coverage_version_mismatch")
@@ -532,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
             result_raw, suite_root=suite_root, coverage_json=coverage_json
         )
         result = verify(suite_root=suite_root, report=_load_json(coverage_json))
+        _write_result(result_path, result)
     except GateFailure as exc:
         reason = str(exc)
         if result_path is not None:
@@ -541,8 +622,9 @@ def main(argv: list[str] | None = None) -> int:
                 reason = "result_json_write_failed"
         print(reason, file=sys.stderr)
         return 2
-    assert result_path is not None
-    _write_result(result_path, result)
+    if result_path is None:
+        print("result_json_path_invalid", file=sys.stderr)
+        return 2
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0
 
