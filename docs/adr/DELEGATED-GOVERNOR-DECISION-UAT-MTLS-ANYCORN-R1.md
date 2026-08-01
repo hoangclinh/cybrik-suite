@@ -786,12 +786,18 @@ exactly:
    digest, response-parse or response-policy mismatch follows the same fail-closed rollback;
 7. use only the absolute `PINNED_PYTHON=` path and `PINNED_PYTHON_REALPATH=` recorded in the
    Founder authorization artifact. `PINNED_PYTHON` may be the exact D1 offline-venv `python`
-   symlink so its already-pinned test closure is available, but it may have no symlinked parent,
+   symlink so its already-pinned test closure is available, but it must not be under `/tmp`,
+   `/private/tmp` or the canonical Darwin user temporary directory, it may have no symlinked parent,
    its single link target must be `python3.12`, and `realpath(PINNED_PYTHON)` must equal the recorded
    regular `PINNED_PYTHON_REALPATH`. The resolved executable must report CPython `3.12.13` and have
    SHA-256 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`. The symlink chain,
-   CPython version and `pytest` version must match the authorization artifact immediately before
-   use. A missing/reaped test closure is a hard stop and cannot select another interpreter;
+   CPython version, exact installed-distribution closure, `pytest==9.1.1` and
+   `cryptography==50.0.0` must match the authorization artifact immediately before use. The accepted
+   D1 environment is ineligible for this action because it is under `/private/tmp` and contains the
+   separately installed Anycorn B1 distribution. A new durable, pip-less coverage-only environment
+   containing exactly the pinned 56 distributions is therefore mandatory. Reconstructing it is a
+   separate dependency action with its own prospective bounded authorization; no current
+   interpreter is silently substituted;
 8. extract the already-verified wheel with exactly `<PINNED_PYTHON> -m zipfile -e
    <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
    <COVERAGE_ROOT>/site-packages`. No package installer, index, build frontend or lifecycle script
@@ -807,9 +813,13 @@ exactly:
    percentage remains a separate `HOLD` gate. The already-consumed authorization permits only the
    post-measurement append of these two result digests and their bounded metadata to the preserved
    evidence root; it grants no second extraction or network action;
-10. on any failure or rollback, write one bounded secret-free failure record, remove only the
-   isolated tool root and preserve the evidence root. The one-shot authorization cannot be
-   replayed with a different root or resumed after a partial attempt.
+10. before the evidence root is opened and identity-validated, any failure emits one bounded
+   secret-free refusal to stdout. A just-created root is removed only when its identity is still
+   exact and it remains empty; ambiguity preserves rather than deletes an unverified path. After
+   the evidence root is validated, any failure or rollback writes one bounded secret-free failure
+   record there, removes only the still identity-bound isolated tool root and preserves the evidence
+   root. The one-shot authorization cannot be replayed with a different root or resumed after a
+   partial attempt.
 
 The Founder authorization artifact must contain exactly these standalone fields, one per line and
 with no caller-supplied fallback:
@@ -832,7 +842,12 @@ PINNED_PYTHON=<canonical-parent-absolute-d1-venv-python-symlink>
 PINNED_PYTHON_REALPATH=<canonical-absolute-regular-cpython-executable>
 PINNED_PYTHON_SHA256=a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623
 PYTHON_VERSION=3.12.13
-PYTEST_VERSION=<exact-version-observed-at-authorization>
+PYTEST_VERSION=9.1.1
+CRYPTOGRAPHY_VERSION=50.0.0
+D1_LOCK_SHA256=e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add
+D1_REQUIREMENTS_SHA256=93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603
+D1_LOCKED_WHEEL_COUNT=56
+PINNED_CLOSURE_SHA256=6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919
 WHEEL_FILENAME=coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
 WHEEL_URL=https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
 WHEEL_SIZE=221943
@@ -1018,6 +1033,84 @@ The authoring tests use synthetic format-3 reports to prove the PASS path and fa
 refusals; they do not measure the real package. D2-COV-P1 does not install Coverage.py, does not
 satisfy the section 7.3 coverage gate, does not open Phase A and grants no UAT or release credit.
 D2 remains **HOLD**. Release dates remain unchanged.
+
+### Gate UAT-MTLS-D2-COV-P2 — executable authorization hardening
+
+Current state: `AUTHORED — VALIDATOR TESTS GREEN — DEPENDENCY ACTION NOT RUN — RUNTIME HOLD`.
+
+The independent review of D2-COV-P0 found that interpreter and pytest pins alone could not
+distinguish the accepted D1 closure from a superseded environment. It also found that the P0
+one-shot, path, timestamp, checkout and identity requirements were prose constraints rather than an
+executable fail-closed preflight. P2 closes those authoring defects without granting the proposed
+dependency action.
+
+The maximum hardening scope is exactly:
+
+- `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/scripts/validate_coverage_authorization.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_authorization.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `tools/contract-validation/tests/validate-transport.test.mjs`
+
+No other path is authorized by D2-COV-P2. In particular, this gate does not install or restore the
+D1 closure, fetch or extract Coverage.py, modify a lock or product environment, start a listener or
+database, create PKI, run a migration, execute N1–N10, edit a runtime-admission carrier or grant
+UAT/release credit.
+
+The exact P0 authorization now additionally pins:
+
+- `D1_LOCK_SHA256=e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`;
+- `D1_REQUIREMENTS_SHA256=93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603`
+  and `D1_LOCKED_WHEEL_COUNT=56`, both re-read from the clean-tree committed D1 dependency evidence;
+- `PINNED_CLOSURE_SHA256=6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`
+  over the canonical sorted installed `name==version` records. This is independently derived from
+  the committed D1 installed-environment SBOM after excluding the separately installed Anycorn B1
+  artifact, which the coverage-only test closure does not execute;
+- `PYTEST_VERSION=9.1.1`; and
+- `CRYPTOGRAPHY_VERSION=50.0.0`, which prevents reuse of the superseded 46.0.7 closure below the
+  accepted `>=48.0.1,<51` floor.
+
+The requirements digest binds the accepted clean-tree D1 evidence declaration. This P2 slice does
+not claim to re-hash a surviving requirements file: that temp-resident file is gone, and its durable
+reconstruction remains part of the separate dependency action.
+
+The pinned Python symlink and its real executable must not be under `/tmp`, `/private/tmp` or the
+canonical Darwin host-temporary directory. This closes the durability asymmetry between the
+coverage roots and the D1 test closure.
+
+Before either authorized root is created, execute the pure-stdlib validator from the exact
+`SUITE_ROOT` with the pinned interpreter:
+
+```text
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/validate_coverage_authorization.py --authorization <FOUNDER_AUTHORIZATION_ARTIFACT> --check-only
+```
+
+Only an exact PASS may be consumed once with:
+
+```text
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/validate_coverage_authorization.py --authorization <FOUNDER_AUTHORIZATION_ARTIFACT> --consume
+```
+
+The validator parses the exact ordered field set, validates the RFC 3339 window, exact clean
+detached Suite commit/tree/root and working directory, derives the Darwin host-temp root, rejects
+temporary or overlapping roots and interpreters, verifies the Python symlink chain, executable and
+installed closure, verifies the D1 lock and curl identity, and requires both roots to be fresh.
+The validator records each canonical parent's `st_dev` and `st_ino`. The `--consume` operation
+opens each parent without following symlinks, requires the opened identity to equal that validated
+identity, rechecks the named parent immediately before each `mkdir`, then anchors every root,
+subdirectory, evidence write and rollback operation to those directory descriptors. It creates
+both roots with mode `0700`, creates only `wheel`, `site-packages` and `data` under the tool root,
+and writes the exact authorization plus an exclusive bounded consumption record at mode `0600` in
+the evidence root. Reuse fails on fresh-root creation; any post-creation failure removes only the
+still identity-bound tool root and preserves a bounded failure record in the evidence root.
+
+P2 deliberately stops before network access. The separately Founder-authorized P0 commands remain
+the only permitted OSV POST, wheel fetch and stdlib extraction. A missing accepted closure requires
+a new, separately reviewed recovery authorization; P2 cannot silently select a surviving older
+environment. D2 remains **HOLD**. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
