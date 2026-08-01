@@ -108,15 +108,15 @@ def _reject_nonfinite(_: str) -> object:
 
 
 def _load_json(path: Path) -> dict[str, object]:
-    if path.stat().st_size > MAX_JSON_BYTES:
-        _fail("coverage_json_too_large")
     try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            _fail("coverage_json_too_large")
         loaded = json.loads(
             path.read_text(encoding="utf-8"),
             object_pairs_hook=_pairs_without_duplicates,
             parse_constant=_reject_nonfinite,
         )
-    except (OSError, UnicodeError, json.JSONDecodeError):
+    except (OSError, UnicodeError, ValueError, RecursionError):
         _fail("coverage_json_invalid")
     if not isinstance(loaded, dict):
         _fail("coverage_json_root_not_object")
@@ -127,14 +127,14 @@ def _absolute_canonical_path(raw: str, *, directory: bool) -> Path:
     candidate = Path(raw)
     if not candidate.is_absolute():
         _fail("input_path_not_absolute")
+    if candidate.is_symlink():
+        _fail("input_path_is_symlink")
     try:
         resolved = candidate.resolve(strict=True)
     except OSError:
         _fail("input_path_unavailable")
     if resolved != candidate:
         _fail("input_path_not_canonical")
-    if candidate.is_symlink():
-        _fail("input_path_is_symlink")
     if directory:
         if not candidate.is_dir():
             _fail("suite_root_not_directory")
@@ -157,7 +157,11 @@ def _fresh_result_path(raw: str, *, suite_root: Path, coverage_json: Path) -> Pa
         _fail("result_json_not_co_located")
     if EVIDENCE_ROOT_NAME.fullmatch(parent.name) is None:
         _fail("coverage_evidence_root_name_invalid")
-    if parent.stat().st_mode & 0o777 != 0o700:
+    try:
+        parent_mode = parent.stat().st_mode & 0o777
+    except OSError:
+        _fail("result_json_parent_unavailable")
+    if parent_mode != 0o700:
         _fail("coverage_evidence_root_mode_invalid")
     if (
         parent == suite_root
@@ -171,15 +175,16 @@ def _fresh_result_path(raw: str, *, suite_root: Path, coverage_json: Path) -> Pa
 
 
 def _write_result(destination: Path, record: dict[str, object]) -> None:
-    temporary = destination.with_name(
-        f".{destination.name}.{secrets.token_hex(16)}.tmp"
-    )
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     descriptor: int | None = None
     published_identity: tuple[int, int] | None = None
+    temporary: Path | None = None
     try:
+        temporary = destination.with_name(
+            f".{destination.name}.{secrets.token_hex(16)}.tmp"
+        )
         descriptor = os.open(temporary, flags, 0o600)
         os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
@@ -215,10 +220,11 @@ def _write_result(destination: Path, record: dict[str, object]) -> None:
                     destination.unlink()
             except OSError:
                 pass
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         _fail("result_json_write_failed")
 
 
@@ -306,7 +312,10 @@ def _reported_path(key: str, *, suite_root: Path, package_root: Path) -> Path:
     candidate = Path(key)
     if not candidate.is_absolute():
         candidate = suite_root / candidate
-    lexical = candidate.resolve(strict=False)
+    try:
+        lexical = candidate.resolve(strict=False)
+    except OSError:
+        _fail("reported_file_unavailable")
     if lexical.suffix != ".py" or not lexical.is_relative_to(package_root):
         _fail("reported_file_outside_package")
     if lexical != candidate:
@@ -525,7 +534,10 @@ def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
     if meta.get("branch_coverage") is not True:
         _fail("branch_coverage_not_enabled")
 
-    package_root = (suite_root / PACKAGE_REL).resolve(strict=True)
+    try:
+        package_root = (suite_root / PACKAGE_REL).resolve(strict=True)
+    except OSError:
+        _fail("package_root_invalid")
     files = _file_coverage(
         report.get("files"), suite_root=suite_root, package_root=package_root
     )

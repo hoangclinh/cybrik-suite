@@ -634,7 +634,9 @@ def test_result_writer_converts_io_failure_to_a_stable_gate_reason(
 def test_result_writer_converts_entropy_failure_to_a_stable_gate_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    spec = importlib.util.spec_from_file_location("d2_coverage_verifier_entropy", VERIFY)
+    spec = importlib.util.spec_from_file_location(
+        "d2_coverage_verifier_entropy", VERIFY
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
