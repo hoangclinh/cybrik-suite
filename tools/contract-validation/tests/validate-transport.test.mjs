@@ -4266,6 +4266,32 @@ const UAT_MTLS_D1_R2_ADDITIONS = [
   'integration/compose/soc-ai-lifecycle-create-mtls/README.md',
   'integration/compose/README.md',
 ];
+const UAT_MTLS_D1_EXPECTED_PATHS = [
+  'integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml',
+  'integration/compose/soc-ai-lifecycle-create-mtls/uv.lock',
+  'integration/compose/soc-ai-lifecycle-create-mtls/patches/anycorn-0.20.0+cybrik.1.patch',
+  'integration/compose/soc-ai-lifecycle-create-mtls/scripts/build_anycorn_patch.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/server.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/client.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_anycorn_patch_provenance.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_reproducible_wheel.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_patched_ssl_context.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py',
+  ...UAT_MTLS_D1_R2_ADDITIONS,
+  'tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/dependency-lock.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/patch-provenance.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/internal-wheel.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/licenses.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/sbom.cdx.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/vex.cdx.json',
+  'integration/compose/soc-ai-lifecycle-create-mtls/evidence/offline-reinstall.json',
+  'docs/uat/candidates/README.md',
+  'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
+  'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+  'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
+];
 
 const extractD1R2Additions = (decision) => {
   const section = mdSection(decision, '6. Prospective owner paths split by gate');
@@ -4285,30 +4311,38 @@ test('UAT mTLS S1 R2 keeps uv.lock registry-only and pins B1 outside the solver'
     'S1 R2 must remove the contradictory rule that an ephemeral B1 wheel enters uv.lock',
   );
   assert.match(decision, /registry-only third-party closure/);
-  assert.match(decision, /`anycorn` is absent from the solver and `uv\.lock`/);
+  assert.match(decision, /`anycorn` is absent from the solver\s+and `uv\.lock`/);
   assert.match(decision, /`evidence\/internal-wheel\.json`/);
-  assert.match(decision, /installed offline with `--no-deps` only after a fail-closed SHA-256 check/);
-  assert.match(decision, /No raw Anycorn distribution may be resolved, downloaded, locked or installed/);
+  assert.match(decision, /installed offline with `--no-deps` only after a\s+fail-closed SHA-256 check/);
+  assert.match(decision, /No raw Anycorn distribution may be resolved, downloaded, locked or\s+installed/);
 });
 
 test('UAT mTLS S1 R2 expands D1 by exactly the three required existing paths', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
+  const section = mdSection(decision, '6. Prospective owner paths split by gate');
+  assert.ok(section !== null, 'the mTLS decision must retain its exact section 6');
+  const fullList = section.match(
+    /dependency installation\/build\s+authority:\n\n((?:- `[^`]+`\n)+)\nS1 R2 expands/,
+  );
+  assert.ok(fullList, 'section 6.2 must expose one finite D1 maximum-path list');
+  const paths = [...fullList[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
+  assert.deepEqual(paths, UAT_MTLS_D1_EXPECTED_PATHS);
   assert.deepEqual(extractD1R2Additions(decision), UAT_MTLS_D1_R2_ADDITIONS);
   assert.match(decision, /dependency-neutral modules from the D1 runtime modules/);
   assert.match(decision, /removes no fail-closed purity, inventory or import coverage/);
-  assert.match(decision, /Both README files must replace their dependency-neutral-only claims/);
+  assert.match(decision, /Both README files must replace\s+their dependency-neutral-only claims/);
 });
 
 test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rules fail closed', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   assert.match(decision, /Committed-byte provenance tests must never import `anycorn`/);
   assert.match(decision, /`CYBRIK_UAT_D1_ARTIFACT_DIR`/);
-  assert.match(decision, /not `skip`, `xfail` or `todo`/);
+  assert.match(decision, /not `skip`, `xfail` or\s+`todo`/);
   assert.match(decision, /`umask 022`/);
-  assert.match(decision, /two distinct absolute build directories/);
+  assert.match(decision, /two\s+distinct absolute build directories/);
   assert.match(decision, /same-path rebuild does not satisfy reproducibility/);
   assert.match(decision, /CycloneDX SBOM and VEX documents are validated against their own schemas/);
-  assert.match(decision, /Only bounded digests and summaries enter the custom evidence sanitizer/);
+  assert.match(decision, /Only bounded digests and\s+summaries enter the custom evidence sanitizer/);
   assert.match(decision, /must not weaken that sanitizer/);
   assert.match(decision, /wheelhouse, cache and clean build workspaces remain outside the repository/);
   assert.match(decision, /offline reinstall proof is scoped to the exact recorded platform/);

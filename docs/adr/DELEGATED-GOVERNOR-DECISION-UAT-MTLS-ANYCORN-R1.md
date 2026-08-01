@@ -4,6 +4,7 @@
 - **Task-ID boundary:** this is a coordinator-delegated decision label, not a new identity in the
   fixed 48-task roster.
 - **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED — B1 UAT EVALUATION ADMITTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
+- **S1 R2 clarification:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
 - **Date:** 2026-08-01
 - **Canonical base:** `cybrik-suite@0766f31ca7ec283755c5ace5bc94f9df7cd05f1c`
 - **Ownership cell:** Suite Integration/Release; Cyber AI Runtime/Safety is a read-only consumer
@@ -227,9 +228,10 @@ PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
 ### 6.2 D1 preparation and separately gated K5 control carriers
 
 The dependency, harness, evidence, runner and runtime-candidate paths in the first group below are
-D1-only. No writer may touch them until the admission-sequencing clarification is accepted, S1
-admits option B1 for bounded evaluation, and the Founder grants dependency installation/build
-authority:
+the maximum D1 write scope. All are D1-only except the three existing S1 R2 preparation paths
+explicitly reopened below. No D1 writer may touch any of them until the admission-sequencing
+clarification is accepted, S1 admits option B1 for bounded evaluation, and the Founder grants
+dependency installation/build authority:
 
 - `integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml`
 - `integration/compose/soc-ai-lifecycle-create-mtls/uv.lock`
@@ -242,6 +244,9 @@ authority:
 - `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_patched_ssl_context.py`
 - `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py`
 - `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/README.md`
 - `tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh`
 - `integration/compose/soc-ai-lifecycle-create-mtls/evidence/dependency-lock.json`
 - `integration/compose/soc-ai-lifecycle-create-mtls/evidence/patch-provenance.json`
@@ -254,6 +259,16 @@ authority:
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md`
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md`
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json`
+
+S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:
+
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/README.md`
+
+`test_policy.py` must separate the dependency-neutral modules from the D1 runtime modules; that
+split removes no fail-closed purity, inventory or import coverage. Both README files must replace
+their dependency-neutral-only claims with truthful authored/not-run D1 status in the same packet.
 
 The following eight W2-K metadata/control carriers are **not** D1-only. K5 may amend them under its
 separate exact-path review while every installation field remains false. D1 may touch them later
@@ -271,14 +286,22 @@ only to flip B1 `installed` and `pinned` atomically after the exact artifact exi
 The dedicated UAT lock covers third-party harness dependencies only. The unpublished SOC and Cyber
 AI packages are not installed, editable-installed or resolved into it; the runner imports their
 exact clean checkout source roots through `PYTHONPATH`, matching the existing SOSIM pattern.
-The official raw Anycorn wheel is never installed or pinned. Only the internally versioned,
-patch-provenance-bound B1 wheel may enter this isolated lock. D1 may execute patch provenance,
-reproducibility, SSL-context, lock, audit, SBOM and offline-reinstall tests. Those commands may use
-only exact outbound artifact-resolution connections and build-backend child processes; they may
-open no listener, start no ASGI/database server and make no product-runtime connection. D1 may
-author but not execute the real-listener/PostgreSQL targets. The four status carriers listed above
-must be updated atomically to say `authored/not run` and retain `HOLD`,
-`execution_authorized=false`, zero runtime checks and truthful evidence digests.
+The official raw Anycorn wheel is never installed or pinned. The dedicated lock contains a
+registry-only third-party closure with exact artifact hashes; `anycorn` is absent from the solver
+and `uv.lock`. The internally versioned, patch-provenance-bound B1 wheel is pinned separately by
+exact SHA-256 in `evidence/internal-wheel.json` and installed offline with `--no-deps` only after a
+fail-closed SHA-256 check. No raw Anycorn distribution may be resolved, downloaded, locked or
+installed. D1 may execute patch provenance, reproducibility, SSL-context, lock, audit, SBOM and
+offline-reinstall tests. Those commands may use only the exact outbound and child-process authority
+enumerated under Gate UAT-MTLS-D1; they may open no listener, start no ASGI/database server and make
+no product-runtime connection. D1 may author but not execute the real-listener/PostgreSQL targets.
+The four status carriers listed above must be updated atomically to say `authored/not run` and
+retain `HOLD`, `execution_authorized=false`, zero runtime checks and truthful evidence digests.
+
+Committed-byte provenance tests must never import `anycorn`. Artifact-dependent targets require a
+bounded `CYBRIK_UAT_D1_ARTIFACT_DIR` when invoked and fail closed when it is absent. They are
+explicit D1 targets outside the dependency-neutral clean-checkout target, not `skip`, `xfail` or
+`todo`; the committed clean-checkout suite remains green without an ephemeral artifact.
 
 The eight W2-K R5 status/control paths must reconcile present-time facts atomically without
 changing any wire schema, fixture or packet-member digest. R5 adds an explicit amendment to the
@@ -357,7 +380,9 @@ proving the official sdist hash, exact two-hunk patch, local version, reproducib
 preserved SSL option bits and isolated lock. Reproducibility means two clean-directory builds with
 the exact pinned CPython full version/executable digest, platform/ABI tag, frontend/backend
 versions and artifact hashes, `SOURCE_DATE_EPOCH=315532800`, `TZ=UTC`, `LC_ALL=C` and
-`PYTHONHASHSEED=0` produce byte-identical wheels. This checkpoint opens no listener or database.
+`PYTHONHASHSEED=0`, plus `umask 022`, produce byte-identical wheels. The two builds must use two
+distinct absolute build directories; a same-path rebuild does not satisfy reproducibility. This
+checkpoint opens no listener or database.
 
 Only after separate D2 authorization may the runtime RED checkpoint execute the real patched
 Anycorn `serve()` path. Its intended RED is the absent/incomplete separate-process harness or
@@ -417,8 +442,14 @@ Before any runtime attempt, the prospective UAT tool must have:
   `analysis.justification=code_not_present`, with patch/wheel/probe digests in `analysis.detail`;
   raw Anycorn remains affected/HOLD;
 - offline wheelhouse creation and hash-verified offline reinstall proof;
-- rollback that removes only the isolated UAT environment and leaves all product locks/bytes
-  unchanged.
+- rollback that removes only the ephemeral `dist/` artifact and isolated UAT environment,
+  wheelhouse, cache and clean build workspaces while leaving all product locks/bytes unchanged.
+
+CycloneDX SBOM and VEX documents are validated against their own schemas. Only bounded digests and
+summaries enter the custom evidence sanitizer; D1 must not weaken that sanitizer to admit a full
+SBOM or VEX tree. The wheelhouse, cache and clean build workspaces remain outside the repository;
+only the exact B1 wheel may occupy the ephemeral gitignored `dist/` directory during D1. The
+offline reinstall proof is scoped to the exact recorded platform and ABI.
 
 If any transitive dependency has an open Critical/High on the exercised path, the candidate stays
 `HOLD`. No risk is accepted by this record.
@@ -489,10 +520,13 @@ Current state: `HOLD — FOUNDER AUTHORIZATION REQUIRED` by repository policy.
 
 The requested authority, if granted, must be bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
-running dependency-only tests. D1 permits only exact outbound client connections needed to resolve
-and download the pinned sdist/build dependencies and the exact build-backend child processes. It
-grants no listening socket, server process, database, migration or product-runtime authority. D1
-cannot open before A0 and K5 are accepted and S1 admits option B1.
+running dependency-only tests. D1 permits outbound HTTPS only to the pinned `pypi.org` metadata
+endpoint, the exact `files.pythonhosted.org` artifact endpoint, the named advisory-database
+endpoint used by the vulnerability scanner, and the exact registry endpoints needed to resolve
+SBOM/license/audit tooling into an isolated tooling environment outside the UAT lock. It also
+permits the exact build-backend child processes needed for the two reproducibility builds. This
+grants no listener, server, database, migration or product-runtime authority and no product
+dependency change. D1 cannot open before A0 and K5 are accepted and S1 admits option B1.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
@@ -553,8 +587,9 @@ Claude-B quota exhaustion is operational context only and grants no independence
 
 ## 12. Rollback
 
-Before runtime: revert the bounded Suite harness commit and delete only the isolated UAT virtual
-environment/wheelhouse. Product repositories remain byte-identical.
+Before runtime: revert the bounded Suite harness commit and delete only the ephemeral gitignored
+`dist/` artifact plus the isolated UAT environment, wheelhouse, cache and clean build workspaces.
+Product repositories remain byte-identical.
 
 During an authorized runtime attempt: stop both client/server processes, close both loopback
 listeners, drop only the disposable UAT PostgreSQL schema/database, revoke and destroy the
@@ -571,6 +606,7 @@ remains.
 - `RAW-ANYCORN-0.20.0=HOLD`
 - `PRODUCT-DEPENDENCY-CHANGES=DENY`
 - `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
+- `S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
 - `DEPENDENCY-INSTALLATION=HOLD-PENDING-FOUNDER`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`
