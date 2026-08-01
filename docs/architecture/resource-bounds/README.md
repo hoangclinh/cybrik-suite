@@ -1,8 +1,8 @@
 # Resource-bounds contract packet
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 Version: `0.1.0`
-Gate: `W2-H — bounded proposal writing and static conformance only`
+Gate: `W2-H — accepted for implementation; static conformance only`
 
 This directory explains the Suite-owned resource-bounds contract instrument.
 It contains no product implementation, endpoint, server, transport binding,
@@ -18,5 +18,6 @@ Read:
 2. [Deterministic replay and evidence](02-deterministic-replay-and-evidence.md)
 3. [ADR-0012](../../adr/ADR-0012-resource-bounds-contract-profile.md)
 
-Green static checks do not accept the proposal and provide no runtime, UAT,
-release, production, T10, or T11 evidence.
+Acceptance is permission to implement against this packet later, never
+implementation itself. Green static checks accept nothing on their own and
+provide no runtime, UAT, release, production, T10, or T11 evidence.

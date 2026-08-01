@@ -137,10 +137,10 @@ implements a runtime, or names a production signer.** Credential lease, workload
 production issuer/signer, and key lifecycle remain open prerequisites — see the manifest's
 `future_prerequisites` and `../../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.
 
-## W2-H resource-bounds packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`, v0.1.0)
+## W2-H resource-bounds packet (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`, v0.1.0)
 
-The additive `cybrik.res-*` family is a static proposal for conserved accounting across a call
-tree:
+The additive `cybrik.res-*` family is the accepted static contract for conserved accounting
+across a call tree:
 
 - `cybrik.res-common-defs.v1` — additive credit vector, identifiers, parent reference, sequence,
   virtual time, and derived-only authority constants.
@@ -156,8 +156,9 @@ tree:
   `budget_exceeded`, `BUDGET_*`, and the inference budget error classes.
 
 Inventory: `../compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`. Fixtures:
-`../examples/resource-bounds/`. This packet defines no deadline or peak-memory conservation,
-server, endpoint, MCP tool, runtime, UAT, release, deployment, or production surface.
+`../examples/resource-bounds/`. Acceptance is permission to implement later; this packet defines
+no deadline or peak-memory conservation, server, endpoint, MCP tool, runtime, UAT, release,
+deployment, or production surface.
 
 ## W2-K transport peer evidence (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`, v0.1.0)
 

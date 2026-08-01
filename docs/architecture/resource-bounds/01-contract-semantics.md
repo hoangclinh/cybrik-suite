@@ -1,6 +1,6 @@
 # Resource-bounds contract semantics
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 Version: `0.1.0`
 
 ## State model
@@ -150,7 +150,7 @@ approval. No model output can establish any of those properties.
 
 ## Vocabulary boundary
 
-The accepted investigation `budget` caps one create request. This proposal
+The accepted investigation `budget` caps one create request. This packet
 conserves credits across a call tree, with no mapping to that object.
 `budget_exceeded`, `BUDGET_*`, `over_input_budget`, `over_output_budget`, and
 `fallbackInfo.reason = "budget"` keep their existing meanings. `RES_*` errors

@@ -1,11 +1,13 @@
 # ADR-0012 — Resource-bounds contract profile
 
-- Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
-- Contract version: `0.1.0` (pre-v1; not a bundle tag)
+- Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
+- Contract version: `0.1.0` (pre-v1; not stable v1/GA and not a bundle tag)
 - Date raised: 2026-07-31
-- Gate: `W2-H — OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY`
+- Date accepted: 2026-08-01
+- Gate: `W2-H — ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 - Lane: `W0-T11/RB` (instrument sub-lane; no task 49)
-- Acceptance record: none
+- Acceptance record:
+  [GATE-W2-H-RESOURCE-BOUNDS-ACCEPTANCE-2026-08-01.md](../releases/GATE-W2-H-RESOURCE-BOUNDS-ACCEPTANCE-2026-08-01.md)
 
 ## Context
 
@@ -20,11 +22,18 @@ W0-T11 remains `HOLD until real vertical exists`. This packet is an instrument
 for later measurement, not a T11 latency/resource baseline and not progress
 toward W0-T10.
 
-## Proposed decision
+## Decision
 
-Adopt, subject to a later acceptance decision, seven JSON Schema 2020-12
-documents under `cybrik.res-*`, a fixed deterministic fixture corpus, one
-compatibility manifest, and static architecture guidance.
+Adopt seven JSON Schema 2020-12 documents under `cybrik.res-*`, a fixed
+deterministic fixture corpus, one compatibility manifest, and static
+architecture guidance.
+
+The W2-H/R5 amendment accepts this exact v0.1.0 profile for implementation. It
+is permission to implement against the contract later, never implementation
+itself: the profile remains `NOT IMPLEMENTED`, is not stable v1/GA, and is not
+an ADR-0001 immutable bundle tag. Acceptance moved governance metadata and
+digests only — no schema property, required field, type, enum, `$ref`, `const`,
+resource dimension, error code, fixture byte, replay rule or dependency moved.
 
 ### Conserved vector
 
@@ -74,7 +83,7 @@ runtime measurement.
 
 Root-cancel propagation depends on accepted W1-C2 lifecycle semantics.
 Durable no-remint accounting depends on accepted ADR-0003. These are
-one-directional dependencies only: this proposal changes no W1-C2 or ADR-0003
+one-directional dependencies only: this profile changes no W1-C2 or ADR-0003
 byte, adds no obligation to either, and requests no re-acceptance.
 
 ### Derived-only authority
@@ -92,11 +101,11 @@ objects.
 The accepted W1-C2
 `cybrik.investigation-create-request.v1` contract already contains
 `budget.{deadline_seconds,max_model_calls,max_tool_calls,max_retrieved_bytes}`.
-That object declares caps for one investigation request. This proposal
+That object declares caps for one investigation request. This profile
 accounts conserved quantities across a call tree. There is no mapping between
 the two in this packet.
 
-Likewise, this proposal does not rename, extend, deprecate, replace, or map
+Likewise, this profile does not rename, extend, deprecate, replace, or map
 `budget_exceeded`, `BUDGET_*`, `over_input_budget`,
 `over_output_budget`, or `fallbackInfo.reason = "budget"`. Resource errors use
 the disjoint `RES_*` namespace.
@@ -124,14 +133,16 @@ The compatibility manifest pins the seven schemas, the examples manifest, all
   cancellation.
 
 These labels are local evidence labels, not gates or SOC analyst tiers. A green
-check is conformance evidence only. It accepts no contract, starts no server,
-and supplies no integration, runtime, UAT, release, deployment, production,
-T10, or T11 evidence.
+check is conformance evidence only. Acceptance came from the recorded Governor
+decision, never from a green check; a green check starts no server and supplies
+no integration, runtime, UAT, release, deployment, production, T10, or T11
+evidence.
 
 ## Consequences and deferred work
 
-This proposal establishes a precise accounting vocabulary and a reproducible
-static proof target. Product ownership, enforcement placement, persistence,
+This profile establishes a precise accounting vocabulary and a reproducible
+static proof target. Acceptance authorizes later implementation work against
+it and nothing more. Product ownership, enforcement placement, persistence,
 concurrency, crash recovery, operational limits, telemetry, deployment, and
 all product implementations remain deferred to separately authorized work.
 Release dates remain unchanged.

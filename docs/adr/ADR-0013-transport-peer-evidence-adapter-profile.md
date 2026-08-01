@@ -55,9 +55,10 @@ and does not move that candidate out of HOLD.
 
 ## Resource-bounds non-goal
 
-W2-H `resource-bounds` remains a parallel, proposed packet. Resource accounting attaches only after
-transport evidence derivation and relying-party reauthorization; it is not a property of this
-evidence object. This ADR modifies no W2-H artifact and does not claim T11 measurement evidence.
+W2-H `resource-bounds` remains a parallel packet, accepted for implementation but not implemented.
+Resource accounting attaches only after transport evidence derivation and relying-party
+reauthorization; it is not a property of this evidence object. This ADR modifies no W2-H artifact
+and does not claim T11 measurement evidence.
 
 ## Consequences
 

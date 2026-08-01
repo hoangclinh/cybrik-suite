@@ -22,9 +22,9 @@ accepted base catalog before this additive proposal and is not an acceptance sta
 ADR-0011. Gate W2-I is **`NOT OPENED`**.
 
 The W2-H resource-bounds packet adds ADR-0012 as
-`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-H authorizes only bounded proposal writing
-and static conformance under the delegated Governor decision; it does not accept ADR-0012 or
-authorize runtime, UAT, release, deployment, or production work.
+`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. Gate W2-H accepts the exact v0.1.0 packet for
+implementation only under the delegated Governor R5 decision; it authorizes no runtime, UAT,
+release, deployment, or production work.
 
 The W2-K transport peer-evidence packet adds ADR-0013 as
 `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. Gate W2-K accepts the exact v0.1.0 packet for
@@ -50,7 +50,7 @@ or production evidence.
 | [ADR-0009](ADR-0009-org-hierarchy-and-external-authority-contract-profile.md) | Org-hierarchy & external-authority contract profile | `ACCEPTED FOR IMPLEMENTATION` (W2-G, 2026-07-24) — v0.1.0, not stable v1/GA; applies the ADR-0007 contract delta, re-decides no model |
 | [ADR-0010](ADR-0010-capability-name-canonicalization.md) | Capability-name canonicalization across JSON Schema runtimes | `ACCEPTED FOR IMPLEMENTATION — APPLIED` (2026-07-26) — pre-GA patch 0.1.1, not stable v1/GA |
 | [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |
-| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |
+| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
@@ -92,5 +92,5 @@ authoritative on ADR status.**
 | [FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md](FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md) | Historical W0-IR01 controlled-integration decision | `DECIDED — OPTION Z — FOUNDER-MANUAL` (2026-07-29) remains immutable dated history; its forward-looking per-action technical approvals are superseded by `DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`. Evidence gates remain mandatory and production remains Founder-controlled |
 | [FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md](FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md) | W0-T11 resource-budget contract instrument — scope, naming and sequencing questions `T11-RB-1` … `T11-RB-8` | `DEPENDENCY READY — AWAITING BOUNDED IMPLEMENTATION PACKET` (decision 2026-07-29). W1-C1/W1-C2 canonical-integration prerequisite is satisfied by PR #1 merge `28c564eb…`; operative naming remains `res-bounds-*` with `resource-bounds/`; no gate opens and no ADR number is allocated. Independent review run `60adebd4-d22f-4134-8918-1dfd83e89712` `PASS`, `P0=P1=P2=0`, five `P3` retained |
 | [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |
-| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY` (2026-07-31); assigns ADR-0012 at write time, authorizes only the exact proposal paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |
+| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | R5 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |
 | [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded proposal, registration, wire-cleanup, and atomic-acceptance authority for the server-neutral transport peer-evidence packet | R4 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |

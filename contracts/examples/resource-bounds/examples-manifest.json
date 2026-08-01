@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "not_accepted": true,
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
   "packet_version": "0.1.0",
   "fixtures": [
     {

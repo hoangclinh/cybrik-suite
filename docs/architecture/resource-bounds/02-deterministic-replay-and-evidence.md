@@ -1,6 +1,6 @@
 # Deterministic replay and evidence
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 Version: `0.1.0`
 
 ## Replay record
@@ -104,6 +104,7 @@ return-and-consume, and terminal root closure, so conservation is read off
 replayed state rather than off the generator's own arithmetic. L1/L2 are local
 labels in this packet, not gate identifiers and not analyst tiers.
 
-Passing L1/L2 says only that the proposal is internally coherent. It does not
-accept ADR-0012, implement enforcement, run a vertical, satisfy W0-T10 or
-W0-T11, or provide runtime, UAT, release, deployment, or production evidence.
+Passing L1/L2 says only that the packet is internally coherent. It does not
+accept ADR-0012 — that came from the recorded Governor decision — and it does
+not implement enforcement, run a vertical, satisfy W0-T10 or W0-T11, or provide
+runtime, UAT, release, deployment, or production evidence.
