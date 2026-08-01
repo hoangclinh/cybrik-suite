@@ -129,3 +129,18 @@ pinned command proves at least 80% line and branch coverage and 100% coverage of
 paths. If the pinned environment does not already contain the required coverage runner, a
 separate bounded coverage-tooling action must be reviewed before it is installed or used. Static
 pass counts are not a substitute for this coverage evidence. Release dates are unchanged.
+
+## Proposed isolated coverage-tooling action
+
+`UAT-MTLS-D2-COV-P0` is `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`. It requests
+one outside-repository-only installation of the exact SHA-256-pinned Coverage.py `7.15.2` macOS
+arm64 CPython 3.12 wheel into a fresh tool-only target directory, with a second disjoint evidence
+root preserved on success, failure and rollback. It changes neither this harness lock nor any
+product environment and may select only the eight exact import-inert unit/static test files; the
+guarded D2 runtime target is explicitly deselected. Installation integrity and the coverage result
+are separate gates. Coverage `PASS` requires at least 80% line and branch coverage across the full
+harness package plus 100% line/branch coverage of the exact builder, bind-validation, sanitizer and
+teardown functions named in the ADR, exercised only through fakes, monkeypatches and temporary
+roots. The proposal authorizes nothing until Founder approval is recorded, and neither installation
+nor a passing coverage result by itself opens Phase A, recovers B1, runs N1–N10 or grants
+UAT/release credit.
