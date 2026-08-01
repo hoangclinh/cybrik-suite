@@ -273,6 +273,14 @@ def test_policy_violation_never_echoes_the_rejected_candidate() -> None:
     assert candidate not in rendered
 
 
+def test_parse_loopback_bind_rejects_an_extreme_port_without_leaking_value() -> None:
+    candidate = "127.0.0.1:" + ("9" * 10_000)
+    with pytest.raises(policy.PolicyViolation) as caught:
+        policy.parse_loopback_bind(candidate)
+    assert caught.value.reason == policy.BIND_PORT_OUT_OF_RANGE
+    assert candidate not in f"{caught.value}{caught.value!r}{caught.value.args}"
+
+
 # --------------------------------------------------------------------------
 # SSL-context builder references — symbolic only, no Anycorn import
 # --------------------------------------------------------------------------
