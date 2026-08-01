@@ -65,7 +65,7 @@ def _fields(tmp_path: Path) -> dict[str, str]:
         "D1_LOCK_SHA256": "e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add",
         "D1_REQUIREMENTS_SHA256": "93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603",
         "D1_LOCKED_WHEEL_COUNT": "56",
-        "PINNED_CLOSURE_SHA256": "c" * 64,
+        "PINNED_CLOSURE_SHA256": authorization.PINNED_VALUES["PINNED_CLOSURE_SHA256"],
         "WHEEL_FILENAME": "coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl",
         "WHEEL_URL": "https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl",
         "WHEEL_SIZE": "221943",
@@ -110,6 +110,7 @@ def _observed(fields: dict[str, str]) -> object:
         closure_sha256=fields["PINNED_CLOSURE_SHA256"],
         locked_wheel_count=56,
         d1_lock_sha256=fields["D1_LOCK_SHA256"],
+        d1_requirements_sha256=fields["D1_REQUIREMENTS_SHA256"],
         network_client_realpath=Path(fields["NETWORK_CLIENT_REALPATH"]),
         network_client_sha256=fields["NETWORK_CLIENT_SHA256"],
         network_client_version=fields["NETWORK_CLIENT_VERSION"],
@@ -139,6 +140,92 @@ def test_closure_digest_is_stable_and_order_independent() -> None:
     assert authorization.closure_digest(first) == _sha256(
         b"cryptography==50.0.0\npytest==9.1.1\n"
     )
+
+
+def test_accepted_coverage_closure_is_pinned_to_d1_sbom_without_anycorn() -> None:
+    sbom = json.loads(
+        (Path(__file__).parents[1] / "evidence" / "sbom.cdx.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    rows = [
+        (component["name"], component["version"])
+        for component in sbom["components"]
+        if component["name"].lower() != "anycorn"
+    ]
+    assert len(rows) == 56
+    assert (
+        authorization.closure_digest(rows)
+        == authorization.PINNED_VALUES["PINNED_CLOSURE_SHA256"]
+    )
+
+
+def test_d1_requirement_and_wheel_pins_are_bound_to_committed_evidence() -> None:
+    requirements_sha256, wheel_count = authorization._d1_evidence_observation(
+        Path(__file__).parents[4]
+    )
+    assert requirements_sha256 == authorization.PINNED_VALUES["D1_REQUIREMENTS_SHA256"]
+    assert wheel_count == int(authorization.PINNED_VALUES["D1_LOCKED_WHEEL_COUNT"])
+
+
+def test_authorization_reader_rejects_symlinks_and_oversized_files(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "authorization.env"
+    target.write_bytes(b"safe\n")
+    target.chmod(0o600)
+    link = tmp_path / "authorization-link.env"
+    link.symlink_to(target)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization._read_authorization(link)
+    assert error.value.reason == "authorization_artifact_invalid"
+
+    oversized = tmp_path / "authorization-oversized.env"
+    oversized.write_bytes(b"x" * (authorization.MAX_AUTHORIZATION_BYTES + 1))
+    oversized.chmod(0o600)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization._read_authorization(oversized)
+    assert error.value.reason == "authorization_artifact_invalid"
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({"head_mode": "attached"}, "suite_state_mismatch"),
+        ({"git_status": "?? residue"}, "suite_state_mismatch"),
+        ({"network_client_sha256": "0" * 64}, "network_client_identity_mismatch"),
+    ],
+)
+def test_validation_fail_closes_on_checkout_and_client_drift(
+    tmp_path: Path, change: dict[str, object], reason: str
+) -> None:
+    fields = _fields(tmp_path)
+    observed = authorization.ObservedState(**{**_observed(fields).__dict__, **change})
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.validate_authorization(fields, observed)
+    assert error.value.reason == reason
+
+
+def test_validation_rejects_unsafe_root_parent_and_repository_overlap(
+    tmp_path: Path,
+) -> None:
+    fields = _fields(tmp_path)
+    unsafe_parent = Path(fields["COVERAGE_ROOT"]).parent
+    unsafe_parent.chmod(0o770)
+    try:
+        with pytest.raises(authorization.AuthorizationFailure) as error:
+            authorization.validate_authorization(fields, _observed(fields))
+        assert error.value.reason == "authorization_root_parent_unsafe"
+    finally:
+        unsafe_parent.chmod(0o700)
+
+    fields = _fields(tmp_path / "overlap")
+    fields["COVERAGE_ROOT"] = str(
+        Path(fields["SUITE_ROOT"]) / "cybrik-uat-d2-coverage-overlap"
+    )
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.validate_authorization(fields, _observed(fields))
+    assert error.value.reason == "authorization_root_overlap"
 
 
 def test_validation_rejects_the_superseded_cryptography_closure(tmp_path: Path) -> None:
@@ -191,7 +278,10 @@ def test_validation_rejects_an_operator_selected_closure_digest(tmp_path: Path) 
     fields = _fields(tmp_path)
     fields["PINNED_CLOSURE_SHA256"] = "d" * 64
     observed = authorization.ObservedState(
-        **{**_observed(fields).__dict__, "closure_sha256": fields["PINNED_CLOSURE_SHA256"]}
+        **{
+            **_observed(fields).__dict__,
+            "closure_sha256": fields["PINNED_CLOSURE_SHA256"],
+        }
     )
 
     with pytest.raises(authorization.AuthorizationFailure) as error:

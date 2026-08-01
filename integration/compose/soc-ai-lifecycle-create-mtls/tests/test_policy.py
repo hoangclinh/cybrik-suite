@@ -614,7 +614,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         "harness.verify_absent",
     ):
         assert critical in decision
-    assert "remove only the isolated tool root and preserve the evidence root" in normalized
+    assert (
+        "removes only the still identity-bound isolated tool root and preserves the evidence root"
+        in normalized
+    )
     assert "HOST_TEMP_ROOT=" in decision
     assert "derive the canonical Darwin user temporary directory at execution" in normalized
     assert "must equal the recorded `HOST_TEMP_ROOT`" in normalized

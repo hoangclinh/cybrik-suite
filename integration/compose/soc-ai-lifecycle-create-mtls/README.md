@@ -193,11 +193,14 @@ runtime/UAT/release boundaries above remain unchanged.
 `UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — DEPENDENCY ACTION NOT RUN — RUNTIME
 HOLD`. The pure-stdlib `scripts/validate_coverage_authorization.py` replaces manual trust in the P0
 artifact with an executable fail-closed preflight. It binds the exact ordered field set, clean
-detached Suite commit/tree/root, current authorization window, durable non-temporary roots, pinned
-Python symlink and real executable, D1 lock SHA-256, 56-member installed closure digest,
+detached Suite commit/tree/root with no tracked, untracked or ignored residue, current authorization
+window, durable non-temporary roots, pinned Python symlink and real executable, the committed D1
+lock/requirements/wheel evidence and exact 56-member installed closure digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`,
 `pytest==9.1.1`, `cryptography==50.0.0` and the exact `/usr/bin/curl` identity.
 
-From the exact authorized Suite root, a future separately approved action must first run:
+From a fresh exact authorized Suite worktree, before running tests or creating ignored artifacts, a
+future separately approved action must first run:
 
 ```sh
 <PINNED_PYTHON> \

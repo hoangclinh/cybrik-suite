@@ -4661,7 +4661,7 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.equal(values.get('D1_LOCK_SHA256'), 'e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add');
   assert.equal(values.get('D1_REQUIREMENTS_SHA256'), '93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603');
   assert.equal(values.get('D1_LOCKED_WHEEL_COUNT'), '56');
-  assert.match(values.get('PINNED_CLOSURE_SHA256'), /^<[A-Z0-9_-]+>$/);
+  assert.equal(values.get('PINNED_CLOSURE_SHA256'), '6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919');
   assert.equal(values.get('NETWORK_CLIENT'), '/usr/bin/curl');
   assert.equal(values.get('NETWORK_CLIENT_REALPATH'), '/usr/bin/curl');
   assert.equal(values.get('NETWORK_CLIENT_SHA256'), '5ab042572ea0e068644e3b8f9e8dd1ad197bfcf33d199316615b46ddc4390a41');

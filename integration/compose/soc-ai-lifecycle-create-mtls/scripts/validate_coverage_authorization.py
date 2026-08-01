@@ -17,7 +17,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -81,6 +80,7 @@ PINNED_VALUES: Final = {
     "D1_LOCK_SHA256": "e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add",
     "D1_REQUIREMENTS_SHA256": "93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603",
     "D1_LOCKED_WHEEL_COUNT": "56",
+    "PINNED_CLOSURE_SHA256": "6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919",
     "WHEEL_FILENAME": "coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl",
     "WHEEL_URL": "https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl",
     "WHEEL_SIZE": "221943",
@@ -136,6 +136,7 @@ class ObservedState:
     closure_sha256: str
     locked_wheel_count: int
     d1_lock_sha256: str
+    d1_requirements_sha256: str
     network_client_realpath: Path
     network_client_sha256: str
     network_client_version: str
@@ -163,6 +164,39 @@ def _sha256_file(path: Path) -> str:
     except OSError:
         _fail("identity_file_unavailable")
     return digest.hexdigest()
+
+
+def _read_authorization(path: Path) -> bytes:
+    if not hasattr(os, "O_NOFOLLOW"):
+        _fail("secure_authorization_read_unavailable")
+    descriptor = -1
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        details = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or details.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+            or details.st_size > MAX_AUTHORIZATION_BYTES
+        ):
+            _fail("authorization_artifact_invalid")
+        chunks: list[bytes] = []
+        remaining = MAX_AUTHORIZATION_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(16 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) > MAX_AUTHORIZATION_BYTES:
+            _fail("authorization_artifact_invalid")
+        return raw
+    except OSError:
+        _fail("authorization_artifact_invalid")
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def parse_authorization(text: str) -> dict[str, str]:
@@ -353,6 +387,8 @@ def validate_authorization(
     python_realpath = _canonical_existing(
         fields["PINNED_PYTHON_REALPATH"], "pinned_python_realpath_invalid"
     )
+    if _under_forbidden_temp(python_realpath, host_temp):
+        _fail("pinned_python_under_host_temp")
     if python_path.resolve(strict=True) != python_realpath:
         _fail("pinned_python_realpath_invalid")
     if (
@@ -363,6 +399,7 @@ def validate_authorization(
         or observed.closure_sha256 != fields["PINNED_CLOSURE_SHA256"]
         or observed.locked_wheel_count != int(fields["D1_LOCKED_WHEEL_COUNT"])
         or observed.d1_lock_sha256 != fields["D1_LOCK_SHA256"]
+        or observed.d1_requirements_sha256 != fields["D1_REQUIREMENTS_SHA256"]
     ):
         _fail("pinned_closure_mismatch")
     if observed.cryptography_version != fields["CRYPTOGRAPHY_VERSION"]:
@@ -396,16 +433,128 @@ def validate_authorization(
     )
 
 
-def _write_exclusive(path: Path, payload: bytes) -> None:
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags, 0o600)
+def _directory_flags() -> int:
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        _fail("secure_directory_operations_unavailable")
+    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+
+def _same_identity(first: os.stat_result, second: os.stat_result) -> bool:
+    return first.st_dev == second.st_dev and first.st_ino == second.st_ino
+
+
+def _open_verified_directory(path: Path) -> int:
+    descriptor = -1
     try:
-        os.write(descriptor, payload)
+        named = os.stat(path, follow_symlinks=False)
+        descriptor = os.open(path, _directory_flags())
+        opened = os.fstat(descriptor)
+    except OSError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        _fail("authorization_directory_identity_mismatch")
+    if (
+        not stat.S_ISDIR(named.st_mode)
+        or not stat.S_ISDIR(opened.st_mode)
+        or not _same_identity(named, opened)
+        or opened.st_uid != os.geteuid()
+        or opened.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        os.close(descriptor)
+        _fail("authorization_directory_identity_mismatch")
+    return descriptor
+
+
+def _recheck_directory_binding(path: Path, descriptor: int) -> None:
+    try:
+        named = os.stat(path, follow_symlinks=False)
+        opened = os.fstat(descriptor)
+    except OSError:
+        _fail("authorization_directory_identity_mismatch")
+    if (
+        not stat.S_ISDIR(named.st_mode)
+        or not stat.S_ISDIR(opened.st_mode)
+        or not _same_identity(named, opened)
+        or opened.st_uid != os.geteuid()
+        or opened.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        _fail("authorization_directory_identity_mismatch")
+
+
+def _mkdir_open_at(
+    parent: Path, parent_fd: int, name: str
+) -> tuple[int, tuple[int, int]]:
+    _recheck_directory_binding(parent, parent_fd)
+    os.mkdir(name, 0o700, dir_fd=parent_fd)
+    descriptor = -1
+    try:
+        named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        descriptor = os.open(name, _directory_flags(), dir_fd=parent_fd)
+        opened = os.fstat(descriptor)
+    except OSError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        _fail("authorization_root_identity_mismatch")
+    if (
+        not stat.S_ISDIR(named.st_mode)
+        or not stat.S_ISDIR(opened.st_mode)
+        or not _same_identity(named, opened)
+        or opened.st_uid != os.geteuid()
+        or stat.S_IMODE(opened.st_mode) != 0o700
+    ):
+        os.close(descriptor)
+        _fail("authorization_root_identity_mismatch")
+    return descriptor, (opened.st_dev, opened.st_ino)
+
+
+def _write_exclusive_at(directory_fd: int, name: str, payload: bytes) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if not hasattr(os, "O_NOFOLLOW"):
+        _fail("secure_directory_operations_unavailable")
+    flags |= os.O_NOFOLLOW
+    descriptor = os.open(name, flags, 0o600, dir_fd=directory_fd)
+    try:
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("short write")
+            remaining = remaining[written:]
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def _rollback_tool_root(
+    parent: Path,
+    parent_fd: int,
+    root_fd: int,
+    root_name: str,
+    root_identity: tuple[int, int],
+) -> None:
+    """Remove only the still-bound empty tool tree; preserve on any ambiguity."""
+
+    try:
+        _recheck_directory_binding(parent, parent_fd)
+        named = os.stat(root_name, dir_fd=parent_fd, follow_symlinks=False)
+        opened = os.fstat(root_fd)
+        if (named.st_dev, named.st_ino) != root_identity or (
+            opened.st_dev,
+            opened.st_ino,
+        ) != root_identity:
+            return
+        entries = os.listdir(root_fd)
+        if any(name not in {"wheel", "site-packages", "data"} for name in entries):
+            return
+        for name in entries:
+            child = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(child.st_mode):
+                return
+        for name in entries:
+            os.rmdir(name, dir_fd=root_fd)
+        os.rmdir(root_name, dir_fd=parent_fd)
+    except (OSError, AuthorizationFailure):
+        return
 
 
 def consume_authorization(
@@ -413,26 +562,35 @@ def consume_authorization(
 ) -> dict[str, object]:
     """Consume the one-shot token by fresh root creation and evidence binding."""
 
+    tool_parent_fd = -1
+    evidence_parent_fd = -1
+    tool_fd = -1
+    evidence_fd = -1
+    tool_identity = (-1, -1)
     tool_created = False
     evidence_created = False
+    failed = False
+    failure_reason = "authorization_consumption_failed"
     try:
-        os.mkdir(authorization.evidence_root, 0o700)
+        evidence_parent_fd = _open_verified_directory(
+            authorization.evidence_root.parent
+        )
+        tool_parent_fd = _open_verified_directory(authorization.tool_root.parent)
+        evidence_fd, _ = _mkdir_open_at(
+            authorization.evidence_root.parent,
+            evidence_parent_fd,
+            authorization.evidence_root.name,
+        )
         evidence_created = True
-        os.mkdir(authorization.tool_root, 0o700)
+        tool_fd, tool_identity = _mkdir_open_at(
+            authorization.tool_root.parent,
+            tool_parent_fd,
+            authorization.tool_root.name,
+        )
         tool_created = True
         for name in authorization.fields["AUTHORIZED_TOOL_SUBPATHS"].split(","):
-            os.mkdir(authorization.tool_root / name, 0o700)
-        for root in (authorization.tool_root, authorization.evidence_root):
-            details = os.lstat(root)
-            if (
-                not stat.S_ISDIR(details.st_mode)
-                or details.st_uid != os.geteuid()
-                or stat.S_IMODE(details.st_mode) != 0o700
-            ):
-                _fail("authorization_root_identity_mismatch")
-        _write_exclusive(
-            authorization.evidence_root / "authorization.env", raw_authorization
-        )
+            os.mkdir(name, 0o700, dir_fd=tool_fd)
+        _write_exclusive_at(evidence_fd, "authorization.env", raw_authorization)
         record = {
             "authorization_id": authorization.fields["AUTHORIZATION_ID"],
             "authorization_sha256": hashlib.sha256(raw_authorization).hexdigest(),
@@ -441,36 +599,54 @@ def consume_authorization(
             "d1_locked_wheel_count": int(authorization.fields["D1_LOCKED_WHEEL_COUNT"]),
             "status": "consumed_pre_network",
             "tool_root_identity": {
-                "st_dev": os.lstat(authorization.tool_root).st_dev,
-                "st_ino": os.lstat(authorization.tool_root).st_ino,
+                "st_dev": tool_identity[0],
+                "st_ino": tool_identity[1],
             },
             "evidence_root_identity": {
-                "st_dev": os.lstat(authorization.evidence_root).st_dev,
-                "st_ino": os.lstat(authorization.evidence_root).st_ino,
+                "st_dev": os.fstat(evidence_fd).st_dev,
+                "st_ino": os.fstat(evidence_fd).st_ino,
             },
         }
         payload = (
             json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
         ).encode()
-        _write_exclusive(
-            authorization.evidence_root / "authorization-consumption.json", payload
-        )
+        _write_exclusive_at(evidence_fd, "authorization-consumption.json", payload)
         return record
     except FileExistsError:
-        if tool_created:
-            shutil.rmtree(authorization.tool_root)
-        _fail("authorization_root_not_fresh")
+        failed = True
+        failure_reason = "authorization_root_not_fresh"
     except (OSError, AuthorizationFailure):
-        if tool_created:
-            shutil.rmtree(authorization.tool_root)
-        if evidence_created:
-            failure = authorization.evidence_root / "authorization-failure.json"
-            if not failure.exists():
+        failed = True
+        failure_reason = "authorization_consumption_failed"
+    finally:
+        if failed:
+            if tool_created and tool_fd >= 0 and tool_parent_fd >= 0:
+                _rollback_tool_root(
+                    authorization.tool_root.parent,
+                    tool_parent_fd,
+                    tool_fd,
+                    authorization.tool_root.name,
+                    tool_identity,
+                )
+            if evidence_created and evidence_fd >= 0:
+                failure_payload = (
+                    json.dumps(
+                        {"reason": failure_reason, "status": "failed_pre_network"},
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode()
                 try:
-                    _write_exclusive(failure, b'{"status":"failed_pre_network"}\n')
-                except OSError:
+                    _write_exclusive_at(
+                        evidence_fd, "authorization-failure.json", failure_payload
+                    )
+                except (OSError, AuthorizationFailure):
                     pass
-        _fail("authorization_consumption_failed")
+        for descriptor in (tool_fd, evidence_fd, tool_parent_fd, evidence_parent_fd):
+            if descriptor >= 0:
+                os.close(descriptor)
+    _fail(failure_reason)
 
 
 def _run(command: list[str], *, cwd: Path | None = None) -> str:
@@ -508,16 +684,19 @@ def _git_head_mode(suite_root: Path) -> str:
 
 
 def _darwin_user_temp() -> Path:
-    libc = ctypes.CDLL(None)
-    libc.confstr.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t)
-    libc.confstr.restype = ctypes.c_size_t
-    length = libc.confstr(DARWIN_USER_TEMP_DIR, None, 0)
-    if length <= 1 or length > 4096:
+    try:
+        libc = ctypes.CDLL(None)
+        libc.confstr.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t)
+        libc.confstr.restype = ctypes.c_size_t
+        length = libc.confstr(DARWIN_USER_TEMP_DIR, None, 0)
+        if length <= 1 or length > 4096:
+            _fail("host_temp_root_unavailable")
+        buffer = ctypes.create_string_buffer(length)
+        if libc.confstr(DARWIN_USER_TEMP_DIR, buffer, length) != length:
+            _fail("host_temp_root_unavailable")
+        return Path(os.fsdecode(buffer.value)).resolve(strict=True)
+    except (AttributeError, OSError, TypeError, ValueError):
         _fail("host_temp_root_unavailable")
-    buffer = ctypes.create_string_buffer(length)
-    if libc.confstr(DARWIN_USER_TEMP_DIR, buffer, length) != length:
-        _fail("host_temp_root_unavailable")
-    return Path(os.fsdecode(buffer.value)).resolve(strict=True)
 
 
 def _distribution_observation(python_path: Path) -> tuple[str, int, str, str]:
@@ -539,6 +718,40 @@ def _distribution_observation(python_path: Path) -> tuple[str, int, str, str]:
         versions.get("pytest", ""),
         versions.get("cryptography", ""),
     )
+
+
+def _d1_evidence_observation(suite_root: Path) -> tuple[str, int]:
+    evidence_path = (
+        suite_root
+        / "integration/compose/soc-ai-lifecycle-create-mtls/evidence/dependency-lock.json"
+    )
+    try:
+        raw = evidence_path.read_bytes()
+        if len(raw) > 1024 * 1024:
+            _fail("d1_dependency_evidence_invalid")
+        document = json.loads(raw)
+        requirements_sha256 = document["requirements_sha256"]
+        wheel_count = document["wheel_count"]
+        uv_lock_sha256 = document["uv_lock_sha256"]
+        if (
+            not isinstance(requirements_sha256, str)
+            or HEX_64.fullmatch(requirements_sha256) is None
+            or not isinstance(wheel_count, int)
+            or isinstance(wheel_count, bool)
+            or wheel_count <= 0
+            or not isinstance(uv_lock_sha256, str)
+            or HEX_64.fullmatch(uv_lock_sha256) is None
+            or document["anycorn_in_lock"] is not False
+            or document["anycorn_in_requirements"] is not False
+            or document["anycorn_in_wheelhouse"] is not False
+            or uv_lock_sha256 != PINNED_VALUES["D1_LOCK_SHA256"]
+            or requirements_sha256 != PINNED_VALUES["D1_REQUIREMENTS_SHA256"]
+            or wheel_count != int(PINNED_VALUES["D1_LOCKED_WHEEL_COUNT"])
+        ):
+            _fail("d1_dependency_evidence_invalid")
+    except (KeyError, OSError, TypeError, ValueError):
+        _fail("d1_dependency_evidence_invalid")
+    return requirements_sha256, wheel_count
 
 
 def _prevalidate_observation_inputs(
@@ -618,6 +831,7 @@ def _prevalidate_observation_inputs(
         )
         if (
             not python_realpath.is_file()
+            or _under_forbidden_temp(python_realpath, host_temp)
             or python_path.resolve(strict=True) != python_realpath
             or _sha256_file(python_realpath) != fields["PINNED_PYTHON_SHA256"]
         ):
@@ -638,11 +852,14 @@ def _prevalidate_observation_inputs(
             for item in protected
         ):
             _fail("invalid")
+        lock_sha256 = _sha256_file(
+            suite_root / "integration/compose/soc-ai-lifecycle-create-mtls/uv.lock"
+        )
+        requirements_sha256, wheel_count = _d1_evidence_observation(suite_root)
         if (
-            _sha256_file(
-                suite_root / "integration/compose/soc-ai-lifecycle-create-mtls/uv.lock"
-            )
-            != fields["D1_LOCK_SHA256"]
+            lock_sha256 != fields["D1_LOCK_SHA256"]
+            or requirements_sha256 != fields["D1_REQUIREMENTS_SHA256"]
+            or wheel_count != int(fields["D1_LOCKED_WHEEL_COUNT"])
         ):
             _fail("invalid")
     except (OSError, AuthorizationFailure):
@@ -654,8 +871,8 @@ def collect_observed(fields: dict[str, str]) -> ObservedState:
     """Collect current state without creating roots or making network calls."""
 
     suite_root, python_path, network_client = _prevalidate_observation_inputs(fields)
-    closure_sha, count, pytest_version, cryptography_version = (
-        _distribution_observation(python_path)
+    closure_sha, _, pytest_version, cryptography_version = _distribution_observation(
+        python_path
     )
     python_version = _run(
         [
@@ -665,7 +882,11 @@ def collect_observed(fields: dict[str, str]) -> ObservedState:
             "import platform;print(platform.python_version())",
         ]
     )
-    curl_version = _run([str(network_client), "--version"]).splitlines()[0]
+    curl_version_lines = _run([str(network_client), "--version"]).splitlines()
+    if not curl_version_lines:
+        _fail("network_client_version_unavailable")
+    curl_version = curl_version_lines[0]
+    requirements_sha256, wheel_count = _d1_evidence_observation(suite_root)
     return ObservedState(
         now=datetime.now(UTC),
         suite_commit=_run(["/usr/bin/git", "rev-parse", "HEAD"], cwd=suite_root),
@@ -684,10 +905,11 @@ def collect_observed(fields: dict[str, str]) -> ObservedState:
         pytest_version=pytest_version,
         cryptography_version=cryptography_version,
         closure_sha256=closure_sha,
-        locked_wheel_count=count,
+        locked_wheel_count=wheel_count,
         d1_lock_sha256=_sha256_file(
             suite_root / "integration/compose/soc-ai-lifecycle-create-mtls/uv.lock"
         ),
+        d1_requirements_sha256=requirements_sha256,
         network_client_realpath=network_client.resolve(strict=True),
         network_client_sha256=_sha256_file(network_client.resolve(strict=True)),
         network_client_version=curl_version,
@@ -702,8 +924,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--consume", action="store_true")
     args = parser.parse_args(argv)
     try:
-        auth_path = Path(args.authorization)
-        raw = auth_path.read_bytes()
+        raw = _read_authorization(Path(args.authorization))
         fields = parse_authorization(raw.decode("utf-8"))
         observed = collect_observed(fields)
         validated = validate_authorization(fields, observed)

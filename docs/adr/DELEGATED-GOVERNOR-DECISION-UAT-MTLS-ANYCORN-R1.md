@@ -810,9 +810,11 @@ exactly:
    percentage remains a separate `HOLD` gate. The already-consumed authorization permits only the
    post-measurement append of these two result digests and their bounded metadata to the preserved
    evidence root; it grants no second extraction or network action;
-10. on any failure or rollback, write one bounded secret-free failure record, remove only the
-   isolated tool root and preserve the evidence root. The one-shot authorization cannot be
-   replayed with a different root or resumed after a partial attempt.
+10. before the evidence root exists, any failure emits one bounded secret-free refusal to stdout
+   and creates no root. After the evidence root exists, any failure or rollback writes one bounded
+   secret-free failure record there, removes only the still identity-bound isolated tool root and
+   preserves the evidence root. The one-shot authorization cannot be replayed with a different root
+   or resumed after a partial attempt.
 
 The Founder authorization artifact must contain exactly these standalone fields, one per line and
 with no caller-supplied fallback:
@@ -840,7 +842,7 @@ CRYPTOGRAPHY_VERSION=50.0.0
 D1_LOCK_SHA256=e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add
 D1_REQUIREMENTS_SHA256=93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603
 D1_LOCKED_WHEEL_COUNT=56
-PINNED_CLOSURE_SHA256=<D1_INSTALLED_DISTRIBUTION_SET_SHA256>
+PINNED_CLOSURE_SHA256=6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919
 WHEEL_FILENAME=coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
 WHEEL_URL=https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
 WHEEL_SIZE=221943
@@ -1054,9 +1056,12 @@ UAT/release credit.
 The exact P0 authorization now additionally pins:
 
 - `D1_LOCK_SHA256=e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`;
-- `D1_REQUIREMENTS_SHA256=93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603`;
-- `D1_LOCKED_WHEEL_COUNT=56` and `PINNED_CLOSURE_SHA256` over the canonical sorted installed
-  `name==version` records;
+- `D1_REQUIREMENTS_SHA256=93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603`
+  and `D1_LOCKED_WHEEL_COUNT=56`, both re-read from the clean-tree committed D1 dependency evidence;
+- `PINNED_CLOSURE_SHA256=6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`
+  over the canonical sorted installed `name==version` records. This is independently derived from
+  the committed D1 installed-environment SBOM after excluding the separately installed Anycorn B1
+  artifact, which the coverage-only test closure does not execute;
 - `PYTEST_VERSION=9.1.1`; and
 - `CRYPTOGRAPHY_VERSION=50.0.0`, which prevents reuse of the superseded 46.0.7 closure below the
   accepted `>=48.0.1,<51` floor.
@@ -1083,12 +1088,14 @@ Only an exact PASS may be consumed once with:
 The validator parses the exact ordered field set, validates the RFC 3339 window, exact clean
 detached Suite commit/tree/root and working directory, derives the Darwin host-temp root, rejects
 temporary or overlapping roots and interpreters, verifies the Python symlink chain, executable and
-installed closure, verifies the D1 lock and curl identity, and requires both roots to be fresh. The
-`--consume` operation creates both roots with mode `0700`, creates only `wheel`, `site-packages` and
-`data` under the tool root, and writes the exact authorization plus an immutable bounded
-consumption record at mode `0600` in the evidence root. Reuse fails on fresh-root creation; any
-post-creation failure removes only the tool root and preserves a bounded failure record in the
-evidence root.
+installed closure, verifies the D1 lock and curl identity, and requires both roots to be fresh.
+The `--consume` operation opens and identity-checks each canonical parent without following
+symlinks, rechecks the named parent immediately before each `mkdir`, then anchors every root,
+subdirectory, evidence write and rollback operation to those directory descriptors. It creates
+both roots with mode `0700`, creates only `wheel`, `site-packages` and `data` under the tool root,
+and writes the exact authorization plus an exclusive bounded consumption record at mode `0600` in
+the evidence root. Reuse fails on fresh-root creation; any post-creation failure removes only the
+still identity-bound tool root and preserves a bounded failure record in the evidence root.
 
 P2 deliberately stops before network access. The separately Founder-authorized P0 commands remain
 the only permitted OSV POST, wheel fetch and stdlib extraction. A missing accepted closure requires
