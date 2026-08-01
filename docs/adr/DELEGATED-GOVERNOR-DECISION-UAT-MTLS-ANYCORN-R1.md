@@ -792,9 +792,12 @@ exactly:
    regular `PINNED_PYTHON_REALPATH`. The resolved executable must report CPython `3.12.13` and have
    SHA-256 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`. The symlink chain,
    CPython version, exact installed-distribution closure, `pytest==9.1.1` and
-   `cryptography==50.0.0` must match the authorization artifact immediately before use. A
-   missing/reaped test closure is a hard stop and cannot select another interpreter. Reconstructing
-   that closure is a separate dependency action with its own prospective bounded authorization;
+   `cryptography==50.0.0` must match the authorization artifact immediately before use. The accepted
+   D1 environment is ineligible for this action because it is under `/private/tmp` and contains the
+   separately installed Anycorn B1 distribution. A new durable, pip-less coverage-only environment
+   containing exactly the pinned 56 distributions is therefore mandatory. Reconstructing it is a
+   separate dependency action with its own prospective bounded authorization; no current
+   interpreter is silently substituted;
 8. extract the already-verified wheel with exactly `<PINNED_PYTHON> -m zipfile -e
    <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
    <COVERAGE_ROOT>/site-packages`. No package installer, index, build frontend or lifecycle script
@@ -810,11 +813,13 @@ exactly:
    percentage remains a separate `HOLD` gate. The already-consumed authorization permits only the
    post-measurement append of these two result digests and their bounded metadata to the preserved
    evidence root; it grants no second extraction or network action;
-10. before the evidence root exists, any failure emits one bounded secret-free refusal to stdout
-   and creates no root. After the evidence root exists, any failure or rollback writes one bounded
-   secret-free failure record there, removes only the still identity-bound isolated tool root and
-   preserves the evidence root. The one-shot authorization cannot be replayed with a different root
-   or resumed after a partial attempt.
+10. before the evidence root is opened and identity-validated, any failure emits one bounded
+   secret-free refusal to stdout. A just-created root is removed only when its identity is still
+   exact and it remains empty; ambiguity preserves rather than deletes an unverified path. After
+   the evidence root is validated, any failure or rollback writes one bounded secret-free failure
+   record there, removes only the still identity-bound isolated tool root and preserves the evidence
+   root. The one-shot authorization cannot be replayed with a different root or resumed after a
+   partial attempt.
 
 The Founder authorization artifact must contain exactly these standalone fields, one per line and
 with no caller-supplied fallback:
@@ -1065,6 +1070,10 @@ The exact P0 authorization now additionally pins:
 - `PYTEST_VERSION=9.1.1`; and
 - `CRYPTOGRAPHY_VERSION=50.0.0`, which prevents reuse of the superseded 46.0.7 closure below the
   accepted `>=48.0.1,<51` floor.
+
+The requirements digest binds the accepted clean-tree D1 evidence declaration. This P2 slice does
+not claim to re-hash a surviving requirements file: that temp-resident file is gone, and its durable
+reconstruction remains part of the separate dependency action.
 
 The pinned Python symlink and its real executable must not be under `/tmp`, `/private/tmp` or the
 canonical Darwin host-temporary directory. This closes the durability asymmetry between the

@@ -282,7 +282,10 @@ def _canonical_fresh_root(
     raw: str, pattern: re.Pattern[str]
 ) -> tuple[Path, tuple[int, int]]:
     path = Path(raw)
-    if not path.is_absolute() or pattern.fullmatch(path.name) is None:
+    wrong_role = pattern is TOOL_ROOT_NAME and path.name.startswith(
+        "cybrik-uat-d2-coverage-evidence-"
+    )
+    if not path.is_absolute() or pattern.fullmatch(path.name) is None or wrong_role:
         _fail("authorization_root_invalid")
     if path.exists() or path.is_symlink():
         _fail("authorization_root_not_fresh")
@@ -490,19 +493,38 @@ def _recheck_directory_binding(path: Path, descriptor: int) -> None:
         _fail("authorization_directory_identity_mismatch")
 
 
+def _remove_exact_empty_at(
+    parent_fd: int, name: str, expected_identity: tuple[int, int]
+) -> None:
+    try:
+        named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISDIR(named.st_mode)
+            or (named.st_dev, named.st_ino) != expected_identity
+        ):
+            return
+        os.rmdir(name, dir_fd=parent_fd)
+    except OSError:
+        return
+
+
 def _mkdir_open_at(
     parent: Path, parent_fd: int, name: str
 ) -> tuple[int, tuple[int, int]]:
     _recheck_directory_binding(parent, parent_fd)
     os.mkdir(name, 0o700, dir_fd=parent_fd)
     descriptor = -1
+    created_identity: tuple[int, int] | None = None
     try:
         named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        created_identity = (named.st_dev, named.st_ino)
         descriptor = os.open(name, _directory_flags(), dir_fd=parent_fd)
         opened = os.fstat(descriptor)
     except OSError:
         if descriptor >= 0:
             os.close(descriptor)
+        if created_identity is not None:
+            _remove_exact_empty_at(parent_fd, name, created_identity)
         _fail("authorization_root_identity_mismatch")
     if (
         not stat.S_ISDIR(named.st_mode)
@@ -512,6 +534,7 @@ def _mkdir_open_at(
         or stat.S_IMODE(opened.st_mode) != 0o700
     ):
         os.close(descriptor)
+        _remove_exact_empty_at(parent_fd, name, created_identity)
         _fail("authorization_root_identity_mismatch")
     return descriptor, (opened.st_dev, opened.st_ino)
 

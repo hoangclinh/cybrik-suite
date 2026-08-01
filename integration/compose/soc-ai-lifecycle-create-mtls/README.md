@@ -213,8 +213,10 @@ Only an exact PASS may be consumed once by replacing `--check-only` with `--cons
 creates the two fresh mode-`0700` roots, the three authorized tool subpaths, and bounded mode-`0600`
 authorization evidence. It performs no network call, dependency installation, wheel extraction,
 coverage measurement or runtime action. The accepted D1 closure must not be under `/tmp`,
-`/private/tmp` or the Darwin host-temporary root. If that closure is missing, reconstruction needs
-its own prospective bounded Founder authorization; a surviving older closure is not substitutable.
+`/private/tmp` or the Darwin host-temporary root. The prior D1 environment is both temp-resident and
+contains Anycorn B1, so a durable pip-less reconstruction of the exact 56-member coverage-only
+closure is mandatory and needs its own prospective bounded Founder authorization; a surviving older
+closure is not substitutable.
 
 This hardening is not the dependency authorization. Coverage extraction and measurement are still
 not run, D2 runtime remains **HOLD**, and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and
