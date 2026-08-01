@@ -174,7 +174,7 @@ def test_every_runtime_evidence_write_is_exclusive_durable_and_mode_bounded() ->
         assert "0o600" in source
         assert "os.fsync" in source
         assert ".write_text(" not in source
-    assert "not result_path.is_symlink()" in harness
+    assert "or result_path.is_symlink()" in harness
 
 
 @pytest.mark.parametrize(

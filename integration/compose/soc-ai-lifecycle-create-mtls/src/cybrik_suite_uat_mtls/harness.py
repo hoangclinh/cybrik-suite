@@ -628,7 +628,7 @@ def _run_case(case_id: str, root: Path, evidence_root: Path) -> dict[str, object
         if process.poll() is not None:
             pid_path.unlink(missing_ok=True)
     _assert_secret_free_process_output(root, stdout, stderr)
-    if process.returncode != 0 or not result_path.is_file():
+    if process.returncode != 0 or not result_path.is_file() or result_path.is_symlink():
         raise RuntimeAuthorizationError("D2 client case failed")
     result = json.loads(result_path.read_text(encoding="utf-8"))
     if result.get("passed") is not True:

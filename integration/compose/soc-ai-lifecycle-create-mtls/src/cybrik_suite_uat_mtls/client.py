@@ -45,6 +45,25 @@ class ClientBoundaryError(RuntimeError):
     """A D2 case could not complete inside its secret-safe boundary."""
 
 
+def _write_atomic_evidence(destination: Path, record: object) -> None:
+    temporary = destination.with_suffix(".tmp")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as exc:
+        raise ClientBoundaryError(
+            "atomic evidence temporary path is unavailable"
+        ) from exc
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 @dataclass(frozen=True, slots=True)
 class CasePlan:
     case_id: str
@@ -433,14 +452,10 @@ def main() -> int:
     result_path = Path(result_path_raw)
     try:
         result = evidence.validate_evidence(asyncio.run(_run(case_id)))
-        result_path.write_text(
-            json.dumps(result, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-        )
+        _write_atomic_evidence(result_path, result)
     except Exception:  # noqa: BLE001 - every runtime failure collapses to a secret-free result
         safe = evidence.validate_evidence({"case_id": case_id, "passed": False})
-        result_path.write_text(
-            json.dumps(safe, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-        )
+        _write_atomic_evidence(result_path, safe)
         return 1
     return 0
 
