@@ -115,6 +115,20 @@ def _empty_file_report() -> dict[str, object]:
     }
 
 
+def _plain_file_report(line_count: int) -> dict[str, object]:
+    lines = list(range(1, line_count + 1))
+    return {
+        "executed_lines": lines,
+        "summary": _summary(lines, [], [], []),
+        "missing_lines": [],
+        "excluded_lines": [],
+        "executed_branches": [],
+        "missing_branches": [],
+        "functions": {"": {}},
+        "classes": {"": {}},
+    }
+
+
 def _sync_report(report: dict[str, object]) -> None:
     files = report["files"]
     assert isinstance(files, dict)
@@ -170,6 +184,9 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
     init_path.write_text("", encoding="utf-8")
     init_key = (PACKAGE_REL / "__init__.py").as_posix()
     files[init_key] = _empty_file_report()
+    support_source = "\n".join(f"support_{index} = {index}" for index in range(1, 41))
+    (package_root / "support.py").write_text(support_source, encoding="utf-8")
+    files[(PACKAGE_REL / "support.py").as_posix()] = _plain_file_report(40)
     for filename, names in CRITICAL.items():
         source = _source(names)
         (package_root / filename).write_text(source, encoding="utf-8")
@@ -224,7 +241,7 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
     assert completed.returncode == 0, completed.stderr
     result = json.loads(completed.stdout)
     assert result["status"] == "PASS"
-    assert result["line"] == {"covered": 32, "ratio": 1.0, "total": 32}
+    assert result["line"] == {"covered": 72, "ratio": 1.0, "total": 72}
     assert result["branch"] == {"covered": 16, "ratio": 1.0, "total": 16}
     assert [row["symbol"] for row in result["critical"]] == [
         "server.build_patched_ssl_context",
@@ -292,10 +309,12 @@ def test_reported_source_may_not_escape_the_suite_root(tmp_path: Path) -> None:
 
 def test_package_line_ratio_below_eighty_percent_fails(tmp_path: Path) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
-    key = (PACKAGE_REL / "server.py").as_posix()
+    key = (PACKAGE_REL / "support.py").as_posix()
     file_report = report["files"][key]
     assert isinstance(file_report, dict)
-    file_report["missing_lines"] = list(range(100, 109))
+    moved = file_report["executed_lines"][-20:]
+    file_report["executed_lines"] = file_report["executed_lines"][:-20]
+    file_report["missing_lines"] = moved
     _rewrite(report_path, report)
 
     completed = _run(suite_root, report_path)
@@ -306,10 +325,22 @@ def test_package_line_ratio_below_eighty_percent_fails(tmp_path: Path) -> None:
 
 def test_package_branch_ratio_below_eighty_percent_fails(tmp_path: Path) -> None:
     suite_root, report_path, report = _fixture(tmp_path)
-    key = (PACKAGE_REL / "server.py").as_posix()
+    key = (PACKAGE_REL / "harness.py").as_posix()
     file_report = report["files"][key]
     assert isinstance(file_report, dict)
-    file_report["missing_branches"] = [[100 + index, 200 + index] for index in range(5)]
+    moved = file_report["executed_branches"][-4:]
+    file_report["executed_branches"] = file_report["executed_branches"][:-4]
+    file_report["missing_branches"] = moved
+    functions = file_report["functions"]
+    assert isinstance(functions, dict)
+    for region in functions.values():
+        if not isinstance(region, dict) or not region:
+            continue
+        region_moved = [arc for arc in region["executed_branches"] if arc in moved]
+        region["executed_branches"] = [
+            arc for arc in region["executed_branches"] if arc not in moved
+        ]
+        region["missing_branches"] = region_moved
     _rewrite(report_path, report)
 
     completed = _run(suite_root, report_path)
