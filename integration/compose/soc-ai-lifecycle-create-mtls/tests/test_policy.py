@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import hashlib
+import json
 import sys
 import types
 from pathlib import Path
@@ -18,6 +20,8 @@ import pytest
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
+_HARNESS_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[4]
 _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
@@ -93,6 +97,10 @@ def _read_source(source_file: str) -> str:
 
 def _parse_source(source_file: str) -> ast.Module:
     return ast.parse(_read_source(source_file), filename=source_file)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _called_names(tree: ast.Module) -> set[str]:
@@ -437,3 +445,85 @@ def test_validate_ssl_context_builder_rejects_malformed_delegates(
     with pytest.raises(policy.PolicyViolation) as caught:
         policy.validate_ssl_context_builder(reference)
     assert caught.value.reason == policy.BUILDER_DELEGATE_MALFORMED
+
+
+# --------------------------------------------------------------------------
+# D1 status truthfulness and dependency-neutral command boundary
+# --------------------------------------------------------------------------
+
+
+def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    compose_readme = (_HARNESS_ROOT.parent / "README.md").read_text(encoding="utf-8")
+
+    for text in (harness_readme, compose_readme):
+        assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
+        assert "UAT-MTLS-D2" in text and "HOLD" in text
+        assert "DEMO_READY_LOCAL" in text and "NO-GO" in text
+    assert "No Anycorn or product package is imported, installed, resolved, built or downloaded" not in harness_readme
+    assert "dependency-neutral preparation only" not in compose_readme
+
+
+def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
+    readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    expected = (
+        "test_policy.py",
+        "test_evidence.py",
+        "test_procedure.py",
+        "test_case_inventory.py",
+    )
+    for filename in expected:
+        assert f"integration/compose/soc-ai-lifecycle-create-mtls/tests/{filename}" in readme
+    assert "python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests\n" not in readme
+    assert "CYBRIK_UAT_D1_ARTIFACT_DIR" in readme
+
+
+def test_d1_delegated_authority_is_recorded_without_opening_runtime() -> None:
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    assert "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`" in decision
+    assert "Founder-delegated Codex Governor operating authority" in decision
+    assert "D2 remains **HOLD**" in decision
+
+
+def test_runtime_admission_carriers_pin_d1_but_retain_zero_runtime_state() -> None:
+    candidate_root = (
+        _REPO_ROOT / "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1"
+    )
+    hold_path = candidate_root / "evidence/01-hold-status.md"
+    architecture_path = candidate_root / "evidence/02-architecture-and-acceptance.md"
+    record_path = candidate_root / "runtime-admission.json"
+    registry_path = _REPO_ROOT / "docs/uat/candidates/README.md"
+
+    expected_digests = {
+        "wheel": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+        "patch": "1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e",
+        "lock": "e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add",
+        "probe": "91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45",
+    }
+    carrier_texts = [
+        hold_path.read_text(encoding="utf-8"),
+        architecture_path.read_text(encoding="utf-8"),
+        registry_path.read_text(encoding="utf-8"),
+    ]
+    for text in carrier_texts:
+        assert "D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN" in text
+        for digest in expected_digests.values():
+            assert digest in text
+
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    current = record["attempt_accounting"]["current_attempt"]
+    assert current["status"] == "not_run"
+    assert current["execution_authorized"] is False
+    assert (current["executed_checks"], current["passed_checks"], current["failed_checks"]) == (0, 0, 0)
+    assert record["disposition"]["profile"] == "HOLD"
+    assert record["evidence"]["final_profile_verdict"] == "HOLD"
+    assert current["evidence_sha256"] == _sha256(hold_path)
+    assert record["evidence"]["artifacts"] == [
+        {"path": hold_path.relative_to(_REPO_ROOT).as_posix(), "sha256": _sha256(hold_path)},
+        {
+            "path": architecture_path.relative_to(_REPO_ROOT).as_posix(),
+            "sha256": _sha256(architecture_path),
+        },
+    ]

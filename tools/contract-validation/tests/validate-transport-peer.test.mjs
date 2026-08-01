@@ -834,8 +834,8 @@ const assessServerCandidates = (manifest) => {
       uat_evaluation_admitted: true,
       disposition: 'HOLD',
       selected: false,
-      installed: false,
-      pinned: false,
+      installed: true,
+      pinned: true,
     };
     for (const [field, expected] of Object.entries(exact)) {
       if (b1[field] !== expected) errors.push(`B1.${field} must equal ${JSON.stringify(expected)}`);
@@ -894,7 +894,7 @@ const assessServerCandidates = (manifest) => {
   return errors;
 };
 
-test('K5/S1 distinguishes raw upstream candidates from the uninstalled B1 UAT evaluation row', () => {
+test('D1 atomically records the installed and pinned B1 UAT evaluation artifact', () => {
   const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
   assert.deepEqual(assessServerCandidates(manifest), []);
 
@@ -902,8 +902,8 @@ test('K5/S1 distinguishes raw upstream candidates from the uninstalled B1 UAT ev
     (candidate) => candidate.server_candidates.push(structuredClone(candidate.server_candidates[0])),
     (candidate) => { delete candidate.server_candidates[0].artifact_scope; },
     (candidate) => { delete candidate.server_candidates[3].installed_scope; },
-    (candidate) => { candidate.server_candidates[3].installed = true; },
-    (candidate) => { candidate.server_candidates[3].pinned = true; },
+    (candidate) => { candidate.server_candidates[3].installed = false; },
+    (candidate) => { candidate.server_candidates[3].pinned = false; },
     (candidate) => { candidate.server_candidates[3].selected = true; },
     (candidate) => { candidate.server_candidates[3].release_authority = 'stable-v1'; },
     (candidate) => { candidate.server_candidates[3].version_considered = '0.20.0'; },
@@ -925,12 +925,19 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
   const adrIndex = read('docs/adr/README.md');
   const releaseIndex = read(RELEASE_INDEX_PATH);
 
-  for (const text of [gate, proposal, w2kDecision, w2kGate]) {
+  for (const text of [gate, proposal]) {
     assert.match(text, /K5/);
     assert.match(text, /S1/);
     assert.match(text, /installed=false/);
     assert.match(text, /pinned=false/);
-    assert.match(text, /D1 remains \*\*HOLD\*\*/i);
+    assert.match(text, /D2 remains \*\*HOLD\*\*/i);
+    assert.match(text, /selected_server=null/);
+    assert.match(text, /raw(?: official)? Anycorn `0\.20\.0`[\s\S]{0,100}remains[\s\S]{0,240}HOLD/i);
+  }
+  for (const text of [w2kDecision, w2kGate]) {
+    assert.match(text, /D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN/);
+    assert.match(text, /installed=true/);
+    assert.match(text, /pinned=true/);
     assert.match(text, /D2 remains \*\*HOLD\*\*/i);
     assert.match(text, /selected_server=null/);
     assert.match(text, /raw(?: official)? Anycorn `0\.20\.0`[\s\S]{0,100}remains[\s\S]{0,240}HOLD/i);
@@ -947,15 +954,16 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
   assert.match(gate, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA[^\n]*NO-GO/i);
 });
 
-test('every server candidate is unselected and the packet names no chosen server', () => {
+test('every server candidate is unselected while only the internal B1 artifact is installed', () => {
   const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
   const candidates = manifest.server_candidates;
 
   assert.ok(Array.isArray(candidates) && candidates.length >= 3);
   for (const candidate of candidates) {
     assert.equal(candidate.selected, false, `${candidate.id} must be unselected`);
-    assert.equal(candidate.installed, false, `${candidate.id} must not be installed`);
-    assert.equal(candidate.pinned, false, `${candidate.id} must not be pinned`);
+    const isB1 = candidate.id === 'anycorn-cybrik-uat-b1';
+    assert.equal(candidate.installed, isB1, `${candidate.id} installation fact must match D1`);
+    assert.equal(candidate.pinned, isB1, `${candidate.id} pin fact must match D1`);
   }
   assert.equal(
     candidates.filter((candidate) => candidate.selected).length,

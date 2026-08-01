@@ -26,6 +26,8 @@ _OFFLINE_EVIDENCE = _HARNESS_ROOT / "evidence" / "offline-reinstall.json"
 _LICENSE_EVIDENCE = _HARNESS_ROOT / "evidence" / "licenses.json"
 _SBOM_EVIDENCE = _HARNESS_ROOT / "evidence" / "sbom.cdx.json"
 _VEX_EVIDENCE = _HARNESS_ROOT / "evidence" / "vex.cdx.json"
+_INTERNAL_WHEEL_EVIDENCE = _HARNESS_ROOT / "evidence" / "internal-wheel.json"
+_PATCH = _HARNESS_ROOT / "patches" / "anycorn-0.20.0+cybrik.1.patch"
 _INTERNAL_FINDING_ID = "CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01"
 _INTERNAL_VERSION = "0.20.0+cybrik.1"
 
@@ -147,6 +149,7 @@ def test_offline_reinstall_is_fresh_hash_verified_and_keeps_b1_separate(
     artifact_dir: Path,
 ) -> None:
     evidence = _load_json(_OFFLINE_EVIDENCE)
+    lock = _load_json(_LOCK_EVIDENCE)
     assert evidence["result"] == "pass"
     assert evidence["network"] == "disabled"
     assert evidence["fresh_environment"] is True
@@ -160,10 +163,15 @@ def test_offline_reinstall_is_fresh_hash_verified_and_keeps_b1_separate(
         "sha256_verified": True,
         "version": "0.20.0+cybrik.1",
     }
+    offline_cache_match = re.search(r"--cache-dir\s+(\S+)", evidence["requirements_command"])
+    assert offline_cache_match is not None
+    assert Path(offline_cache_match.group(1)) != Path(lock["cache_dir"])
 
 
 def test_license_inventory_is_exact_and_keeps_legal_review_explicit() -> None:
     evidence = _load_json(_LICENSE_EVIDENCE)
+    lock = _load_json(_LOCK_EVIDENCE)
+    wheel = _load_json(_INTERNAL_WHEEL_EVIDENCE)
     packages = evidence["packages"]
     assert isinstance(packages, list) and len(packages) == 57
     identities = [(item["name"].casefold(), item["version"]) for item in packages]
@@ -180,12 +188,23 @@ def test_license_inventory_is_exact_and_keeps_legal_review_explicit() -> None:
     assert by_name["anycorn"]["version"] == _INTERNAL_VERSION
     assert by_name["anycorn"]["normalized_license"] == "MIT"
     assert by_name["psycopg2-binary"]["disposition"] == "review_required"
+    assert evidence["generated_from"] == {
+        "internal_wheel_sha256": wheel["sha256"],
+        "requirements_sha256": lock["requirements_sha256"],
+        "sbom_sha256": _sha256(_SBOM_EVIDENCE),
+        "uv_lock_sha256": _sha256(_LOCK),
+    }
 
 
 def test_sbom_and_vex_bind_the_exact_b1_without_premature_resolution() -> None:
     sbom = _load_json(_SBOM_EVIDENCE)
     vex = _load_json(_VEX_EVIDENCE)
     lock = _load_json(_LOCK_EVIDENCE)
+    wheel = _load_json(_INTERNAL_WHEEL_EVIDENCE)
+
+    assert lock["b1_patch_sha256"] == _sha256(_PATCH)
+    assert lock["b1_wheel_sha256"] == wheel["sha256"]
+    assert lock["ssl_context_probe_sha256"] == wheel["ssl_context_probe_sha256"]
 
     assert sbom["bomFormat"] == "CycloneDX"
     assert sbom["specVersion"] == "1.6"
@@ -267,6 +286,18 @@ def test_audit_tooling_and_osv_evidence_are_hash_pinned_and_fail_closed(
     }
     assert all(re.fullmatch(r"[0-9a-f]{64}", item["raw_response_sha256"]) for item in package_queries)
 
+    positive_control = audit["positive_control"]
+    assert positive_control["name"] == "jinja2"
+    assert positive_control["version"] == "2.4.1"
+    control_path = artifact_dir / positive_control["response_file"]
+    assert control_path.is_file()
+    assert positive_control["raw_response_sha256"] == _sha256(control_path)
+    control_response = json.loads(control_path.read_text(encoding="utf-8"))
+    control_ids = {item["id"] for item in control_response.get("vulns", [])}
+    assert positive_control["expected_vulnerability_ids"]
+    assert set(positive_control["expected_vulnerability_ids"]) <= control_ids
+    assert positive_control["blocking_severity_observed"] is True
+
     findings = audit["findings"]
     assert isinstance(findings, list)
     assert audit["finding_count"] == len(findings)
@@ -285,6 +316,17 @@ def test_raw_osv_records_have_no_transitive_critical_high_or_unknown(
     assert index_path.is_file()
     queries = json.loads(index_path.read_text(encoding="utf-8"))
     assert isinstance(queries, list) and queries
+
+    audit = _load_json(_LOCK_EVIDENCE)["vulnerability_audit"]
+    expected_queries = {
+        (item["name"].casefold(), item["version"], item["raw_response_sha256"])
+        for item in audit["package_queries"]
+    }
+    indexed_queries = {
+        (item["name"].casefold(), item["version"], item["raw_response_sha256"])
+        for item in queries
+    }
+    assert indexed_queries == expected_queries
 
     findings: list[dict[str, str]] = []
     for query in queries:
