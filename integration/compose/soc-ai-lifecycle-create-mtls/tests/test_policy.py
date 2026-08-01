@@ -25,7 +25,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
-_EXPECTED_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
+_PURE_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
+_RUNTIME_SOURCE_FILES = ("client.py", "harness.py", "pki.py", "server.py", "store.py")
+_EXPECTED_SOURCE_FILES = tuple(sorted(_PURE_SOURCE_FILES + _RUNTIME_SOURCE_FILES))
+_PINNED_B1_WHEEL_SHA256 = (
+    "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+)
 
 _ALLOWED_IMPORT_ROOTS = frozenset(
     {"__future__", "collections", "dataclasses", "re", "types", "typing"}
@@ -121,7 +126,7 @@ def _called_names(tree: ast.Module) -> set[str]:
 # --------------------------------------------------------------------------
 
 
-def test_source_inventory_covers_every_python_module_recursively() -> None:
+def test_source_inventory_covers_pure_and_runtime_modules_recursively() -> None:
     assert _SOURCE_FILES
     assert _SOURCE_FILES == _EXPECTED_SOURCE_FILES
     assert _SOURCE_FILES == tuple(
@@ -129,7 +134,7 @@ def test_source_inventory_covers_every_python_module_recursively() -> None:
     )
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_imports_only_pure_standard_library(source_file: str) -> None:
     tree = _parse_source(source_file)
     roots: set[str] = set()
@@ -144,7 +149,7 @@ def test_source_imports_only_pure_standard_library(source_file: str) -> None:
     assert roots <= _ALLOWED_IMPORT_ROOTS, sorted(roots - _ALLOWED_IMPORT_ROOTS)
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_declares_no_runtime_execution_call(source_file: str) -> None:
     called = _called_names(_parse_source(source_file))
     assert called.isdisjoint(_FORBIDDEN_CALL_NAMES), sorted(
@@ -152,14 +157,14 @@ def test_source_declares_no_runtime_execution_call(source_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_text_excludes_dependency_and_runtime_markers(source_file: str) -> None:
     lowered = _read_source(source_file).lower()
     hits = [marker for marker in _FORBIDDEN_SOURCE_TEXT if marker in lowered]
     assert hits == []
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_declares_no_executable_entrypoint(source_file: str) -> None:
     tree = _parse_source(source_file)
     for node in ast.walk(tree):
@@ -348,6 +353,29 @@ def test_internal_patched_builder_reference_is_accepted() -> None:
         internal_patched=True,
     )
     assert policy.validate_ssl_context_builder(reference) is reference
+
+
+def test_pinned_b1_builder_may_delegate_only_to_the_exact_patched_base() -> None:
+    assert getattr(policy, "PINNED_B1_WHEEL_SHA256", None) == _PINNED_B1_WHEEL_SHA256
+    reference = policy.SslContextBuilderReference(
+        symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
+        delegates_to=(policy.ANYCORN_BASE_SSL_CONTEXT_BUILDER,),
+        internal_patched=True,
+        artifact_sha256=_PINNED_B1_WHEEL_SHA256,
+    )
+    assert policy.validate_ssl_context_builder(reference) is reference
+
+
+def test_patched_base_delegate_rejects_a_wrong_artifact_digest() -> None:
+    reference = policy.SslContextBuilderReference(
+        symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
+        delegates_to=(policy.ANYCORN_BASE_SSL_CONTEXT_BUILDER,),
+        internal_patched=True,
+        artifact_sha256="0" * 64,
+    )
+    with pytest.raises(policy.PolicyViolation) as caught:
+        policy.validate_ssl_context_builder(reference)
+    assert caught.value.reason == "builder_artifact_digest_mismatch"
 
 
 @pytest.mark.parametrize(

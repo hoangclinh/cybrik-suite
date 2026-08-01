@@ -4293,6 +4293,24 @@ const UAT_MTLS_D1_EXPECTED_PATHS = [
   'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
   'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
 ];
+const UAT_MTLS_D2_P0_AUTHORING_PATHS = [
+  'docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md',
+  'integration/compose/README.md',
+  'integration/compose/soc-ai-lifecycle-create-mtls/README.md',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/policy.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/client.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/harness.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/pki.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/server.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/store.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py',
+  'tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh',
+  'tools/contract-validation/tests/validate-transport.test.mjs',
+];
 
 const extractD1R2Additions = (decision) => {
   const section = mdSection(decision, '6. Prospective owner paths split by gate');
@@ -4507,5 +4525,29 @@ test('UAT mTLS S1 R3 controls remain pinned after D1 live-fact supersession', ()
   assert.match(d1Live, /pinned=true/);
   assert.match(d1Live, /D2 remains \*\*HOLD\*\*/);
   assert.match(d1Live, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
+});
+
+test('UAT mTLS D2-P0 authoring reconciles the closed D1 scope without opening runtime', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const match = decision.match(
+    /### Gate UAT-MTLS-D2-P0 — preflight authoring([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
+  );
+  assert.ok(match, 'the ADR must define one D2-P0 authoring gate immediately before D2 runtime');
+  const section = match[1];
+  assert.match(section, /Current state: `AUTHORIZED — AUTHORING ONLY — RUNTIME HOLD`/);
+  assert.match(section, /D1 remains complete for its consumed dependency\/build\/evidence action/);
+  assert.match(section, /no D1 dependency authority is reused or reopened/);
+  assert.match(section, /must not open a socket, start PostgreSQL, run a migration, generate PKI, or execute N1–N10/);
+  assert.match(section, /D2 remains \*\*HOLD\*\*/);
+  assert.match(section, /Release dates remain unchanged/);
+  const scopeMatch = section.match(
+    /maximum prospective authoring scope is exactly:\n\n((?:- `[^`]+`\n)+)\nNo other path/,
+  );
+  assert.ok(scopeMatch, 'D2-P0 must expose one exact finite authoring path list');
+  const paths = [...scopeMatch[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
+  assert.deepEqual(paths, UAT_MTLS_D2_P0_AUTHORING_PATHS);
+  assert.match(section, /`anycorn\.config\.Config\.create_ssl_context`/);
+  assert.match(section, /`d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`/);
+  assert.match(section, /TLSv1\.3/);
 });
 // <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END
