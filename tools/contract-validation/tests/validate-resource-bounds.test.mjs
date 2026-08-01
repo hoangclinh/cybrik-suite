@@ -139,12 +139,12 @@ test('the W2-H proposal packet is internally coherent but remains unaccepted', (
   assert.equal(report.packetVersion, '0.1.0');
   assert.equal(report.gate, 'W2-H');
   assert.equal(report.gateDisposition, 'OPEN FOR BOUNDED PROPOSAL WRITING ONLY');
-  // W2-H/R2 §6.3.3 inventory arithmetic: 7 schemas and a 9/10/12 fixture split.
+  // W2-H/R3 §7.3.3 inventory arithmetic: 7 schemas and a 10/10/16 fixture split.
   assert.equal(report.counts.schemasCompiled, 7);
-  assert.equal(report.counts.positiveFixtures, 9);
+  assert.equal(report.counts.positiveFixtures, 10);
   assert.equal(report.counts.negativeSchemaFixtures, 10);
-  assert.equal(report.counts.negativeSemanticFixtures, 12);
-  assert.equal(report.counts.negativeSemanticRejectedExactly, 12);
+  assert.equal(report.counts.negativeSemanticFixtures, 16);
+  assert.equal(report.counts.negativeSemanticRejectedExactly, 16);
   assert.equal(report.counts.packetMembers, expectedPacketPaths.length);
 });
 
@@ -241,8 +241,8 @@ test('the fixed positive replay is deterministic and conserved', () => {
 });
 
 test('every semantic replay is structurally valid and rejected by exactly its named rule', () => {
-  // W2-H/R2 §6.3.3: nine R1 replays plus the three §6.3.2 additions.
-  assert.equal(NEGATIVE_REPLAY_PATHS.length, 12);
+  // W2-H/R3 §7.3.2: the twelve R2 replays plus the four C1-C4 additions.
+  assert.equal(NEGATIVE_REPLAY_PATHS.length, 16);
   for (const relativePath of NEGATIVE_REPLAY_PATHS) {
     const fixture = readJson(relativePath);
     const result = replayResourceCase(fixture);
@@ -267,6 +267,17 @@ test('idempotent replay binds both the original request and its exact result', (
 
   secondReserve.payload.request = structuredClone(firstReserve.payload.request);
   secondReserve.payload.result = structuredClone(firstReserve.payload.result);
+  // W2-H/R3.1: the clone carries the first event's position and its now-stale
+  // expected_version. C2 binds every nested record to its own envelope and C4
+  // removes the admitted-key short circuit that let R2 skip both checks, so the
+  // clone is rebased onto the second event's position and the parent's current
+  // version — restoring the three values the fixture's second event carried
+  // before the clone, and leaving the fixture itself byte-identical.
+  for (const record of [secondReserve.payload.request, secondReserve.payload.result]) {
+    record.sequence = 3;
+    record.virtual_time_ms = 1020;
+  }
+  secondReserve.payload.request.parent.expected_version = 2;
   assert.equal(replayResourceCase(fixture).accepted, true);
 
   secondReserve.payload.result.parent_version_after += 1;
@@ -576,6 +587,10 @@ const buildReserveEvent = ({
   parentRemainingAfter,
   requestRootId = grantId,
   resultRootId = grantId,
+  // C4: a re-issue asserts the parent's CURRENT version while its result still
+  // restates the versions the original admission produced, so the request's
+  // expected_version is separable from the result's parent_version_before.
+  expectedVersion = parentVersionBefore,
 }) => ({
   sequence,
   virtual_time_ms: virtualTimeMs,
@@ -587,7 +602,7 @@ const buildReserveEvent = ({
       tenant_id: TENANT_ID,
       org_scope_ref: { ...ORG_SCOPE_REF },
       root: rootRef(requestRootId),
-      parent: { kind: 'grant', id: grantId, expected_version: parentVersionBefore },
+      parent: { kind: 'grant', id: grantId, expected_version: expectedVersion },
       requested,
       sequence,
       virtual_time_ms: virtualTimeMs,
@@ -924,7 +939,9 @@ test('B1-B4: the examples manifest registers exactly the nine authorized new fix
   const manifest = readJson(
     'contracts/examples/resource-bounds/examples-manifest.json',
   );
-  assert.equal(manifest.fixtures.length, 31);
+  // The registration set is R2's nine and does not move; the corpus it sits in
+  // grows to R3's thirty-six.
+  assert.equal(manifest.fixtures.length, 36);
   const byFile = new Map(manifest.fixtures.map((entry) => [entry.file, entry]));
 
   for (const expected of NEW_FIXTURE_REGISTRATIONS) {
@@ -1026,21 +1043,15 @@ test('B4: replay accepts a denied reserve result, leaves the parent unchanged, a
 });
 
 test('B1: replay recognizes the renamed root-closure event kind and reconciles exact accounting', () => {
-  const grantId = 'rbg_closure0000000001';
-  const bounds = flatVector(10);
-  const fixture = inlineCase('inline.root-closure.completed', [
-    buildGrantEvent({ sequence: 1, virtualTimeMs: 1000, grantId, bounds }),
-    buildRootClosureEvent({
-      sequence: 2,
-      virtualTimeMs: 1010,
-      grantId,
-      closureId: 'rcl_closure0000000001',
-      finalConsumed: flatVector(4),
-      finalUnused: flatVector(6),
-      stateVersionBefore: 1,
-      stateVersionAfter: 2,
-    }),
-  ]);
+  // W2-H/R3 §7.3.3: the R2 form of this case declared a 4/6 split over a ledger
+  // holding no reservation and no release, which is exactly the free split C1
+  // closes. It is rebased onto a ledger that reserves from the root and
+  // releases with consumed 4 before the closure, so the declared split is the
+  // one the ledger produces. Every assertion below is unchanged.
+  const fixture = inlineCase(
+    'inline.root-closure.completed',
+    buildSettledLedgerEvents(),
+  );
 
   const result = replayResourceCase(fixture);
   assert.equal(result.accepted, true);
@@ -1048,6 +1059,10 @@ test('B1: replay recognizes the renamed root-closure event kind and reconciles e
   assert.deepEqual(result.finalRootRemaining, zeroVector());
   assert.equal(result.trace.at(-1).kind, 'root-closure');
   assert.equal(result.trace.at(-1).rootClosed, true);
+  // The declared split is the replayed one: 4 consumed by the released child,
+  // 6 never drawn from the root.
+  assert.deepEqual(result.trace.at(-1).finalConsumed, flatVector(4));
+  assert.deepEqual(result.trace.at(-1).finalUnused, flatVector(6));
 });
 
 test('B1: nested replay payload validation binds root-closure events to the seventh schema', () => {
@@ -1407,8 +1422,8 @@ test('B4: seeded synthetic trees replay admission, release, and terminal root cl
   }
 });
 
-test('the authorized R2 packet totals exactly 40 members with a 9/10/12 fixture split and 7 schemas', () => {
-  assert.equal(expectedPacketPaths.length, 40);
+test('the authorized R3 packet totals exactly 45 members with a 10/10/16 fixture split and 7 schemas', () => {
+  assert.equal(expectedPacketPaths.length, 45);
 
   const positiveCount = expectedPacketPaths.filter((path) =>
     path.includes('/examples/resource-bounds/positive/')).length;
@@ -1419,20 +1434,556 @@ test('the authorized R2 packet totals exactly 40 members with a 9/10/12 fixture 
   const schemaCount = expectedPacketPaths.filter((path) =>
     path.startsWith('contracts/json-schema/cybrik.res-')).length;
 
-  assert.equal(positiveCount, 9);
+  assert.equal(positiveCount, 10);
+  // R3 adds no negative-schema fixture and no schema.
   assert.equal(negativeSchemaCount, 10);
-  assert.equal(negativeSemanticCount, 12);
+  assert.equal(negativeSemanticCount, 16);
   assert.equal(schemaCount, 7);
 });
 
-test('the compatibility manifest recomputes to member_count 40 while the accepted dependency pins stay untouched', () => {
+test('the compatibility manifest recomputes to member_count 45 while the accepted dependency pins stay untouched', () => {
   const manifest = readJson(
     'contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json',
   );
-  assert.equal(manifest['x-cybrik-packet-integrity'].member_count, 40);
-  assert.equal(manifest['x-cybrik-packet-integrity'].member_digests.length, 40);
-  assert.equal(manifest.members.length, 40);
+  assert.equal(manifest['x-cybrik-packet-integrity'].member_count, 45);
+  assert.equal(manifest['x-cybrik-packet-integrity'].member_digests.length, 45);
+  assert.equal(manifest.members.length, 45);
 
   assert.equal(manifest.dependencies_reused_unmodified.length, 4);
   assert.equal(declaredDependencyPinsMatch(manifest), true);
+});
+
+// ---------------------------------------------------------------------------
+// W2-H/R3 amendment: bounded C1-C4 replay-truth hardening (ledger-derived
+// closure settlement, envelope/nested ordering agreement, denial truth, and
+// the canonical idempotent request identity).
+//
+// These tests describe the replay rules authorized by decision section 7 and
+// therefore fail against the R2 implementation. A green result here after
+// C1-C4 land is still static L1/L2 conformance only: it accepts no ADR, closes
+// no RES_ACTIVE_CHILDREN retriability gap, and measures nothing running.
+// ---------------------------------------------------------------------------
+
+const RES_BOUNDS_ERROR_RETRIABLE_MISMATCH =
+  'contracts/examples/resource-bounds/negative-schema/bounds-error.retriable-mismatch.json';
+const COMPATIBILITY_MANIFEST =
+  'contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json';
+
+// W2-H/R3 §7.3.2, in the decision's own order. Every entry is a replay ledger,
+// so none binds a single schema and only the four negatives carry a code.
+const R3_FIXTURE_REGISTRATIONS = Object.freeze([
+  { file: 'positive/replay.denied-then-admitted.json', kind: 'positive' },
+  {
+    file: 'negative-semantic/replay.closure-settlement-split-mismatch.json',
+    kind: 'negative-semantic', expected_error: 'RES_RELEASE_ACCOUNTING_MISMATCH',
+  },
+  {
+    file: 'negative-semantic/replay.record-sequence-mismatch.json',
+    kind: 'negative-semantic', expected_error: 'RES_SEQUENCE_VIOLATION',
+  },
+  {
+    file: 'negative-semantic/replay.denial-unjustified.json',
+    kind: 'negative-semantic', expected_error: 'RES_RESULT_MISMATCH',
+  },
+  {
+    file: 'negative-semantic/replay.denial-idempotency-conflict.json',
+    kind: 'negative-semantic', expected_error: 'RES_IDEMPOTENCY_CONFLICT',
+  },
+]);
+
+// One settled ledger, shared by the rebased B1 case, the C1 split table, and
+// the C2 table. Bounds 10: a first child draws 6 and releases consuming 4
+// (root 6, accumulated consumed 4), a second draws 3 and stays open (root 3),
+// and the closure declares consumed 4 and unused 3 + 3. It carries no re-issue
+// at all, so a C1 or C2 failure here is that rule and nothing the idempotency
+// rules do; every nested record already carries its envelope's position.
+const SETTLED_GRANT_ID = 'rbg_settled000000001';
+const SETTLED_OPEN_CHILD_ID = 'rsr_settled000000002';
+const buildSettledLedgerEvents = (
+  finalConsumed = flatVector(4),
+  finalUnused = flatVector(6),
+) => [
+  buildGrantEvent({
+    sequence: 1, virtualTimeMs: 1000,
+    grantId: SETTLED_GRANT_ID, bounds: flatVector(10),
+  }),
+  buildReserveEvent({
+    sequence: 2, virtualTimeMs: 1010, grantId: SETTLED_GRANT_ID,
+    requestId: 'rsq_settled000000001', idempotencyKey: 'idem.settled.000000001',
+    reservationId: 'rsr_settled000000001', requested: flatVector(6),
+    parentVersionBefore: 1, parentRemainingAfter: flatVector(4),
+  }),
+  buildReleaseEvent({
+    sequence: 3, virtualTimeMs: 1020, grantId: SETTLED_GRANT_ID,
+    releaseId: 'rsl_settled000000001', reservationId: 'rsr_settled000000001',
+    reservationVersion: 1, consumed: flatVector(4), returned: flatVector(2),
+  }),
+  buildReserveEvent({
+    sequence: 4, virtualTimeMs: 1030, grantId: SETTLED_GRANT_ID,
+    requestId: 'rsq_settled000000002', idempotencyKey: 'idem.settled.000000002',
+    reservationId: SETTLED_OPEN_CHILD_ID, requested: flatVector(3),
+    parentVersionBefore: 3, parentRemainingAfter: flatVector(3),
+  }),
+  buildRootClosureEvent({
+    sequence: 5, virtualTimeMs: 1040, grantId: SETTLED_GRANT_ID,
+    closureId: 'rcl_settled000000001', finalConsumed, finalUnused,
+    stateVersionBefore: 4, stateVersionAfter: 5,
+  }),
+];
+
+const DTA_GRANT_ID = 'rbg_deniedadmit00001';
+const DTA_SIBLING_ID = 'rsr_deniedadmit00000';
+const DTA_REQUEST_ID = 'rsq_deniedadmit00001';
+const DTA_IDEMPOTENCY_KEY = 'idem.deniedadmit.00001';
+const DTA_RESERVATION_ID = 'rsr_deniedadmit00001';
+const DTA_REQUESTED = flatVector(5);
+
+// The in-memory twin of positive/replay.denied-then-admitted.json: one causal
+// chain in one root tree carrying the whole positive path of C1-C4. Bounds 10.
+//   1 grant                     root 10, v1
+//   2 sibling draws 6           root 4,  v2
+//   3 denial: 5 exceeds 4       root 4,  v2  (C3 justified, C4 binds the key)
+//   4 sibling releases 3/3      root 7,  v3  (C1 accumulates consumed 3)
+//   5 same request, now admitted at the CURRENT version   root 2, v4
+//   6 identity-matching replay, re-draws nothing
+//   7 closure: consumed 3, unused 2 (root) + 5 (open child) = 7
+const buildDeniedThenAdmittedEvents = () => [
+  buildGrantEvent({
+    sequence: 1, virtualTimeMs: 1000,
+    grantId: DTA_GRANT_ID, bounds: flatVector(10),
+  }),
+  buildReserveEvent({
+    sequence: 2, virtualTimeMs: 1010, grantId: DTA_GRANT_ID,
+    requestId: 'rsq_deniedadmit00000', idempotencyKey: 'idem.deniedadmit.00000',
+    reservationId: DTA_SIBLING_ID, requested: flatVector(6),
+    parentVersionBefore: 1, parentRemainingAfter: flatVector(4),
+  }),
+  buildDeniedReserveEvent({
+    sequence: 3, virtualTimeMs: 1020, grantId: DTA_GRANT_ID,
+    requestId: DTA_REQUEST_ID, idempotencyKey: DTA_IDEMPOTENCY_KEY,
+    requested: DTA_REQUESTED, parentVersion: 2, parentRemaining: flatVector(4),
+  }),
+  buildReleaseEvent({
+    sequence: 4, virtualTimeMs: 1030, grantId: DTA_GRANT_ID,
+    releaseId: 'rsl_deniedadmit00000', reservationId: DTA_SIBLING_ID,
+    reservationVersion: 1, consumed: flatVector(3), returned: flatVector(3),
+  }),
+  buildReserveEvent({
+    sequence: 5, virtualTimeMs: 1040, grantId: DTA_GRANT_ID,
+    requestId: DTA_REQUEST_ID, idempotencyKey: DTA_IDEMPOTENCY_KEY,
+    reservationId: DTA_RESERVATION_ID, requested: DTA_REQUESTED,
+    parentVersionBefore: 3, parentRemainingAfter: flatVector(2),
+  }),
+  // The replay's result restates what the first admission produced; only its
+  // request's expected_version tracks the parent's current version.
+  buildReserveEvent({
+    sequence: 6, virtualTimeMs: 1050, grantId: DTA_GRANT_ID,
+    requestId: DTA_REQUEST_ID, idempotencyKey: DTA_IDEMPOTENCY_KEY,
+    reservationId: DTA_RESERVATION_ID, requested: DTA_REQUESTED,
+    parentVersionBefore: 3, parentRemainingAfter: flatVector(2),
+    expectedVersion: 4,
+  }),
+  buildRootClosureEvent({
+    sequence: 7, virtualTimeMs: 1060, grantId: DTA_GRANT_ID,
+    closureId: 'rcl_deniedadmit00001',
+    finalConsumed: flatVector(3), finalUnused: flatVector(7),
+    stateVersionBefore: 4, stateVersionAfter: 5,
+  }),
+];
+
+const withoutKeys = (value, keys) => {
+  const copy = structuredClone(value);
+  for (const key of keys) {
+    const path = key.split('.');
+    const leaf = path.pop();
+    const owner = path.reduce((node, step) => node?.[step], copy);
+    if (owner) delete owner[leaf];
+  }
+  return copy;
+};
+
+test('C1: closure settlement is derived from the ledger — consumed from validated releases, unused from the root plus every still-open reservation', () => {
+  const result = replayResourceCase(
+    inlineCase('inline.c1.settlement', buildSettledLedgerEvents()),
+  );
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.accepted, true);
+  assert.deepEqual(result.finalRootRemaining, zeroVector());
+
+  // Neither term is vacuous: the consumed 4 is one validated release, and the
+  // unused 6 is the root's own 3 plus the 3 a still-open reservation never
+  // spent. This is declared contract credit, not a measurement of a running
+  // system, and the still-open child's share is extinguished at closure.
+  const closure = result.trace.at(-1);
+  assert.equal(closure.kind, 'root-closure');
+  assert.deepEqual(closure.finalConsumed, flatVector(4));
+  assert.deepEqual(closure.finalUnused, flatVector(6));
+  assert.deepEqual(closure.closedDescendants, [
+    { reservationId: SETTLED_OPEN_CHILD_ID, remainingAfter: zeroVector() },
+  ]);
+
+  // Sum-correct but split-wrong. Each declares final_consumed + final_unused
+  // equal to the grant's bounds — the whole of the R2 rule — and still
+  // contradicts the ledger, so a passing sum can no longer carry the case.
+  const SPLIT_MISMATCHES = [
+    ['consumed overstated by credit no release consumed', flatVector(5), flatVector(5)],
+    ['consumed understated', flatVector(3), flatVector(7)],
+    ['the open reservation\'s credit booked as consumed', flatVector(7), flatVector(3)],
+    ['a settlement that settles nothing', zeroVector(), flatVector(10)],
+  ];
+  for (const [label, finalConsumed, finalUnused] of SPLIT_MISMATCHES) {
+    assert.deepEqual(vectorAdd(finalConsumed, finalUnused), flatVector(10), label);
+    const failed = replayResourceCase(inlineCase(
+      `inline.c1.${label}`,
+      buildSettledLedgerEvents(finalConsumed, finalUnused),
+    ));
+    assert.equal(failed.accepted, false, label);
+    assert.deepEqual(failed.errors, ['RES_RELEASE_ACCOUNTING_MISMATCH'], label);
+  }
+});
+
+test('C1: the standalone root-closure fixture is byte-identical to the settlement the new positive replay produces', () => {
+  const standalone = readJson(
+    'contracts/examples/resource-bounds/positive/root-closure.completed.json',
+  );
+  const ledger = readJson(
+    'contracts/examples/resource-bounds/positive/replay.denied-then-admitted.json',
+  );
+  const terminal = ledger.events.at(-1);
+  assert.equal(terminal.kind, 'root-closure');
+
+  // Same value and same key order: the packet holds one settlement, not two
+  // that agree on their vectors and disagree on anything else.
+  assert.equal(JSON.stringify(standalone), JSON.stringify(terminal.payload));
+  assert.equal(standalone.reason, 'completed');
+
+  // And that settlement must be one replay actually produces, or the byte
+  // identity would only pin two copies of the same free split.
+  const result = replayResourceCase(ledger);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.accepted, true);
+  assert.equal(result.trace.at(-1).kind, 'root-closure');
+  assert.deepEqual(result.trace.at(-1).finalConsumed, standalone.final_consumed);
+  assert.deepEqual(result.trace.at(-1).finalUnused, standalone.final_unused);
+});
+
+test('C2: every nested public record carries exactly its envelope sequence and virtual time', () => {
+  assert.deepEqual(
+    replayResourceCase(inlineCase('inline.c2.settled', buildSettledLedgerEvents())).errors,
+    [],
+  );
+
+  const NESTED_RECORDS = [
+    ['grant payload', (events) => events[0].payload],
+    ['reservation request', (events) => events[1].payload.request],
+    // A reserve event is one atomic admission result group, so a result that
+    // disagrees with its own request is a violation exactly as much as one that
+    // disagrees with the envelope.
+    ['reservation result', (events) => events[1].payload.result],
+    ['release payload', (events) => events[2].payload],
+    ['root-closure payload', (events) => events[4].payload],
+  ];
+  // Sequence is a pure ordering field, so both directions are ordering
+  // failures. Virtual time splits: earlier than its envelope is time running
+  // backwards inside one ledger position; later is a record field failing to
+  // equal the replayed state that admitted it.
+  const NESTED_DRIFTS = [
+    ['sequence', -1, 'RES_SEQUENCE_VIOLATION'],
+    ['sequence', 1, 'RES_SEQUENCE_VIOLATION'],
+    ['virtual_time_ms', -1, 'RES_VIRTUAL_TIME_ROLLBACK'],
+    ['virtual_time_ms', 1, 'RES_RESULT_MISMATCH'],
+  ];
+
+  for (const [recordLabel, select] of NESTED_RECORDS) {
+    for (const [field, delta, expectedCode] of NESTED_DRIFTS) {
+      const label = `${recordLabel} ${field} ${delta > 0 ? 'later' : 'earlier'}`;
+      const events = buildSettledLedgerEvents();
+      select(events)[field] += delta;
+      // The dense envelope order stays intact, so nothing but the nested rule
+      // can produce the failure.
+      assert.deepEqual(events.map((event) => event.sequence), [1, 2, 3, 4, 5], label);
+      const result = replayResourceCase(inlineCase(`inline.c2.${label}`, events));
+      assert.equal(result.accepted, false, label);
+      assert.deepEqual(result.errors, [expectedCode], label);
+    }
+  }
+});
+
+test('C3: a denial is accepted only when the replayed state makes it inadmissible and its code is the one that state implies', () => {
+  const grantId = 'rbg_denialtruth00001';
+  const bounds = flatVector(10);
+  const caseFor = ({ requested, code }) => {
+    const denial = buildDeniedReserveEvent({
+      sequence: 2, virtualTimeMs: 1010, grantId,
+      requestId: 'rsq_denialtruth00001', idempotencyKey: 'idem.aaaaaaaaaaaaaaaa',
+      requested, parentVersion: 1, parentRemaining: bounds,
+    });
+    if (code) denial.payload.result.error.code = code;
+    return inlineCase('inline.c3.denial', [
+      buildGrantEvent({ sequence: 1, virtualTimeMs: 1000, grantId, bounds }),
+      denial,
+    ]);
+  };
+
+  // Inadmissible in every dimension, and inadmissible in exactly one: both are
+  // denials the state derives, and RES_INSUFFICIENT_REMAINDER is the only code
+  // derivable at this point by construction.
+  for (const requested of [flatVector(11), { ...flatVector(9), tool_calls: 11 }]) {
+    assert.deepEqual(replayResourceCase(caseFor({ requested })).errors, []);
+  }
+
+  // A refusal the state does not justify: every dimension fits.
+  for (const requested of [flatVector(9), flatVector(10), zeroVector()]) {
+    const result = replayResourceCase(caseFor({ requested }));
+    assert.equal(result.accepted, false, JSON.stringify(requested));
+    assert.deepEqual(result.errors, ['RES_RESULT_MISMATCH'], JSON.stringify(requested));
+  }
+
+  // Exhaustive over the fifteen: an inadmissible request denied under any other
+  // code is a denial the state does not imply. R3 mints no code and makes none
+  // of the fourteen newly derivable here.
+  for (const code of REPLAY_ERROR_CODES) {
+    if (code === 'RES_INSUFFICIENT_REMAINDER') continue;
+    const result = replayResourceCase(caseFor({ requested: flatVector(11), code }));
+    assert.equal(result.accepted, false, code);
+    assert.deepEqual(result.errors, ['RES_RESULT_MISMATCH'], code);
+  }
+});
+
+test('C4: the canonical idempotent request identity excludes exactly sequence, virtual_time_ms, and parent.expected_version', () => {
+  const events = buildDeniedThenAdmittedEvents();
+  const denied = events[2].payload.request;
+  const reissued = events[4].payload.request;
+  const EXCLUDED = ['sequence', 'virtual_time_ms', 'parent.expected_version'];
+
+  // The re-issue differs from the denied request in exactly those three fields,
+  // and each of the three really does differ — otherwise the identity below
+  // would be proved by a request that never moved.
+  assert.deepEqual(withoutKeys(reissued, EXCLUDED), withoutKeys(denied, EXCLUDED));
+  assert.notEqual(reissued.sequence, denied.sequence);
+  assert.notEqual(reissued.virtual_time_ms, denied.virtual_time_ms);
+  assert.notEqual(reissued.parent.expected_version, denied.parent.expected_version);
+  assert.deepEqual(
+    replayResourceCase(inlineCase('inline.c4.identity', events)).errors,
+    [],
+  );
+
+  // Every other field is bound. Mutating one either conflicts on the bound key
+  // or is refused earlier by a check that runs before the idempotency lookup —
+  // exclusion from the identity is not exemption from validation, and neither
+  // is inclusion in it a reordering of the existing guards.
+  const CONFLICT = 'RES_IDEMPOTENCY_CONFLICT';
+  const IDENTITY_MUTATIONS = [
+    ['request_id', (q) => { q.request_id = 'rsq_deniedadmit00009'; }, CONFLICT],
+    ['requested', (q) => { q.requested = flatVector(4); }, CONFLICT],
+    ['parent.kind and parent.id', (q) => {
+      q.parent = { ...q.parent, kind: 'reservation', id: DTA_SIBLING_ID };
+    }, CONFLICT],
+    ['confers_authority', (q) => { q.confers_authority = true; }, CONFLICT],
+    ['tenant_id', (q) => { q.tenant_id = 'tenant-red'; }, 'RES_TENANT_MISMATCH'],
+    ['org_scope_ref', (q) => { q.org_scope_ref = { org_id: 'org-red' }; },
+      'RES_ORG_SCOPE_MISMATCH'],
+    ['root', (q) => { q.root = rootRef('rbg_foreignroot00001'); },
+      'RES_PARENT_NOT_FOUND'],
+  ];
+  for (const [label, mutate, expectedCode] of IDENTITY_MUTATIONS) {
+    const mutated = buildDeniedThenAdmittedEvents();
+    mutate(mutated[4].payload.request);
+    const result = replayResourceCase(inlineCase(`inline.c4.${label}`, mutated));
+    assert.equal(result.accepted, false, label);
+    assert.deepEqual(result.errors, [expectedCode], label);
+    // Refused at its own ledger position: the first four events are traced and
+    // the re-issue is not. A failure surfacing later would mean the mutated
+    // event was admitted and something downstream caught it instead.
+    assert.equal(result.trace.length, 4, label);
+  }
+});
+
+test('C4: a denied key is bound, clears into an admission when peer state returns credit, and still refuses a stale version', () => {
+  const accepted = replayResourceCase(
+    inlineCase('inline.c4.transition', buildDeniedThenAdmittedEvents()),
+  );
+  assert.deepEqual(accepted.errors, []);
+
+  const denialEntry = accepted.trace.find((entry) => entry.sequence === 3);
+  assert.equal(denialEntry.admitted, false);
+  assert.equal(denialEntry.deniedCode, 'RES_INSUFFICIENT_REMAINDER');
+  // The cleared denial draws the parent down exactly as a first admission
+  // would; the denial itself granted nothing at the moment it was recorded.
+  const admissionEntry = accepted.trace.find((entry) => entry.sequence === 5);
+  assert.equal(admissionEntry.admitted, true);
+  assert.equal(admissionEntry.idempotentReplay, undefined);
+  assert.deepEqual(admissionEntry.parentRemainingBefore, flatVector(7));
+  assert.deepEqual(admissionEntry.parentRemainingAfter, flatVector(2));
+
+  // Excluding parent.expected_version recognizes the same request across a
+  // version change; it is not permission to re-present a stale assertion. Under
+  // R2 the bound key short-circuited and this event never reached the check.
+  const stale = buildDeniedThenAdmittedEvents();
+  stale[4].payload.request.parent.expected_version = 2;
+  const staleResult = replayResourceCase(inlineCase('inline.c4.stale', stale));
+  assert.equal(staleResult.accepted, false);
+  assert.deepEqual(staleResult.errors, ['RES_VERSION_CONFLICT']);
+
+  // A repeat denial must still be true: the sibling release cleared it, so
+  // re-presenting the refusal contradicts the current state.
+  const repeated = buildDeniedThenAdmittedEvents();
+  repeated[4] = buildDeniedReserveEvent({
+    sequence: 5, virtualTimeMs: 1040, grantId: DTA_GRANT_ID,
+    requestId: DTA_REQUEST_ID, idempotencyKey: DTA_IDEMPOTENCY_KEY,
+    requested: DTA_REQUESTED, parentVersion: 3, parentRemaining: flatVector(7),
+  });
+  const repeatedResult = replayResourceCase(inlineCase('inline.c4.repeat', repeated));
+  assert.equal(repeatedResult.accepted, false);
+  assert.deepEqual(repeatedResult.errors, ['RES_RESULT_MISMATCH']);
+});
+
+test('C4: once admitted, the result projection excluding only sequence and virtual_time_ms is final', () => {
+  const events = buildDeniedThenAdmittedEvents();
+  const original = events[4].payload.result;
+  const replayed = events[5].payload.result;
+  const POSITION_FIELDS = ['sequence', 'virtual_time_ms'];
+
+  // The re-issue occupies a different ledger position, so the two position
+  // fields cannot be compared against the recorded original — C2 binds each to
+  // its own envelope instead, and nothing else is excused.
+  assert.deepEqual(
+    withoutKeys(replayed, POSITION_FIELDS),
+    withoutKeys(original, POSITION_FIELDS),
+  );
+  for (const field of POSITION_FIELDS) {
+    assert.notEqual(replayed[field], original[field], field);
+  }
+
+  const accepted = replayResourceCase(inlineCase('inline.c4.projection', events));
+  assert.deepEqual(accepted.errors, []);
+  const replayEntry = accepted.trace.find((entry) => entry.sequence === 6);
+  assert.equal(replayEntry.idempotentReplay, true);
+  // The replay re-draws nothing: the closure still settles against one draw.
+  assert.deepEqual(accepted.trace.at(-1).finalUnused, flatVector(7));
+
+  const denialError = () => ({
+    code: 'RES_INSUFFICIENT_REMAINDER', message: 'insufficient remainder',
+    retriable: true, fail_closed: true,
+  });
+  const PROJECTION_DRIFTS = [
+    ['request_id', (r) => { r.request_id = 'rsq_deniedadmit00009'; }],
+    ['status regressing to denied', (r) => {
+      r.status = 'denied';
+      delete r.reservation;
+      r.error = denialError();
+    }],
+    ['reservation.reservation_id', (r) => {
+      r.reservation.reservation_id = 'rsr_deniedadmit00009';
+    }],
+    ['reservation.reserved', (r) => { r.reservation.reserved = flatVector(4); }],
+    ['reservation.remaining', (r) => { r.reservation.remaining = flatVector(4); }],
+    ['reservation.state_version', (r) => { r.reservation.state_version += 1; }],
+    ['reservation.status', (r) => { r.reservation.status = 'closed'; }],
+    ['parent_version_before', (r) => { r.parent_version_before += 1; }],
+    ['parent_version_after', (r) => { r.parent_version_after += 1; }],
+    ['parent_remaining_after', (r) => { r.parent_remaining_after = flatVector(3); }],
+    ['confers_authority', (r) => { r.confers_authority = true; }],
+    ['an error on an admitted result', (r) => { r.error = denialError(); }],
+  ];
+  for (const [label, mutate] of PROJECTION_DRIFTS) {
+    const drifted = buildDeniedThenAdmittedEvents();
+    mutate(drifted[5].payload.result);
+    const result = replayResourceCase(inlineCase(`inline.c4.drift.${label}`, drifted));
+    assert.equal(result.accepted, false, label);
+    assert.deepEqual(result.errors, ['RES_RESULT_MISMATCH'], label);
+  }
+});
+
+test('C1-C4: the packet registers exactly the five authorized R3 fixtures and totals 45 members', () => {
+  assert.equal(R3_FIXTURE_REGISTRATIONS.length, 5);
+  assert.equal(expectedPacketPaths.length, 45);
+
+  const manifest = readJson(
+    'contracts/examples/resource-bounds/examples-manifest.json',
+  );
+  const byFile = new Map(manifest.fixtures.map((entry) => [entry.file, entry]));
+  for (const expected of R3_FIXTURE_REGISTRATIONS) {
+    const entry = byFile.get(expected.file);
+    assert.ok(entry, `${expected.file} must be registered`);
+    assert.equal(entry.kind, expected.kind, expected.file);
+    // A replay ledger binds no single schema; the validator walks its events.
+    assert.equal(entry.schema, undefined, expected.file);
+    assert.equal(entry.expected_error, expected.expected_error, expected.file);
+    assert.match(entry.sha256 ?? '', /^[0-9a-f]{64}$/, expected.file);
+    const member = `contracts/examples/resource-bounds/${expected.file}`;
+    assert.ok(expectedPacketPaths.includes(member), `${member} must be a member`);
+  }
+
+  // One positive ledger carrying all four findings, and one negative per
+  // finding, each failing a distinct invariant under an existing code.
+  const kinds = R3_FIXTURE_REGISTRATIONS.map((entry) => entry.kind);
+  assert.equal(kinds.filter((kind) => kind === 'positive').length, 1);
+  assert.equal(kinds.filter((kind) => kind === 'negative-semantic').length, 4);
+  const codes = R3_FIXTURE_REGISTRATIONS.map((e) => e.expected_error).filter(Boolean);
+  assert.equal(new Set(codes).size, 4);
+  for (const code of codes) assert.ok(REPLAY_ERROR_CODES.includes(code), code);
+});
+
+test('C1-C4: the compatibility manifest states the settlement, ordering, and canonical-identity rules the packet enforces', () => {
+  const manifest = readJson(COMPATIBILITY_MANIFEST);
+
+  // The three authorized wording sites. Each keeps every R2 statement it
+  // already makes and gains exactly the rule C1, C2, or C4 now enforces —
+  // underclaiming by silence is the failure §7.2 exists to prevent.
+  const WORDING_SITES = [
+    ['resource_model.closure', manifest.resource_model.closure, [
+      // C1: the sum equality survives as a corollary; both halves become
+      // ledger-derived, with the measurement disclaimer.
+      /final_consumed plus final_unused equals the closing grant's original bounds/,
+      /accumulated consumed of every release the replay has already validated/i,
+      /closing root's remainder plus the remainder of every still-open reservation/i,
+      /immediately before closure/i,
+      /contract-credit accounting/i,
+      /not physical runtime measurement/i,
+      /every still-open descendant is closed with zero remaining/,
+      /extinguished, returned to nobody/,
+      /never reopens/,
+      /re-mint/,
+    ]],
+    ['resource_model.sequence', manifest.resource_model.sequence, [
+      // C2: the dense rule stays and the envelope/nested agreement joins it,
+      // including the intra-position reading of RES_VIRTUAL_TIME_ROLLBACK.
+      /no gap, no repeat, and no reordering/,
+      /exactly one serialization point per root tree/,
+      /deliberate v0.1 contract limit/,
+      /no throughput, scaling, or runtime-concurrency claim/,
+      /every nested public record carries exactly its envelope's sequence and virtual_time_ms/i,
+      /RES_VIRTUAL_TIME_ROLLBACK/,
+      /inside one ledger position/i,
+    ]],
+    ['authority_model.error_retriability', manifest.authority_model.error_retriability, [
+      // C4: the third canonical-intent site. The mapping does not move; only
+      // what re-issuing "the same request" means.
+      /true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN/,
+      /canonical/i,
+      /sequence/,
+      /virtual_time_ms/,
+      /parent\.expected_version/,
+      /grants no capacity, admission, queue position, priority, or authority/,
+      /fail_closed stays true for every code/,
+    ]],
+  ];
+  for (const [site, text, patterns] of WORDING_SITES) {
+    for (const pattern of patterns) assert.match(text, pattern, `${site}: ${pattern}`);
+  }
+  assert.doesNotMatch(
+    manifest.authority_model.error_retriability,
+    /byte-identical re-issue/i,
+  );
+
+  // The one deliberately retained occurrence: it is about RES_VERSION_CONFLICT,
+  // where a literal-byte re-issue genuinely can never succeed. Reconciling it
+  // would be an unauthorized fixture edit.
+  const retained = readJson(RES_BOUNDS_ERROR_RETRIABLE_MISMATCH);
+  assert.match(
+    retained.message,
+    /A byte-identical re-issue asserts the same stale version and can never succeed\./,
+  );
+  assert.equal(retained.code, 'RES_VERSION_CONFLICT');
 });

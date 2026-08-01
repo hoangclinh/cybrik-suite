@@ -41,15 +41,15 @@
     "admission": "All-or-nothing; the complete child vector is subtracted from the open parent at admission.",
     "no_mint": "Spawn introduces no credit. Finite root bounds imply finite admitted fanout; depth is independent.",
     "release": "Per dimension, consumed + returned equals the target reservation current available. Only returned unused credit may join a still-open parent; consumed credit never returns.",
-    "closure": "One terminal root-closure record covers normal completion and cancellation through a shared closure-reason vocabulary. At closure, final_consumed plus final_unused equals the closing grant's original bounds, the root's remaining credit becomes zero, and every still-open descendant is closed with zero remaining. The unused remainder is extinguished, returned to nobody. A closed root or reservation never reopens and no release may re-mint credit.",
+    "closure": "One terminal root-closure record covers normal completion and cancellation through a shared closure-reason vocabulary. At closure, final_consumed plus final_unused equals the closing grant's original bounds. Both halves derive from the validated ledger: final_consumed is the accumulated consumed of every release the replay has already validated in the tree, and final_unused is the closing root's remainder plus the remainder of every still-open reservation immediately before closure. This is declared contract-credit accounting, not physical runtime measurement. The root's remaining credit becomes zero, every still-open descendant is closed with zero remaining, and the unused remainder is extinguished, returned to nobody. A closed root or reservation never reopens and no release may re-mint credit.",
     "root_binding": "Every non-grant record names the root grant whose tree it belongs to. The binding is identity-only accounting lineage with no version and no authority; a record naming a foreign root is refused.",
-    "sequence": "Within one root tree, sequences start at 1 and increase by exactly 1, with no gap, no repeat, and no reordering. That dense rule means exactly one serialization point per root tree; it is a deliberate v0.1 contract limit and makes no throughput, scaling, or runtime-concurrency claim."
+    "sequence": "Within one root tree, sequences start at 1 and increase by exactly 1, with no gap, no repeat, and no reordering. Every nested public record carries exactly its envelope's sequence and virtual_time_ms. A nested time earlier than its envelope is RES_VIRTUAL_TIME_ROLLBACK, including virtual time running backwards inside one ledger position; a nested time later than its envelope is RES_RESULT_MISMATCH. That dense rule means exactly one serialization point per root tree; it is a deliberate v0.1 contract limit and makes no throughput, scaling, or runtime-concurrency claim."
   },
   "authority_model": {
     "tenant": "Authoritative tenant derives from the authenticated caller credential; payload tenant_id is advisory and must match.",
     "org_scope": "org_scope_ref is advisory and must match authenticated policy.",
     "identifiers": "Grant, request, reservation, release, closure, idempotency, root, parent, version, sequence, and virtual-time fields are accounting state only.",
-    "error_retriability": "The res-bounds error carries a code-derived, advisory retriable hint, true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN, where a byte-identical re-issue could later succeed because peer state changed. It grants no capacity, admission, queue position, priority, or authority, and fail_closed stays true for every code.",
+    "error_retriability": "The res-bounds error carries a code-derived, advisory retriable hint, true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN. A re-issue preserves the canonical request identity, which excludes exactly sequence, virtual_time_ms, and parent.expected_version; all other request fields remain bound, positional fields must match their new envelope, and expected_version must match current parent state. Peer state may therefore let an otherwise identical request later succeed. It grants no capacity, admission, queue position, priority, or authority, and fail_closed stays true for every code.",
     "confers_authority": false,
     "prohibition": "No member is a credential, capability, permission, delegation, or approval."
   },
@@ -111,6 +111,7 @@
     { "file": "examples/resource-bounds/positive/bounds-error.standalone.json", "format": "json", "kind": "positive", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/positive/replay.conserved-tree.json", "format": "json", "kind": "positive-replay", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/positive/replay.denied-admission.json", "format": "json", "kind": "positive-replay", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/positive/replay.denied-then-admitted.json", "format": "json", "kind": "positive-replay", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/negative-schema/bounds-grant.authority-token.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/negative-schema/bounds-grant.empty-vector.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/negative-schema/reservation-request.zero-vector.json", "format": "json", "kind": "negative-schema", "status": "PROPOSED" },
@@ -133,11 +134,15 @@
     { "file": "examples/resource-bounds/negative-semantic/replay.root-binding-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/negative-semantic/replay.root-closure-accounting-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
     { "file": "examples/resource-bounds/negative-semantic/replay.sequence-gap.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.closure-settlement-split-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.record-sequence-mismatch.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.denial-unjustified.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
+    { "file": "examples/resource-bounds/negative-semantic/replay.denial-idempotency-conflict.json", "format": "json", "kind": "negative-semantic", "status": "PROPOSED" },
     { "file": "compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json", "format": "json", "kind": "compatibility-manifest", "status": "PROPOSED" }
   ],
   "x-cybrik-packet-integrity": {
     "algorithm": "sha256",
-    "member_count": 40,
+    "member_count": 45,
     "path_root": "contracts/",
     "file_digest_rule": "Every member except this manifest is the lowercase hex SHA-256 of the exact on-disk UTF-8 bytes of <path_root><file>.",
     "self_digest_rule": "The compatibility-manifest member digest is the lowercase hex SHA-256 of the UTF-8 bytes of JSON.stringify(this parsed manifest after deleting the complete top-level x-cybrik-packet-integrity key). The digest inventory is inside that deleted block, so the input contains no digest and is non-circular.",
@@ -149,17 +154,18 @@
       { "file": "json-schema/cybrik.res-reservation-result.v1.schema.json", "sha256": "c707ab3107108148fcff0618a809349c4bd282cc03c54cf145b482dff59a034c" },
       { "file": "json-schema/cybrik.res-release.v1.schema.json", "sha256": "51e9dcdb7fcfc0662bf056c06422d80da95529955f776c26a8f2c9dc8d53603e" },
       { "file": "json-schema/cybrik.res-root-closure.v1.schema.json", "sha256": "acc38b8e552a531f39970536053d0ab1e2da31abca5d79baf5967aa649562117" },
-      { "file": "json-schema/cybrik.res-bounds-error.v1.schema.json", "sha256": "21bc115085f1a8b3ab32671946a65c51b5c38f252dd87278aaeb295155e3e243" },
-      { "file": "examples/resource-bounds/examples-manifest.json", "sha256": "402f0f08e2d56aa16b124c3984b853e30c891ff90c0384d6516f6a7e29a7f47f" },
+      { "file": "json-schema/cybrik.res-bounds-error.v1.schema.json", "sha256": "62f7373e0c5f1e363d48a672e9d53c260443f89519681f25b445f95eace0f2f8" },
+      { "file": "examples/resource-bounds/examples-manifest.json", "sha256": "3e470eb18006fd4ef1e3de98849d1da9f6cadbedf8b6ab236cb6211c5d8776b2" },
       { "file": "examples/resource-bounds/positive/bounds-grant.root.json", "sha256": "85d569e26858e868569d2b4a23af7ae8cef11976b665e722d5d9bfd4c6d41d95" },
       { "file": "examples/resource-bounds/positive/reservation-request.child.json", "sha256": "58c5a5ee854829376df9a4d8f615f69984b75d7a35cb9977877497e4f9074d36" },
       { "file": "examples/resource-bounds/positive/reservation-result.admitted.json", "sha256": "a1ab5b37b331c8787d93a7f64a37ed6a7eb1f83663f5c7dbdbf7f2ff2fb9d351" },
       { "file": "examples/resource-bounds/positive/reservation-result.denied.json", "sha256": "ecdc6d52f4896d7b67cc50caf4e0634bdbf770c25d5e2321f1041520717d49e8" },
       { "file": "examples/resource-bounds/positive/release.completed.json", "sha256": "1a1ab6086f4fcc645d4fc8a832953129634509a6f3e8f6d0e311d8c32fbd15c7" },
-      { "file": "examples/resource-bounds/positive/root-closure.completed.json", "sha256": "9b37184456336e0a82ecb545f6e9408642ca742297d7297ac355d857c416acf2" },
+      { "file": "examples/resource-bounds/positive/root-closure.completed.json", "sha256": "e87bbd0aef312d2480fec8828c13a90fc98c374a4d6c53a8552a15391b8cac9f" },
       { "file": "examples/resource-bounds/positive/bounds-error.standalone.json", "sha256": "b84662c22769cd2af62b55906b87632c19919c861905fdba491b4c7e7c3c4d30" },
       { "file": "examples/resource-bounds/positive/replay.conserved-tree.json", "sha256": "096fdcc2578b6578f4a5d8df5a5edd4c1bfac0fe8abd3812d30a333d92506c2a" },
       { "file": "examples/resource-bounds/positive/replay.denied-admission.json", "sha256": "1c3aa357a04330f76cb1ccdb79ec504756a0a3f32e492bff333d40edf83f7058" },
+      { "file": "examples/resource-bounds/positive/replay.denied-then-admitted.json", "sha256": "4217b8d66a8c554f3f25ebb246a7c7cb37b13616844d2c96831d18a732a11b7f" },
       { "file": "examples/resource-bounds/negative-schema/bounds-grant.authority-token.json", "sha256": "39e1f634d06ec53f9f3d49812e0f8df04d706b180d728fd7e85f2c5fbf8dec3a" },
       { "file": "examples/resource-bounds/negative-schema/bounds-grant.empty-vector.json", "sha256": "1964acea0270de656a008ecbe4d20dcd6928b43cf7cf5806b00be0d4f7a8338c" },
       { "file": "examples/resource-bounds/negative-schema/reservation-request.zero-vector.json", "sha256": "7e8eafb0274dda957d3fa5e451f85eeb42945083b48d7841bfa815ac490e43d2" },
@@ -182,8 +188,12 @@
       { "file": "examples/resource-bounds/negative-semantic/replay.root-binding-mismatch.json", "sha256": "2186d067476e1eee1ffe004dbd4e66fd1c6ad2a50afe0fa4389fa79b486e4627" },
       { "file": "examples/resource-bounds/negative-semantic/replay.root-closure-accounting-mismatch.json", "sha256": "19e6a07a5aded4ba880e1507b36e5b6a362022184bad5d1fec6f0122b3c717a8" },
       { "file": "examples/resource-bounds/negative-semantic/replay.sequence-gap.json", "sha256": "3dd43e4d0597f44e92d8902c5acc8f7375958ff422e42105e3d0c04c16adcbd6" },
-      { "file": "compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json", "sha256": "845aa216c889d4e299661377040e5c798b2fa5e7556dd721670dd2840e677cb5" }
+      { "file": "examples/resource-bounds/negative-semantic/replay.closure-settlement-split-mismatch.json", "sha256": "04b4f026ee6eb1e0d392fb7323ef4d290f5685f015e5eeea4d3c604eecda2fae" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.record-sequence-mismatch.json", "sha256": "bfa4e01ed2e3b4c1424e068f221331eb069b993832244bf3612b8a46ce5d88c7" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.denial-unjustified.json", "sha256": "ce1fbd57f92dbdba37fe880076436a2ad75bcc0f4f03075fb588cb9ea00997b2" },
+      { "file": "examples/resource-bounds/negative-semantic/replay.denial-idempotency-conflict.json", "sha256": "150d79038c69ca44c17ee558c60d22b345c78a11666fb0e2fcce5c3af54fc707" },
+      { "file": "compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json", "sha256": "14a4f7a44267db6862d9c77279270b5065ce80ccbaacfd95b7d22fd70a4549a0" }
     ],
-    "aggregate_sha256": "e25b2d9b50aaffb5a34c4b908aa930bb53b72210a10807f2d5ac4db2d20914dc"
+    "aggregate_sha256": "cfb533835eeca06d7c0fd4bff92d6cf6b4744e8054a53e8885c7aa3308c925b7"
   }
 }
