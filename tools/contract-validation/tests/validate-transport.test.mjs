@@ -4363,7 +4363,7 @@ test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rule
   assert.match(decision, /collection-time imports may not turn an\s+unselected test into a missing-dependency failure/);
 });
 
-test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases remain HOLD', () => {
+test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse while D1 remains HOLD', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const gate = read(UAT_MTLS_GATE_REL);
   const executionSection = mdSection(decision, '10. Execution and evidence gates');
@@ -4385,7 +4385,7 @@ test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases re
     [
       '- `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;',
       '- the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its',
-      '- `https://api.osv.dev/v1/querybatch` for the advisory-database query; and',
+      '- `https://api.osv.dev/v1/query` for the per-package advisory-database query; and',
       '- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed',
     ],
   );
@@ -4393,13 +4393,30 @@ test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases re
   for (const required of [
     'https://pypi.org/pypi/anycorn/0.20.0/json',
     'files.pythonhosted.org',
-    'https://api.osv.dev/v1/querybatch',
+    'https://api.osv.dev/v1/query',
     'https://pypi.org/simple',
     'build-backend child processes',
     'SBOM/license/audit tooling',
   ]) {
-    assert.ok(d1.includes(required), `S1 R2 must pin D1 outbound authority for ${required}`);
+    assert.ok(d1.includes(required), `S1 R3 must pin D1 outbound authority for ${required}`);
   }
+  assert.doesNotMatch(d1, /querybatch/);
+  assert.match(decision, /vulnerability scan, recording each finding's severity/);
+  assert.match(d1, /`pip-audit==2\.10\.1`/);
+  assert.match(d1, /--vulnerability-service osv/);
+  assert.match(d1, /--osv-url https:\/\/api\.osv\.dev\/v1\/query/);
+  assert.match(d1, /--require-hashes/);
+  assert.match(d1, /--disable-pip/);
+  assert.match(d1, /--no-deps/);
+  assert.match(d1, /python3\.12 -m pip download/);
+  assert.match(d1, /--only-binary=:all:/);
+  assert.match(d1, /--index-url https:\/\/pypi\.org\/simple/);
+  assert.match(d1, /--cache-dir <OUTSIDE_REPO>\/pip-cache/);
+  assert.match(d1, /--dest <OUTSIDE_REPO>\/wheelhouse/);
+  assert.match(d1, /CPython `3\.12\.13`/);
+  assert.match(d1, /pip `26\.1\.1`/);
+  assert.match(d1, /uv `0\.11\.16`/);
+  assert.doesNotMatch(d1, /uv pip download/);
   assert.match(d1, /explicitly widens the superseded sdist\/build-only outbound\s+wording/);
   assert.match(d1, /no listener, server, database, migration or product-runtime\s+authority/i);
   const r2 = mdSection(gate, 'S1 R2 D1 clarification');
@@ -4409,6 +4426,15 @@ test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases re
   assert.match(r2, /D2 remains \*\*HOLD\*\*/);
   assert.match(r2, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
   assert.match(r2, /Release dates remain\s+unchanged/);
+  const r3 = mdSection(gate, 'S1 R3 D1 endpoint correction');
+  assert.ok(r3 !== null, 'the gate record must add one exact S1 R3 endpoint-correction section');
+  assert.match(r3, /S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
+  assert.match(r3, /`https:\/\/api\.osv\.dev\/v1\/query`/);
+  assert.doesNotMatch(r3, /querybatch/);
+  assert.match(r3, /D1 remains \*\*HOLD\*\*/);
+  assert.match(r3, /D2 remains \*\*HOLD\*\*/);
+  assert.match(r3, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
+  assert.match(r3, /Release dates remain\s+unchanged/);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
   assert.doesNotMatch(gate, /installed=true|pinned=true/);
