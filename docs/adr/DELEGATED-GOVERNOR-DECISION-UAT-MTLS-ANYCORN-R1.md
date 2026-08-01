@@ -499,7 +499,7 @@ prove both phases are structurally fail-closed:
 
 ### Gate UAT-MTLS-K5 — W2-K live-fact metadata/control amendment
 
-Current state: `ACCEPTED — R5 LIVE-FACT METADATA/CONTROL AMENDMENT — NOT IMPLEMENTED`.
+Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`.
 
 K5 authorizes only the eight W2-K paths in §6.2 to distinguish the official upstream candidate
 from the scoped internal B1 evaluation artifact. It preserves every wire schema, fixture,
@@ -509,7 +509,7 @@ and product/server non-selection. K5 is accepted before S1. B1 lands at `install
 
 ### Gate UAT-MTLS-S1 — patched-candidate evaluation admission
 
-Current state: `ACCEPTED — B1 BOUNDED ISOLATED UAT EVALUATION — NOT IMPLEMENTED`.
+Current state: `ACCEPTED — B1 BOUNDED EVALUATION ARTIFACT IMPLEMENTED — RUNTIME NOT RUN`.
 
 S1 is bounded to exactly five decision/registration/control paths:
 
@@ -526,7 +526,9 @@ uninstalled, unpinned and HOLD W2-K matrix row. Hypercorn and Granian remain una
 
 S1 records only evaluation admission: B1 remains `installed=false`, `pinned=false`, product
 `selected=false` and `HOLD`. At S1 acceptance, D1 remained **HOLD** and D2 remained **HOLD**. The
-D1 live-fact record below supersedes only the D1 dependency-installation HOLD. The packet preserves
+D1 live-fact record below supersedes the pre-D1 dependency-installation HOLD and B1 install/pin
+facts only. Current B1 live facts: `installed=true`, `pinned=true`, product `selected=false`,
+`installed_scope=suite_uat_tool_lock_only`, and `HOLD`. The packet preserves
 `selected_server=null`; UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 ### Gate UAT-MTLS-D1 — dependency installation
@@ -614,7 +616,8 @@ the exported hashes. It must assert that every wheelhouse member is a wheel, `an
 from both the lock-derived requirements and wheelhouse, no extra index or host and no repository
 write occurred, and the offline proof uses `--no-index`, `--find-links` and `--require-hashes` with
 a fresh cache distinct from the download cache. Review workspaces are retained only through
-independent review and explicit artifact-dependent verification, then removed after acceptance evidence no longer needs them.
+independent review, explicit artifact-dependent verification, D1 merge and final hosted-CI evidence
+capture. The `Suite Integration/Release` owner must delete the outside-repository D1 artifact root within 24 hours after D1 merge and record the verified-absent result in the D1 integration evidence.
 The B1 wheel remains a separate exact-hash input installed offline with
 `--no-deps`; the raw Anycorn wheel is never downloaded or installed.
 

@@ -31,7 +31,7 @@ The W2-K transport peer-evidence packet adds ADR-0013 as
 implementation only under the delegated Governor R4 decision; it authorizes no runtime, UAT,
 release, deployment, or production work.
 
-The UAT mTLS Anycorn decision is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. K5 records the
+The UAT mTLS Anycorn decision is `D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME AUTHORED NOT RUN — D2 HOLD`. K5 records the
 W2-K live-fact metadata/control amendment and S1 admits B1 only for bounded isolated UAT evaluation.
 At `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, B1 is `installed=true`, `pinned=true`,
 product `selected=false` and HOLD; D2 remains HOLD and no release gate opens.
