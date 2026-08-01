@@ -16,7 +16,6 @@ import types
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
@@ -30,6 +29,21 @@ _RUNTIME_SOURCE_FILES = ("client.py", "harness.py", "pki.py", "server.py", "stor
 _EXPECTED_SOURCE_FILES = tuple(sorted(_PURE_SOURCE_FILES + _RUNTIME_SOURCE_FILES))
 _PINNED_B1_WHEEL_SHA256 = (
     "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+)
+_RUNTIME_IMPORT_RISK_CALLS = frozenset(
+    {
+        "Popen",
+        "bind",
+        "connect",
+        "create_connection",
+        "create_ephemeral_pki",
+        "listen",
+        "open",
+        "run",
+        "serve",
+        "socket",
+        "start",
+    }
 )
 
 _ALLOWED_IMPORT_ROOTS = frozenset(
@@ -130,8 +144,32 @@ def test_source_inventory_covers_pure_and_runtime_modules_recursively() -> None:
     assert _SOURCE_FILES
     assert _SOURCE_FILES == _EXPECTED_SOURCE_FILES
     assert _SOURCE_FILES == tuple(
-        sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
+        sorted(
+            path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py")
+        )
     )
+
+
+def test_runtime_modules_have_no_import_time_process_io_or_network_calls() -> None:
+    for filename in _RUNTIME_SOURCE_FILES:
+        tree = _parse_source(filename)
+        import_time_nodes = [
+            node
+            for statement in tree.body
+            if not isinstance(statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            for node in ast.walk(statement)
+        ]
+        risky = {
+            node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            for node in import_time_nodes
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, (ast.Attribute, ast.Name))
+            and (
+                node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            )
+            in _RUNTIME_IMPORT_RISK_CALLS
+        }
+        assert not risky, f"{filename} has import-time runtime calls: {sorted(risky)}"
 
 
 @pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
@@ -349,7 +387,10 @@ def test_is_anycorn_base_builder_accepts_unrelated_symbols(symbol: str) -> None:
 def test_internal_patched_builder_reference_is_accepted() -> None:
     reference = policy.SslContextBuilderReference(
         symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
-        delegates_to=("ssl.SSLContext.load_cert_chain", "ssl.SSLContext.load_verify_locations"),
+        delegates_to=(
+            "ssl.SSLContext.load_cert_chain",
+            "ssl.SSLContext.load_verify_locations",
+        ),
         internal_patched=True,
     )
     assert policy.validate_ssl_context_builder(reference) is reference
@@ -488,7 +529,10 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
         assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
         assert "UAT-MTLS-D2" in text and "HOLD" in text
         assert "DEMO_READY_LOCAL" in text and "NO-GO" in text
-    assert "No Anycorn or product package is imported, installed, resolved, built or downloaded" not in harness_readme
+    assert (
+        "No Anycorn or product package is imported, installed, resolved, built or downloaded"
+        not in harness_readme
+    )
     assert "dependency-neutral preparation only" not in compose_readme
 
 
@@ -501,8 +545,14 @@ def test_dependency_neutral_readme_command_names_only_the_four_static_files() ->
         "test_case_inventory.py",
     )
     for filename in expected:
-        assert f"integration/compose/soc-ai-lifecycle-create-mtls/tests/{filename}" in readme
-    assert "python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests\n" not in readme
+        assert (
+            f"integration/compose/soc-ai-lifecycle-create-mtls/tests/{filename}"
+            in readme
+        )
+    assert (
+        "python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests\n"
+        not in readme
+    )
     assert "CYBRIK_UAT_D1_ARTIFACT_DIR" in readme
 
 
@@ -510,8 +560,14 @@ def test_d1_delegated_authority_is_recorded_without_opening_runtime() -> None:
     decision = (
         _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
     ).read_text(encoding="utf-8")
-    assert "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`" in decision
-    assert "Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`" in decision
+    assert (
+        "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`"
+        in decision
+    )
+    assert (
+        "Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`"
+        in decision
+    )
     assert (
         "Current state: `ACCEPTED — B1 BOUNDED EVALUATION ARTIFACT IMPLEMENTED — RUNTIME NOT RUN`"
         in decision
@@ -570,12 +626,19 @@ def test_runtime_admission_carriers_pin_d1_but_retain_zero_runtime_state() -> No
     current = record["attempt_accounting"]["current_attempt"]
     assert current["status"] == "not_run"
     assert current["execution_authorized"] is False
-    assert (current["executed_checks"], current["passed_checks"], current["failed_checks"]) == (0, 0, 0)
+    assert (
+        current["executed_checks"],
+        current["passed_checks"],
+        current["failed_checks"],
+    ) == (0, 0, 0)
     assert record["disposition"]["profile"] == "HOLD"
     assert record["evidence"]["final_profile_verdict"] == "HOLD"
     assert current["evidence_sha256"] == _sha256(hold_path)
     assert record["evidence"]["artifacts"] == [
-        {"path": hold_path.relative_to(_REPO_ROOT).as_posix(), "sha256": _sha256(hold_path)},
+        {
+            "path": hold_path.relative_to(_REPO_ROOT).as_posix(),
+            "sha256": _sha256(hold_path),
+        },
         {
             "path": architecture_path.relative_to(_REPO_ROOT).as_posix(),
             "sha256": _sha256(architecture_path),

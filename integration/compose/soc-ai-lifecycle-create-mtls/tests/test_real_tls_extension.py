@@ -67,3 +67,19 @@ def test_policy_accepts_only_the_digest_bound_b1_delegate() -> None:
         artifact_sha256=_B1_SHA256,
     )
     assert policy.validate_ssl_context_builder(reference) is reference
+
+
+def test_tls_extension_evidence_is_preserved_and_asserted_before_rollback() -> None:
+    server = _SERVER.read_text(encoding="utf-8")
+    harness = (_SERVER.parent / "harness.py").read_text(encoding="utf-8")
+    assert "CYBRIK_UAT_D2_EVIDENCE_DIR" in server
+    assert 'CYBRIK_UAT_D2_RUNTIME_DIR") / "tls-extension.json"' not in server
+    for required in (
+        "_assert_mtls_evidence",
+        "0x0304",
+        "client_certificate_count",
+        "cipher_suite",
+        "client_cert_error_absent",
+        "server_certificate_present",
+    ):
+        assert required in harness

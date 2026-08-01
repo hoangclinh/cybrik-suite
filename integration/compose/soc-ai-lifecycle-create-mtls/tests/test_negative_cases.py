@@ -7,10 +7,7 @@ from pathlib import Path
 
 from cybrik_suite_uat_mtls import procedure
 
-_CLIENT = (
-    Path(__file__).resolve().parents[1]
-    / "src/cybrik_suite_uat_mtls/client.py"
-)
+_CLIENT = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls/client.py"
 
 
 def test_every_inventory_case_has_exactly_one_authored_runtime_handler() -> None:
@@ -31,3 +28,18 @@ def test_negative_runtime_handlers_have_no_skip_or_false_green_marker() -> None:
     lowered = source.casefold()
     for marker in ("pytest.skip", "pytest.xfail", "todo", "authored_not_run"):
         assert marker not in lowered
+
+
+def test_runtime_cases_prove_persistence_outage_and_secret_boundaries() -> None:
+    source = _CLIENT.read_text(encoding="utf-8")
+    harness = (_CLIENT.parent / "harness.py").read_text(encoding="utf-8")
+    for required in (
+        "rejection_code",
+        "known_runtime_secret",
+        "postgres_replay_row_count",
+        "postgres_rls_isolation_verified",
+    ):
+        assert required in source or required in harness
+    assert "store.stop()\n        assert store.verify_absent()" in harness
+    assert 'results.append(_run_case("N9"' in harness
+    assert "store.pause()" not in harness
