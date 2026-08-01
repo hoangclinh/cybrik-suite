@@ -1804,6 +1804,49 @@ test('open Critical or High findings before execution truthfully derive HOLD', a
   });
 });
 
+test('A0 records and enforces non-circular two-phase mTLS admission sequencing', async () => {
+  const holdStatus = read(
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
+  );
+  const architecture = read(
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+  );
+  const committed = JSON.parse(read(
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
+  ));
+
+  assert.match(holdStatus, /Phase A — preflight admission/);
+  assert.match(holdStatus, /Phase B — bounded execution and evidence closure/);
+  assert.match(architecture, /A1–A7 are evidence-closure criteria, not preauthorization criteria/);
+  assert.ok(committed.contracts.feature_flags.some((entry) =>
+    entry.name === 'suite_soc_ai_lifecycle_mtls_two_phase_admission'
+      && entry.state === 'accepted_sequence_not_authorized'));
+
+  const admittedPreflight = baseCandidate({
+    executionAuthorized: true,
+    highFindings: 1,
+    authorizationSmoke: 'hold',
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [admittedPreflight] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+
+  const completedPass = baseCandidate({
+    currentStatus: 'passed',
+    executionAuthorized: false,
+    passedChecks: 10,
+    disposition: 'HOLD',
+  });
+  await withTempRepo({ candidates: [completedPass] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.candidates[0].derivedDisposition, 'HOLD');
+  });
+});
+
 test('held negative smoke checks truthfully derive HOLD without structural errors', async () => {
   const candidate = baseCandidate({
     authorizationSmoke: 'hold',
