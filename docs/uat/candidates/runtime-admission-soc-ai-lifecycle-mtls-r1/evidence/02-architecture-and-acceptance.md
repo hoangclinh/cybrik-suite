@@ -161,7 +161,28 @@ Official sources:
 
 ---
 
-## 6. Acceptance criteria for leaving HOLD
+## 6. Two-phase admission and evidence closure
+
+**A1–A7 are evidence-closure criteria, not preauthorization criteria.** Requiring their empirical
+runtime results before authorizing the only run that can produce them would be circular.
+
+- **Phase A — preflight admission:** after the artifact/lock/patch/SBOM/VEX review, authored but
+  unexecuted separate-process harness and N1–N10 tests, exact lifecycle procedures, refreshed green
+  required checks and independent preflight `GO` are pinned, a future exact-bit update may set
+  `execution_authorized=true` for exactly one `not_run` local-only attempt. The candidate remains
+  `HOLD`; open findings and unexecuted smoke rows remain truthful.
+- **Phase B — bounded execution and evidence closure:** the one admitted attempt produces A1–A4
+  empirical evidence. Immediately afterward, authorization returns to `false`, status becomes
+  `passed` or `failed`, and exact counts and evidence are recorded. A failed attempt is `NO-GO`; a
+  passed attempt remains `HOLD` under the current validator and proceeds to the separate UAT gate.
+
+This document accepts the sequence only. The current committed candidate remains unauthorized,
+`not_run`, at zero counts and `HOLD`; no dependency, process, listener, database, migration, secret
+or runtime action is authorized here.
+
+---
+
+## 7. Acceptance criteria for evidence closure
 
 All of the following must hold simultaneously, evidenced, at an exact re-pinned tuple:
 
@@ -179,14 +200,15 @@ All of the following must hold simultaneously, evidenced, at an exact re-pinned 
 - **A7** — The runtime-admission validator passes with the candidate deriving the intended
   disposition.
 
-Satisfying A1–A7 admits **one bounded non-production execution**. It does not confer
-`DEMO_READY_LOCAL`, a UAT pass under `cybrik-suite:docs/uat/UAT-GATE-STANDARD.md`, POC readiness, RC
-readiness, GA, public release or any production posture. Each of those remains a separate gate with
-its own evidence.
+Phase A admits the one bounded non-production execution only after its independent preflight gate.
+Satisfying A1–A7 after that execution closes the runtime evidence and admits the passed result to
+the separate `cybrik-suite:docs/uat/UAT-GATE-STANDARD.md` process. It does not confer
+`DEMO_READY_LOCAL`, a UAT pass, POC readiness, RC readiness, GA, public release or any production
+posture. Each remains a separate gate with its own evidence.
 
 ---
 
-## 7. Non-authorizing historical prerequisite
+## 8. Non-authorizing historical prerequisite
 
 `runtime-admission-ai-pg-r3` is pinned by record and evidence SHA-256 as a
 `historical_prerequisite` only. It supplies context on bounded local PostgreSQL runtime handling.
@@ -196,7 +218,7 @@ objective. This candidate is a distinct objective and creates no PostgreSQL retr
 
 ---
 
-## 8. Scope boundary of this packet
+## 9. Scope boundary of this packet
 
 This candidate packet writes exactly this document, `01-hold-status.md`, the candidate
 `runtime-admission.json`, one registry paragraph in `docs/uat/candidates/README.md`, and the
@@ -204,6 +226,7 @@ committed-candidate test title, registry-size pin and disposition assertion in
 `tools/contract-validation/tests/validate-runtime-admission.test.mjs`.
 
 The prerequisite validator semantics and Suite-local reference containment were reviewed and
-merged separately in Suite PR `#29`; they are not modified by this packet. This packet authorizes no
-dependency install, formatter run, socket open, stack or container start, database start, migration,
-or secret handling.
+merged separately in Suite PR `#29`; they are not modified by this packet. The A0 amendment adds
+only the accepted two-phase sequencing language, one fail-closed validator test and the matching
+machine-readable process flag. It authorizes no dependency install, formatter run, socket open,
+stack or container start, database start, migration, or secret handling.

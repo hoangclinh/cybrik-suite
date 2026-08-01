@@ -12,7 +12,7 @@
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-      "evidence_sha256": "c61cdd418425789c894989f758ce5adcd0b60e0b4d1f7c3d29d7b37139c8fde5"
+      "evidence_sha256": "c8f9d33933dbe3360cde5fba402d8d4f4ba757644f1dcb26d3aebf84e619719f"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -230,6 +230,10 @@
       {
         "name": "suite_soc_ai_lifecycle_uat_demo_poc_rc_ga",
         "state": "not_authorized_by_this_record"
+      },
+      {
+        "name": "suite_soc_ai_lifecycle_mtls_two_phase_admission",
+        "state": "accepted_sequence_not_authorized"
       }
     ],
     "capability_lifecycle": [
@@ -252,6 +256,10 @@
       {
         "capability": "runtime_admission_soc_ai_lifecycle_mtls_r1",
         "state": "hold_design_only_execution_unauthorized"
+      },
+      {
+        "capability": "runtime_admission_two_phase_sequence",
+        "state": "accepted_process_only_current_attempt_hold_not_run_unauthorized"
       }
     ]
   },
@@ -349,7 +357,8 @@
       "Tool Fabric is pinned for suite tuple and governance completeness only and is not technically exercised by the create-only SOC to AI path. control-plane and detect are deliberately not recorded as required checks; the non-required executor job is recorded as skipped.",
       "All ten required negative tests are recorded as hold. None is written and none has run.",
       "This record grants no execution authority. It opens no listener, installs nothing, runs no stack, container, database or migration, and handles no secret.",
-      "The referenced runtime-admission-ai-pg-r3 material is a historical prerequisite only. It grants no execution authority and does not reopen the terminal R1, R2 and R3 results, which remain immutable NO-GO."
+      "The referenced runtime-admission-ai-pg-r3 material is a historical prerequisite only. It grants no execution authority and does not reopen the terminal R1, R2 and R3 results, which remain immutable NO-GO.",
+      "A0 accepts a non-circular two-phase admission sequence only. Phase A may be opened only by a future separately reviewed exact-bit update for one not_run attempt; Phase B immediately revokes authorization and records exact runtime results. This committed attempt remains unauthorized, not_run, at zero counts and HOLD."
     ]
   },
   "evidence": {
@@ -357,11 +366,11 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-        "sha256": "c61cdd418425789c894989f758ce5adcd0b60e0b4d1f7c3d29d7b37139c8fde5"
+        "sha256": "c8f9d33933dbe3360cde5fba402d8d4f4ba757644f1dcb26d3aebf84e619719f"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md",
-        "sha256": "7afd213db65d77cde0ef7f1f422e4cfda8b06070f2fb10420da200fd5f3abae2"
+        "sha256": "7a594058dcbe6806b453929949dc66c2548e8e45317b63cbe64830e111301620"
       }
     ],
     "limitations": [
@@ -372,6 +381,7 @@
       "The two network surfaces are prospective proposals only. No listener is opened by this record.",
       "test_data.approved true is a prospective data policy statement only; no data has been generated, loaded or handled.",
       "The historical prerequisite runtime-admission-ai-pg-r3 is non-authorizing and does not reopen the terminal PostgreSQL R1, R2 and R3 results.",
+      "A0 accepts only the Phase A preflight and Phase B evidence-closure sequence. It does not authorize the current attempt; execution_authorized remains false, status remains not_run, counts remain zero and disposition remains HOLD.",
       "Any UAT claim is additionally bound by docs/uat/UAT-GATE-STANDARD.md. This record grants no UAT pass, demo, POC, RC, GA, public release or production claim."
     ],
     "final_profile_verdict": "HOLD"
