@@ -94,12 +94,14 @@ unchanged.
 
 The delegated Governor accepts
 `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`.
-This narrowly supersedes R2's OSV endpoint token with
+This supersedes R2's OSV endpoint token with
 `https://api.osv.dev/v1/query`, because the batch response cannot carry the full finding records
-and severity needed to enforce D1's existing Critical/High HOLD rule. It does not add a host or a
-second OSV endpoint.
+and severity needed to enforce D1's existing Critical/High HOLD rule. It also makes R2's existing
+PyPI endpoint category explicitly cover the exact-hash UAT transitive-closure wheelhouse as well as
+the isolated tooling closure. It does not add a host or a second OSV endpoint.
 
-R3 also freezes the future D1 audit to isolated, exact-hash `pip-audit==2.10.1` OSV mode and the
+R3 also freezes the future D1 audit to isolated OSV mode using an exact-hash tooling closure
+containing `pip-audit==2.10.1` and freezes the
 wheelhouse to the pinned CPython 3.12.13, pip 26.1.1 and uv 0.11.16 command/provenance contract in
 the decision record. No dependency, artifact or advisory database was downloaded by R3.
 

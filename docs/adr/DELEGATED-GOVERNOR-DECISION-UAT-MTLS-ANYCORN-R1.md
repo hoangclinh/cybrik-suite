@@ -533,19 +533,22 @@ Current state: `HOLD — FOUNDER AUTHORIZATION REQUIRED` by repository policy.
 
 The requested authority, if granted, must be bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
-running dependency-only tests. R2 explicitly widens the superseded sdist/build-only outbound
-wording to this closed D1 HTTPS set:
+running dependency-only tests.
+
+R2 opened the endpoint categories; S1 R3 corrects the OSV path and makes the
+wheelhouse purpose explicit. The final prospective authority is this closed D1 HTTPS set:
 
 - `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;
 - the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its
   SHA-256 equals `e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927`;
 - `https://api.osv.dev/v1/query` for the per-package advisory-database query; and
-- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed
-  to resolve SBOM/license/audit tooling into an isolated tooling environment outside the UAT lock.
+- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` wheels needed
+  to populate the registry-only UAT transitive-closure wheelhouse and the isolated
+  SBOM/license/audit tooling environment outside the UAT lock.
 
 S1 R3 replaces the batch endpoint because it returns only vulnerability identifiers and modified
 timestamps, which cannot evaluate D1's Critical/High HOLD rule. The isolated tooling environment
-must pin `pip-audit==2.10.1`; its audit command is exactly:
+must use an exact-hash tooling closure containing `pip-audit==2.10.1`; its audit command is exactly:
 
 ```text
 pip-audit \
@@ -557,15 +560,28 @@ pip-audit \
   -r <OUTSIDE_REPO>/uv-exported-requirements.txt
 ```
 
+The pip-audit output records affected package/version, vulnerability IDs and fix versions; it is
+not the severity authority. Using the same authorized POST endpoint, D1 must retain outside the
+repository the raw OSV response for every audited package/version and bind every pip-audit finding
+ID to its full OSV record. A bounded normalized finding enters evidence with the raw-response
+SHA-256 and the recognized qualitative `database_specific.severity` value. Case-insensitive
+`critical`, `high`, `moderate` and `low` normalize to `CRITICAL`, `HIGH`, `MODERATE` and `LOW`;
+missing, unrecognized or conflicting severity is `UNKNOWN`.
+Any `CRITICAL`, `HIGH` or `UNKNOWN` finding keeps the candidate `HOLD`; no missing severity can
+become a green result. The exported
+requirements intentionally exclude B1: the separate exact B1 wheel remains covered by the raw
+Anycorn High finding and the candidate-specific VEX entry.
+
 The registry-only closure must be exported with uv `0.11.16` as a fully pinned requirements file
 whose every requirement has `==` and at least one `--hash=sha256:` entry. On the exact recorded
 platform, CPython `3.12.13` with executable SHA-256
 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623` and pip `26.1.1`
-must create the wheelhouse with this command shape:
+must be resolved to one recorded absolute executable path.
+That recorded executable must create the wheelhouse with this exact command:
 
 ```text
 umask 022
-python3.12 -m pip download \
+<PINNED_PYTHON_3_12_13> -m pip download \
   --require-hashes \
   --only-binary=:all: \
   --index-url https://pypi.org/simple \
@@ -578,11 +594,11 @@ D1 evidence must record the source `uv.lock` and exported-requirements digests, 
 lines, interpreter/pip/uv versions, platform and `cp312` ABI, absolute outside-repository cache and
 wheelhouse paths, total wheel count, and independently recomputed per-wheel SHA-256 values matching
 the exported hashes. It must assert that every wheelhouse member is a wheel, `anycorn` is absent
-from both the lock-derived requirements and wheelhouse, no extra index/host or repository write
-occurred, and the offline proof uses a fresh cache with `--no-index`, `--find-links`,
-`--require-hashes`. The cache/build workspaces must be removed after evidence capture. The B1 wheel
-remains a separate exact-hash input installed offline with `--no-deps`; the raw Anycorn wheel is
-never downloaded or installed.
+from both the lock-derived requirements and wheelhouse, no extra index or host and no repository
+write occurred, and the offline proof uses `--no-index`, `--find-links` and `--require-hashes` with
+a fresh cache distinct from the download cache. All cache/build workspaces are removed after evidence capture.
+The B1 wheel remains a separate exact-hash input installed offline with
+`--no-deps`; the raw Anycorn wheel is never downloaded or installed.
 
 D1 also permits the exact build-backend child processes needed for the two reproducibility builds.
 This enumerated widening grants no listener, server, database, migration or product-runtime
