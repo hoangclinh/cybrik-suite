@@ -594,10 +594,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         "soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::"
         "test_authorized_runtime_attempt_executes_the_red_green_sequence" in decision
     )
-    assert "coverage report --data-file=" in normalized
-    assert "coverage json --data-file=" in normalized
+    assert "coverage report --rcfile=/dev/null" in normalized
+    assert "coverage json --rcfile=/dev/null" in normalized
     assert "cd <SUITE_ROOT>" in decision
-    assert normalized.count("--rcfile=/dev/null") == 3
+    assert decision.count("<PINNED_PYTHON> -m coverage ") == 3
     assert "at least 80% line coverage and at least 80% branch coverage" in normalized
     for critical in (
         "server.build_patched_ssl_context",
@@ -652,7 +652,7 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
     assert "58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2" in section
     assert "not-applicable-no-static-branch" in section
     assert "critical source range may contain no excluded line" in normalized
-    assert "`# pragma: no cover` or `# pragma: no branch`" in section
+    assert "`# pragma: no cover` or `# pragma: no branch`" in normalized
     assert "mode-`0600`" in section
     assert "PASS and FAIL" in section
     assert "does not install Coverage.py" in normalized

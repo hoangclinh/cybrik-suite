@@ -767,9 +767,11 @@ shape below; `<SUITE_ROOT>`, `<COVERAGE_ROOT>` and `<COVERAGE_EVIDENCE_ROOT>` ar
 standalone lines in the authorization artifact, not caller-selected PATH values:
 
 ```text
+cd <SUITE_ROOT>
+
 COVERAGE_FILE=<COVERAGE_ROOT>/data/.coverage \
 PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src \
-<PINNED_PYTHON> -m coverage run --branch \
+<PINNED_PYTHON> -m coverage run --rcfile=/dev/null --branch \
   --source=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls \
   -m pytest -q -o addopts= \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
@@ -783,12 +785,18 @@ PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai
   --deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence
 
 PYTHONPATH=<COVERAGE_ROOT>/site-packages \
-<PINNED_PYTHON> -m coverage report --data-file=<COVERAGE_ROOT>/data/.coverage --fail-under=80
+<PINNED_PYTHON> -m coverage report --rcfile=/dev/null \
+  --data-file=<COVERAGE_ROOT>/data/.coverage --fail-under=80
 
 PYTHONPATH=<COVERAGE_ROOT>/site-packages \
-<PINNED_PYTHON> -m coverage json --data-file=<COVERAGE_ROOT>/data/.coverage \
+<PINNED_PYTHON> -m coverage json --rcfile=/dev/null \
+  --data-file=<COVERAGE_ROOT>/data/.coverage \
   -o <COVERAGE_EVIDENCE_ROOT>/coverage.json
 ```
+
+The literal `cd <SUITE_ROOT>` fixes Coverage.py's relative file keys to the Suite root. The three
+literal `--rcfile=/dev/null` arguments prevent a checkout or caller configuration from adding
+`exclude_also`, partial-branch patterns, path remapping or report settings outside this packet.
 
 A bounded stdlib verifier must recompute line and branch ratios independently from
 `coverage.json`; combined `coverage report` percentage alone is insufficient. `PASS` requires at
@@ -800,6 +808,14 @@ exact AST-derived source ranges and branch arcs, for:
 - `policy.parse_loopback_bind` and `policy.validate_proposed_bind`;
 - `evidence.secret_reason` and `evidence.validate_evidence`;
 - `harness._assert_ssl_context_evidence`, `harness.teardown` and `harness.verify_absent`.
+
+`evidence.validate_evidence` and `harness.verify_absent` have no static branch construct and
+therefore have a zero Coverage.py branch-arc denominator. Their branch result is the exact bounded
+value `not-applicable-no-static-branch`, while their line requirement remains 100%. Every other
+critical symbol has a non-empty branch denominator and requires 100% branch coverage. The verifier
+must reject a zero denominator for a branch-bearing AST, invented arcs for an arc-free AST, every
+excluded critical line, and `# pragma: no cover` or `# pragma: no branch` anywhere in a critical
+source range.
 
 These critical paths must be reached with import-inert fakes, monkeypatches and temporary roots;
 the gate does not defer them to runtime and does not permit Anycorn resolution, B1 restoration,
@@ -846,15 +862,29 @@ The verifier fails closed unless all of these are true:
   mismatch;
 - independently recomputed package line and branch ratios are each at least 80%; and
 - Coverage.py region data for every section 7.3 critical symbol matches its exact top-level
-  AST-derived source range, has a non-empty line and branch denominator, and has no missing line or
-  branch arc.
+  AST-derived source range, has a non-empty line denominator, and has no missing line; every
+  branch-bearing critical AST also has a non-empty branch denominator and no missing branch arc;
+- an arc-free critical AST accepts only a zero branch denominator and records
+  `not-applicable-no-static-branch`; and
+- a critical source range may contain no excluded line and no `# pragma: no cover` or
+  `# pragma: no branch` marker.
+
+The pinned producer schema is verified directly against Coverage.py tag `7.15.2` source
+`coverage/jsonreport.py` at
+`https://raw.githubusercontent.com/nedbat/coveragepy/7.15.2/coverage/jsonreport.py`, SHA-256
+`58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2`. That source fixes JSON
+`FORMAT_VERSION = 3`, emits function/class region dictionaries and emits `start_line` for each
+region. This read-only provenance check is not a Coverage.py install or a real coverage result.
 
 The result path must be the fresh exact
 `<COVERAGE_EVIDENCE_ROOT>/coverage-gate.json` beside `coverage.json`. The purpose-bound evidence
-root must be mode `0700`; the verifier creates the result exclusively at mode-`0600`, flushes and
-fsyncs it, and records bounded stable output for both PASS and FAIL without embedding a
-caller-controlled path or source value in the failure reason. An existing result is preserved and
-causes a fail-closed refusal rather than overwrite.
+root must be mode `0700`; the verifier creates a fresh unpredictable same-directory temporary at
+mode-`0600`, flushes and fsyncs it, publishes it with an atomic no-overwrite hard link, removes the
+temporary and fsyncs the directory. A writable evidence root records bounded stable output for both
+PASS and FAIL without embedding a caller-controlled path or source value in the failure reason. A
+write or durability failure returns the stable `result_json_write_failed` reason and removes only
+the verifier-owned inode; it never emits a traceback or overwrites a raced destination. An existing
+result is preserved and causes a fail-closed refusal rather than overwrite.
 
 The future pinned measurement invokes the verifier only after the three D2-COV-P0 Coverage.py
 commands complete:
