@@ -1,8 +1,10 @@
-// Gate W2-H resource-bounds proposal tests.
+// Gate W2-H resource-bounds contract tests.
 //
-// Green proves only deterministic Suite-side static conformance for a
-// PROPOSED packet. It accepts no ADR, implements no runtime, satisfies no
-// T10/T11 measurement, and grants no release or production authority.
+// Green proves only deterministic Suite-side static conformance. Under the R5
+// amendment the packet is ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED:
+// acceptance is permission to implement later, never implementation itself.
+// Green implements no runtime, satisfies no T10/T11 measurement, and grants no
+// UAT, release, deployment or production authority.
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -129,16 +131,21 @@ test('required check names match the exact approved stable allowlist', () => {
   }
 });
 
-test('the W2-H proposal packet is internally coherent but remains unaccepted', () => {
+test('the W2-H packet is internally coherent and accepted for implementation but not implemented', () => {
   const report = validateResourceBoundsProposal({ root: REPO_ROOT });
 
   assert.deepEqual(report.errors, []);
-  assert.equal(report.status, 'PROPOSED');
-  assert.equal(report.notAccepted, true);
+  // R5 §10.2: the compatibility manifest is the lifecycle source of truth, and
+  // its accepted target carries the NOT IMPLEMENTED ceiling in the same string.
+  assert.equal(report.status, 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED');
+  assert.equal(report.notAccepted, false);
   assert.equal(report.notImplemented, true);
   assert.equal(report.packetVersion, '0.1.0');
   assert.equal(report.gate, 'W2-H');
-  assert.equal(report.gateDisposition, 'OPEN FOR BOUNDED PROPOSAL WRITING ONLY');
+  assert.equal(
+    report.gateDisposition,
+    'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED',
+  );
   // W2-H/R3 §7.3.3 inventory arithmetic: 7 schemas and a 10/10/16 fixture split.
   assert.equal(report.counts.schemasCompiled, 7);
   assert.equal(report.counts.positiveFixtures, 10);
@@ -429,8 +436,9 @@ test('status wording never overclaims runtime, UAT, release, or production proof
     ),
   ].join('\n');
 
-  assert.match(proposalText, /PROPOSED/);
-  assert.match(proposalText, /NOT ACCEPTED/);
+  // R5 accepts the packet for implementation and moves nothing else: the
+  // NOT IMPLEMENTED ceiling and every no-runtime disclaimer must survive.
+  assert.match(proposalText, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.match(proposalText, /NOT IMPLEMENTED/);
   assert.doesNotMatch(proposalText, /\b(?:runtime|UAT|production) (?:verified|proven|ready)\b/i);
   assert.doesNotMatch(proposalText, /\brelease (?:authorized|ready|approved)\b/i);
@@ -458,7 +466,10 @@ test('canonical orchestration registers proposal drift checks without changing W
     new RegExp(`These ${actualStepCount} validators`),
     'the header comment must state the true, current step count rather than a stale pin',
   );
-  assert.match(orchestrator, /W2-H PROPOSED \/ NOT ACCEPTED/);
+  assert.match(
+    orchestrator,
+    /validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION \/ NOT IMPLEMENTED/,
+  );
   assert.match(orchestrator, /const W1_CONTRACT_TEST_COUNT = 98;/);
   assert.doesNotMatch(
     orchestrator.slice(
@@ -766,8 +777,11 @@ test('B1: cybrik.res-root-closure.v1 declares the exact seventh-schema shape and
   ];
   assert.deepEqual([...schema.required].sort(), [...REQUIRED].sort());
   assert.equal(schema.additionalProperties, false);
-  assert.equal(schema['x-cybrik-status'], 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED');
-  assert.equal(schema['x-cybrik-not-accepted'], true);
+  assert.equal(
+    schema['x-cybrik-status'],
+    'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED',
+  );
+  assert.equal(schema['x-cybrik-not-accepted'], false);
   assert.equal(schema['x-cybrik-contract-version'], '0.1.0');
   assert.equal(schema['x-cybrik-is-bundle-tag'], false);
   // The const is the contract; a description alongside it is not drift.
@@ -2024,4 +2038,570 @@ test('C1-C4: the compatibility manifest states the settlement, ordering, and can
     /A byte-identical re-issue asserts the same stale version and can never succeed\./,
   );
   assert.equal(retained.code, 'RES_VERSION_CONFLICT');
+});
+
+// ---------------------------------------------------------------------------
+// W2-H/R5 amendment: atomic acceptance for implementation (decision section 10).
+//
+// Acceptance is governance-metadata and digest-only. No schema property,
+// required field, enum, $ref, const, error code, resource dimension, fixture
+// byte, replay rule or dependency pin moves, so every semantic, replay,
+// retriability, count and integrity assertion above stands unchanged. These
+// tests therefore fail against the R4 packet, which is still PROPOSED — NOT
+// ACCEPTED. A green result is still static L1/L2 conformance: acceptance is
+// permission to implement later, and grants no runtime, UAT, T10/T11, release,
+// deployment or production authority.
+// ---------------------------------------------------------------------------
+
+const R5_ACCEPTED_LIFECYCLE = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+const R5_PROPOSED_LIFECYCLE = 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED';
+// §10.2: the examples manifest carries the bare accepted status, not the tail.
+const R5_EXAMPLES_ACCEPTED_STATUS = 'ACCEPTED FOR IMPLEMENTATION';
+const R5_EXAMPLES_PROPOSED_STATUS = 'PROPOSED';
+const R5_PROPOSED_GATE_DISPOSITION = 'OPEN FOR BOUNDED PROPOSAL WRITING ONLY';
+// §10.2, unwrapped to one line. The Gate/ADR clause is what makes the tail
+// specific to this packet rather than generic accepted-status wording.
+const R5_SCHEMA_DESCRIPTION_TAIL =
+  'Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED, v0.1.0; not stable '
+  + 'v1/GA and not a bundle tag. Gate W2-H, ADR-0012.';
+const R5_SCHEMA_ROOTS = Object.freeze([
+  RES_COMMON_DEFS,
+  RES_BOUNDS_GRANT,
+  RES_RESERVATION_REQUEST,
+  RES_RESERVATION_RESULT,
+  RES_RELEASE,
+  RES_ROOT_CLOSURE,
+  RES_BOUNDS_ERROR,
+]);
+const RES_EXAMPLES_MANIFEST =
+  'contracts/examples/resource-bounds/examples-manifest.json';
+const ADR_REGISTRY_README = 'docs/adr/README.md';
+// Row-scoped, so unrelated W2-H prose and every other proposal row in the same
+// catalog are outside the carrier this test reads.
+const ADR_0012_ROW_PREFIX =
+  '| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) |';
+
+// §10.2: acceptance moves only the description status clause. Everything else
+// in the compatibility manifest's description is base text and is pinned here.
+const R5_COMPATIBILITY_DESCRIPTION =
+  'Suite-owned contract-first accounting packet for finite conserved resource '
+  + 'bounds across a call tree. Status: ACCEPTED FOR IMPLEMENTATION — NOT '
+  + 'IMPLEMENTED. Static L1/L2 conformance only; no runtime, UAT, release, '
+  + 'deployment, production, T10, or T11 evidence.';
+// §10.2: exactly `contract acceptance` leaves evidence.not_claimed. Order and
+// every remaining ceiling are pinned, so a silent second withdrawal fails.
+const R5_EVIDENCE_NOT_CLAIMED = Object.freeze([
+  'product implementation',
+  'runtime or integration',
+  'UAT',
+  'release or deployment',
+  'production',
+  'W0-T10 or W0-T11 measurement',
+]);
+const R5_PRESERVED_GATE_FIELDS = Object.freeze({
+  id: 'W2-H',
+  runtime_uat_deployment_production: 'NOT AUTHORIZED',
+  release_dates: 'UNCHANGED',
+});
+const R5_GATE_KEYS = Object.freeze([
+  'disposition',
+  'id',
+  'lifecycle_ceiling',
+  'release_dates',
+  'runtime_uat_deployment_production',
+]);
+
+// All 36 fixture registrations exactly as the R4 packet declares them. R5 is a
+// zero-wire-change acceptance, so this table must survive it byte for byte;
+// pinning it here is what makes "fixture digests unchanged" falsifiable rather
+// than a claim the manifest makes about itself.
+const R5_FIXTURE_REGISTRATIONS = Object.freeze([
+  { file: 'positive/bounds-grant.root.json', kind: 'positive', schema: 'cybrik.res-bounds-grant.v1.schema.json', sha256: '85d569e26858e868569d2b4a23af7ae8cef11976b665e722d5d9bfd4c6d41d95' },
+  { file: 'positive/reservation-request.child.json', kind: 'positive', schema: 'cybrik.res-reservation-request.v1.schema.json', sha256: '58c5a5ee854829376df9a4d8f615f69984b75d7a35cb9977877497e4f9074d36' },
+  { file: 'positive/reservation-result.admitted.json', kind: 'positive', schema: 'cybrik.res-reservation-result.v1.schema.json', sha256: 'a1ab5b37b331c8787d93a7f64a37ed6a7eb1f83663f5c7dbdbf7f2ff2fb9d351' },
+  { file: 'positive/reservation-result.denied.json', kind: 'positive', schema: 'cybrik.res-reservation-result.v1.schema.json', sha256: 'ecdc6d52f4896d7b67cc50caf4e0634bdbf770c25d5e2321f1041520717d49e8' },
+  { file: 'positive/release.completed.json', kind: 'positive', schema: 'cybrik.res-release.v1.schema.json', sha256: '1a1ab6086f4fcc645d4fc8a832953129634509a6f3e8f6d0e311d8c32fbd15c7' },
+  { file: 'positive/root-closure.completed.json', kind: 'positive', schema: 'cybrik.res-root-closure.v1.schema.json', sha256: 'e87bbd0aef312d2480fec8828c13a90fc98c374a4d6c53a8552a15391b8cac9f' },
+  { file: 'positive/bounds-error.standalone.json', kind: 'positive', schema: 'cybrik.res-bounds-error.v1.schema.json', sha256: 'd1821b94cafe60d3b5b7a27ed8aeff2c749fa720d1b87d3d9de2b4ff6c5cc235' },
+  { file: 'positive/replay.conserved-tree.json', kind: 'positive', sha256: '096fdcc2578b6578f4a5d8df5a5edd4c1bfac0fe8abd3812d30a333d92506c2a' },
+  { file: 'positive/replay.denied-admission.json', kind: 'positive', sha256: '1c3aa357a04330f76cb1ccdb79ec504756a0a3f32e492bff333d40edf83f7058' },
+  { file: 'positive/replay.denied-then-admitted.json', kind: 'positive', sha256: '4217b8d66a8c554f3f25ebb246a7c7cb37b13616844d2c96831d18a732a11b7f' },
+  { file: 'negative-schema/bounds-grant.authority-token.json', kind: 'negative-schema', schema: 'cybrik.res-bounds-grant.v1.schema.json', sha256: '39e1f634d06ec53f9f3d49812e0f8df04d706b180d728fd7e85f2c5fbf8dec3a' },
+  { file: 'negative-schema/bounds-grant.empty-vector.json', kind: 'negative-schema', schema: 'cybrik.res-bounds-grant.v1.schema.json', sha256: '1964acea0270de656a008ecbe4d20dcd6928b43cf7cf5806b00be0d4f7a8338c' },
+  { file: 'negative-schema/reservation-request.zero-vector.json', kind: 'negative-schema', schema: 'cybrik.res-reservation-request.v1.schema.json', sha256: '7e8eafb0274dda957d3fa5e451f85eeb42945083b48d7841bfa815ac490e43d2' },
+  { file: 'negative-schema/reservation-request.short-idempotency-key.json', kind: 'negative-schema', schema: 'cybrik.res-reservation-request.v1.schema.json', sha256: '7779885fa6e845aab2b7a04fa9494a3871b4c100d2bb9f95b46e448da2ac57f2' },
+  { file: 'negative-schema/reservation-result.admitted-with-error.json', kind: 'negative-schema', schema: 'cybrik.res-reservation-result.v1.schema.json', sha256: '22539ba1bf5e236c51b5d3b7031f8835e9d8d4ad4670075e6b5bf02f8c5fda0e' },
+  { file: 'negative-schema/reservation-result.denied-with-reservation.json', kind: 'negative-schema', schema: 'cybrik.res-reservation-result.v1.schema.json', sha256: '8df29a286eaa0e006b7d517e47469d085a70de2081bbc1bf4ec96f7cc68ce3c7' },
+  { file: 'negative-schema/release.missing-accounting.json', kind: 'negative-schema', schema: 'cybrik.res-release.v1.schema.json', sha256: 'e600df3a2b214af94dc04655f24ceaf73b9847d89081ec5464a3f41a92151026' },
+  { file: 'negative-schema/release.missing-root.json', kind: 'negative-schema', schema: 'cybrik.res-release.v1.schema.json', sha256: '6e214a78fe73d35d6c3a2fe7ca0b9e84fb501f47dcb4065109cc1a5918896dab' },
+  { file: 'negative-schema/root-closure.partial-closure.json', kind: 'negative-schema', schema: 'cybrik.res-root-closure.v1.schema.json', sha256: '384d0ae7db6b2cdb3c93914ee1787685c97a0566741c50048ff3610124a60fff' },
+  { file: 'negative-schema/bounds-error.retriable-mismatch.json', kind: 'negative-schema', schema: 'cybrik.res-bounds-error.v1.schema.json', sha256: '23bed7546958668e2cac8bea1b5652cbcf69c00fb2e2152932ba38dca6e8717c' },
+  { file: 'negative-semantic/replay.parent-overdraw.json', kind: 'negative-semantic', expected_error: 'RES_INSUFFICIENT_REMAINDER', sha256: '350d2457a1905dbd0e30cfab2d3c709b3ad70f911fa557179bb9cfd70b7a3776' },
+  { file: 'negative-semantic/replay.no-mint-spawn.json', kind: 'negative-semantic', expected_error: 'RES_NO_MINT_ON_SPAWN', sha256: '7b1f823086d38d63de838234f3f7eb5e68f81fa923f574741c781248371e17d4' },
+  { file: 'negative-semantic/replay.tenant-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_TENANT_MISMATCH', sha256: 'a04fd5340036aeb2e2c487611e8cf7115b2159c676f6c759d4b72f7abd1e3c16' },
+  { file: 'negative-semantic/replay.org-scope-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_ORG_SCOPE_MISMATCH', sha256: 'b7ca5ce8da078eb19ef7e0439cf91ae623f4e818ca05ced6bfd2d6063f0d7884' },
+  { file: 'negative-semantic/replay.idempotency-conflict.json', kind: 'negative-semantic', expected_error: 'RES_IDEMPOTENCY_CONFLICT', sha256: '871908f59290ba9ac0d478581d9b682f6de817f4aa933e99a31aa24526f674de' },
+  { file: 'negative-semantic/replay.double-release.json', kind: 'negative-semantic', expected_error: 'RES_ALREADY_RELEASED', sha256: '158004e1a163f416fb7d2797b0c161c759735d1636857b5614e46e036a377788' },
+  { file: 'negative-semantic/replay.over-return.json', kind: 'negative-semantic', expected_error: 'RES_RELEASE_ACCOUNTING_MISMATCH', sha256: 'dc624e652768e0f4043858934747fa0d91bb35efcf896bb418e76580a79201d9' },
+  { file: 'negative-semantic/replay.parent-closed.json', kind: 'negative-semantic', expected_error: 'RES_PARENT_CLOSED', sha256: '8f449c0027f64117245a6a6c44c940c0ea3ab363cd2dfd3440416ea4dbc8192a' },
+  { file: 'negative-semantic/replay.root-cancel-remint.json', kind: 'negative-semantic', expected_error: 'RES_ROOT_CLOSED', sha256: '3dd5ec16a221d70b4d5576fb2eab946ac0af32be5760b353f58bc54e981245c9' },
+  { file: 'negative-semantic/replay.root-binding-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_PARENT_NOT_FOUND', sha256: '2186d067476e1eee1ffe004dbd4e66fd1c6ad2a50afe0fa4389fa79b486e4627' },
+  { file: 'negative-semantic/replay.root-closure-accounting-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_RELEASE_ACCOUNTING_MISMATCH', sha256: '19e6a07a5aded4ba880e1507b36e5b6a362022184bad5d1fec6f0122b3c717a8' },
+  { file: 'negative-semantic/replay.sequence-gap.json', kind: 'negative-semantic', expected_error: 'RES_SEQUENCE_VIOLATION', sha256: '3dd43e4d0597f44e92d8902c5acc8f7375958ff422e42105e3d0c04c16adcbd6' },
+  { file: 'negative-semantic/replay.closure-settlement-split-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_RELEASE_ACCOUNTING_MISMATCH', sha256: '04b4f026ee6eb1e0d392fb7323ef4d290f5685f015e5eeea4d3c604eecda2fae' },
+  { file: 'negative-semantic/replay.record-sequence-mismatch.json', kind: 'negative-semantic', expected_error: 'RES_SEQUENCE_VIOLATION', sha256: 'bfa4e01ed2e3b4c1424e068f221331eb069b993832244bf3612b8a46ce5d88c7' },
+  { file: 'negative-semantic/replay.denial-unjustified.json', kind: 'negative-semantic', expected_error: 'RES_RESULT_MISMATCH', sha256: 'ce1fbd57f92dbdba37fe880076436a2ad75bcc0f4f03075fb588cb9ea00997b2' },
+  { file: 'negative-semantic/replay.denial-idempotency-conflict.json', kind: 'negative-semantic', expected_error: 'RES_IDEMPOTENCY_CONFLICT', sha256: '150d79038c69ca44c17ee558c60d22b345c78a11666fb0e2fcce5c3af54fc707' },
+]);
+
+const fixtureFileSha256 = (fixtureFile) =>
+  createHash('sha256')
+    .update(readFileSync(
+      join(REPO_ROOT, 'contracts/examples/resource-bounds', fixtureFile),
+    ))
+    .digest('hex');
+
+const normalizeFixtureRegistration = (entry) => ({
+  file: entry?.file,
+  kind: entry?.kind,
+  schema: entry?.schema,
+  expected_error: entry?.expected_error,
+  sha256: entry?.sha256,
+});
+
+const adr0012RegistryRows = (registryText) =>
+  registryText.split('\n').filter((line) => line.startsWith(ADR_0012_ROW_PREFIX));
+
+// The minimum atomic lifecycle carrier set of §10.2: the seven schema roots,
+// the examples manifest, the compatibility manifest (root, gate, all 45 member
+// statuses and the acceptance withdrawal from evidence.not_claimed), and the
+// ADR-0012 registry row.
+const readR5LifecycleDocuments = () => ({
+  schemas: new Map(R5_SCHEMA_ROOTS.map((path) => [path, readJson(path)])),
+  examples: readJson(RES_EXAMPLES_MANIFEST),
+  compatibility: readJson(COMPATIBILITY_MANIFEST),
+  adrRegistry: readText(ADR_REGISTRY_README),
+});
+
+// Returns one `carrier: reason` line per unmet acceptance requirement. An empty
+// result is the only state R5 authorizes; anything else is a partial lifecycle.
+const r5AcceptanceViolations = (documents) => {
+  const violations = [];
+  const fail = (carrier, reason) => violations.push(`${carrier}: ${reason}`);
+
+  for (const [schemaPath, schema] of documents.schemas) {
+    if (schema['x-cybrik-status'] !== R5_ACCEPTED_LIFECYCLE) {
+      fail(schemaPath, 'x-cybrik-status is not the accepted lifecycle');
+    }
+    if (schema['x-cybrik-not-accepted'] !== false) {
+      fail(schemaPath, 'x-cybrik-not-accepted is not false');
+    }
+    if (!String(schema.description ?? '').endsWith(R5_SCHEMA_DESCRIPTION_TAIL)) {
+      fail(schemaPath, 'description does not end with the exact accepted status tail');
+    }
+    if (schema['x-cybrik-contract-version'] !== '0.1.0') {
+      fail(schemaPath, 'contract version moved off 0.1.0');
+    }
+    if (schema['x-cybrik-is-bundle-tag'] !== false) {
+      fail(schemaPath, 'x-cybrik-is-bundle-tag moved off false');
+    }
+    // §10.2: the seven roots do not carry it, and R5 must not add it.
+    if (Object.hasOwn(schema, 'x-cybrik-not-implemented')) {
+      fail(schemaPath, 'schema root gained x-cybrik-not-implemented');
+    }
+  }
+
+  const examples = documents.examples;
+  if (examples?.status !== R5_EXAMPLES_ACCEPTED_STATUS) {
+    fail(RES_EXAMPLES_MANIFEST, 'status is not ACCEPTED FOR IMPLEMENTATION');
+  }
+  if (examples?.not_accepted !== false) {
+    fail(RES_EXAMPLES_MANIFEST, 'not_accepted is not false');
+  }
+  if (examples?.packet_version !== '0.1.0') {
+    fail(RES_EXAMPLES_MANIFEST, 'packet_version moved off 0.1.0');
+  }
+  const fixtures = Array.isArray(examples?.fixtures) ? examples.fixtures : [];
+  if (fixtures.length !== R5_FIXTURE_REGISTRATIONS.length) {
+    fail(RES_EXAMPLES_MANIFEST, `fixture registration count is ${fixtures.length}, not 36`);
+  }
+  for (const [index, expected] of R5_FIXTURE_REGISTRATIONS.entries()) {
+    const actual = fixtures[index];
+    if (
+      JSON.stringify(normalizeFixtureRegistration(actual))
+      !== JSON.stringify(normalizeFixtureRegistration(expected))
+    ) {
+      fail(
+        `${RES_EXAMPLES_MANIFEST}#fixtures[${index}]`,
+        `registration drifted from ${expected.file}`,
+      );
+      continue;
+    }
+    if (Object.keys(actual).length !== Object.keys(expected).length) {
+      fail(`${RES_EXAMPLES_MANIFEST}#fixtures[${index}]`, 'registration gained a field');
+    }
+  }
+
+  const compatibility = documents.compatibility;
+  if (compatibility?.description !== R5_COMPATIBILITY_DESCRIPTION) {
+    fail(COMPATIBILITY_MANIFEST, 'description is not the base text with only the status clause accepted');
+  }
+  if (compatibility?.['x-cybrik-status'] !== R5_ACCEPTED_LIFECYCLE) {
+    fail(COMPATIBILITY_MANIFEST, 'x-cybrik-status is not the accepted lifecycle');
+  }
+  if (compatibility?.['x-cybrik-not-accepted'] !== false) {
+    fail(COMPATIBILITY_MANIFEST, 'x-cybrik-not-accepted is not false');
+  }
+  // Preserved ceilings: acceptance is not implementation.
+  if (compatibility?.['x-cybrik-not-implemented'] !== true) {
+    fail(COMPATIBILITY_MANIFEST, 'the NOT IMPLEMENTED ceiling did not survive acceptance');
+  }
+  if (compatibility?.['x-cybrik-packet-version'] !== '0.1.0') {
+    fail(COMPATIBILITY_MANIFEST, 'packet version moved off 0.1.0');
+  }
+  if (compatibility?.['x-cybrik-is-bundle-tag'] !== false) {
+    fail(COMPATIBILITY_MANIFEST, 'x-cybrik-is-bundle-tag moved off false');
+  }
+
+  const gate = compatibility?.gate ?? {};
+  if (gate.disposition !== R5_ACCEPTED_LIFECYCLE) {
+    fail(`${COMPATIBILITY_MANIFEST}#gate.disposition`, 'is not the accepted lifecycle');
+  }
+  if (gate.lifecycle_ceiling !== R5_ACCEPTED_LIFECYCLE) {
+    fail(`${COMPATIBILITY_MANIFEST}#gate.lifecycle_ceiling`, 'is not the accepted lifecycle');
+  }
+  for (const [field, expected] of Object.entries(R5_PRESERVED_GATE_FIELDS)) {
+    if (gate[field] !== expected) {
+      fail(`${COMPATIBILITY_MANIFEST}#gate.${field}`, `must stay ${expected}`);
+    }
+  }
+  if (JSON.stringify(Object.keys(gate).sort()) !== JSON.stringify([...R5_GATE_KEYS])) {
+    fail(`${COMPATIBILITY_MANIFEST}#gate`, 'gained or lost a field');
+  }
+
+  const members = Array.isArray(compatibility?.members) ? compatibility.members : [];
+  if (members.length !== 45) {
+    fail(`${COMPATIBILITY_MANIFEST}#members`, `member count is ${members.length}, not 45`);
+  }
+  for (const [index, member] of members.entries()) {
+    if (member?.status !== R5_ACCEPTED_LIFECYCLE) {
+      fail(
+        `${COMPATIBILITY_MANIFEST}#members[${index}]`,
+        `${member?.file} is not at the accepted lifecycle`,
+      );
+    }
+  }
+  if (compatibility?.['x-cybrik-packet-integrity']?.member_count !== 45) {
+    fail(`${COMPATIBILITY_MANIFEST}#x-cybrik-packet-integrity`, 'member_count moved off 45');
+  }
+
+  const notClaimed = compatibility?.evidence?.not_claimed;
+  if (JSON.stringify(notClaimed) !== JSON.stringify([...R5_EVIDENCE_NOT_CLAIMED])) {
+    fail(
+      `${COMPATIBILITY_MANIFEST}#evidence.not_claimed`,
+      'must withdraw exactly "contract acceptance" and keep every other ceiling in order',
+    );
+  }
+
+  if (compatibility?.dependencies_reused_unmodified?.length !== 4) {
+    fail(COMPATIBILITY_MANIFEST, 'the four accepted dependency pins did not survive acceptance');
+  } else if (!declaredDependencyPinsMatch(compatibility)) {
+    fail(COMPATIBILITY_MANIFEST, 'accepted dependency pins drift from the validator pins');
+  }
+
+  const rows = adr0012RegistryRows(documents.adrRegistry ?? '');
+  const rowCarrier = `${ADR_REGISTRY_README}#ADR-0012`;
+  if (rows.length !== 1) {
+    fail(rowCarrier, `expected exactly one ADR-0012 registry row, found ${rows.length}`);
+  } else if (!rows[0].includes(R5_ACCEPTED_LIFECYCLE)) {
+    fail(rowCarrier, 'the registry row is not at the accepted lifecycle');
+  } else if (rows[0].includes(R5_PROPOSED_LIFECYCLE) || rows[0].includes('NOT ACCEPTED')) {
+    fail(rowCarrier, 'the registry row still carries the proposal lifecycle');
+  }
+
+  return violations;
+};
+
+// The R5 flip applied in memory to the real R4 documents. It is the baseline
+// the partial-revert table is measured against: without it every revert would
+// pass vacuously while the repository is still proposed.
+const r5AcceptedProjection = () => {
+  const documents = readR5LifecycleDocuments();
+  const schemas = new Map();
+  for (const [schemaPath, schema] of documents.schemas) {
+    const head = schema.description.slice(0, schema.description.lastIndexOf('Status: '));
+    schemas.set(schemaPath, {
+      ...schema,
+      description: `${head}${R5_SCHEMA_DESCRIPTION_TAIL}`,
+      'x-cybrik-status': R5_ACCEPTED_LIFECYCLE,
+      'x-cybrik-not-accepted': false,
+    });
+  }
+  const compatibility = documents.compatibility;
+  return {
+    schemas,
+    examples: {
+      ...documents.examples,
+      status: R5_EXAMPLES_ACCEPTED_STATUS,
+      not_accepted: false,
+    },
+    compatibility: {
+      ...compatibility,
+      description: R5_COMPATIBILITY_DESCRIPTION,
+      'x-cybrik-status': R5_ACCEPTED_LIFECYCLE,
+      'x-cybrik-not-accepted': false,
+      gate: {
+        ...compatibility.gate,
+        disposition: R5_ACCEPTED_LIFECYCLE,
+        lifecycle_ceiling: R5_ACCEPTED_LIFECYCLE,
+      },
+      members: compatibility.members.map((member) => ({
+        ...member,
+        status: R5_ACCEPTED_LIFECYCLE,
+      })),
+      evidence: {
+        ...compatibility.evidence,
+        not_claimed: compatibility.evidence.not_claimed.filter(
+          (claim) => claim !== 'contract acceptance',
+        ),
+      },
+    },
+    adrRegistry: adr0012RegistryRows(documents.adrRegistry).reduce(
+      (text, row) => text.replace(row, row.replaceAll(R5_PROPOSED_LIFECYCLE, R5_ACCEPTED_LIFECYCLE)),
+      documents.adrRegistry,
+    ),
+  };
+};
+
+const withSchema = (documents, schemaPath, schema) => ({
+  ...documents,
+  schemas: new Map([...documents.schemas, [schemaPath, schema]]),
+});
+const withCompatibility = (documents, overrides) => ({
+  ...documents,
+  compatibility: { ...documents.compatibility, ...overrides },
+});
+
+test('R5: every W2-H lifecycle carrier is accepted for implementation at once', () => {
+  const violations = r5AcceptanceViolations(readR5LifecycleDocuments());
+
+  assert.deepEqual(
+    violations,
+    [],
+    'R5 §10.2: the seven schema roots, the examples manifest, the compatibility '
+      + 'manifest and the ADR-0012 registry row must reach the accepted target '
+      + `together:\n${violations.join('\n')}`,
+  );
+});
+
+test('R5: the seven schema roots carry the exact accepted governance metadata and gain nothing', () => {
+  assert.equal(R5_SCHEMA_ROOTS.length, 7);
+
+  for (const schemaPath of R5_SCHEMA_ROOTS) {
+    const schema = readJson(schemaPath);
+    assert.equal(schema['x-cybrik-status'], R5_ACCEPTED_LIFECYCLE, schemaPath);
+    assert.equal(schema['x-cybrik-not-accepted'], false, schemaPath);
+    assert.ok(
+      schema.description.endsWith(R5_SCHEMA_DESCRIPTION_TAIL),
+      `${schemaPath}: description must end with the exact §10.2 status tail, `
+        + `including "Gate W2-H, ADR-0012.":\n${schema.description}`,
+    );
+    // Acceptance is not a version bump and not an ADR-0001 immutable bundle tag.
+    assert.equal(schema['x-cybrik-contract-version'], '0.1.0', schemaPath);
+    assert.equal(schema['x-cybrik-is-bundle-tag'], false, schemaPath);
+    assert.equal(
+      Object.hasOwn(schema, 'x-cybrik-not-implemented'),
+      false,
+      `${schemaPath}: §10.2 forbids adding x-cybrik-not-implemented to a schema root`,
+    );
+  }
+});
+
+test('R5: the examples manifest is accepted while all 36 registrations and fixture digests stay', () => {
+  const manifest = readJson(RES_EXAMPLES_MANIFEST);
+
+  assert.equal(manifest.status, R5_EXAMPLES_ACCEPTED_STATUS);
+  assert.equal(manifest.not_accepted, false);
+  assert.equal(manifest.packet_version, '0.1.0');
+
+  assert.equal(R5_FIXTURE_REGISTRATIONS.length, 36);
+  assert.equal(manifest.fixtures.length, 36);
+  assert.deepEqual(
+    manifest.fixtures.map(normalizeFixtureRegistration),
+    R5_FIXTURE_REGISTRATIONS.map(normalizeFixtureRegistration),
+    'R5 is zero-wire-change: every registration, its order, kind, schema binding '
+      + 'and expected error must survive acceptance unchanged',
+  );
+  // The registered digest is only a claim until it is recomputed from bytes.
+  for (const entry of R5_FIXTURE_REGISTRATIONS) {
+    assert.equal(fixtureFileSha256(entry.file), entry.sha256, entry.file);
+  }
+});
+
+test('R5: the compatibility manifest carries the exact accepted targets and keeps every ceiling', () => {
+  const manifest = readJson(COMPATIBILITY_MANIFEST);
+
+  assert.equal(manifest.description, R5_COMPATIBILITY_DESCRIPTION);
+  assert.equal(manifest['x-cybrik-status'], R5_ACCEPTED_LIFECYCLE);
+  assert.equal(manifest['x-cybrik-not-accepted'], false);
+  assert.equal(manifest['x-cybrik-not-implemented'], true);
+  assert.equal(manifest['x-cybrik-packet-version'], '0.1.0');
+  assert.equal(manifest['x-cybrik-is-bundle-tag'], false);
+
+  assert.equal(manifest.gate.disposition, R5_ACCEPTED_LIFECYCLE);
+  assert.equal(manifest.gate.lifecycle_ceiling, R5_ACCEPTED_LIFECYCLE);
+  assert.equal(manifest.gate.id, 'W2-H');
+  assert.equal(manifest.gate.runtime_uat_deployment_production, 'NOT AUTHORIZED');
+  assert.equal(manifest.gate.release_dates, 'UNCHANGED');
+  assert.deepEqual(Object.keys(manifest.gate).sort(), [...R5_GATE_KEYS]);
+
+  assert.equal(manifest.members.length, 45);
+  const memberStatuses = new Set(manifest.members.map((member) => member.status));
+  assert.deepEqual([...memberStatuses], [R5_ACCEPTED_LIFECYCLE]);
+  // Manifest members are recorded relative to contracts/, as the validator's own
+  // inventory comparison normalizes them.
+  assert.deepEqual(
+    manifest.members
+      .map(({ file }) => (file.startsWith('contracts/') ? file : `contracts/${file}`))
+      .sort(),
+    expectedPacketPaths,
+    'acceptance moves member statuses only; the member inventory does not move',
+  );
+  assert.equal(manifest['x-cybrik-packet-integrity'].member_count, 45);
+
+  assert.deepEqual(
+    manifest.evidence.not_claimed,
+    [...R5_EVIDENCE_NOT_CLAIMED],
+    'R5 withdraws exactly "contract acceptance"; implementation, runtime, UAT, '
+      + 'release, deployment, production and T10/T11 stay unclaimed',
+  );
+  assert.equal(manifest.dependencies_reused_unmodified.length, 4);
+  assert.equal(declaredDependencyPinsMatch(manifest), true);
+});
+
+test('R5: reverting any single lifecycle carrier to the proposal target fails closed', () => {
+  const accepted = r5AcceptedProjection();
+  assert.deepEqual(
+    r5AcceptanceViolations(accepted),
+    [],
+    'the fully accepted projection is the baseline every partial revert is measured against',
+  );
+
+  const reverts = [];
+  for (const schemaPath of R5_SCHEMA_ROOTS) {
+    const schema = accepted.schemas.get(schemaPath);
+    reverts.push(
+      [`${schemaPath} status`, schemaPath, (documents) =>
+        withSchema(documents, schemaPath, {
+          ...schema, 'x-cybrik-status': R5_PROPOSED_LIFECYCLE,
+        })],
+      [`${schemaPath} not-accepted`, schemaPath, (documents) =>
+        withSchema(documents, schemaPath, {
+          ...schema, 'x-cybrik-not-accepted': true,
+        })],
+      [`${schemaPath} description tail`, schemaPath, (documents) =>
+        withSchema(documents, schemaPath, {
+          ...schema,
+          description: `${schema.description.slice(0, schema.description.lastIndexOf('Status: '))}`
+            + 'Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.',
+        })],
+      [`${schemaPath} not-implemented keyword`, schemaPath, (documents) =>
+        withSchema(documents, schemaPath, {
+          ...schema, 'x-cybrik-not-implemented': true,
+        })],
+    );
+  }
+
+  reverts.push(
+    ['examples manifest status', RES_EXAMPLES_MANIFEST, (documents) => ({
+      ...documents,
+      examples: { ...documents.examples, status: R5_EXAMPLES_PROPOSED_STATUS },
+    })],
+    ['examples manifest not_accepted', RES_EXAMPLES_MANIFEST, (documents) => ({
+      ...documents,
+      examples: { ...documents.examples, not_accepted: true },
+    })],
+    ['a fixture digest', `${RES_EXAMPLES_MANIFEST}#fixtures[0]`, (documents) => ({
+      ...documents,
+      examples: {
+        ...documents.examples,
+        fixtures: documents.examples.fixtures.map((entry, index) =>
+          (index === 0 ? { ...entry, sha256: '0'.repeat(64) } : entry)),
+      },
+    })],
+    ['compatibility status', COMPATIBILITY_MANIFEST, (documents) =>
+      withCompatibility(documents, { 'x-cybrik-status': R5_PROPOSED_LIFECYCLE })],
+    ['compatibility not-accepted', COMPATIBILITY_MANIFEST, (documents) =>
+      withCompatibility(documents, { 'x-cybrik-not-accepted': true })],
+    ['compatibility description clause', COMPATIBILITY_MANIFEST, (documents) =>
+      withCompatibility(documents, {
+        description: documents.compatibility.description.replace(
+          R5_ACCEPTED_LIFECYCLE, R5_PROPOSED_LIFECYCLE,
+        ),
+      })],
+    // Ceilings acceptance must not relax.
+    ['the NOT IMPLEMENTED ceiling', COMPATIBILITY_MANIFEST, (documents) =>
+      withCompatibility(documents, { 'x-cybrik-not-implemented': false })],
+    ['gate disposition', `${COMPATIBILITY_MANIFEST}#gate.disposition`, (documents) =>
+      withCompatibility(documents, {
+        gate: { ...documents.compatibility.gate, disposition: R5_PROPOSED_GATE_DISPOSITION },
+      })],
+    ['gate lifecycle ceiling', `${COMPATIBILITY_MANIFEST}#gate.lifecycle_ceiling`, (documents) =>
+      withCompatibility(documents, {
+        gate: { ...documents.compatibility.gate, lifecycle_ceiling: R5_PROPOSED_LIFECYCLE },
+      })],
+    ['the runtime/UAT/deployment/production ceiling',
+      `${COMPATIBILITY_MANIFEST}#gate.runtime_uat_deployment_production`, (documents) =>
+        withCompatibility(documents, {
+          gate: {
+            ...documents.compatibility.gate,
+            runtime_uat_deployment_production: 'AUTHORIZED',
+          },
+        })],
+    ['the release-date ceiling', `${COMPATIBILITY_MANIFEST}#gate.release_dates`, (documents) =>
+      withCompatibility(documents, {
+        gate: { ...documents.compatibility.gate, release_dates: 'MOVED' },
+      })],
+    ['the withdrawn acceptance claim', `${COMPATIBILITY_MANIFEST}#evidence.not_claimed`,
+      (documents) => withCompatibility(documents, {
+        evidence: {
+          ...documents.compatibility.evidence,
+          not_claimed: ['contract acceptance', ...R5_EVIDENCE_NOT_CLAIMED],
+        },
+      })],
+    ['the ADR-0012 registry row', `${ADR_REGISTRY_README}#ADR-0012`, (documents) => ({
+      ...documents,
+      adrRegistry: adr0012RegistryRows(documents.adrRegistry).reduce(
+        (text, row) => text.replace(
+          row, row.replaceAll(R5_ACCEPTED_LIFECYCLE, R5_PROPOSED_LIFECYCLE),
+        ),
+        documents.adrRegistry,
+      ),
+    })],
+  );
+
+  // Every one of the 45 members is its own carrier: a 44/45 flip is partial.
+  for (const [index, member] of accepted.compatibility.members.entries()) {
+    reverts.push([
+      `compatibility member ${member.file}`,
+      `${COMPATIBILITY_MANIFEST}#members[${index}]`,
+      (documents) => withCompatibility(documents, {
+        members: documents.compatibility.members.map((entry, position) =>
+          (position === index ? { ...entry, status: R5_EXAMPLES_PROPOSED_STATUS } : entry)),
+      }),
+    ]);
+  }
+
+  // Seven schemas each expose four independently reversible governance
+  // checks; the manifests/registry contribute thirteen; and every one of the
+  // 45 compatibility members is an independently rejectable partial flip.
+  assert.equal(reverts.length, 7 * 4 + 13 + 45);
+  for (const [label, carrier, revert] of reverts) {
+    const violations = r5AcceptanceViolations(revert(accepted));
+    assert.ok(
+      violations.some((violation) => violation.startsWith(carrier)),
+      `a partial lifecycle state must fail closed on ${carrier} when ${label} is `
+        + `reverted; got:\n${violations.join('\n') || '(no violation reported)'}`,
+    );
+  }
 });
