@@ -735,7 +735,9 @@ exactly:
    Both values must be RFC 3339 timestamps with explicit offsets; absent, malformed, offset-less or
    inverted values, or a window wider than 24 hours, are a hard stop. `AUTHORIZATION_ID` is the
    one-shot consumption token and must be copied verbatim into the evidence root immediately after
-   its successful creation. A duplicate consumption token is a hard stop;
+   its successful creation. The exact authorized root values plus fresh `mkdir` semantics enforce one-shot consumption.
+   Changing either root requires a new Founder artifact and a new `AUTHORIZATION_ID`; no global
+   cross-root token ledger is claimed by this bounded action;
 2. require the exact `SUITE_COMMIT`, `SUITE_TREE`, canonical clean detached `SUITE_ROOT` and
    `WORKING_DIRECTORY` from the Founder authorization artifact. Every coverage command executes
    with its working directory equal to the canonical `SUITE_ROOT`; a commit/tree/worktree mismatch
@@ -749,8 +751,10 @@ exactly:
    uid and not be group/other-writable. After creation, `lstat`
    must prove each root is a directory rather than a symlink, owner equals the effective uid and
    mode `0700`; record each root's `st_dev` and `st_ino`. Neither root may be under `/tmp` or
-   `/private/tmp`. Neither root may contain, be contained by, or be an ancestor/descendant of a
-   Suite/product repository or the other root. A pre-existing root at execution start is a hard
+   `/private/tmp`. The authorization must record the canonical host temporary directory as
+   `HOST_TEMP_ROOT`; Neither root may equal or descend from the canonical `HOST_TEMP_ROOT`.
+   Neither root may contain, be contained by, or be an ancestor/descendant of a Suite/product
+   repository or the other root. A pre-existing root at execution start is a hard
    stop, not a resume, and the authorization is consumed by the single attempt;
 4. permit writes inside the tool root only to the exact subpaths `<COVERAGE_ROOT>/wheel`,
    `<COVERAGE_ROOT>/site-packages` and `<COVERAGE_ROOT>/data`; create those directories at mode
@@ -815,6 +819,7 @@ SUITE_TREE=<40-lowercase-hex>
 SUITE_ROOT=<canonical-absolute-clean-detached-worktree>
 HEAD_MODE=detached
 WORKING_DIRECTORY=<same-value-as-SUITE_ROOT>
+HOST_TEMP_ROOT=<canonical-absolute-host-temporary-directory>
 COVERAGE_ROOT=<canonical-absolute-fresh-tool-root>
 COVERAGE_EVIDENCE_ROOT=<canonical-absolute-fresh-durable-evidence-root>
 PINNED_PYTHON=<canonical-parent-absolute-d1-venv-python-symlink>
