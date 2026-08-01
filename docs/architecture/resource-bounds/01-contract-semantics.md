@@ -122,16 +122,17 @@ accepted member.
 
 `cybrik.res-bounds-error.v1` is the standalone failure document for every
 `res-*` operation without a dedicated result schema. `retriable` is derived
-from `code`, not asserted independently: it is `true` for exactly
-`RES_INSUFFICIENT_REMAINDER` and `RES_ACTIVE_CHILDREN`. A re-issue preserves
-the canonical request identity, excluding exactly `sequence`,
-`virtual_time_ms`, and `parent.expected_version`; every other request field is
-bound, the positional fields must match their new envelope, and the expected
-version must match current parent state. Peer state may therefore let the same
-canonical request later succeed. The hint is `false` for every other code —
-including `RES_VERSION_CONFLICT` and `RES_IDEMPOTENCY_CONFLICT`, where the
-caller must correct the failing assertion or request identity. The declared
-retriability of `RES_ACTIVE_CHILDREN` remains unproved by this packet.
+from `code`, not asserted independently: it is true only for RES_INSUFFICIENT_REMAINDER.
+A reservation-request re-issue preserves the
+canonical request identity, excluding exactly `sequence`, `virtual_time_ms`,
+and `parent.expected_version`; every other request field is bound, the
+positional fields must match their new envelope, and the expected version must
+match current parent state. `RES_ACTIVE_CHILDREN` is false because the refused
+release binds `target.expected_version`: once a child releases, the target
+version changes, so repeating that release asserts a stale
+`target.expected_version` and fails `RES_VERSION_CONFLICT`. The hint is false
+for every other code, including `RES_IDEMPOTENCY_CONFLICT`, where the caller
+must correct the failing assertion or request identity.
 `fail_closed` is `true` for all fifteen codes. `retriable` is advisory: it
 grants no capacity, admission, queue position, priority, or authority, and a
 retriable error is a refusal exactly as complete as a non-retriable one.

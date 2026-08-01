@@ -1,6 +1,6 @@
 {
   "code": "RES_ACTIVE_CHILDREN",
   "message": "Release refused: the target reservation still has an open child.",
-  "retriable": true,
+  "retriable": false,
   "fail_closed": true
 }
