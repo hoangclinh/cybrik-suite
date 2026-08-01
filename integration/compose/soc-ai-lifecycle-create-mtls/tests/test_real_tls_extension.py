@@ -8,12 +8,14 @@ separately authorized runtime target.
 from __future__ import annotations
 
 import ast
+import json
 import ssl
 import sys
 import types
 from pathlib import Path
 
 import pytest
+from cybrik_suite_uat_mtls import harness as runtime_harness
 from cybrik_suite_uat_mtls import policy
 from cybrik_suite_uat_mtls import server as runtime_server
 
@@ -105,6 +107,44 @@ def test_ssl_context_hardening_bits_are_recorded_and_asserted() -> None:
     assert "_assert_ssl_context_evidence" in harness
     assert "ssl_hardened_options_preserved" in harness
     assert "ssl_no_compression_verified" in harness
+
+
+def test_ssl_context_evidence_is_recomputed_instead_of_trusting_booleans(
+    tmp_path: Path,
+) -> None:
+    baseline = int(ssl.create_default_context(ssl.Purpose.CLIENT_AUTH).options)
+    result = baseline | int(ssl.OP_NO_COMPRESSION)
+    path = tmp_path / "ssl-context.json"
+    path.write_text(
+        json.dumps(
+            {
+                "baseline_options": baseline,
+                "hardened_options_preserved": True,
+                "no_compression_verified": True,
+                "result_options": result,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert runtime_harness._assert_ssl_context_evidence(tmp_path) == {
+        "ssl_hardened_options_preserved": True,
+        "ssl_no_compression_verified": True,
+    }
+
+    path.write_text(
+        json.dumps(
+            {
+                "baseline_options": baseline,
+                "hardened_options_preserved": True,
+                "no_compression_verified": True,
+                "result_options": result & ~int(ssl.OP_NO_COMPRESSION),
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(runtime_harness.RuntimeAuthorizationError):
+        runtime_harness._assert_ssl_context_evidence(tmp_path)
 
 
 def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(

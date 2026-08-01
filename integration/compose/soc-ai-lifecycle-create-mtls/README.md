@@ -118,4 +118,13 @@ PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
 Do not run `tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh` or the runtime pytest target while
 `UAT-MTLS-D2` is **HOLD**. A future committed Phase A admission must bind the exact Suite and
 product commits, clean worktrees, B1 wheel digest and canonical authorization-artifact digest
-before that runner can pass its first guard. Release dates are unchanged.
+before that runner can pass its first guard. That artifact must also contain exact standalone
+`RUNTIME_ROOT=<absolute path>` and `EVIDENCE_ROOT=<absolute path>` lines; both roots must be fresh,
+purpose-bound and disjoint, and the preserved evidence root consumes the authorization after the
+single attempt.
+
+D2-P0 does not satisfy the section 7.3 coverage gate. Phase A remains closed until a separately
+pinned command proves at least 80% line and branch coverage and 100% coverage of the critical
+paths. If the pinned environment does not already contain the required coverage runner, a
+separate bounded coverage-tooling action must be reviewed before it is installed or used. Static
+pass counts are not a substitute for this coverage evidence. Release dates are unchanged.

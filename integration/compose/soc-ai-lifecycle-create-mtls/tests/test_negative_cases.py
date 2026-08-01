@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from cybrik_suite_uat_mtls import procedure
+from cybrik_suite_uat_mtls import client, procedure
 
 _CLIENT = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls/client.py"
 
@@ -51,8 +51,15 @@ def test_every_network_negative_requires_the_generic_relying_party_refusal() -> 
 
     assert "required_rejection_code" in source
     assert 'required_rejection_code="relying_party_refusal"' in source
-    assert '"transport_timeout": "transport_timeout"' in source
-    assert '"transport_failure": "transport_failure"' in source
+    assert '"transport_timeout"' in source
+    assert '"transport_failure"' in source
     assert "rejection_codes != {plan.required_rejection_code}" in source
     assert "relying_party_refusal_count" in harness
     assert "relying_party_refusal_count != 9" in harness
+
+    network_plans = [plan for plan in client.CASE_PLANS if plan.case_id != "N10"]
+    assert len(network_plans) == 9
+    assert {plan.required_rejection_code for plan in network_plans} == {
+        "relying_party_refusal"
+    }
+    assert client.run_n10().required_rejection_code is None

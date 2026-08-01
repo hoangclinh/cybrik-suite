@@ -688,6 +688,12 @@ records, refuses a mismatched process identity, verifies both loopback listeners
 only the runtime root, preserves the evidence root, and reports cleanup failure instead of
 suppressing it.
 
+D2-P0 does not satisfy the section 7.3 coverage gate. Phase A must remain closed until exact
+commands and artifacts prove at least 80% line and branch coverage and 100% coverage of the
+critical paths. If the pinned verification environment lacks the necessary coverage runner, a
+separate bounded coverage-tooling action must first be reviewed; D2-P0 authoring authority may not
+install it, widen the dependency lock or reinterpret passing test counts as coverage evidence.
+
 The negative issuer used for N2–N7 is an explicitly accepted test-only relying-party probe. It uses
 the unchanged pinned SOC `LifecycleCreateClient` and production issuer implementation, mutates only
 the signed negative claim, then rebinds the client's secret-free provenance to the authority the
@@ -722,6 +728,12 @@ true at one exact re-pinned tuple:
 - lifecycle procedures, synthetic-data boundary, production exclusions, loopback exposure,
   rollback and evidence routing are exact;
 - an independent preflight GO artifact authorizes exactly one bounded run by path and SHA-256.
+
+The preflight GO artifact must also pin the exact one-shot roots with standalone
+`RUNTIME_ROOT=<absolute path>` and `EVIDENCE_ROOT=<absolute path>` lines. Both paths remain subject
+to the purpose-bound, outside-repository and disjoint-root checks. Because the evidence root is
+preserved and the start step requires both roots to be fresh, the same authorization cannot be
+replayed with a different suffix or reused for a second attempt.
 
 The admission integrator may then set `execution_authorized=true` only while status is `not_run`;
 the candidate and evidence verdict remain `HOLD`. The authorized run is loopback-only,

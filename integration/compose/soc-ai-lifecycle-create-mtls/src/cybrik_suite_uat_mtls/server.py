@@ -26,6 +26,7 @@ B1_WHEEL_SHA256: Final = (
 AI_AUDIENCE: Final = "svc:cyber-ai-lifecycle"
 TRUST_DOMAIN: Final = "soc.internal.cybrik"
 ISSUER_ID: Final = "spiffe://soc.internal.cybrik/mint/downstream"
+_SSL_CONTEXT_EVIDENCE: Final = "ssl-context.json"
 
 BUILDER_REFERENCE = policy.SslContextBuilderReference(
     symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
@@ -82,10 +83,36 @@ def _verify_b1_artifact() -> Path:
     return wheel
 
 
+def _record_ssl_context_evidence(baseline_options: int, result_options: int) -> None:
+    from ssl import OP_NO_COMPRESSION
+
+    record = evidence.validate_evidence(
+        {
+            "baseline_options": baseline_options,
+            "hardened_options_preserved": (result_options & baseline_options)
+            == baseline_options,
+            "no_compression_verified": bool(result_options & OP_NO_COMPRESSION),
+            "result_options": result_options,
+        }
+    )
+    destination = _required_path("CYBRIK_UAT_D2_EVIDENCE_DIR") / _SSL_CONTEXT_EVIDENCE
+    temporary = destination.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(record, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+    )
+    os.replace(temporary, destination)
+
+
 def build_patched_ssl_context(config: object) -> object:
     """Execute the exact B1 base builder, then narrow it to TLS 1.3 mTLS."""
 
-    from ssl import CERT_REQUIRED, TLSVersion
+    from ssl import (
+        CERT_REQUIRED,
+        OP_NO_COMPRESSION,
+        Purpose,
+        TLSVersion,
+        create_default_context,
+    )
 
     from anycorn.config import Config
 
@@ -93,6 +120,7 @@ def build_patched_ssl_context(config: object) -> object:
     _verify_b1_artifact()
     if not isinstance(config, Config):
         raise ServerBoundaryError("Anycorn config type mismatch")
+    baseline_options = int(create_default_context(Purpose.CLIENT_AUTH).options)
     context = Config.create_ssl_context(config)
     if context is None:
         raise ServerBoundaryError("B1 SSL context was not created")
@@ -105,6 +133,12 @@ def build_patched_ssl_context(config: object) -> object:
         raise ServerBoundaryError("TLS maximum was not retained")
     if context.verify_mode is not CERT_REQUIRED:
         raise ServerBoundaryError("mutual TLS was not retained")
+    result_options = int(context.options)
+    if (result_options & baseline_options) != baseline_options:
+        raise ServerBoundaryError("B1 SSL context discarded hardened default options")
+    if not result_options & OP_NO_COMPRESSION:
+        raise ServerBoundaryError("B1 SSL context did not disable TLS compression")
+    _record_ssl_context_evidence(baseline_options, result_options)
     return context
 
 

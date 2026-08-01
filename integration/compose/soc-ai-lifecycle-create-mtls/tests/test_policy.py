@@ -547,10 +547,11 @@ def test_d2_p0_discloses_the_unsatisfied_phase_a_coverage_gate() -> None:
     ).read_text(encoding="utf-8")
 
     for text in (harness_readme, decision):
-        assert "D2-P0 does not satisfy the section 7.3 coverage gate" in text
-        assert "at least 80% line and branch coverage" in text
-        assert "100% coverage of the critical paths" in text
-        assert "separate bounded coverage-tooling action" in text
+        normalized = " ".join(text.split())
+        assert "D2-P0 does not satisfy the section 7.3 coverage gate" in normalized
+        assert "at least 80% line and branch coverage" in normalized
+        assert "100% coverage of the critical paths" in normalized
+        assert "separate bounded coverage-tooling action" in normalized
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:

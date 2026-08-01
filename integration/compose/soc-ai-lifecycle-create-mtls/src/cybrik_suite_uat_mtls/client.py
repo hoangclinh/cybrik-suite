@@ -51,6 +51,7 @@ class CasePlan:
     token_mutation: str
     expect_accept_count: int
     expect_reject_count: int
+    required_rejection_code: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,43 +63,73 @@ class _Principal:
 
 
 def run_n1() -> CasePlan:
-    return CasePlan("N1", "replay_exact_token", 1, 1)
+    return CasePlan(
+        "N1",
+        "replay_exact_token",
+        1,
+        1,
+        required_rejection_code="relying_party_refusal",
+    )
 
 
 def run_n2() -> CasePlan:
-    return CasePlan("N2", "alternate_cnf", 0, 1)
+    return CasePlan(
+        "N2", "alternate_cnf", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n3() -> CasePlan:
-    return CasePlan("N3", "wrong_audience", 0, 1)
+    return CasePlan(
+        "N3", "wrong_audience", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n4() -> CasePlan:
-    return CasePlan("N4", "wrong_scope", 0, 1)
+    return CasePlan(
+        "N4", "wrong_scope", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n5() -> CasePlan:
-    return CasePlan("N5", "wrong_operation", 0, 1)
+    return CasePlan(
+        "N5", "wrong_operation", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n6() -> CasePlan:
-    return CasePlan("N6", "cross_tenant", 0, 1)
+    return CasePlan(
+        "N6", "cross_tenant", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n7() -> CasePlan:
-    return CasePlan("N7", "org_mismatch", 0, 1)
+    return CasePlan(
+        "N7", "org_mismatch", 0, 1, required_rejection_code="relying_party_refusal"
+    )
 
 
 def run_n8() -> CasePlan:
-    return CasePlan("N8", "missing_tls_extension", 0, 1)
+    return CasePlan(
+        "N8",
+        "missing_tls_extension",
+        0,
+        1,
+        required_rejection_code="relying_party_refusal",
+    )
 
 
 def run_n9() -> CasePlan:
-    return CasePlan("N9", "postgres_unavailable", 0, 1)
+    return CasePlan(
+        "N9",
+        "postgres_unavailable",
+        0,
+        1,
+        required_rejection_code="relying_party_refusal",
+    )
 
 
 def run_n10() -> CasePlan:
-    return CasePlan("N10", "secret_sweep", 0, 0)
+    return CasePlan("N10", "secret_sweep", 0, 0, required_rejection_code=None)
 
 
 CASE_PLANS: Final = (
@@ -344,9 +375,11 @@ async def _execute_network_case(plan: CasePlan) -> dict[str, object]:
         "rejected_count": rejected,
     }
     if rejected:
-        if len(rejection_codes) != 1:
-            raise ClientBoundaryError("D2 case returned inconsistent refusal classes")
-        result["rejection_code"] = next(iter(rejection_codes))
+        if rejection_codes != {plan.required_rejection_code}:
+            raise ClientBoundaryError(
+                "D2 case did not return its required relying-party refusal"
+            )
+        result["rejection_code"] = plan.required_rejection_code
     return result
 
 

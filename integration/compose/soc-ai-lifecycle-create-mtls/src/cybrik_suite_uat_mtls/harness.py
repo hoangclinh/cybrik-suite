@@ -57,6 +57,7 @@ _SERVER_LOG: Final = "ai-server.log"
 _SERVER_PID: Final = "ai-server.pid"
 _CLIENT_PID: Final = "soc-client.pid"
 _TLS_EVIDENCE: Final = "tls-extension.json"
+_SSL_CONTEXT_EVIDENCE: Final = "ssl-context.json"
 _POSTGRES_SECURITY_EVIDENCE: Final = "postgres-security.json"
 _RUNTIME_ROOT_NAME = re.compile(r"^cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}$")
 _EVIDENCE_ROOT_NAME = re.compile(r"^cybrik-uat-d2-evidence-[a-z0-9][a-z0-9._-]{0,63}$")
@@ -160,6 +161,8 @@ def assert_product_api_compatibility() -> None:
             AsymmetricJwtDelegationIssuer,
             MintedToken,
         )
+
+        from_pinned_jwks = PinnedTrustProvider.from_pinned_jwks
     except (ImportError, AttributeError) as exc:
         raise RuntimeAuthorizationError(
             "pinned product API surface is unavailable"
@@ -168,7 +171,7 @@ def assert_product_api_compatibility() -> None:
         LifecycleRuntimeCompositionDeps,
         compose_lifecycle_runtime,
         AsgiTlsTransportResolver,
-        PinnedTrustProvider.from_pinned_jwks,
+        from_pinned_jwks,
         LifecycleCreateClient,
         AsymmetricJwtDelegationIssuer,
         MintedToken,
@@ -224,7 +227,16 @@ def assert_runtime_authorized() -> None:
     if _git("status", "--porcelain", "--untracked-files=all"):
         raise RuntimeAuthorizationError("Suite checkout is not clean")
 
-    _bounded_external_roots(repositories_must_exist=True)
+    runtime_root, evidence_root = _bounded_external_roots(repositories_must_exist=True)
+    authorization_lines = set(authorization.read_text(encoding="utf-8").splitlines())
+    required_root_lines = {
+        f"RUNTIME_ROOT={runtime_root}",
+        f"EVIDENCE_ROOT={evidence_root}",
+    }
+    if not required_root_lines.issubset(authorization_lines):
+        raise RuntimeAuthorizationError(
+            "authorization does not pin the exact one-shot external roots"
+        )
     wheel = _absolute_env(_B1_WHEEL_ENV, must_exist=True)
     if _sha256(wheel) != policy.PINNED_B1_WHEEL_SHA256:
         raise RuntimeAuthorizationError("B1 wheel digest mismatch")
@@ -516,6 +528,38 @@ def _assert_mtls_evidence(evidence_root: Path) -> dict[str, object]:
     return evidence.validate_evidence(exact)  # type: ignore[return-value]
 
 
+def _assert_ssl_context_evidence(evidence_root: Path) -> dict[str, object]:
+    path = evidence_root / _SSL_CONTEXT_EVIDENCE
+    if not path.is_file() or path.is_symlink():
+        raise RuntimeAuthorizationError("SSL-context evidence is absent")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    baseline_options = record.get("baseline_options")
+    result_options = record.get("result_options")
+    if (
+        isinstance(baseline_options, bool)
+        or not isinstance(baseline_options, int)
+        or baseline_options <= 0
+        or isinstance(result_options, bool)
+        or not isinstance(result_options, int)
+        or result_options <= 0
+    ):
+        raise RuntimeAuthorizationError("SSL-context option evidence is invalid")
+    hardened_options_preserved = (result_options & baseline_options) == baseline_options
+    no_compression_verified = bool(result_options & ssl.OP_NO_COMPRESSION)
+    if record.get("hardened_options_preserved") is not hardened_options_preserved:
+        raise RuntimeAuthorizationError(
+            "SSL-context hardening evidence is inconsistent"
+        )
+    if record.get("no_compression_verified") is not no_compression_verified:
+        raise RuntimeAuthorizationError("SSL compression evidence is inconsistent")
+    if not hardened_options_preserved or not no_compression_verified:
+        raise RuntimeAuthorizationError("SSL-context hardening is incomplete")
+    return {
+        "ssl_hardened_options_preserved": True,
+        "ssl_no_compression_verified": True,
+    }
+
+
 def _postgres_security_summary(evidence_root: Path) -> dict[str, object]:
     path = evidence_root / _POSTGRES_SECURITY_EVIDENCE
     if not path.is_file() or path.is_symlink():
@@ -641,6 +685,15 @@ def run_runtime_attempt() -> dict[str, object]:
             log.close()  # type: ignore[union-attr]
         log = None
         results.append(_run_case("N10", root, evidence_root))
+        relying_party_refusal_count = sum(
+            1
+            for result in results
+            if result.get("rejection_code") == "relying_party_refusal"
+        )
+        if relying_party_refusal_count != 9:
+            raise RuntimeAuthorizationError(
+                "D2 negative cases did not all reach the relying party"
+            )
         summary = {
             "case_count": len(results),
             "failed_count": sum(
@@ -650,9 +703,11 @@ def run_runtime_attempt() -> dict[str, object]:
                 1 for result in results if result.get("passed") is True
             ),
             "postgres_replay_row_count": postgres_replay_row_count,
+            "relying_party_refusal_count": relying_party_refusal_count,
             "runtime_red_case_id": "N8",
         }
         summary.update(mtls_summary)
+        summary.update(_assert_ssl_context_evidence(evidence_root))
         summary.update(_postgres_security_summary(evidence_root))
         return evidence.validate_evidence(summary)  # type: ignore[return-value]
     finally:
