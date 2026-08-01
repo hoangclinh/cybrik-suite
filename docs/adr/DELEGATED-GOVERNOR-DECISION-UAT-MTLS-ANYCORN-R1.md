@@ -813,6 +813,65 @@ OSV query for PyPI `coverage` version `7.15.2` returned no vulnerabilities; its 
 had SHA-256 `44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a`.
 These are proposal facts, not an install, audit artifact, coverage result or risk acceptance.
 
+### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring
+
+Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+
+The Codex Governor pulls forward only the dependency-neutral verifier required by D2-COV-P0. The
+verifier is pure stdlib and import-inert. It reads the already-produced Coverage.py JSON format 3
+artifact and current Suite source bytes; it does not import the UAT harness, import or install
+Coverage.py, restore B1, open a listener, create PKI, start a database, run a migration or execute
+N1–N10.
+
+The maximum authoring scope is exactly:
+
+- `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `tools/contract-validation/tests/validate-transport.test.mjs`
+
+No other path is authorized by D2-COV-P1. In particular, this authoring action changes no
+dependency or lock, D1 evidence, runtime-admission carrier, product repository, contract, schema,
+workflow, release manifest or release date.
+
+The verifier fails closed unless all of these are true:
+
+- the Suite root and coverage input are absolute canonical non-symlink paths, and the coverage
+  input remains outside the Suite checkout;
+- the report pins `meta.format=3`, `meta.version=7.15.2` and `branch_coverage=true`;
+- the report contains exactly every current Python source file in the harness package once, with
+  no path traversal, symlink, duplicate line/arc, overlap, out-of-range fact or count-summary
+  mismatch;
+- independently recomputed package line and branch ratios are each at least 80%; and
+- Coverage.py region data for every section 7.3 critical symbol matches its exact top-level
+  AST-derived source range, has a non-empty line and branch denominator, and has no missing line or
+  branch arc.
+
+The result path must be the fresh exact
+`<COVERAGE_EVIDENCE_ROOT>/coverage-gate.json` beside `coverage.json`. The purpose-bound evidence
+root must be mode `0700`; the verifier creates the result exclusively at mode-`0600`, flushes and
+fsyncs it, and records bounded stable output for both PASS and FAIL without embedding a
+caller-controlled path or source value in the failure reason. An existing result is preserved and
+causes a fail-closed refusal rather than overwrite.
+
+The future pinned measurement invokes the verifier only after the three D2-COV-P0 Coverage.py
+commands complete:
+
+```text
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py \
+  --suite-root <SUITE_ROOT> \
+  --coverage-json <COVERAGE_EVIDENCE_ROOT>/coverage.json \
+  --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
+```
+
+The authoring tests use synthetic format-3 reports to prove the PASS path and false-green
+refusals; they do not measure the real package. D2-COV-P1 does not install Coverage.py, does not
+satisfy the section 7.3 coverage gate, does not open Phase A and grants no UAT or release credit.
+D2 remains **HOLD**. Release dates remain unchanged.
+
 ### Gate UAT-MTLS-D2 — real runtime execution
 
 Current state: `HOLD — SEPARATE REVIEWED RUNTIME-ADMISSION UPDATE REQUIRED`.

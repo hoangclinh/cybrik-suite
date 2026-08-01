@@ -641,7 +641,10 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
         "tools/contract-validation/tests/validate-transport.test.mjs",
     ]
     normalized = " ".join(section.split())
-    assert "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD" in section
+    assert (
+        "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD"
+        in section
+    )
     assert "pure stdlib and import-inert" in normalized
     assert "Coverage.py JSON format 3" in normalized
     assert "mode-`0600`" in section

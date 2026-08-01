@@ -4578,7 +4578,7 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   assert.match(section, /mode-`0600`/);
   assert.match(section, /PASS and FAIL/);
   assert.match(section, /does not install Coverage\.py/);
-  assert.match(section, /does not satisfy the section 7\.3 coverage gate/);
+  assert.match(section, /does not\s+satisfy the section 7\.3 coverage gate/);
   assert.match(section, /does not open Phase A/);
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
   assert.match(section, /Release dates remain unchanged/);

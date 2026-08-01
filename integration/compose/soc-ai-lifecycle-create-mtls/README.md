@@ -144,3 +144,27 @@ teardown functions named in the ADR, exercised only through fakes, monkeypatches
 roots. The proposal authorizes nothing until Founder approval is recorded, and neither installation
 nor a passing coverage result by itself opens Phase A, recovers B1, runs N1–N10 or grants
 UAT/release credit.
+
+## Authored stdlib coverage verifier
+
+`UAT-MTLS-D2-COV-P1` is `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+The pure-stdlib, import-inert `scripts/verify_coverage_gate.py` independently checks one pinned
+Coverage.py 7.15.2 JSON format-3 report. It requires the exact package file set, recomputes package
+line and branch ratios separately, cross-checks report summaries, and binds each critical function
+to its current top-level AST range and branch arcs. It writes one fresh atomic mode-`0600` PASS or
+FAIL result beside the input without importing the harness or Coverage.py.
+
+After the separately authorized D2-COV-P0 installation and measurement produce `coverage.json`,
+the exact verifier command is:
+
+```sh
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py \
+  --suite-root <SUITE_ROOT> \
+  --coverage-json <COVERAGE_EVIDENCE_ROOT>/coverage.json \
+  --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
+```
+
+This authoring slice does not install Coverage.py, does not measure the current package, does not
+satisfy the section 7.3 coverage gate and does not open Phase A. D2 remains **HOLD** and all
+runtime/UAT/release boundaries above remain unchanged.
