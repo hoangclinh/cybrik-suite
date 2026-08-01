@@ -38,7 +38,7 @@
     },
     "retriable": {
       "type": "boolean",
-      "description": "Advisory, code-derived hint. It is true exactly when a re-issue of the same request under its canonical idempotent identity — the request with exactly sequence, virtual_time_ms, and parent.expected_version excluded, and every other field bound — could later succeed because peer state changed, and false wherever the caller must change a bound field or the condition is a permanent truth violation. Excluding those three is not exemption from validation: sequence and virtual_time_ms must still equal the record's own ledger envelope, and parent.expected_version must still equal the parent's current version, so a re-issue asserting a stale version is RES_VERSION_CONFLICT. It confers nothing."
+      "description": "Advisory, code-derived hint. It is true only for RES_INSUFFICIENT_REMAINDER. A reservation-request re-issue preserves its canonical idempotent identity with exactly sequence, virtual_time_ms, and parent.expected_version excluded and every other field bound; the excluded fields must still validate at their new position. RES_ACTIVE_CHILDREN is false because the refused release binds target.expected_version: once a child releases, the target version changes, so repeating that release asserts a stale target.expected_version and fails RES_VERSION_CONFLICT. It confers nothing."
     },
     "fail_closed": { "const": true }
   },
@@ -47,7 +47,7 @@
     "required": ["code"],
     "properties": {
       "code": {
-        "enum": ["RES_INSUFFICIENT_REMAINDER", "RES_ACTIVE_CHILDREN"]
+        "enum": ["RES_INSUFFICIENT_REMAINDER"]
       }
     }
   },
