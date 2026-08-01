@@ -162,6 +162,43 @@ def test_validation_rejects_a_temp_root_interpreter(tmp_path: Path) -> None:
     assert error.value.reason == "pinned_python_under_host_temp"
 
 
+def test_validation_rejects_a_real_executable_under_host_temp(tmp_path: Path) -> None:
+    fields = _fields(tmp_path)
+    host_temp = tmp_path / "host-temp"
+    host_temp.mkdir(mode=0o700)
+    temp_executable = host_temp / "python3.12"
+    temp_executable.write_bytes(b"pinned-python")
+    temp_executable.chmod(0o700)
+    intermediate = Path(fields["PINNED_PYTHON"]).with_name("python3.12")
+    intermediate.unlink()
+    intermediate.symlink_to(temp_executable)
+    fields["HOST_TEMP_ROOT"] = str(host_temp)
+    fields["PINNED_PYTHON_REALPATH"] = str(temp_executable)
+    observed = authorization.ObservedState(
+        **{
+            **_observed(fields).__dict__,
+            "host_temp_root": host_temp,
+            "python_realpath": temp_executable,
+        }
+    )
+
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.validate_authorization(fields, observed)
+    assert error.value.reason == "pinned_python_under_host_temp"
+
+
+def test_validation_rejects_an_operator_selected_closure_digest(tmp_path: Path) -> None:
+    fields = _fields(tmp_path)
+    fields["PINNED_CLOSURE_SHA256"] = "d" * 64
+    observed = authorization.ObservedState(
+        **{**_observed(fields).__dict__, "closure_sha256": fields["PINNED_CLOSURE_SHA256"]}
+    )
+
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.validate_authorization(fields, observed)
+    assert error.value.reason == "authorization_pinned_value_mismatch"
+
+
 def test_validation_rejects_expired_or_overwide_authority(tmp_path: Path) -> None:
     fields = _fields(tmp_path)
     observed = _observed(fields)
@@ -291,3 +328,34 @@ def test_consume_preserves_failure_evidence_when_tool_root_creation_races(
         "status": "failed_pre_network",
     }
     assert not Path(fields["COVERAGE_ROOT"]).exists()
+
+
+def test_consume_rejects_parent_rebinding_before_first_mkdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = _fields(tmp_path)
+    raw = _text(fields).encode()
+    resolved = authorization.validate_authorization(fields, _observed(fields))
+    evidence_parent = Path(fields["COVERAGE_EVIDENCE_ROOT"]).parent
+    moved_parent = evidence_parent.with_name("evidence-parent-moved")
+    replacement = tmp_path / "replacement"
+    replacement.mkdir(mode=0o700)
+    original_open = authorization._open_verified_directory
+    call_count = 0
+
+    def open_then_rebind(path: Path) -> int:
+        nonlocal call_count
+        descriptor = original_open(path)
+        call_count += 1
+        if call_count == 1:
+            evidence_parent.rename(moved_parent)
+            evidence_parent.symlink_to(replacement, target_is_directory=True)
+        return descriptor
+
+    monkeypatch.setattr(authorization, "_open_verified_directory", open_then_rebind)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.consume_authorization(resolved, raw)
+
+    assert error.value.reason == "authorization_consumption_failed"
+    assert not (replacement / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
+    assert not (moved_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
