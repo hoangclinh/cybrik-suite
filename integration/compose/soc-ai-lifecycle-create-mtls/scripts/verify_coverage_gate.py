@@ -7,13 +7,11 @@ the UAT harness, restore B1, open listeners, or grant runtime authority.
 from __future__ import annotations
 
 import ast
-import io
 import json
 import os
 import re
 import secrets
 import sys
-import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -50,7 +48,7 @@ STATIC_BRANCH_NODES: Final = (
     ast.comprehension,
 )
 EXCLUSION_MARKER: Final = re.compile(
-    r"#\s*pragma[:\s]?\s*no\s*(?:cover|branch)\b", re.IGNORECASE
+    r"#\s*pragma[:\s]?\s*no\s*(?:cover|branch)", re.IGNORECASE
 )
 
 
@@ -436,16 +434,10 @@ def _has_static_branch(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 
 
 def _has_exclusion_marker(source: str, *, start: int, end: int) -> bool:
-    try:
-        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
-        return any(
-            token.type == tokenize.COMMENT
-            and start <= token.start[0] <= end
-            and EXCLUSION_MARKER.search(token.string) is not None
-            for token in tokens
-        )
-    except (IndentationError, tokenize.TokenError):
-        _fail("critical_source_syntax_invalid")
+    return any(
+        EXCLUSION_MARKER.search(line) is not None
+        for line in source.splitlines()[start - 1 : end]
+    )
 
 
 def _critical_result(
