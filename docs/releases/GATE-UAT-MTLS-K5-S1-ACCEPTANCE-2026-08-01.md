@@ -79,9 +79,11 @@ changing the K5/S1 outcome:
   the unchanged custom evidence sanitizer;
 - wheelhouse, cache and build workspaces stay outside the repository, the offline proof is scoped
   to the exact platform, and rollback includes the ephemeral gitignored `dist/` artifact;
-- if the Founder later grants D1, outbound authority is limited to pinned `pypi.org` and
-  `files.pythonhosted.org` endpoints, the named advisory-database endpoint, isolated
-  SBOM/license/audit tooling resolution, and exact build-backend child processes.
+- relative to the superseded sdist/build-only wording, R2 explicitly adds the closed endpoint set
+  `https://pypi.org/pypi/anycorn/0.20.0/json`, the one hash-matching
+  `files.pythonhosted.org` sdist URL, `https://api.osv.dev/v1/querybatch`, and
+  `https://pypi.org/simple` plus exact hash-pinned `files.pythonhosted.org` tooling artifacts; if the
+  Founder later grants D1, exact build-backend child processes are also allowed.
 
 D1 remains **HOLD** pending the explicit Founder grant. D2 remains **HOLD** pending its separate
 reviewed runtime admission. Raw Anycorn remains HOLD; B1 remains `installed=false`, `pinned=false`
