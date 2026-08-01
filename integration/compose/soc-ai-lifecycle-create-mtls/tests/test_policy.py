@@ -144,7 +144,7 @@ def test_source_text_excludes_dependency_and_runtime_markers(source_file: str) -
 def test_source_declares_no_executable_entrypoint(source_file: str) -> None:
     tree = _parse_source(source_file)
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             assert node.name != "main"
         if isinstance(node, ast.If):
             names = {

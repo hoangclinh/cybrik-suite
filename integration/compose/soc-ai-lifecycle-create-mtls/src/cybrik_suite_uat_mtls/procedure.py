@@ -16,6 +16,8 @@ ARGV_ELEMENT_EMPTY: Final = "argv_element_empty"
 ARGV_SHELL_EVALUATOR: Final = "argv_shell_evaluator"
 ARGV_INLINE_EVALUATION: Final = "argv_inline_evaluation"
 ARGV_SHELL_METACHARACTER: Final = "argv_shell_metacharacter"
+ARGV_SECRET_BEARING: Final = "argv_secret_bearing"
+ARGV_NOT_ALLOWLISTED: Final = "argv_not_allowlisted"
 UNKNOWN_GATE: Final = "unknown_gate"
 DESCRIPTION_MISSING: Final = "description_missing"
 COMMAND_NOT_DECLARED: Final = "command_not_declared"
@@ -42,11 +44,22 @@ CASE_GATE_NOT_RUNTIME: Final = "case_gate_not_runtime"
 LIFECYCLE_STEPS: Final = ("start", "seed", "reset", "stop", "rollback")
 CASE_STATUS_AUTHORED_NOT_RUN: Final = "authored_not_run"
 
-_ALLOWED_GATES: Final = frozenset({"D1", "D2"})
+_ALLOWED_GATES: Final = frozenset({"D2"})
 _SHELL_EVALUATORS: Final = frozenset(
     {"sh", "bash", "zsh", "dash", "fish", "env", "xargs", "command"}
 )
 _SHELL_METACHARACTERS: Final = frozenset({";", "|", "&", ">", "<", "`", "$", "\n", "\r"})
+_HARNESS_PREFIX: Final = (
+    "python3",
+    "-m",
+    "cybrik_suite_uat_mtls.harness",
+)
+_START_BIND_ARGUMENTS: Final = (
+    "--ai-bind",
+    "127.0.0.1:58443",
+    "--postgres-bind",
+    "127.0.0.1:55432",
+)
 
 
 class ProcedureViolation(Exception):
@@ -108,7 +121,13 @@ def validate_command(candidate: object) -> Command:
         if any(marker in token for marker in _SHELL_METACHARACTERS):
             raise ProcedureViolation(ARGV_SHELL_METACHARACTER)
         if evidence.secret_reason(token) is not None:
-            raise ProcedureViolation(ARGV_SHELL_METACHARACTER)
+            raise ProcedureViolation(ARGV_SECRET_BEARING)
+    base_argv = _HARNESS_PREFIX + (candidate.step,)
+    allowed_argv = (base_argv,)
+    if candidate.step == "start":
+        allowed_argv = allowed_argv + (base_argv + _START_BIND_ARGUMENTS,)
+    if candidate.argv not in allowed_argv:
+        raise ProcedureViolation(ARGV_NOT_ALLOWLISTED)
     if candidate.authorizing_gate not in _ALLOWED_GATES:
         raise ProcedureViolation(UNKNOWN_GATE)
     if (
