@@ -751,6 +751,185 @@ test('no packet artifact carries certificate, JWT, DSN or private-key material',
 
 // --- 9. server neutrality and the Anycorn HOLD -------------------------------
 
+const exactKeyErrors = (value, keys, label) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return [`${label} must be an object`];
+  }
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index])
+    ? []
+    : [`${label} keys must be exactly ${expected.join(', ')}; got ${actual.join(', ')}`];
+};
+
+const assessServerCandidates = (manifest) => {
+  const errors = [];
+  const candidates = manifest.server_candidates;
+  if (!Array.isArray(candidates)) return ['server_candidates must be an array'];
+
+  const ids = candidates.map((candidate) => candidate?.id);
+  if (new Set(ids).size !== ids.length) errors.push('server candidate IDs must be unique');
+  const expectedIds = ['anycorn', 'hypercorn', 'granian', 'anycorn-cybrik-uat-b1'];
+  for (const id of expectedIds) {
+    if (!ids.includes(id)) errors.push(`missing exact server candidate ${id}`);
+  }
+  for (const id of ids) {
+    if (!expectedIds.includes(id)) errors.push(`unexpected server candidate ${id}`);
+  }
+
+  const officialIds = ['anycorn', 'hypercorn', 'granian'];
+  for (const id of officialIds) {
+    const candidate = candidates.find((entry) => entry.id === id);
+    if (!candidate) continue;
+    const keys = [
+      'id', 'version_considered', 'artifact_scope', 'disposition',
+      'selected', 'installed', 'pinned',
+      ...(id === 'anycorn' ? ['blocking_finding'] : []),
+    ];
+    errors.push(...exactKeyErrors(candidate, keys, `official candidate ${id}`));
+    if (candidate.artifact_scope !== 'official_upstream_distribution') {
+      errors.push(`${id} must retain official_upstream_distribution scope`);
+    }
+    for (const field of ['selected', 'installed', 'pinned']) {
+      if (candidate[field] !== false) errors.push(`${id}.${field} must remain false`);
+    }
+  }
+
+  const raw = candidates.find((entry) => entry.id === 'anycorn');
+  if (raw) {
+    if (raw.version_considered !== '0.20.0' || raw.disposition !== 'HOLD') {
+      errors.push('raw Anycorn identity and HOLD disposition must remain exact');
+    }
+    errors.push(...exactKeyErrors(
+      raw.blocking_finding,
+      ['severity', 'recorded_at'],
+      'raw Anycorn blocking_finding',
+    ));
+    if (raw.blocking_finding?.severity !== 'HIGH') {
+      errors.push('raw Anycorn HIGH finding must remain open');
+    }
+  }
+
+  const b1 = candidates.find((entry) => entry.id === 'anycorn-cybrik-uat-b1');
+  if (b1) {
+    errors.push(...exactKeyErrors(b1, [
+      'id', 'version_considered', 'artifact_scope', 'installed_scope',
+      'uat_evaluation_admitted', 'disposition', 'selected', 'installed', 'pinned',
+      'derived_from', 'blocking_finding', 'admission',
+    ], 'B1 candidate'));
+    const exact = {
+      version_considered: '0.20.0+cybrik.1',
+      artifact_scope: 'internal_uat_evaluation_artifact',
+      installed_scope: 'suite_uat_tool_lock_only',
+      uat_evaluation_admitted: true,
+      disposition: 'HOLD',
+      selected: false,
+      installed: false,
+      pinned: false,
+    };
+    for (const [field, expected] of Object.entries(exact)) {
+      if (b1[field] !== expected) errors.push(`B1.${field} must equal ${JSON.stringify(expected)}`);
+    }
+    errors.push(...exactKeyErrors(
+      b1.derived_from,
+      ['id', 'version_considered', 'artifact_scope'],
+      'B1 derived_from',
+    ));
+    if (b1.derived_from?.id !== 'anycorn'
+      || b1.derived_from?.version_considered !== '0.20.0'
+      || b1.derived_from?.artifact_scope !== 'official_upstream_distribution') {
+      errors.push('B1 derivation must identify the exact raw upstream artifact scope');
+    }
+    errors.push(...exactKeyErrors(
+      b1.blocking_finding,
+      ['severity', 'recorded_at', 'mitigation_status'],
+      'B1 blocking_finding',
+    ));
+    if (b1.blocking_finding?.severity !== 'HIGH'
+      || b1.blocking_finding?.mitigation_status !== 'NOT PROVEN') {
+      errors.push('B1 must retain the High as NOT PROVEN before D1/D2 evidence');
+    }
+    errors.push(...exactKeyErrors(
+      b1.admission,
+      ['gate', 'scope', 'dependency_installation', 'runtime_execution'],
+      'B1 admission',
+    ));
+    if (b1.admission?.gate !== 'UAT-MTLS-S1'
+      || b1.admission?.scope !== 'bounded_isolated_uat_evaluation_only'
+      || b1.admission?.dependency_installation !== 'DEFERRED_TO_UAT-MTLS-D1'
+      || b1.admission?.runtime_execution !== 'DEFERRED_TO_UAT-MTLS-D2') {
+      errors.push('B1 admission must carry only the exact S1/D1/D2 UAT authority boundary');
+    }
+  }
+
+  errors.push(...exactKeyErrors(
+    manifest.server_candidate_disambiguation,
+    ['raw_upstream_id', 'internal_uat_id', 'shared_public_version', 'identity_rule'],
+    'server_candidate_disambiguation',
+  ));
+  const disambiguation = manifest.server_candidate_disambiguation;
+  if (disambiguation?.raw_upstream_id !== 'anycorn'
+    || disambiguation?.internal_uat_id !== 'anycorn-cybrik-uat-b1'
+    || disambiguation?.shared_public_version !== '0.20.0'
+    || disambiguation?.identity_rule !== 'id_and_artifact_scope_are_authoritative') {
+    errors.push('PEP 440 public-version equivalence must not conflate raw Anycorn with B1');
+  }
+  if (b1 && raw && b1.version_considered.split('+')[0] !== raw.version_considered) {
+    errors.push('B1 local version must retain the raw public-version lineage');
+  }
+  if (manifest.server_neutrality?.server_neutral !== true
+    || manifest.server_neutrality?.selected_server !== null) {
+    errors.push('server neutrality and selected_server=null must remain exact');
+  }
+  return errors;
+};
+
+test('K5/S1 distinguishes raw upstream candidates from the uninstalled B1 UAT evaluation row', () => {
+  const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
+  assert.deepEqual(assessServerCandidates(manifest), []);
+
+  const mutations = [
+    (candidate) => candidate.server_candidates.push(structuredClone(candidate.server_candidates[0])),
+    (candidate) => { delete candidate.server_candidates[0].artifact_scope; },
+    (candidate) => { delete candidate.server_candidates[3].installed_scope; },
+    (candidate) => { candidate.server_candidates[3].installed = true; },
+    (candidate) => { candidate.server_candidates[3].pinned = true; },
+    (candidate) => { candidate.server_candidates[3].selected = true; },
+    (candidate) => { candidate.server_candidates[3].release_authority = 'stable-v1'; },
+    (candidate) => { candidate.server_candidates[3].version_considered = '0.20.0'; },
+  ];
+  for (const mutate of mutations) {
+    const candidate = structuredClone(manifest);
+    mutate(candidate);
+    assert.notDeepEqual(assessServerCandidates(candidate), []);
+  }
+});
+
+test('K5 and S1 acceptance carriers remain bounded and retain every downstream HOLD', () => {
+  const gate = read('docs/releases/GATE-UAT-MTLS-K5-S1-ACCEPTANCE-2026-08-01.md');
+  const proposal = read('docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md');
+  const w2kDecision = read(DECISION_PATH);
+  const w2kGate = read(ACCEPTANCE_RECORD_PATH);
+  const adrIndex = read('docs/adr/README.md');
+  const releaseIndex = read(RELEASE_INDEX_PATH);
+
+  for (const text of [gate, proposal, w2kDecision, w2kGate]) {
+    assert.match(text, /K5/);
+    assert.match(text, /S1/);
+    assert.match(text, /installed=false/);
+    assert.match(text, /pinned=false/);
+    assert.match(text, /D1[^\n]*HOLD/i);
+    assert.match(text, /D2[^\n]*HOLD/i);
+    assert.match(text, /selected_server=null/);
+    assert.match(text, /raw[^\n]*Anycorn[^\n]*0\.20\.0[^\n]*HOLD/i);
+  }
+  assert.match(proposal, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
+  assert.doesNotMatch(proposal, /DECISION PROPOSAL — ANYCORN UNSELECTED/);
+  assert.match(adrIndex, /DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1\.md/);
+  assert.match(releaseIndex, /GATE-UAT-MTLS-K5-S1-ACCEPTANCE-2026-08-01\.md/);
+  assert.match(gate, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA[^\n]*NO-GO/i);
+});
+
 test('every server candidate is unselected and the packet names no chosen server', () => {
   const manifest = readJson(COMPATIBILITY_MANIFEST_PATH);
   const candidates = manifest.server_candidates;
