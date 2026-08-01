@@ -527,7 +527,9 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     compose_readme = (_HARNESS_ROOT.parent / "README.md").read_text(encoding="utf-8")
 
+    exact_status = "Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`."
     for text in (harness_readme, compose_readme):
+        assert text.splitlines()[2] == exact_status
         assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
         assert "UAT-MTLS-D2" in text and "HOLD" in text
         assert "DEMO_READY_LOCAL" in text and "NO-GO" in text
@@ -536,6 +538,19 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
         not in harness_readme
     )
     assert "dependency-neutral preparation only" not in compose_readme
+
+
+def test_d2_p0_discloses_the_unsatisfied_phase_a_coverage_gate() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+
+    for text in (harness_readme, decision):
+        assert "D2-P0 does not satisfy the section 7.3 coverage gate" in text
+        assert "at least 80% line and branch coverage" in text
+        assert "100% coverage of the critical paths" in text
+        assert "separate bounded coverage-tooling action" in text
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:

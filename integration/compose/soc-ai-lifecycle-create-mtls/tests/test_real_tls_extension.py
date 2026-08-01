@@ -91,13 +91,32 @@ def test_tls_extension_evidence_is_preserved_and_asserted_before_rollback() -> N
         assert required in harness
 
 
+def test_ssl_context_hardening_bits_are_recorded_and_asserted() -> None:
+    server = _SERVER.read_text(encoding="utf-8")
+    harness = (_SERVER.parent / "harness.py").read_text(encoding="utf-8")
+    for required in (
+        "ssl-context.json",
+        "OP_NO_COMPRESSION",
+        "baseline_options",
+        "hardened_options_preserved",
+        "no_compression_verified",
+    ):
+        assert required in server
+    assert "_assert_ssl_context_evidence" in harness
+    assert "ssl_hardened_options_preserved" in harness
+    assert "ssl_no_compression_verified" in harness
+
+
 def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    baseline_options = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH).options
+
     class FakeContext:
         minimum_version: object | None = None
         maximum_version: object | None = None
         verify_mode: object | None = None
+        options = baseline_options | ssl.OP_NO_COMPRESSION
 
     context = FakeContext()
 
@@ -114,6 +133,13 @@ def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
     monkeypatch.setattr(
         runtime_server, "_verify_b1_artifact", lambda: Path("pinned.whl")
     )
+    recorded: list[tuple[int, int]] = []
+    monkeypatch.setattr(
+        runtime_server,
+        "_record_ssl_context_evidence",
+        lambda before, after: recorded.append((before, after)),
+        raising=False,
+    )
 
     configured = runtime_server.build_patched_ssl_context(FakeConfig())
 
@@ -121,3 +147,5 @@ def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
     assert context.minimum_version is ssl.TLSVersion.TLSv1_3
     assert context.maximum_version is ssl.TLSVersion.TLSv1_3
     assert context.verify_mode is ssl.CERT_REQUIRED
+    assert context.options & ssl.OP_NO_COMPRESSION
+    assert recorded == [(baseline_options, context.options)]

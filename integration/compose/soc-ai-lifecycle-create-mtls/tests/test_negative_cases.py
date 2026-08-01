@@ -43,3 +43,16 @@ def test_runtime_cases_prove_persistence_outage_and_secret_boundaries() -> None:
     assert "if not store.verify_absent()" in harness
     assert 'results.append(_run_case("N9"' in harness
     assert "store.pause()" not in harness
+
+
+def test_every_network_negative_requires_the_generic_relying_party_refusal() -> None:
+    source = _CLIENT.read_text(encoding="utf-8")
+    harness = (_CLIENT.parent / "harness.py").read_text(encoding="utf-8")
+
+    assert "required_rejection_code" in source
+    assert 'required_rejection_code="relying_party_refusal"' in source
+    assert '"transport_timeout": "transport_timeout"' in source
+    assert '"transport_failure": "transport_failure"' in source
+    assert "rejection_codes != {plan.required_rejection_code}" in source
+    assert "relying_party_refusal_count" in harness
+    assert "relying_party_refusal_count != 9" in harness

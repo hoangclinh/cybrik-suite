@@ -40,8 +40,27 @@ def test_runtime_entrypoint_has_a_committed_authorization_guard() -> None:
         "CYBRIK_UAT_D2_AUTHORIZATION_SHA256",
         "execution_authorized",
         "not_run",
+        "RUNTIME_ROOT=",
+        "EVIDENCE_ROOT=",
     ):
         assert required in source
+
+
+def test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    compatibility = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "assert_product_api_compatibility"
+    )
+    guarded = "\n".join(
+        ast.unparse(statement)
+        for statement in compatibility.body
+        if isinstance(statement, ast.Try)
+    )
+    assert "from_pinned_jwks = PinnedTrustProvider.from_pinned_jwks" in guarded
+    assert "from_pinned_jwks" in ast.unparse(compatibility)
 
 
 def test_runtime_driver_is_collected_but_cannot_run_without_phase_a() -> None:
@@ -74,5 +93,8 @@ def test_authorized_runtime_attempt_executes_the_red_green_sequence() -> None:
         "postgres_replay_row_count": 1,
         "postgres_role_posture_verified": True,
         "postgres_rls_isolation_verified": True,
+        "relying_party_refusal_count": 9,
         "runtime_red_case_id": "N8",
+        "ssl_hardened_options_preserved": True,
+        "ssl_no_compression_verified": True,
     }
