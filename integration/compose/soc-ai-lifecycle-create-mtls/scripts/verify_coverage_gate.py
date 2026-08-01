@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +22,9 @@ PINNED_COVERAGE_VERSION: Final = "7.15.2"
 PINNED_JSON_FORMAT: Final = 3
 MINIMUM_RATIO: Final = 0.8
 MAX_JSON_BYTES: Final = 16 * 1024 * 1024
+EVIDENCE_ROOT_NAME: Final = re.compile(
+    r"^cybrik-uat-d2-coverage-evidence-[a-z0-9][a-z0-9._-]{0,63}$"
+)
 CRITICAL_SYMBOLS: Final = (
     ("server", "build_patched_ssl_context"),
     ("policy", "parse_loopback_bind"),
@@ -119,6 +124,57 @@ def _absolute_canonical_path(raw: str, *, directory: bool) -> Path:
     elif not candidate.is_file():
         _fail("coverage_json_not_regular_file")
     return candidate
+
+
+def _fresh_result_path(raw: str, *, suite_root: Path, coverage_json: Path) -> Path:
+    candidate = Path(raw)
+    if not candidate.is_absolute() or candidate.name != "coverage-gate.json":
+        _fail("result_json_path_invalid")
+    try:
+        parent = candidate.parent.resolve(strict=True)
+    except OSError:
+        _fail("result_json_parent_unavailable")
+    if parent != candidate.parent or parent.is_symlink() or not parent.is_dir():
+        _fail("result_json_parent_not_canonical")
+    if parent != coverage_json.parent:
+        _fail("result_json_not_co_located")
+    if EVIDENCE_ROOT_NAME.fullmatch(parent.name) is None:
+        _fail("coverage_evidence_root_name_invalid")
+    if parent.stat().st_mode & 0o777 != 0o700:
+        _fail("coverage_evidence_root_mode_invalid")
+    if parent == suite_root or parent.is_relative_to(suite_root):
+        _fail("result_json_must_be_outside_suite")
+    if candidate.exists() or candidate.is_symlink():
+        _fail("result_json_must_be_fresh")
+    return candidate
+
+
+def _write_result(destination: Path, record: dict[str, object]) -> None:
+    temporary = destination.with_suffix(".tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(temporary, flags, 0o600)
+    except OSError:
+        _fail("result_json_write_failed")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+        directory_flags = os.O_RDONLY
+        if hasattr(os, "O_DIRECTORY"):
+            directory_flags |= os.O_DIRECTORY
+        directory_descriptor = os.open(destination.parent, directory_flags)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _mapping(value: object, reason: str) -> dict[str, object]:
@@ -435,39 +491,58 @@ def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _arguments(argv: list[str]) -> tuple[str, str]:
+def _arguments(argv: list[str]) -> tuple[str, str, str]:
     if argv == ["--help"]:
         print(
             "usage: verify_coverage_gate.py --suite-root ABSOLUTE "
-            "--coverage-json ABSOLUTE"
+            "--coverage-json ABSOLUTE --result-json ABSOLUTE"
         )
         raise SystemExit(0)
-    if len(argv) != 4:
+    if len(argv) != 6:
         _fail("arguments_invalid")
     values: dict[str, str] = {}
     for index in range(0, len(argv), 2):
         key = argv[index]
-        if key not in {"--suite-root", "--coverage-json"} or key in values:
+        if (
+            key not in {"--suite-root", "--coverage-json", "--result-json"}
+            or key in values
+        ):
             _fail("arguments_invalid")
         values[key] = argv[index + 1]
-    if set(values) != {"--suite-root", "--coverage-json"}:
+    if set(values) != {"--suite-root", "--coverage-json", "--result-json"}:
         _fail("arguments_invalid")
-    return values["--suite-root"], values["--coverage-json"]
+    return (
+        values["--suite-root"],
+        values["--coverage-json"],
+        values["--result-json"],
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
+    result_path: Path | None = None
     try:
-        suite_raw, coverage_raw = _arguments(
+        suite_raw, coverage_raw, result_raw = _arguments(
             list(sys.argv[1:] if argv is None else argv)
         )
         suite_root = _absolute_canonical_path(suite_raw, directory=True)
         coverage_json = _absolute_canonical_path(coverage_raw, directory=False)
         if coverage_json.is_relative_to(suite_root):
             _fail("coverage_json_must_be_outside_suite")
+        result_path = _fresh_result_path(
+            result_raw, suite_root=suite_root, coverage_json=coverage_json
+        )
         result = verify(suite_root=suite_root, report=_load_json(coverage_json))
     except GateFailure as exc:
-        print(str(exc), file=sys.stderr)
+        reason = str(exc)
+        if result_path is not None:
+            try:
+                _write_result(result_path, {"reason": reason, "status": "FAIL"})
+            except GateFailure:
+                reason = "result_json_write_failed"
+        print(reason, file=sys.stderr)
         return 2
+    assert result_path is not None
+    _write_result(result_path, result)
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0
 

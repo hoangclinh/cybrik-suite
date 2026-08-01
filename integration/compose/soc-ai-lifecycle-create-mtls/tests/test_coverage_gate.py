@@ -184,7 +184,8 @@ def _sync_report(report: dict[str, object]) -> None:
 def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
     suite_root = tmp_path / "suite"
     evidence_root = tmp_path / "cybrik-uat-d2-coverage-evidence-test"
-    evidence_root.mkdir()
+    evidence_root.mkdir(mode=0o700)
+    evidence_root.chmod(0o700)
     package_root = suite_root / PACKAGE_REL
     package_root.mkdir(parents=True)
     files: dict[str, object] = {}
