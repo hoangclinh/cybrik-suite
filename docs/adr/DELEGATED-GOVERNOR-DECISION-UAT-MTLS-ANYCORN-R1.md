@@ -427,7 +427,11 @@ If any transitive dependency has an open Critical/High on the exercised path, th
 
 ### Gate UAT-MTLS-A0 — non-circular admission sequencing clarification
 
-Current state: `HOLD — SEPARATE EXACT-PATH CLARIFICATION REQUIRED`.
+Current state: `ACCEPTED — TWO-PHASE SEQUENCE — CURRENT ATTEMPT UNAUTHORIZED`.
+
+Suite main commit `76eea6a988251f3c5faf19169154e7bf0f4d7cc4` accepts the A0 process sequence.
+The committed runtime candidate remains `execution_authorized=false`, `not_run`, at zero counts,
+one open High, ten held smoke rows and overall `HOLD`; A0 itself grants no runtime authority.
 
 The accepted prose currently describes A1–A7 as conditions for a bounded execution even though A1,
 A2, A3 and A4 require outputs from that execution. A0 must make the two phases explicit without
@@ -561,7 +565,7 @@ remains.
 
 - `PROPOSAL-B1=RECOMMEND`
 - `IMPLEMENTATION=NOT-IMPLEMENTED`
-- `ADMISSION-SEQUENCING-A0=HOLD-SEPARATE-GATE`
+- `ADMISSION-SEQUENCING-A0=ACCEPTED-SEQUENCE-CURRENT-ATTEMPT-UNAUTHORIZED`
 - `UAT-CANDIDATE-EVALUATION=ACCEPTED-S1-BOUNDED-ISOLATED-NOT-IMPLEMENTED`
 - `SERVER-SELECTION=DEFERRED`
 - `RAW-ANYCORN-0.20.0=HOLD`

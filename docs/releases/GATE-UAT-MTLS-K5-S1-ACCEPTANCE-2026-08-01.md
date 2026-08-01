@@ -2,7 +2,7 @@
 
 Decision date: 2026-08-01 (Asia/Ho_Chi_Minh).
 
-Base commit: `ce30f1604ba2014637a2d6544555bb57c0bad65f`.
+Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`.
 
 Outcome: **K5 ACCEPTED; S1 ACCEPTED — FOR IMPLEMENTATION — NOT IMPLEMENTED**.
 
@@ -54,10 +54,11 @@ S1 admits B1 only for bounded isolated UAT evaluation. It is not a product/serve
 does not create, install, pin, import, execute, or prove the internal artifact. PEP 440 public-version
 equivalence never collapses B1 into raw Anycorn: ID plus artifact scope is authoritative.
 
-A0 remains a separate sequencing gate. D1 remains **HOLD** and is the only future gate that may
-atomically change B1 to installed/pinned after the exact artifact exists. D2 remains **HOLD** and is
-the only future gate that may authorize a bounded runtime attempt. The raw-release High remains
-open. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
+A0 is accepted at the exact base above, while its current attempt remains unauthorized, `not_run`,
+at zero counts and `HOLD`. D1 remains **HOLD** and is the only future gate that may atomically
+change B1 to installed/pinned after the exact artifact exists. D2 remains **HOLD** and is the only
+future gate that may authorize a bounded runtime attempt. The raw-release High remains open.
+UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 ## Authority boundary
 

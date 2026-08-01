@@ -937,6 +937,11 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
   }
   assert.match(proposal, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.doesNotMatch(proposal, /DECISION PROPOSAL — ANYCORN UNSELECTED/);
+  assert.match(
+    proposal,
+    /ADMISSION-SEQUENCING-A0=ACCEPTED-SEQUENCE-CURRENT-ATTEMPT-UNAUTHORIZED/,
+  );
+  assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`/);
   assert.match(adrIndex, /DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1\.md/);
   assert.match(releaseIndex, /GATE-UAT-MTLS-K5-S1-ACCEPTANCE-2026-08-01\.md/);
   assert.match(gate, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA[^\n]*NO-GO/i);
