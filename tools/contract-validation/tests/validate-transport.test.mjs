@@ -4401,9 +4401,14 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
     assert.ok(d1.includes(required), `S1 R3 must pin D1 outbound authority for ${required}`);
   }
   assert.doesNotMatch(d1, /querybatch/);
+  assert.doesNotMatch(decision, /querybatch/);
   assert.match(decision, /vulnerability scan, recording each finding's severity/);
   assert.match(d1, /`pip-audit==2\.10\.1`/);
   assert.match(d1, /exact-hash tooling closure containing `pip-audit==2\.10\.1`/);
+  assert.match(d1, /every tooling requirement is `==` pinned with at least one `--hash=sha256:`/);
+  assert.match(d1, /same recorded CPython executable downloads only wheels with `--require-hashes` and\s+`--only-binary=:all:`/);
+  assert.match(d1, /offline tooling install uses `--no-index`, `--find-links` and `--require-hashes`/);
+  assert.match(d1, /tooling requirements and every tooling-wheel digest enter D1 evidence/);
   const auditCommandMatch = d1.match(/its audit command is exactly:\n\n```text\n([\s\S]*?)\n```/);
   assert.ok(auditCommandMatch, 'S1 R3 must retain one exact pip-audit command block');
   assert.equal(
@@ -4436,6 +4441,7 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.match(d1, /CPython `3\.12\.13`/);
   assert.match(d1, /pip `26\.1\.1`/);
   assert.match(d1, /uv `0\.11\.16`/);
+  assert.match(d1, /resolved to one recorded absolute executable path/);
   assert.doesNotMatch(d1, /uv pip download/);
   assert.match(d1, /registry-only UAT transitive-closure wheelhouse and the isolated/);
   assert.match(d1, /R2 opened the endpoint categories; S1 R3 corrects the OSV path and makes the\s+wheelhouse purpose explicit/);
@@ -4474,6 +4480,17 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
   assert.match(r3, /D2 remains \*\*HOLD\*\*/);
   assert.match(r3, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
   assert.match(r3, /Release dates remain\s+unchanged/);
+  assert.match(
+    decision,
+    /- \*\*S1 R3 endpoint correction:\*\* `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`/,
+  );
+  assert.match(
+    decision,
+    /- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`/,
+  );
+  const self = read('tools/contract-validation/tests/validate-transport.test.mjs');
+  assert.equal(countOf(self, '// >>> UAT-MTLS-S1-R2-R3-D1-CONTROLS-BEGIN'), 1);
+  assert.equal(countOf(self, '// <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END'), 1);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
   assert.doesNotMatch(gate, /installed=true|pinned=true/);
