@@ -805,3 +805,979 @@ instrument's B1–B4 differ from what is written here, or if the packet bytes at
 write time differ from the facts recorded above, **this section governs the
 write** and the divergence is a stop condition under G-W2H-6, to be raised
 before any further byte is written — not silently reconciled.
+
+## 7. R3 amendment — bounded C1–C4 replay-truth hardening
+
+- **Amendment date:** 2026-08-01 (`Asia/Ho_Chi_Minh`)
+- **Decider:** Codex Governor under
+  `docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`
+- **Amendment identity:** `W2-H/R3`
+- **Base:** `848af23` — the canonical tip after the R2 hardening write, at which
+  the packet carries seven `cybrik.res-*` schemas, 31 fixtures (9 positive, 10
+  negative-schema, 12 negative-semantic), and `member_count: 40`.
+- **Basis:** a read-only acceptance-readiness audit of the R2 packet, a
+  session-local governance instrument rather than a repository artifact. Its
+  controlling conclusions are adopted below as findings C1–C4. Every design
+  fact stated in §7.2 was additionally checked against the packet bytes at the
+  base above; §7.7 records that independent byte evidence.
+- **Precedent:** this follows the same bounded-amendment mechanism already
+  recorded in §3.2 and §6.
+
+C1–C4 are replay-truth findings. Each names a place where the packet's replay
+model accepts a ledger it should refuse, so that a green validator overstates
+what the fixtures prove. R3 closes exactly those four and nothing else. It also
+**discloses, without closing**, one adjacent limit it cannot reach: the
+`RES_ACTIVE_CHILDREN` retriability claim, recorded in §7.2 C3. Disclosure is
+not closure, and §7.6 still grants no acceptance.
+
+### 7.1 Preserved invariants (unchanged by this amendment)
+
+- The contract lifecycle ceiling remains
+  `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`, pre-v1 `0.1.0`, not a bundle
+  tag. This amendment accepts nothing, and `0.1.0` does not move.
+- W0-T11 measurement remains `HOLD until real vertical exists`. Nothing in
+  C1–C4 is runtime, integration, UAT, release, deployment, production, T10, or
+  T11 evidence; a green validator after this hardening remains static L1/L2
+  conformance only.
+- G-W2H-1 through G-W2H-6, §4 vocabulary boundary, and §5 release/production
+  boundary remain in force verbatim. The stop conditions of G-W2H-6 apply to
+  this amendment's work.
+- §6.1 through §6.7 remain in force. R3 supersedes no R2 decision: the
+  `res-root-closure` record, the `rootRef` shape without `expected_version`,
+  the two-code retriability mapping, the standalone-failure-document
+  declaration, the dense sequence, and the single serialization point per root
+  all stand exactly as recorded. R3 constrains replay further; it relaxes
+  nothing.
+- The four `ACCEPTED_DEPENDENCY_PINS` and every accepted-member byte remain
+  untouchable; any drift there is a hard stop.
+- The `resourceVector` remains **exactly six** nonnegative integer credit
+  dimensions — `cpu_millis`, `memory_byte_millis`, `model_tokens`,
+  `tool_calls`, `retrieved_bytes`, `egress_bytes`. R3 adds no dimension.
+- The `res-bounds-error` `code` enum and the validator's `REPLAY_ERROR_CODES`
+  keep identical membership at **fifteen** codes, and the packet keeps
+  **seven** schemas. **C1–C4 mint no new `RES_*` code and no new schema.**
+
+### 7.2 Authorized hardening content
+
+Exactly the following design deltas are authorized, and no others. Each is
+expressed in terms of codes that already exist:
+`RES_RELEASE_ACCOUNTING_MISMATCH`, `RES_SEQUENCE_VIOLATION`,
+`RES_VIRTUAL_TIME_ROLLBACK`, `RES_RESULT_MISMATCH`, and
+`RES_IDEMPOTENCY_CONFLICT`. C3 and C4 additionally **restate, without
+changing**, the existing pre-admission checks and the codes they already carry
+— among them `RES_VERSION_CONFLICT`, `RES_PARENT_NOT_FOUND`,
+`RES_PARENT_CLOSED`, and `RES_ROOT_CLOSED`. Restating an existing check is not
+a delta; no restated check moves, is reordered, or changes its code.
+
+**C1 — closure settlement bound to the replay ledger.** R2 reconciles a root
+closure only against the sum: `final_consumed + final_unused` must equal the
+closing grant's original `bounds`. That leaves the *split* free. A ledger that
+consumed nothing may declare any consumed/unused pair summing to `bounds` and
+replay accepts it, so the packet's closure record proves an arithmetic
+identity rather than a settlement.
+
+The replay model must instead derive both halves from the ledger it has
+already validated, and compare, dimension by dimension, before the closure is
+applied:
+
+- `final_consumed[d]` equals the accumulated `consumed[d]` of every release
+  the replay has already validated in this tree — the running consumption
+  total, zero if no release has occurred;
+- `final_unused[d]` equals the closing root's `remaining[d]` **plus** the
+  `remaining[d]` of every still-open reservation in the tree, taken at the
+  state immediately before closure; and
+- `final_consumed[d] + final_unused[d]` equals the closing grant's original
+  `bounds[d]`.
+
+Only then is the closure applied: the root's remaining becomes the zero vector,
+the root closes, and every still-open descendant is closed with zero remaining
+— the R2 behaviour, unchanged. Any of the three comparisons failing is
+`RES_RELEASE_ACCOUNTING_MISMATCH`, fail-closed, the same code the release path
+and the R2 closure reconciliation already use for this class of conservation
+failure.
+
+A **cancelled** closure derives its split by exactly this rule; the closure
+reason is not an input to the arithmetic. Credit still held by a reservation
+that is open at the moment of cancellation was never spent, so it belongs to
+`final_unused` and never to `final_consumed`, and closure extinguishes it —
+returned to nobody, banked nowhere, re-minted never, exactly as §6 and the
+existing `Root closure` wording already record for the root's own remainder.
+The packet's worked instance is `replay.root-cancel-remint.json`, a
+negative-semantic ledger whose failing event is the post-closure re-mint: its
+`cancelled` closure event is validated before that failure, declares zero
+consumed, and declares a `final_unused` that is the root's remainder plus the
+still-open reservation's remainder. It settles exactly under the split above
+and must not be edited.
+
+Under C1 the sum equality becomes a **corollary** of the two split equalities
+rather than an independent rule, because credit in a tree is either consumed by
+a validated release, still held as root remainder, or still held by an open
+reservation, and those three are disjoint and exhaustive. It is retained as an
+explicit third comparison so the invariant stays legible in the model and in
+the wording, not because it adds strength.
+
+**This is deterministic contract-credit accounting, not physical runtime
+measurement.** `final_consumed` is the sum of credits that ledger records
+declared consumed; it is not CPU sampled from a scheduler, memory sampled from
+an allocator, bytes counted on a socket, or tokens counted by a model runtime.
+`final_unused` is the credit the ledger never spent, not idle capacity observed
+anywhere. Nothing in C1 measures, meters, samples, or observes a running
+system, and nothing in it may be cited as T10 or T11 evidence, as a latency or
+resource baseline, or as a claim that the accounting has ever been compared
+against a physical quantity. That comparison would be runtime work and is
+`NOT AUTHORIZED` here.
+
+**C2 — envelope and nested-record ordering must agree.** Today the replay
+model checks `event.sequence` against a dense counter and `event.virtual_time_ms`
+against the previous event's, and never looks at the `sequence` or
+`virtual_time_ms` carried *inside* the payloads. A public record may therefore
+name a ledger position it does not occupy, and the packet's own claim that
+these are replay/accounting fields is unproved for every nested record.
+
+The replay model must require, for every event, that each nested public record
+carries exactly the envelope's `sequence` and exactly the envelope's
+`virtual_time_ms`:
+
+- `grant` — the grant payload;
+- `reserve` — **both** the request and the result. A reserve event is one
+  **atomic admission result group**: the request and the result it produced are
+  a single admission outcome recorded at a single ledger position, exactly as
+  R2 §6.2 B3 records that admission is all-or-nothing. They therefore share one
+  `sequence` and one `virtual_time_ms`, and a disagreement *between* them is a
+  violation as much as a disagreement with the envelope;
+- `release` — the release payload;
+- `root-closure` — the closure payload.
+
+The dense per-root envelope order is unchanged and restated: within one root
+tree the order starts at `1` and increases by exactly `1`, with no gap, no
+repeat, and no reordering, and there is exactly one serialization point per
+root tree. The dense envelope check runs first, so a ledger that both skips a
+position and misreports it inside a payload still fails on the dense rule.
+
+The exact code rule, in evaluation order, is:
+
+1. envelope `sequence` not equal to the expected dense counter →
+   `RES_SEQUENCE_VIOLATION` (unchanged);
+2. envelope `virtual_time_ms` not an integer, or earlier than the previous
+   event's → `RES_VIRTUAL_TIME_ROLLBACK` (unchanged);
+3. any nested `sequence` not equal to the envelope `sequence` →
+   `RES_SEQUENCE_VIOLATION`;
+4. any nested `virtual_time_ms` **earlier than** the envelope
+   `virtual_time_ms` → `RES_VIRTUAL_TIME_ROLLBACK`;
+5. any nested `virtual_time_ms` **later than** the envelope
+   `virtual_time_ms` → `RES_RESULT_MISMATCH`.
+
+Rules 4 and 5 split one inequality across two codes, and the justification is
+exact rather than stylistic. `RES_VIRTUAL_TIME_ROLLBACK` is this packet's code
+for virtual time running **backwards** relative to a position replay has
+already established. A nested record stamped earlier than the envelope that
+admits it asserts that time went backwards inside a single ledger position;
+that is the same failure the envelope-level check names, observed one level
+down, and it takes the same code. A nested record stamped **later** than its
+envelope is not time running backwards — nothing is being un-ordered. It is a
+record field that fails to equal the replayed state that produced it, which is
+precisely the class `RES_RESULT_MISMATCH` already covers for `request_id`,
+`parent_version_before`, `parent_version_after`, and `parent_remaining_after`.
+Sequence takes no such split: `sequence` is a pure ordering field whose only
+failure mode is ordering, in either direction, so both directions are
+`RES_SEQUENCE_VIOLATION`.
+
+This **intra-position** reading of `RES_VIRTUAL_TIME_ROLLBACK` — virtual time
+running backwards *inside* a single ledger position, not only between two
+consecutive positions — widens what the code means for anyone reading the
+packet. That is contract meaning, not a note about one validator, so it must be
+written into the authorized documents named in §7.3.3 and must not be left
+standing only in this decision record. A code whose enforced meaning is wider
+than the packet's own wording states is a status-honesty failure of the same
+kind C4 repairs.
+
+**C3 — a denial must be justified by the replay state.** R2 made a denied
+admission representable, which was correct, but the model accepts *any*
+`denied` result carrying *any* `RES_*` code. A ledger may therefore deny a
+request the state would have admitted, or deny an inadmissible request under
+the wrong code, and replay still goes green. The denial path proves the shape
+of a denial and not its truth.
+
+The replay model must derive the denial from the state it holds at the
+admission point, after the tenant, org-scope, root-binding, idempotency,
+parent-existence, parent-open, and expected-version checks have passed:
+
+- the request is **inadmissible** exactly when its `requested` vector exceeds
+  the parent's `remaining` in at least one dimension;
+- a `denied` result for an **admissible** request is `RES_RESULT_MISMATCH` —
+  the ledger claims a refusal the state does not justify;
+- a `denied` result for an inadmissible request must carry exactly the code the
+  state implies, which at this evaluation point is exactly
+  `RES_INSUFFICIENT_REMAINDER`; any other code is `RES_RESULT_MISMATCH`;
+- the R2 requirements are preserved unchanged: exactly one `RES_*` error, no
+  reservation, `parent_version_before` and `parent_version_after` both equal to
+  the parent's current version, `parent_remaining_after` equal to the parent's
+  current remainder, matching `request_id`, the denial recorded in the trace,
+  and the tree continuing from the untouched state.
+
+`RES_INSUFFICIENT_REMAINDER` is the only denial code derivable at this point
+**by construction**, and that is a deliberate v0.1 boundary, not an omission.
+A record presented against a missing parent, a closed parent, a closed root, a
+foreign root, or a stale expected version does not describe an admission
+outcome — it falsifies the ledger, and replay refuses the whole case at those
+earlier checks with the code each already carries.
+
+`RES_ACTIVE_CHILDREN` is a release refusal and is not a reserve outcome at all,
+so no reserve path can derive it and C3 does not make it derivable. It
+therefore stays a **declared but unproved** v0.1 retriability claim, and this
+amendment must not be read as closing it. The reason is structural: the release
+record carries no idempotency key and has no result document, so the packet
+offers no carrier in which a retried release could be presented, matched
+against a prior refusal, and replayed. The canonical reserve identity C4
+introduces proves R2 §6.2 B3's retriability rationale for
+`RES_INSUFFICIENT_REMAINDER` **only**. For `RES_ACTIVE_CHILDREN` the schema's
+`if`/`then` mapping, the `01-contract-semantics.md` sentence, and the
+compatibility manifest's `error_retriability` note continue to assert
+retriability that no fixture and no replay case demonstrates. Supplying the
+missing carrier — a release idempotency key, a release result document, or a
+retried-release replay path — is a record-shape and schema change, rejected in
+§7.5 and already rejected in §6.5, and left to separately authorized work. R3
+records this gap; it does not close it, and no wording written under R3 in any
+schema, fixture, manifest, document, or comment may imply that it has been
+closed.
+
+Widening the denial-code derivation is rejected in §7.5.
+
+**C4 — denial idempotency, and what "the same request" means.** Today the
+idempotency map is written **only on admission**. A denied request binds
+nothing, so its key is free: the same key may return later carrying entirely
+different content and replay accepts it, and R2's own justification for
+`RES_INSUFFICIENT_REMAINDER` being retriable — that a sibling release lets the
+same request succeed — is asserted by no fixture.
+
+The replay model must bind the key on denial as well as on admission, over a
+**canonical idempotent request identity**. That identity is the request with
+exactly three fields excluded:
+
+- `sequence` and `virtual_time_ms` — ledger-position fields. C2 already pins
+  both to the envelope, so they describe *where* the request was recorded, not
+  *what* was requested; and
+- `parent.expected_version` — the optimistic-concurrency assertion, re-read at
+  issue time.
+
+Everything else is bound exactly: `idempotency_key`, `request_id`,
+`tenant_id`, `org_scope_ref`, `root`, `parent.kind`, `parent.id`, the
+`requested` vector, and `confers_authority`. The rules are:
+
+- **Exclusion from the identity is not exemption from validation.** A re-issued
+  event is an ordinary ledger event and every existing check still applies to
+  it. Its envelope and nested `sequence` and `virtual_time_ms` must agree under
+  C2, and its `parent.expected_version` must equal the parent's **current**
+  version at that point in the replay. Where that check runs must be stated
+  exactly, because C4 does not merely preserve the placement R2 gave it. Under
+  R2 an already-bound key **short-circuits**: replay compares the request and
+  result digests against the binding and continues to the next event, so an
+  identity-matching re-issue never reaches the version check at all. C4 removes
+  that bypass for every identity-matching re-issue, so the check becomes a
+  **new guard on a path R2 did not route through it**. Its order relative to
+  the other reserve-path checks is unchanged — after the tenant, org-scope,
+  root-binding, and idempotency-lookup steps, after parent existence and
+  parent-open, and **before** any admissibility, denial, or result
+  comparison — which is exactly the order R2 already applies to a first
+  presentation. What changes is coverage, not order: a retry asserting a stale
+  version now fails `RES_VERSION_CONFLICT` and never reaches the denial,
+  admission, or result rules below, where R2 would have accepted it as an
+  idempotent replay. A writer must not record this as an unchanged check.
+  Excluding `parent.expected_version` from the identity is what lets replay
+  recognize the *same request* across a version change; it is not permission to
+  re-present a stale assertion.
+- **Mutation is refused.** An event whose key is already bound but whose
+  canonical identity differs in any bound field is `RES_IDEMPOTENCY_CONFLICT`,
+  whether the prior binding was denied or admitted. This is R2's rule, extended
+  to denials.
+- **A repeat denial must still be true.** When the binding is `denied` and the
+  identity matches, the request is re-evaluated against the *current* state
+  under C3. A repeated `denied` result is permitted only when the state still
+  makes it inadmissible **and** its code equals the code that current state
+  implies; a stale denial re-presented after the state has changed is
+  `RES_RESULT_MISMATCH`.
+- **Peer state may clear a denial.** When the binding is `denied`, the identity
+  matches, and the state now admits the request — because a sibling release
+  returned credit to the parent — the event must present a correct `admitted`
+  result and is admitted normally, drawing the parent down exactly as a first
+  admission would. The binding is replaced by an admitted binding.
+- **Admitted is final.** Once the binding is `admitted`, a later
+  identity-matching event is an idempotent replay: it changes no state and
+  re-draws nothing, and its result must reproduce the recorded original
+  admitted result under the **admitted result projection**. That projection is
+  the original `reservation-result` with exactly two fields removed —
+  `sequence` and `virtual_time_ms` — and every remaining field reproduced
+  literally: `request_id`, `status`, `root`, the whole `reservation` object
+  (`reservation_id`, `reserved`, `remaining`, `state_version`, `status`),
+  `parent_version_before`, `parent_version_after`, `parent_remaining_after`,
+  and `confers_authority`; `error` is absent on an admitted result and must
+  stay absent. The comparison is against the **recorded original**, not against
+  a recomputation from current state: `parent_version_after` and
+  `parent_remaining_after` restate what the first admission produced and are
+  not re-derived, and that is precisely what makes the replay idempotent rather
+  than a second admission. Any field of the projection differing, and any
+  regression from `admitted` back to `denied`, is `RES_RESULT_MISMATCH`.
+  Excluding `sequence` and `virtual_time_ms` from the projection leaves neither
+  field unchecked and relaxes no authority or integrity claim: C2 binds both
+  **independently**, requiring each nested record's `sequence` and
+  `virtual_time_ms` to equal its own envelope's. They are excluded here only
+  because the re-issue occupies a *different* ledger position from the original
+  admission, so comparing them against the recorded original would demand that
+  two distinct positions carry identical position fields — a contradiction of
+  the dense sequence rule, not a check. Every field the projection excludes is
+  therefore still constrained, by the envelope it belongs to rather than by the
+  record it replays, and the two rules together leave no field of an
+  identity-matching admitted result unconstrained.
+
+The three exclusions are forced, and the writer must record why rather than
+quietly widening them. A release that returns credit to a parent increments
+that parent's version. A re-issue that is identical in *every literal byte*
+therefore asserts a stale `parent.expected_version` and can only ever fail
+`RES_VERSION_CONFLICT` — which would make the denied-to-admitted transition
+unrepresentable and would leave R2 §6.2 B3's retriability rationale for
+`RES_INSUFFICIENT_REMAINDER` permanently unprovable. Excluding the positional
+and concurrency fields is what makes that rationale true, and it is consistent
+with R2's own distinction: for `RES_INSUFFICIENT_REMAINDER` the **cause** is
+the remainder, which peer state clears without the caller changing the
+substance of the request, whereas for `RES_VERSION_CONFLICT` the cause **is**
+the version field, so correcting it changes the assertion itself and no peer
+state can make the original assertion true.
+
+This is a wording reconciliation, not a change to the mapping. The retriability
+mapping stays at exactly two `true` codes, `fail_closed` stays
+`{"const": true}` for all fifteen, the `if`/`then`/`else` composition is
+untouched, and no enum member moves. The only **schema** byte that changes is
+the `retriable` **description** sentence in
+`cybrik.res-bounds-error.v1.schema.json`. But the "byte-identical re-issue"
+phrasing is a canonical-intent claim the packet makes at **three** sites, and
+all three must move together to the canonical identity above:
+
+1. the `retriable` `description` in
+   `contracts/json-schema/cybrik.res-bounds-error.v1.schema.json`;
+2. the **Error reporting** sentence in
+   `docs/architecture/resource-bounds/01-contract-semantics.md`; and
+3. `authority_model.error_retriability` in
+   `contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`,
+   which repeats the same phrase and is itself a pinned packet member.
+
+Leaving any of the three as it stands would make the packet contradict itself
+once C4 lands, which is a status-honesty failure, not a cosmetic one. Missing
+the third would additionally leave the packet's own compatibility declaration —
+the artifact a consumer reads first — stating a rule the schema no longer
+states.
+
+One occurrence of the phrase is deliberately **retained**.
+`contracts/examples/resource-bounds/negative-schema/bounds-error.retriable-mismatch.json`
+carries the message "A byte-identical re-issue asserts the same stale version
+and can never succeed." That sentence is about `RES_VERSION_CONFLICT`, where a
+literal-byte re-issue genuinely can never succeed because the cause **is** the
+version field — it is the same reasoning C4 relies on above, not the superseded
+canonical-intent claim, and the fixture's purpose is its `retriable: true`
+mismatch rather than its message. It stays true after C4. That fixture stays
+byte-identical and digest-unmoved, and a writer who "reconciles" it has edited
+an unauthorized fixture and drifted scope under G-W2H-6.
+
+### 7.3 Authorized path inventory
+
+Exactly the paths below, and no others. Any path not listed here is outside
+this amendment; touching one is a stop condition under G-W2H-6.
+
+This inventory **supersedes** §3.1, §3.2, and §6.3 **only to the explicit
+extent of §7.3**. §3.1, §3.2, and §6.3 remain the governing record of R1 and R2
+scope; every part of them §7.3 does not restate is unchanged and unreopened. In
+particular, the spent §3.2 integration-compatibility authorization is not
+reopened, and every R1/R2 path §7.3 does not name keeps its bytes at the base
+above.
+
+**7.3.1 New schemas — exactly none.**
+
+R3 authorizes **no new schema**. The packet stays at seven `cybrik.res-*`
+schemas. C1–C4 are cross-record replay rules that a single-record schema cannot
+express, exactly as R2 recorded for sequence density.
+
+**7.3.2 New fixtures — exactly five.**
+
+1. `contracts/examples/resource-bounds/positive/replay.denied-then-admitted.json`
+2. `contracts/examples/resource-bounds/negative-semantic/replay.closure-settlement-split-mismatch.json`
+3. `contracts/examples/resource-bounds/negative-semantic/replay.record-sequence-mismatch.json`
+4. `contracts/examples/resource-bounds/negative-semantic/replay.denial-unjustified.json`
+5. `contracts/examples/resource-bounds/negative-semantic/replay.denial-idempotency-conflict.json`
+
+Fixture 1 is the single new positive ledger and carries the whole positive path
+of C1–C4 in one deterministic tree: an admission; a denial that the state
+justifies; a sibling release that returns credit; the same canonical request
+re-issued — carrying the parent's **current** `expected_version`, as C4
+requires — and now **admitted**; one further identity-matching event whose
+result reproduces the admitted result projection exactly, proving admission is
+final under idempotent replay; and a terminal root closure
+whose `final_consumed` is nonzero and whose `final_unused` is the sum of the
+root's remainder **and** a still-open reservation's remainder, so both terms of
+the C1 split are exercised rather than one. Its envelope and nested `sequence`
+and `virtual_time_ms` agree at every event, so it is also the positive proof of
+C2. Carrying all four in one fixture is forced by the findings themselves, not
+by the fixture count: C1's split needs a validated release and a still-open
+reservation in the same tree that later closes, C4's denied-to-admitted
+transition needs a denial that a *sibling* release in that same tree clears,
+C3's justified denial is the first half of that transition, and C2 holds at
+every event of whatever ledger carries them. That is one causal chain in one
+root tree, and the dense sequence rule and single serialization point per root
+mean it cannot be split across ledgers without duplicating the tree and proving
+strictly less. The positive count is one because the proof is one tree, not the
+other way round.
+
+Fixtures 2–5 are one negative per finding, each structurally valid and failing
+exactly one named invariant, matching the packet's existing negative-semantic
+discipline:
+
+- fixture 2 — a ledger whose closure sum equals `bounds` but whose split
+  contradicts the validated releases and the pre-closure remainders;
+  `RES_RELEASE_ACCOUNTING_MISMATCH`;
+- fixture 3 — a nested public record whose `sequence` disagrees with its
+  envelope while the dense envelope order is intact, so the failure is the C2
+  nested rule and not the pre-existing dense rule;
+  `RES_SEQUENCE_VIOLATION`. It is distinct from
+  `replay.sequence-gap.json`, which fails the envelope counter;
+- fixture 4 — a `denied` result for a request the state would have admitted;
+  `RES_RESULT_MISMATCH`;
+- fixture 5 — a key bound by a denial and then reused with a mutated canonical
+  identity; `RES_IDEMPOTENCY_CONFLICT`.
+
+Several C2/C3/C4 branches are deliberately **not** given fixtures of their own:
+a nested `virtual_time_ms` on the wrong side of its envelope, in each
+direction; a denial carrying a code the state does not imply; a stale denial
+re-presented after the state has changed; a retry asserting a stale
+`parent.expected_version`; and an identity-matching event whose result breaks
+the admitted result projection. Each is proved by an in-memory case in the
+focused test file, which already builds inline replay cases for exactly this
+purpose. That is a deliberate minimum-scope choice — recorded here so it is not
+later read as an oversight — and it is why the fixture count is five rather
+than one fixture per branch.
+
+**7.3.3 Existing paths that may be edited.**
+
+Schema — the C4 wording reconciliation only:
+
+- `contracts/json-schema/cybrik.res-bounds-error.v1.schema.json` — the
+  `retriable` **description** sentence only. The `code` enum, the fifteen
+  members, the `if`/`then`/`else` retriability composition, the two `true`
+  codes, `fail_closed: {"const": true}`, the standalone-binding declaration in
+  the schema `description`, and every other byte stay.
+
+The other six schemas are **not** authorized and are not needed: C1–C4 are all
+cross-record rules.
+
+Existing fixture whose R2 free split must change:
+
+- `contracts/examples/resource-bounds/positive/root-closure.completed.json` —
+  this is the one existing closure fixture whose split is free under R2. It
+  declares `final_consumed` and `final_unused` that sum to a root's bounds but
+  settle no ledger in the packet: its vectors coincide with
+  `replay.conserved-tree.json` while its `state_version_before` /
+  `state_version_after` are reachable from no replayed state, and it names that
+  ledger's root grant identifier. Under C1 a settlement that settles nothing is
+  exactly the gap being closed. It must become **byte-identical to the payload
+  of the terminal `root-closure` event of
+  `positive/replay.denied-then-admitted.json`**, so the packet holds one
+  settlement rather than two that disagree, and the focused test must assert
+  that byte identity. Its `reason` stays `completed`.
+
+Fixture inventory:
+
+- `contracts/examples/resource-bounds/examples-manifest.json` — the five new
+  fixture registrations and every fixture `sha256`.
+
+No other existing fixture is authorized, and none is needed. Every existing
+replay fixture was checked against C1–C4 at the base above and already
+conforms: each nested `sequence` and `virtual_time_ms` already equals its
+envelope; `replay.denied-admission.json`'s denial is already justified by its
+state and already carries `RES_INSUFFICIENT_REMAINDER`;
+`replay.idempotency-conflict.json`'s two requests already differ in bound
+identity fields (`request_id` and `requested`) and so still conflict under the
+canonical identity; `replay.root-cancel-remint.json` — a negative-semantic
+ledger whose declared failure is its post-closure re-mint — carries a closure
+event that replay validates before that failure and that already settles its
+ledger exactly under the C1 split, including the open reservation's remainder;
+and `replay.root-closure-accounting-mismatch.json` still fails, with the same
+declared code, under the C1 split as it did under the R2 sum, now refused at
+the derived-consumed comparison. No fixture may be deleted or renamed.
+
+Manifest, documentation, and tooling:
+
+- `contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`
+- `docs/adr/ADR-0012-resource-bounds-contract-profile.md`
+- `docs/architecture/resource-bounds/01-contract-semantics.md`
+- `docs/architecture/resource-bounds/02-deterministic-replay-and-evidence.md`
+- `tools/contract-validation/validate-resource-bounds.mjs`
+- `tools/contract-validation/tests/validate-resource-bounds.test.mjs`
+
+Within
+`contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`
+the authorized sites are three groups and no others.
+
+The first group is `authority_model.error_retriability`, the third
+canonical-intent site of C4: it repeats the superseded "byte-identical
+re-issue" phrase and must state the canonical identity instead, while keeping
+its two `true` codes, its "grants no capacity, admission, queue position,
+priority, or authority" clause, and its `fail_closed` statement.
+
+The second group is `resource_model.closure` and `resource_model.sequence`.
+Each is a **bounded wording update** that makes an existing field state the
+rule the packet will actually enforce, and nothing more:
+
+- `resource_model.closure` today states that at closure `final_consumed` plus
+  `final_unused` equals the closing grant's original bounds. C1 keeps that
+  equality true as a corollary, but leaving the field there would have the
+  packet's own compatibility declaration state the weaker of the two rules
+  replay enforces — underclaiming by silence, the failure §7.2 exists to
+  prevent. It must additionally state that both halves are derived from the
+  validated ledger: `final_consumed` from the accumulated `consumed` of every
+  release the replay has already validated in the tree, and `final_unused` from
+  the closing root's remainder plus the remainder of every still-open
+  reservation taken immediately before closure. It must also carry the §7.2 C1
+  disclaimer that this is declared contract-credit accounting and not physical
+  runtime measurement. Its closure-reason vocabulary, the zeroing of the root's
+  remaining credit, the closing of still-open descendants with zero remaining,
+  the extinguishment of the unused remainder, and the no-reopen / no-re-mint
+  statements all stay.
+- `resource_model.sequence` today states the dense per-root order only. It must
+  additionally state the C2 envelope / nested-record agreement — that every
+  nested public record carries exactly its envelope's `sequence` and
+  `virtual_time_ms` — and the intra-position reading of
+  `RES_VIRTUAL_TIME_ROLLBACK`, because §7.2 C2 requires that widened code
+  meaning to be written into the packet's own artifacts rather than left
+  standing only in this decision record. Its dense rule, its
+  one-serialization-point-per-root-tree statement, and its "deliberate v0.1
+  contract limit" and "no throughput, scaling, or runtime-concurrency claim"
+  disclaimers stay.
+
+Both updates are descriptions of rules C1 and C2 already impose; neither adds a
+rule. Neither may change status, disposition, lifecycle ceiling, packet
+version, bundle-tag flag, evidence level, or any authority, capacity, or
+approval statement anywhere in the manifest. A wording update that moves any of
+those is scope drift and a stop condition under G-W2H-6.
+
+The third group is the inventory and integrity fields §7.4 requires
+recomputing — `members`, `member_digests`, `member_count`, the self digest, and
+`aggregate_sha256`. Everything else stays byte-identical, including
+`resource_model.dimensions`, `resource_model.admission`,
+`resource_model.release`, `resource_model.no_mint`,
+`resource_model.root_binding`, the rest of `authority_model`, and all four
+`dependencies_reused_unmodified` pins. `resource_model.dimensions` in
+particular stays at exactly the six credit dimensions of §7.1; R3 adds none.
+
+Within `docs/adr/ADR-0012-resource-bounds-contract-profile.md` the sites that
+change are exactly three: the sentence stating that every event carries a
+"strictly monotone sequence and fixture-supplied virtual time", which must
+state the dense per-root order and the envelope/nested agreement of C2; one
+added sentence under **Release and closure** stating that closure settlement is
+derived from the ledger under C1; and the manifest-pin sentence carrying the
+fixture count, whose **31 fixtures** becomes 36.
+
+That third site must not be confused with the adoption sentence, because the
+document states "seven" in two different sentences and only one of them also
+carries a fixture count:
+
+- the **adoption** sentence under **Proposed decision** — "Adopt, subject to a
+  later acceptance decision, seven JSON Schema 2020-12 documents under
+  `cybrik.res-*`, a fixed deterministic fixture corpus, one compatibility
+  manifest, and static architecture guidance" — states no fixture count at all
+  and is **preserved byte-identical**; and
+- the **manifest-pin** sentence under **Contract members** — "The compatibility
+  manifest pins the seven schemas, the examples manifest, all 31 fixtures, and
+  itself using a non-circular self-digest algorithm" — which names both counts
+  in one sentence. Only its fixture count moves, `31` to `36`. Its "seven
+  schemas" clause, its examples-manifest and self-pin clauses, and its
+  non-circular self-digest clause stay exactly as written.
+
+The adoption sentence, the "seven schemas" clause of the manifest-pin sentence,
+the **Contract members** list itself, and the six-dimension `resourceVector`
+enumeration are **explicitly preserved and must not change** — R3 adds neither
+a schema nor a dimension, and raising either count is a stop condition under
+G-W2H-6, not a count reconciliation.
+
+Within `docs/architecture/resource-bounds/01-contract-semantics.md` the sites
+that change are exactly four.
+
+- The **State model** section. It currently says only that "Replay accepts a
+  denial as a real outcome: it is recorded, and the tree continues from the
+  untouched state" — the R2 truth that C3 and C4 supersede. It must state that
+  a recorded denial is accepted only when the replayed state makes the request
+  inadmissible and the error carries the code that state implies, that the
+  idempotency key binds on denial as well as on admission over the canonical
+  identity of C4, that a retry must assert the parent's current
+  `expected_version`, and that a denial may later clear into an admission when
+  peer state returns credit. Without this site C3 and C4 would live only in the
+  replay model and in this decision record while the packet's own semantics
+  document still tells a reader that any recorded denial is accepted, which is
+  the underclaiming-by-silence failure §7.2 exists to prevent.
+- The **Ledger sequence** section, which gains the envelope / nested-record
+  agreement and the two-code time rule of C2, including the intra-position
+  meaning of `RES_VIRTUAL_TIME_ROLLBACK` — that the code covers virtual time
+  running backwards inside one ledger position and not only between two
+  positions.
+- The **Root closure** section, whose settlement formula gains the two
+  ledger-derived halves of C1, the statement that credit held by a still-open
+  reservation at a cancelled closure is `final_unused` and is extinguished, and
+  the explicit statement that this is contract-credit accounting and not
+  physical measurement.
+- The **Error reporting** section's "byte-identical re-issue" sentence, which
+  must state the canonical idempotent identity of C4. It must not be rewritten
+  to suggest that `RES_ACTIVE_CHILDREN` retriability is now demonstrated; per
+  §7.2 C3 that claim stays declared and unproved.
+
+The retriability mapping itself, `fail_closed`, the conserved-dimension list,
+the release formula, and the identity/authority and vocabulary sections stay.
+
+Within `docs/architecture/resource-bounds/02-deterministic-replay-and-evidence.md`
+the sites that change are the **Replay record** section (envelope/nested
+agreement, the code rule, and the intra-position reading of
+`RES_VIRTUAL_TIME_ROLLBACK`), the **Positive proof** section (the
+denied-then-admitted ledger, the admitted result projection, and the
+ledger-derived settlement), and the **Negative proof** section (the four new
+named invariants). The evidence-level paragraph and its `NOT ACCEPTED`
+disclaimers stay.
+
+Catalog and validator documentation whose stated counts become false:
+
+- `contracts/examples/README.md` — in the `resource-bounds/` entry, the
+  `9 positive, 10 negative-schema, and 12 negative-semantic` counts become
+  `10 positive, 10 negative-schema, and 16 negative-semantic`. Nothing else in
+  that entry changes; its exercised-invariant list is not a completeness claim.
+- `tools/contract-validation/README.md` — in the
+  `Gate W2-H resource-bounds proposal` paragraph, "validates 9 positive"
+  becomes 10 and "each of 12 negative-semantic replay cases" becomes 16. The
+  "seven JSON Schema 2020-12 documents" and "rejects 10 negative-schema"
+  statements stay true and must not change, as must the
+  `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` status line, the static-L1/L2-only
+  disclaimer, the `npm run` script names, and every other byte.
+
+**Inventory arithmetic, verified against repository bytes at the base above.**
+The compatibility manifest declares `member_count: 40`, its `members` and
+`member_digests` arrays each hold exactly 40 entries, and the examples manifest
+holds exactly 31 fixture entries. Those 40 decompose as:
+
+| Class | Current (R2) |
+|---|---|
+| `cybrik.res-*` schemas | 7 |
+| positive fixtures | 9 |
+| negative-schema fixtures | 10 |
+| negative-semantic fixtures | 12 |
+| `examples-manifest.json` | 1 |
+| compatibility manifest (self-member) | 1 |
+| **total** | **40** |
+
+R3 adds exactly 0 schemas and exactly 5 fixtures — 1 positive, 0
+negative-schema, 4 negative-semantic — and adds nothing else: no new schema, no
+new manifest, no new document member. So `40 + 5 = 45`.
+
+| Class | After (R3) |
+|---|---|
+| `cybrik.res-*` schemas | 7 |
+| positive fixtures | 10 |
+| negative-schema fixtures | 10 |
+| negative-semantic fixtures | 16 |
+| `examples-manifest.json` | 1 |
+| compatibility manifest (self-member) | 1 |
+| **total** | **45** |
+
+Both columns are checked: `7 + 9 + 10 + 12 + 1 + 1 = 40` and
+`7 + 10 + 10 + 16 + 1 + 1 = 45`, with 36 fixtures and two manifests. If a
+writer's recomputed `member_count` is not exactly forty-five, or the fixture
+split is not exactly 10/10/16, or the schema count is not exactly seven, the
+scope has drifted and that is a stop condition under G-W2H-6 — not a number to
+adjust.
+
+Within `tools/contract-validation/tests/validate-resource-bounds.test.mjs`,
+three kinds of edit are authorized and no others: the inventory assertions that
+C1–C4 make false; the one existing case whose inline ledger C1 makes
+unreplayable; and new cases — the in-memory cases for the C1–C4 branches
+§7.3.2 leaves without fixtures, plus the assertion this section already
+requires that `positive/root-closure.completed.json` is byte-identical to the
+terminal `root-closure` payload of `positive/replay.denied-then-admitted.json`.
+No existing assertion may be weakened or removed to accommodate any of them.
+
+**Assertions that must move to the R3 totals** — moved, not deleted, each named
+by its test and its assertion:
+
+| Test | Assertion | R2 | R3 |
+|---|---|---|---|
+| `every semantic replay is structurally valid and rejected by exactly its named rule` | `NEGATIVE_REPLAY_PATHS.length` | 12 | 16 |
+| `B1-B4: the examples manifest registers exactly the nine authorized new fixtures` | `manifest.fixtures.length` | 31 | 36 |
+| `the authorized R2 packet totals exactly 40 members with a 9/10/12 fixture split and 7 schemas` | `expectedPacketPaths.length` | 40 | 45 |
+| the same totals test | `positiveCount` | 9 | 10 |
+| the same totals test | `negativeSemanticCount` | 12 | 16 |
+| `the compatibility manifest recomputes to member_count 40 while the accepted dependency pins stay untouched` | `member_count`, `member_digests.length`, `members.length` | 40 | 45 |
+
+The two test **titles** that state their own totals move with their bodies: the
+totals test states 45 members with a 10/10/16 fixture split and 7 schemas, and
+the manifest test states `member_count` 45. A title left at an R2 number while
+its body asserts the R3 number is a false claim in the suite's own output, not
+a cosmetic mismatch.
+
+**Assertions in those same tests that must NOT move**, because R3 changes
+neither quantity:
+
+- `negativeSchemaCount` stays **10** and `schemaCount` stays **7** in the
+  totals test — R3 adds no negative-schema fixture and no schema;
+- `NEW_FIXTURE_REGISTRATIONS.length` stays **9** in the examples-manifest test,
+  because it pins R2's authorized new-fixture set and is not a packet-size
+  assertion;
+- `REPLAY_ERROR_CODES.length` stays **15** and the retriable-code set stays
+  **2** in
+  `B3: res-bounds-error retriable becomes a code-derived mapping, true only for RES_INSUFFICIENT_REMAINDER and RES_ACTIVE_CHILDREN`;
+  and
+- `dependencies_reused_unmodified.length` stays **4**, with
+  `declaredDependencyPinsMatch(manifest)` still true.
+
+If any of those moves, the scope has drifted and G-W2H-6 stops the work.
+
+**The one existing case C1 invalidates.**
+`B1: replay recognizes the renamed root-closure event kind and reconciles exact
+accounting` builds an inline ledger of a grant of 10 per dimension followed
+immediately by a closure declaring `final_consumed` 4 and `final_unused` 6. It
+replays no reservation and no release, so under C1 the ledger-derived consumed
+total is the zero vector and the case must fail
+`RES_RELEASE_ACCOUNTING_MISMATCH`: it is itself an instance of the free split C1
+closes. **Rebasing it is authorized and required.** The case must reserve from
+the root and release with `consumed` 4 before the closure, so the declared split
+is the one the ledger produces, and its existing assertions — `accepted` true,
+empty `errors`, zero `finalRootRemaining`, and a terminal `root-closure` trace
+entry with `rootClosed` true — stay. Turning it into a negative case, deleting
+it, weakening its assertions, or relaxing C1 to keep it green is rejected.
+
+The three neighbouring closure cases were checked against C1 at the base above
+and already conform, so they stay as they are:
+`B1: a root closure whose final_consumed+final_unused misses the grant bounds
+fails closed on RES_RELEASE_ACCOUNTING_MISMATCH` still fails with its declared
+code, now refused at the derived-consumed comparison;
+`B1: root closure closes and zeroes exactly the still-open descendants, and the
+ledger stays shut afterwards` already declares consumed 1 and unused 9, which
+is the root's 6 plus the open child's 3; and
+`B4: seeded synthetic trees replay admission, release, and terminal root
+closure with conserved accounting` already builds `final_consumed` from the
+releases it generated and `final_unused` from the replayed root remainder.
+
+This decision record is the only additional path.
+
+**7.3.4 Explicitly not authorized, and not needed.**
+
+- `contracts/json-schema/cybrik.res-common-defs.v1.schema.json`,
+  `cybrik.res-bounds-grant.v1.schema.json`,
+  `cybrik.res-reservation-request.v1.schema.json`,
+  `cybrik.res-reservation-result.v1.schema.json`,
+  `cybrik.res-release.v1.schema.json`, and
+  `cybrik.res-root-closure.v1.schema.json` — C1–C4 are cross-record rules that
+  no single-record schema can express, and the C4 wording reconciliation
+  touches only the error schema. These six keep their bytes and digests.
+- Every existing fixture except
+  `positive/root-closure.completed.json` — that is, the **eight** other
+  positive fixtures, all ten negative-schema fixtures, and all twelve
+  negative-semantic fixtures, thirty of the thirty-one. Each was checked
+  against C1–C4 and conforms unchanged; their bytes and digests stay. The
+  retained "byte-identical re-issue" message in
+  `negative-schema/bounds-error.retriable-mismatch.json` is covered by this
+  bullet and is correct as it stands — see §7.2 C4.
+- `contracts/README.md`, `contracts/json-schema/README.md`, and
+  `contracts/compatibility/README.md` — the first and third state seven schemas,
+  while the JSON Schema catalog enumerates the same seven schema bullets; none
+  states a fixture or member count, so all three stay true and byte-identical
+  after C1–C4.
+- `docs/adr/README.md`, `docs/architecture/README.md`, and
+  `docs/architecture/resource-bounds/README.md` — the ADR-0012 row, the W2-H
+  catalog paragraph, and both `resource-bounds/` overview entries state no
+  count and remain true. W2-I's additive-byte test pins the former file's added
+  hunks exactly, and R3 has no reason to disturb them.
+- `tools/contract-validation/validate.mjs`,
+  `tools/contract-validation/package.json`,
+  `tools/contract-validation/tests/validate-transport.test.mjs`, and
+  `.github/workflows/contracts.yml` — the validator is already registered, the
+  orchestrator banner already names W2-H as `PROPOSED / NOT ACCEPTED`, the step
+  count is unchanged, and the required-check allowlist is unchanged. The §3.2
+  integration-compatibility authorization remains spent and is not reopened.
+- Every accepted member and every `ACCEPTED_DEPENDENCY_PINS` file. Drift there
+  is a hard stop, not a rebase.
+- Every path in every other repository.
+
+### 7.4 Mandatory integrity recomputation
+
+Digests are part of the contract, not decoration. Because C1 and C4 change
+fixture, schema, and compatibility-manifest bytes and §7.3.2 adds five
+fixtures, the writer must recompute, in this order and by the rules already
+recorded in the manifest:
+
+1. every fixture `sha256` in
+   `contracts/examples/resource-bounds/examples-manifest.json`, including the
+   five new entries and the changed
+   `positive/root-closure.completed.json`;
+2. every non-manifest `member_digests[].sha256` in the compatibility manifest,
+   from the exact on-disk UTF-8 bytes — the changed
+   `cybrik.res-bounds-error.v1.schema.json` and the changed examples manifest
+   included;
+3. `member_count`, raised to forty-five, and the `members` inventory;
+4. the compatibility-manifest self digest, by the recorded `self_digest_rule`
+   over the parsed manifest with the complete top-level
+   `x-cybrik-packet-integrity` key deleted — this necessarily moves, because
+   the C4 edit to `authority_model.error_retriability` and the §7.3.3 bounded
+   wording updates to `resource_model.closure` and `resource_model.sequence`
+   are all inside the digested region; and
+5. `aggregate_sha256`, by the recorded `aggregate_rule`.
+
+No digest may be hand-edited to make a check pass, and no digest rule may be
+weakened, reordered, or made circular. A digest that cannot be reproduced from
+the on-disk bytes is a stop condition.
+
+### 7.5 Explicit rejections
+
+The following were considered and are rejected. They are not deferred, not
+partially authorized, and not to be reintroduced by a writer under a different
+name.
+
+- **Any new schema.** The packet stays at seven `cybrik.res-*` schemas. A
+  settlement schema, a denial-record schema, an idempotency-ledger schema, and
+  any per-operation result schema are all rejected, as §6.5 already rejected
+  `res-release-result` and `res-cancel-result`.
+- **Any new `RES_*` error code.** C1 reuses `RES_RELEASE_ACCOUNTING_MISMATCH`,
+  C2 reuses `RES_SEQUENCE_VIOLATION`, `RES_VIRTUAL_TIME_ROLLBACK`, and
+  `RES_RESULT_MISMATCH`, C3 reuses `RES_RESULT_MISMATCH`, and C4 reuses
+  `RES_IDEMPOTENCY_CONFLICT` and `RES_RESULT_MISMATCH`. The enum stays at
+  fifteen. A `RES_SETTLEMENT_*`, `RES_DENIAL_*`, or `RES_ORDERING_*` code is
+  rejected outright.
+- **Any additional conserved dimension.** `resourceVector` stays at exactly
+  six.
+- **Any carrier for a retried release.** A release idempotency key, a release
+  result document, a retried-release replay path, or any other record-shape
+  change that would make `RES_ACTIVE_CHILDREN` retriability demonstrable is
+  rejected here. §7.2 C3 records that claim as declared and unproved; closing
+  it belongs to separately authorized work, and no R3 wording may present it as
+  closed.
+- **Widening the derivable denial codes.** A ledger presenting a record against
+  a missing parent, a closed parent, a closed root, a foreign root, or a stale
+  expected version falsifies the ledger and is refused at the existing checks;
+  re-expressing any of those as an admissible `denied` outcome is rejected, as
+  is any denial carrying `RES_ACTIVE_CHILDREN`.
+- **Changing the R2 retriability mapping.** Exactly two codes stay `true`,
+  `fail_closed` stays `{"const": true}` for all fifteen, and the
+  `if`/`then`/`else` composition is untouched. C4 changes only the sentence
+  that defines what re-issuing "the same request" means.
+- **Widening the canonical idempotent identity.** Exactly three fields are
+  excluded — `sequence`, `virtual_time_ms`, and `parent.expected_version`.
+  Excluding `requested`, `request_id`, `tenant_id`, `org_scope_ref`, `root`, or
+  `parent.kind`/`parent.id` is rejected: that would let a key be reused for a
+  materially different draw. Reading the `parent.expected_version` exclusion as
+  a licence to skip the version check on a retry is rejected with it: the check
+  stays where R2 put it, and a stale assertion is still
+  `RES_VERSION_CONFLICT`.
+- **Widening the admitted result projection.** Exactly two fields are excluded
+  — `sequence` and `virtual_time_ms`. Every other field of the recorded
+  admitted result must be reproduced literally, and excusing
+  `parent_version_after`, `parent_remaining_after`, `reservation.state_version`,
+  or any part of the `reservation` object from that comparison is rejected:
+  that would let an idempotent replay quietly restate a different admission.
+- **Relaxing the dense sequence, or adding a second serialization point.**
+  §6.5 stands. C2 tightens the ordering rule; it does not reopen it.
+- **Treating `final_consumed` as a measurement.** Any claim, in code, fixture,
+  comment, manifest, or prose, that closure accounting reflects observed CPU,
+  memory, tokens, tool invocations, bytes retrieved, or bytes egressed by a
+  running system is rejected. It is declared contract credit only.
+- **Reading a denial, a retriable error, or a cleared denial as capacity.** A
+  denial that later clears grants nothing at the moment of denial: no queue
+  position, priority, reservation, admission, authority, capability,
+  delegation, or approval.
+- **Runtime, adapters, services, or product code** in any repository.
+- **OpenAPI, AsyncAPI, or MCP surfaces** of any kind.
+- **Work inside `cybrik-soc-command-center`, `cybrik-security-tool-fabric`, or
+  `cybrik-cyber-ai-platform`.** This amendment is Suite-owned contract bytes
+  only.
+- **Any mapping, rename, extension, or deprecation** of the accepted
+  investigation `budget` object, `budget_exceeded`, `BUDGET_*`,
+  `over_input_budget`, `over_output_budget`, or
+  `fallbackInfo.reason = "budget"`. §4 stands unchanged.
+- **Wall clock, network, concurrency, service, container, database, broker, or
+  product runtime as evidence.** G-W2H-4 stands unchanged.
+
+### 7.6 Authority this amendment does not grant
+
+This is a write-scope amendment. It is not an approval of the resulting bytes.
+
+- **No acceptance.** ADR-0012 and every packet member remain
+  `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` at `0.1.0`, not a bundle tag.
+  Closing C1–C4 makes the packet's static evidence honest **on those four
+  points**; it does not make the packet accepted, does not close the
+  `RES_ACTIVE_CHILDREN` retriability gap §7.2 C3 discloses, and is not an
+  acceptance application.
+- **No commit, no push, no branch merge, no canonical merge, no release, no
+  tag.** R3 authorizes writing bytes in this worktree and nothing further.
+- **No W0-T11 movement.** W0-T11 measurement remains
+  `HOLD until real vertical exists`. C1–C4 produce no runtime, integration,
+  UAT, release, deployment, production, T10, or T11 evidence, and a green
+  validator after this hardening is static L1/L2 conformance only.
+- **No release-date or milestone change.** §5 stands: the `2026-12-20` Founder
+  stable-v1.0 go/no-go and the `2026-12-21 → 2026-12-31` release window are
+  untouched, and Gate W2-H is still not `G-C`.
+- **No Founder-only authority.** Repository/top-level-directory changes,
+  production anything, credentials, secrets, keys, identity-provider changes,
+  history rewriting, force-push, additional remotes, dependency installation,
+  migrations, and formatters/auto-fixers are all still Founder-only.
+
+### 7.7 Required review, checks, and independent byte evidence
+
+Before any commit, push, or canonical merge of the R3 write, G-W2H-6 applies
+unchanged and requires all of:
+
+- exact bounded scope — the changed-path set equal to §7.3 and nothing else;
+- the focused validator and test suite green, with the R3 count assertions at
+  10/10/16 fixtures, 36 fixtures registered, and 45 members, and with the
+  pinned R2 assertions unmoved at 15 codes, 2 retriable codes, 4 dependency
+  pins, 9 R2-authorized new fixtures, and 7 schemas;
+- the aggregate contract-validation suite green, with no W2-I, W2-K, or
+  accepted-member assertion weakened, and every `ACCEPTED_DEPENDENCY_PINS`
+  digest unmoved;
+- reproducible integrity — every digest in §7.4 recomputed from on-disk bytes
+  by an independent run;
+- dependency audit and the required hosted checks green on the existing,
+  unchanged required-check allowlist;
+- **independent review with no open P0, P1, or P2**, explicitly covering the
+  C2 time-code split and its intra-position reading, the C3
+  single-derivable-denial-code boundary, the C3 disclosure that
+  `RES_ACTIVE_CHILDREN` retriability stays declared and unproved, the C4
+  three-field exclusion together with the current-`expected_version`
+  requirement it does not relax, the C4 admitted result projection, the three
+  canonical-intent wording sites, and the C1 measurement disclaimer; and
+- a clean base relationship to canonical `main`.
+
+Each finding is independently evidenced in the packet bytes at the base above,
+so this amendment does not rest on the audit instrument alone:
+
+- **C1** — the replay model's closure branch compares only
+  `vectorAdd(final_consumed, final_unused)` against `root.bounds`; it reads no
+  accumulated release consumption and no open-reservation remainder, so the
+  split is unconstrained. Two artifacts exercise that freedom today:
+  `positive/root-closure.completed.json` settles no replayed ledger, and the
+  focused test's `inline.root-closure.completed` case declares a 4/6 split over
+  a ledger holding no reservation and no release at all.
+- **C2** — the model compares `event.sequence` and `event.virtual_time_ms`
+  only, and reads no `sequence` or `virtual_time_ms` from any nested payload,
+  while every public record carries both fields.
+- **C3** — the denied branch accepts any `result.error.code` present in
+  `REPLAY_ERROR_CODES` and performs no admissibility comparison of
+  `request.requested` against `parent.remaining`.
+- **C4** — the idempotency map is written only on the admitted path, so a
+  denial binds no key; a literal-byte re-issue after a peer release necessarily
+  carries a stale `parent.expected_version`; and the "byte-identical re-issue"
+  phrase appears at three canonical-intent sites — the `retriable` description
+  in `cybrik.res-bounds-error.v1.schema.json`, the **Error reporting** sentence
+  in `01-contract-semantics.md`, and `authority_model.error_retriability` in
+  the compatibility manifest — plus one retained negative-schema fixture
+  message that is about `RES_VERSION_CONFLICT` and stays true.
+- **`RES_ACTIVE_CHILDREN`** — the release record carries no idempotency key and
+  the packet declares no release result document, so no packet member can carry
+  a retried release; its declared retriability is therefore unproved at the
+  base above and stays unproved after R3.
+- **Inventory** — the compatibility manifest declares `member_count: 40` and
+  the examples manifest holds 31 fixture entries, decomposing as verified in
+  §7.3.3.
+
+If the audit instrument's C1–C4 differ from what is written here, or if the
+packet bytes at write time differ from the facts recorded above, **this section
+governs the write** and the divergence is a stop condition under G-W2H-6, to be
+raised before any further byte is written — not silently reconciled.
