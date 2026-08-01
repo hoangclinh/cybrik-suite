@@ -722,58 +722,150 @@ The merged D2-P0 candidate is canonical at Suite commit
 because the exact D1 Python environment, the host Python and the preserved download caches contain
 neither `coverage` nor `pytest-cov`. Passing test counts are not coverage evidence.
 
-This proposal requests one dependency-install action that is isolated from the Suite lock and
-every product environment. Installing the verifier and passing the coverage gate are deliberately
-separate outcomes: the exact installation may complete while coverage remains `HOLD`; it creates
+This proposal requests one dependency-tooling action that is isolated from the Suite lock and
+every product environment. Extracting the verifier and passing the coverage gate are deliberately
+separate outcomes: the exact extraction may complete while coverage remains `HOLD`; it creates
 no pressure to reinterpret a failed measurement as success. The action must not edit
 `pyproject.toml`, `uv.lock`, the D1 SBOM/VEX/license packet, any product repository, workflow,
 release manifest or runtime-admission carrier. If approved, the maximum dependency action is
 exactly:
 
-1. create one fresh mode-`0700` outside-repository root whose basename matches
-   `cybrik-uat-d2-coverage-[a-z0-9][a-z0-9._-]{0,63}`;
-2. create one fresh, disjoint, preserved mode-`0700` outside-repository evidence root whose
-   basename matches `cybrik-uat-d2-coverage-evidence-[a-z0-9][a-z0-9._-]{0,63}`; neither root may
-   contain, be contained by, or be an ancestor/descendant of a Suite/product repository or the
-   other root;
-3. fetch only
+1. validate the standalone authorization timestamps before any filesystem or network action.
+   Execution must begin at or after `AUTHORIZED_AT` and strictly before `AUTHORIZATION_EXPIRES_AT`.
+   Both values must be RFC 3339 timestamps with explicit offsets; absent, malformed, offset-less or
+   inverted values, or a window wider than 24 hours, are a hard stop. `AUTHORIZATION_ID` is the
+   one-shot consumption token and must be copied verbatim into the evidence root immediately after
+   its successful creation. The exact authorized root values plus fresh `mkdir` semantics enforce
+   one-shot consumption.
+   Changing either root requires a new Founder artifact and a new `AUTHORIZATION_ID`; no global
+   cross-root token ledger is claimed by this bounded action;
+2. require the exact `SUITE_COMMIT`, `SUITE_TREE`, canonical clean detached `SUITE_ROOT` and
+   `WORKING_DIRECTORY` from the Founder authorization artifact. Every coverage command executes
+   with its working directory equal to the canonical `SUITE_ROOT`; a commit/tree/worktree mismatch
+   is a hard stop;
+3. before creating either directory, require the two proposed path values to equal the exact
+   `COVERAGE_ROOT` and `COVERAGE_EVIDENCE_ROOT` values from the Founder authorization artifact;
+   then create with `mkdir`, never `mkdir -p`, one fresh mode-`0700` outside-repository tool root whose
+   basename matches `cybrik-uat-d2-coverage-[a-z0-9][a-z0-9._-]{0,63}` and one fresh, disjoint,
+   preserved mode-`0700` outside-repository evidence root whose basename matches
+   `cybrik-uat-d2-coverage-evidence-[a-z0-9][a-z0-9._-]{0,63}`. The tool-root basename must not
+   begin `cybrik-uat-d2-coverage-evidence-`; each value is checked against its own anchored pattern
+   and against the other role. Their canonical parents must already exist, be owned by the effective
+   uid and not be group/other-writable. After creation, `lstat`
+   must prove each root is a directory rather than a symlink, owner equals the effective uid and
+   mode `0700`; record each root's `st_dev` and `st_ino`. Neither root may be under `/tmp` or
+   `/private/tmp`. Immediately before either `mkdir`, use the already identity-pinned
+   `PINNED_PYTHON` to derive the canonical Darwin user temporary directory at execution through
+   libc `confstr(_CS_DARWIN_USER_TEMP_DIR)` (`65537`). The canonical derived path must equal the
+   recorded `HOST_TEMP_ROOT`; a mismatch is a hard stop. Neither root may equal or descend from the
+   canonical `HOST_TEMP_ROOT`.
+   Neither root may contain, be contained by, or be an ancestor/descendant of a Suite/product
+   repository or the other root. A pre-existing root at execution start is a hard
+   stop, not a resume, and the authorization is consumed by the single attempt;
+4. permit writes inside the tool root only to the exact subpaths `<COVERAGE_ROOT>/wheel`,
+   `<COVERAGE_ROOT>/site-packages` and `<COVERAGE_ROOT>/data`; create those directories at mode
+   `0700` only after both root checks pass;
+5. use only the absolute network client `/usr/bin/curl` whose canonical path, version and SHA-256
+   exactly match the Founder artifact. No proxy is permitted, redirects are not followed, only
+   HTTPS is allowed, and both calls use the pinned timeouts. Fetch only
    `coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl` from
    `https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl`;
-   the only other permitted network call is the exact JSON POST already described below to
-   `https://api.osv.dev/v1/query`; PyPI project metadata, alternate mirrors and indexes are not
-   execution inputs;
-4. require size `221943` and SHA-256
-   `b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73` before any install;
-5. use only the absolute `PINNED_PYTHON=` path and `PINNED_PYTHON_REALPATH=` recorded in the
+   the only other permitted network call is one POST to `https://api.osv.dev/v1/query` with the
+   exact UTF-8 request bytes
+   `{"package":{"ecosystem":"PyPI","name":"coverage"},"version":"7.15.2"}` whose SHA-256 is
+   `c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7`. PyPI project metadata,
+   indexes, alternate mirrors and every other endpoint are forbidden. In particular,
+   `raw.githubusercontent.com` Coverage.py sources are authoring-time provenance facts and not execution inputs.
+   Exactly one OSV POST must complete and be evaluated before extraction; a skipped, non-`200`,
+   timed out or unparsable OSV response is a hard stop. A non-empty OSV vulnerability result is a
+   hard stop before extraction; write the bounded raw
+   response digest and failure disposition, preserve the evidence root, remove only the tool root
+   and make no further network call;
+6. require wheel size `221943` and SHA-256
+   `b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73` before extraction. A size,
+   digest, response-parse or response-policy mismatch follows the same fail-closed rollback;
+7. use only the absolute `PINNED_PYTHON=` path and `PINNED_PYTHON_REALPATH=` recorded in the
    Founder authorization artifact. `PINNED_PYTHON` may be the exact D1 offline-venv `python`
    symlink so its already-pinned test closure is available, but it may have no symlinked parent,
    its single link target must be `python3.12`, and `realpath(PINNED_PYTHON)` must equal the recorded
    regular `PINNED_PYTHON_REALPATH`. The resolved executable must report CPython `3.12.13` and have
-   SHA-256 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`;
-6. install with the exact absolute interpreter command `<PINNED_PYTHON> -m pip install --no-index
-   --no-deps --target <COVERAGE_ROOT>/site-packages
-   <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl`; the command may not
-   mutate `PATH`, use another index/distribution, run a lifecycle script or alter an existing
-   environment;
-7. record the wheel, interpreter, command, installed `coverage.__version__`, root identities and
-   OSV response digests in the preserved evidence root. Only these integrity checks define
-   `D2-COV-P0-INSTALL=PASS`; the coverage percentage remains a separate `HOLD` gate;
-8. remove only the isolated tool root on failure or rollback, after writing a bounded secret-free
-   failure record. The evidence root must remain intact for review.
+   SHA-256 `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`. The symlink chain,
+   CPython version and `pytest` version must match the authorization artifact immediately before
+   use. A missing/reaped test closure is a hard stop and cannot select another interpreter;
+8. extract the already-verified wheel with exactly `<PINNED_PYTHON> -m zipfile -e
+   <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
+   <COVERAGE_ROOT>/site-packages`. No package installer, index, build frontend or lifecycle script
+   is invoked; `PATH`, the D1 environment and every Suite/product environment remain byte-unaltered.
+   Verify under `PYTHONNOUSERSITE=1` and the exact target-only `PYTHONPATH` that
+   `coverage.__version__ == "7.15.2"` and canonical `coverage.__file__` is a descendant of the
+   authorized `site-packages` root;
+9. record the authorization fields, root identities, wheel size/digest, exact OSV request and raw
+   response digests, interpreter path/symlink chain/digest/version, `pytest` version, extraction
+   command, installed Coverage.py version and import path in the preserved evidence root. After
+   measurement, also record the `coverage.json` and `coverage-gate.json` SHA-256 digests. Only these
+   integrity checks define the extraction-integrity token `D2-COV-P0-INSTALL=PASS`; the coverage
+   percentage remains a separate `HOLD` gate. The already-consumed authorization permits only the
+   post-measurement append of these two result digests and their bounded metadata to the preserved
+   evidence root; it grants no second extraction or network action;
+10. on any failure or rollback, write one bounded secret-free failure record, remove only the
+   isolated tool root and preserve the evidence root. The one-shot authorization cannot be
+   replayed with a different root or resumed after a partial attempt.
 
-After the one exact installation, ordinary test-only changes may improve coverage without another
-dependency install. Each measurement must use the same pinned interpreter and the literal command
+The Founder authorization artifact must contain exactly these standalone fields, one per line and
+with no caller-supplied fallback:
+
+```text
+D2_COV_P0=APPROVE
+AUTHORIZATION_ID=<unique-id>
+AUTHORIZED_BY=FOUNDER
+AUTHORIZED_AT=<RFC3339-with-offset>
+AUTHORIZATION_EXPIRES_AT=<RFC3339-with-offset>
+SUITE_COMMIT=<40-lowercase-hex>
+SUITE_TREE=<40-lowercase-hex>
+SUITE_ROOT=<canonical-absolute-clean-detached-worktree>
+HEAD_MODE=detached
+WORKING_DIRECTORY=<same-value-as-SUITE_ROOT>
+HOST_TEMP_ROOT=<canonical-absolute-host-temporary-directory>
+COVERAGE_ROOT=<canonical-absolute-fresh-tool-root>
+COVERAGE_EVIDENCE_ROOT=<canonical-absolute-fresh-durable-evidence-root>
+PINNED_PYTHON=<canonical-parent-absolute-d1-venv-python-symlink>
+PINNED_PYTHON_REALPATH=<canonical-absolute-regular-cpython-executable>
+PINNED_PYTHON_SHA256=a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623
+PYTHON_VERSION=3.12.13
+PYTEST_VERSION=<exact-version-observed-at-authorization>
+WHEEL_FILENAME=coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
+WHEEL_URL=https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl
+WHEEL_SIZE=221943
+WHEEL_SHA256=b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73
+OSV_ENDPOINT=https://api.osv.dev/v1/query
+OSV_REQUEST_SHA256=c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7
+NETWORK_CLIENT=/usr/bin/curl
+NETWORK_CLIENT_REALPATH=/usr/bin/curl
+NETWORK_CLIENT_SHA256=5ab042572ea0e068644e3b8f9e8dd1ad197bfcf33d199316615b46ddc4390a41
+NETWORK_CLIENT_VERSION=curl 8.7.1 (x86_64-apple-darwin25.0) libcurl/8.7.1 (SecureTransport) LibreSSL/3.3.6 zlib/1.2.12 nghttp2/1.68.1
+NETWORK_POLICY=wheel-url-and-one-osv-post-only-no-other-network
+FETCH_COMMAND=/usr/bin/curl --fail-with-body --silent --show-error --proto '=https' --tlsv1.2 --noproxy '*' --connect-timeout 10 --max-time 60 --output <COVERAGE_ROOT>/wheel/<WHEEL_FILENAME> <WHEEL_URL>
+OSV_REQUEST_COMMAND=/usr/bin/curl --fail-with-body --silent --show-error --proto '=https' --tlsv1.2 --noproxy '*' --connect-timeout 10 --max-time 60 --request POST --header 'Content-Type: application/json' --data-binary @<COVERAGE_EVIDENCE_ROOT>/osv-request.json --output <COVERAGE_EVIDENCE_ROOT>/osv-response.json --write-out '%{http_code}' <OSV_ENDPOINT>
+EXTRACTION_COMMAND=<PINNED_PYTHON> -m zipfile -e <COVERAGE_ROOT>/wheel/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl <COVERAGE_ROOT>/site-packages
+AUTHORIZED_TOOL_SUBPATHS=wheel,site-packages,data
+ONE_SHOT=true
+ROLLBACK=remove-only-COVERAGE_ROOT-after-failure-record-preserve-COVERAGE_EVIDENCE_ROOT
+```
+
+After the one exact extraction, ordinary test-only changes may improve coverage without another
+dependency action. Each measurement must use the same pinned interpreter and the literal command
 shape below; `<SUITE_ROOT>`, `<COVERAGE_ROOT>` and `<COVERAGE_EVIDENCE_ROOT>` are exact absolute
 standalone lines in the authorization artifact, not caller-selected PATH values:
 
 ```text
 cd <SUITE_ROOT>
 
+PYTHONDONTWRITEBYTECODE=1 \
 COVERAGE_FILE=<COVERAGE_ROOT>/data/.coverage \
 PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src \
 <PINNED_PYTHON> -m coverage run --rcfile=/dev/null --branch \
   --source=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls \
-  -m pytest -q -o addopts= \
+  -m pytest -q -p no:cacheprovider -o addopts= \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_evidence.py \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_procedure.py \
@@ -793,6 +885,11 @@ PYTHONPATH=<COVERAGE_ROOT>/site-packages \
   --data-file=<COVERAGE_ROOT>/data/.coverage \
   -o <COVERAGE_EVIDENCE_ROOT>/coverage.json
 ```
+
+After the verifier writes `coverage-gate.json`, run `git status --porcelain -uall --ignored` from
+the exact `SUITE_ROOT` and require empty output before recording either result digest. Any tracked,
+untracked or ignored residue is a failed measurement; preserve evidence and remove only the tool
+root under the rollback rule.
 
 The literal `cd <SUITE_ROOT>` fixes Coverage.py's relative file keys to the Suite root. The three
 literal `--rcfile=/dev/null` arguments prevent a checkout or caller configuration from adding
@@ -832,6 +929,7 @@ that mutable project-document digest is informational, not a future equality gat
 OSV query for PyPI `coverage` version `7.15.2` returned no vulnerabilities; its raw `{}` response
 had SHA-256 `44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a`.
 These are proposal facts, not an install, audit artifact, coverage result or risk acceptance.
+D2 remains **HOLD**. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring
 

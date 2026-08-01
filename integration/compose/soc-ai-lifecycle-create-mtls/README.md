@@ -133,15 +133,21 @@ pass counts are not a substitute for this coverage evidence. Release dates are u
 ## Proposed isolated coverage-tooling action
 
 `UAT-MTLS-D2-COV-P0` is `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`. It requests
-one outside-repository-only installation of the exact SHA-256-pinned Coverage.py `7.15.2` macOS
-arm64 CPython 3.12 wheel into a fresh tool-only target directory, with a second disjoint evidence
-root preserved on success, failure and rollback. It changes neither this harness lock nor any
-product environment and may select only the eight exact import-inert unit/static test files; the
-guarded D2 runtime target is explicitly deselected. Installation integrity and the coverage result
-are separate gates. Coverage `PASS` requires at least 80% line and branch coverage across the full
-harness package plus 100% line/branch coverage of the exact builder, bind-validation, sanitizer and
+one outside-repository-only, pip-free stdlib extraction of the exact SHA-256-pinned Coverage.py
+`7.15.2` macOS arm64 CPython 3.12 wheel into a fresh tool-only target directory. A second disjoint,
+non-temporary evidence root is preserved on success, failure and rollback. The one-shot Founder
+artifact pins the clean Suite commit/tree/worktree, working directory, interpreter and symlink
+chain, canonical Darwin host-temp derivation/pin, exact wheel URL/size/digest, canonical OSV
+request digest, complete network closure, three authorized tool subpaths and rollback. A non-empty
+OSV result, pre-existing root, missing test
+closure or identity mismatch stops before extraction. No package installer, index, build frontend
+or lifecycle script is invoked. The action changes neither this harness lock nor any product
+environment and may select only the eight exact import-inert unit/static test files; the guarded D2
+runtime target is explicitly deselected. Extraction integrity and the coverage result are separate
+gates. Coverage `PASS` requires at least 80% line and branch coverage across the full harness
+package plus 100% line/branch coverage of the exact builder, bind-validation, sanitizer and
 teardown functions named in the ADR, exercised only through fakes, monkeypatches and temporary
-roots. The proposal authorizes nothing until Founder approval is recorded, and neither installation
+roots. The proposal authorizes nothing until Founder approval is recorded, and neither extraction
 nor a passing coverage result by itself opens Phase A, recovers B1, runs N1–N10 or grants
 UAT/release credit.
 
@@ -161,12 +167,13 @@ non-empty, 100%-covered branch denominator, with `num_partial_branches` independ
 cross-checked. The verifier writes one fresh atomic, no-overwrite, mode-`0600` PASS or FAIL result
 beside the input without importing the harness or Coverage.py.
 
-The preceding measurement must run after the literal `cd <SUITE_ROOT>` and pass
-`--rcfile=/dev/null` to each of `coverage run`, `coverage report` and `coverage json`, as fixed by
-the ADR. This prevents caller or checkout configuration from changing exclusions, partial branches
-or reported file keys.
+The preceding measurement must run after the literal `cd <SUITE_ROOT>`, set
+`PYTHONDONTWRITEBYTECODE=1`, disable pytest's cache provider and pass `--rcfile=/dev/null` to each of
+`coverage run`, `coverage report` and `coverage json`, as fixed by the ADR. The final worktree
+residue check must also be empty. These controls prevent test residue or caller/checkout
+configuration from changing exclusions, partial branches or reported file keys.
 
-After the separately authorized D2-COV-P0 installation and measurement produce `coverage.json`,
+After the separately authorized D2-COV-P0 extraction and measurement produce `coverage.json`,
 the exact verifier command is:
 
 ```sh
