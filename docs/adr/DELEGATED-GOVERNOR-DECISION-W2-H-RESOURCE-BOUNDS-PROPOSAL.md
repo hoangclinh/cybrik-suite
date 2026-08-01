@@ -1845,3 +1845,108 @@ All other R3 scope, counts, gates, disclaimers, and authority boundaries remain
 unchanged. R3.1 authorizes no new path, fixture, schema, error code, dependency,
 runtime proof, acceptance, commit, push, merge, release, production action, or
 release-date change.
+
+## 9. R4 amendment — make release refusal retriability derivable
+
+**Disposition:** `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+
+- **Amendment date:** 2026-08-01 (`Asia/Ho_Chi_Minh`)
+- **Decider:** Codex Governor under
+  `docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`
+- **Amendment identity:** `W2-H/R4`
+- **Base:** `1fc883fc9547ccc09a6d7b4201236903fa53796e`
+- **Basis:** independent post-R3 acceptance-readiness audit
+
+R3 deliberately left `RES_ACTIVE_CHILDREN` retriability declared but unproved.
+The acceptance audit established the stronger fact: under the packet's own
+canonical re-issue rule it is derivably false. `RES_ACTIVE_CHILDREN` refuses a
+release. A release carries no idempotency key or result carrier, and its
+optimistic-concurrency assertion is `target.expected_version`, not the
+reservation request field `parent.expected_version` excluded by C4. When an
+open child later releases, the target version moves; repeating the same release
+therefore repeats a stale bound `target.expected_version` and fails
+`RES_VERSION_CONFLICT`. Peer state cannot make that same release succeed.
+
+R4 supersedes only the R2/R3 pin that made two codes retriable. The closed set
+of retriable codes becomes exactly one: `RES_INSUFFICIENT_REMAINDER`.
+`RES_ACTIVE_CHILDREN` remains one of the same fifteen error codes but maps to
+`retriable: false`. `fail_closed` stays `true` for all fifteen, and the hint
+remains advisory and grants no capacity, admission, queue position, priority,
+authority, capability, permission, delegation, or approval.
+
+The superseded clauses are exact. Section 6.5's seventh bullet is narrowed so no
+code beyond `RES_INSUFFICIENT_REMAINDER` may be retriable, while its
+`fail_closed: {"const": true}` requirement remains. Section 7.5's rejection of
+changing the R2 mapping is superseded only for the true-code set; the closed
+`if`/`then`/`else` composition remains required. Section 7.1's preserved
+two-code-mapping pin is superseded by the one-code set. The open-gap statements
+in §7.2 C3 and §7.6 are resolved by **withdrawal of the false claim**, not by
+demonstration of retried-release behavior. Section 7.3.3's R3-scoped
+stop-condition assertion is superseded only where it says the retriable-code
+set stays `2`; `REPLAY_ERROR_CODES.length` stays `15` and every other
+must-not-move assertion remains binding. Section 7.5's prohibition on
+adding a release idempotency key, a release-result document or a retried-release
+replay path remains fully in force, and R4 adds none. The R2 test title recorded
+in §7.3.3 remains dated R2 history; this §9 pointer supersedes its two-code
+meaning without rewriting historical evidence.
+
+### 9.1 Exact authorized paths and edits
+
+Exactly these paths may change:
+
+1. `contracts/json-schema/cybrik.res-bounds-error.v1.schema.json` — remove
+   `RES_ACTIVE_CHILDREN` from the `if` branch's retriable-true enum and reconcile
+   only the `retriable` description with the single-code mapping and the release
+   version rationale. The fifteen-code enum and every other schema byte stay.
+2. `contracts/examples/resource-bounds/positive/bounds-error.standalone.json`
+   — change exactly `retriable: true` to `retriable: false`. Its code remains
+   `RES_ACTIVE_CHILDREN`; its message and `fail_closed: true` stay byte-identical.
+3. `contracts/examples/resource-bounds/examples-manifest.json` — update only
+   the changed positive fixture's `sha256`; entry count, order, kind, schema
+   binding and every other fixture digest stay.
+4. `contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`
+   — reconcile only `authority_model.error_retriability`; the member digests for
+   the error schema, changed positive fixture and examples manifest; the
+   manifest self digest; and `aggregate_sha256`. Members, counts, dependency
+   pins, status, lifecycle and every other field stay.
+5. `docs/architecture/resource-bounds/01-contract-semantics.md` — reconcile
+   only the **Error reporting** retriability paragraph: one true code and the
+   release-version reason `RES_ACTIVE_CHILDREN` is false.
+6. `tools/contract-validation/tests/validate-resource-bounds.test.mjs` — move
+   the code-derived mapping test and title from two true codes to exactly one,
+   remove `RES_ACTIVE_CHILDREN` from `RETRIABLE_CODES`, and move the literal
+   `assert.equal(RETRIABLE_CODES.size, 2)` to `1`. Add assertions that the
+   schema's retriable-true enum is exactly `['RES_INSUFFICIENT_REMAINDER']` and
+   that `positive/bounds-error.standalone.json` remains
+   `RES_ACTIVE_CHILDREN` with `retriable: false`. Update the stale R3 open-gap
+   comment and the stale R3 comment claiming the mapping does not move. Pin all
+   three wording sites — the schema `retriable` description,
+   the semantics **Error reporting** paragraph and
+   `authority_model.error_retriability` — to both the one-code mapping and the
+   release-version rationale. No assertion may be deleted or weakened; the
+   exhaustive loop must still prove both the valid and invalid `retriable`
+   value for all fifteen codes.
+7. This decision record.
+
+No validator implementation change is needed: schema compilation and the
+exhaustive mapping and fixture-witness tests enforce the declaration. Exactly
+one existing fixture value changes; no fixture is added, removed, renamed or
+re-kinded, and no other fixture byte changes. No new schema, error code,
+dimension, manifest member, dependency or runtime surface is authorized.
+Inventory remains 45 members, 36 fixtures split 10/10/16, seven schemas,
+fifteen codes, six dimensions and four accepted dependency pins.
+
+### 9.2 Integrity, review and lifecycle ceiling
+
+Recompute exactly one fixture digest and exactly three non-self member digests:
+the error schema, `positive/bounds-error.standalone.json`, and the examples
+manifest. Then recompute the compatibility-manifest self digest and aggregate
+digest by the existing non-circular rules. The other 35 fixture digests and 41
+non-self member digests must remain byte-identical. Before any merge: focused
+tests, standalone validator, dependency audit, gitleaks, required hosted checks
+and an independent review must be green with no P0/P1/P2.
+
+R4 grants no acceptance, runtime, UAT, T10/T11, deployment, release, production
+or release-date change. It creates no bundle tag and does not change `0.1.0`.
+An atomic acceptance decision remains a separate later action after a fresh
+acceptance-readiness audit.
