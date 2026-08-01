@@ -53,7 +53,7 @@ _CREDENTIALED_DSN_PATTERN: Final = (
     r"\b(?:jdbc:)?(?:postgres(?:ql)?|mysql|mariadb|mssql|mongodb(?:\+srv)?|"
     r"redis|rediss|amqp|amqps)://[^\s@:]+:[^\s@]+@"
 )
-_CREDENTIALED_URI_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@"
+_CREDENTIALED_URI_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s@]+@"
 _JSON_CREDENTIAL_PATTERN: Final = (
     r"[\"'](?:authorization|password|passwd|pwd|client_secret|api_key|token|cnf)"
     r"[\"']\s*:"
@@ -99,23 +99,23 @@ _SAFE_KEY_EXACT: Final = frozenset(
         "token_id",
     }
 )
-_SECRET_KEY_FLAT: Final = frozenset(
-    {
-        "accesstoken",
-        "apikey",
-        "authtoken",
-        "clientsecret",
-        "connectionstring",
-        "cookie",
-        "credentials",
-        "dbpassword",
-        "keymaterial",
-        "passphrase",
-        "pgpass",
-        "privatekey",
-        "signingkey",
-        "xapikey",
-    }
+_SECRET_KEY_ROOTS: Final = (
+    "apikey",
+    "basicauth",
+    "connectionstring",
+    "cookie",
+    "credential",
+    "encryptionkey",
+    "keymaterial",
+    "passphrase",
+    "password",
+    "pgpass",
+    "privatekey",
+    "secret",
+    "signingkey",
+    "sslkey",
+    "tlskey",
+    "token",
 )
 
 
@@ -138,7 +138,8 @@ def _secret_key(key: str) -> bool:
         return False
     if canonical in _SECRET_KEY_EXACT:
         return True
-    if canonical.replace("_", "") in _SECRET_KEY_FLAT:
+    flattened = canonical.replace("_", "")
+    if any(root in flattened for root in _SECRET_KEY_ROOTS):
         return True
     parts = frozenset(part for part in canonical.split("_") if part)
     return bool(parts & _SECRET_KEY_PARTS)

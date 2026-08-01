@@ -107,6 +107,21 @@ def test_documentation_urls_are_not_misclassified_as_credentialed_dsns(
     assert evidence.secret_reason(text) is None
 
 
+@pytest.mark.parametrize(
+    "text",
+    (
+        "postgresql+psycopg://user:aB3/xY9@localhost/uat",
+        "mysql+pymysql://root:p/w@127.0.0.1/db",
+        "ldap://user:pa/ss@dir.example",
+    ),
+)
+def test_slash_bearing_uri_passwords_are_rejected(text: str) -> None:
+    assert evidence.secret_reason(text) == evidence.DSN_CREDENTIALS
+    with pytest.raises(evidence.EvidenceRejected) as caught:
+        evidence.validate_evidence({"note": text})
+    assert text not in f"{caught.value}{caught.value!r}{caught.value.args}"
+
+
 # --------------------------------------------------------------------------
 # Rejected shapes — fail closed, never redact
 # --------------------------------------------------------------------------
@@ -144,6 +159,15 @@ def test_documentation_urls_are_not_misclassified_as_credentialed_dsns(
         ({"key_material": "x"}, evidence.SECRET_BEARING_KEY),
         ({"cookie": "x"}, evidence.SECRET_BEARING_KEY),
         ({"connection_string": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"secretkey": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"keystorepassword": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"saslpassword": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"sessioncookie": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"basicauth": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"clientcredentials": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"encryptionkey": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"sslkey": "x"}, evidence.SECRET_BEARING_KEY),
+        ({"tlskey": "x"}, evidence.SECRET_BEARING_KEY),
         ({"certificate_pem": "x"}, evidence.SECRET_BEARING_KEY),
         ({"password_sha256": _DIGEST}, evidence.SECRET_BEARING_KEY),
         ({"authorization_id": "abc"}, evidence.SECRET_BEARING_KEY),
