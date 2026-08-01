@@ -1,10 +1,14 @@
 {
   "request_id": "rsq_denied0000000001",
   "status": "denied",
+  "root": {
+    "kind": "grant",
+    "id": "rbg_root000000000001"
+  },
   "error": {
     "code": "RES_INSUFFICIENT_REMAINDER",
     "message": "The open parent has insufficient remaining conserved credit.",
-    "retriable": false,
+    "retriable": true,
     "fail_closed": true
   },
   "parent_version_before": 2,

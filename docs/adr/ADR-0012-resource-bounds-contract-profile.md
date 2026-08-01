@@ -22,7 +22,7 @@ toward W0-T10.
 
 ## Proposed decision
 
-Adopt, subject to a later acceptance decision, six JSON Schema 2020-12
+Adopt, subject to a later acceptance decision, seven JSON Schema 2020-12
 documents under `cybrik.res-*`, a fixed deterministic fixture corpus, one
 compatibility manifest, and static architecture guidance.
 
@@ -101,10 +101,11 @@ the disjoint `RES_*` namespace.
 - `cybrik.res-reservation-request.v1.schema.json`
 - `cybrik.res-reservation-result.v1.schema.json`
 - `cybrik.res-release.v1.schema.json`
+- `cybrik.res-root-closure.v1.schema.json`
 - `cybrik.res-bounds-error.v1.schema.json`
 
-The compatibility manifest pins the six schemas, the examples manifest, all
-22 fixtures, and itself using a non-circular self-digest algorithm.
+The compatibility manifest pins the seven schemas, the examples manifest, all
+31 fixtures, and itself using a non-circular self-digest algorithm.
 
 ## Evidence ceiling
 

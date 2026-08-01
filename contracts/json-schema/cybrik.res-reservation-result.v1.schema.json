@@ -12,6 +12,7 @@
   "required": [
     "request_id",
     "status",
+    "root",
     "parent_version_before",
     "parent_version_after",
     "parent_remaining_after",
@@ -22,6 +23,7 @@
   "properties": {
     "request_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/requestId" },
     "status": { "type": "string", "enum": ["admitted", "denied"] },
+    "root": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/rootRef" },
     "reservation": {
       "type": "object",
       "additionalProperties": false,

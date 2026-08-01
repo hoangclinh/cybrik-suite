@@ -27,6 +27,7 @@
           "idempotency_key": "idem.return.00000000001",
           "tenant_id": "tenant-blue",
           "org_scope_ref": { "org_id": "org-blue" },
+          "root": { "kind": "grant", "id": "rbg_return0000000001" },
           "parent": { "kind": "grant", "id": "rbg_return0000000001", "expected_version": 1 },
           "requested": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
           "sequence": 2,
@@ -36,6 +37,7 @@
         "result": {
           "request_id": "rsq_return0000000001",
           "status": "admitted",
+          "root": { "kind": "grant", "id": "rbg_return0000000001" },
           "reservation": {
             "reservation_id": "rsr_return0000000001",
             "reserved": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
@@ -60,6 +62,7 @@
         "release_id": "rsl_return0000000001",
         "tenant_id": "tenant-blue",
         "org_scope_ref": { "org_id": "org-blue" },
+        "root": { "kind": "grant", "id": "rbg_return0000000001" },
         "target": { "kind": "reservation", "id": "rsr_return0000000001", "expected_version": 1 },
         "consumed": { "cpu_millis": 3, "memory_byte_millis": 3, "model_tokens": 3, "tool_calls": 3, "retrieved_bytes": 3, "egress_bytes": 3 },
         "returned": { "cpu_millis": 8, "memory_byte_millis": 8, "model_tokens": 8, "tool_calls": 8, "retrieved_bytes": 8, "egress_bytes": 8 },

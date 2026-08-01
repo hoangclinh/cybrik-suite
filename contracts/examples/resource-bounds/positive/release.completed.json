@@ -5,6 +5,10 @@
     "org_id": "org-blue",
     "org_path": "/org-blue/soc"
   },
+  "root": {
+    "kind": "grant",
+    "id": "rbg_root000000000001"
+  },
   "target": {
     "kind": "reservation",
     "id": "rsr_child00000000001",

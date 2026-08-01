@@ -24,6 +24,15 @@
       "type": "string",
       "pattern": "^rsl_[a-z0-9]{16,64}$"
     },
+    "closureId": {
+      "type": "string",
+      "pattern": "^rcl_[a-z0-9]{16,64}$"
+    },
+    "closureReason": {
+      "type": "string",
+      "description": "One terminal accounting-closure vocabulary, hoisted here so the release reason and the root-closure reason cannot drift apart.",
+      "enum": ["completed", "cancelled", "failed", "expired"]
+    },
     "idempotencyKey": {
       "type": "string",
       "description": "Accounting replay key only. It confers no authority.",
@@ -91,6 +100,16 @@
         "expected_version": { "type": "integer", "minimum": 1 }
       }
     },
+    "rootRef": {
+      "type": "object",
+      "description": "Identity of the root grant whose tree this record belongs to. Accounting lineage only: naming a root grant is not possession of it and confers no credential, capability, permission, delegation, approval, or capacity. There is deliberately no expected_version here — a root binding is an identity statement, not a compare-and-set against root state, and adding one would create a second concurrency axis.",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "const": "grant" },
+        "id": { "$ref": "#/$defs/grantId" }
+      }
+    },
     "virtualTimeMs": {
       "type": "integer",
       "description": "Fixture-supplied logical time; never a wall-clock claim.",
@@ -98,7 +117,7 @@
     },
     "ledgerSequence": {
       "type": "integer",
-      "description": "Monotone accounting sequence within one root tree.",
+      "description": "Dense accounting sequence within one root tree: sequences start at 1 and increase by exactly 1, with no gap, no repeat, and no reordering; a violation is RES_SEQUENCE_VIOLATION. A dense sequence from 1 means exactly one serialization point per root tree, so v0.1 admits no concurrent independent writers within one root and no partitioned or per-branch sub-sequences. This is a contract-level limit and makes no throughput, scaling, or runtime-concurrency claim. Density is a cross-record property that a single-record schema cannot express, so the numeric constraint here is only integer, minimum 1.",
       "minimum": 1
     },
     "confersAuthority": {

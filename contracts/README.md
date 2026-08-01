@@ -105,7 +105,7 @@ placeholder OpenAPI/schema files as if they were accepted contracts.
 
 ## W2-H resource-bounds packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
 
-This additive v0.1.0 packet introduces six `cybrik.res-*` JSON Schemas, a deterministic
+This additive v0.1.0 packet introduces seven `cybrik.res-*` JSON Schemas, a deterministic
 fixture/replay corpus, and one compatibility manifest. Its conserved credits are additive
 quantities only: CPU milliseconds, memory-byte-milliseconds, model tokens, tool calls, retrieved
 bytes, and egress bytes. A child reservation subtracts from its parent at admission; spawn never
