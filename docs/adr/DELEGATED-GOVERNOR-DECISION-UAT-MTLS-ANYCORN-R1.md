@@ -1089,8 +1089,9 @@ The validator parses the exact ordered field set, validates the RFC 3339 window,
 detached Suite commit/tree/root and working directory, derives the Darwin host-temp root, rejects
 temporary or overlapping roots and interpreters, verifies the Python symlink chain, executable and
 installed closure, verifies the D1 lock and curl identity, and requires both roots to be fresh.
-The `--consume` operation opens and identity-checks each canonical parent without following
-symlinks, rechecks the named parent immediately before each `mkdir`, then anchors every root,
+The validator records each canonical parent's `st_dev` and `st_ino`. The `--consume` operation
+opens each parent without following symlinks, requires the opened identity to equal that validated
+identity, rechecks the named parent immediately before each `mkdir`, then anchors every root,
 subdirectory, evidence write and rollback operation to those directory descriptors. It creates
 both roots with mode `0700`, creates only `wheel`, `site-packages` and `data` under the tool root,
 and writes the exact authorization plus an exclusive bounded consumption record at mode `0600` in

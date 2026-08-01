@@ -149,6 +149,8 @@ class ValidatedAuthorization:
     evidence_root: Path
     suite_root: Path
     python_path: Path
+    tool_parent_identity: tuple[int, int]
+    evidence_parent_identity: tuple[int, int]
 
 
 def _fail(reason: str) -> None:
@@ -276,7 +278,9 @@ def _canonical_existing(raw: str, reason: str) -> Path:
     return resolved
 
 
-def _canonical_fresh_root(raw: str, pattern: re.Pattern[str]) -> Path:
+def _canonical_fresh_root(
+    raw: str, pattern: re.Pattern[str]
+) -> tuple[Path, tuple[int, int]]:
     path = Path(raw)
     if not path.is_absolute() or pattern.fullmatch(path.name) is None:
         _fail("authorization_root_invalid")
@@ -293,7 +297,7 @@ def _canonical_fresh_root(raw: str, pattern: re.Pattern[str]) -> Path:
         stat.S_IWGRP | stat.S_IWOTH
     ):
         _fail("authorization_root_parent_unsafe")
-    return path
+    return path, (details.st_dev, details.st_ino)
 
 
 def _has_symlinked_parent(path: Path) -> bool:
@@ -368,8 +372,10 @@ def validate_authorization(
     host_temp = Path(fields["HOST_TEMP_ROOT"])
     if not host_temp.is_absolute() or observed.host_temp_root != host_temp:
         _fail("host_temp_root_mismatch")
-    tool_root = _canonical_fresh_root(fields["COVERAGE_ROOT"], TOOL_ROOT_NAME)
-    evidence_root = _canonical_fresh_root(
+    tool_root, tool_parent_identity = _canonical_fresh_root(
+        fields["COVERAGE_ROOT"], TOOL_ROOT_NAME
+    )
+    evidence_root, evidence_parent_identity = _canonical_fresh_root(
         fields["COVERAGE_EVIDENCE_ROOT"], EVIDENCE_ROOT_NAME
     )
     if _under_forbidden_temp(tool_root, host_temp) or _under_forbidden_temp(
@@ -430,6 +436,8 @@ def validate_authorization(
         evidence_root=evidence_root,
         suite_root=suite_root,
         python_path=python_path,
+        tool_parent_identity=tool_parent_identity,
+        evidence_parent_identity=evidence_parent_identity,
     )
 
 
@@ -443,7 +451,7 @@ def _same_identity(first: os.stat_result, second: os.stat_result) -> bool:
     return first.st_dev == second.st_dev and first.st_ino == second.st_ino
 
 
-def _open_verified_directory(path: Path) -> int:
+def _open_verified_directory(path: Path, expected_identity: tuple[int, int]) -> int:
     descriptor = -1
     try:
         named = os.stat(path, follow_symlinks=False)
@@ -457,6 +465,7 @@ def _open_verified_directory(path: Path) -> int:
         not stat.S_ISDIR(named.st_mode)
         or not stat.S_ISDIR(opened.st_mode)
         or not _same_identity(named, opened)
+        or (opened.st_dev, opened.st_ino) != expected_identity
         or opened.st_uid != os.geteuid()
         or opened.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
     ):
@@ -573,9 +582,13 @@ def consume_authorization(
     failure_reason = "authorization_consumption_failed"
     try:
         evidence_parent_fd = _open_verified_directory(
-            authorization.evidence_root.parent
+            authorization.evidence_root.parent,
+            authorization.evidence_parent_identity,
         )
-        tool_parent_fd = _open_verified_directory(authorization.tool_root.parent)
+        tool_parent_fd = _open_verified_directory(
+            authorization.tool_root.parent,
+            authorization.tool_parent_identity,
+        )
         evidence_fd, _ = _mkdir_open_at(
             authorization.evidence_root.parent,
             evidence_parent_fd,
@@ -806,8 +819,8 @@ def _prevalidate_observation_inputs(
         host_temp = _darwin_user_temp()
         if Path(fields["HOST_TEMP_ROOT"]) != host_temp:
             _fail("invalid")
-        tool_root = _canonical_fresh_root(fields["COVERAGE_ROOT"], TOOL_ROOT_NAME)
-        evidence_root = _canonical_fresh_root(
+        tool_root, _ = _canonical_fresh_root(fields["COVERAGE_ROOT"], TOOL_ROOT_NAME)
+        evidence_root, _ = _canonical_fresh_root(
             fields["COVERAGE_EVIDENCE_ROOT"], EVIDENCE_ROOT_NAME
         )
         if (

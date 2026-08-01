@@ -433,9 +433,9 @@ def test_consume_rejects_parent_rebinding_before_first_mkdir(
     original_open = authorization._open_verified_directory
     call_count = 0
 
-    def open_then_rebind(path: Path) -> int:
+    def open_then_rebind(path: Path, expected_identity: tuple[int, int]) -> int:
         nonlocal call_count
-        descriptor = original_open(path)
+        descriptor = original_open(path, expected_identity)
         call_count += 1
         if call_count == 1:
             evidence_parent.rename(moved_parent)
