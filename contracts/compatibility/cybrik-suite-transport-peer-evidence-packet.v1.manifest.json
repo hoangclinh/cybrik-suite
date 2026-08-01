@@ -59,8 +59,8 @@
       "uat_evaluation_admitted": true,
       "disposition": "HOLD",
       "selected": false,
-      "installed": false,
-      "pinned": false,
+      "installed": true,
+      "pinned": true,
       "derived_from": {
         "id": "anycorn",
         "version_considered": "0.20.0",

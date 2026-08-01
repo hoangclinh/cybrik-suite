@@ -1,6 +1,6 @@
 {
   "candidate_id": "runtime-admission-soc-ai-lifecycle-mtls-r1",
-  "recorded_at": "2026-07-31T17:29:11Z",
+  "recorded_at": "2026-08-01T13:16:35Z",
   "attempt_accounting": {
     "series_id": "runtime-admission-soc-ai-lifecycle-mtls",
     "attempt_ordinal": 1,
@@ -12,7 +12,7 @@
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-      "evidence_sha256": "82a5d19145ddca6c28863852326f2e6f5f12424549a6a053d14e00efc6752760"
+      "evidence_sha256": "b467e44fa359c9c1b858cfacd9be19b0b5ba02736798fe942f1b4976bd6a1fe2"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -349,14 +349,14 @@
     "critical": 0,
     "high": 1,
     "notes": [
-      "HIGH severity, blocking, prospective exercised transport dependency: Anycorn has no release containing upstream fix commit 9eabf20e22bb2fe4987110bebf05eb822517f754 dated 2026-07-29, which preserves hardened SSL options. Latest release is 0.20.0, PyPI upload 2026-07-28, release tag commit f81a302a2cf3ea36093372e2f62283d945d47fe6, official wheel SHA-256 43fcf5ade1b727f3a39b5bff0305012262be9b9993150dd312d626126382c8a1 and official sdist SHA-256 e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927. Raw 0.20.0 is therefore NO-GO for production and HOLD for this UAT candidate. Nothing is added, installed or pinned by this record. Acceptable unblock is a release containing 9eabf20 followed by artifact and transitive lock review and an empirical ASGI TLS-extension probe, or a separately audited internal patch proposal approved before installation. Official sources: https://pypi.org/pypi/anycorn/json and https://github.com/davidbrochart/anycorn/commit/9eabf20e22bb2fe4987110bebf05eb822517f754 and https://asgi.readthedocs.io/en/latest/implementations.html and https://asgi.readthedocs.io/en/latest/specs/tls.html",
+      "HIGH severity, blocking, raw upstream dependency: Anycorn has no release containing upstream fix commit 9eabf20e22bb2fe4987110bebf05eb822517f754 dated 2026-07-29, which preserves hardened SSL options. Latest release is 0.20.0, PyPI upload 2026-07-28, release tag commit f81a302a2cf3ea36093372e2f62283d945d47fe6, official wheel SHA-256 43fcf5ade1b727f3a39b5bff0305012262be9b9993150dd312d626126382c8a1 and official sdist SHA-256 e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927. Raw 0.20.0 remains NO-GO for production, uninstalled and unpinned. D1 completed the separately audited internal B1 artifact, but B1 remains in_triage pending D2 empirical ASGI TLS-extension and real-listener proof. Official sources: https://pypi.org/pypi/anycorn/json and https://github.com/davidbrochart/anycorn/commit/9eabf20e22bb2fe4987110bebf05eb822517f754 and https://asgi.readthedocs.io/en/latest/implementations.html and https://asgi.readthedocs.io/en/latest/specs/tls.html",
       "No harness exists. The required separate-process, real-loopback-TLS, ephemeral out-of-repo dev PKI, synthetic-data, PostgreSQL-durable-replay and cnf-to-client-certificate-thumbprint properties are design only.",
       "The Suite golden SOSIM harness is in-process and is not UAT, not mTLS and not a deployment. It is not evidence for any acceptance criterion of this candidate.",
       "The SOC LifecycleCreateClient already accepts a caller-owned mTLS httpx.AsyncClient on a create-only issuer path, so no minimal SOC product change is required for a Suite-owned separate-process harness.",
       "Cyber AI main carries a bounded opt-in AsgiTlsTransportResolver and PostgreSQL lifecycle runtime composition, but the resolver remains unwired by default and no bound ASGI TLS server or deployment exists.",
       "Tool Fabric is pinned for suite tuple and governance completeness only and is not technically exercised by the create-only SOC to AI path. control-plane and detect are deliberately not recorded as required checks; the non-required executor job is recorded as skipped.",
       "All ten required negative tests are recorded as hold. None is written and none has run.",
-      "This record grants no execution authority. It opens no listener, installs nothing, runs no stack, container, database or migration, and handles no secret.",
+      "This record grants no runtime authority. D1 installed and pinned only the internal B1 artifact in suite_uat_tool_lock_only; no listener, stack, container, database or migration ran and no secret was handled.",
       "The referenced runtime-admission-ai-pg-r3 material is a historical prerequisite only. It grants no execution authority and does not reopen the terminal R1, R2 and R3 results, which remain immutable NO-GO.",
       "A0 accepts a non-circular two-phase admission sequence only. Phase A may be opened only by a future separately reviewed exact-bit update for one not_run attempt; Phase B immediately revokes authorization and records exact runtime results. This committed attempt remains unauthorized, not_run, at zero counts and HOLD."
     ]
@@ -366,15 +366,16 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-        "sha256": "82a5d19145ddca6c28863852326f2e6f5f12424549a6a053d14e00efc6752760"
+      "sha256": "b467e44fa359c9c1b858cfacd9be19b0b5ba02736798fe942f1b4976bd6a1fe2"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md",
-        "sha256": "75ba8f2e945cb9b0379fd6df05da9074d20efa449bb01f6b91b27c061dacd93b"
+      "sha256": "8979520b0ac3283dab2fb91b71108e046c43b22f8d160d1e46afeec0db174ed8"
       }
     ],
     "limitations": [
       "No execution evidence exists. The current attempt is not_run with zero executed, passed and failed checks and execution_authorized false.",
+      "D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN pins wheel d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c, patch 1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e, dedicated lock e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add and no-socket probe 91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45; it grants no D2 or release credit.",
       "A HIGH severity blocking finding is open on the prospective exercised transport dependency Anycorn; see open_findings.notes for the exact release, digest, commit and unblock facts.",
       "The recorded lifecycle procedures are deliberately non-executable HOLD statements. No runnable command is provided, so this record cannot be executed by copying it.",
       "All negative smoke rows are hold. No tenant-isolation, authorization or secret-boundary check has been written or run.",
@@ -402,6 +403,6 @@
   },
   "disposition": {
     "profile": "HOLD",
-    "rationale": "Design-only candidate. No separate-process mTLS harness exists, all ten required negative tests are unwritten, and a HIGH severity blocking finding is open on the prospective exercised transport dependency Anycorn, whose latest release 0.20.0 does not contain upstream fix commit 9eabf20e22bb2fe4987110bebf05eb822517f754. Execution stays unauthorized with status not_run and zero counts. The referenced runtime-admission-ai-pg-r3 material is a non-authorizing historical prerequisite that does not reopen the terminal PostgreSQL R1, R2 and R3 results. No UAT, demo, POC, RC, GA, public release or production claim follows."
+    "rationale": "D1 dependency artifact complete; runtime candidate authored/not run. No separate-process mTLS harness exists, all ten required runtime tests are unexecuted, and the raw upstream Anycorn HIGH remains open while B1 mitigation stays in_triage pending D2 empirical proof. Execution stays unauthorized with status not_run and zero counts. The referenced runtime-admission-ai-pg-r3 material is a non-authorizing historical prerequisite that does not reopen the terminal PostgreSQL R1, R2 and R3 results. No UAT, demo, POC, RC, GA, public release or production claim follows."
   }
 }

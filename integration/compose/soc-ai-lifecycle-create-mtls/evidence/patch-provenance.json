@@ -1,0 +1,38 @@
+{
+  "artifact_id": "anycorn-cybrik-uat-b1",
+  "build": {
+    "abi_tag": "cpython-312-darwin",
+    "backend": "uv_build-fast-path",
+    "backend_version": "0.11.16",
+    "build_dirs": [
+      "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/build-a",
+      "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/build-b"
+    ],
+    "lc_all": "C",
+    "pip_version": "26.1.1",
+    "platform_tag": "macosx-11.0-arm64",
+    "python_executable": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12",
+    "python_executable_sha256": "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623",
+    "python_version": "3.12.13",
+    "pythonhashseed": "0",
+    "source_date_epoch": 315532800,
+    "tz": "UTC",
+    "umask": "022",
+    "uv_executable": "/opt/homebrew/bin/uv",
+    "uv_executable_sha256": "96e422f83fd306848446170d97c1d1af8290f00e4aacfa7134e130280d573126",
+    "uv_version": "0.11.16"
+  },
+  "changed_files": [
+    "pyproject.toml",
+    "src/anycorn/config.py"
+  ],
+  "hunk_count": 2,
+  "patch_path": "integration/compose/soc-ai-lifecycle-create-mtls/patches/anycorn-0.20.0+cybrik.1.patch",
+  "patch_sha256": "1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e",
+  "source": {
+    "filename": "anycorn-0.20.0.tar.gz",
+    "sha256": "e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927",
+    "tag_commit": "f81a302a2cf3ea36093372e2f62283d945d47fe6"
+  },
+  "upstream_fix_commit": "9eabf20e22bb2fe4987110bebf05eb822517f754"
+}

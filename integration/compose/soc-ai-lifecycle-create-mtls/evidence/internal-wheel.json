@@ -1,0 +1,22 @@
+{
+  "artifact_id": "anycorn-cybrik-uat-b1",
+  "build_sha256": [
+    "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+    "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+  ],
+  "filename": "anycorn-0.20.0+cybrik.1-py3-none-any.whl",
+  "install_mode": "offline-no-deps-after-sha256-verification",
+  "product_selected": false,
+  "sha256": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+  "ssl_context_probe": {
+    "anycorn_version": "0.20.0+cybrik.1",
+    "no_compression": true,
+    "no_ticket_seed_preserved": true,
+    "result_options": 2186428496,
+    "seeded_options": 2186428496,
+    "seeded_options_preserved": true,
+    "socket_calls": 0
+  },
+  "ssl_context_probe_sha256": "91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45",
+  "version": "0.20.0+cybrik.1"
+}

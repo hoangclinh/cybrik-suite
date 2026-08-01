@@ -1,0 +1,40 @@
+[project]
+name = "cybrik-suite-uat-mtls"
+version = "0.0.0"
+description = "Isolated third-party closure for the Suite-owned lifecycle mTLS UAT harness."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.13,<2",
+    "anyio>=4,<5",
+    "argon2-cffi>=23.1,<26",
+    "asyncpg>=0.29,<1",
+    "cryptography>=48.0.1,<51",
+    "email-validator>=2.2,<3",
+    "fastapi>=0.115,<1",
+    "h11>=0.16,<1",
+    "h2>=4.3,<5",
+    "hpack>=4.1,<5",
+    "httpx>=0.27,<1",
+    "maxminddb>=2.6,<3",
+    "priority>=2,<3",
+    "psycopg2-binary>=2.9,<3",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.4,<3",
+    "pyjwt[crypto]>=2.9,<3",
+    "pyyaml>=6,<7",
+    "redis>=5,<8",
+    "rich-click>=1.8.3,<2",
+    "sniffio>=1.1,<2",
+    "sqlalchemy[asyncio]>=2.0.30,<3",
+    "uvicorn[standard]>=0.30,<1",
+    "wsproto>=1.2,<2",
+]
+
+[dependency-groups]
+test = [
+    "pytest==9.1.1",
+    "pytest-asyncio>=0.24,<2",
+]
+
+[tool.uv]
+package = false

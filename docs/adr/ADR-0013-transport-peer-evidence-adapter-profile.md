@@ -43,9 +43,9 @@ existing runtime-admission finding. Hypercorn and Granian remain unassessed offi
 
 K5 additionally records `id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, as a distinct
 `internal_uat_evaluation_artifact`. S1 admits that row only for bounded isolated UAT evaluation.
-It remains product `selected=false`, `installed=false`, `pinned=false` and `HOLD`; D1 remains
-**HOLD** and alone may flip both installation fields atomically after the artifact exists. D2
-remains **HOLD**. `server_neutral=true`, `selected_server=null`, and
+At `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, it remains product `selected=false` and `HOLD`
+while its isolated-UAT facts are atomically `installed=true`, `pinned=true`. D2 remains **HOLD**.
+`server_neutral=true`, `selected_server=null`, and
 UAT/DEMO/POC/RC/stable-v1/GA NO-GO remain exact. ID plus artifact scope, not PEP 440 public-version
 equivalence, distinguishes the raw and internal rows.
 

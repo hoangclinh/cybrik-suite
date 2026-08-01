@@ -66,10 +66,11 @@ consumer and does not close TR-5.
 **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** server-neutral adapter packet. It pins the synthetic
 fixture corpus, records all product server candidates as unselected, and preserves raw Anycorn
 `0.20.0` as an uninstalled/unpinned `official_upstream_distribution` HOLD. K5 adds the distinct
-internal B1 evaluation identity and S1 admits it only for bounded isolated UAT evaluation. B1 stays
-`installed=false`, `pinned=false`, `selected=false`, and `HOLD` until D1; its install scope is only
-`suite_uat_tool_lock_only`. PEP 440 public-version equivalence never conflates it with the raw row.
-Static green conveys no runtime, UAT, release, deployment, or production authority.
+internal B1 evaluation identity and S1 admits it only for bounded isolated UAT evaluation. At
+`D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, B1 is `installed=true`, `pinned=true`,
+`selected=false`, and `HOLD`; its install scope is only `suite_uat_tool_lock_only`. PEP 440
+public-version equivalence never conflates it with the raw row. Static green conveys no runtime,
+UAT, release, deployment, or production authority.
 
 `cybrik-suite-resource-bounds-packet.v1.manifest.json` is the Gate W2-H
 **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** resource-accounting packet (v0.1.0, not stable v1/GA and not a

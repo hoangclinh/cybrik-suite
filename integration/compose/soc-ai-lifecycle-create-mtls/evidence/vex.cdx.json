@@ -1,0 +1,64 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/anycorn@0.20.0%2Bcybrik.1?package-id=25160bf6efdcaa02",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+        }
+      ],
+      "name": "anycorn",
+      "purl": "pkg:pypi/anycorn@0.20.0%2Bcybrik.1",
+      "type": "library",
+      "version": "0.20.0+cybrik.1"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "cybrik-suite-uat-mtls-d1",
+      "name": "cybrik-suite-uat-mtls-d1",
+      "type": "application",
+      "version": "0.20.0+cybrik.1"
+    }
+  },
+  "serialNumber": "urn:uuid:daa4c24c-f3df-5c65-a726-ada11c49e747",
+  "specVersion": "1.6",
+  "version": 1,
+  "vulnerabilities": [
+    {
+      "affects": [
+        {
+          "ref": "pkg:pypi/anycorn@0.20.0%2Bcybrik.1?package-id=25160bf6efdcaa02"
+        }
+      ],
+      "analysis": {
+        "detail": "D1 no-socket evidence only; patch_sha256=1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e; wheel_sha256=d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c; ssl_context_probe_sha256=91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45; real Anycorn serve path and PostgreSQL-backed N1-N10 remain D2 HOLD. Raw upstream Anycorn 0.20.0 remains affected and HOLD.",
+        "state": "in_triage"
+      },
+      "bom-ref": "cybrik-vulnerability:CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01",
+      "id": "CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01",
+      "properties": [
+        {
+          "name": "cybrik:artifact-scope",
+          "value": "internal_uat_evaluation_artifact"
+        },
+        {
+          "name": "cybrik:candidate-disposition",
+          "value": "HOLD"
+        }
+      ],
+      "ratings": [
+        {
+          "method": "other",
+          "severity": "high"
+        }
+      ],
+      "source": {
+        "name": "CYBRIK"
+      }
+    }
+  ]
+}

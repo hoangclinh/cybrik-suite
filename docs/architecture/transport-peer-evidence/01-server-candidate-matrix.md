@@ -7,13 +7,13 @@ Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Gate W2-K, v0.1.0; 
 | `anycorn` | `0.20.0` | `official_upstream_distribution` | no | no | no | **HOLD** | Raw Anycorn `0.20.0` retains the open HIGH finding; it is not installed and not pinned, and released bytes do not contain the recorded hardened-SSL-options fix. |
 | `hypercorn` | — | `official_upstream_distribution` | no | no | no | UNASSESSED | No runtime ASGI TLS-extension probe or adapter audit exists. |
 | `granian` | — | `official_upstream_distribution` | no | no | no | UNASSESSED | No runtime ASGI TLS-extension probe or adapter audit exists. |
-| `anycorn-cybrik-uat-b1` | `0.20.0+cybrik.1` | `internal_uat_evaluation_artifact`; install scope `suite_uat_tool_lock_only` | no | no | no | **HOLD** | S1 admits bounded isolated UAT evaluation only. At this pre-D1 point `installed=false` and `pinned=false`; patch mitigation is `NOT PROVEN`. |
+| `anycorn-cybrik-uat-b1` | `0.20.0+cybrik.1` | `internal_uat_evaluation_artifact`; install scope `suite_uat_tool_lock_only` | no | yes | yes | **HOLD** | `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`: exact B1 is installed and pinned only in the isolated UAT tool scope; D2 patch mitigation remains `NOT PROVEN`. |
 
 No row is a recommendation. A future candidate must expose server-verified peer evidence, pass the
 same no-degrade and secret-boundary suite, and receive a separate runtime admission. Waiting for an
 upstream release remains a background watch item, not the critical path. K5 records the distinct
 B1 identity and S1 admits evaluation only; neither selects a product server. The packet retains
-`server_neutral=true` and `selected_server=null`. D1 remains **HOLD** for dependency build/install,
+`server_neutral=true` and `selected_server=null`. D1 dependency artifact evidence is complete,
 D2 remains **HOLD** for runtime, and UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 Unqualified “Anycorn `0.20.0`” means only `id=anycorn` with

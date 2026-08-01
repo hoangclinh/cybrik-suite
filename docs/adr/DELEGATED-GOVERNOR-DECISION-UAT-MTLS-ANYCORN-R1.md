@@ -1,11 +1,11 @@
-# Delegated Governor decision proposal — SOC→AI lifecycle mTLS UAT server candidate R1
+# Delegated Governor decision record — SOC→AI lifecycle mTLS UAT server candidate R1
 
 - **Task ID:** `UAT-MTLS-AI-SERVER-UNBLOCK-R1`
 - **Task-ID boundary:** this is a coordinator-delegated decision label, not a new identity in the
   fixed 48-task roster.
-- **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED — B1 UAT EVALUATION ADMITTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
-- **S1 R2 clarification:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
-- **S1 R3 endpoint correction:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
+- **Status:** `D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME AUTHORED NOT RUN — D2 HOLD`
+- **S1 R2 clarification (historical pre-D1):** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
+- **S1 R3 endpoint correction (historical pre-D1):** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
 - **Date:** 2026-08-01
 - **Canonical base:** `cybrik-suite@0766f31ca7ec283755c5ace5bc94f9df7cd05f1c`
 - **Ownership cell:** Suite Integration/Release; Cyber AI Runtime/Safety is a read-only consumer
@@ -20,29 +20,30 @@ an internal UAT-only `anycorn==0.20.0+cybrik.1` wheel reproducibly built from th
 behavioral fix and the local-version metadata change.
 The raw official `0.20.0` wheel remains unselected, uninstalled, unpinned and `HOLD`.
 
-This record prepares a candidate-specific compensating-control design and prospective RED→GREEN
-task packet. It does **not** accept the design, amend admission sequencing, admit a candidate for
-evaluation or authorize implementation. W2-K is an already-decided server-neutral profile and
-explicitly keeps the official upstream Anycorn `0.20.0` distributions unselected, uninstalled,
-unpinned and on `HOLD`. B1 therefore requires a separately reviewed W2-K R5 metadata/control
-amendment before its isolated UAT installation; this proposal does not itself amend W2-K:
+This record originated as the candidate-specific compensating-control design and RED→GREEN task
+packet. A0, K5 and S1 subsequently accepted the sequencing, metadata-control amendment and bounded
+evaluation admission; the exact D1 action then produced the isolated dependency artifact and its
+evidence. It still authorizes no D2 runtime, product/server selection, POC, RC, stable-v1, GA or
+production action. W2-K remains server-neutral and keeps the official upstream Anycorn `0.20.0`
+distributions unselected, uninstalled, unpinned and on `HOLD`. The distinct B1 artifact remains
+confined to `suite_uat_tool_lock_only` and product `selected=false`:
 
 - `docs/releases/GATE-W2-K-TRANSPORT-PEER-EVIDENCE-ACCEPTANCE-2026-08-01.md`;
 - `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`;
 - `docs/architecture/transport-peer-evidence/01-server-candidate-matrix.md`.
 
-This record does **not**:
+The completed D1 action remains bounded and does **not**:
 
-- add, download, install, pin, build or execute Anycorn;
+- add the raw official Anycorn distribution to the solver, lock or installed environment, or select
+  B1 as a product server;
 - authorize any socket, PostgreSQL process, migration, certificate generation or runtime attempt;
 - change a product repository, product dependency or product lockfile;
 - select Anycorn for production, POC, RC, stable v1 or GA;
 - accept the open High finding on the raw upstream SSL-context builder.
 
-This proposal is intentionally not registered in `docs/adr/README.md`: that controlled catalogue
-is byte-sealed by the W2-I suite. Registration is deferred until a separately reviewed acceptance
-decision because adding a row requires an explicit seal amendment; this proposal does not widen
-that seal.
+This record is registered in `docs/adr/README.md` after the separately reviewed acceptance and D1
+artifact sequence. That catalogue entry records only the current D1 live facts; it widens no wire,
+runtime, release or production authority.
 
 It also confers no UAT pass under `docs/uat/UAT-GATE-STANDARD.md` and no
 `DEMO_READY_LOCAL` status.
@@ -498,7 +499,7 @@ prove both phases are structurally fail-closed:
 
 ### Gate UAT-MTLS-K5 — W2-K live-fact metadata/control amendment
 
-Current state: `ACCEPTED — R5 LIVE-FACT METADATA/CONTROL AMENDMENT — NOT IMPLEMENTED`.
+Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`.
 
 K5 authorizes only the eight W2-K paths in §6.2 to distinguish the official upstream candidate
 from the scoped internal B1 evaluation artifact. It preserves every wire schema, fixture,
@@ -508,7 +509,7 @@ and product/server non-selection. K5 is accepted before S1. B1 lands at `install
 
 ### Gate UAT-MTLS-S1 — patched-candidate evaluation admission
 
-Current state: `ACCEPTED — B1 BOUNDED ISOLATED UAT EVALUATION — NOT IMPLEMENTED`.
+Current state: `ACCEPTED — B1 BOUNDED EVALUATION ARTIFACT IMPLEMENTED — RUNTIME NOT RUN`.
 
 S1 is bounded to exactly five decision/registration/control paths:
 
@@ -524,19 +525,32 @@ stable-v1, GA or production server. Raw official Anycorn `0.20.0` remains the un
 uninstalled, unpinned and HOLD W2-K matrix row. Hypercorn and Granian remain unassessed.
 
 S1 records only evaluation admission: B1 remains `installed=false`, `pinned=false`, product
-`selected=false` and `HOLD`. D1 remains **HOLD** and D2 remains **HOLD**. The packet preserves
+`selected=false` and `HOLD`. At S1 acceptance, D1 remained **HOLD** and D2 remained **HOLD**. The
+D1 live-fact record below supersedes the pre-D1 dependency-installation HOLD and B1 install/pin
+facts only. Current B1 live facts: `installed=true`, `pinned=true`, product `selected=false`,
+`installed_scope=suite_uat_tool_lock_only`, and `HOLD`. The packet preserves
 `selected_server=null`; UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 ### Gate UAT-MTLS-D1 — dependency installation
 
-Current state: `HOLD — FOUNDER AUTHORIZATION REQUIRED` by repository policy.
+Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`.
 
-The requested authority, if granted, must be bounded to resolving/installing the dedicated
+On 2026-08-01, Founder-delegated Codex Governor operating authority explicitly covered routine
+dependency installation, local build/UAT preparation, repository commits, push, merge and internal
+release while retaining production and public GA control with the Founder. Under that authority,
+Codex admitted and completed only the closed D1 dependency/build/evidence scope below. This record
+does not widen the reviewed paths or endpoints, does not authorize D2, and does not claim UAT,
+demo, POC, RC, stable-v1, GA or production readiness. The exact authority chain and consumed action
+are recorded in
+`docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md` Appendix B.
+D2 remains **HOLD**.
+
+The granted and exercised authority was bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
 running dependency-only tests.
 
 R2 opened the endpoint categories; S1 R3 corrects the OSV path and makes the
-wheelhouse purpose explicit. The final prospective authority is this closed D1 HTTPS set:
+wheelhouse purpose explicit. The exercised authority used only this closed D1 HTTPS set:
 
 - `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;
 - the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its
@@ -601,14 +615,16 @@ wheelhouse paths, total wheel count, and independently recomputed per-wheel SHA-
 the exported hashes. It must assert that every wheelhouse member is a wheel, `anycorn` is absent
 from both the lock-derived requirements and wheelhouse, no extra index or host and no repository
 write occurred, and the offline proof uses `--no-index`, `--find-links` and `--require-hashes` with
-a fresh cache distinct from the download cache. All cache/build workspaces are removed after evidence capture.
+a fresh cache distinct from the download cache. Review workspaces are retained only through
+independent review, explicit artifact-dependent verification, D1 merge and final hosted-CI evidence
+capture. The `Suite Integration/Release` owner must delete the outside-repository D1 artifact root within 24 hours after D1 merge and record the verified-absent result in the D1 integration evidence.
 The B1 wheel remains a separate exact-hash input installed offline with
 `--no-deps`; the raw Anycorn wheel is never downloaded or installed.
 
 D1 also permits the exact build-backend child processes needed for the two reproducibility builds.
 This enumerated widening grants no listener, server, database, migration or product-runtime
-authority and no product dependency change. D1 cannot open before A0 and K5 are accepted and S1
-admits option B1.
+authority and no product dependency change. D1 opened only after A0 and K5 were accepted and S1
+admitted option B1.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
@@ -681,16 +697,16 @@ remains.
 ## 13. Governor disposition
 
 - `PROPOSAL-B1=RECOMMEND`
-- `IMPLEMENTATION=NOT-IMPLEMENTED`
+- `RUNTIME-IMPLEMENTATION=NOT-IMPLEMENTED`
 - `ADMISSION-SEQUENCING-A0=ACCEPTED-SEQUENCE-CURRENT-ATTEMPT-UNAUTHORIZED`
 - `UAT-CANDIDATE-EVALUATION=ACCEPTED-S1-BOUNDED-ISOLATED-NOT-IMPLEMENTED`
 - `SERVER-SELECTION=DEFERRED`
 - `RAW-ANYCORN-0.20.0=HOLD`
 - `PRODUCT-DEPENDENCY-CHANGES=DENY`
-- `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
-- `S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
-- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
-- `DEPENDENCY-INSTALLATION=HOLD-PENDING-FOUNDER`
+- `W2K-R5-METADATA-CONTROL-AMENDMENT=IMPLEMENTED-BY-D1-ARTIFACT-ONLY`
+- `S1-R2-D1-CLARIFICATION=HISTORICAL-PRE-D1-ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
+- `S1-R3-D1-ENDPOINT-CORRECTION=HISTORICAL-PRE-D1-ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
+- `DEPENDENCY-INSTALLATION=D1-COMPLETE-ISOLATED-UAT-ARTIFACT-ONLY`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`
 - `UAT-PASS/DEMO_READY_LOCAL=NO-GO-BY-THIS-RECORD`

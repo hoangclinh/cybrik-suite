@@ -186,11 +186,11 @@ Raw Anycorn `0.20.0` remains `id=anycorn`,
 HOLD with its High finding. Hypercorn and Granian receive the same artifact scope and remain
 unassessed/uninstalled/unpinned. S1 admits only the distinct B1 row
 `id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, for bounded isolated UAT evaluation. B1 is
-`selected=false`, `installed=false`, `pinned=false`, and HOLD; its only install scope is
+`selected=false`, `installed=true`, `pinned=true`, and HOLD after the exact D1 artifact; its only install scope is
 `suite_uat_tool_lock_only`. ID plus artifact scope is authoritative, so PEP 440 public-version
 equivalence cannot collapse B1 into the raw release.
 
-The packet retains `server_neutral=true` and `selected_server=null`. D1 remains **HOLD** and alone
-may flip B1 `installed` and `pinned` atomically after the exact artifact exists.
-D2 remains **HOLD**. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 grant no dependency, runtime,
-release, deployment, or production authority.
+`D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN` is the current live-fact amendment. The packet
+retains `server_neutral=true` and `selected_server=null`. D2 remains **HOLD**.
+UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. The completed D1 facts grant no runtime, release,
+deployment, or production authority.

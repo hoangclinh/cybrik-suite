@@ -1,12 +1,15 @@
 # Runtime Admission SOC→AI Lifecycle mTLS R1 — Architecture and Acceptance
 
-Status: `DRAFT — NOT EXECUTED`
+Status: `D1 ARTIFACT COMPLETE — RUNTIME NOT EXECUTED`
 
-Recorded at `2026-07-31T17:29:11Z`.
+Recorded at `2026-08-01T13:16:35Z`.
+
+Live state: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
 
 This document describes what a *true* SOC→AI lifecycle mTLS runtime-admission candidate would have
-to be. It is a design and an acceptance specification. **Nothing in it has been built, installed,
-started or run**, and it authorizes nothing. Any UAT claim is additionally bound by
+to be. D1 has built and offline-installed only the isolated internal B1 dependency artifact; the
+separate-process harness, listener, PostgreSQL path and N1–N10 runtime tests remain authored/not run.
+This document authorizes nothing. Any UAT claim is additionally bound by
 `cybrik-suite:docs/uat/UAT-GATE-STANDARD.md`; this document grants no UAT pass, demo, POC, RC or
 release claim.
 
@@ -26,6 +29,16 @@ release claim.
 ## 2. Current state of the pinned tuple — what actually exists
 
 ### 2.1 Suite
+
+`D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN` records the bounded dependency preflight:
+
+- B1 wheel SHA-256: `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`.
+- Patch SHA-256: `1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e`.
+- Dedicated `uv.lock` SHA-256: `e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`.
+- No-socket SSL-context probe SHA-256: `91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45`.
+- SBOM SHA-256: `7702ea5d3a63d9cbd4fbf00e1aeeee51efe0df3fe3a8d979669bd441e82752dd`.
+- VEX SHA-256: `51bc8e75eec3584607bd67640a77ea4d27b4442efc896d92dbb5cd3ed5442512`.
+- Runtime remains `not_run`, unauthorized, at zero checks and `HOLD`.
 
 A golden SOSIM harness exists for the SOC→AI lifecycle create path:
 
@@ -146,11 +159,15 @@ Therefore raw `0.20.0` is **NO-GO for production** and **HOLD for this UAT candi
 HIGH-severity finding on the prospective exercised transport dependency, and it is a standing reason
 execution remains unauthorized.
 
-**Nothing is added, installed or pinned by this packet.** Acceptable unblock is either:
+The isolated B1 dependency artifact now satisfies option 2 below at D1, without selecting a
+product server. Acceptable artifact-level unblock is either:
 
 1. a release containing `9eabf20`, followed by artifact and transitive lock review plus an empirical
    TLS-extension probe; or
 2. a separately audited internal patch proposal, approved before installation.
+
+The raw Anycorn release remains affected and uninstalled. B1 VEX remains `in_triage`; only D2 may
+execute the real listener/TLS-extension/PostgreSQL path and determine empirical mitigation.
 
 Official sources:
 
@@ -177,8 +194,8 @@ runtime results before authorizing the only run that can produce them would be c
   passed attempt remains `HOLD` under the current validator and proceeds to the separate UAT gate.
 
 This document accepts the sequence only. The current committed candidate remains unauthorized,
-`not_run`, at zero counts and `HOLD`; no dependency, process, listener, database, migration, secret
-or runtime action is authorized here.
+`not_run`, at zero counts and `HOLD`; D1 dependency evidence grants no process, listener, database,
+migration, secret or runtime authority here.
 
 ---
 

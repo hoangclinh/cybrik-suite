@@ -1,0 +1,21 @@
+{
+  "b1_command": "PIP_NO_INDEX=1 /Users/hoanglinh/.local/bin/python3.12 -m pip --python /private/tmp/cybrik-d1-b1-fixed.b3ynqq/offline-venv-r2 install --no-index --no-deps /private/tmp/cybrik-d1-b1-fixed.b3ynqq/build-a/dist/anycorn-0.20.0+cybrik.1-py3-none-any.whl",
+  "b1_install": {
+    "no_deps": true,
+    "sha256_verified": true,
+    "version": "0.20.0+cybrik.1"
+  },
+  "environment": "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/offline-venv-r2",
+  "fresh_environment": true,
+  "installed_b1_sha256": "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c",
+  "installer_pip_version": "26.1.1",
+  "installer_python": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12",
+  "network": "disabled",
+  "requirements_command": "PIP_NO_INDEX=1 /Users/hoanglinh/.local/bin/python3.12 -m pip --python /private/tmp/cybrik-d1-b1-fixed.b3ynqq/offline-venv-r2 install --no-index --find-links /private/tmp/cybrik-d1-b1-fixed.b3ynqq/wheelhouse --require-hashes --cache-dir /private/tmp/cybrik-d1-b1-fixed.b3ynqq/offline-cache-r2 -r /private/tmp/cybrik-d1-b1-fixed.b3ynqq/uv-exported-requirements.txt",
+  "requirements_install": {
+    "find_links": "/private/tmp/cybrik-d1-b1-fixed.b3ynqq/wheelhouse",
+    "no_index": true,
+    "require_hashes": true
+  },
+  "result": "pass"
+}
