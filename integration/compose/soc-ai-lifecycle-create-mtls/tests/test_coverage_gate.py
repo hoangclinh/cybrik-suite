@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -182,6 +183,8 @@ def _sync_report(report: dict[str, object]) -> None:
 
 def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
     suite_root = tmp_path / "suite"
+    evidence_root = tmp_path / "cybrik-uat-d2-coverage-evidence-test"
+    evidence_root.mkdir()
     package_root = suite_root / PACKAGE_REL
     package_root.mkdir(parents=True)
     files: dict[str, object] = {}
@@ -208,7 +211,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
         "totals": {},
     }
     _sync_report(report)
-    report_path = tmp_path / "coverage.json"
+    report_path = evidence_root / "coverage.json"
     report_path.write_text(json.dumps(report), encoding="utf-8")
     return suite_root, report_path, report
 
@@ -222,6 +225,8 @@ def _run(suite_root: Path, report_path: Path) -> subprocess.CompletedProcess[str
             str(suite_root),
             "--coverage-json",
             str(report_path),
+            "--result-json",
+            str(report_path.with_name("coverage-gate.json")),
         ),
         check=False,
         capture_output=True,
@@ -245,6 +250,9 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
 
     assert completed.returncode == 0, completed.stderr
     result = json.loads(completed.stdout)
+    result_path = report_path.with_name("coverage-gate.json")
+    assert json.loads(result_path.read_text(encoding="utf-8")) == result
+    assert stat.S_IMODE(result_path.stat().st_mode) == 0o600
     assert result["status"] == "PASS"
     assert result["line"] == {"covered": 72, "ratio": 1.0, "total": 72}
     assert result["branch"] == {"covered": 16, "ratio": 1.0, "total": 16}
@@ -284,6 +292,10 @@ def test_report_metadata_must_match_the_pinned_branch_capable_format(
     assert completed.returncode == 2
     assert completed.stderr.strip() == reason
     assert str(tmp_path) not in completed.stderr
+    failure = json.loads(
+        report_path.with_name("coverage-gate.json").read_text(encoding="utf-8")
+    )
+    assert failure == {"reason": reason, "status": "FAIL"}
 
 
 def test_every_package_source_file_must_be_present_exactly_once(tmp_path: Path) -> None:
@@ -441,3 +453,17 @@ def test_critical_symbol_range_must_match_the_current_source_ast(
 
     assert completed.returncode == 2
     assert completed.stderr.strip() == "critical_ast_range_mismatch"
+
+
+def test_result_artifact_must_be_fresh_in_the_coverage_evidence_root(
+    tmp_path: Path,
+) -> None:
+    suite_root, report_path, _ = _fixture(tmp_path)
+    result_path = report_path.with_name("coverage-gate.json")
+    result_path.write_text("preserve", encoding="utf-8")
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "result_json_must_be_fresh"
+    assert result_path.read_text(encoding="utf-8") == "preserve"
