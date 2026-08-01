@@ -30,9 +30,13 @@ UNSUPPORTED_TYPE: Final = "unsupported_type"
 NUMBER_NOT_FINITE: Final = "number_not_finite"
 VALUE_TOO_LONG: Final = "value_too_long"
 MAX_DEPTH_EXCEEDED: Final = "max_depth_exceeded"
+CONTAINER_TOO_LARGE: Final = "container_too_large"
+INTEGER_OUT_OF_RANGE: Final = "integer_out_of_range"
 
 MAX_DEPTH: Final = 8
 MAX_TEXT_LENGTH: Final = 1024
+MAX_CONTAINER_ITEMS: Final = 4096
+MAX_INTEGER_BITS: Final = 256
 
 _KEY_PATTERN: Final = r"[a-z][a-z0-9_-]{0,127}"
 _IDENTIFIER_PATTERN: Final = r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"
@@ -42,12 +46,16 @@ _JWT_PATTERN: Final = (
     r"[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])"
 )
 _BEARER_PATTERN: Final = r"\bbearer[ \t]+\S+"
-_AUTHORIZATION_PATTERN: Final = r"\bauthorization\s*:"
+_AUTHORIZATION_PATTERN: Final = r"\bauthorization\s*[:=]"
 _PEM_PRIVATE_PATTERN: Final = r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
 _PEM_PATTERN: Final = r"-----BEGIN [A-Z0-9 ]+-----"
-_CREDENTIALED_DSN_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@"
+_CREDENTIALED_DSN_PATTERN: Final = r"\b[a-z][a-z0-9+.-]*://[^\s@:]+:[^\s@]+@"
+_JSON_CREDENTIAL_PATTERN: Final = (
+    r"[\"'](?:authorization|password|passwd|pwd|client_secret|api_key|token|cnf)"
+    r"[\"']\s*:"
+)
 _INLINE_CREDENTIAL_PATTERN: Final = (
-    r"(?i)(?:^|[\s;,])(?:password|passwd|pwd|client_secret|api_key|token|cnf)\s*[:=]"
+    r"(?i)(?:^|[\s;,?&])(?:password|passwd|pwd|client_secret|api_key|token|cnf)\s*[:=]"
 )
 
 _SECRET_KEY_EXACT: Final = frozenset(
@@ -81,7 +89,6 @@ _SECRET_KEY_PARTS: Final = frozenset(
 )
 _SAFE_KEY_EXACT: Final = frozenset(
     {
-        "authorization_result",
         "cnf_thumbprint_sha256",
         "dsn_digest_sha256",
         "jwt_fingerprint",
@@ -130,6 +137,8 @@ def secret_reason(text: object) -> str | None:
         return PEM_BLOCK_NOT_PERMITTED
     if re.search(_CREDENTIALED_DSN_PATTERN, text, re.IGNORECASE) is not None:
         return DSN_CREDENTIALS
+    if re.search(_JSON_CREDENTIAL_PATTERN, text, re.IGNORECASE) is not None:
+        return INLINE_CREDENTIAL_ASSIGNMENT
     if re.search(_INLINE_CREDENTIAL_PATTERN, text) is not None:
         return INLINE_CREDENTIAL_ASSIGNMENT
     return None
@@ -163,6 +172,8 @@ def _validated(value: object, path: str, depth: int) -> object:
         raise EvidenceRejected(MAX_DEPTH_EXCEEDED, path)
 
     if isinstance(value, Mapping):
+        if len(value) > MAX_CONTAINER_ITEMS:
+            raise EvidenceRejected(CONTAINER_TOO_LARGE, path)
         items = tuple(value.items())
         folded: set[str] = set()
         for key, _ in items:
@@ -181,6 +192,8 @@ def _validated(value: object, path: str, depth: int) -> object:
         return result
 
     if isinstance(value, (list, tuple)):
+        if len(value) > MAX_CONTAINER_ITEMS:
+            raise EvidenceRejected(CONTAINER_TOO_LARGE, path)
         return [
             _validated(child, f"{path}[{index}]", depth + 1)
             for index, child in enumerate(value)
@@ -194,7 +207,11 @@ def _validated(value: object, path: str, depth: int) -> object:
         if reason is not None:
             raise EvidenceRejected(reason, path)
         return value
-    if isinstance(value, bool) or value is None or isinstance(value, int):
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, int):
+        if value.bit_length() > MAX_INTEGER_BITS:
+            raise EvidenceRejected(INTEGER_OUT_OF_RANGE, path)
         return value
     if isinstance(value, float):
         if value != value or value in (float("inf"), float("-inf")):

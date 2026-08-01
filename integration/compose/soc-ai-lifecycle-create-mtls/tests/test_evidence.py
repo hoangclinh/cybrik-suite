@@ -126,8 +126,22 @@ def test_secret_reason_returns_none_for_safe_text() -> None:
         ({"note": _PEM_PRIVATE}, evidence.PEM_PRIVATE_KEY),
         ({"note": _PEM_CERTIFICATE}, evidence.PEM_BLOCK_NOT_PERMITTED),
         ({"note": _DSN_WITH_CREDENTIALS}, evidence.DSN_CREDENTIALS),
+        (
+            {"note": "postgresql://uat:aB3/xY9+kk@127.0.0.1:55432/uat"},
+            evidence.DSN_CREDENTIALS,
+        ),
         ({"note": _INLINE_CREDENTIAL}, evidence.INLINE_CREDENTIAL_ASSIGNMENT),
+        ({"note": "?password=PLACEHOLDER"}, evidence.INLINE_CREDENTIAL_ASSIGNMENT),
+        (
+            {"note": '{"password":"PLACEHOLDER"}'},
+            evidence.INLINE_CREDENTIAL_ASSIGNMENT,
+        ),
+        (
+            {"note": '{"cnf":{"x5t#S256":"opaque"}}'},
+            evidence.INLINE_CREDENTIAL_ASSIGNMENT,
+        ),
         ({"note": "cnf: opaque-value"}, evidence.INLINE_CREDENTIAL_ASSIGNMENT),
+        ({"note": "authorization=opaque-value"}, evidence.AUTHORIZATION_HEADER),
         ({"cnf_thumbprint_sha256": "zz"}, evidence.DIGEST_SHAPE_INVALID),
         ({"cnf_thumbprint_sha256": _DIGEST.upper()}, evidence.DIGEST_SHAPE_INVALID),
         ({"cnf_thumbprint_sha256": 1}, evidence.DIGEST_SHAPE_INVALID),
@@ -145,6 +159,11 @@ def test_secret_reason_returns_none_for_safe_text() -> None:
         ({"ratio": float("nan")}, evidence.NUMBER_NOT_FINITE),
         ({"ratio": float("inf")}, evidence.NUMBER_NOT_FINITE),
         ({"note": "x" * 1025}, evidence.VALUE_TOO_LONG),
+        (
+            {"items": tuple(range(evidence.MAX_CONTAINER_ITEMS + 1))},
+            evidence.CONTAINER_TOO_LARGE,
+        ),
+        ({"magnitude": 1 << evidence.MAX_INTEGER_BITS}, evidence.INTEGER_OUT_OF_RANGE),
     ),
 )
 def test_validate_evidence_rejects_unsafe_shapes(
@@ -218,6 +237,12 @@ def test_rejection_never_echoes_the_offending_value(
     error = caught.value
     rendered = f"{error}|{error!r}|{error.args}|{error.path}|{error.reason}"
     assert secret not in rendered
+
+
+def test_authorization_result_is_not_an_unconstrained_safe_key() -> None:
+    with pytest.raises(evidence.EvidenceRejected) as caught:
+        evidence.validate_evidence({"authorization_result": "opaque"})
+    assert caught.value.reason == evidence.SECRET_BEARING_KEY
 
 
 def test_evidence_module_declares_no_output_channel() -> None:

@@ -47,7 +47,7 @@ def test_blueprint_claims_no_execution_authority() -> None:
     assert procedure.LIFECYCLE_BLUEPRINT.execution_authorized is False
     assert {
         command.authorizing_gate for command in procedure.LIFECYCLE_BLUEPRINT.commands
-    } <= {"D1", "D2"}
+    } == {"D2"}
 
 
 def test_blueprint_commands_are_argv_arrays_not_shell_strings() -> None:
@@ -135,6 +135,20 @@ def test_procedure_module_defines_no_execution_helper() -> None:
         ({"argv": ("python3", "-m", "harness > out")}, procedure.ARGV_SHELL_METACHARACTER),
         ({"argv": ("python3", "-m", "harness && stop")}, procedure.ARGV_SHELL_METACHARACTER),
         ({"argv": ("python3", "-m", "harness\nstop")}, procedure.ARGV_SHELL_METACHARACTER),
+        (
+            {"argv": ("python3", "-m", "cybrik_suite_uat_mtls.harness", "start", "postgresql://uat:secret@host/db")},
+            procedure.ARGV_SECRET_BEARING,
+        ),
+        ({"argv": ("rm", "-r", "/tmp/example")}, procedure.ARGV_NOT_ALLOWLISTED),
+        (
+            {"argv": ("python3", "-m", "other.module", "start")},
+            procedure.ARGV_NOT_ALLOWLISTED,
+        ),
+        (
+            {"argv": ("python3", "-m", "cybrik_suite_uat_mtls.harness", "stop")},
+            procedure.ARGV_NOT_ALLOWLISTED,
+        ),
+        ({"authorizing_gate": "D1"}, procedure.UNKNOWN_GATE),
         ({"authorizing_gate": "D3"}, procedure.UNKNOWN_GATE),
         ({"authorizing_gate": None}, procedure.UNKNOWN_GATE),
         ({"description": ""}, procedure.DESCRIPTION_MISSING),
@@ -153,6 +167,17 @@ def test_validate_command_requires_a_declared_command() -> None:
     with pytest.raises(procedure.ProcedureViolation) as caught:
         procedure.validate_command("python3 -m harness start")
     assert caught.value.reason == procedure.COMMAND_NOT_DECLARED
+
+
+def test_validate_procedure_rejects_d1_for_every_runtime_step() -> None:
+    commands = tuple(
+        dataclasses.replace(command, authorizing_gate="D1")
+        for command in procedure.LIFECYCLE_BLUEPRINT.commands
+    )
+    candidate = dataclasses.replace(procedure.LIFECYCLE_BLUEPRINT, commands=commands)
+    with pytest.raises(procedure.ProcedureViolation) as caught:
+        procedure.validate_procedure(candidate)
+    assert caught.value.reason == procedure.UNKNOWN_GATE
 
 
 # --------------------------------------------------------------------------
