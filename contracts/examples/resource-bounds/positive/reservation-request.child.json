@@ -6,6 +6,10 @@
     "org_id": "org-blue",
     "org_path": "/org-blue/soc"
   },
+  "root": {
+    "kind": "grant",
+    "id": "rbg_root000000000001"
+  },
   "parent": {
     "kind": "grant",
     "id": "rbg_root000000000001",

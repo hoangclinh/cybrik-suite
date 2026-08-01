@@ -1,5 +1,5 @@
 {
-  "case_id": "replay.parent-overdraw",
+  "case_id": "replay.root-binding-mismatch",
   "credential_context": { "tenant_id": "tenant-blue", "org_scope_ref": { "org_id": "org-blue" } },
   "events": [
     {
@@ -7,7 +7,7 @@
       "virtual_time_ms": 1000,
       "kind": "grant",
       "payload": {
-        "grant_id": "rbg_overdraw00000001",
+        "grant_id": "rbg_bindmiss00000001",
         "tenant_id": "tenant-blue",
         "org_scope_ref": { "org_id": "org-blue" },
         "bounds": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
@@ -23,31 +23,31 @@
       "kind": "reserve",
       "payload": {
         "request": {
-          "request_id": "rsq_overdraw00000001",
-          "idempotency_key": "idem.overdraw.000000001",
+          "request_id": "rsq_bindmiss00000001",
+          "idempotency_key": "idem.bindmiss.00000001",
           "tenant_id": "tenant-blue",
           "org_scope_ref": { "org_id": "org-blue" },
-          "root": { "kind": "grant", "id": "rbg_overdraw00000001" },
-          "parent": { "kind": "grant", "id": "rbg_overdraw00000001", "expected_version": 1 },
-          "requested": { "cpu_millis": 11, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
+          "root": { "kind": "grant", "id": "rbg_foreign000000001" },
+          "parent": { "kind": "grant", "id": "rbg_bindmiss00000001", "expected_version": 1 },
+          "requested": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
           "sequence": 2,
           "virtual_time_ms": 1010,
           "confers_authority": false
         },
         "result": {
-          "request_id": "rsq_overdraw00000001",
+          "request_id": "rsq_bindmiss00000001",
           "status": "admitted",
-          "root": { "kind": "grant", "id": "rbg_overdraw00000001" },
+          "root": { "kind": "grant", "id": "rbg_foreign000000001" },
           "reservation": {
-            "reservation_id": "rsr_overdraw00000001",
-            "reserved": { "cpu_millis": 11, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
-            "remaining": { "cpu_millis": 11, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
+            "reservation_id": "rsr_bindmiss00000001",
+            "reserved": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
+            "remaining": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
             "state_version": 1,
             "status": "open"
           },
           "parent_version_before": 1,
           "parent_version_after": 2,
-          "parent_remaining_after": { "cpu_millis": 0, "memory_byte_millis": 0, "model_tokens": 0, "tool_calls": 0, "retrieved_bytes": 0, "egress_bytes": 0 },
+          "parent_remaining_after": { "cpu_millis": 6, "memory_byte_millis": 6, "model_tokens": 6, "tool_calls": 6, "retrieved_bytes": 6, "egress_bytes": 6 },
           "sequence": 2,
           "virtual_time_ms": 1010,
           "confers_authority": false
@@ -55,5 +55,5 @@
       }
     }
   ],
-  "expected": { "accepted": false, "error_codes": ["RES_INSUFFICIENT_REMAINDER"] }
+  "expected": { "accepted": false, "error_codes": ["RES_PARENT_NOT_FOUND"] }
 }

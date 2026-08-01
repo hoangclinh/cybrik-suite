@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-root-closure.v1.schema.json",
+  "title": "CYBRIK resource-bounds root closure v1",
+  "description": "One terminal root record covering normal completion and cancellation through the shared closureReason vocabulary. At closure, final_consumed plus final_unused equals the closing grant's original bounds vector dimension by dimension, the root's remaining credit becomes zero, and every still-open descendant is closed with zero remaining. A root closure returns credit to nobody — the root has no parent — and mints nothing: the unused remainder is extinguished, not banked, forwarded, or re-minted. closes_descendants is fixed true so partial or selective closure is structurally unrepresentable. This record is accounting state and never a credential, capability, permission, delegation, or approval. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-is-bundle-tag": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "closure_id",
+    "root",
+    "tenant_id",
+    "org_scope_ref",
+    "reason",
+    "final_consumed",
+    "final_unused",
+    "closes_descendants",
+    "state_version_before",
+    "state_version_after",
+    "sequence",
+    "virtual_time_ms",
+    "confers_authority"
+  ],
+  "properties": {
+    "closure_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/closureId" },
+    "root": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/rootRef" },
+    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "org_scope_ref": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "reason": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/closureReason" },
+    "final_consumed": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+    "final_unused": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
+    "closes_descendants": {
+      "const": true,
+      "description": "Closure is total. Partial or selective closure of a subtree is not expressible."
+    },
+    "state_version_before": { "type": "integer", "minimum": 1 },
+    "state_version_after": { "type": "integer", "minimum": 2 },
+    "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
+    "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
+    "confers_authority": { "const": false }
+  }
+}

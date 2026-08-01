@@ -1,0 +1,6 @@
+{
+  "code": "RES_VERSION_CONFLICT",
+  "message": "A byte-identical re-issue asserts the same stale version and can never succeed.",
+  "retriable": true,
+  "fail_closed": true
+}

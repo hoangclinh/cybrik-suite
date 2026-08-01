@@ -2,6 +2,7 @@
   "release_id": "rsl_child00000000001",
   "tenant_id": "tenant-blue",
   "org_scope_ref": { "org_id": "org-blue" },
+  "root": { "kind": "grant", "id": "rbg_root000000000001" },
   "target": {
     "kind": "reservation",
     "id": "rsr_child00000000001",

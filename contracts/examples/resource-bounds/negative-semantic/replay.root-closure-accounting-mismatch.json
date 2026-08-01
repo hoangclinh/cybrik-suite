@@ -1,0 +1,42 @@
+{
+  "case_id": "replay.root-closure-accounting-mismatch",
+  "credential_context": { "tenant_id": "tenant-blue", "org_scope_ref": { "org_id": "org-blue" } },
+  "events": [
+    {
+      "sequence": 1,
+      "virtual_time_ms": 1000,
+      "kind": "grant",
+      "payload": {
+        "grant_id": "rbg_closemiss0000001",
+        "tenant_id": "tenant-blue",
+        "org_scope_ref": { "org_id": "org-blue" },
+        "bounds": { "cpu_millis": 10, "memory_byte_millis": 10, "model_tokens": 10, "tool_calls": 10, "retrieved_bytes": 10, "egress_bytes": 10 },
+        "state_version": 1,
+        "sequence": 1,
+        "virtual_time_ms": 1000,
+        "confers_authority": false
+      }
+    },
+    {
+      "sequence": 2,
+      "virtual_time_ms": 1010,
+      "kind": "root-closure",
+      "payload": {
+        "closure_id": "rcl_closemiss0000001",
+        "root": { "kind": "grant", "id": "rbg_closemiss0000001" },
+        "tenant_id": "tenant-blue",
+        "org_scope_ref": { "org_id": "org-blue" },
+        "reason": "completed",
+        "final_consumed": { "cpu_millis": 4, "memory_byte_millis": 4, "model_tokens": 4, "tool_calls": 4, "retrieved_bytes": 4, "egress_bytes": 4 },
+        "final_unused": { "cpu_millis": 5, "memory_byte_millis": 5, "model_tokens": 5, "tool_calls": 5, "retrieved_bytes": 5, "egress_bytes": 5 },
+        "closes_descendants": true,
+        "state_version_before": 1,
+        "state_version_after": 2,
+        "sequence": 2,
+        "virtual_time_ms": 1010,
+        "confers_authority": false
+      }
+    }
+  ],
+  "expected": { "accepted": false, "error_codes": ["RES_RELEASE_ACCOUNTING_MISMATCH"] }
+}

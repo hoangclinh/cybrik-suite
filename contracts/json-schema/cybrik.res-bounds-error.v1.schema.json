@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-bounds-error.v1.schema.json",
   "title": "CYBRIK resource-bounds error v1",
-  "description": "Sanitized resource-accounting error. RES_* is deliberately disjoint from budget_exceeded and the BUDGET_* family. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
+  "description": "Sanitized resource-accounting error. RES_* is deliberately disjoint from budget_exceeded and the BUDGET_* family. Binding: this is the standalone failure document for every res-* operation that has no dedicated result schema. A refused cybrik.res-release.v1, a refused cybrik.res-root-closure.v1, and a refused cybrik.res-reservation-request.v1 are all reported by binding this schema directly; there is no res-release-result, no res-cancel-result, and no per-operation error schema. cybrik.res-reservation-result.v1 embeds this schema by $ref only because admission is all-or-nothing, so the admit/deny outcome and its accounting deltas are one atomic record and the failure travels inside it; that embedding is the exception, not the definition, and is not this schema's only carrier. Conversely this schema is never a ledger record: it carries no root, no sequence, no virtual_time_ms, and no confers_authority, and it is never admissible as a replay event payload in its own right — a failure is reported about the ledger, never entered into it. retriable is derived from code and is advisory only: it grants no capacity, reservation, admission, queue position, priority, authority, capability, permission, delegation, or approval, and relaxes nothing about fail-closed handling. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
   "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
   "x-cybrik-not-accepted": true,
   "x-cybrik-contract-version": "0.1.0",
@@ -36,7 +36,27 @@
       "minLength": 1,
       "maxLength": 240
     },
-    "retriable": { "const": false },
+    "retriable": {
+      "type": "boolean",
+      "description": "Advisory, code-derived hint. It is true exactly when a byte-identical re-issue of the same request could later succeed because peer state changed, and false wherever the caller must change the bytes or the condition is a permanent truth violation. It confers nothing."
+    },
     "fail_closed": { "const": true }
+  },
+  "if": {
+    "type": "object",
+    "required": ["code"],
+    "properties": {
+      "code": {
+        "enum": ["RES_INSUFFICIENT_REMAINDER", "RES_ACTIVE_CHILDREN"]
+      }
+    }
+  },
+  "then": {
+    "type": "object",
+    "properties": { "retriable": { "const": true } }
+  },
+  "else": {
+    "type": "object",
+    "properties": { "retriable": { "const": false } }
   }
 }

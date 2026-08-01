@@ -69,6 +69,7 @@ const SCHEMA_PATHS = [
   'contracts/json-schema/cybrik.res-reservation-request.v1.schema.json',
   'contracts/json-schema/cybrik.res-reservation-result.v1.schema.json',
   'contracts/json-schema/cybrik.res-release.v1.schema.json',
+  'contracts/json-schema/cybrik.res-root-closure.v1.schema.json',
   'contracts/json-schema/cybrik.res-bounds-error.v1.schema.json',
 ];
 
@@ -78,7 +79,10 @@ const POSITIVE_PATHS = [
   'contracts/examples/resource-bounds/positive/reservation-result.admitted.json',
   'contracts/examples/resource-bounds/positive/reservation-result.denied.json',
   'contracts/examples/resource-bounds/positive/release.completed.json',
+  'contracts/examples/resource-bounds/positive/root-closure.completed.json',
+  'contracts/examples/resource-bounds/positive/bounds-error.standalone.json',
   'contracts/examples/resource-bounds/positive/replay.conserved-tree.json',
+  'contracts/examples/resource-bounds/positive/replay.denied-admission.json',
 ];
 
 const NEGATIVE_SCHEMA_PATHS = [
@@ -89,6 +93,9 @@ const NEGATIVE_SCHEMA_PATHS = [
   'contracts/examples/resource-bounds/negative-schema/reservation-result.admitted-with-error.json',
   'contracts/examples/resource-bounds/negative-schema/reservation-result.denied-with-reservation.json',
   'contracts/examples/resource-bounds/negative-schema/release.missing-accounting.json',
+  'contracts/examples/resource-bounds/negative-schema/release.missing-root.json',
+  'contracts/examples/resource-bounds/negative-schema/root-closure.partial-closure.json',
+  'contracts/examples/resource-bounds/negative-schema/bounds-error.retriable-mismatch.json',
 ];
 
 const NEGATIVE_SEMANTIC_PATHS = [
@@ -101,6 +108,9 @@ const NEGATIVE_SEMANTIC_PATHS = [
   'contracts/examples/resource-bounds/negative-semantic/replay.over-return.json',
   'contracts/examples/resource-bounds/negative-semantic/replay.parent-closed.json',
   'contracts/examples/resource-bounds/negative-semantic/replay.root-cancel-remint.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.root-binding-mismatch.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.root-closure-accounting-mismatch.json',
+  'contracts/examples/resource-bounds/negative-semantic/replay.sequence-gap.json',
 ];
 
 export const EXAMPLES_MANIFEST_PATH =
@@ -200,6 +210,15 @@ export function replayResourceCase(fixture) {
   let previousVirtualTime = -1;
 
   const fail = (code) => replayFailure({ code, trace, root });
+  // B2: a record's root binding is an identity statement about which tree it
+  // belongs to. A record naming a foreign tree is refused exactly like a
+  // record naming a parent that does not exist.
+  const isBoundToRoot = (rootReference) =>
+    Boolean(root)
+    && Boolean(rootReference)
+    && typeof rootReference === 'object'
+    && rootReference.kind === 'grant'
+    && rootReference.id === root.grantId;
   const getParent = (parentRef) => {
     if (!root || !parentRef) return undefined;
     if (parentRef.kind === 'grant' && parentRef.id === root.grantId) return root;
@@ -236,6 +255,9 @@ export function replayResourceCase(fixture) {
         grantId: grant.grant_id,
         tenantId: grant.tenant_id,
         orgScopeRef: grant.org_scope_ref,
+        // The original bounds are retained because terminal root closure
+        // reconciles final_consumed + final_unused against them.
+        bounds: stableClone(grant.bounds),
         remaining: stableClone(grant.bounds),
         version: grant.state_version,
         closed: false,
@@ -269,6 +291,9 @@ export function replayResourceCase(fixture) {
       if (!isDeepStrictEqual(request.org_scope_ref, context.org_scope_ref)) {
         return fail('RES_ORG_SCOPE_MISMATCH');
       }
+      if (!isBoundToRoot(request.root) || !isBoundToRoot(result.root)) {
+        return fail('RES_PARENT_NOT_FOUND');
+      }
 
       const requestDigest = canonicalRequestDigest(request);
       const resultDigest = canonicalRequestDigest(result);
@@ -296,6 +321,37 @@ export function replayResourceCase(fixture) {
       if (request.parent.expected_version !== parent.version) {
         return fail('RES_VERSION_CONFLICT');
       }
+
+      // B4: a denied admission is a real, representable outcome. It carries
+      // exactly one RES_* error and no reservation, moves neither the parent's
+      // version nor its remainder, is recorded in the trace, and the tree
+      // continues from the state the denial left alone.
+      if (result.status === 'denied') {
+        const denialError = result.error;
+        if (
+          result.reservation !== undefined
+          || !denialError
+          || typeof denialError !== 'object'
+          || !REPLAY_ERROR_CODES.includes(denialError.code)
+          || result.request_id !== request.request_id
+          || result.parent_version_before !== parent.version
+          || result.parent_version_after !== parent.version
+          || !vectorsEqual(result.parent_remaining_after, parent.remaining)
+        ) {
+          return fail('RES_RESULT_MISMATCH');
+        }
+        trace.push({
+          kind: 'reserve',
+          sequence: event.sequence,
+          virtualTimeMs: event.virtual_time_ms,
+          admitted: false,
+          requestId: request.request_id,
+          deniedCode: denialError.code,
+          parentRemaining: stableClone(parent.remaining),
+        });
+        continue;
+      }
+
       if (!vectorLessThanOrEqual(request.requested, parent.remaining)) {
         return fail('RES_INSUFFICIENT_REMAINDER');
       }
@@ -361,6 +417,7 @@ export function replayResourceCase(fixture) {
       if (!isDeepStrictEqual(release.org_scope_ref, context.org_scope_ref)) {
         return fail('RES_ORG_SCOPE_MISMATCH');
       }
+      if (!isBoundToRoot(release.root)) return fail('RES_PARENT_NOT_FOUND');
       const reservation = reservations.get(release.target?.id);
       if (!reservation) return fail('RES_PARENT_NOT_FOUND');
       if (reservation.closed) return fail('RES_ALREADY_RELEASED');
@@ -408,29 +465,63 @@ export function replayResourceCase(fixture) {
       continue;
     }
 
-    if (event.kind === 'cancel-root') {
-      const cancel = event.payload ?? {};
-      if (cancel.tenant_id !== context.tenant_id) {
+    // B1: one terminal root record covers completion and cancellation. Its
+    // accounting is reconciled exactly against the closing grant's original
+    // bounds; the unused remainder is extinguished, returned to nobody.
+    if (event.kind === 'root-closure') {
+      const closure = event.payload;
+      if (!closure || typeof closure !== 'object') {
+        return fail('RES_RESULT_MISMATCH');
+      }
+      if (closure.tenant_id !== context.tenant_id) {
         return fail('RES_TENANT_MISMATCH');
       }
-      if (!isDeepStrictEqual(cancel.org_scope_ref, context.org_scope_ref)) {
+      if (!isDeepStrictEqual(closure.org_scope_ref, context.org_scope_ref)) {
         return fail('RES_ORG_SCOPE_MISMATCH');
       }
-      if (cancel.grant_id !== root.grantId) return fail('RES_PARENT_NOT_FOUND');
-      root.closed = true;
-      root.remaining = zeroVector();
-      root.version += 1;
+      if (!isBoundToRoot(closure.root)) return fail('RES_PARENT_NOT_FOUND');
+      if (closure.closes_descendants !== true) {
+        return fail('RES_RESULT_MISMATCH');
+      }
+      if (
+        closure.state_version_before !== root.version
+        || closure.state_version_after !== root.version + 1
+      ) {
+        return fail('RES_VERSION_CONFLICT');
+      }
+      if (
+        !vectorsEqual(
+          vectorAdd(closure.final_consumed, closure.final_unused),
+          root.bounds,
+        )
+      ) {
+        return fail('RES_RELEASE_ACCOUNTING_MISMATCH');
+      }
+
+      const closedDescendants = [];
       for (const reservation of reservations.values()) {
+        if (reservation.closed) continue;
         reservation.closed = true;
         reservation.remaining = zeroVector();
         reservation.version += 1;
+        closedDescendants.push({
+          reservationId: reservation.reservationId,
+          remainingAfter: zeroVector(),
+        });
       }
+      root.closed = true;
+      root.remaining = zeroVector();
+      root.version += 1;
       trace.push({
-        kind: 'cancel-root',
+        kind: 'root-closure',
         sequence: event.sequence,
         virtualTimeMs: event.virtual_time_ms,
         admitted: true,
         rootClosed: true,
+        reason: closure.reason,
+        finalConsumed: stableClone(closure.final_consumed),
+        finalUnused: stableClone(closure.final_unused),
+        closedDescendants,
       });
       continue;
     }
@@ -506,6 +597,7 @@ const validateNestedReplayPayloads = ({
       ['payload.result', 'cybrik.res-reservation-result.v1.schema.json'],
     ],
     release: [['payload', 'cybrik.res-release.v1.schema.json']],
+    'root-closure': [['payload', 'cybrik.res-root-closure.v1.schema.json']],
   };
   for (const event of fixture.events ?? []) {
     for (const [selector, schemaName] of mapping[event.kind] ?? []) {

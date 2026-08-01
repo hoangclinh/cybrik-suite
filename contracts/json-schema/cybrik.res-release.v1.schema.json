@@ -13,6 +13,7 @@
     "release_id",
     "tenant_id",
     "org_scope_ref",
+    "root",
     "target",
     "consumed",
     "returned",
@@ -25,6 +26,7 @@
     "release_id": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/releaseId" },
     "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
     "org_scope_ref": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/orgScopeRef" },
+    "root": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/rootRef" },
     "target": {
       "type": "object",
       "description": "Accounting target only; never a capability.",
@@ -40,7 +42,7 @@
     "returned": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/resourceVector" },
     "sequence": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/ledgerSequence" },
     "virtual_time_ms": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/virtualTimeMs" },
-    "reason": { "type": "string", "enum": ["completed", "cancelled", "failed", "expired"] },
+    "reason": { "$ref": "cybrik.res-common-defs.v1.schema.json#/$defs/closureReason" },
     "confers_authority": { "const": false }
   }
 }

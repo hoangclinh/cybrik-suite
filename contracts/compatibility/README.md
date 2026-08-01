@@ -70,7 +70,7 @@ authority.
 
 `cybrik-suite-resource-bounds-packet.v1.manifest.json` is the Gate W2-H
 **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** resource-accounting packet (v0.1.0, not a bundle
-tag). It inventories six `cybrik.res-*` schemas plus the deterministic fixture/replay corpus and
+tag). It inventories seven `cybrik.res-*` schemas plus the deterministic fixture/replay corpus and
 pins every member. The packet proves only Suite-side schema, conservation-property, and replay
 coherence. It introduces no authority axis, server, endpoint, OpenAPI, AsyncAPI, MCP, runtime,
 UAT, T10/T11, release, deployment, or production claim. ADR-0012 remains proposed.

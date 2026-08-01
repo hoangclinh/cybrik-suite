@@ -1,0 +1,15 @@
+{
+  "closure_id": "rcl_partial000000001",
+  "root": { "kind": "grant", "id": "rbg_root000000000001" },
+  "tenant_id": "tenant-blue",
+  "org_scope_ref": { "org_id": "org-blue" },
+  "reason": "cancelled",
+  "final_consumed": { "cpu_millis": 20, "memory_byte_millis": 20000, "model_tokens": 200, "tool_calls": 2, "retrieved_bytes": 2000, "egress_bytes": 200 },
+  "final_unused": { "cpu_millis": 80, "memory_byte_millis": 80000, "model_tokens": 800, "tool_calls": 8, "retrieved_bytes": 8000, "egress_bytes": 800 },
+  "closes_descendants": false,
+  "state_version_before": 4,
+  "state_version_after": 5,
+  "sequence": 6,
+  "virtual_time_ms": 1050,
+  "confers_authority": false
+}

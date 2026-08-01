@@ -3,6 +3,7 @@
   "idempotency_key": "short",
   "tenant_id": "tenant-blue",
   "org_scope_ref": { "org_id": "org-blue" },
+  "root": { "kind": "grant", "id": "rbg_root000000000001" },
   "parent": {
     "kind": "grant",
     "id": "rbg_root000000000001",

@@ -149,6 +149,9 @@ tree:
   admission that draws down the parent at reservation time.
 - `cybrik.res-release.v1` — terminal accounting where consumed plus returned equals the target's
   current remainder; returned unused credits may flow only to an open parent.
+- `cybrik.res-root-closure.v1` — the single terminal root record for completion and cancellation,
+  where final consumed plus final unused equals the original grant bounds and the remainder is
+  extinguished rather than returned or re-minted.
 - `cybrik.res-bounds-error.v1` — fail-closed resource-specific errors, deliberately disjoint from
   `budget_exceeded`, `BUDGET_*`, and the inference budget error classes.
 

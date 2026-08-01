@@ -72,7 +72,7 @@ validation notes). Nothing here is executable product code.
   by explicit Founder Option A with G-W0I01-1..5 `yes` on 2026-07-26. Its validator remains
   standalone and proves fixture/contract conformance, not product runtime enforcement.
 - `resource-bounds/` — Gate W2-H **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** fixtures:
-  6 positive, 7 negative-schema, and 9 negative-semantic deterministic replay cases. A virtual
+  9 positive, 10 negative-schema, and 12 negative-semantic deterministic replay cases. A virtual
   clock and monotone sequence make replay byte-reproducible; the cases exercise parent
   conservation, no-mint spawn, tenant/org mismatch, idempotency conflict, double release,
   over-return, closed-parent denial, and root-cancel no-remint. Green proves static L1/L2

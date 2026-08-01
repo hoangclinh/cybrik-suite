@@ -1,6 +1,10 @@
 {
   "request_id": "rsq_child00000000001",
   "status": "admitted",
+  "root": {
+    "kind": "grant",
+    "id": "rbg_root000000000001"
+  },
   "reservation": {
     "reservation_id": "rsr_child00000000001",
     "reserved": {
