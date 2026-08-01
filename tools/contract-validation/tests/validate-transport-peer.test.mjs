@@ -942,7 +942,7 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
     assert.match(text, /selected_server=null/);
     assert.match(text, /raw(?: official)? Anycorn `0\.20\.0`[\s\S]{0,100}remains[\s\S]{0,240}HOLD/i);
   }
-  assert.match(proposal, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
+  assert.match(proposal, /D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME AUTHORED NOT RUN — D2 HOLD/);
   assert.doesNotMatch(proposal, /DECISION PROPOSAL — ANYCORN UNSELECTED/);
   assert.match(
     proposal,

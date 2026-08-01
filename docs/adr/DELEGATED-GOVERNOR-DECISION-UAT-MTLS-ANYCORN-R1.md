@@ -1,4 +1,4 @@
-# Delegated Governor decision proposal — SOC→AI lifecycle mTLS UAT server candidate R1
+# Delegated Governor decision record — SOC→AI lifecycle mTLS UAT server candidate R1
 
 - **Task ID:** `UAT-MTLS-AI-SERVER-UNBLOCK-R1`
 - **Task-ID boundary:** this is a coordinator-delegated decision label, not a new identity in the
@@ -32,18 +32,18 @@ confined to `suite_uat_tool_lock_only` and product `selected=false`:
 - `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`;
 - `docs/architecture/transport-peer-evidence/01-server-candidate-matrix.md`.
 
-This record does **not**:
+The completed D1 action remains bounded and does **not**:
 
-- add, download, install, pin, build or execute Anycorn;
+- add the raw official Anycorn distribution to the solver, lock or installed environment, or select
+  B1 as a product server;
 - authorize any socket, PostgreSQL process, migration, certificate generation or runtime attempt;
 - change a product repository, product dependency or product lockfile;
 - select Anycorn for production, POC, RC, stable v1 or GA;
 - accept the open High finding on the raw upstream SSL-context builder.
 
-This proposal is intentionally not registered in `docs/adr/README.md`: that controlled catalogue
-is byte-sealed by the W2-I suite. Registration is deferred until a separately reviewed acceptance
-decision because adding a row requires an explicit seal amendment; this proposal does not widen
-that seal.
+This record is registered in `docs/adr/README.md` after the separately reviewed acceptance and D1
+artifact sequence. That catalogue entry records only the current D1 live facts; it widens no wire,
+runtime, release or production authority.
 
 It also confers no UAT pass under `docs/uat/UAT-GATE-STANDARD.md` and no
 `DEMO_READY_LOCAL` status.
