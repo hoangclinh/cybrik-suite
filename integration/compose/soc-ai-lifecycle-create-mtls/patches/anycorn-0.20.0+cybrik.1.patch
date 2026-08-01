@@ -1,0 +1,19 @@
+diff --git a/pyproject.toml b/pyproject.toml
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -5,4 +5,4 @@
+ [project]
+ name = "anycorn"
+-version = "0.20.0"
++version = "0.20.0+cybrik.1"
+ requires-python = ">=3.10"
+diff --git a/src/anycorn/config.py b/src/anycorn/config.py
+--- a/src/anycorn/config.py
++++ b/src/anycorn/config.py
+@@ -232,5 +232,5 @@
+         context = create_default_context(Purpose.CLIENT_AUTH)
+         context.set_ciphers(self.ciphers)
+         context.minimum_version = TLSVersion.TLSv1_2  # RFC 7540 Section 9.2: MUST be TLS >=1.2
+-        context.options = OP_NO_COMPRESSION  # RFC 7540 Section 9.2.1: MUST disable compression
++        context.options |= OP_NO_COMPRESSION  # RFC 7540 Section 9.2.1: MUST disable compression
+         context.set_alpn_protocols(self.alpn_protocols)

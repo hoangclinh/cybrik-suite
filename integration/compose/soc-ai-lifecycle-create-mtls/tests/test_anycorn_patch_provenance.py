@@ -93,11 +93,11 @@ def test_patch_is_the_exact_two_hunk_b1_delta(artifact_dir: Path) -> None:
     ]
     assert removed == [
         'version = "0.20.0"',
-        "        context.options = OP_NO_COMPRESSION",
+        "        context.options = OP_NO_COMPRESSION  # RFC 7540 Section 9.2.1: MUST disable compression",
     ]
     assert added == [
         f'version = "{_INTERNAL_VERSION}"',
-        "        context.options |= OP_NO_COMPRESSION",
+        "        context.options |= OP_NO_COMPRESSION  # RFC 7540 Section 9.2.1: MUST disable compression",
     ]
 
 
