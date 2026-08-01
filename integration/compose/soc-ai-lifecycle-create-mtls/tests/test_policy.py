@@ -21,6 +21,7 @@ _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls
 _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
+_EXPECTED_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
 
 _ALLOWED_IMPORT_ROOTS = frozenset(
     {"__future__", "collections", "dataclasses", "re", "types", "typing"}
@@ -114,6 +115,7 @@ def _called_names(tree: ast.Module) -> set[str]:
 
 def test_source_inventory_covers_every_python_module_recursively() -> None:
     assert _SOURCE_FILES
+    assert _SOURCE_FILES == _EXPECTED_SOURCE_FILES
     assert _SOURCE_FILES == tuple(
         sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
     )
