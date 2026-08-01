@@ -5,7 +5,7 @@ Status: mixed lifecycle. Product/runtime architecture remains outside this repos
 Suite-level (cross-product) architecture documents. Product-internal architecture stays in each product repository.
 
 - `org-hierarchy/` — accepted-for-implementation W2-G model and separately gated product mapping.
-- `resource-bounds/` — **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** Gate W2-H static contract
+- `resource-bounds/` — **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** Gate W2-H static contract
   architecture for conserved call-tree credits and deterministic replay. It is not a runtime,
   T10/T11 measurement, UAT, release, deployment, or production design.
 - `transport-peer-evidence/` — **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** Gate W2-K

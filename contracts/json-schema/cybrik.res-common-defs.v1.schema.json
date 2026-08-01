@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.res-common-defs.v1.schema.json",
   "title": "CYBRIK resource-bounds common definitions v1",
-  "description": "Shared accounting-only primitives for conserved resource bounds across a call tree. cybrik.res-* is disjoint from the accepted investigation budget object, budget_exceeded, BUDGET_*, over_input_budget, over_output_budget, and fallbackInfo.reason=budget; this proposal maps, renames, extends, or replaces none of them. A res identifier is never a credential, capability, permission, delegation, or approval. Status: PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED, v0.1.0; not a bundle tag.",
-  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
-  "x-cybrik-not-accepted": true,
+  "description": "Shared accounting-only primitives for conserved resource bounds across a call tree. cybrik.res-* is disjoint from the accepted investigation budget object, budget_exceeded, BUDGET_*, over_input_budget, over_output_budget, and fallbackInfo.reason=budget; this proposal maps, renames, extends, or replaces none of them. A res identifier is never a credential, capability, permission, delegation, or approval. Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED, v0.1.0; not stable v1/GA and not a bundle tag. Gate W2-H, ADR-0012.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
   "x-cybrik-is-bundle-tag": false,
   "$defs": {

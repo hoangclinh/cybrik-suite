@@ -103,9 +103,9 @@ Every contract file must carry a status header: `PROPOSED` → `ACCEPTED` → `D
 Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold
 placeholder OpenAPI/schema files as if they were accepted contracts.
 
-## W2-H resource-bounds packet (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+## W2-H resource-bounds packet (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`)
 
-This additive v0.1.0 packet introduces seven `cybrik.res-*` JSON Schemas, a deterministic
+This additive v0.1.0 accepted contract introduces seven `cybrik.res-*` JSON Schemas, a deterministic
 fixture/replay corpus, and one compatibility manifest. Its conserved credits are additive
 quantities only: CPU milliseconds, memory-byte-milliseconds, model tokens, tool calls, retrieved
 bytes, and egress bytes. A child reservation subtracts from its parent at admission; spawn never
@@ -114,10 +114,11 @@ never reopen.
 
 Tenant authority remains credential-derived and org scope advisory; no resource identifier grants
 permission. The accepted investigation `budget` object remains distinct and byte-unmodified, with
-no implicit mapping. No OpenAPI, AsyncAPI, MCP, endpoint, runtime, UAT, T10/T11, release,
-deployment, or production authority follows. See
-`compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json` and
-`../docs/adr/ADR-0012-resource-bounds-contract-profile.md`.
+no implicit mapping. Acceptance is permission to implement later: no OpenAPI, AsyncAPI, MCP,
+endpoint, runtime, UAT, T10/T11, release, deployment, or production authority follows. See
+`compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`,
+`../docs/adr/ADR-0012-resource-bounds-contract-profile.md` and
+`../docs/releases/GATE-W2-H-RESOURCE-BOUNDS-ACCEPTANCE-2026-08-01.md`.
 
 ## W2-K transport peer-evidence packet (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`)
 

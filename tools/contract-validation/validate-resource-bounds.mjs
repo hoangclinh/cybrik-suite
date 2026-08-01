@@ -1,8 +1,9 @@
-// Gate W2-H resource-bounds proposal validator.
+// Gate W2-H resource-bounds contract validator.
 //
 // Deterministic Suite-side static conformance only. This file is not product
-// runtime code and a green result accepts no ADR, proves no UAT/runtime, and
-// grants no release or production authority.
+// runtime code. Under the W2-H/R5 amendment the packet is accepted for
+// implementation but not implemented, so a green result proves no UAT/runtime
+// and grants no release or production authority.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -14,6 +15,9 @@ import { isDeepStrictEqual } from 'node:util';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
 const CONTRACTS_ROOT = 'contracts/';
+// W2-H/R5: the accepted lifecycle carries its own NOT IMPLEMENTED ceiling, so
+// acceptance can never be read as implementation evidence.
+const ACCEPTED_LIFECYCLE = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
 
 export const RESOURCE_KEYS = [
   'cpu_millis',
@@ -929,16 +933,18 @@ export function validateResourceBoundsProposal({ root = DEFAULT_ROOT } = {}) {
     manifest?.gate?.disposition
     ?? manifest?.gate_disposition;
 
-  if (status !== 'PROPOSED') errors.push('manifest status must be PROPOSED');
-  if (notAccepted !== true) errors.push('manifest must say not accepted');
+  if (status !== ACCEPTED_LIFECYCLE) {
+    errors.push(`manifest status must be ${ACCEPTED_LIFECYCLE}`);
+  }
+  if (notAccepted !== false) errors.push('manifest must say accepted');
   if (notImplemented !== true) errors.push('manifest must say not implemented');
   if (packetVersion !== '0.1.0') errors.push('packet version must be 0.1.0');
   if (manifest?.['x-cybrik-is-bundle-tag'] !== false) {
-    errors.push('proposal must not be an immutable bundle tag');
+    errors.push('accepted contract must not be an immutable bundle tag');
   }
   if (gate !== 'W2-H') errors.push('manifest gate id must be W2-H');
-  if (gateDisposition !== 'OPEN FOR BOUNDED PROPOSAL WRITING ONLY') {
-    errors.push('manifest gate disposition is not proposal-only');
+  if (gateDisposition !== ACCEPTED_LIFECYCLE) {
+    errors.push('manifest gate disposition is not the accepted lifecycle');
   }
 
   const propertyKeys = collectPropertyKeys([...schemas.values()]);
@@ -1048,7 +1054,8 @@ export function validateResourceBoundsProposal({ root = DEFAULT_ROOT } = {}) {
       continue;
     }
     const text = readFileSync(absolutePath, 'utf8');
-    for (const required of ['PROPOSED', 'NOT ACCEPTED', 'NOT IMPLEMENTED']) {
+    // R5 moves the lifecycle to accepted; the NOT IMPLEMENTED ceiling stays.
+    for (const required of [ACCEPTED_LIFECYCLE, 'NOT IMPLEMENTED']) {
       if (!text.includes(required)) errors.push(`${relativePath}: missing ${required}`);
     }
     if (/\b(?:runtime|UAT|production) (?:verified|proven|ready)\b/i.test(text)) {
@@ -1081,7 +1088,7 @@ export function formatResourceBoundsReport(report) {
       exitCode: 1,
       stdout: '',
       stderr:
-        `RESOURCE-BOUNDS PROPOSAL VALIDATION: FAIL\n${JSON.stringify(payload)}\n`
+        `RESOURCE-BOUNDS CONTRACT VALIDATION: FAIL\n${JSON.stringify(payload)}\n`
         + report.errors.map((error) => `- ${error}`).join('\n')
         + '\n',
     };
@@ -1089,8 +1096,8 @@ export function formatResourceBoundsReport(report) {
   return {
     exitCode: 0,
     stdout:
-      `RESOURCE-BOUNDS PROPOSAL VALIDATION: PASS\n${JSON.stringify(payload)}\n`
-      + 'PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. Static L1/L2 conformance only; no runtime, UAT, T10/T11, release, deployment, or production proof.\n',
+      `RESOURCE-BOUNDS CONTRACT VALIDATION: PASS\n${JSON.stringify(payload)}\n`
+      + `${ACCEPTED_LIFECYCLE}. Static L1/L2 conformance only; no runtime, UAT, T10/T11, release, deployment, or production proof.\n`,
     stderr: '',
   };
 }

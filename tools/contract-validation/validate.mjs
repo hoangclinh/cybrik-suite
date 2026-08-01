@@ -73,7 +73,7 @@ const steps = [
   // NOT IMPLEMENTED. Registration prevents proposal drift; it opens no gate.
   'validate-transport.mjs',
   'tests/validate-transport.test.mjs',
-  // W2-H resource-bounds packet — PROPOSED, NOT ACCEPTED and NOT
+  // W2-H resource-bounds packet — ACCEPTED FOR IMPLEMENTATION but NOT
   // IMPLEMENTED. L1/L2 checks are deterministic Suite-side static evidence;
   // they are never runtime, T10/T11, release or production proof.
   'validate-resource-bounds.mjs',
@@ -97,4 +97,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H PROPOSED / NOT ACCEPTED, and validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, and validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
