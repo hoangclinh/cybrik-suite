@@ -626,6 +626,93 @@ This enumerated widening grants no listener, server, database, migration or prod
 authority and no product dependency change. D1 opened only after A0 and K5 were accepted and S1
 admitted option B1.
 
+### Gate UAT-MTLS-D2-P0 — preflight authoring
+
+Current state: `AUTHORIZED — AUTHORING ONLY — RUNTIME HOLD`.
+
+The independent Opus architecture review of the exact integrated D1 base found three control
+contradictions that made the required preflight harness unwritable: the closed D1 list named five
+runtime paths that were never authored, the recursive dependency-neutral purity test rejected any
+runtime module placed beside the pure library, and the SSL-builder policy could not both execute
+the audited B1 base builder and raise the candidate minimum to TLSv1.3. The Codex Governor accepts
+that critique and opens this finite reconciliation as a forward D2 preparation action.
+
+D1 remains complete for its consumed dependency/build/evidence action;
+no D1 dependency authority is reused or reopened. D2-P0 may author and statically test the exact harness bytes that Phase A
+must review, but it must not open a socket, start PostgreSQL, run a migration, generate PKI, or execute N1–N10.
+The runtime-bearing tests must remain collected but unexecuted behind the D2 exact-action guard.
+
+The maximum prospective authoring scope is exactly:
+
+- `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md`
+- `integration/compose/README.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/policy.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/client.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/harness.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/pki.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/server.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls/store.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py`
+- `tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh`
+- `tools/contract-validation/tests/validate-transport.test.mjs`
+
+No other path is authorized by D2-P0. In particular, this authoring action changes no dependency
+or lock, candidate status carrier, hosted-check pin, evidence result, product repository, contract,
+schema, release manifest or workflow.
+
+The internal wrapper remains the only allowed public builder symbol. It may delegate to exactly
+`anycorn.config.Config.create_ssl_context` only when the reference pins B1 wheel SHA-256
+`d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`; raw, aliased,
+unpinned or wrong-digest delegates remain rejected. After that exact patched builder returns, the
+wrapper must set the minimum and maximum protocol version to TLSv1.3 and retain
+`ssl.CERT_REQUIRED`. Runtime evidence must prove these properties on the accepted connection; this
+authoring record proves none of them.
+
+The original D1 artifact root remains absent after its recoverable move to Trash. D2-P0 does not
+restore, rebuild, install or execute it. A later Phase A review must pin the exact recovered or
+reproduced B1 bits at a new outside-repository path; if those exact bits are unavailable, D2 stays
+HOLD pending a separately reviewed rebuild action.
+
+The independent Opus review of the first D2-P0 bytes returned `APPROVE WITH REQUIRED FIXES`. The
+Governor accepts its two P0 findings and requires the repaired bytes to preserve the real ASGI TLS
+extension summary under the outside-repository evidence root, assert its exact TLS 1.3/mTLS shape
+before rollback, and make rollback independent of the one-shot execution guard. Cleanup still
+validates absolute, disjoint, outside-repository roots whose basenames are purpose-bound to
+`cybrik-uat-d2-runtime-*` and `cybrik-uat-d2-evidence-*`; it retains bounded server/client PID
+records, refuses a mismatched process identity, verifies both loopback listeners absent, destroys
+only the runtime root, preserves the evidence root, and reports cleanup failure instead of
+suppressing it.
+
+D2-P0 does not satisfy the section 7.3 coverage gate. Phase A must remain closed until exact
+commands and artifacts prove at least 80% line and branch coverage and 100% coverage of the
+critical paths. If the pinned verification environment lacks the necessary coverage runner, a
+separate bounded coverage-tooling action must first be reviewed; D2-P0 authoring authority may not
+install it, widen the dependency lock or reinterpret passing test counts as coverage evidence.
+
+The negative issuer used for N2–N7 is an explicitly accepted test-only relying-party probe. It uses
+the unchanged pinned SOC `LifecycleCreateClient` and production issuer implementation, mutates only
+the signed negative claim, then rebinds the client's secret-free provenance to the authority the
+client requested so the request reaches the Cyber AI relying party. This deliberately bypasses
+only the client's redundant pre-I/O provenance guard for the negative request; it changes no SOC
+product byte, positive path, key handling or production policy. Each result must remain a constant
+accept/refuse count plus a stable non-secret refusal class, and N6 may pass only on the same generic
+relying-party refusal used by the other authorization negatives.
+
+Phase A must import-check the exact pinned SOC and Cyber AI APIs before any directory, container or
+listener is created. After the pinned Cyber AI migrations, the harness must also prove the
+migration-created `cybrik_ai_api_app` role is `NOLOGIN`, non-superuser and `NOBYPASSRLS`, all five
+runtime tables have both RLS and `FORCE ROW LEVEL SECURITY`, a cross-tenant visibility probe returns
+zero, and N1 leaves exactly one replay row in PostgreSQL. N9 stops PostgreSQL and verifies listener
+absence before the request; a paused or merely timing-out database is not sufficient evidence.
+
+D2 remains **HOLD**. UAT, `DEMO_READY_LOCAL`, POC, RC, stable-v1, GA, public release and production
+remain **NO-GO**. Production and public GA remain Founder-controlled. Release dates remain unchanged.
+
 ### Gate UAT-MTLS-D2 — real runtime execution
 
 Current state: `HOLD — SEPARATE REVIEWED RUNTIME-ADMISSION UPDATE REQUIRED`.
@@ -641,6 +728,12 @@ true at one exact re-pinned tuple:
 - lifecycle procedures, synthetic-data boundary, production exclusions, loopback exposure,
   rollback and evidence routing are exact;
 - an independent preflight GO artifact authorizes exactly one bounded run by path and SHA-256.
+
+The preflight GO artifact must also pin the exact one-shot roots with standalone
+`RUNTIME_ROOT=<absolute path>` and `EVIDENCE_ROOT=<absolute path>` lines. Both paths remain subject
+to the purpose-bound, outside-repository and disjoint-root checks. Because the evidence root is
+preserved and the start step requires both roots to be fresh, the same authorization cannot be
+replayed with a different suffix or reused for a second attempt.
 
 The admission integrator may then set `execution_authorized=true` only while status is `not_run`;
 the candidate and evidence verdict remain `HOLD`. The authorized run is loopback-only,

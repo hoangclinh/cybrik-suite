@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# D2 UAT runner — AUTHORED, NOT RUN. Local synthetic-only exact-bit execution.
+
+set -euo pipefail
+
+suite_d1_base="a2ba11760919021158c3d48aeaa27645af3464da"
+soc_commit="abfdfde96afc6daa2868694de993c623daa8862e"
+soc_tree="241ef24a33246918ff5cf133e7d8d004823fdf06"
+ai_commit="789614144686dab88500dd2bfecdd608ef0a8b8f"
+ai_tree="244140e3aacd783b1bea7542f9f56ffc46cedc86"
+fabric_commit="49583be00235a0f8ad7da8cb4ea99108ad201a69"
+fabric_tree="ca8b4a03116bea979de89b92b2f8fef4fd31e001"
+b1_sha256="d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+suite_root="$(cd -- "$script_dir/../.." && pwd -P)"
+suite_expected_head="${SUITE_EXPECTED_HEAD:-}"
+soc_repo="${SOC_REPO:-}"
+ai_repo="${CYBER_AI_REPO:-${AI_REPO:-}}"
+fabric_repo="${FABRIC_REPO:-}"
+python_bin="${PYTHON:-}"
+runtime_dir="${CYBRIK_UAT_D2_RUNTIME_DIR:-}"
+evidence_dir="${CYBRIK_UAT_D2_EVIDENCE_DIR:-}"
+b1_wheel="${CYBRIK_UAT_D2_B1_WHEEL:-}"
+authorization_path="${CYBRIK_UAT_D2_AUTHORIZATION_PATH:-}"
+authorization_sha="${CYBRIK_UAT_D2_AUTHORIZATION_SHA256:-}"
+
+die() {
+  echo "soc-ai lifecycle D2 runner: $*" >&2
+  exit 2
+}
+
+is_hex() {
+  [[ "$1" =~ ^[0-9a-f]+$ ]]
+}
+
+verify_exact_checkout() {
+  local label="$1"
+  local repo="$2"
+  local expected_commit="$3"
+  local expected_tree="$4"
+  local actual_commit actual_tree
+
+  [[ "$repo" == /* ]] || die "$label repository path must be absolute"
+  git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "$label path is not a Git worktree"
+  actual_commit="$(git -C "$repo" rev-parse HEAD)"
+  actual_tree="$(git -C "$repo" rev-parse 'HEAD^{tree}')"
+  [[ "$actual_commit" == "$expected_commit" ]] || die "$label commit mismatch"
+  [[ "$actual_tree" == "$expected_tree" ]] || die "$label tree mismatch"
+  [[ -z "$(git -C "$repo" status --porcelain --untracked-files=all)" ]] \
+    || die "$label checkout is not clean"
+}
+
+[[ "$suite_expected_head" =~ ^[0-9a-f]{40}$ ]] || die "SUITE_EXPECTED_HEAD must be exact 40-hex"
+[[ "$python_bin" == /* && -x "$python_bin" ]] || die "PYTHON must be an absolute executable"
+[[ "$soc_repo" == /* ]] || die "SOC repository path must be absolute"
+[[ "$ai_repo" == /* ]] || die "Cyber AI repository path must be absolute"
+[[ "$fabric_repo" == /* ]] || die "Tool Fabric repository path must be absolute"
+for outside_dir in "$runtime_dir" "$evidence_dir"; do
+  [[ "$outside_dir" == /* ]] || die "runtime and evidence directories must be absolute"
+  case "$outside_dir/" in
+    "$suite_root/"*|"$soc_repo/"*|"$ai_repo/"*|"$fabric_repo/"*)
+      die "runtime and evidence directories must be outside repositories"
+      ;;
+  esac
+done
+[[ "${runtime_dir##*/}" =~ ^cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}$ ]] \
+  || die "runtime directory name is not purpose-bound"
+[[ "${evidence_dir##*/}" =~ ^cybrik-uat-d2-evidence-[a-z0-9][a-z0-9._-]{0,63}$ ]] \
+  || die "evidence directory name is not purpose-bound"
+[[ "$runtime_dir" != "$evidence_dir" ]] || die "runtime and evidence directories must differ"
+case "$runtime_dir/" in "$evidence_dir/"*) die "runtime and evidence directories must be disjoint" ;; esac
+case "$evidence_dir/" in "$runtime_dir/"*) die "runtime and evidence directories must be disjoint" ;; esac
+for repo in "$suite_root" "$soc_repo" "$ai_repo" "$fabric_repo"; do
+  case "$repo/" in
+    "$runtime_dir/"*|"$evidence_dir/"*)
+      die "runtime and evidence directories must not contain repositories"
+      ;;
+  esac
+done
+[[ "$b1_wheel" == /* && -f "$b1_wheel" ]] || die "B1 wheel path must be an absolute file"
+[[ "$authorization_path" == "$suite_root/docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/04-runtime-authorization.md" ]] \
+  || die "authorization path is not canonical"
+[[ ${#authorization_sha} -eq 64 ]] && is_hex "$authorization_sha" \
+  || die "authorization digest must be exact lowercase SHA-256"
+[[ "$(shasum -a 256 "$authorization_path" | awk '{print $1}')" == "$authorization_sha" ]] \
+  || die "authorization artifact digest mismatch"
+[[ "$(shasum -a 256 "$b1_wheel" | awk '{print $1}')" == "$b1_sha256" ]] \
+  || die "B1 wheel digest mismatch"
+
+[[ "$(git -C "$suite_root" rev-parse HEAD)" == "$suite_expected_head" ]] \
+  || die "Suite HEAD does not match the admitted candidate"
+git -C "$suite_root" merge-base --is-ancestor "$suite_d1_base" HEAD \
+  || die "Suite candidate is not descended from integrated D1"
+[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all)" ]] \
+  || die "Suite checkout is not clean"
+verify_exact_checkout "SOC" "$soc_repo" "$soc_commit" "$soc_tree"
+verify_exact_checkout "Cyber AI" "$ai_repo" "$ai_commit" "$ai_tree"
+verify_exact_checkout "Tool Fabric" "$fabric_repo" "$fabric_commit" "$fabric_tree"
+
+suite_src="$suite_root/integration/compose/soc-ai-lifecycle-create-mtls/src"
+soc_src="$soc_repo/services/api/src"
+ai_core_src="$ai_repo/packages/ai-core/src"
+ai_api_src="$ai_repo/services/ai-api/src"
+for source_root in "$suite_src" "$soc_src" "$ai_core_src" "$ai_api_src"; do
+  [[ -d "$source_root" ]] || die "required source root is absent"
+done
+
+export PYTHONPATH="$suite_src:$soc_src:$ai_core_src:$ai_api_src"
+export PYTHONDONTWRITEBYTECODE=1
+export CYBRIK_UAT_D2_EXECUTION_AUTHORIZED=true
+export CYBRIK_UAT_D2_SOC_REPO="$soc_repo"
+export CYBRIK_UAT_D2_AI_REPO="$ai_repo"
+export CYBRIK_UAT_D2_FABRIC_REPO="$fabric_repo"
+
+cleanup_required=true
+cleanup() {
+  local exit_code=$?
+  trap - EXIT INT TERM
+  if $cleanup_required; then
+    if ! "$python_bin" -m cybrik_suite_uat_mtls.harness rollback; then
+      echo "soc-ai lifecycle D2 runner: cleanup failed" >&2
+      exit 3
+    fi
+  fi
+  exit "$exit_code"
+}
+trap cleanup EXIT INT TERM
+
+"$python_bin" -m cybrik_suite_uat_mtls.harness start \
+  --ai-bind 127.0.0.1:58443 \
+  --postgres-bind 127.0.0.1:55432
+"$python_bin" -m cybrik_suite_uat_mtls.harness seed
+"$python_bin" -m cybrik_suite_uat_mtls.harness reset
+"$python_bin" -m pytest -q \
+  "$suite_root/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence"
+"$python_bin" -m cybrik_suite_uat_mtls.harness stop
+"$python_bin" -m cybrik_suite_uat_mtls.harness rollback
+cleanup_required=false
+trap - EXIT INT TERM

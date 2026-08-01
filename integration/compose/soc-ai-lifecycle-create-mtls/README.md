@@ -1,12 +1,28 @@
 # SOC-to-AI lifecycle-create mTLS UAT preparation
 
-Status: `D1 ARTIFACT COMPLETE — RUNTIME NOT RUN`.
+Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`.
 
 This directory contains the dependency-neutral policy/evidence/procedure library plus the bounded
 D1 dependency artifact and its supply-chain evidence. The internally versioned
 `anycorn==0.20.0+cybrik.1` B1 wheel was built twice from the exact official sdist and committed
 patch, was byte-identical across both builds, and was installed only into an isolated offline UAT
 tool environment. It is not a selected CYBRIK product server and no runtime UAT has executed.
+
+The D1 dependency boundary remains `D1 ARTIFACT COMPLETE — RUNTIME NOT RUN`. D2-P0 adds an
+import-inert harness, ephemeral PKI builder, exact digest-pinned PostgreSQL controller, real SOC
+client/AI composition adapters, N1–N10 drivers and an authorization-guarded operator runner. This
+authoring gate confers no permission to install, restore or execute B1, create PKI, open listeners,
+start PostgreSQL, run migrations or execute any runtime case.
+
+The authored runner preserves sanitized TLS and PostgreSQL posture evidence outside every
+repository while rollback destroys only the disjoint runtime root. Its first runtime action must
+import-check the exact pinned product APIs; the migration checkpoint must prove the runtime role,
+five `FORCE RLS` tables and a zero-row cross-tenant probe. The N1 checkpoint requires one durable
+PostgreSQL replay row, N9 removes PostgreSQL before the request, and N10 compares evidence against
+the exact ephemeral password and private-key bytes in addition to generic secret patterns.
+Future runtime and evidence roots must be fresh absolute paths with purpose-bound basenames
+`cybrik-uat-d2-runtime-*` and `cybrik-uat-d2-evidence-*`; neither may contain, be contained by, or
+overlap any Suite/product repository or each other.
 
 ## Current boundary
 
@@ -81,3 +97,35 @@ CYBRIK_UAT_D1_ARTIFACT_DIR=/absolute/outside-repository/artifact-root \
 ```
 
 Neither command executes runtime UAT.
+
+## D2-P0 static preflight verification
+
+The following selection verifies the authored runtime inventory, authorization guard, B1 builder
+policy, negative-case mapping and teardown shape without selecting the runtime test itself:
+
+```sh
+PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
+  python3 -m pytest -q \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_harness_exposes_exactly_the_five_allowlisted_operator_steps \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_runtime_entrypoint_has_a_committed_authorization_guard \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_runtime_driver_is_collected_but_cannot_run_without_phase_a \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py
+```
+
+Do not run `tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh` or the runtime pytest target while
+`UAT-MTLS-D2` is **HOLD**. A future committed Phase A admission must bind the exact Suite and
+product commits, clean worktrees, B1 wheel digest and canonical authorization-artifact digest
+before that runner can pass its first guard. That artifact must also contain exact standalone
+`RUNTIME_ROOT=<absolute path>` and `EVIDENCE_ROOT=<absolute path>` lines; both roots must be fresh,
+purpose-bound and disjoint, and the preserved evidence root consumes the authorization after the
+single attempt.
+
+D2-P0 does not satisfy the section 7.3 coverage gate. Phase A remains closed until a separately
+pinned command proves at least 80% line and branch coverage and 100% coverage of the critical
+paths. If the pinned environment does not already contain the required coverage runner, a
+separate bounded coverage-tooling action must be reviewed before it is installed or used. Static
+pass counts are not a substitute for this coverage evidence. Release dates are unchanged.

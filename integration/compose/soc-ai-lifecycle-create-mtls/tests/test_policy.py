@@ -16,7 +16,6 @@ import types
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
@@ -25,7 +24,27 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
-_EXPECTED_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
+_PURE_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
+_RUNTIME_SOURCE_FILES = ("client.py", "harness.py", "pki.py", "server.py", "store.py")
+_EXPECTED_SOURCE_FILES = tuple(sorted(_PURE_SOURCE_FILES + _RUNTIME_SOURCE_FILES))
+_PINNED_B1_WHEEL_SHA256 = (
+    "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
+)
+_RUNTIME_IMPORT_RISK_CALLS = frozenset(
+    {
+        "Popen",
+        "bind",
+        "connect",
+        "create_connection",
+        "create_ephemeral_pki",
+        "listen",
+        "open",
+        "run",
+        "serve",
+        "socket",
+        "start",
+    }
+)
 
 _ALLOWED_IMPORT_ROOTS = frozenset(
     {"__future__", "collections", "dataclasses", "re", "types", "typing"}
@@ -121,15 +140,41 @@ def _called_names(tree: ast.Module) -> set[str]:
 # --------------------------------------------------------------------------
 
 
-def test_source_inventory_covers_every_python_module_recursively() -> None:
+def test_source_inventory_covers_pure_and_runtime_modules_recursively() -> None:
     assert _SOURCE_FILES
     assert _SOURCE_FILES == _EXPECTED_SOURCE_FILES
     assert _SOURCE_FILES == tuple(
-        sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
+        sorted(
+            path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py")
+        )
     )
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+def test_runtime_modules_have_no_import_time_process_io_or_network_calls() -> None:
+    for filename in _RUNTIME_SOURCE_FILES:
+        tree = _parse_source(filename)
+        import_time_nodes = [
+            node
+            for statement in tree.body
+            if not isinstance(
+                statement, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+            )
+            for node in ast.walk(statement)
+        ]
+        risky = {
+            node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            for node in import_time_nodes
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, (ast.Attribute, ast.Name))
+            and (
+                node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+            )
+            in _RUNTIME_IMPORT_RISK_CALLS
+        }
+        assert not risky, f"{filename} has import-time runtime calls: {sorted(risky)}"
+
+
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_imports_only_pure_standard_library(source_file: str) -> None:
     tree = _parse_source(source_file)
     roots: set[str] = set()
@@ -144,7 +189,7 @@ def test_source_imports_only_pure_standard_library(source_file: str) -> None:
     assert roots <= _ALLOWED_IMPORT_ROOTS, sorted(roots - _ALLOWED_IMPORT_ROOTS)
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_declares_no_runtime_execution_call(source_file: str) -> None:
     called = _called_names(_parse_source(source_file))
     assert called.isdisjoint(_FORBIDDEN_CALL_NAMES), sorted(
@@ -152,14 +197,14 @@ def test_source_declares_no_runtime_execution_call(source_file: str) -> None:
     )
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_text_excludes_dependency_and_runtime_markers(source_file: str) -> None:
     lowered = _read_source(source_file).lower()
     hits = [marker for marker in _FORBIDDEN_SOURCE_TEXT if marker in lowered]
     assert hits == []
 
 
-@pytest.mark.parametrize("source_file", _SOURCE_FILES)
+@pytest.mark.parametrize("source_file", _PURE_SOURCE_FILES)
 def test_source_declares_no_executable_entrypoint(source_file: str) -> None:
     tree = _parse_source(source_file)
     for node in ast.walk(tree):
@@ -344,10 +389,36 @@ def test_is_anycorn_base_builder_accepts_unrelated_symbols(symbol: str) -> None:
 def test_internal_patched_builder_reference_is_accepted() -> None:
     reference = policy.SslContextBuilderReference(
         symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
-        delegates_to=("ssl.SSLContext.load_cert_chain", "ssl.SSLContext.load_verify_locations"),
+        delegates_to=(
+            "ssl.SSLContext.load_cert_chain",
+            "ssl.SSLContext.load_verify_locations",
+        ),
         internal_patched=True,
     )
     assert policy.validate_ssl_context_builder(reference) is reference
+
+
+def test_pinned_b1_builder_may_delegate_only_to_the_exact_patched_base() -> None:
+    assert getattr(policy, "PINNED_B1_WHEEL_SHA256", None) == _PINNED_B1_WHEEL_SHA256
+    reference = policy.SslContextBuilderReference(
+        symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
+        delegates_to=(policy.ANYCORN_BASE_SSL_CONTEXT_BUILDER,),
+        internal_patched=True,
+        artifact_sha256=_PINNED_B1_WHEEL_SHA256,
+    )
+    assert policy.validate_ssl_context_builder(reference) is reference
+
+
+def test_patched_base_delegate_rejects_a_wrong_artifact_digest() -> None:
+    reference = policy.SslContextBuilderReference(
+        symbol=policy.INTERNAL_PATCHED_SSL_CONTEXT_BUILDER,
+        delegates_to=(policy.ANYCORN_BASE_SSL_CONTEXT_BUILDER,),
+        internal_patched=True,
+        artifact_sha256="0" * 64,
+    )
+    with pytest.raises(policy.PolicyViolation) as caught:
+        policy.validate_ssl_context_builder(reference)
+    assert caught.value.reason == "builder_artifact_digest_mismatch"
 
 
 @pytest.mark.parametrize(
@@ -456,12 +527,37 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     compose_readme = (_HARNESS_ROOT.parent / "README.md").read_text(encoding="utf-8")
 
+    exact_status = "Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`."
     for text in (harness_readme, compose_readme):
+        assert text.splitlines()[2] == exact_status
         assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
         assert "UAT-MTLS-D2" in text and "HOLD" in text
         assert "DEMO_READY_LOCAL" in text and "NO-GO" in text
-    assert "No Anycorn or product package is imported, installed, resolved, built or downloaded" not in harness_readme
+    assert (
+        "No Anycorn or product package is imported, installed, resolved, built or downloaded"
+        not in harness_readme
+    )
     assert "dependency-neutral preparation only" not in compose_readme
+
+
+def test_d2_p0_discloses_the_unsatisfied_phase_a_coverage_gate() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+
+    for text in (harness_readme, decision):
+        normalized = " ".join(text.split())
+        assert "D2-P0 does not satisfy the section 7.3 coverage gate" in normalized
+        assert "at least 80% line and branch coverage" in normalized
+        assert "100% coverage of the critical paths" in normalized
+        assert "separate bounded coverage-tooling action" in normalized
+
+    assert (
+        "test_lifecycle_runtime.py::"
+        "test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure"
+        in harness_readme
+    )
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
@@ -473,8 +569,14 @@ def test_dependency_neutral_readme_command_names_only_the_four_static_files() ->
         "test_case_inventory.py",
     )
     for filename in expected:
-        assert f"integration/compose/soc-ai-lifecycle-create-mtls/tests/{filename}" in readme
-    assert "python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests\n" not in readme
+        assert (
+            f"integration/compose/soc-ai-lifecycle-create-mtls/tests/{filename}"
+            in readme
+        )
+    assert (
+        "python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests\n"
+        not in readme
+    )
     assert "CYBRIK_UAT_D1_ARTIFACT_DIR" in readme
 
 
@@ -482,8 +584,14 @@ def test_d1_delegated_authority_is_recorded_without_opening_runtime() -> None:
     decision = (
         _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
     ).read_text(encoding="utf-8")
-    assert "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`" in decision
-    assert "Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`" in decision
+    assert (
+        "Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`"
+        in decision
+    )
+    assert (
+        "Current state: `ACCEPTED AND IMPLEMENTED BY D1 ARTIFACT ONLY — NO RUNTIME`"
+        in decision
+    )
     assert (
         "Current state: `ACCEPTED — B1 BOUNDED EVALUATION ARTIFACT IMPLEMENTED — RUNTIME NOT RUN`"
         in decision
@@ -542,12 +650,19 @@ def test_runtime_admission_carriers_pin_d1_but_retain_zero_runtime_state() -> No
     current = record["attempt_accounting"]["current_attempt"]
     assert current["status"] == "not_run"
     assert current["execution_authorized"] is False
-    assert (current["executed_checks"], current["passed_checks"], current["failed_checks"]) == (0, 0, 0)
+    assert (
+        current["executed_checks"],
+        current["passed_checks"],
+        current["failed_checks"],
+    ) == (0, 0, 0)
     assert record["disposition"]["profile"] == "HOLD"
     assert record["evidence"]["final_profile_verdict"] == "HOLD"
     assert current["evidence_sha256"] == _sha256(hold_path)
     assert record["evidence"]["artifacts"] == [
-        {"path": hold_path.relative_to(_REPO_ROOT).as_posix(), "sha256": _sha256(hold_path)},
+        {
+            "path": hold_path.relative_to(_REPO_ROOT).as_posix(),
+            "sha256": _sha256(hold_path),
+        },
         {
             "path": architecture_path.relative_to(_REPO_ROOT).as_posix(),
             "sha256": _sha256(architecture_path),

@@ -47,6 +47,7 @@ BUILDER_DELEGATE_MALFORMED: Final = "builder_delegate_malformed"
 BUILDER_DELEGATES_TO_ANYCORN_BASE: Final = "builder_delegates_to_anycorn_base"
 BUILDER_DELEGATE_NOT_ALLOWLISTED: Final = "builder_delegate_not_allowlisted"
 BUILDER_NOT_INTERNAL_PATCHED: Final = "builder_not_internal_patched"
+BUILDER_ARTIFACT_DIGEST_MISMATCH: Final = "builder_artifact_digest_mismatch"
 
 
 class PolicyViolation(Exception):
@@ -184,10 +185,11 @@ ANYCORN_BASE_SSL_CONTEXT_BUILDER: Final = "anycorn.config.Config.create_ssl_cont
 INTERNAL_PATCHED_SSL_CONTEXT_BUILDER: Final = (
     "cybrik_suite_uat_mtls.server.build_patched_ssl_context"
 )
-
-ALLOWED_SSL_CONTEXT_BUILDERS: Final = frozenset(
-    {INTERNAL_PATCHED_SSL_CONTEXT_BUILDER}
+PINNED_B1_WHEEL_SHA256: Final = (
+    "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
 )
+
+ALLOWED_SSL_CONTEXT_BUILDERS: Final = frozenset({INTERNAL_PATCHED_SSL_CONTEXT_BUILDER})
 ALLOWED_SSL_CONTEXT_DELEGATES: Final = frozenset(
     {
         "ssl.SSLContext",
@@ -209,6 +211,7 @@ class SslContextBuilderReference:
     symbol: str
     delegates_to: tuple[str, ...] = ()
     internal_patched: bool = False
+    artifact_sha256: str | None = None
 
 
 def is_anycorn_base_builder(symbol: object) -> bool:
@@ -231,9 +234,10 @@ def validate_ssl_context_builder(
 ) -> SslContextBuilderReference:
     """Admit only the explicit internal patched builder reference.
 
-    The raw base builder is refused, and so is an internal reference that
-    merely delegates back to it: a hardened option set that a delegate can
-    silently rebuild is not a hardened option set.
+    The raw base builder remains refused as the public symbol. The one internal
+    wrapper may call the exact base method only when it is bound to the audited
+    B1 wheel digest. That narrow exception makes the real patched builder
+    exercisable while an unpinned, raw or aliased base remains fail closed.
     """
     if not isinstance(reference, SslContextBuilderReference):
         raise PolicyViolation(BUILDER_REFERENCE_NOT_DECLARED)
@@ -254,9 +258,23 @@ def validate_ssl_context_builder(
             raise PolicyViolation(BUILDER_DELEGATE_MALFORMED)
     for delegate in delegates:
         if is_anycorn_base_builder(delegate):
-            raise PolicyViolation(BUILDER_DELEGATES_TO_ANYCORN_BASE)
+            if delegate != ANYCORN_BASE_SSL_CONTEXT_BUILDER:
+                raise PolicyViolation(BUILDER_DELEGATES_TO_ANYCORN_BASE)
+            if reference.artifact_sha256 is None:
+                raise PolicyViolation(BUILDER_DELEGATES_TO_ANYCORN_BASE)
+            if reference.artifact_sha256 != PINNED_B1_WHEEL_SHA256:
+                raise PolicyViolation(BUILDER_ARTIFACT_DIGEST_MISMATCH)
+            if reference.internal_patched is not True:
+                raise PolicyViolation(BUILDER_NOT_INTERNAL_PATCHED)
+            continue
         if delegate not in ALLOWED_SSL_CONTEXT_DELEGATES:
             raise PolicyViolation(BUILDER_DELEGATE_NOT_ALLOWLISTED)
+
+    if (
+        reference.artifact_sha256 is not None
+        and reference.artifact_sha256 != PINNED_B1_WHEEL_SHA256
+    ):
+        raise PolicyViolation(BUILDER_ARTIFACT_DIGEST_MISMATCH)
 
     if reference.internal_patched is not True:
         raise PolicyViolation(BUILDER_NOT_INTERNAL_PATCHED)
