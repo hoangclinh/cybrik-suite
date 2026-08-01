@@ -46,9 +46,10 @@ Two independent reasons, either of which alone is sufficient:
    Anycorn — the prospective ASGI server for the AI-side HTTPS/mTLS listener — has no release that
    contains the upstream fix preserving hardened SSL options. Details in §4.
 
-The committed candidate stays unauthorized while those blockers remain. A future exact-bit
-preflight update may authorize one bounded `not_run` attempt under the two-phase sequence in §7;
-that authorization is not a claim that runtime evidence already exists.
+The committed candidate is unauthorized for the two reasons above. Under §7, a future exact-bit
+preflight update may authorize one bounded `not_run` attempt after the harness is authored while
+the Anycorn High remains truthfully open; the empirical probe from that run is what can close A1.
+That authorization is permission to obtain evidence, not a claim that runtime evidence exists.
 
 ## 4. Blocking upstream finding — Anycorn (HIGH, prospective exercised transport dependency)
 

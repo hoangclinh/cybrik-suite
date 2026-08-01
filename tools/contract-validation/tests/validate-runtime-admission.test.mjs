@@ -1804,7 +1804,7 @@ test('open Critical or High findings before execution truthfully derive HOLD', a
   });
 });
 
-test('A0 records and enforces non-circular two-phase mTLS admission sequencing', async () => {
+test('A0 records non-circular sequencing and pins the committed mTLS attempt as unauthorized', async () => {
   const holdStatus = read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
   );
@@ -1821,6 +1821,23 @@ test('A0 records and enforces non-circular two-phase mTLS admission sequencing',
   assert.ok(committed.contracts.feature_flags.some((entry) =>
     entry.name === 'suite_soc_ai_lifecycle_mtls_two_phase_admission'
       && entry.state === 'accepted_sequence_not_authorized'));
+  assert.deepEqual(committed.attempt_accounting.current_attempt, {
+    status: 'not_run',
+    execution_authorized: false,
+    executed_checks: 0,
+    passed_checks: 0,
+    failed_checks: 0,
+    evidence_path:
+      'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
+    evidence_sha256: committed.evidence.artifacts[0].sha256,
+  });
+  assert.equal(committed.open_findings.critical, 0);
+  assert.equal(committed.open_findings.high, 1);
+  const smokeRows = Object.values(committed.negative_smoke).flat();
+  assert.equal(smokeRows.length, 10);
+  assert.ok(smokeRows.every((row) => row.status === 'hold'));
+  assert.equal(committed.evidence.final_profile_verdict, 'HOLD');
+  assert.equal(committed.disposition.profile, 'HOLD');
 
   const admittedPreflight = baseCandidate({
     executionAuthorized: true,
