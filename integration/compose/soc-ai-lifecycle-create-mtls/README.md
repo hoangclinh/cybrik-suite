@@ -166,12 +166,13 @@ non-empty, 100%-covered branch denominator, with `num_partial_branches` independ
 cross-checked. The verifier writes one fresh atomic, no-overwrite, mode-`0600` PASS or FAIL result
 beside the input without importing the harness or Coverage.py.
 
-The preceding measurement must run after the literal `cd <SUITE_ROOT>` and pass
-`--rcfile=/dev/null` to each of `coverage run`, `coverage report` and `coverage json`, as fixed by
-the ADR. This prevents caller or checkout configuration from changing exclusions, partial branches
-or reported file keys.
+The preceding measurement must run after the literal `cd <SUITE_ROOT>`, set
+`PYTHONDONTWRITEBYTECODE=1`, disable pytest's cache provider and pass `--rcfile=/dev/null` to each of
+`coverage run`, `coverage report` and `coverage json`, as fixed by the ADR. The final worktree
+residue check must also be empty. These controls prevent test residue or caller/checkout
+configuration from changing exclusions, partial branches or reported file keys.
 
-After the separately authorized D2-COV-P0 installation and measurement produce `coverage.json`,
+After the separately authorized D2-COV-P0 extraction and measurement produce `coverage.json`,
 the exact verifier command is:
 
 ```sh
