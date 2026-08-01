@@ -764,6 +764,12 @@ const exactKeyErrors = (value, keys, label) => {
 
 const assessServerCandidates = (manifest) => {
   const errors = [];
+  errors.push(...exactKeyErrors(manifest, [
+    'packet_version', 'gate', 'scope', 'x-cybrik-status', 'schemas',
+    'dependencies_reused_unmodified', 'server_neutrality', 'server_candidates',
+    'server_candidate_disambiguation', 'future_local_harness_profile', 'negative_test_map',
+    'runtime_only_properties', 'evidence', 'members', 'x-cybrik-packet-integrity',
+  ], 'transport peer manifest'));
   const candidates = manifest.server_candidates;
   if (!Array.isArray(candidates)) return ['server_candidates must be an array'];
 
@@ -789,6 +795,10 @@ const assessServerCandidates = (manifest) => {
     errors.push(...exactKeyErrors(candidate, keys, `official candidate ${id}`));
     if (candidate.artifact_scope !== 'official_upstream_distribution') {
       errors.push(`${id} must retain official_upstream_distribution scope`);
+    }
+    if (id !== 'anycorn'
+      && (candidate.version_considered !== null || candidate.disposition !== 'UNASSESSED')) {
+      errors.push(`${id} must remain version-null and UNASSESSED`);
     }
     for (const field of ['selected', 'installed', 'pinned']) {
       if (candidate[field] !== false) errors.push(`${id}.${field} must remain false`);
@@ -897,6 +907,8 @@ test('K5/S1 distinguishes raw upstream candidates from the uninstalled B1 UAT ev
     (candidate) => { candidate.server_candidates[3].selected = true; },
     (candidate) => { candidate.server_candidates[3].release_authority = 'stable-v1'; },
     (candidate) => { candidate.server_candidates[3].version_considered = '0.20.0'; },
+    (candidate) => { candidate.release_authority = 'stable-v1'; },
+    (candidate) => { candidate.server_candidates[1].disposition = 'HOLD'; },
   ];
   for (const mutate of mutations) {
     const candidate = structuredClone(manifest);
@@ -918,10 +930,10 @@ test('K5 and S1 acceptance carriers remain bounded and retain every downstream H
     assert.match(text, /S1/);
     assert.match(text, /installed=false/);
     assert.match(text, /pinned=false/);
-    assert.match(text, /D1[\s\S]{0,160}HOLD/i);
-    assert.match(text, /D2[\s\S]{0,160}HOLD/i);
+    assert.match(text, /D1 remains \*\*HOLD\*\*/i);
+    assert.match(text, /D2 remains \*\*HOLD\*\*/i);
     assert.match(text, /selected_server=null/);
-    assert.match(text, /raw[\s\S]{0,80}Anycorn[\s\S]{0,80}0\.20\.0[\s\S]{0,160}HOLD/i);
+    assert.match(text, /raw(?: official)? Anycorn `0\.20\.0`[\s\S]{0,100}remains[\s\S]{0,240}HOLD/i);
   }
   assert.match(proposal, /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/);
   assert.doesNotMatch(proposal, /DECISION PROPOSAL — ANYCORN UNSELECTED/);

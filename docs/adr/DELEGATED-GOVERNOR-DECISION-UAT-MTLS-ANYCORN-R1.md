@@ -224,11 +224,12 @@ PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
   python3 -m pytest integration/compose/soc-ai-lifecycle-create-mtls/tests
 ```
 
-### 6.2 D1-only dependency, internal-patch and real-server preparation
+### 6.2 D1 preparation and separately gated K5 control carriers
 
-No writer may touch these paths until the admission-sequencing clarification is accepted, the
-separate UAT S1 decision admits option B1 for bounded evaluation and the Founder grants dependency
-installation/build authority:
+The dependency, harness, evidence, runner and runtime-candidate paths in the first group below are
+D1-only. No writer may touch them until the admission-sequencing clarification is accepted, S1
+admits option B1 for bounded evaluation, and the Founder grants dependency installation/build
+authority:
 
 - `integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml`
 - `integration/compose/soc-ai-lifecycle-create-mtls/uv.lock`
@@ -253,6 +254,11 @@ installation/build authority:
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md`
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md`
 - `docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json`
+
+The following eight W2-K metadata/control carriers are **not** D1-only. K5 may amend them under its
+separate exact-path review while every installation field remains false. D1 may touch them later
+only to flip B1 `installed` and `pinned` atomically after the exact artifact exists:
+
 - `contracts/compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`
 - `contracts/README.md`
 - `contracts/compatibility/README.md`
@@ -456,10 +462,18 @@ and product/server non-selection. K5 is accepted before S1. B1 lands at `install
 
 Current state: `ACCEPTED — B1 BOUNDED ISOLATED UAT EVALUATION — NOT IMPLEMENTED`.
 
+S1 is bounded to exactly five decision/registration/control paths:
+
+1. `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md`
+2. `docs/adr/README.md`
+3. `tools/contract-validation/tests/validate-transport.test.mjs`
+4. `docs/releases/GATE-UAT-MTLS-K5-S1-ACCEPTANCE-2026-08-01.md`
+5. `docs/releases/README.md`
+
 S1 is distinct from W2-K and does not itself edit its carriers. After K5 is accepted, S1 may admit
 B1 only for bounded isolated UAT evaluation; it does not select a CYBRIK product, POC, RC,
 stable-v1, GA or production server. Raw official Anycorn `0.20.0` remains the unselected,
-uninstalled and unpinned W2-K matrix row. Hypercorn and Granian remain unassessed.
+uninstalled, unpinned and HOLD W2-K matrix row. Hypercorn and Granian remain unassessed.
 
 S1 records only evaluation admission: B1 remains `installed=false`, `pinned=false`, product
 `selected=false` and `HOLD`. D1 remains **HOLD** and D2 remains **HOLD**. The packet preserves

@@ -191,6 +191,6 @@ unassessed/uninstalled/unpinned. S1 admits only the distinct B1 row
 equivalence cannot collapse B1 into the raw release.
 
 The packet retains `server_neutral=true` and `selected_server=null`. D1 remains **HOLD** and alone
-may flip B1 `installed` and `pinned` atomically after the exact artifact exists. D2 remains
-**HOLD**. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 grant no dependency, runtime,
+may flip B1 `installed` and `pinned` atomically after the exact artifact exists.
+D2 remains **HOLD**. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 grant no dependency, runtime,
 release, deployment, or production authority.
