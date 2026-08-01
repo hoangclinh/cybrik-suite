@@ -4489,8 +4489,8 @@ test('UAT mTLS S1 R3 pins a severity-capable audit and reproducible wheelhouse w
     /- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`/,
   );
   const self = read('tools/contract-validation/tests/validate-transport.test.mjs');
-  assert.equal(countOf(self, '// >>> UAT-MTLS-S1-R2-R3-D1-CONTROLS-BEGIN'), 1);
-  assert.equal(countOf(self, '// <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END'), 1);
+  assert.equal((self.match(/^\/\/ >>> UAT-MTLS-S1-R2-R3-D1-CONTROLS-BEGIN$/gm) ?? []).length, 1);
+  assert.equal((self.match(/^\/\/ <<< UAT-MTLS-S1-R2-R3-D1-CONTROLS-END$/gm) ?? []).length, 1);
   assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
   assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
   assert.doesNotMatch(gate, /installed=true|pinned=true/);
