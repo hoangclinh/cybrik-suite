@@ -11,6 +11,7 @@ import ast
 import dataclasses
 import hashlib
 import json
+import re
 import sys
 import types
 from pathlib import Path
@@ -593,8 +594,11 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         "soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::"
         "test_authorized_runtime_attempt_executes_the_red_green_sequence" in decision
     )
-    assert "coverage report --data-file=" in normalized
-    assert "coverage json --data-file=" in normalized
+    assert "coverage report --rcfile=/dev/null" in normalized
+    assert "coverage json --rcfile=/dev/null" in normalized
+    assert "coverage run --rcfile=/dev/null --branch" in normalized
+    assert "cd <SUITE_ROOT>" in decision
+    assert decision.count("<PINNED_PYTHON> -m coverage ") == 3
     assert "at least 80% line coverage and at least 80% branch coverage" in normalized
     for critical in (
         "server.build_patched_ssl_context",
@@ -612,6 +616,55 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     assert "No successful install or measurement by itself opens Phase A" in normalized
     assert "UAT-MTLS-D2-COV-P0" in harness_readme
     assert "authorizes nothing until Founder approval is recorded" in normalized_readme
+
+
+def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring"
+        r"([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)",
+        decision,
+    )
+    assert match is not None
+    section = match.group(1)
+    scope = re.search(
+        r"maximum authoring scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path",
+        section,
+    )
+    assert scope is not None
+    assert re.findall(r"^- `([^`]+)`$", scope.group(1), re.MULTILINE) == [
+        "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/README.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py",
+        "tools/contract-validation/tests/validate-transport.test.mjs",
+    ]
+    normalized = " ".join(section.split())
+    assert (
+        "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD"
+        in section
+    )
+    assert "pure stdlib and import-inert" in normalized
+    assert "Coverage.py JSON format 3" in normalized
+    assert "58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2" in section
+    assert "8eb1f796e71ea4a57f4f9919dbbd3a2810182a7fb2cb1cffb861c861173ab754" in section
+    assert "8294b5ef2ade283e167029b7ecf8cabdcbf9e1f527b98ee93c2d6bd1f980be0b" in section
+    assert "from the first body statement through the last body statement" in normalized
+    assert "no excluded line anywhere in the measured package" in normalized
+    assert "not-applicable-no-static-branch" in section
+    assert "critical source range may contain no excluded line" in normalized
+    assert "`# pragma: no cover` or `# pragma: no branch`" in normalized
+    assert "mode-`0600`" in section
+    assert "PASS and FAIL" in section
+    assert "does not install Coverage.py" in normalized
+    assert "does not satisfy the section 7.3 coverage gate" in normalized
+    assert "does not open Phase A" in normalized
+    assert "verify_coverage_gate.py" in harness_readme
+    assert "--result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json" in harness_readme
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:

@@ -767,9 +767,11 @@ shape below; `<SUITE_ROOT>`, `<COVERAGE_ROOT>` and `<COVERAGE_EVIDENCE_ROOT>` ar
 standalone lines in the authorization artifact, not caller-selected PATH values:
 
 ```text
+cd <SUITE_ROOT>
+
 COVERAGE_FILE=<COVERAGE_ROOT>/data/.coverage \
 PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src \
-<PINNED_PYTHON> -m coverage run --branch \
+<PINNED_PYTHON> -m coverage run --rcfile=/dev/null --branch \
   --source=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls \
   -m pytest -q -o addopts= \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py \
@@ -783,12 +785,21 @@ PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai
   --deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence
 
 PYTHONPATH=<COVERAGE_ROOT>/site-packages \
-<PINNED_PYTHON> -m coverage report --data-file=<COVERAGE_ROOT>/data/.coverage --fail-under=80
+<PINNED_PYTHON> -m coverage report --rcfile=/dev/null \
+  --data-file=<COVERAGE_ROOT>/data/.coverage --fail-under=80
 
 PYTHONPATH=<COVERAGE_ROOT>/site-packages \
-<PINNED_PYTHON> -m coverage json --data-file=<COVERAGE_ROOT>/data/.coverage \
+<PINNED_PYTHON> -m coverage json --rcfile=/dev/null \
+  --data-file=<COVERAGE_ROOT>/data/.coverage \
   -o <COVERAGE_EVIDENCE_ROOT>/coverage.json
 ```
+
+The literal `cd <SUITE_ROOT>` fixes Coverage.py's relative file keys to the Suite root. The three
+literal `--rcfile=/dev/null` arguments prevent a checkout or caller configuration from adding
+`exclude_also`, partial-branch patterns, path remapping or report settings outside this packet.
+Coverage.py's compiled defaults still apply, so the verifier independently rejects their full
+case-insensitive pragma grammar, including optional colon/space and joined `nocover`/`nobranch`
+spellings.
 
 A bounded stdlib verifier must recompute line and branch ratios independently from
 `coverage.json`; combined `coverage report` percentage alone is insufficient. `PASS` requires at
@@ -801,6 +812,15 @@ exact AST-derived source ranges and branch arcs, for:
 - `evidence.secret_reason` and `evidence.validate_evidence`;
 - `harness._assert_ssl_context_evidence`, `harness.teardown` and `harness.verify_absent`.
 
+`evidence.validate_evidence` and `harness.verify_absent` have no static branch construct and
+therefore have a zero Coverage.py branch-arc denominator. Their branch result is the exact bounded
+value `not-applicable-no-static-branch`, while their line requirement remains 100%. Every other
+critical symbol has a non-empty branch denominator and requires 100% branch coverage. The verifier
+must reject a zero denominator for a branch-bearing AST, invented arcs for an arc-free AST, every
+excluded line anywhere in the measured package, and every Coverage.py default `no cover` or
+`no branch` pragma spelling anywhere in a critical source range. It also recomputes and
+cross-checks `num_partial_branches`; no critical region may retain a partial branch.
+
 These critical paths must be reached with import-inert fakes, monkeypatches and temporary roots;
 the gate does not defer them to runtime and does not permit Anycorn resolution, B1 restoration,
 listeners, containers, PKI, migrations or N1–N10. No successful install or measurement by itself
@@ -812,6 +832,94 @@ that mutable project-document digest is informational, not a future equality gat
 OSV query for PyPI `coverage` version `7.15.2` returned no vulnerabilities; its raw `{}` response
 had SHA-256 `44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a`.
 These are proposal facts, not an install, audit artifact, coverage result or risk acceptance.
+
+### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring
+
+Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+
+The Codex Governor pulls forward only the dependency-neutral verifier required by D2-COV-P0. The
+verifier is pure stdlib and import-inert. It reads the already-produced Coverage.py JSON format 3
+artifact and current Suite source bytes; it does not import the UAT harness, import or install
+Coverage.py, restore B1, open a listener, create PKI, start a database, run a migration or execute
+N1–N10.
+
+The maximum authoring scope is exactly:
+
+- `docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/README.md`
+- `integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py`
+- `integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py`
+- `tools/contract-validation/tests/validate-transport.test.mjs`
+
+No other path is authorized by D2-COV-P1. In particular, this authoring action changes no
+dependency or lock, D1 evidence, runtime-admission carrier, product repository, contract, schema,
+workflow, release manifest or release date.
+
+The verifier fails closed unless all of these are true:
+
+- the Suite root and coverage input are absolute canonical non-symlink paths, and the coverage
+  input remains outside the Suite checkout;
+- the report pins `meta.format=3`, `meta.version=7.15.2` and `branch_coverage=true`;
+- the report contains exactly every current Python source file in the harness package once, with
+  no path traversal, symlink, duplicate line/arc, overlap, out-of-range fact or count-summary
+  mismatch;
+- the report has no excluded line anywhere in the measured package and every reported
+  `num_partial_branches` count matches the executed/missing arc sources;
+- independently recomputed package line and branch ratios are each at least 80%; and
+- Coverage.py region data for every section 7.3 critical symbol matches its exact top-level
+  AST-derived source range, has a non-empty line denominator, and has no missing line; every
+  branch-bearing critical AST also has a non-empty branch denominator and no missing branch arc;
+- an arc-free critical AST accepts only a zero branch denominator and records
+  `not-applicable-no-static-branch`; and
+- a critical source range may contain no excluded line and no `# pragma: no cover` or
+  `# pragma: no branch` marker.
+
+The pinned producer semantics are verified directly against three Coverage.py tag `7.15.2`
+sources:
+
+- `coverage/jsonreport.py`,
+  `https://raw.githubusercontent.com/nedbat/coveragepy/7.15.2/coverage/jsonreport.py`, SHA-256
+  `58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2`;
+- `coverage/regions.py`,
+  `https://raw.githubusercontent.com/nedbat/coveragepy/7.15.2/coverage/regions.py`, SHA-256
+  `8eb1f796e71ea4a57f4f9919dbbd3a2810182a7fb2cb1cffb861c861173ab754`; and
+- `coverage/config.py`,
+  `https://raw.githubusercontent.com/nedbat/coveragepy/7.15.2/coverage/config.py`, SHA-256
+  `8294b5ef2ade283e167029b7ecf8cabdcbf9e1f527b98ee93c2d6bd1f980be0b`.
+
+Together these sources fix JSON `FORMAT_VERSION = 3`, the `start_line` field, the default exclusion
+and partial-branch regexes, and function-region membership from the first body statement through
+the last body statement rather than the declaration line. The verifier requires the report's
+`start_line` to equal the top-level `def` line but compares region facts only against that exact
+AST body range. This read-only provenance check is not a Coverage.py install or a real coverage
+result.
+
+The result path must be the fresh exact
+`<COVERAGE_EVIDENCE_ROOT>/coverage-gate.json` beside `coverage.json`. The purpose-bound evidence
+root must be mode `0700`; the verifier creates a fresh unpredictable same-directory temporary at
+mode-`0600`, flushes and fsyncs it, publishes it with an atomic no-overwrite hard link, removes the
+temporary and fsyncs the directory. A writable evidence root records bounded stable output for both
+PASS and FAIL without embedding a caller-controlled path or source value in the failure reason. A
+write or durability failure returns the stable `result_json_write_failed` reason and removes only
+the verifier-owned inode; it never emits a traceback or overwrites a raced destination. An existing
+result is preserved and causes a fail-closed refusal rather than overwrite.
+
+The future pinned measurement invokes the verifier only after the three D2-COV-P0 Coverage.py
+commands complete:
+
+```text
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py \
+  --suite-root <SUITE_ROOT> \
+  --coverage-json <COVERAGE_EVIDENCE_ROOT>/coverage.json \
+  --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
+```
+
+The authoring tests use synthetic format-3 reports to prove the PASS path and false-green
+refusals; they do not measure the real package. D2-COV-P1 does not install Coverage.py, does not
+satisfy the section 7.3 coverage gate, does not open Phase A and grants no UAT or release credit.
+D2 remains **HOLD**. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 

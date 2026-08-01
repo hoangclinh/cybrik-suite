@@ -144,3 +144,39 @@ teardown functions named in the ADR, exercised only through fakes, monkeypatches
 roots. The proposal authorizes nothing until Founder approval is recorded, and neither installation
 nor a passing coverage result by itself opens Phase A, recovers B1, runs N1–N10 or grants
 UAT/release credit.
+
+## Authored stdlib coverage verifier
+
+`UAT-MTLS-D2-COV-P1` is `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+The pure-stdlib, import-inert `scripts/verify_coverage_gate.py` independently checks one pinned
+Coverage.py 7.15.2 JSON format-3 report. It requires the exact package file set, recomputes package
+line and branch ratios separately, cross-checks report summaries, and binds each critical function
+to its current top-level AST range and branch arcs. Critical ranges cannot use exclusions or
+any Coverage.py default coverage-pragma spelling, and the measured package permits no excluded
+line. Function region facts are matched from the first body statement through the last body
+statement while the producer `start_line` remains bound to the top-level declaration. The two AST
+arc-free functions keep 100% line coverage and record the bounded
+branch result `not-applicable-no-static-branch`; every branch-bearing critical function requires a
+non-empty, 100%-covered branch denominator, with `num_partial_branches` independently
+cross-checked. The verifier writes one fresh atomic, no-overwrite, mode-`0600` PASS or FAIL result
+beside the input without importing the harness or Coverage.py.
+
+The preceding measurement must run after the literal `cd <SUITE_ROOT>` and pass
+`--rcfile=/dev/null` to each of `coverage run`, `coverage report` and `coverage json`, as fixed by
+the ADR. This prevents caller or checkout configuration from changing exclusions, partial branches
+or reported file keys.
+
+After the separately authorized D2-COV-P0 installation and measurement produce `coverage.json`,
+the exact verifier command is:
+
+```sh
+<PINNED_PYTHON> \
+  <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/scripts/verify_coverage_gate.py \
+  --suite-root <SUITE_ROOT> \
+  --coverage-json <COVERAGE_EVIDENCE_ROOT>/coverage.json \
+  --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
+```
+
+This authoring slice does not install Coverage.py, does not measure the current package, does not
+satisfy the section 7.3 coverage gate and does not open Phase A. D2 remains **HOLD** and all
+runtime/UAT/release boundaries above remain unchanged.
