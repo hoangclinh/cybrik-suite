@@ -513,6 +513,7 @@ def test_critical_symbol_may_not_exclude_a_source_line(tmp_path: Path) -> None:
         "# pragma: nobranch",
         "# pragma nobranch",
         "#pragma:no branch",
+        "# pragma: no branchy",
     ),
 )
 def test_critical_symbol_may_not_use_any_default_no_branch_pragma(
@@ -523,6 +524,25 @@ def test_critical_symbol_may_not_use_any_default_no_branch_pragma(
     source_path.write_text(
         source_path.read_text(encoding="utf-8").replace(
             "if value:", f"if value:  {marker}", 1
+        ),
+        encoding="utf-8",
+    )
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "critical_source_exclusion_marker"
+
+
+def test_critical_symbol_rejects_default_pragma_text_inside_raw_source_line(
+    tmp_path: Path,
+) -> None:
+    suite_root, report_path, report = _fixture(tmp_path)
+    source_path = suite_root / PACKAGE_REL / "server.py"
+    source_path.write_text(
+        source_path.read_text(encoding="utf-8").replace(
+            "if value:", 'if "# pragma: no branch" and value:', 1
         ),
         encoding="utf-8",
     )
