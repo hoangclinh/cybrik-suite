@@ -4576,6 +4576,7 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /non-empty OSV vulnerability result is a\s+hard stop before extraction/);
   assert.match(section, /raw\.githubusercontent\.com[^\n]+authoring-time provenance[^\n]+not execution inputs/);
   assert.match(section, /Neither root may be under `\/tmp` or\s+`\/private\/tmp`/);
+  assert.match(section, /Neither root may equal or descend from the canonical `HOST_TEMP_ROOT`/);
   assert.match(section, /owner equals the effective uid/);
   assert.match(section, /mode `0700`/);
   assert.match(section, /`st_dev` and `st_ino`/);
@@ -4585,6 +4586,8 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /execution must begin at or after `AUTHORIZED_AT` and strictly before `AUTHORIZATION_EXPIRES_AT`/i);
   assert.match(section, /window wider than 24 hours, are a hard stop/);
   assert.match(section, /`AUTHORIZATION_ID` is the\s+one-shot consumption token/);
+  assert.match(section, /exact authorized root values plus fresh `mkdir`[^\n]+enforce one-shot consumption/);
+  assert.match(section, /Changing either root requires a new Founder artifact and a new `AUTHORIZATION_ID`/);
   assert.match(section, /`coverage\.json` and `coverage-gate\.json` SHA-256 digests/);
   assert.match(section, /exactly one OSV POST must complete and be evaluated before extraction/i);
   assert.match(section, /skipped, non-`200`,\s+timed out or unparsable OSV response is a hard stop/);
@@ -4608,6 +4611,7 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
     'SUITE_ROOT',
     'HEAD_MODE',
     'WORKING_DIRECTORY',
+    'HOST_TEMP_ROOT',
     'COVERAGE_ROOT',
     'COVERAGE_EVIDENCE_ROOT',
     'PINNED_PYTHON',
