@@ -225,7 +225,9 @@ def test_observation_refuses_unvalidated_executable_before_subprocess(
     fields["PINNED_PYTHON_REALPATH"] = "/bin/echo"
 
     def unexpected_run(*args: object, **kwargs: object) -> str:
-        pytest.fail(f"subprocess reached before authorization validation: {args!r} {kwargs!r}")
+        pytest.fail(
+            f"subprocess reached before authorization validation: {args!r} {kwargs!r}"
+        )
 
     monkeypatch.setattr(authorization, "_run", unexpected_run)
     with pytest.raises(authorization.AuthorizationFailure) as error:

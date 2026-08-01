@@ -187,3 +187,32 @@ the exact verifier command is:
 This authoring slice does not install Coverage.py, does not measure the current package, does not
 satisfy the section 7.3 coverage gate and does not open Phase A. D2 remains **HOLD** and all
 runtime/UAT/release boundaries above remain unchanged.
+
+## Executable authorization hardening
+
+`UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — DEPENDENCY ACTION NOT RUN — RUNTIME
+HOLD`. The pure-stdlib `scripts/validate_coverage_authorization.py` replaces manual trust in the P0
+artifact with an executable fail-closed preflight. It binds the exact ordered field set, clean
+detached Suite commit/tree/root, current authorization window, durable non-temporary roots, pinned
+Python symlink and real executable, D1 lock SHA-256, 56-member installed closure digest,
+`pytest==9.1.1`, `cryptography==50.0.0` and the exact `/usr/bin/curl` identity.
+
+From the exact authorized Suite root, a future separately approved action must first run:
+
+```sh
+<PINNED_PYTHON> \
+  integration/compose/soc-ai-lifecycle-create-mtls/scripts/validate_coverage_authorization.py \
+  --authorization <FOUNDER_AUTHORIZATION_ARTIFACT> \
+  --check-only
+```
+
+Only an exact PASS may be consumed once by replacing `--check-only` with `--consume`. Consumption
+creates the two fresh mode-`0700` roots, the three authorized tool subpaths, and bounded mode-`0600`
+authorization evidence. It performs no network call, dependency installation, wheel extraction,
+coverage measurement or runtime action. The accepted D1 closure must not be under `/tmp`,
+`/private/tmp` or the Darwin host-temporary root. If that closure is missing, reconstruction needs
+its own prospective bounded Founder authorization; a surviving older closure is not substitutable.
+
+This hardening is not the dependency authorization. Coverage extraction and measurement are still
+not run, D2 runtime remains **HOLD**, and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and
+release dates remain unchanged.
