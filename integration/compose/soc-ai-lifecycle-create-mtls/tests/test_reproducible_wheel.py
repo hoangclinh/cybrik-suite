@@ -23,6 +23,11 @@ _PYPROJECT = _HARNESS_ROOT / "pyproject.toml"
 _LOCK = _HARNESS_ROOT / "uv.lock"
 _LOCK_EVIDENCE = _HARNESS_ROOT / "evidence" / "dependency-lock.json"
 _OFFLINE_EVIDENCE = _HARNESS_ROOT / "evidence" / "offline-reinstall.json"
+_LICENSE_EVIDENCE = _HARNESS_ROOT / "evidence" / "licenses.json"
+_SBOM_EVIDENCE = _HARNESS_ROOT / "evidence" / "sbom.cdx.json"
+_VEX_EVIDENCE = _HARNESS_ROOT / "evidence" / "vex.cdx.json"
+_INTERNAL_FINDING_ID = "CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01"
+_INTERNAL_VERSION = "0.20.0+cybrik.1"
 
 _REQUIRED_DIRECT_DEPENDENCIES = frozenset(
     {
@@ -155,3 +160,114 @@ def test_offline_reinstall_is_fresh_hash_verified_and_keeps_b1_separate(
         "sha256_verified": True,
         "version": "0.20.0+cybrik.1",
     }
+
+
+def test_license_inventory_is_exact_and_keeps_legal_review_explicit() -> None:
+    evidence = _load_json(_LICENSE_EVIDENCE)
+    packages = evidence["packages"]
+    assert isinstance(packages, list) and len(packages) == 57
+    identities = [(item["name"].casefold(), item["version"]) for item in packages]
+    assert len(identities) == len(set(identities))
+    assert identities == sorted(identities)
+    assert evidence["artifact_id"] == "anycorn-cybrik-uat-b1"
+    assert evidence["inventory_scope"] == "exact_offline_d1_environment"
+    assert evidence["legal_approval"] is False
+    assert evidence["review_required_count"] == sum(
+        item["disposition"] == "review_required" for item in packages
+    )
+
+    by_name = {item["name"].casefold(): item for item in packages}
+    assert by_name["anycorn"]["version"] == _INTERNAL_VERSION
+    assert by_name["anycorn"]["normalized_license"] == "MIT"
+    assert by_name["psycopg2-binary"]["disposition"] == "review_required"
+
+
+def test_sbom_and_vex_bind_the_exact_b1_without_premature_resolution() -> None:
+    sbom = _load_json(_SBOM_EVIDENCE)
+    vex = _load_json(_VEX_EVIDENCE)
+    lock = _load_json(_LOCK_EVIDENCE)
+
+    assert sbom["bomFormat"] == "CycloneDX"
+    assert sbom["specVersion"] == "1.6"
+    components = sbom["components"]
+    assert isinstance(components, list) and len(components) == 57
+    assert all(component["type"] == "library" for component in components)
+    b1_components = [
+        component
+        for component in components
+        if component.get("name") == "anycorn" and component.get("version") == _INTERNAL_VERSION
+    ]
+    assert len(b1_components) == 1
+    b1_ref = b1_components[0]["bom-ref"]
+
+    assert vex["bomFormat"] == "CycloneDX"
+    assert vex["specVersion"] == "1.6"
+    vulnerabilities = vex["vulnerabilities"]
+    assert isinstance(vulnerabilities, list) and len(vulnerabilities) == 1
+    finding = vulnerabilities[0]
+    assert finding["id"] == _INTERNAL_FINDING_ID
+    assert finding["affects"] == [{"ref": b1_ref}]
+    assert finding["analysis"]["state"] == "in_triage"
+    assert "resolved_with_pedigree" not in json.dumps(finding)
+    detail = finding["analysis"]["detail"]
+    assert lock["b1_patch_sha256"] in detail
+    assert lock["b1_wheel_sha256"] in detail
+    assert lock["ssl_context_probe_sha256"] in detail
+    assert "D2" in detail and "HOLD" in detail
+
+    validation = lock["cyclonedx_validation"]
+    assert validation["sbom"] == {
+        "path": "evidence/sbom.cdx.json",
+        "sha256": _sha256(_SBOM_EVIDENCE),
+        "result": "pass",
+    }
+    assert validation["vex"] == {
+        "path": "evidence/vex.cdx.json",
+        "sha256": _sha256(_VEX_EVIDENCE),
+        "result": "pass",
+    }
+    assert validation["schema_source"] == "official-cyclonedx-1.6"
+
+
+def test_audit_tooling_and_osv_evidence_are_hash_pinned_and_fail_closed(
+    artifact_dir: Path,
+) -> None:
+    evidence = _load_json(_LOCK_EVIDENCE)
+    tooling = evidence["audit_tooling"]
+    assert tooling["pip_audit_version"] == "2.10.1"
+    assert tooling["requirements_path"] == str(artifact_dir / "tooling-requirements.txt")
+    assert re.fullmatch(r"[0-9a-f]{64}", tooling["requirements_sha256"])
+    assert tooling["wheelhouse_path"] == str(artifact_dir / "tooling-wheelhouse")
+    assert tooling["offline_install"] == {
+        "no_index": True,
+        "find_links": str(artifact_dir / "tooling-wheelhouse"),
+        "require_hashes": True,
+    }
+    tooling_wheels = tooling["wheels"]
+    assert isinstance(tooling_wheels, list) and tooling_wheels
+    assert all(re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) for item in tooling_wheels)
+
+    audit = evidence["vulnerability_audit"]
+    assert audit["service"] == "osv"
+    assert audit["endpoint"] == "https://api.osv.dev/v1/query"
+    assert audit["pip_audit_version"] == "2.10.1"
+    assert audit["completed"] is True
+    assert audit["requirements_sha256"] == evidence["requirements_sha256"]
+    assert audit["raw_output_path"] == str(artifact_dir / "pip-audit.json")
+    assert re.fullmatch(r"[0-9a-f]{64}", audit["raw_output_sha256"])
+
+    package_queries = audit["package_queries"]
+    assert isinstance(package_queries, list) and len(package_queries) == 57
+    queried = [(item["name"].casefold(), item["version"]) for item in package_queries]
+    assert len(queried) == len(set(queried))
+    assert all(re.fullmatch(r"[0-9a-f]{64}", item["raw_response_sha256"]) for item in package_queries)
+
+    findings = audit["findings"]
+    assert isinstance(findings, list)
+    assert audit["finding_count"] == len(findings)
+    allowed = {"CRITICAL", "HIGH", "MODERATE", "LOW", "UNKNOWN"}
+    assert all(item["severity"] in allowed for item in findings)
+    assert all(re.fullmatch(r"[0-9a-f]{64}", item["raw_response_sha256"]) for item in findings)
+    blocking = [item for item in findings if item["severity"] in {"CRITICAL", "HIGH", "UNKNOWN"}]
+    assert audit["blocking_findings"] == blocking
+    assert audit["candidate_disposition"] == "HOLD"
