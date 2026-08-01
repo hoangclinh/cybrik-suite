@@ -90,6 +90,24 @@ reviewed runtime admission. Raw Anycorn remains HOLD; B1 remains `installed=fals
 and product `selected=false`. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. Release dates remain
 unchanged.
 
+## S1 R3 D1 endpoint correction
+
+The delegated Governor accepts
+`S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`.
+This narrowly supersedes R2's OSV endpoint token with
+`https://api.osv.dev/v1/query`, because the batch response cannot carry the full finding records
+and severity needed to enforce D1's existing Critical/High HOLD rule. It does not add a host or a
+second OSV endpoint.
+
+R3 also freezes the future D1 audit to isolated, exact-hash `pip-audit==2.10.1` OSV mode and the
+wheelhouse to the pinned CPython 3.12.13, pip 26.1.1 and uv 0.11.16 command/provenance contract in
+the decision record. No dependency, artifact or advisory database was downloaded by R3.
+
+D1 remains **HOLD** pending the explicit Founder grant. D2 remains **HOLD** pending its separate
+reviewed runtime admission. Raw Anycorn remains HOLD; B1 remains `installed=false`, `pinned=false`
+and product `selected=false`. UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. Release dates remain
+unchanged.
+
 ## Authority boundary
 
 K5 and S1 authorize no dependency resolution, build, installation, process, listener, socket,

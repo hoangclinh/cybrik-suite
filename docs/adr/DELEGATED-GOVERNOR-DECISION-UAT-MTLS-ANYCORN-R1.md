@@ -5,6 +5,7 @@
   fixed 48-task roster.
 - **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED — B1 UAT EVALUATION ADMITTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
 - **S1 R2 clarification:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
+- **S1 R3 endpoint correction:** `ACCEPTED BY DELEGATED GOVERNOR — D1 STILL HOLD PENDING FOUNDER`
 - **Date:** 2026-08-01
 - **Canonical base:** `cybrik-suite@0766f31ca7ec283755c5ace5bc94f9df7cd05f1c`
 - **Ownership cell:** Suite Integration/Release; Cyber AI Runtime/Safety is a read-only consumer
@@ -447,7 +448,7 @@ Before any runtime attempt, the prospective UAT tool must have:
   build frontend/backend versions and hashes, deterministic environment and two-build equality;
 - MIT license evidence and transitive license inventory;
 - CycloneDX SBOM for the exact environment;
-- vulnerability scan and a narrow VEX entry using the internal vulnerability identifier
+- vulnerability scan, recording each finding's severity, and a narrow VEX entry using the internal vulnerability identifier
   `CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01`: D1 records the exact B1 build with CycloneDX
   `analysis.state=in_triage`; only a successful D2 patched-builder/serve-path proof may update that
   exact build to `analysis.state=resolved_with_pedigree`,
@@ -538,9 +539,50 @@ wording to this closed D1 HTTPS set:
 - `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;
 - the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its
   SHA-256 equals `e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927`;
-- `https://api.osv.dev/v1/querybatch` for the advisory-database query; and
+- `https://api.osv.dev/v1/query` for the per-package advisory-database query; and
 - `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed
   to resolve SBOM/license/audit tooling into an isolated tooling environment outside the UAT lock.
+
+S1 R3 replaces the batch endpoint because it returns only vulnerability identifiers and modified
+timestamps, which cannot evaluate D1's Critical/High HOLD rule. The isolated tooling environment
+must pin `pip-audit==2.10.1`; its audit command is exactly:
+
+```text
+pip-audit \
+  --vulnerability-service osv \
+  --osv-url https://api.osv.dev/v1/query \
+  --require-hashes \
+  --disable-pip \
+  --no-deps \
+  -r <OUTSIDE_REPO>/uv-exported-requirements.txt
+```
+
+The registry-only closure must be exported with uv `0.11.16` as a fully pinned requirements file
+whose every requirement has `==` and at least one `--hash=sha256:` entry. On the exact recorded
+platform, CPython `3.12.13` with executable SHA-256
+`a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623` and pip `26.1.1`
+must create the wheelhouse with this command shape:
+
+```text
+umask 022
+python3.12 -m pip download \
+  --require-hashes \
+  --only-binary=:all: \
+  --index-url https://pypi.org/simple \
+  --cache-dir <OUTSIDE_REPO>/pip-cache \
+  --dest <OUTSIDE_REPO>/wheelhouse \
+  -r <OUTSIDE_REPO>/uv-exported-requirements.txt
+```
+
+D1 evidence must record the source `uv.lock` and exported-requirements digests, exact command
+lines, interpreter/pip/uv versions, platform and `cp312` ABI, absolute outside-repository cache and
+wheelhouse paths, total wheel count, and independently recomputed per-wheel SHA-256 values matching
+the exported hashes. It must assert that every wheelhouse member is a wheel, `anycorn` is absent
+from both the lock-derived requirements and wheelhouse, no extra index/host or repository write
+occurred, and the offline proof uses a fresh cache with `--no-index`, `--find-links`,
+`--require-hashes`. The cache/build workspaces must be removed after evidence capture. The B1 wheel
+remains a separate exact-hash input installed offline with `--no-deps`; the raw Anycorn wheel is
+never downloaded or installed.
 
 D1 also permits the exact build-backend child processes needed for the two reproducibility builds.
 This enumerated widening grants no listener, server, database, migration or product-runtime
@@ -626,6 +668,7 @@ remains.
 - `PRODUCT-DEPENDENCY-CHANGES=DENY`
 - `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
 - `S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
+- `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
 - `DEPENDENCY-INSTALLATION=HOLD-PENDING-FOUNDER`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`
