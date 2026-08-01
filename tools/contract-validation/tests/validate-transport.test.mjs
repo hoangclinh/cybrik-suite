@@ -4253,3 +4253,90 @@ test('P2-4: any executable main guard compares normalized real paths', () => {
       'still exit 0 — a false green without ever validating.',
   );
 });
+
+// >>> UAT-MTLS-S1-R2-D1-CLARIFICATION-BEGIN
+// These witnesses keep the accepted K5/S1 boundary executable while D1 remains HOLD. They read
+// governance bytes only: no package resolution, artifact, process, listener or runtime is needed.
+const UAT_MTLS_DECISION_REL =
+  'docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md';
+const UAT_MTLS_GATE_REL =
+  'docs/releases/GATE-UAT-MTLS-K5-S1-ACCEPTANCE-2026-08-01.md';
+const UAT_MTLS_D1_R2_ADDITIONS = [
+  'integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py',
+  'integration/compose/soc-ai-lifecycle-create-mtls/README.md',
+  'integration/compose/README.md',
+];
+
+const extractD1R2Additions = (decision) => {
+  const section = mdSection(decision, '6. Prospective owner paths split by gate');
+  assert.ok(section !== null, 'the mTLS decision must retain its exact section 6');
+  const match = section.match(
+    /S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:\n\n((?:- `[^`]+`\n){3})/,
+  );
+  assert.ok(match, 'S1 R2 must declare one exact three-path D1 allowlist amendment');
+  return [...match[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
+};
+
+test('UAT mTLS S1 R2 keeps uv.lock registry-only and pins B1 outside the solver', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  assert.doesNotMatch(
+    decision,
+    /Only the internally versioned,[\s\S]{0,120}B1 wheel may enter this isolated lock/,
+    'S1 R2 must remove the contradictory rule that an ephemeral B1 wheel enters uv.lock',
+  );
+  assert.match(decision, /registry-only third-party closure/);
+  assert.match(decision, /`anycorn` is absent from the solver and `uv\.lock`/);
+  assert.match(decision, /`evidence\/internal-wheel\.json`/);
+  assert.match(decision, /installed offline with `--no-deps` only after a fail-closed SHA-256 check/);
+  assert.match(decision, /No raw Anycorn distribution may be resolved, downloaded, locked or installed/);
+});
+
+test('UAT mTLS S1 R2 expands D1 by exactly the three required existing paths', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  assert.deepEqual(extractD1R2Additions(decision), UAT_MTLS_D1_R2_ADDITIONS);
+  assert.match(decision, /dependency-neutral modules from the D1 runtime modules/);
+  assert.match(decision, /removes no fail-closed purity, inventory or import coverage/);
+  assert.match(decision, /Both README files must replace their dependency-neutral-only claims/);
+});
+
+test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rules fail closed', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  assert.match(decision, /Committed-byte provenance tests must never import `anycorn`/);
+  assert.match(decision, /`CYBRIK_UAT_D1_ARTIFACT_DIR`/);
+  assert.match(decision, /not `skip`, `xfail` or `todo`/);
+  assert.match(decision, /`umask 022`/);
+  assert.match(decision, /two distinct absolute build directories/);
+  assert.match(decision, /same-path rebuild does not satisfy reproducibility/);
+  assert.match(decision, /CycloneDX SBOM and VEX documents are validated against their own schemas/);
+  assert.match(decision, /Only bounded digests and summaries enter the custom evidence sanitizer/);
+  assert.match(decision, /must not weaken that sanitizer/);
+  assert.match(decision, /wheelhouse, cache and clean build workspaces remain outside the repository/);
+  assert.match(decision, /offline reinstall proof is scoped to the exact recorded platform/);
+  assert.match(decision, /ephemeral gitignored `dist\/`/);
+});
+
+test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases remain HOLD', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const gate = read(UAT_MTLS_GATE_REL);
+  const combined = `${decision}\n${gate}`;
+
+  for (const required of [
+    'pypi.org',
+    'files.pythonhosted.org',
+    'build-backend child processes',
+    'advisory-database endpoint',
+    'SBOM/license/audit tooling',
+  ]) {
+    assert.ok(combined.includes(required), `S1 R2 must pin outbound authority for ${required}`);
+  }
+  assert.match(combined, /no listener, server, database, migration or product-runtime authority/i);
+  assert.match(gate, /S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
+  assert.match(gate, /D1 remains \*\*HOLD\*\*/);
+  assert.match(gate, /D2 remains \*\*HOLD\*\*/);
+  assert.match(gate, /UAT\/DEMO\/POC\/RC\/stable-v1\/GA remain NO-GO/);
+  assert.match(gate, /Release dates remain unchanged/);
+  assert.match(gate, /Decision date: 2026-08-01 \(Asia\/Ho_Chi_Minh\)\./);
+  assert.match(gate, /Base commit: `76eea6a988251f3c5faf19169154e7bf0f4d7cc4`\./);
+  assert.doesNotMatch(gate, /installed=true|pinned=true/);
+});
+// <<< UAT-MTLS-S1-R2-D1-CLARIFICATION-END
