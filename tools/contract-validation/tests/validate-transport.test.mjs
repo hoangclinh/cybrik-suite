@@ -4697,7 +4697,7 @@ test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator
   assert.match(section, /CRYPTOGRAPHY_VERSION=50\.0\.0/);
   assert.match(section, /PYTEST_VERSION=9\.1\.1/);
   assert.match(section, /must not be under `\/tmp`, `\/private\/tmp`/);
-  assert.match(section, /does not install or restore the D1 closure/);
+  assert.match(section, /does not install or restore the\s+D1 closure/);
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
 });
 

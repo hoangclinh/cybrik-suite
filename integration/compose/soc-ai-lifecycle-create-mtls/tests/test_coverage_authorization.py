@@ -228,6 +228,20 @@ def test_validation_rejects_unsafe_root_parent_and_repository_overlap(
     assert error.value.reason == "authorization_root_overlap"
 
 
+def test_validation_rejects_tool_root_with_evidence_role_basename(
+    tmp_path: Path,
+) -> None:
+    fields = _fields(tmp_path)
+    fields["COVERAGE_ROOT"] = str(
+        Path(fields["COVERAGE_ROOT"]).with_name(
+            "cybrik-uat-d2-coverage-evidence-disguised"
+        )
+    )
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.validate_authorization(fields, _observed(fields))
+    assert error.value.reason == "authorization_root_invalid"
+
+
 def test_validation_rejects_the_superseded_cryptography_closure(tmp_path: Path) -> None:
     fields = _fields(tmp_path)
     observed = _observed(fields)
@@ -468,3 +482,32 @@ def test_consume_rejects_parent_rebinding_before_parent_fd_open(
     assert error.value.reason == "authorization_consumption_failed"
     assert not (evidence_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
     assert not (moved_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
+
+
+def test_consume_removes_exact_root_when_open_fails_after_mkdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = _fields(tmp_path)
+    raw = _text(fields).encode()
+    resolved = authorization.validate_authorization(fields, _observed(fields))
+    evidence_name = Path(fields["COVERAGE_EVIDENCE_ROOT"]).name
+    original_open = authorization.os.open
+
+    def fail_root_open(
+        path: object,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if str(path) == evidence_name and dir_fd is not None:
+            raise OSError("simulated descriptor exhaustion")
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(authorization.os, "open", fail_root_open)
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.consume_authorization(resolved, raw)
+
+    assert error.value.reason == "authorization_consumption_failed"
+    assert not Path(fields["COVERAGE_EVIDENCE_ROOT"]).exists()
+    assert not Path(fields["COVERAGE_ROOT"]).exists()
