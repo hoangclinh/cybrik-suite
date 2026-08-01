@@ -524,12 +524,20 @@ stable-v1, GA or production server. Raw official Anycorn `0.20.0` remains the un
 uninstalled, unpinned and HOLD W2-K matrix row. Hypercorn and Granian remain unassessed.
 
 S1 records only evaluation admission: B1 remains `installed=false`, `pinned=false`, product
-`selected=false` and `HOLD`. D1 remains **HOLD** and D2 remains **HOLD**. The packet preserves
+`selected=false` and `HOLD`. At S1 acceptance, D1 remained **HOLD** and D2 remained **HOLD**. The
+D1 live-fact record below supersedes only the D1 dependency-installation HOLD. The packet preserves
 `selected_server=null`; UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 ### Gate UAT-MTLS-D1 — dependency installation
 
-Current state: `HOLD — FOUNDER AUTHORIZATION REQUIRED` by repository policy.
+Current state: `AUTHORIZED — D1 DEPENDENCY ARTIFACT COMPLETE — RUNTIME NOT RUN`.
+
+On 2026-08-01, Founder-delegated Codex Governor operating authority explicitly covered routine
+dependency installation, local build/UAT preparation, repository commits, push, merge and internal
+release while retaining production and public GA control with the Founder. Under that authority,
+Codex admitted and completed only the closed D1 dependency/build/evidence scope below. This record
+does not widen the reviewed paths or endpoints, does not authorize D2, and does not claim UAT,
+demo, POC, RC, stable-v1, GA or production readiness. D2 remains **HOLD**.
 
 The requested authority, if granted, must be bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
@@ -690,7 +698,7 @@ remains.
 - `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
 - `S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
 - `S1-R3-D1-ENDPOINT-CORRECTION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER`
-- `DEPENDENCY-INSTALLATION=HOLD-PENDING-FOUNDER`
+- `DEPENDENCY-INSTALLATION=D1-COMPLETE-ISOLATED-UAT-ARTIFACT-ONLY`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`
 - `UAT-PASS/DEMO_READY_LOCAL=NO-GO-BY-THIS-RECORD`

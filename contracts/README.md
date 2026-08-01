@@ -130,9 +130,10 @@ structurally inexpressible. Anycorn `0.20.0` remains HOLD and is not installed o
 The K5 live-fact amendment distinguishes every raw server row with
 `artifact_scope=official_upstream_distribution` from the S1-admitted internal evaluation row
 `anycorn-cybrik-uat-b1` / `0.20.0+cybrik.1`. B1 is scoped only to
-`suite_uat_tool_lock_only` and remains `selected=false`, `installed=false`, `pinned=false`, and
-`HOLD` until separately authorized D1 work creates the artifact. `server_neutral=true` and
-`selected_server=null` remain unchanged; D1/D2 and every UAT/release gate remain HOLD or NO-GO.
+`suite_uat_tool_lock_only` and is now `selected=false`, `installed=true`, `pinned=true`, and `HOLD`
+after the exact D1 artifact. `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN` records only this
+live fact. `server_neutral=true` and `selected_server=null` remain unchanged; D2 and every
+UAT/release gate remain HOLD or NO-GO.
 
 The validator and fixtures are static-only. Separate processes, loopback TLS, development PKI,
 PostgreSQL durability, UAT, release, deployment, and production remain out of scope. Inventory:

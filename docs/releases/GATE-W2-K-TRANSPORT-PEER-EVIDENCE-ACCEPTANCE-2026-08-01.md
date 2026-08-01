@@ -64,8 +64,9 @@ HOLD with its High finding. Hypercorn and Granian remain official, unassessed, u
 unpinned.
 
 S1 admits distinct `id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, only for bounded isolated
-UAT evaluation. It remains `selected=false`, `installed=false`, `pinned=false`, and HOLD under
+UAT evaluation. At `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`, it remains `selected=false`
+and HOLD while its isolated-UAT facts are `installed=true`, `pinned=true` under
 `installed_scope=suite_uat_tool_lock_only`; ID plus artifact scope prevents PEP 440 public-version
 conflation with the raw release. The packet remains `server_neutral=true` with
-`selected_server=null`. D1 remains **HOLD**, D2 remains **HOLD**, and
+`selected_server=null`. D2 remains **HOLD**, and
 UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 authorize neither runtime nor release.

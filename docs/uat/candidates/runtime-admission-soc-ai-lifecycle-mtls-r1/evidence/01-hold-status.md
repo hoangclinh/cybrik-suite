@@ -1,8 +1,10 @@
 # Runtime Admission SOC→AI Lifecycle mTLS R1 — HOLD Status
 
-Status: `DRAFT — NOT EXECUTED`
+Status: `D1 ARTIFACT COMPLETE — RUNTIME NOT EXECUTED`
 
-Recorded at `2026-07-31T17:29:11Z`.
+Recorded at `2026-08-01T13:16:35Z`.
+
+Live state: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
 
 ## 1. Identity
 
@@ -19,12 +21,12 @@ Recorded at `2026-07-31T17:29:11Z`.
 
 ## 2. What this record does not do
 
-This candidate does **not** authorize and does **not** perform any of the following:
+This runtime-admission candidate does **not** authorize and has not performed any of the following:
 
-- starting, stopping or otherwise operating any process, stack, container, database, migration,
-  formatter, installer or package manager;
+- starting, stopping or otherwise operating any product process, stack, container, database or
+  migration;
 - opening any socket or listener, including the two prospective loopback binds named in §5;
-- adding, installing, pinning, vendoring or upgrading any dependency, including Anycorn;
+- selecting, installing or pinning any CYBRIK product server or the raw official Anycorn release;
 - issuing, provisioning, importing or handling any certificate, private key, token or secret;
 - reading or writing production credentials, production configuration, production data or
   production traffic;
@@ -35,6 +37,10 @@ Any UAT claim is additionally bound by `cybrik-suite:docs/uat/UAT-GATE-STANDARD.
 is a process standard only; it certifies nothing and no wave has been submitted or judged under it.
 This HOLD candidate grants no UAT pass, demo, POC, RC or release claim.
 
+The separate D1 dependency gate has completed an exact internal B1 artifact, isolated UAT lock,
+audit, SBOM/VEX, license inventory and offline reinstall. That bounded dependency work does not
+authorize this runtime candidate and does not change its zero-count `not_run` state.
+
 ## 3. Why the candidate is HOLD and not authorized
 
 Two independent reasons, either of which alone is sufficient:
@@ -42,9 +48,10 @@ Two independent reasons, either of which alone is sufficient:
 1. **No harness exists.** The separate-process, real-TLS-socket harness described in
    `02-architecture-and-acceptance.md` is a design only. Nothing in the pinned tuple opens a bound
    ASGI TLS server, and no negative test in the required set has been written or run.
-2. **A HIGH-severity blocking finding is open on the prospective exercised transport dependency.**
-   Anycorn — the prospective ASGI server for the AI-side HTTPS/mTLS listener — has no release that
-   contains the upstream fix preserving hardened SSL options. Details in §4.
+2. **The raw upstream HIGH remains open and B1 mitigation is not runtime-proven.** Anycorn — the
+   prospective ASGI server for the AI-side HTTPS/mTLS listener — has no release that contains the
+   upstream fix preserving hardened SSL options. D1 proves an internal patch only in an isolated
+   no-socket probe; D2 must provide the real listener/TLS-extension evidence. Details in §4.
 
 The committed candidate is unauthorized for the two reasons above. Under §7, a future exact-bit
 preflight update may authorize one bounded `not_run` attempt after the harness is authored while
@@ -70,13 +77,26 @@ runtime-admission record as `open_findings.high = 1` and is described in `open_f
 `evidence.limitations`. Because no attempt has run or failed, the open finding blocks execution and
 truthfully derives `HOLD`; it does not create a runtime `NO-GO` result.
 
-Acceptable unblock — either of:
+Artifact-level unblock — either of:
 
 1. an Anycorn release that contains `9eabf20e22bb2fe4987110bebf05eb822517f754`, **followed by**
    artifact and transitive lock review and an empirical ASGI TLS-extension probe; or
 2. a separately audited internal patch proposal, approved **before** any installation.
 
-Neither is performed by this packet. No Anycorn artifact is added, installed or pinned here.
+Option 2 is now satisfied at D1 for the isolated B1 evaluation artifact only. The raw release stays
+uninstalled/unpinned and affected; B1 remains `in_triage` until D2 supplies empirical listener and
+ASGI TLS-extension evidence.
+
+## 4.1 D1 exact dependency evidence
+
+- State: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
+- B1 wheel SHA-256: `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`.
+- Patch SHA-256: `1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e`.
+- Dedicated `uv.lock` SHA-256: `e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`.
+- No-socket SSL-context probe SHA-256: `91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45`.
+- SBOM SHA-256: `7702ea5d3a63d9cbd4fbf00e1aeeee51efe0df3fe3a8d979669bd441e82752dd`.
+- VEX SHA-256: `51bc8e75eec3584607bd67640a77ea4d27b4442efc896d92dbb5cd3ed5442512`.
+- Runtime: `not_run`; `execution_authorized=false`; checks `0 / 0 / 0`; disposition `HOLD`.
 
 Official sources:
 
@@ -114,8 +134,9 @@ PostgreSQL retry, no corrected selector and no out-of-band invocation of any pri
 
 ## 7. Two-phase admission sequencing
 
-Accepting this sequence resolves only the process circularity. It does not authorize execution,
-install a dependency, open a listener, start PostgreSQL or change the current committed facts:
+Accepting this sequence resolves only the process circularity. D1 dependency evidence is complete,
+but this candidate does not authorize execution, open a listener, start PostgreSQL or change the
+current runtime facts:
 `execution_authorized=false`, status `not_run`, counts `0 / 0 / 0`, one open High finding, all
 negative-smoke rows `hold`, and disposition `HOLD`.
 
@@ -125,7 +146,7 @@ A future, separately reviewed exact-bit admission update may set `execution_auth
 exactly one bounded attempt while its status is still `not_run`. Before that update, all of the
 following preflight evidence must exist at one re-pinned four-repository tuple:
 
-1. the exact dependency artifact, lock, patch, SBOM, VEX and supply-chain review are complete;
+1. the exact dependency artifact, lock, patch, SBOM, VEX and supply-chain review remain complete;
 2. the separate-process harness and all N1–N10 tests are authored and independently reviewed but
    have not been executed;
 3. start, stop, reset, seed and rollback procedures, synthetic-only data policy, loopback-only

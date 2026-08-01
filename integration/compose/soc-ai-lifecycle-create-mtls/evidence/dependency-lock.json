@@ -260,6 +260,18 @@
     "finding_count": 0,
     "findings": [],
     "hold_basis": "CYBRIK-UAT-ANYCORN-SSL-OPTIONS-2026-08-01 remains in_triage pending D2; transitive closure has no CRITICAL/HIGH/UNKNOWN OSV finding",
+    "positive_control": {
+      "blocking_severity_observed": true,
+      "expected_vulnerability_ids": [
+        "GHSA-462w-v97r-4m45",
+        "GHSA-8r7q-cvjq-x353",
+        "GHSA-hj2j-77xm-mc5v"
+      ],
+      "name": "jinja2",
+      "raw_response_sha256": "50029890186f34c590611b4df01bf47cf6f5a74b6226d6483989415cced9a088",
+      "response_file": "osv-positive-control/jinja2-2.4.1.json",
+      "version": "2.4.1"
+    },
     "package_count": 56,
     "package_queries": [
       {

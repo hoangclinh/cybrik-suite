@@ -104,13 +104,19 @@ def test_no_socket_probe_preserves_seeded_secure_options_and_is_evidence_bound(
 
     script = r'''
 import json
+import _socket
 import socket
 import ssl
 
+socket_calls = []
+
 def forbidden_socket(*args, **kwargs):
+    socket_calls.append((args, kwargs))
     raise AssertionError("D1 SSL-context proof may not create a socket")
 
 socket.socket = forbidden_socket
+socket.socketpair = forbidden_socket
+_socket.socket = forbidden_socket
 
 from importlib.metadata import version
 import anycorn.config as anycorn_config
@@ -133,7 +139,7 @@ print(json.dumps({
     "seeded_options_preserved": (int(context.options) & seeded_options) == seeded_options,
     "no_compression": bool(context.options & ssl.OP_NO_COMPRESSION),
     "no_ticket_seed_preserved": bool(context.options & ssl.OP_NO_TICKET),
-    "socket_calls": 0,
+    "socket_calls": len(socket_calls),
 }, sort_keys=True))
 '''
     completed = subprocess.run(
