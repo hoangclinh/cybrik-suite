@@ -53,3 +53,19 @@ lifecycle carriers and digest recut. Partial lifecycle reversion is forbidden an
 cross-carrier tests. Once a product implementation is separately authorized, any incompatible
 contract change requires a separately reviewed versioned decision; it must never be silently
 rewritten in place.
+
+## R5/K5 post-acceptance live-fact addendum and S1 boundary
+
+K5 accepts metadata/control changes only across the eight W2-K carriers recorded in the delegated
+R5 amendment. No wire schema, fixture, packet member, member digest or aggregate digest changes.
+Raw Anycorn `0.20.0` remains `id=anycorn`,
+`artifact_scope=official_upstream_distribution`, `installed=false`, `pinned=false`, unselected and
+HOLD with its High finding. Hypercorn and Granian remain official, unassessed, uninstalled and
+unpinned.
+
+S1 admits distinct `id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, only for bounded isolated
+UAT evaluation. It remains `selected=false`, `installed=false`, `pinned=false`, and HOLD under
+`installed_scope=suite_uat_tool_lock_only`; ID plus artifact scope prevents PEP 440 public-version
+conflation with the raw release. The packet remains `server_neutral=true` with
+`selected_server=null`. D1 remains **HOLD**, D2 remains **HOLD**, and
+UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO. K5 and S1 authorize neither runtime nor release.

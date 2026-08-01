@@ -3,7 +3,7 @@
 - **Task ID:** `UAT-MTLS-AI-SERVER-UNBLOCK-R1`
 - **Task-ID boundary:** this is a coordinator-delegated decision label, not a new identity in the
   fixed 48-task roster.
-- **Status:** `DECISION PROPOSAL — ANYCORN UNSELECTED — NOT IMPLEMENTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
+- **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED — B1 UAT EVALUATION ADMITTED — DEPENDENCY INSTALLATION NOT AUTHORIZED — RUNTIME NOT AUTHORIZED`
 - **Date:** 2026-08-01
 - **Canonical base:** `cybrik-suite@0766f31ca7ec283755c5ace5bc94f9df7cd05f1c`
 - **Ownership cell:** Suite Integration/Release; Cyber AI Runtime/Safety is a read-only consumer
@@ -281,12 +281,15 @@ remains in the existing manifest `server_candidates` array and keeps `id=anycorn
 `version_considered=0.20.0`, artifact scope
 `official_upstream_distribution`, unselected/uninstalled/unpinned and `HOLD`. The distinct B1 row
 is added to that same `server_candidates` array and must use `id=anycorn-cybrik-uat-b1`,
-`version_considered=0.20.0+cybrik.1`,
-`installed_scope=suite_uat_tool_lock_only`, `uat_evaluation_admitted=true`, `installed=true`,
-`pinned=true`, product `selected=false` and `HOLD`. `server_neutral=true` and
+`version_considered=0.20.0+cybrik.1`, artifact scope
+`internal_uat_evaluation_artifact`, `installed_scope=suite_uat_tool_lock_only`,
+`uat_evaluation_admitted=true`, `installed=false`, `pinned=false`, product `selected=false` and
+`HOLD`. D1 alone may flip `installed` and `pinned` atomically after the exact B1 artifact exists.
+`server_neutral=true` and
 `selected_server=null` remain exact because no CYBRIK product server is selected. The W2-K test
 must fail closed on duplicate IDs, missing scope qualifiers, or conflating B1 evaluation with a
-product/server selection. R5 requires independent review before its atomic application with D1.
+product/server selection. R5 requires independent review before K5 application; D1 later changes
+only the B1 install/pin facts atomically after the exact artifact exists.
 Every amended carrier must state that unqualified `Anycorn 0.20.0` refers only to
 `id=anycorn`/`artifact_scope=official_upstream_distribution`; PEP 440 public-version equivalence
 must never collapse it with `id=anycorn-cybrik-uat-b1`.
@@ -296,8 +299,9 @@ R5 intentionally re-scopes, but must not delete or weaken, the current universal
 **every** `artifact_scope=official_upstream_distribution` row, including raw Anycorn, Hypercorn and
 Granian, and add a complementary fail-closed assertion that an internal UAT row is permitted only
 when its ID is `anycorn-cybrik-uat-b1`, its `installed_scope` is
-`suite_uat_tool_lock_only`, it is installed/pinned, remains product `selected=false`, and carries
-no authority outside that exact lock. K5 discloses this control re-scope explicitly; deleting the
+`suite_uat_tool_lock_only`, it remains `installed=false` and `pinned=false` before D1, remains
+product `selected=false`, and carries no authority outside that exact lock. D1 must change both
+installation fields atomically or neither. K5 discloses this control re-scope explicitly; deleting the
 raw-candidate loop or losing Hypercorn/Granian coverage fails review and validation.
 
 ### 6.3 D2-only runtime evidence
@@ -440,22 +444,26 @@ prove both phases are structurally fail-closed:
 
 ### Gate UAT-MTLS-K5 — W2-K live-fact metadata/control amendment
 
-Current state: `HOLD — SEPARATE W2-K R5 AMENDMENT AND INDEPENDENT REVIEW REQUIRED`.
+Current state: `ACCEPTED — R5 LIVE-FACT METADATA/CONTROL AMENDMENT — NOT IMPLEMENTED`.
 
 K5 authorizes only the eight W2-K paths in §6.2 to distinguish the official upstream candidate
 from the scoped internal B1 evaluation artifact. It preserves every wire schema, fixture,
 packet-member digest, `server_neutral=true`, `selected_server=null`, the raw-release High finding
-and product/server non-selection. K5 must be accepted before S1; its metadata application is atomic
-with D1 so `installed` and `pinned` never become true before the isolated artifact exists.
+and product/server non-selection. K5 is accepted before S1. B1 lands at `installed=false` and
+`pinned=false`; D1 alone may flip both atomically after the isolated artifact exists.
 
 ### Gate UAT-MTLS-S1 — patched-candidate evaluation admission
 
-Current state: `HOLD — SEPARATE UAT CANDIDATE-EVALUATION DECISION REQUIRED`.
+Current state: `ACCEPTED — B1 BOUNDED ISOLATED UAT EVALUATION — NOT IMPLEMENTED`.
 
 S1 is distinct from W2-K and does not itself edit its carriers. After K5 is accepted, S1 may admit
 B1 only for bounded isolated UAT evaluation; it does not select a CYBRIK product, POC, RC,
 stable-v1, GA or production server. Raw official Anycorn `0.20.0` remains the unselected,
 uninstalled and unpinned W2-K matrix row. Hypercorn and Granian remain unassessed.
+
+S1 records only evaluation admission: B1 remains `installed=false`, `pinned=false`, product
+`selected=false` and `HOLD`. D1 remains **HOLD** and D2 remains **HOLD**. The packet preserves
+`selected_server=null`; UAT/DEMO/POC/RC/stable-v1/GA remain NO-GO.
 
 ### Gate UAT-MTLS-D1 — dependency installation
 
@@ -540,11 +548,11 @@ remains.
 - `PROPOSAL-B1=RECOMMEND`
 - `IMPLEMENTATION=NOT-IMPLEMENTED`
 - `ADMISSION-SEQUENCING-A0=HOLD-SEPARATE-GATE`
-- `W2K-R5-METADATA-CONTROL-AMENDMENT=HOLD-SEPARATE-GATE`
-- `UAT-CANDIDATE-EVALUATION=HOLD-SEPARATE-S1-GATE`
+- `UAT-CANDIDATE-EVALUATION=ACCEPTED-S1-BOUNDED-ISOLATED-NOT-IMPLEMENTED`
 - `SERVER-SELECTION=DEFERRED`
 - `RAW-ANYCORN-0.20.0=HOLD`
 - `PRODUCT-DEPENDENCY-CHANGES=DENY`
+- `W2K-R5-METADATA-CONTROL-AMENDMENT=ACCEPTED-K5-NOT-IMPLEMENTED`
 - `DEPENDENCY-INSTALLATION=HOLD-PENDING-FOUNDER`
 - `RUNTIME-EXECUTION=HOLD-PENDING-SEPARATE-ADMISSION`
 - `PRODUCTION/POC/RC/STABLE-V1/GA=NO-GO-BY-THIS-RECORD`

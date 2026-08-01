@@ -23,6 +23,7 @@
     {
       "id": "anycorn",
       "version_considered": "0.20.0",
+      "artifact_scope": "official_upstream_distribution",
       "disposition": "HOLD",
       "selected": false,
       "installed": false,
@@ -35,6 +36,7 @@
     {
       "id": "hypercorn",
       "version_considered": null,
+      "artifact_scope": "official_upstream_distribution",
       "disposition": "UNASSESSED",
       "selected": false,
       "installed": false,
@@ -43,12 +45,46 @@
     {
       "id": "granian",
       "version_considered": null,
+      "artifact_scope": "official_upstream_distribution",
       "disposition": "UNASSESSED",
       "selected": false,
       "installed": false,
       "pinned": false
+    },
+    {
+      "id": "anycorn-cybrik-uat-b1",
+      "version_considered": "0.20.0+cybrik.1",
+      "artifact_scope": "internal_uat_evaluation_artifact",
+      "installed_scope": "suite_uat_tool_lock_only",
+      "uat_evaluation_admitted": true,
+      "disposition": "HOLD",
+      "selected": false,
+      "installed": false,
+      "pinned": false,
+      "derived_from": {
+        "id": "anycorn",
+        "version_considered": "0.20.0",
+        "artifact_scope": "official_upstream_distribution"
+      },
+      "blocking_finding": {
+        "severity": "HIGH",
+        "recorded_at": "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
+        "mitigation_status": "NOT PROVEN"
+      },
+      "admission": {
+        "gate": "UAT-MTLS-S1",
+        "scope": "bounded_isolated_uat_evaluation_only",
+        "dependency_installation": "DEFERRED_TO_UAT-MTLS-D1",
+        "runtime_execution": "DEFERRED_TO_UAT-MTLS-D2"
+      }
     }
   ],
+  "server_candidate_disambiguation": {
+    "raw_upstream_id": "anycorn",
+    "internal_uat_id": "anycorn-cybrik-uat-b1",
+    "shared_public_version": "0.20.0",
+    "identity_rule": "id_and_artifact_scope_are_authoritative"
+  },
   "future_local_harness_profile": {
     "required_adapter": "server-verified-chain-adapter",
     "forbidden_adapters": ["trusted-boundary-adapter"],

@@ -37,9 +37,20 @@ rather than lifting packet governance into the transport payload.
 
 ## Server neutrality
 
-No server is selected, installed, or pinned. Anycorn `0.20.0` remains **HOLD** under the existing
-runtime-admission finding. Other candidates remain unassessed. A future server must pass a separate
-runtime conformance gate; static green under this ADR is not that gate.
+No product server is selected, installed, or pinned. Raw Anycorn `0.20.0` means
+`id=anycorn` plus `artifact_scope=official_upstream_distribution`; it remains **HOLD** under the
+existing runtime-admission finding. Hypercorn and Granian remain unassessed official upstream rows.
+
+K5 additionally records `id=anycorn-cybrik-uat-b1`, version `0.20.0+cybrik.1`, as a distinct
+`internal_uat_evaluation_artifact`. S1 admits that row only for bounded isolated UAT evaluation.
+It remains product `selected=false`, `installed=false`, `pinned=false` and `HOLD`; D1 remains
+**HOLD** and alone may flip both installation fields atomically after the artifact exists. D2
+remains **HOLD**. `server_neutral=true`, `selected_server=null`, and
+UAT/DEMO/POC/RC/stable-v1/GA NO-GO remain exact. ID plus artifact scope, not PEP 440 public-version
+equivalence, distinguishes the raw and internal rows.
+
+A future server must pass a separate runtime conformance gate; static green under this ADR is not
+that gate.
 
 The future local harness forbids a `trusted-boundary-adapter`: loopback UAT must derive peer evidence
 from the chain verified by the serving process itself. Proxy or caller assertions are out of scope.
