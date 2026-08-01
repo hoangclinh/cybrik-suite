@@ -449,3 +449,22 @@ def test_consume_rejects_parent_rebinding_before_first_mkdir(
     assert error.value.reason == "authorization_consumption_failed"
     assert not (replacement / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
     assert not (moved_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
+
+
+def test_consume_rejects_parent_rebinding_before_parent_fd_open(
+    tmp_path: Path,
+) -> None:
+    fields = _fields(tmp_path)
+    raw = _text(fields).encode()
+    resolved = authorization.validate_authorization(fields, _observed(fields))
+    evidence_parent = Path(fields["COVERAGE_EVIDENCE_ROOT"]).parent
+    moved_parent = evidence_parent.with_name("evidence-parent-preopen-moved")
+    evidence_parent.rename(moved_parent)
+    evidence_parent.mkdir(mode=0o700)
+
+    with pytest.raises(authorization.AuthorizationFailure) as error:
+        authorization.consume_authorization(resolved, raw)
+
+    assert error.value.reason == "authorization_consumption_failed"
+    assert not (evidence_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
+    assert not (moved_parent / Path(fields["COVERAGE_EVIDENCE_ROOT"]).name).exists()
