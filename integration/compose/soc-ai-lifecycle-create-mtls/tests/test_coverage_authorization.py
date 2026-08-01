@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import stat
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +20,7 @@ SCRIPT = (
 SPEC = importlib.util.spec_from_file_location("validate_coverage_authorization", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 authorization = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = authorization
 SPEC.loader.exec_module(authorization)
 
 
@@ -60,7 +62,7 @@ def _fields(tmp_path: Path) -> dict[str, str]:
         ),
         "PINNED_PYTHON": str(python_link),
         "PINNED_PYTHON_REALPATH": str(python_realpath),
-        "PINNED_PYTHON_SHA256": _sha256(b"pinned-python"),
+        "PINNED_PYTHON_SHA256": "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623",
         "PYTHON_VERSION": "3.12.13",
         "PYTEST_VERSION": "9.1.1",
         "CRYPTOGRAPHY_VERSION": "50.0.0",
@@ -174,7 +176,7 @@ def test_validation_rejects_expired_or_overwide_authority(tmp_path: Path) -> Non
         authorization.validate_authorization(fields, observed)
     assert error.value.reason == "authorization_window_invalid"
 
-    fields = _fields(tmp_path)
+    fields = _fields(tmp_path / "expired")
     observed = authorization.ObservedState(
         **{**_observed(fields).__dict__, "now": datetime(2026, 8, 3, tzinfo=UTC)}
     )

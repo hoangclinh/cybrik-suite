@@ -4625,6 +4625,11 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
     'PINNED_PYTHON_SHA256',
     'PYTHON_VERSION',
     'PYTEST_VERSION',
+    'CRYPTOGRAPHY_VERSION',
+    'D1_LOCK_SHA256',
+    'D1_REQUIREMENTS_SHA256',
+    'D1_LOCKED_WHEEL_COUNT',
+    'PINNED_CLOSURE_SHA256',
     'WHEEL_FILENAME',
     'WHEEL_URL',
     'WHEEL_SIZE',
@@ -4651,6 +4656,12 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
     }),
   );
   assert.equal(values.get('HEAD_MODE'), 'detached');
+  assert.equal(values.get('PYTEST_VERSION'), '9.1.1');
+  assert.equal(values.get('CRYPTOGRAPHY_VERSION'), '50.0.0');
+  assert.equal(values.get('D1_LOCK_SHA256'), 'e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add');
+  assert.equal(values.get('D1_REQUIREMENTS_SHA256'), '93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603');
+  assert.equal(values.get('D1_LOCKED_WHEEL_COUNT'), '56');
+  assert.match(values.get('PINNED_CLOSURE_SHA256'), /^<[A-Z0-9_-]+>$/);
   assert.equal(values.get('NETWORK_CLIENT'), '/usr/bin/curl');
   assert.equal(values.get('NETWORK_CLIENT_REALPATH'), '/usr/bin/curl');
   assert.equal(values.get('NETWORK_CLIENT_SHA256'), '5ab042572ea0e068644e3b8f9e8dd1ad197bfcf33d199316615b46ddc4390a41');
@@ -4670,6 +4681,24 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /working directory equal to the canonical `SUITE_ROOT`/);
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
   assert.match(section, /Release dates remain unchanged/);
+});
+
+test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const match = decision.match(
+    /### Gate UAT-MTLS-D2-COV-P2 — executable authorization hardening([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
+  );
+  assert.ok(match, 'D2-COV-P2 must close the prose-only authorization gap');
+  const section = match[1];
+  assert.match(section, /validate_coverage_authorization\.py --authorization/);
+  assert.match(section, /--check-only/);
+  assert.match(section, /--consume/);
+  assert.match(section, /PINNED_CLOSURE_SHA256/);
+  assert.match(section, /CRYPTOGRAPHY_VERSION=50\.0\.0/);
+  assert.match(section, /PYTEST_VERSION=9\.1\.1/);
+  assert.match(section, /must not be under `\/tmp`, `\/private\/tmp`/);
+  assert.match(section, /does not install or restore the D1 closure/);
+  assert.match(section, /D2 remains \*\*HOLD\*\*/);
 });
 
 test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate credit', () => {

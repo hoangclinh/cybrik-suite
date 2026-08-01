@@ -677,6 +677,51 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
     assert "--result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json" in harness_readme
 
 
+def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"### Gate UAT-MTLS-D2-COV-P2 — executable authorization hardening"
+        r"([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)",
+        decision,
+    )
+    assert match is not None
+    section = match.group(1)
+    scope = re.search(
+        r"maximum hardening scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path",
+        section,
+    )
+    assert scope is not None
+    assert re.findall(r"^- `([^`]+)`$", scope.group(1), re.MULTILINE) == [
+        "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/README.md",
+        "integration/compose/soc-ai-lifecycle-create-mtls/scripts/validate_coverage_authorization.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_authorization.py",
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_policy.py",
+        "tools/contract-validation/tests/validate-transport.test.mjs",
+    ]
+    normalized = " ".join(section.split())
+    for fact in (
+        "PINNED_CLOSURE_SHA256",
+        "D1_LOCK_SHA256",
+        "D1_REQUIREMENTS_SHA256",
+        "D1_LOCKED_WHEEL_COUNT",
+        "CRYPTOGRAPHY_VERSION=50.0.0",
+        "PYTEST_VERSION=9.1.1",
+    ):
+        assert fact in section
+    assert "validate_coverage_authorization.py --authorization" in normalized
+    assert "--check-only" in section and "--consume" in section
+    assert "must not be under `/tmp`, `/private/tmp`" in normalized
+    assert "does not install or restore the D1 closure" in normalized
+    assert "D2 remains **HOLD**" in section
+    assert "Release dates remain unchanged" in section
+    assert "validate_coverage_authorization.py" in harness_readme
+    assert "DEPENDENCY ACTION NOT RUN" in harness_readme
+
+
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
     readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     expected = (
