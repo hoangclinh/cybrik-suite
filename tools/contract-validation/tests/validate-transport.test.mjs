@@ -4080,13 +4080,17 @@ const ADR_README_W2I_ADDITIONS = [
   '\n| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |',
   '\n| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |',
 ];
+// W2-H/R5 §10.2 accepts ADR-0012 for implementation. The registry is a catalog,
+// so it moves only its W2-H lifecycle wording; the base bytes below it are still
+// pinned by ADR_README_BASE_SHA256. The literals mirror the accepted W2-K shape
+// so one reading of this catalog covers both accepted packets.
 const ADR_README_W2H_ADDITIONS = [
   '\nThe W2-H resource-bounds packet adds ADR-0012 as\n' +
-    '`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`. Gate W2-H authorizes only bounded proposal writing\n' +
-    'and static conformance under the delegated Governor decision; it does not accept ADR-0012 or\n' +
-    'authorize runtime, UAT, release, deployment, or production work.\n',
-  '\n| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; Gate W2-H authorizes bounded proposal writing and static conformance only |',
-  '\n| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | `OPEN FOR BOUNDED PROPOSAL WRITING AND STATIC CONFORMANCE ONLY` (2026-07-31); assigns ADR-0012 at write time, authorizes only the exact proposal paths, and grants no acceptance, runtime, UAT, release, deployment, or production authority |',
+    '`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. Gate W2-H accepts the exact v0.1.0 packet for\n' +
+    'implementation only under the delegated Governor R5 decision; it authorizes no runtime, UAT,\n' +
+    'release, deployment, or production work.\n',
+  '\n| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |',
+  '\n| [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | R5 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |',
 ];
 const ADR_README_W2K_ADDITIONS = [
   '\nThe W2-K transport peer-evidence packet adds ADR-0013 as\n' +
@@ -4143,10 +4147,35 @@ test('P2-3: the intended ADR-0011 / W2-I registry entries are retained', () => {
   assert.match(adr, /Gate W2-I is \*\*`NOT OPENED`\*\*/, 'P2-3: the ADR-0011 entry must state that Gate W2-I is NOT OPENED');
 });
 
-test('P2-3: the intended ADR-0012 / W2-H registry entries remain proposal-only', () => {
+// The guard is scoped to the one ADR-0012 registry row. A catalog-wide regex
+// would be satisfied by any other row carrying the same lifecycle string — the
+// W2-I rows still do — so it would read green whatever ADR-0012 itself says.
+const ADR_0012_ROW_PREFIX = '| [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) |';
+
+test('P2-3: the intended ADR-0012 / W2-H registry entries record bounded acceptance', () => {
   const adr = read(ADR_README_REL);
-  assert.match(adr, /ADR-0012/, 'P2-3: docs/adr/README.md must register ADR-0012');
-  assert.match(adr, /PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED/, 'P2-3: ADR-0012 must remain proposal-only');
+  const rows = adr.split('\n').filter((line) => line.startsWith(ADR_0012_ROW_PREFIX));
+  assert.equal(
+    rows.length,
+    1,
+    `P2-3: docs/adr/README.md must register ADR-0012 in exactly one row; found ${rows.length}`,
+  );
+  const [row] = rows;
+  assert.match(
+    row,
+    /ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED/,
+    `P2-3: the ADR-0012 row itself must carry the R5 accepted lifecycle:\n${row}`,
+  );
+  assert.doesNotMatch(
+    row,
+    /PROPOSED|NOT ACCEPTED/,
+    `P2-3: the ADR-0012 row must not keep any proposal-lifecycle wording:\n${row}`,
+  );
+  assert.match(
+    row,
+    /Gate W2-H accepts the exact v0\.1\.0 packet for implementation only/,
+    `P2-3: the ADR-0012 row must state the exact bounded acceptance:\n${row}`,
+  );
   assert.match(adr, /DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL\.md/);
   assert.match(adr, /production remains\s+Founder-controlled/i);
 });
