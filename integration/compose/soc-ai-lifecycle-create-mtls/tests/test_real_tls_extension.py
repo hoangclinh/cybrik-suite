@@ -15,6 +15,7 @@ import types
 from pathlib import Path
 
 import pytest
+from cybrik_suite_uat_mtls import client as runtime_client
 from cybrik_suite_uat_mtls import harness as runtime_harness
 from cybrik_suite_uat_mtls import policy
 from cybrik_suite_uat_mtls import server as runtime_server
@@ -164,13 +165,16 @@ def test_ssl_context_evidence_is_recomputed_instead_of_trusting_booleans(
 def test_every_runtime_evidence_write_is_exclusive_durable_and_mode_bounded() -> None:
     server = _SERVER.read_text(encoding="utf-8")
     harness = (_SERVER.parent / "harness.py").read_text(encoding="utf-8")
+    client = (_SERVER.parent / "client.py").read_text(encoding="utf-8")
 
-    for source, minimum_calls in ((server, 3), (harness, 2)):
+    for source, minimum_calls in ((server, 3), (harness, 2), (client, 3)):
         assert "_write_atomic_evidence" in source
         assert source.count("_write_atomic_evidence(") >= minimum_calls
         assert "os.O_EXCL" in source
         assert "0o600" in source
         assert "os.fsync" in source
+        assert ".write_text(" not in source
+    assert "not result_path.is_symlink()" in harness
 
 
 @pytest.mark.parametrize(
@@ -181,6 +185,7 @@ def test_every_runtime_evidence_write_is_exclusive_durable_and_mode_bounded() ->
             runtime_harness._write_atomic_evidence,
             runtime_harness.RuntimeAuthorizationError,
         ),
+        (runtime_client._write_atomic_evidence, runtime_client.ClientBoundaryError),
     ),
 )
 def test_atomic_evidence_writer_rejects_a_preexisting_temporary_symlink(
