@@ -4297,7 +4297,7 @@ const extractD1R2Additions = (decision) => {
   const section = mdSection(decision, '6. Prospective owner paths split by gate');
   assert.ok(section !== null, 'the mTLS decision must retain its exact section 6');
   const match = section.match(
-    /S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:\n\n((?:- `[^`]+`\n){3})/,
+    /S1 R2 expands the D1 maximum prospective allowlist by exactly these three existing paths and no others:\n\n((?:- `[^`]+`\n){3})(?!- `)/,
   );
   assert.ok(match, 'S1 R2 must declare one exact three-path D1 allowlist amendment');
   return [...match[1].matchAll(/^- `([^`]+)`$/gm)].map((item) => item[1]);
@@ -4314,7 +4314,11 @@ test('UAT mTLS S1 R2 keeps uv.lock registry-only and pins B1 outside the solver'
   assert.match(decision, /`anycorn` is absent from the solver\s+and `uv\.lock`/);
   assert.match(decision, /`evidence\/internal-wheel\.json`/);
   assert.match(decision, /installed offline with `--no-deps` only after a\s+fail-closed SHA-256 check/);
-  assert.match(decision, /No raw Anycorn distribution may be resolved, downloaded, locked or\s+installed/);
+  assert.match(
+    decision,
+    /No raw Anycorn distribution may enter the solver, `uv\.lock` or the\s+installed environment/,
+  );
+  assert.match(decision, /official `0\.20\.0` sdist is fetched only as hashed build input/);
 });
 
 test('UAT mTLS S1 R2 expands D1 by exactly the three required existing paths', () => {
@@ -4331,6 +4335,8 @@ test('UAT mTLS S1 R2 expands D1 by exactly the three required existing paths', (
   assert.match(decision, /dependency-neutral modules from the D1 runtime modules/);
   assert.match(decision, /removes no fail-closed purity, inventory or import coverage/);
   assert.match(decision, /Both README files must replace\s+their dependency-neutral-only claims/);
+  assert.match(decision, /remain valid pre-D1 §6\.1 preparation paths/);
+  assert.match(decision, /does not retroactively classify their already-accepted dependency-neutral bytes as D1 work/);
 });
 
 test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rules fail closed', () => {
@@ -4347,23 +4353,33 @@ test('UAT mTLS S1 R2 makes clean-checkout, evidence and deterministic-build rule
   assert.match(decision, /wheelhouse, cache and clean build workspaces remain outside the repository/);
   assert.match(decision, /offline reinstall proof is scoped to the exact recorded platform/);
   assert.match(decision, /ephemeral gitignored `dist\/`/);
+  assert.match(decision, /dependency-neutral command must name its five existing test files explicitly/);
+  assert.match(decision, /collection-time imports may not turn an\s+unselected test into a missing-dependency failure/);
 });
 
 test('UAT mTLS S1 R2 records bounded outbound authority while D1 and releases remain HOLD', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const gate = read(UAT_MTLS_GATE_REL);
-  const combined = `${decision}\n${gate}`;
+  const executionSection = mdSection(decision, '10. Execution and evidence gates');
+  assert.ok(executionSection !== null, 'the mTLS decision must retain its exact section 10');
+  const d1Match = executionSection.match(
+    /### Gate UAT-MTLS-D1 — dependency installation([\s\S]*?)(?=\n### Gate UAT-MTLS-D2)/,
+  );
+  assert.ok(d1Match, 'section 10 must retain one bounded D1 gate before D2');
+  const d1 = d1Match[1];
 
   for (const required of [
-    'pypi.org',
+    'https://pypi.org/pypi/anycorn/0.20.0/json',
     'files.pythonhosted.org',
+    'https://api.osv.dev/v1/querybatch',
+    'https://pypi.org/simple',
     'build-backend child processes',
-    'advisory-database endpoint',
     'SBOM/license/audit tooling',
   ]) {
-    assert.ok(combined.includes(required), `S1 R2 must pin outbound authority for ${required}`);
+    assert.ok(d1.includes(required), `S1 R2 must pin D1 outbound authority for ${required}`);
   }
-  assert.match(combined, /no listener, server, database, migration or product-runtime authority/i);
+  assert.match(d1, /explicitly widens the superseded sdist\/build-only outbound\s+wording/);
+  assert.match(d1, /no listener, server, database, migration or product-runtime\s+authority/i);
   assert.match(gate, /S1-R2-D1-CLARIFICATION=ACCEPTED-BY-DELEGATED-GOVERNOR-D1-STILL-HOLD-PENDING-FOUNDER/);
   assert.match(gate, /D1 remains \*\*HOLD\*\*/);
   assert.match(gate, /D2 remains \*\*HOLD\*\*/);

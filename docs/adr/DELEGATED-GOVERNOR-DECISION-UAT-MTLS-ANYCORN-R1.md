@@ -269,6 +269,8 @@ S1 R2 expands the D1 maximum prospective allowlist by exactly these three existi
 `test_policy.py` must separate the dependency-neutral modules from the D1 runtime modules; that
 split removes no fail-closed purity, inventory or import coverage. Both README files must replace
 their dependency-neutral-only claims with truthful authored/not-run D1 status in the same packet.
+These three remain valid pre-D1 §6.1 preparation paths; R2 only reopens them for later D1 edits and
+does not retroactively classify their already-accepted dependency-neutral bytes as D1 work.
 
 The following eight W2-K metadata/control carriers are **not** D1-only. K5 may amend them under its
 separate exact-path review while every installation field remains false. D1 may touch them later
@@ -290,11 +292,13 @@ The official raw Anycorn wheel is never installed or pinned. The dedicated lock 
 registry-only third-party closure with exact artifact hashes; `anycorn` is absent from the solver
 and `uv.lock`. The internally versioned, patch-provenance-bound B1 wheel is pinned separately by
 exact SHA-256 in `evidence/internal-wheel.json` and installed offline with `--no-deps` only after a
-fail-closed SHA-256 check. No raw Anycorn distribution may be resolved, downloaded, locked or
-installed. D1 may execute patch provenance, reproducibility, SSL-context, lock, audit, SBOM and
-offline-reinstall tests. Those commands may use only the exact outbound and child-process authority
-enumerated under Gate UAT-MTLS-D1; they may open no listener, start no ASGI/database server and make
-no product-runtime connection. D1 may author but not execute the real-listener/PostgreSQL targets.
+fail-closed SHA-256 check. No raw Anycorn distribution may enter the solver, `uv.lock` or the
+installed environment; the official `0.20.0` sdist is fetched only as hashed build input under the
+exact artifact endpoint enumerated in Gate UAT-MTLS-D1 and is never installed. D1 may execute patch
+provenance, reproducibility, SSL-context, lock, audit, SBOM and offline-reinstall tests. Those
+commands may use only the exact outbound and child-process authority enumerated under Gate
+UAT-MTLS-D1; they may open no listener, start no ASGI/database server and make no product-runtime
+connection. D1 may author but not execute the real-listener/PostgreSQL targets.
 The four status carriers listed above must be updated atomically to say `authored/not run` and
 retain `HOLD`, `execution_authorized=false`, zero runtime checks and truthful evidence digests.
 
@@ -302,6 +306,10 @@ Committed-byte provenance tests must never import `anycorn`. Artifact-dependent 
 bounded `CYBRIK_UAT_D1_ARTIFACT_DIR` when invoked and fail closed when it is absent. They are
 explicit D1 targets outside the dependency-neutral clean-checkout target, not `skip`, `xfail` or
 `todo`; the committed clean-checkout suite remains green without an ephemeral artifact.
+The dependency-neutral command must name its five existing test files explicitly rather than
+discovering the whole `tests/` directory. D1 artifact commands likewise name only their explicit
+artifact targets after setting `CYBRIK_UAT_D1_ARTIFACT_DIR`; collection-time imports may not turn an
+unselected test into a missing-dependency failure.
 
 The eight W2-K R5 status/control paths must reconcile present-time facts atomically without
 changing any wire schema, fixture or packet-member digest. R5 adds an explicit amendment to the
@@ -520,13 +528,20 @@ Current state: `HOLD — FOUNDER AUTHORIZATION REQUIRED` by repository policy.
 
 The requested authority, if granted, must be bounded to resolving/installing the dedicated
 Suite-owned UAT tool environment, creating its lock/wheelhouse/SBOM/license/VEX evidence and
-running dependency-only tests. D1 permits outbound HTTPS only to the pinned `pypi.org` metadata
-endpoint, the exact `files.pythonhosted.org` artifact endpoint, the named advisory-database
-endpoint used by the vulnerability scanner, and the exact registry endpoints needed to resolve
-SBOM/license/audit tooling into an isolated tooling environment outside the UAT lock. It also
-permits the exact build-backend child processes needed for the two reproducibility builds. This
-grants no listener, server, database, migration or product-runtime authority and no product
-dependency change. D1 cannot open before A0 and K5 are accepted and S1 admits option B1.
+running dependency-only tests. R2 explicitly widens the superseded sdist/build-only outbound
+wording to this closed D1 HTTPS set:
+
+- `https://pypi.org/pypi/anycorn/0.20.0/json` for release metadata;
+- the one exact `files.pythonhosted.org` sdist URL returned for `0.20.0`, accepted only when its
+  SHA-256 equals `e5555ddc95bc2df13908093ee11eff8f0a05165b9b9a368c28291065eab63927`;
+- `https://api.osv.dev/v1/querybatch` for the advisory-database query; and
+- `https://pypi.org/simple` plus only the exact hash-pinned `files.pythonhosted.org` artifacts needed
+  to resolve SBOM/license/audit tooling into an isolated tooling environment outside the UAT lock.
+
+D1 also permits the exact build-backend child processes needed for the two reproducibility builds.
+This enumerated widening grants no listener, server, database, migration or product-runtime
+authority and no product dependency change. D1 cannot open before A0 and K5 are accepted and S1
+admits option B1.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
