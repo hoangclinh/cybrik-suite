@@ -257,9 +257,14 @@ def test_audit_tooling_and_osv_evidence_are_hash_pinned_and_fail_closed(
     assert re.fullmatch(r"[0-9a-f]{64}", audit["raw_output_sha256"])
 
     package_queries = audit["package_queries"]
-    assert isinstance(package_queries, list) and len(package_queries) == 57
+    raw_audit = json.loads((artifact_dir / "pip-audit.json").read_text(encoding="utf-8"))
+    audited_dependencies = raw_audit["dependencies"]
+    assert isinstance(package_queries, list) and len(package_queries) == len(audited_dependencies)
     queried = [(item["name"].casefold(), item["version"]) for item in package_queries]
     assert len(queried) == len(set(queried))
+    assert set(queried) == {
+        (item["name"].casefold(), item["version"]) for item in audited_dependencies
+    }
     assert all(re.fullmatch(r"[0-9a-f]{64}", item["raw_response_sha256"]) for item in package_queries)
 
     findings = audit["findings"]
@@ -271,3 +276,39 @@ def test_audit_tooling_and_osv_evidence_are_hash_pinned_and_fail_closed(
     blocking = [item for item in findings if item["severity"] in {"CRITICAL", "HIGH", "UNKNOWN"}]
     assert audit["blocking_findings"] == blocking
     assert audit["candidate_disposition"] == "HOLD"
+
+
+def test_raw_osv_records_have_no_transitive_critical_high_or_unknown(
+    artifact_dir: Path,
+) -> None:
+    index_path = artifact_dir / "osv-responses-index.json"
+    assert index_path.is_file()
+    queries = json.loads(index_path.read_text(encoding="utf-8"))
+    assert isinstance(queries, list) and queries
+
+    findings: list[dict[str, str]] = []
+    for query in queries:
+        raw_path = artifact_dir / "osv-responses" / query["response_file"]
+        assert raw_path.is_file()
+        assert _sha256(raw_path) == query["raw_response_sha256"]
+        response = json.loads(raw_path.read_text(encoding="utf-8"))
+        for vulnerability in response.get("vulns", []):
+            raw_severity = vulnerability.get("database_specific", {}).get("severity")
+            severity = raw_severity.upper() if isinstance(raw_severity, str) else "UNKNOWN"
+            if severity not in {"CRITICAL", "HIGH", "MODERATE", "LOW"}:
+                severity = "UNKNOWN"
+            findings.append(
+                {
+                    "id": vulnerability["id"],
+                    "name": query["name"],
+                    "version": query["version"],
+                    "severity": severity,
+                }
+            )
+
+    blocking = [
+        finding
+        for finding in findings
+        if finding["severity"] in {"CRITICAL", "HIGH", "UNKNOWN"}
+    ]
+    assert blocking == [], f"D1 transitive closure has release-blocking OSV findings: {blocking}"
