@@ -110,6 +110,7 @@ PYTHONPATH=integration/compose/soc-ai-lifecycle-create-mtls/src \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_real_tls_extension.py \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_harness_exposes_exactly_the_five_allowlisted_operator_steps \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_runtime_entrypoint_has_a_committed_authorization_guard \
+    integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_runtime_driver_is_collected_but_cannot_run_without_phase_a \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py \
     integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py

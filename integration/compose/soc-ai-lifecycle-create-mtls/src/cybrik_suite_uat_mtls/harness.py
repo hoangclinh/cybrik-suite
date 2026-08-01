@@ -260,6 +260,25 @@ def _password(root: Path) -> str:
     return value
 
 
+def _write_atomic_evidence(destination: Path, record: object) -> None:
+    temporary = destination.with_suffix(".tmp")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as exc:
+        raise RuntimeAuthorizationError(
+            "atomic evidence temporary path is unavailable"
+        ) from exc
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def _postgres_runtime(root: Path) -> store.PostgresRuntime:
     return store.PostgresRuntime(
         password=_password(root),
@@ -318,11 +337,7 @@ def reset() -> None:
     store.migrate(runtime)
     posture = evidence.validate_evidence(store.audit_security_posture(runtime))
     destination = _evidence_root(exists=True) / _POSTGRES_SECURITY_EVIDENCE
-    temporary = destination.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(posture, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-    )
-    os.replace(temporary, destination)
+    _write_atomic_evidence(destination, posture)
 
 
 def stop() -> None:
@@ -544,6 +559,11 @@ def _assert_ssl_context_evidence(evidence_root: Path) -> dict[str, object]:
         or result_options <= 0
     ):
         raise RuntimeAuthorizationError("SSL-context option evidence is invalid")
+    expected_baseline_options = int(
+        ssl.create_default_context(ssl.Purpose.CLIENT_AUTH).options
+    )
+    if baseline_options != expected_baseline_options:
+        raise RuntimeAuthorizationError("SSL-context baseline evidence is inconsistent")
     hardened_options_preserved = (result_options & baseline_options) == baseline_options
     no_compression_verified = bool(result_options & ssl.OP_NO_COMPRESSION)
     if record.get("hardened_options_preserved") is not hardened_options_preserved:

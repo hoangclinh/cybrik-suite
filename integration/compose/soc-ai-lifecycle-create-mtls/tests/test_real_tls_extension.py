@@ -173,6 +173,35 @@ def test_every_runtime_evidence_write_is_exclusive_durable_and_mode_bounded() ->
         assert "os.fsync" in source
 
 
+@pytest.mark.parametrize(
+    ("writer", "error_type"),
+    (
+        (runtime_server._write_atomic_evidence, runtime_server.ServerBoundaryError),
+        (
+            runtime_harness._write_atomic_evidence,
+            runtime_harness.RuntimeAuthorizationError,
+        ),
+    ),
+)
+def test_atomic_evidence_writer_rejects_a_preexisting_temporary_symlink(
+    tmp_path: Path, writer: object, error_type: type[Exception]
+) -> None:
+    destination = tmp_path / "evidence.json"
+    writer(destination, {"case_count": 1})  # type: ignore[operator]
+    assert json.loads(destination.read_text(encoding="utf-8")) == {"case_count": 1}
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert not destination.with_suffix(".tmp").exists()
+
+    destination.unlink()
+    sentinel = tmp_path / "sentinel"
+    sentinel.write_text("unchanged", encoding="utf-8")
+    destination.with_suffix(".tmp").symlink_to(sentinel)
+    with pytest.raises(error_type):
+        writer(destination, {"case_count": 2})  # type: ignore[operator]
+    assert sentinel.read_text(encoding="utf-8") == "unchanged"
+    assert not destination.exists()
+
+
 def test_ssl_context_wrapper_executes_the_pinned_base_then_applies_exact_floor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

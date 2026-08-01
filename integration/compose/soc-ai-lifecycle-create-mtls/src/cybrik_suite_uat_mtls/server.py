@@ -55,6 +55,25 @@ def _required_path(name: str) -> Path:
     return Path(raw).resolve(strict=True)
 
 
+def _write_atomic_evidence(destination: Path, record: object) -> None:
+    temporary = destination.with_suffix(".tmp")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as exc:
+        raise ServerBoundaryError(
+            "atomic evidence temporary path is unavailable"
+        ) from exc
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def _verify_b1_artifact() -> Path:
     wheel = _required_path("CYBRIK_UAT_D2_B1_WHEEL")
     if wheel.name != "anycorn-0.20.0+cybrik.1-py3-none-any.whl":
@@ -96,11 +115,7 @@ def _record_ssl_context_evidence(baseline_options: int, result_options: int) -> 
         }
     )
     destination = _required_path("CYBRIK_UAT_D2_EVIDENCE_DIR") / _SSL_CONTEXT_EVIDENCE
-    temporary = destination.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(record, sort_keys=True, separators=(",", ":")), encoding="utf-8"
-    )
-    os.replace(temporary, destination)
+    _write_atomic_evidence(destination, record)
 
 
 def build_patched_ssl_context(config: object) -> object:
@@ -170,12 +185,7 @@ class _TlsEvidenceMiddleware:
                 "tls_version": tls.get("tls_version"),
             }
             validated = evidence.validate_evidence(summary)
-            temporary = self._evidence_path.with_suffix(".tmp")
-            temporary.write_text(
-                json.dumps(validated, sort_keys=True, separators=(",", ":")),
-                encoding="utf-8",
-            )
-            os.replace(temporary, self._evidence_path)
+            _write_atomic_evidence(self._evidence_path, validated)
         await self._app(runtime_scope, receive, send)  # type: ignore[operator]
 
 
