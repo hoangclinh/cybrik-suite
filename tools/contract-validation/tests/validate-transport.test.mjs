@@ -4570,20 +4570,21 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`/);
   assert.doesNotMatch(section, /<PINNED_PYTHON> -m pip install/);
   assert.match(section, /<PINNED_PYTHON> -m zipfile -e/);
-  assert.match(section, /No package installer, index, build frontend or lifecycle script is invoked/);
+  assert.match(section, /No package installer, index, build frontend or lifecycle script\s+is invoked/);
   assert.match(section, /c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7/);
   assert.match(section, /non-empty OSV vulnerability result is a hard stop before extraction/);
   assert.match(section, /raw\.githubusercontent\.com[^\n]+authoring-time provenance[^\n]+not execution inputs/);
-  assert.match(section, /evidence root may not be under `\/tmp` or `\/private\/tmp`/);
+  assert.match(section, /evidence root may not be under `\/tmp`\s+or `\/private\/tmp`/);
   assert.match(section, /owner equals the effective uid/);
   assert.match(section, /mode `0700`/);
   assert.match(section, /`st_dev` and `st_ino`/);
-  assert.match(section, /pre-existing root[^\n]+hard stop[^\n]+not a resume/);
+  assert.match(section, /tool-root basename must not\s+begin `cybrik-uat-d2-coverage-evidence-`/);
+  assert.match(section, /pre-existing root[\s\S]{0,120}hard\s+stop, not a resume/);
   assert.match(section, /authorization is consumed by the single attempt/);
   assert.match(section, /`coverage\.json` and `coverage-gate\.json` SHA-256 digests/);
 
   const fieldsMatch = section.match(
-    /authorization artifact must contain exactly these standalone fields[^\n]*:\n\n```text\n([\s\S]*?)\n```/,
+    /authorization artifact must contain exactly these standalone fields[\s\S]{0,120}:\n\n```text\n([\s\S]*?)\n```/,
   );
   assert.ok(fieldsMatch, 'D2-COV-P0 must expose one exact standalone authorization field set');
   const fields = [...fieldsMatch[1].matchAll(/^([A-Z0-9_]+)=/gm)].map((item) => item[1]);
@@ -4596,6 +4597,7 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
     'SUITE_COMMIT',
     'SUITE_TREE',
     'SUITE_ROOT',
+    'HEAD_MODE',
     'WORKING_DIRECTORY',
     'COVERAGE_ROOT',
     'COVERAGE_EVIDENCE_ROOT',
