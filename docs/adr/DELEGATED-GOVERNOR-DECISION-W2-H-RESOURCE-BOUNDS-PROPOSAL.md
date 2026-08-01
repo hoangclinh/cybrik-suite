@@ -1950,3 +1950,151 @@ R4 grants no acceptance, runtime, UAT, T10/T11, deployment, release, production
 or release-date change. It creates no bundle tag and does not change `0.1.0`.
 An atomic acceptance decision remains a separate later action after a fresh
 acceptance-readiness audit.
+
+## 10. R5 amendment — atomic acceptance for implementation
+
+- **Decision date:** 2026-08-01 (`Asia/Ho_Chi_Minh`)
+- **Decider:** Codex Governor under
+  `docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`
+- **Amendment identity:** `W2-H/R5`
+- **Base:** `17011ce58a6877a55dead5e3eb5944e2699d962d`
+- **Hosted evidence:** PR #38 required checks green; post-merge contracts run
+  `30684160610` green (`contract standards validation` 1m27s,
+  `secret-scan` full history 9s)
+- **Independent verdict:** `ACCEPTANCE_READY`, no P0/P1/P2
+- **Status:** `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` at v0.1.0;
+  not stable v1/GA and not an ADR-0001 immutable bundle tag
+
+R5 supersedes every earlier W2-H clause that denies or defers **contract
+acceptance**. Those clauses correctly prevented R1–R4 proposal and hardening
+scopes from silently accepting the packet. They remain dated evidence and are
+not rewritten. R5 does not supersede any semantic, integrity, authority,
+evidence-ceiling, runtime, UAT, T10/T11, deployment, release, production,
+version or release-date boundary.
+
+This decision accepts the exact W2-H v0.1.0 resource-bounds contract profile
+for product implementation. Acceptance is governance-metadata and digest-only.
+It changes no JSON Schema property, required field, type, enum, `$ref`, `const`,
+`if`/`then`/`else` mapping, resource dimension, error code, fixture payload,
+replay rule, dependency, endpoint or runtime behavior. All 36 fixture files
+remain byte-identical. `RES_ACTIVE_CHILDREN` remains `retriable: false` and the
+only retriable code remains `RES_INSUFFICIENT_REMAINDER`.
+
+### 10.1 Exact authorized path set
+
+Exactly the following 28 paths, and no others, may change in the atomic R5
+acceptance write:
+
+1. `docs/adr/DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md`
+2. `docs/adr/ADR-0012-resource-bounds-contract-profile.md`
+3. `docs/adr/ADR-0013-transport-peer-evidence-adapter-profile.md`
+4. `docs/releases/GATE-W2-H-RESOURCE-BOUNDS-ACCEPTANCE-2026-08-01.md`
+5. `docs/releases/README.md`
+6. `docs/adr/README.md`
+7. `docs/architecture/README.md`
+8. `docs/architecture/resource-bounds/README.md`
+9. `docs/architecture/resource-bounds/01-contract-semantics.md`
+10. `docs/architecture/resource-bounds/02-deterministic-replay-and-evidence.md`
+11. `contracts/README.md`
+12. `contracts/json-schema/README.md`
+13. `contracts/examples/README.md`
+14. `contracts/compatibility/README.md`
+15. `tools/contract-validation/README.md`
+16. `tools/contract-validation/validate-resource-bounds.mjs`
+17. `tools/contract-validation/tests/validate-resource-bounds.test.mjs`
+18. `tools/contract-validation/validate.mjs`
+19. `tools/contract-validation/tests/validate-transport.test.mjs`
+20. `contracts/json-schema/cybrik.res-common-defs.v1.schema.json`
+21. `contracts/json-schema/cybrik.res-bounds-grant.v1.schema.json`
+22. `contracts/json-schema/cybrik.res-reservation-request.v1.schema.json`
+23. `contracts/json-schema/cybrik.res-reservation-result.v1.schema.json`
+24. `contracts/json-schema/cybrik.res-release.v1.schema.json`
+25. `contracts/json-schema/cybrik.res-root-closure.v1.schema.json`
+26. `contracts/json-schema/cybrik.res-bounds-error.v1.schema.json`
+27. `contracts/examples/resource-bounds/examples-manifest.json`
+28. `contracts/compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json`
+
+### 10.2 Exact lifecycle transitions
+
+The seven schema roots move only these governance fields:
+
+- `x-cybrik-status`: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` to
+  `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`;
+- `x-cybrik-not-accepted`: `true` to `false`; and
+- the `description` status tail to
+  `Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED, v0.1.0; not stable
+  v1/GA and not a bundle tag. Gate W2-H, ADR-0012.`
+
+The seven schema roots do not carry `x-cybrik-not-implemented`; R5 must not add
+it. Contract version `0.1.0` and `x-cybrik-is-bundle-tag: false` do not move.
+
+The examples manifest moves only `status` from `PROPOSED` to
+`ACCEPTED FOR IMPLEMENTATION` and `not_accepted` from `true` to `false`.
+Every fixture entry, order, kind, schema binding and fixture digest stays.
+
+The compatibility manifest moves only its description status clause,
+`x-cybrik-status`, `x-cybrik-not-accepted`, `gate.disposition`,
+`gate.lifecycle_ceiling`, all 45 `members[].status` values, and removes exactly
+`contract acceptance` from `evidence.not_claimed`. `x-cybrik-not-implemented`,
+`gate.runtime_uat_deployment_production: NOT AUTHORIZED`,
+`gate.release_dates: UNCHANGED`, all semantic fields, counts, member paths and
+four accepted dependency pins stay. The target for `x-cybrik-status`,
+`gate.disposition`, `gate.lifecycle_ceiling`, and every `members[].status` is
+exactly `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; the target for
+`x-cybrik-not-accepted` is exactly `false`.
+
+ADR-0012, the architecture documents, catalogs and validation README move only
+their W2-H lifecycle wording and acceptance-record pointer. They must retain
+`NOT IMPLEMENTED` and every no-runtime/UAT/T10/T11/release/deployment/
+production disclaimer. ADR-0013 moves only its one cross-packet statement from
+W2-H `resource-bounds` remaining proposed to being accepted for implementation
+but not implemented; its W2-K ownership and the packets' parallel, disjoint
+relationship do not move. The validator and orchestrator move only their W2-H
+lifecycle guards and banners. Tests must prove the atomic cross-carrier flip
+and reject any partial lifecycle state; no semantic assertion may weaken.
+The minimum atomic lifecycle carrier set for that assertion is exactly the
+seven schema roots, the examples manifest, the compatibility manifest, and the
+ADR-0012 registry entry; every member must be at the accepted target together,
+and mutating any one back to the proposal target must fail.
+`tools/contract-validation/tests/validate-transport.test.mjs` must update its
+byte-pinned `ADR_README_W2H_ADDITIONS` literals and retarget the ADR-0012/W2-H
+proposal-only guard to the exact ADR-0012 registry row. An unrelated proposal
+row, including W2-I, must not be able to satisfy that guard after acceptance.
+
+### 10.3 Acceptance evidence and digest ripple
+
+The new acceptance record must pin the base, exact 28-path authority, hosted
+evidence, accepted surface, rollback, and zero-wire-change evidence:
+
+- one SHA-256 aggregate over the 36 fixture files, identical before and after;
+- one semantic projection digest for each of the seven schemas, identical
+  before and after, computed after removing only the three root governance
+  fields that exist and move: `description`, `x-cybrik-status`, and
+  `x-cybrik-not-accepted`; and
+- explicit preservation of 45 members, 36 fixtures at 10/10/16, seven schemas,
+  fifteen codes, six dimensions and four dependency pins.
+
+Digest recomputation order is fixed. All 36 fixture digests remain unchanged.
+The examples-manifest bytes move, so its member digest moves. The seven schema
+bytes move, so their seven member digests move. Exactly 8 of 44 non-self member
+digests therefore move; all 36 fixture member digests stay. Then recompute the
+compatibility-manifest self digest and `aggregate_sha256` by the existing
+non-circular rules. `x-cybrik-packet-integrity.member_count`, member order and
+member file values stay; `x-cybrik-packet-integrity.aggregate_sha256` is the
+aggregate value that is recut.
+
+### 10.4 Boundaries and merge gate
+
+This acceptance grants permission to implement against the contract later; it
+is not implementation evidence. It grants no runtime, integration, UAT,
+T10/T11, local-stack execution, deployment, release or production authority.
+W0-T11 remains `HOLD until real vertical exists`. The `2026-12-20` stable-v1.0
+go/no-go and `2026-12-21 → 2026-12-31` release window remain unchanged, and
+W2-H is not `G-C`.
+
+Before merge, the exact path set, fixture aggregate, seven schema projections,
+digest movement bound, focused and aggregate tests, dependency audit, gitleaks,
+independent review and the rendered required hosted checks must all be green.
+Rollback before separately authorized product consumption is the atomic
+reversion of the R5 lifecycle carriers and digest recut; partial rollback is
+forbidden and must fail the cross-carrier tests.
