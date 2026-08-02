@@ -572,7 +572,7 @@ def test_rollback_is_a_noop_only_when_both_roots_are_absent(
 
     harness.rollback()
 
-    assert checked == [(evidence_root, runtime_root)]
+    assert checked == []
     assert teardown_calls == []
 
 
@@ -583,6 +583,7 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
     runtime_root.mkdir(mode=0o700)
     (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
     teardown_calls: list[str] = []
+    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -602,6 +603,7 @@ def test_rollback_refuses_partial_evidence_root_without_a_marker(
     evidence_root.mkdir(mode=0o700)
     (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
     teardown_calls: list[str] = []
+    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -621,10 +623,25 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     runtime_root.mkdir(mode=0o700)
     evidence_root.mkdir(mode=0o700)
     teardown_calls: list[str] = []
+    marker_checks: list[tuple[Path, str | None, Path | None]] = []
+    authorization_sha = "a" * 64
+    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", authorization_sha)
+
+    def accept_marker(
+        evidence: Path,
+        *,
+        expected_authorization_sha256: str | None = None,
+        expected_runtime_root: Path | None = None,
+    ) -> dict[str, str]:
+        marker_checks.append(
+            (evidence, expected_authorization_sha256, expected_runtime_root)
+        )
+        return {"status": "consumed"}
+
     monkeypatch.setattr(
         harness.runtime_authorization,
         "verify_consumption_marker",
-        lambda evidence, **_: {"status": "consumed"},
+        accept_marker,
     )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
     monkeypatch.setattr(harness, "verify_absent", lambda: True)
@@ -632,6 +649,7 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     harness.rollback()
 
     assert teardown_calls == ["called"]
+    assert marker_checks == [(evidence_root, authorization_sha, runtime_root)]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:
