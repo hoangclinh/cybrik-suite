@@ -1,0 +1,268 @@
+"""RED controls for descriptor-bound ephemeral PKI creation.
+
+The tests install harmless cryptography stand-ins and write only short fixture
+sentinels below ``tmp_path``.  They do not create credentials, open sockets, or
+invoke the D2 runtime harness.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import types
+from pathlib import Path
+from typing import Self
+
+import pytest
+
+from cybrik_suite_uat_mtls import pki as runtime_pki
+
+
+def _module(
+    monkeypatch: pytest.MonkeyPatch, name: str, **attributes: object
+) -> types.ModuleType:
+    module = types.ModuleType(name)
+    for attribute, value in attributes.items():
+        setattr(module, attribute, value)
+    monkeypatch.setitem(sys.modules, name, module)
+    return module
+
+
+def _install_harmless_crypto_standins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provide the small API surface used by ``create_ephemeral_pki``."""
+
+    class FakePublicKey:
+        def __init__(self, number: int) -> None:
+            self.number = number
+
+        def public_numbers(self) -> object:
+            return types.SimpleNamespace(x=self.number, y=self.number + 10)
+
+    class FakePrivateKey:
+        def __init__(self, number: int) -> None:
+            self.number = number
+
+        def public_key(self) -> FakePublicKey:
+            return FakePublicKey(self.number)
+
+        def private_bytes(self, **kwargs: object) -> bytes:
+            del kwargs
+            return f"harmless-private-fixture-{self.number}".encode("ascii")
+
+    class FakeCertificate:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        def public_bytes(self, encoding: object) -> bytes:
+            del encoding
+            return f"harmless-certificate-fixture-{self.label}".encode("ascii")
+
+    class FakeBuilder:
+        def __init__(self) -> None:
+            self.subject: object | None = None
+
+        def subject_name(self, value: object) -> Self:
+            self.subject = value
+            return self
+
+        def issuer_name(self, value: object) -> Self:
+            del value
+            return self
+
+        def public_key(self, value: object) -> Self:
+            del value
+            return self
+
+        def serial_number(self, value: object) -> Self:
+            del value
+            return self
+
+        def not_valid_before(self, value: object) -> Self:
+            del value
+            return self
+
+        def not_valid_after(self, value: object) -> Self:
+            del value
+            return self
+
+        def add_extension(self, value: object, critical: bool) -> Self:
+            del value, critical
+            return self
+
+        def sign(self, key: object, algorithm: object) -> FakeCertificate:
+            del key, algorithm
+            assert self.subject is not None
+            return FakeCertificate(self.subject.attributes[0].value)  # type: ignore[union-attr]
+
+    x509 = _module(
+        monkeypatch,
+        "cryptography.x509",
+        Name=lambda attributes: types.SimpleNamespace(attributes=attributes),
+        NameAttribute=lambda oid, value: types.SimpleNamespace(oid=oid, value=value),
+        CertificateBuilder=FakeBuilder,
+        BasicConstraints=lambda ca, path_length: ("basic", ca, path_length),
+        KeyUsage=lambda **kwargs: ("key-usage", kwargs),
+        ExtendedKeyUsage=lambda values: ("extended-key-usage", values),
+        SubjectAlternativeName=lambda values: ("subject-alternative-name", values),
+        DNSName=lambda value: ("dns", value),
+        IPAddress=lambda value: ("ip", value),
+        random_serial_number=lambda: 42,
+    )
+    _module(
+        monkeypatch,
+        "cryptography.x509.oid",
+        ExtendedKeyUsageOID=types.SimpleNamespace(
+            SERVER_AUTH="server-auth", CLIENT_AUTH="client-auth"
+        ),
+        NameOID=types.SimpleNamespace(COMMON_NAME="common-name"),
+    )
+    numbers = iter(range(1, 6))
+    ec = _module(
+        monkeypatch,
+        "cryptography.hazmat.primitives.asymmetric.ec",
+        SECP256R1=lambda: "fixture-curve",
+        generate_private_key=lambda curve: FakePrivateKey(next(numbers)),
+    )
+    hashes = _module(
+        monkeypatch,
+        "cryptography.hazmat.primitives.hashes",
+        SHA256=lambda: "fixture-sha256",
+    )
+    serialization = _module(
+        monkeypatch,
+        "cryptography.hazmat.primitives.serialization",
+        Encoding=types.SimpleNamespace(PEM="fixture-encoding"),
+        PrivateFormat=types.SimpleNamespace(PKCS8="fixture-format"),
+        NoEncryption=lambda: "fixture-no-encryption",
+    )
+    primitives = _module(
+        monkeypatch,
+        "cryptography.hazmat.primitives",
+        hashes=hashes,
+        serialization=serialization,
+    )
+    _module(monkeypatch, "cryptography.hazmat.primitives.asymmetric", ec=ec)
+    hazmat = _module(monkeypatch, "cryptography.hazmat", primitives=primitives)
+    _module(monkeypatch, "cryptography", x509=x509, hazmat=hazmat)
+
+
+def _create_fixture_pki(tmp_path: Path) -> runtime_pki.PkiMaterial:
+    repository_root = tmp_path / "repository"
+    repository_root.mkdir()
+    return runtime_pki.create_ephemeral_pki(
+        tmp_path / "ephemeral-pki",
+        repository_roots=(repository_root,),
+        jwt_kid="fixture-kid",
+    )
+
+
+def test_pki_creation_rejects_root_replacement_between_sequential_writes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A renamed root must not redirect leaves or be reported as successful."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    visible_root = tmp_path / "ephemeral-pki"
+    displaced_root = tmp_path / "ephemeral-pki-pinned"
+    replacement_marker = "replacement-owned.txt"
+    leaf_opens = 0
+    original_open = os.open
+
+    def replace_before_second_leaf_open(
+        path: os.PathLike[str] | str | bytes,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal leaf_opens
+        if flags & os.O_CREAT:
+            leaf_opens += 1
+            if leaf_opens == 2:
+                visible_root.rename(displaced_root)
+                visible_root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+                (visible_root / replacement_marker).write_text(
+                    "harmless replacement sentinel\n", encoding="utf-8"
+                )
+        if dir_fd is None:
+            return original_open(path, flags, mode)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runtime_pki.os, "open", replace_before_second_leaf_open)
+
+    error: runtime_pki.PkiBoundaryError | None = None
+    try:
+        _create_fixture_pki(tmp_path)
+    except runtime_pki.PkiBoundaryError as caught:
+        error = caught
+
+    expected_leaves = {
+        "ca-cert.pem",
+        "server-cert.pem",
+        "server-key.pem",
+        "client-cert.pem",
+        "client-key.pem",
+        "alternate-client-cert.pem",
+        "alternate-client-key.pem",
+        "jwt-signing-key.pem",
+        "jwt-public-jwk.json",
+    }
+    redirected = expected_leaves.intersection(
+        child.name for child in visible_root.iterdir()
+    )
+    assert not redirected, (
+        "root pathname replacement redirected PKI leaf creation into the "
+        f"replacement directory: {sorted(redirected)}"
+    )
+    assert error is not None, "a changed visible PKI root identity must fail closed"
+    assert (visible_root / replacement_marker).is_file(), (
+        "failure cleanup must not delete a directory that replaced the pinned root"
+    )
+    assert not expected_leaves.intersection(
+        child.name for child in displaced_root.iterdir()
+    ), "tentative leaves must be removed from the pinned root after identity failure"
+
+
+def test_pki_leaf_creation_is_descriptor_relative_and_no_follow(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Every leaf open must be relative to the no-follow pinned root descriptor."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    calls: list[tuple[os.PathLike[str] | str | bytes, int, int | None]] = []
+    original_open = os.open
+
+    def record_open(
+        path: os.PathLike[str] | str | bytes,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        calls.append((path, flags, dir_fd))
+        if dir_fd is None:
+            return original_open(path, flags, mode)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runtime_pki.os, "open", record_open)
+    material = _create_fixture_pki(tmp_path)
+
+    root_opens = [
+        (path, flags, dir_fd)
+        for path, flags, dir_fd in calls
+        if not flags & os.O_CREAT and Path(path) == material.root
+    ]
+    leaf_opens = [entry for entry in calls if entry[1] & os.O_CREAT]
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+
+    assert root_opens, "the created PKI root must be pinned by an open descriptor"
+    assert all(flags & getattr(os, "O_DIRECTORY", 0) for _, flags, _ in root_opens)
+    assert no_follow and all(flags & no_follow for _, flags, _ in root_opens)
+    assert len(leaf_opens) == 9
+    assert all(dir_fd is not None for _, _, dir_fd in leaf_opens)
+    assert all(
+        isinstance(path, str) and Path(path).name == path
+        for path, _, _ in leaf_opens
+    ), "leaf opens must use validated single-component names"
+    assert all(flags & no_follow for _, flags, _ in leaf_opens)
+
