@@ -4869,8 +4869,9 @@ test('UAT mTLS D2 coverage measurement chain is terminal while runtime remains h
     '488_passed_1_deselected_not_1_gated_skip',
   );
   assert.deepEqual(evidence.independent_reviews, {
-    codex: 'GO_NO_P0_P3',
-    claude_opus: 'GO_NO_P0_P2',
+    codex_post_execution: 'GO_WITH_REMEDIATED_P3',
+    claude_opus_post_execution: 'GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA',
+    terminal_packet_r1: 'P2_OVERCLAIM_FIXED_IN_R2',
   });
   assert.equal(evidence.m2.runtime_status, 'HOLD');
 });
@@ -4891,6 +4892,10 @@ test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator
   assert.match(section, /must not be under `\/tmp`, `\/private\/tmp`/);
   assert.match(section, /does not install or restore the\s+D1 closure/);
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
+  assert.match(
+    section,
+    /Current state: `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD`/,
+  );
 });
 
 test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate credit', () => {
@@ -4900,7 +4905,7 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   );
   assert.ok(match, 'the ADR must define one D2-COV-P1 verifier-authoring gate before D2 runtime');
   const section = match[1];
-  assert.match(section, /Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`/);
+  assert.match(section, /Current state: `AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD`/);
   const scopeMatch = section.match(
     /maximum authoring scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path/,
   );

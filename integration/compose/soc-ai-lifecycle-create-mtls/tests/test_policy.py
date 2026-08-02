@@ -856,8 +856,9 @@ def test_d2_coverage_measurement_chain_is_terminal_and_runtime_stays_hold() -> N
         "baseline_FAIL_integrity_anchor_not_M2_PASS_result"
     )
     assert summary["independent_reviews"] == {
-        "codex": "GO_NO_P0_P3",
-        "claude_opus": "GO_NO_P0_P2",
+        "codex_post_execution": "GO_WITH_REMEDIATED_P3",
+        "claude_opus_post_execution": "GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA",
+        "terminal_packet_r1": "P2_OVERCLAIM_FIXED_IN_R2",
     }
 
     assert "Gate UAT-MTLS-D2-COV-M1 — failed command-shape measurement" in decision
@@ -897,7 +898,7 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
     ]
     normalized = " ".join(section.split())
     assert (
-        "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD"
+        "AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD"
         in section
     )
     assert "pure stdlib and import-inert" in normalized
@@ -963,7 +964,10 @@ def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action(
     assert "D2 remains **HOLD**" in section
     assert "Release dates remain unchanged" in section
     assert "validate_coverage_authorization.py" in harness_readme
-    assert "DEPENDENCY ACTION NOT RUN" in harness_readme
+    assert (
+        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — "
+        "RUNTIME HOLD"
+    ) in harness_readme
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
