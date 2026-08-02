@@ -4567,7 +4567,10 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.ok(match, 'the ADR must define one D2-COV-P0 dependency proposal before verifier authoring');
   const section = match[1];
 
-  assert.match(section, /Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`/);
+  assert.match(
+    section,
+    /Current state: `EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — AUTHORIZATION CONSUMED — RUNTIME HOLD`/,
+  );
   assert.doesNotMatch(section, /<PINNED_PYTHON> -m pip install/);
   assert.doesNotMatch(section, /\bpip install\b|ensurepip|uv pip/);
   assert.match(section, /<PINNED_PYTHON> -m zipfile -e/);
@@ -4793,6 +4796,104 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   assert.equal(evidence.runtime_status, 'HOLD');
 });
 
+test('UAT mTLS D2 coverage measurement chain is terminal while runtime remains held', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const authority = read(
+    'docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md',
+  );
+  const catalog = read('docs/operations/README.md');
+  const harness = read('integration/compose/soc-ai-lifecycle-create-mtls/README.md');
+  const evidence = JSON.parse(
+    read('integration/compose/soc-ai-lifecycle-create-mtls/evidence/coverage-measurement.json'),
+  );
+  const runtimeNodeid =
+    'tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence';
+
+  assert.match(decision, new RegExp(`--deselect=${runtimeNodeid.replaceAll('.', '\\.')}`));
+  assert.doesNotMatch(
+    decision,
+    /--deselect=<SUITE_ROOT>\/integration\/compose\/soc-ai-lifecycle-create-mtls\/tests\/test_lifecycle_runtime\.py/,
+  );
+  assert.match(decision, /Gate UAT-MTLS-D2-COV-M1 — failed command-shape measurement/);
+  assert.match(decision, /Gate UAT-MTLS-D2-COV-M2 — terminal coverage measurement/);
+  assert.match(decision, /COVERAGE GATE PASS — RUNTIME HOLD/);
+  assert.match(authority, /488 passed, 1 deselected/);
+  assert.match(authority, /31 passed/);
+  assert.match(authority, /Release dates remain unchanged/);
+  assert.match(harness, /COVERAGE GATE PASS — RUNTIME HOLD/);
+  assert.match(catalog, /DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02\.md/);
+
+  assert.equal(evidence.schema_version, '1.0.0');
+  assert.equal(evidence.status, 'verified');
+  assert.equal(evidence.gate, 'UAT-MTLS-D2-COV-M2');
+  assert.equal(evidence.disposition, 'COVERAGE_GATE_PASS_RUNTIME_HOLD');
+  assert.equal(evidence.suite_commit, '93c8b6efbd141ab3f37ff2f07f331153de5f314a');
+  assert.equal(evidence.suite_tree, 'c67470e531dd3345744e3ef48bc11e0b3d3af218');
+  assert.equal(evidence.p0.tooling_status, 'verified');
+  assert.equal(evidence.p0.baseline_gate_status, 'FAIL');
+  assert.equal(evidence.p0.coverage_json_mode_hardening.before, '0644');
+  assert.equal(evidence.p0.coverage_json_mode_hardening.after, '0600');
+  assert.equal(evidence.p0.coverage_json_mode_hardening.sha256_unchanged, true);
+  assert.equal(evidence.m1.status, 'FAIL');
+  assert.equal(evidence.m1.failure_class, 'runtime_test_was_not_deselected');
+  assert.equal(evidence.m1.runtime_executed, false);
+  assert.deepEqual(evidence.m1.network_calls, []);
+  assert.deepEqual(evidence.m2.test_result, {
+    passed: 488,
+    deselected: 1,
+    skipped: 0,
+    failed: 0,
+  });
+  assert.deepEqual(evidence.m2.line, { covered: 1366, total: 1568 });
+  assert.deepEqual(evidence.m2.branch, { covered: 439, total: 514 });
+  assert.equal(evidence.m2.critical_symbols.length, 8);
+  assert.ok(evidence.m2.critical_symbols.every((item) => item.line_ratio === 1));
+  assert.ok(
+    evidence.m2.critical_symbols.every(
+      (item) =>
+        item.branch_ratio === 1 ||
+        item.branch_requirement === 'not-applicable-no-static-branch',
+    ),
+  );
+  assert.equal(
+    evidence.m2.verifier_output_sha256,
+    '299a9ae6ca6a54f6cac573aa7657e03f3e879b4266658f083db4042ae59c73a4',
+  );
+  assert.equal(evidence.verifier_tests.passed, 31);
+  assert.equal(
+    evidence.verifier_tests.junit_sha256,
+    '51ab9cdb2c1fddd34393735c4dd5ab9117b1fd4561cac0308e68d27a828907fe',
+  );
+  assert.equal(
+    evidence.historical_corrections.commit_93c8b6e_test_shape,
+    '488_passed_1_deselected_not_1_gated_skip',
+  );
+  assert.doesNotMatch(decision, /Its section 7\.3 coverage gate remains unsatisfied/);
+  assert.match(
+    decision,
+    /At P0 execution time, its section 7\.3 coverage gate remained unsatisfied/,
+  );
+  assert.doesNotMatch(decision, /Phase A must remain closed until exact commands/);
+  assert.match(
+    decision,
+    /At D2-P0 authoring time, Phase A therefore remained closed/,
+  );
+  assert.doesNotMatch(
+    harness,
+    /Phase A remains closed until a separately pinned command/,
+  );
+  assert.match(
+    harness,
+    /At D2-P0 authoring time, Phase A remained closed/,
+  );
+  assert.deepEqual(evidence.independent_reviews, {
+    codex_post_execution: 'GO_WITH_REMEDIATED_P3',
+    claude_opus_post_execution: 'GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA',
+    terminal_packet_r1: 'P2_OVERCLAIM_FIXED_IN_R2',
+  });
+  assert.equal(evidence.m2.runtime_status, 'HOLD');
+});
+
 test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const match = decision.match(
@@ -4809,6 +4910,10 @@ test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator
   assert.match(section, /must not be under `\/tmp`, `\/private\/tmp`/);
   assert.match(section, /does not install or restore the\s+D1 closure/);
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
+  assert.match(
+    section,
+    /Current state: `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — RUNTIME HOLD`/,
+  );
 });
 
 test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate credit', () => {
@@ -4818,7 +4923,7 @@ test('UAT mTLS D2-COV-P1 authors one fail-closed stdlib verifier without gate cr
   );
   assert.ok(match, 'the ADR must define one D2-COV-P1 verifier-authoring gate before D2 runtime');
   const section = match[1];
-  assert.match(section, /Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`/);
+  assert.match(section, /Current state: `AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD`/);
   const scopeMatch = section.match(
     /maximum authoring scope is exactly:\n\n((?:- `[^`]+`\n){6})\nNo other path/,
   );

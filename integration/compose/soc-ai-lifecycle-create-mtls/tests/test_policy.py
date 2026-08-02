@@ -17,6 +17,7 @@ import types
 from pathlib import Path
 
 import pytest
+
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
@@ -528,7 +529,7 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     compose_readme = (_HARNESS_ROOT.parent / "README.md").read_text(encoding="utf-8")
 
-    exact_status = "Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`."
+    exact_status = "Status: `D2 COVERAGE GATE PASS — RUNTIME NOT RUN`."
     for text in (harness_readme, compose_readme):
         assert text.splitlines()[2] == exact_status
         assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
@@ -570,7 +571,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     normalized_readme = " ".join(harness_readme.split())
 
     assert "Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal" in decision
-    assert "PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION" in decision
+    assert (
+        "EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — "
+        "AUTHORIZATION CONSUMED — RUNTIME HOLD"
+    ) in decision
     assert "coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl" in decision
     assert (
         "b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73" in decision
@@ -592,10 +596,14 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     assert "https://api.osv.dev/v1/query" in decision
     assert "must not edit `pyproject.toml`, `uv.lock`" in normalized
     assert "--source=<SUITE_ROOT>/integration/compose/" in decision
+    runtime_nodeid = (
+        "tests/test_lifecycle_runtime.py::"
+        "test_authorized_runtime_attempt_executes_the_red_green_sequence"
+    )
+    assert f"--deselect={runtime_nodeid}" in decision
     assert (
-        "--deselect=<SUITE_ROOT>/integration/compose/"
-        "soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::"
-        "test_authorized_runtime_attempt_executes_the_red_green_sequence" in decision
+        f"--deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/{runtime_nodeid}"
+        not in decision
     )
     assert "coverage report --rcfile=/dev/null" in normalized
     assert "coverage json --rcfile=/dev/null" in normalized
@@ -754,6 +762,127 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
         assert excluded in normalized
 
 
+def test_d2_coverage_measurement_chain_is_terminal_and_runtime_stays_hold() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    authority = (
+        _REPO_ROOT
+        / "docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md"
+    ).read_text(encoding="utf-8")
+    catalog = (_REPO_ROOT / "docs/operations/README.md").read_text(encoding="utf-8")
+    claude = (_REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    summary = json.loads(
+        (_HARNESS_ROOT / "evidence/coverage-measurement.json").read_text()
+    )
+    normalized = " ".join(
+        (decision + "\n" + harness_readme + "\n" + authority + "\n" + catalog).split()
+    )
+
+    assert summary["schema_version"] == "1.0.0"
+    assert summary["status"] == "verified"
+    assert summary["gate"] == "UAT-MTLS-D2-COV-M2"
+    assert summary["disposition"] == "COVERAGE_GATE_PASS_RUNTIME_HOLD"
+    assert summary["suite_commit"] == "93c8b6efbd141ab3f37ff2f07f331153de5f314a"
+    assert summary["suite_tree"] == "c67470e531dd3345744e3ef48bc11e0b3d3af218"
+
+    p0 = summary["p0"]
+    assert p0["tooling_status"] == "verified"
+    assert p0["baseline_gate_status"] == "FAIL"
+    assert p0["baseline_gate_reason"] == "package_line_coverage_below_80"
+    assert p0["test_result"] == {"passed": 385, "skipped": 1, "failed": 0}
+    assert p0["authorization_sha256"] == (
+        "01af528bfd4e90d1c35d78b4089dd34571b7e10bf2eb3771e1848e30b580e2ae"
+    )
+    assert p0["coverage_json_sha256"] == (
+        "e4694bf51e02091cfcaf3f0bb470792ed2149d9a9208df6e5ae48de650f2ec65"
+    )
+    assert p0["coverage_gate_sha256"] == (
+        "937752ebffa9437e1e7139d0fb3755e6faf111fa608fb69ce0abf2e313f08128"
+    )
+    assert p0["coverage_json_mode_hardening"] == {
+        "before": "0644",
+        "after": "0600",
+        "sha256_unchanged": True,
+        "classification": "P3_NONBLOCKING_HYGIENE",
+    }
+
+    m1 = summary["m1"]
+    assert m1["status"] == "FAIL"
+    assert m1["failure_class"] == "runtime_test_was_not_deselected"
+    assert m1["runtime_executed"] is False
+    assert m1["network_calls"] == []
+    assert m1["test_result"] == {"passed": 488, "skipped": 1, "failed": 0}
+    assert m1["failure_sha256"] == (
+        "989355888fb0ab53303f55bb0c7ae3ea41476548058dc921844cdda3495adaaa"
+    )
+
+    m2 = summary["m2"]
+    assert m2["status"] == "PASS"
+    assert m2["test_result"] == {
+        "passed": 488,
+        "deselected": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert m2["line"] == {"covered": 1366, "total": 1568}
+    assert m2["branch"] == {"covered": 439, "total": 514}
+    assert len(m2["critical_symbols"]) == 8
+    assert all(item["line_ratio"] == 1.0 for item in m2["critical_symbols"])
+    assert all(
+        item["branch_ratio"] == 1.0
+        or item["branch_requirement"] == "not-applicable-no-static-branch"
+        for item in m2["critical_symbols"]
+    )
+    assert m2["measurement_result_sha256"] == (
+        "4a85daaeb793b2dbe573dab643ad3431024e8173159c408419837b2c743938f5"
+    )
+    assert m2["verifier_output_sha256"] == (
+        "299a9ae6ca6a54f6cac573aa7657e03f3e879b4266658f083db4042ae59c73a4"
+    )
+    assert m2["network_calls"] == []
+    assert m2["runtime_status"] == "HOLD"
+
+    verifier_tests = summary["verifier_tests"]
+    assert verifier_tests["passed"] == 31
+    assert verifier_tests["failed"] == 0
+    assert verifier_tests["junit_sha256"] == (
+        "51ab9cdb2c1fddd34393735c4dd5ab9117b1fd4561cac0308e68d27a828907fe"
+    )
+    assert summary["historical_corrections"]["commit_93c8b6e_test_shape"] == (
+        "488_passed_1_deselected_not_1_gated_skip"
+    )
+    assert summary["historical_corrections"]["p0_gate_hash_semantics"] == (
+        "baseline_FAIL_integrity_anchor_not_M2_PASS_result"
+    )
+    assert "Its section 7.3 coverage gate remains unsatisfied" not in decision
+    assert (
+        "At P0 execution time, its section 7.3 coverage gate remained unsatisfied"
+        in decision
+    )
+    assert "Phase A must remain closed until exact commands" not in decision
+    assert "At D2-P0 authoring time, Phase A therefore remained closed" in decision
+    assert (
+        "Phase A remains closed until a separately pinned command" not in harness_readme
+    )
+    assert "At D2-P0 authoring time, Phase A remained closed" in harness_readme
+    assert summary["independent_reviews"] == {
+        "codex_post_execution": "GO_WITH_REMEDIATED_P3",
+        "claude_opus_post_execution": "GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA",
+        "terminal_packet_r1": "P2_OVERCLAIM_FIXED_IN_R2",
+    }
+
+    assert "Gate UAT-MTLS-D2-COV-M1 — failed command-shape measurement" in decision
+    assert "Gate UAT-MTLS-D2-COV-M2 — terminal coverage measurement" in decision
+    assert "COVERAGE GATE PASS — RUNTIME HOLD" in normalized
+    assert "488 passed, 1 deselected" in normalized
+    assert "31 passed" in normalized
+    assert "Release dates remain unchanged" in normalized
+    assert "D2 runtime, N1–N10" in normalized
+    assert "DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md" in claude
+
+
 def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() -> None:
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     decision = (
@@ -780,10 +909,7 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
         "tools/contract-validation/tests/validate-transport.test.mjs",
     ]
     normalized = " ".join(section.split())
-    assert (
-        "AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD"
-        in section
-    )
+    assert "AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD" in section
     assert "pure stdlib and import-inert" in normalized
     assert "Coverage.py JSON format 3" in normalized
     assert "58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2" in section
@@ -847,7 +973,10 @@ def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action(
     assert "D2 remains **HOLD**" in section
     assert "Release dates remain unchanged" in section
     assert "validate_coverage_authorization.py" in harness_readme
-    assert "DEPENDENCY ACTION NOT RUN" in harness_readme
+    assert (
+        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — RUNTIME HOLD"
+        in harness_readme
+    )
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:
