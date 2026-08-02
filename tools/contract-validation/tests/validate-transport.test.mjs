@@ -4701,7 +4701,7 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   assert.match(section, /does not open D2 runtime/);
   assert.match(authority, /repository writes are limited to exactly these ten paths/);
   assert.match(authority, /consumed by the first `--execute` attempt/);
-  assert.match(authority, /production and public GA remain Founder-controlled/);
+  assert.match(authority, /Production and public GA remain Founder-controlled/);
 });
 
 test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator', () => {
