@@ -301,9 +301,6 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
         "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
         "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS",
-        "/usr/bin/ssh-keygen",
-        "cybrik-codex-governor",
-        "cybrik-d2-exact-head-grant",
         "exact Suite HEAD mismatch",
         "--import-mode=importlib",
         "-p no:cacheprovider",
@@ -312,6 +309,10 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "-c /dev/null",
     ):
         assert required in runner, required
+    assert '"$ssh_keygen" -Y verify' not in runner
+    assert runner.index(
+        "run_python_module cybrik_suite_uat_mtls.runtime_authorization --check-only"
+    ) < runner.index('exact_suite_head="$(awk')
     assert "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256" not in runner
     assert runner.count("verify_suite_unchanged") >= 8
     assert re.search(
