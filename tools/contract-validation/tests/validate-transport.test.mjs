@@ -4879,11 +4879,11 @@ test('UAT mTLS D2 coverage measurement chain is terminal while runtime remains h
     /At D2-P0 authoring time, Phase A therefore remained closed/,
   );
   assert.doesNotMatch(
-    read(UAT_MTLS_HARNESS_README_REL),
+    harness,
     /Phase A remains closed until a separately pinned command/,
   );
   assert.match(
-    read(UAT_MTLS_HARNESS_README_REL),
+    harness,
     /At D2-P0 authoring time, Phase A remained closed/,
   );
   assert.deepEqual(evidence.independent_reviews, {

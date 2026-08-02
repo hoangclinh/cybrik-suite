@@ -129,11 +129,11 @@ before that runner can pass its first guard. That artifact must also contain exa
 purpose-bound and disjoint, and the preserved evidence root consumes the authorization after the
 single attempt.
 
-D2-P0 does not satisfy the section 7.3 coverage gate. Phase A remains closed until a separately
-pinned command proves at least 80% line and branch coverage and 100% coverage of the critical
-paths. If the pinned environment does not already contain the required coverage runner, a
-separate bounded coverage-tooling action must be reviewed before it is installed or used. Static
-pass counts are not a substitute for this coverage evidence. Release dates are unchanged.
+D2-P0 itself does not satisfy the section 7.3 coverage gate. At D2-P0 authoring time, Phase A remained closed
+until a separately pinned command proved at least 80% line and branch coverage and 100% coverage of
+the critical paths. M2 later satisfied that coverage condition. Phase A remains closed under the
+separate runtime-admission conditions above. D2-P0 did not install or use the coverage runner, and
+static pass counts were not treated as coverage evidence. Release dates are unchanged.
 
 ## Consumed isolated coverage-tooling action
 
@@ -196,7 +196,7 @@ opens Phase A; D2 remains **HOLD** and all runtime/UAT/release boundaries above 
 
 ## Executable authorization hardening
 
-`UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD`.
+`UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — RUNTIME HOLD`.
 The pure-stdlib `scripts/validate_coverage_authorization.py` replaces manual trust in the P0 artifact
 with an executable fail-closed preflight. It binds the exact ordered field set, clean
 detached Suite commit/tree/root with no tracked, untracked or ignored residue, current authorization
