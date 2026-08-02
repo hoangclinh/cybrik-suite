@@ -718,9 +718,10 @@ remain **NO-GO**. Production and public GA remain Founder-controlled. Release da
 Current state: `EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — AUTHORIZATION CONSUMED — RUNTIME HOLD`.
 
 The merged D2-P0 candidate is canonical at Suite commit
-`fd19b88e9cf40704284f0494f6dc8349e7c45a0c`. Its section 7.3 coverage gate remains unsatisfied
-because the exact D1 Python environment, the host Python and the preserved download caches contain
-neither `coverage` nor `pytest-cov`. Passing test counts are not coverage evidence.
+`fd19b88e9cf40704284f0494f6dc8349e7c45a0c`. At P0 execution time, its section 7.3 coverage gate remained unsatisfied
+because the exact D1 Python environment, the host Python and the preserved download caches contained
+neither `coverage` nor `pytest-cov`; passing test counts were not coverage evidence. M2 later
+verified the gate through the separately isolated coverage-tooling root.
 
 This proposal requests one dependency-tooling action that is isolated from the Suite lock and
 every product environment. Extracting the verifier and passing the coverage gate are deliberately
