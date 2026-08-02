@@ -20,7 +20,9 @@ _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls
 
 _DASHES = "-" * 5
 _PEM_PRIVATE = f"{_DASHES}BEGIN {'PRIVATE'} {'KEY'}{_DASHES}\nAAAA\n{_DASHES}END {'PRIVATE'} {'KEY'}{_DASHES}"
-_PEM_CERTIFICATE = f"{_DASHES}BEGIN CERTIFICATE{_DASHES}\nAAAA\n{_DASHES}END CERTIFICATE{_DASHES}"
+_PEM_CERTIFICATE = (
+    f"{_DASHES}BEGIN CERTIFICATE{_DASHES}\nAAAA\n{_DASHES}END CERTIFICATE{_DASHES}"
+)
 _JWT_SHAPED = "AAAAAAAAAA.BBBBBBBBBB.CCCCCCCCCC"
 _BEARER = "Bearer AAAAAAAAAAAAAAAAAAAA"
 _DSN_WITH_CREDENTIALS = "postgresql://uat_role:PLACEHOLDER@127.0.0.1:55432/uat"
@@ -92,6 +94,10 @@ def test_safe_digest_and_identifier_keys_are_allowed(key: str) -> None:
 
 def test_secret_reason_returns_none_for_safe_text() -> None:
     assert evidence.secret_reason("case N1 rejected the replay") is None
+
+
+def test_secret_reason_returns_none_for_non_text_values() -> None:
+    assert evidence.secret_reason(None) is None
 
 
 @pytest.mark.parametrize(
