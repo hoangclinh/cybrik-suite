@@ -13,6 +13,7 @@ touches no database, container, or PKI generator.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import hmac
 import json
@@ -438,7 +439,7 @@ def _relative_artifact(path: Path, evidence_root: Path) -> tuple[str, ...]:
         or relative.as_posix() in _TERMINAL_FILENAMES
     ):
         _fail("artifact_outside_evidence_root")
-    if relative.parts[0] == _PUBLIC_PKI_DIRECTORY:
+    if relative.parts[0].casefold() == _PUBLIC_PKI_DIRECTORY.casefold():
         _fail("artifact_reserved_namespace")
     return relative.parts
 
@@ -601,7 +602,7 @@ def _freeze_public_pki(
     try:
         os.mkdir(_PUBLIC_PKI_DIRECTORY, 0o700, dir_fd=root_descriptor)
         directory_created = True
-    except OSError:
+    except (OSError, TypeError, ValueError):
         pass
     if not directory_created:
         _fail("public_pki_freeze_failed")
@@ -638,8 +639,14 @@ def _freeze_public_pki(
                 _fail("public_pki_freeze_failed")
             finally:
                 _descriptor_close(descriptor)
-        os.fsync(pki_descriptor)
-        os.fsync(root_descriptor)
+        durability_failed = False
+        try:
+            os.fsync(pki_descriptor)
+            os.fsync(root_descriptor)
+        except (OSError, TypeError, ValueError):
+            durability_failed = True
+        if durability_failed:
+            _fail("public_pki_freeze_failed")
     finally:
         _descriptor_close(pki_descriptor)
     bindings: list[_ArtifactBinding] = []
@@ -661,13 +668,29 @@ def _refuse_existing_handoff(root_descriptor: int) -> None:
     """Refuse re-entry before a sweep can mutate preserved terminal evidence."""
 
     for entry in (PENDING_HANDOFF_FILENAME, _PUBLIC_PKI_DIRECTORY):
+        observation_failed = False
         try:
             os.stat(entry, dir_fd=root_descriptor, follow_symlinks=False)
         except FileNotFoundError:
             continue
-        except OSError:
+        except (OSError, TypeError, ValueError):
+            observation_failed = True
+        if observation_failed:
             _fail("terminal_reentry_observation_failed")
         _fail("terminal_handoff_already_prepared")
+
+
+def _acquire_prepare_lock(root_descriptor: int) -> None:
+    """Serialize prepare calls on one evidence-root inode without a lock file."""
+
+    acquired = False
+    try:
+        fcntl.flock(root_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        acquired = True
+    except (OSError, TypeError, ValueError):
+        pass
+    if not acquired:
+        _fail("terminal_handoff_busy")
 
 
 def _secret_sweep(
@@ -834,6 +857,7 @@ def prepare_terminal_handoff(
 
     root_descriptor = _open_evidence_root(binding.evidence_root)
     try:
+        _acquire_prepare_lock(root_descriptor)
         _refuse_existing_handoff(root_descriptor)
         evidence_identity = _directory_identity(root_descriptor)
         marker_sha256 = _marker_digest(binding, consumed_marker, evidence_identity)
