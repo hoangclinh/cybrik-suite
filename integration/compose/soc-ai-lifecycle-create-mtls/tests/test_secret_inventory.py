@@ -16,8 +16,8 @@ import stat
 from pathlib import Path
 
 import pytest
-
-from cybrik_suite_uat_mtls import evidence, secret_inventory as si
+from cybrik_suite_uat_mtls import evidence
+from cybrik_suite_uat_mtls import secret_inventory as si
 
 _DASHES = "-" * 5
 _PEM_PRIVATE = (
@@ -44,18 +44,17 @@ def test_register_returns_a_stable_handle_with_digest_and_byte_count() -> None:
     assert handle.byte_count == len(_OPAQUE_DELEGATION_TOKEN.encode("utf-8"))
     import hashlib
 
-    assert handle.digest_sha256 == hashlib.sha256(
-        _OPAQUE_DELEGATION_TOKEN.encode("utf-8")
-    ).hexdigest()
+    assert (
+        handle.digest_sha256
+        == hashlib.sha256(_OPAQUE_DELEGATION_TOKEN.encode("utf-8")).hexdigest()
+    )
 
 
 def test_register_accepts_both_str_and_bytes_and_normalizes_internally() -> None:
     inventory = si.SecretInventory()
 
     text_handle = inventory.register("cnf_thumbprint", _CNF_THUMBPRINT)
-    byte_handle = inventory.register(
-        "private_key_bytes", _PEM_PRIVATE.encode("utf-8")
-    )
+    byte_handle = inventory.register("private_key_bytes", _PEM_PRIVATE.encode("utf-8"))
 
     assert text_handle.byte_count == len(_CNF_THUMBPRINT)
     assert byte_handle.byte_count == len(_PEM_PRIVATE.encode("utf-8"))
@@ -101,7 +100,7 @@ def test_summary_exposes_only_labels_counts_and_digests_and_passes_evidence_gate
 
     summary = inventory.summary()
 
-    assert summary["secret_label_count"] == 2
+    assert summary["registered_label_count"] == 2
     assert _DB_PASSWORD not in json.dumps(summary)
     assert _CNF_THUMBPRINT not in json.dumps(summary)
     validated = evidence.validate_evidence(summary)
@@ -146,14 +145,14 @@ def test_clear_zeroizes_the_underlying_buffer_in_place_and_empties_the_inventory
 ):
     inventory = si.SecretInventory()
     inventory.register("db_password", _DB_PASSWORD)
-    buffer = inventory._values["db_password"]  # noqa: SLF001 - white-box zeroize proof
+    buffer = inventory._values["db_password"]
     assert bytes(buffer) == _DB_PASSWORD.encode("utf-8")
 
     inventory.clear()
 
     assert all(byte == 0 for byte in buffer)
     assert inventory.labels() == ()
-    assert inventory.summary()["secret_label_count"] == 0
+    assert inventory.summary()["registered_label_count"] == 0
 
 
 # --------------------------------------------------------------------------
@@ -194,9 +193,7 @@ def test_scan_detects_unlabeled_cnf_thumbprint_via_exact_registration_only() -> 
     assert inventory.scan_text(unlabeled) == si.EXACT_SECRET_MATCH
 
 
-def test_scan_text_does_not_false_positive_on_unregistered_random_hex_digest() -> (
-    None
-):
+def test_scan_text_does_not_false_positive_on_unregistered_random_hex_digest() -> None:
     inventory = si.SecretInventory()
     inventory.register("cnf_thumbprint", _CNF_THUMBPRINT)
 
