@@ -133,6 +133,60 @@ def test_product_api_compatibility_confines_actual_import_origins() -> None:
     assert "module_origins" in body
 
 
+def test_every_mutating_command_reverifies_all_loaded_module_origins() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    functions = {
+        node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    }
+
+    for step in ("start", "seed", "reset", "run_runtime_attempt", "stop", "rollback"):
+        body = ast.unparse(functions[step])
+        assert "assert_runtime_authorized()" in body, step
+        assert "assert_product_api_compatibility(" in body, step
+
+
+def test_runtime_children_use_the_same_isolated_confined_bootstrap() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    functions = {
+        node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    }
+    bootstrap = ast.unparse(functions["_isolated_module_argv"])
+    assert "runtime_authorization.resolve_import_source_roots" in bootstrap
+    for flag in ("'-I'", "'-B'", "'-S'", "'-c'"):
+        assert flag in bootstrap
+
+    for child, module in (
+        ("_spawn_server", "cybrik_suite_uat_mtls.server"),
+        ("_run_case", "cybrik_suite_uat_mtls.client"),
+    ):
+        body = ast.unparse(functions[child])
+        assert "_isolated_module_argv(" in body, child
+        assert module in body, child
+        assert "sys.executable, '-m'" not in body, child
+
+
+def test_successful_runtime_attempt_freezes_file_backed_terminal_handoff_last() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    runtime_attempt = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "run_runtime_attempt"
+    )
+    body = ast.unparse(runtime_attempt)
+
+    assert "consumed_marker = runtime_authorization.verify_consumed(authorization)" in body
+    assert "terminal_integration.prepare_terminal_handoff(" in body
+    assert "secret_inventory=" in body
+    assert "public_pki_paths=" in body
+    assert "artifact_paths=" in body
+    assert body.index("_run_case('N10'") < body.index(
+        "terminal_integration.prepare_terminal_handoff("
+    )
+    assert body.rindex("_stop_process(") < body.index(
+        "terminal_integration.prepare_terminal_handoff("
+    )
+
+
 def test_harness_has_no_dead_authorization_or_root_wrapper_symbols() -> None:
     source = _HARNESS.read_text(encoding="utf-8")
     for dead in (

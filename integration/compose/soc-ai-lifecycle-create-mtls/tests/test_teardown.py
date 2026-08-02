@@ -230,6 +230,114 @@ def test_verify_absent_requires_store_pki_root_and_listener_absence(
     assert probe.address == ("127.0.0.1", 58443)
 
 
+def test_live_absence_state_reports_exact_eight_actual_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-live-absence"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-live-absence"
+    material = SimpleNamespace(root=runtime_root / "pki")
+    probes = iter((_FakeProbe(connect_result=1), _FakeProbe(connect_result=1)))
+
+    monkeypatch.setattr(
+        harness,
+        "_bounded_external_roots",
+        lambda *, repositories_must_exist: (runtime_root, evidence_root),
+    )
+    monkeypatch.setattr(harness, "_pki_material", lambda root: material)
+    monkeypatch.setattr(harness.store, "container_exists", lambda: False)
+    monkeypatch.setattr(harness.pki, "verify_absent", lambda actual: actual is material)
+    monkeypatch.setattr(harness.socket, "socket", lambda family, kind: next(probes))
+
+    assert harness._live_absence_state() == {
+        "completed": True,
+        "ai_process_absent": True,
+        "soc_process_absent": True,
+        "postgres_container_absent": True,
+        "ai_listener_absent": True,
+        "postgres_listener_absent": True,
+        "runtime_root_absent": True,
+        "pki_absent": True,
+    }
+
+
+def test_rollback_reauthorizes_then_finalizes_from_only_live_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-terminal"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-terminal"
+    runtime_root.mkdir()
+    evidence_root.mkdir()
+    authorization = SimpleNamespace(
+        runtime_root=runtime_root,
+        evidence_root=evidence_root,
+        authorization_sha256="a" * 64,
+        exact_head_grant_sha256="b" * 64,
+    )
+    marker = {"status": "consumed"}
+    live = {
+        "completed": True,
+        "ai_process_absent": True,
+        "soc_process_absent": True,
+        "postgres_container_absent": True,
+        "ai_listener_absent": True,
+        "postgres_listener_absent": True,
+        "runtime_root_absent": True,
+        "pki_absent": True,
+    }
+    events: list[str] = []
+
+    monkeypatch.setattr(
+        harness,
+        "_bounded_external_roots",
+        lambda *, repositories_must_exist: (runtime_root, evidence_root),
+    )
+    monkeypatch.setattr(
+        harness,
+        "assert_runtime_authorized",
+        lambda: (events.append("authorize"), authorization)[1],
+    )
+    monkeypatch.setattr(
+        harness,
+        "assert_product_api_compatibility",
+        lambda actual: events.append("origins"),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verify_consumed",
+        lambda actual: (events.append("marker"), marker)[1],
+    )
+    monkeypatch.setattr(harness, "teardown", lambda: events.append("teardown"))
+    monkeypatch.setattr(
+        harness,
+        "_live_absence_state",
+        lambda: (events.append("live"), live)[1],
+    )
+
+    def finalize(**kwargs: object) -> object:
+        events.append("finalize")
+        assert kwargs["authorization"] is authorization
+        assert kwargs["consumed_marker"] is marker
+        probe = kwargs["live_absence_probe"]
+        assert callable(probe)
+        assert probe() == live
+        return object()
+
+    monkeypatch.setattr(
+        harness.terminal_integration, "finalize_terminal_handoff", finalize
+    )
+
+    harness.rollback()
+
+    assert events == [
+        "authorize",
+        "origins",
+        "marker",
+        "teardown",
+        "finalize",
+        "live",
+    ]
+
+
 def test_verify_absent_returns_false_when_ai_listener_is_present(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
