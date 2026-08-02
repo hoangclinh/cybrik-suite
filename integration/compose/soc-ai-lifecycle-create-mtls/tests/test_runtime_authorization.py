@@ -1757,6 +1757,83 @@ def test_candidate_observer_stabilizes_decode_and_nesting_failures(
     assert caught.value.reason == "candidate_invalid"
 
 
+def test_candidate_observer_stabilizes_oversized_integer_and_recursion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_text(
+        '{"attempt_accounting":{"current_attempt":' + "9" * 5000 + "}}",
+        encoding="utf-8",
+    )
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._candidate(candidate)
+    assert caught.value.reason == "candidate_invalid"
+
+    candidate.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        authorization.json,
+        "loads",
+        lambda _payload: (_ for _ in ()).throw(RecursionError()),
+    )
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._candidate(candidate)
+    assert caught.value.reason == "candidate_invalid"
+
+
+def test_candidate_observer_uses_one_bounded_nofollow_descriptor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_text(
+        json.dumps({"attempt_accounting": {"current_attempt": {}}}),
+        encoding="utf-8",
+    )
+    original_open = authorization.os.open
+    observed_flags: list[int] = []
+
+    def observe_open(path: Path, flags: int) -> int:
+        observed_flags.append(flags)
+        return original_open(path, flags)
+
+    monkeypatch.setattr(authorization.os, "open", observe_open)
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("candidate path must not be reopened")
+        ),
+    )
+
+    assert authorization._candidate(candidate).status is None
+    assert len(observed_flags) == 1
+    assert observed_flags[0] & getattr(os, "O_NOFOLLOW", 0)
+
+
+def test_authorization_reader_refuses_oversized_regular_file_before_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document = tmp_path / "authorization.md"
+    document.write_bytes(b"small fixture\n")
+    original_fstat = authorization.os.fstat
+
+    def oversized(descriptor: int) -> SimpleNamespace:
+        observed = original_fstat(descriptor)
+        return SimpleNamespace(
+            st_mode=observed.st_mode,
+            st_nlink=observed.st_nlink,
+            st_size=1024 * 1024,
+            st_dev=observed.st_dev,
+            st_ino=observed.st_ino,
+            st_mtime_ns=observed.st_mtime_ns,
+            st_ctime_ns=observed.st_ctime_ns,
+        )
+
+    monkeypatch.setattr(authorization.os, "fstat", oversized)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.read_authorization(document)
+    assert caught.value.reason == "authorization_artifact_invalid"
+
+
 def test_merge_base_observation_stabilizes_process_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1768,6 +1845,60 @@ def test_merge_base_observation_stabilizes_process_failures(
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization._is_git_ancestor(tmp_path, "a" * 40, "b" * 40)
     assert caught.value.reason == "repository_observation_failed"
+
+
+def test_git_observers_use_a_minimal_environment_and_strict_statuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+    return_codes = iter((0, 1, 128))
+
+    def observe(*_args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(dict(kwargs))
+        return SimpleNamespace(returncode=next(return_codes), stdout="")
+
+    monkeypatch.setattr(authorization.subprocess, "run", observe)
+    assert authorization._git(tmp_path, "rev-parse", "HEAD") == ""
+    assert not authorization._is_git_ancestor(tmp_path, "a" * 40, "b" * 40)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._is_git_ancestor(tmp_path, "a" * 40, "b" * 40)
+    assert caught.value.reason == "repository_observation_failed"
+    for call in calls:
+        assert call["env"] == {
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "LC_ALL": "C",
+            "PATH": "/usr/bin:/bin",
+        }
+
+
+def test_suite_observer_reuses_the_resolved_head_for_ancestry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolved_head = "c" * 40
+    descendants: list[str] = []
+
+    def observe_git(_root: Path, *args: str, allow_status: bool = False) -> str:
+        del allow_status
+        if args == ("rev-parse", "HEAD"):
+            return resolved_head
+        if args[0] == "status":
+            return ""
+        raise AssertionError(args)
+
+    def observe_ancestor(_root: Path, _ancestor: str, descendant: str) -> bool:
+        descendants.append(descendant)
+        return True
+
+    monkeypatch.setattr(authorization, "_git", observe_git)
+    monkeypatch.setattr(authorization, "_is_git_ancestor", observe_ancestor)
+
+    assert authorization._observe_suite(tmp_path, "b" * 40) == (
+        resolved_head,
+        "",
+        True,
+    )
+    assert descendants == [resolved_head]
 
 
 def test_non_ascii_allowed_signers_refusal_closes_the_bound_descriptor(
