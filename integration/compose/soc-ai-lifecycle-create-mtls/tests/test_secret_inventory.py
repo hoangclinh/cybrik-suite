@@ -44,8 +44,6 @@ def test_register_returns_a_stable_handle_with_digest_and_byte_count() -> None:
 
     assert handle.label == "delegation_token"
     assert handle.byte_count == len(_OPAQUE_DELEGATION_TOKEN.encode("utf-8"))
-    import hashlib
-
     assert (
         handle.digest_sha256
         == hashlib.sha256(_OPAQUE_DELEGATION_TOKEN.encode("utf-8")).hexdigest()
@@ -272,7 +270,7 @@ def test_scan_tree_detects_an_exact_secret_in_a_nested_file(tmp_path: Path) -> N
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].relative_path == "nested/leak.txt"
+    assert findings[0].artifact_id == hashlib.sha256(b"nested/leak.txt").hexdigest()
     assert findings[0].reason == si.EXACT_SECRET_MATCH
     assert findings[0].label == "db_password"
 
@@ -303,7 +301,7 @@ def test_scan_tree_flags_a_symlink_as_a_finding_without_following_it(
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].relative_path == "escape-link.txt"
+    assert findings[0].artifact_id == hashlib.sha256(b"escape-link.txt").hexdigest()
     assert findings[0].reason == si.SYMLINK_NOT_PERMITTED
     assert findings[0].label is None
     outside.unlink()
@@ -317,7 +315,7 @@ def test_scan_tree_flags_a_non_regular_file_without_blocking(tmp_path: Path) -> 
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].relative_path == "pipe"
+    assert findings[0].artifact_id == hashlib.sha256(b"pipe").hexdigest()
     assert findings[0].reason == si.NON_REGULAR_FILE_NOT_PERMITTED
 
 
@@ -393,11 +391,15 @@ def test_scan_tree_detects_and_safely_remediates_an_exact_secret_in_a_filename(
     finding = findings[0]
     assert finding.reason == si.EXACT_SECRET_MATCH
     assert finding.label == "db_password"
-    assert finding.artifact_id == hashlib.sha256(
-        artifact.name.encode("utf-8")
-    ).hexdigest()
+    assert (
+        finding.artifact_id == hashlib.sha256(artifact.name.encode("utf-8")).hexdigest()
+    )
     assert not hasattr(finding, "relative_path")
     assert _DB_PASSWORD not in repr(finding)
+    serialized_finding = json.dumps(asdict(finding), default=repr)
+    assert _DB_PASSWORD not in serialized_finding
+    assert artifact.name not in serialized_finding
+    assert "relative_path" not in serialized_finding
 
     plan_record = asdict(si.remediation_plan_for(finding))
     assert _DB_PASSWORD not in json.dumps(plan_record)
@@ -417,18 +419,20 @@ def test_scan_tree_detects_and_safely_remediates_an_exact_secret_directory_name(
     inventory.register("delegation_token", _OPAQUE_DELEGATION_TOKEN)
     secret_directory = tmp_path / f"run-{_OPAQUE_DELEGATION_TOKEN}"
     secret_directory.mkdir()
+    nested_artifact = secret_directory / "clean.txt"
+    nested_artifact.write_text("content is clean", encoding="utf-8")
 
     findings = inventory.scan_tree(tmp_path)
 
-    assert len(findings) == 1
-    assert findings[0].reason == si.EXACT_SECRET_MATCH
-    assert findings[0].label == "delegation_token"
-    assert _OPAQUE_DELEGATION_TOKEN not in repr(findings[0])
+    assert len(findings) == 2
+    assert all(finding.reason == si.EXACT_SECRET_MATCH for finding in findings)
+    assert all(finding.label == "delegation_token" for finding in findings)
+    assert all(_OPAQUE_DELEGATION_TOKEN not in repr(finding) for finding in findings)
 
-    record = si.apply_remediation(tmp_path, findings[0])
+    records = [si.apply_remediation(tmp_path, finding) for finding in findings]
     assert not secret_directory.exists()
-    assert _OPAQUE_DELEGATION_TOKEN not in json.dumps(record)
-    assert evidence.validate_evidence(record) == record
+    assert _OPAQUE_DELEGATION_TOKEN not in json.dumps(records)
+    assert evidence.validate_evidence(records) == records
 
 
 def test_scan_tree_detects_generic_high_risk_text_in_a_path_component(
@@ -498,9 +502,9 @@ def test_apply_remediation_deletes_the_artifact_and_returns_a_sanitized_record(
     assert not artifact.exists()
     assert record == {
         "action": si.DELETE,
+        "artifact_id": finding.artifact_id,
         "label": "db_password",
         "reason": si.EXACT_SECRET_MATCH,
-        "relative_path": "leak.txt",
     }
     assert evidence.validate_evidence(record) == record
 
@@ -611,10 +615,8 @@ def test_apply_remediation_refuses_an_intermediate_directory_rebind(
 def test_apply_remediation_refuses_a_path_that_escapes_the_root(
     tmp_path: Path,
 ) -> None:
-    finding = si.ScanFinding("../escape.txt", si.EXACT_SECRET_MATCH, "db_password")
-
     with pytest.raises(si.SecretInventoryError, match="escapes"):
-        si.apply_remediation(tmp_path, finding)
+        si.ScanFinding("../escape.txt", si.EXACT_SECRET_MATCH, "db_password")
 
 
 def test_scanner_generated_symlink_finding_unlinks_only_the_leaf(
@@ -675,5 +677,36 @@ def test_special_leaf_remediation_refuses_a_type_rebind_to_a_regular_file(
         si.apply_remediation(tmp_path, finding)
 
     assert artifact.read_text(encoding="utf-8") == "replacement must survive"
+    assert outside.read_text(encoding="utf-8") == _DB_PASSWORD
+    outside.unlink()
+
+
+def test_special_leaf_remediation_refuses_a_rebind_during_inode_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inventory = si.SecretInventory()
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-inode-race.txt"
+    outside.write_text(_DB_PASSWORD, encoding="utf-8")
+    link = tmp_path / "artifact"
+    link.symlink_to(outside)
+    finding = inventory.scan_tree(tmp_path)[0]
+    real_stat_no_follow = si._stat_no_follow
+    rebound = False
+
+    def _rebind_after_stat(name: str, *, dir_fd: int) -> os.stat_result:
+        nonlocal rebound
+        status = real_stat_no_follow(name, dir_fd=dir_fd)
+        if name == "artifact" and not rebound:
+            rebound = True
+            link.unlink()
+            link.write_text("replacement must survive", encoding="utf-8")
+        return status
+
+    monkeypatch.setattr(si, "_stat_no_follow", _rebind_after_stat)
+
+    with pytest.raises(si.SecretInventoryError, match="changed"):
+        si.apply_remediation(tmp_path, finding)
+
+    assert link.read_text(encoding="utf-8") == "replacement must survive"
     assert outside.read_text(encoding="utf-8") == _DB_PASSWORD
     outside.unlink()

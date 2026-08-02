@@ -19,7 +19,7 @@ import re
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
@@ -56,20 +56,76 @@ class SecretHandle:
     byte_count: int
 
 
-@dataclass(frozen=True, slots=True)
-class ScanFinding:
-    """A safe, sanitized record of a detected artifact: never the raw match."""
+class _ArtifactLocator:
+    """Private path capability whose repr never exposes its components."""
 
-    relative_path: str
+    __slots__ = ("_parts", "artifact_id")
+
+    def __init__(self, relative_path: str) -> None:
+        parts = _bounded_parts(relative_path)
+        canonical = "/".join(parts).encode("utf-8", errors="surrogatepass")
+        self._parts = parts
+        self.artifact_id = hashlib.sha256(canonical).hexdigest()
+
+    def __repr__(self) -> str:
+        return f"<_ArtifactLocator artifact_id={self.artifact_id}>"
+
+
+def _entry_identity(status: os.stat_result) -> tuple[int, int, int]:
+    return (status.st_dev, status.st_ino, stat.S_IFMT(status.st_mode))
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class ScanFinding:
+    """A safe public finding plus a private, non-serializable path capability."""
+
+    artifact_id: str
     reason: str
-    label: str | None = None
+    label: str | None
+    _locator: _ArtifactLocator = field(repr=False, compare=False)
+    _expected_identity: tuple[int, int, int] | None = field(repr=False, compare=False)
+
+    def __init__(
+        self,
+        relative_path: str,
+        reason: str,
+        label: str | None = None,
+        *,
+        _expected_status: os.stat_result | None = None,
+    ) -> None:
+        locator = _ArtifactLocator(relative_path)
+        object.__setattr__(self, "artifact_id", locator.artifact_id)
+        object.__setattr__(self, "reason", reason)
+        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "_locator", locator)
+        object.__setattr__(
+            self,
+            "_expected_identity",
+            _entry_identity(_expected_status) if _expected_status is not None else None,
+        )
+
+    @classmethod
+    def _from_locator(
+        cls,
+        locator: _ArtifactLocator,
+        reason: str,
+        label: str | None,
+        status: os.stat_result,
+    ) -> ScanFinding:
+        finding = object.__new__(cls)
+        object.__setattr__(finding, "artifact_id", locator.artifact_id)
+        object.__setattr__(finding, "reason", reason)
+        object.__setattr__(finding, "label", label)
+        object.__setattr__(finding, "_locator", locator)
+        object.__setattr__(finding, "_expected_identity", _entry_identity(status))
+        return finding
 
 
 @dataclass(frozen=True, slots=True)
 class RemediationPlan:
-    """The safe delete/quarantine contract for a single :class:`ScanFinding`."""
+    """The safe delete contract for a single :class:`ScanFinding`."""
 
-    relative_path: str
+    artifact_id: str
     action: str
     reason: str
     label: str | None = None
@@ -77,7 +133,7 @@ class RemediationPlan:
 
 def remediation_plan_for(finding: ScanFinding) -> RemediationPlan:
     return RemediationPlan(
-        relative_path=finding.relative_path,
+        artifact_id=finding.artifact_id,
         action=DELETE,
         reason=finding.reason,
         label=finding.label,
@@ -98,11 +154,22 @@ def _bounded_parts(relative_path: str) -> tuple[str, ...]:
 
 def _stat_no_follow(name: str, *, dir_fd: int) -> os.stat_result:
     try:
-        return os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
-    except OSError as exc:
-        raise SecretInventoryError(
-            "remediation target could not be inspected safely"
-        ) from exc
+        result = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+    except OSError:
+        result = None
+    if result is None:
+        raise SecretInventoryError("artifact could not be inspected safely")
+    return result
+
+
+def _fstat_safely(descriptor: int) -> os.stat_result:
+    try:
+        result = os.fstat(descriptor)
+    except OSError:
+        result = None
+    if result is None:
+        raise SecretInventoryError("artifact descriptor could not be inspected safely")
+    return result
 
 
 def _same_inode(left: os.stat_result, right: os.stat_result) -> bool:
@@ -111,7 +178,7 @@ def _same_inode(left: os.stat_result, right: os.stat_result) -> bool:
 
 @contextmanager
 def _bounded_parent_descriptor(
-    root: Path, relative_path: str
+    root: Path, locator: _ArtifactLocator
 ) -> Iterator[tuple[int, str]]:
     """Yield the target's parent descriptor after a no-follow root walk.
 
@@ -122,13 +189,13 @@ def _bounded_parent_descriptor(
 
     if not root.is_absolute():
         raise SecretInventoryError("remediation root must be an absolute path")
-    parts = _bounded_parts(relative_path)
+    parts = locator._parts
     try:
         root_status = root.lstat()
-    except OSError as exc:
-        raise SecretInventoryError(
-            "remediation root could not be inspected safely"
-        ) from exc
+    except OSError:
+        root_status = None
+    if root_status is None:
+        raise SecretInventoryError("remediation root could not be inspected safely")
     if stat.S_ISLNK(root_status.st_mode):
         raise SecretInventoryError("remediation path must not contain a symlink")
     if not stat.S_ISDIR(root_status.st_mode):
@@ -138,12 +205,12 @@ def _bounded_parent_descriptor(
     try:
         try:
             current = os.open(root, _DIRECTORY_OPEN_FLAGS)
-        except OSError as exc:
-            raise SecretInventoryError(
-                "remediation root could not be opened safely"
-            ) from exc
+        except OSError:
+            current = None
+        if current is None:
+            raise SecretInventoryError("remediation root could not be opened safely")
         descriptors.append(current)
-        if not _same_inode(root_status, os.fstat(current)):
+        if not _same_inode(root_status, _fstat_safely(current)):
             raise SecretInventoryError("remediation root changed during safe traversal")
 
         for component in parts[:-1]:
@@ -158,12 +225,14 @@ def _bounded_parent_descriptor(
                 )
             try:
                 child = os.open(component, _DIRECTORY_OPEN_FLAGS, dir_fd=current)
-            except OSError as exc:
+            except OSError:
+                child = None
+            if child is None:
                 raise SecretInventoryError(
                     "remediation path parent could not be opened safely"
-                ) from exc
+                )
             descriptors.append(child)
-            if not _same_inode(before, os.fstat(child)):
+            if not _same_inode(before, _fstat_safely(child)):
                 raise SecretInventoryError(
                     "remediation path changed during safe traversal"
                 )
@@ -181,45 +250,91 @@ def apply_remediation(
 ) -> dict[str, object]:
     """Delete the finding's artifact and return a sanitized record.
 
-    Secret-bearing artifacts are never quarantined: retaining raw secrets in
-    or next to the evidence tree would merely move the N10 exposure.  Deletion
-    is descriptor-relative and refuses symlinked or non-regular targets.
+    Secret-bearing artifacts are never quarantined.  Deletion is
+    descriptor-relative, binds scanner-generated findings to the scanned
+    inode/type and never follows a symlink leaf.
     """
 
     plan = remediation_plan_for(finding)
-    with _bounded_parent_descriptor(root, finding.relative_path) as (parent_fd, leaf):
+    with _bounded_parent_descriptor(root, finding._locator) as (parent_fd, leaf):
         before = _stat_no_follow(leaf, dir_fd=parent_fd)
-        if stat.S_ISLNK(before.st_mode):
-            raise SecretInventoryError("remediation target must not be a symlink")
-        if not stat.S_ISREG(before.st_mode):
-            raise SecretInventoryError("remediation target must be a regular file")
+        if (
+            finding._expected_identity is not None
+            and _entry_identity(before) != finding._expected_identity
+        ):
+            raise SecretInventoryError("remediation target changed after scanning")
+
+        scanner_bound = finding._expected_identity is not None
+        is_symlink = stat.S_ISLNK(before.st_mode)
+        is_directory = stat.S_ISDIR(before.st_mode)
+        is_regular = stat.S_ISREG(before.st_mode)
+        if not scanner_bound:
+            if is_symlink and finding.reason != SYMLINK_NOT_PERMITTED:
+                raise SecretInventoryError("remediation target must not be a symlink")
+            if finding.reason == SYMLINK_NOT_PERMITTED and not is_symlink:
+                raise SecretInventoryError("remediation target type changed")
+            if finding.reason == NON_REGULAR_FILE_NOT_PERMITTED and (
+                is_symlink or is_directory or is_regular
+            ):
+                raise SecretInventoryError("remediation target type changed")
+            if finding.reason not in (
+                SYMLINK_NOT_PERMITTED,
+                NON_REGULAR_FILE_NOT_PERMITTED,
+            ) and not (is_regular or is_directory):
+                raise SecretInventoryError("remediation target type is not permitted")
+
+        descriptor: int | None = None
+        if is_regular:
+            try:
+                descriptor = os.open(leaf, _OPEN_FLAGS, dir_fd=parent_fd)
+            except OSError:
+                descriptor = None
+            if descriptor is None:
+                raise SecretInventoryError(
+                    "remediation target could not be opened safely"
+                )
+        elif is_directory:
+            try:
+                descriptor = os.open(leaf, _DIRECTORY_OPEN_FLAGS, dir_fd=parent_fd)
+            except OSError:
+                descriptor = None
+            if descriptor is None:
+                raise SecretInventoryError(
+                    "remediation target could not be opened safely"
+                )
         try:
-            descriptor = os.open(leaf, _OPEN_FLAGS, dir_fd=parent_fd)
-        except OSError as exc:
-            raise SecretInventoryError(
-                "remediation target could not be opened safely"
-            ) from exc
-        try:
-            if not _same_inode(before, os.fstat(descriptor)):
+            if descriptor is not None and not _same_inode(
+                before, _fstat_safely(descriptor)
+            ):
                 raise SecretInventoryError(
                     "remediation target changed during safe traversal"
                 )
+
             current = _stat_no_follow(leaf, dir_fd=parent_fd)
             if not _same_inode(before, current):
                 raise SecretInventoryError(
                     "remediation target changed during safe traversal"
                 )
-            os.unlink(leaf, dir_fd=parent_fd)
-        except OSError as exc:
-            raise SecretInventoryError(
-                "remediation target could not be deleted safely"
-            ) from exc
+
+            delete_failed = False
+            try:
+                if is_directory:
+                    os.rmdir(leaf, dir_fd=parent_fd)
+                else:
+                    os.unlink(leaf, dir_fd=parent_fd)
+            except OSError:
+                delete_failed = True
+            if delete_failed:
+                raise SecretInventoryError(
+                    "remediation target could not be deleted safely"
+                )
         finally:
-            os.close(descriptor)
+            if descriptor is not None:
+                os.close(descriptor)
     record: dict[str, object] = {
         "action": plan.action,
         "reason": plan.reason,
-        "relative_path": plan.relative_path,
+        "artifact_id": plan.artifact_id,
     }
     if plan.label is not None:
         record["label"] = plan.label
@@ -292,20 +407,44 @@ class SecretInventory:
     def scan_text(self, text: str) -> str | None:
         return self.scan_bytes(text.encode("utf-8", errors="surrogatepass"))
 
-    def _scan_file(self, relative_posix: str, path: Path) -> ScanFinding | None:
-        try:
-            descriptor = os.open(path, _OPEN_FLAGS)
-        except OSError as exc:
-            raise SecretInventoryError(
-                f"artifact could not be opened safely: {relative_posix}"
-            ) from exc
+    def _path_match(self, parts: tuple[str, ...]) -> tuple[str, str | None] | None:
+        for component in parts:
+            data = component.encode("utf-8", errors="surrogatepass")
+            label = self._exact_label(data)
+            if label is not None:
+                return EXACT_SECRET_MATCH, label
+            reason = evidence.secret_reason(component)
+            if reason is not None:
+                return reason, None
+        return None
+
+    def _scan_file(
+        self,
+        root: Path,
+        locator: _ArtifactLocator,
+        expected_status: os.stat_result,
+    ) -> ScanFinding | None:
+        with _bounded_parent_descriptor(root, locator) as (parent_fd, leaf):
+            current = _stat_no_follow(leaf, dir_fd=parent_fd)
+            if _entry_identity(current) != _entry_identity(expected_status):
+                raise SecretInventoryError("artifact changed during safe scanning")
+            try:
+                descriptor = os.open(leaf, _OPEN_FLAGS, dir_fd=parent_fd)
+            except OSError:
+                descriptor = None
+        if descriptor is None:
+            raise SecretInventoryError("artifact could not be opened safely")
         ownership_transferred = False
         try:
-            status = os.fstat(descriptor)
+            status = _fstat_safely(descriptor)
+            if _entry_identity(status) != _entry_identity(expected_status):
+                raise SecretInventoryError("artifact changed during safe scanning")
             if not stat.S_ISREG(status.st_mode):
-                return ScanFinding(relative_posix, NON_REGULAR_FILE_NOT_PERMITTED)
+                return ScanFinding._from_locator(
+                    locator, NON_REGULAR_FILE_NOT_PERMITTED, None, status
+                )
             if status.st_size > MAX_SCAN_FILE_BYTES:
-                return ScanFinding(relative_posix, FILE_TOO_LARGE)
+                return ScanFinding._from_locator(locator, FILE_TOO_LARGE, None, status)
             stream = os.fdopen(descriptor, "rb")
             ownership_transferred = True
         finally:
@@ -314,13 +453,17 @@ class SecretInventory:
         with stream:
             data = stream.read(MAX_SCAN_FILE_BYTES + 1)
         if len(data) > MAX_SCAN_FILE_BYTES:
-            return ScanFinding(relative_posix, FILE_TOO_LARGE)
+            return ScanFinding._from_locator(
+                locator, FILE_TOO_LARGE, None, expected_status
+            )
         label = self._exact_label(data)
         if label is not None:
-            return ScanFinding(relative_posix, EXACT_SECRET_MATCH, label)
+            return ScanFinding._from_locator(
+                locator, EXACT_SECRET_MATCH, label, expected_status
+            )
         reason = evidence.secret_reason(data.decode("utf-8", errors="replace"))
         if reason is not None:
-            return ScanFinding(relative_posix, reason)
+            return ScanFinding._from_locator(locator, reason, None, expected_status)
         return None
 
     def scan_tree(self, root: Path) -> tuple[ScanFinding, ...]:
@@ -332,21 +475,57 @@ class SecretInventory:
         if not resolved_root.is_dir():
             raise SecretInventoryError("scan root must be a directory")
 
+        try:
+            paths = tuple(resolved_root.rglob("*"))
+        except OSError:
+            paths = None
+        if paths is None:
+            raise SecretInventoryError("artifact tree could not be enumerated safely")
+
         findings: list[ScanFinding] = []
         scanned = 0
-        for path in sorted(resolved_root.rglob("*")):
+        ordered_paths = sorted(
+            paths,
+            key=lambda path: (
+                -len(path.relative_to(resolved_root).parts),
+                path.relative_to(resolved_root).as_posix(),
+            ),
+        )
+        for path in ordered_paths:
             relative_posix = path.relative_to(resolved_root).as_posix()
-            if path.is_symlink():
-                findings.append(ScanFinding(relative_posix, SYMLINK_NOT_PERMITTED))
+            locator = _ArtifactLocator(relative_posix)
+            with _bounded_parent_descriptor(resolved_root, locator) as (
+                parent_fd,
+                leaf,
+            ):
+                status = _stat_no_follow(leaf, dir_fd=parent_fd)
+            path_match = self._path_match(locator._parts)
+            if path_match is not None:
+                reason, label = path_match
+                findings.append(
+                    ScanFinding._from_locator(locator, reason, label, status)
+                )
                 continue
-            if path.is_dir():
+            if stat.S_ISLNK(status.st_mode):
+                findings.append(
+                    ScanFinding._from_locator(
+                        locator, SYMLINK_NOT_PERMITTED, None, status
+                    )
+                )
+                continue
+            if stat.S_ISDIR(status.st_mode):
                 continue
             scanned += 1
             if scanned > MAX_SCAN_FILE_COUNT:
                 raise SecretInventoryError(
                     "bounded artifact tree scan exceeded the file-count bound"
                 )
-            finding = self._scan_file(relative_posix, path)
+            if not stat.S_ISREG(status.st_mode):
+                finding = ScanFinding._from_locator(
+                    locator, NON_REGULAR_FILE_NOT_PERMITTED, None, status
+                )
+            else:
+                finding = self._scan_file(resolved_root, locator, status)
             if finding is not None:
                 findings.append(finding)
         return tuple(findings)
