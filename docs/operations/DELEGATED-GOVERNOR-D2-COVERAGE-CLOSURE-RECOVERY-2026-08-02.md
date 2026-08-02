@@ -1,6 +1,6 @@
 # Delegated Governor D2 coverage-closure recovery — 2026-08-02
 
-Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 AUTHORIZED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R3 AUTHORIZED — EXECUTION NOT RUN — RUNTIME HOLD`.
 
 ## 1. Authority and outcome
 
@@ -168,3 +168,63 @@ actual R2 requirements file is exported with `--no-header --offline`; every whee
 negative gate in sections 3–5 remains unchanged. R2 is consumed when `_execute` creates its fresh
 evidence root. Any R2 failure exhausts this authorization and requires a separately reviewed new
 record; no automatic R3 exists. D2 runtime and every release boundary remain **HOLD**.
+
+R2 passed `--check-only` and executed once at Suite commit
+`7e2db401aefe18428a507f4a32fade3106a360b5`, tree
+`1c23aee6ab0f1b619a03696cbed5e1745a8da9cb`. Attempt
+`13c07a0ffc8f47f99bc274bdd196234bc82c410ab30224914bc2c9aaaf5a44d2` reproduced both requirements
+digests, completed the permitted 56-wheel acquisition and wheelhouse verification, then failed
+closed with `venv_identity_mismatch`. The runner removed the fresh R2 closure root and preserved:
+
+- `recovery-start.json` SHA-256
+  `de64c42ca6054260f52a8f04822f27f5f576c73c381be20c55c86dbd37f28c15`;
+- `recovery-failure.json` SHA-256
+  `c979869dde1e9e3c1378addee8223b2626d73e735a0b159c0dd072782c3947a7`;
+- `requirements-failure.txt` SHA-256
+  `bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d`;
+- evidence root
+  `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r2`.
+
+R2 proves only that uv `0.11.16` did not create the downstream-required literal
+`bin/python -> python3.12` link; the rolled-back closure and preserved R2 evidence do not contain
+the full three-link graph. The current-host uv default is therefore treated as the bounded R3
+inference `bin/python -> <absolute pinned interpreter>`, `bin/python3 -> python`, and
+`bin/python3.12 -> python`, not as an R2 observation. R3 must verify that exact inference before
+mutation and record the observed/expected link diagnostics on any failure. R2 is terminal consumed
+history and is not reopened or retried.
+
+## 9. Exact R3 venv-link correction authorization
+
+R3 is one separately reviewed correction for the R2 command-contract defect. It preserves the
+exact ten repository paths in section 2, every dependency, digest, executable, endpoint, negative
+gate and exclusion, and uses only these fresh roots:
+
+- closure root: `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r3`;
+- evidence root: `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3`.
+
+Before either R3 root can be created, the runner must verify the exact R2 evidence digests above,
+the absent R2 closure root, the detached clean Suite commit/tree supplied to the runner, and the
+same two offline stdout requirements probes and historical reconstruction required by R2.
+
+After `uv venv --no-seed` creates the fresh environment and before offline sync, the runner may
+perform exactly one descriptor-anchored link normalization inside that fresh closure root:
+
+1. verify owned, non-group/other-writable `venv` and `venv/bin` directories and the exact initial
+   link graph `python -> <absolute pinned interpreter>`, `python3 -> python`,
+   `python3.12 -> python`;
+2. replace `python3.12` first with a link to the exact absolute pinned interpreter;
+3. replace `python` with the relative link `python3.12`, retaining `python3 -> python`;
+4. verify all three literal targets, resolve `python` to the exact pinned regular interpreter and
+   reverify its pinned SHA-256 before offline sync.
+
+Any initial-graph drift, non-link, ownership/mode issue, relink error, literal-target drift,
+realpath drift or executable-digest drift fails closed and triggers the same identity-bound
+full-closure rollback. Failure evidence records the expected and safely observed link graph so a
+future decision never depends on reconstructing deleted-root state. The exact R3 closure/evidence
+roots are pins, not caller-selectable retry names. This adds no dependency, endpoint, network
+phase, runtime or product authority.
+
+Only a successful non-mutating `--check-only` against a clean detached exact R3 commit/tree may
+precede the sole R3 `--execute`. R3 is consumed when `_execute` creates its fresh evidence root.
+Any R3 failure exhausts this record; there is no automatic R4. D2 runtime, Coverage.py extraction,
+N1–N10 and every demo/POC/RC/GA/production or release boundary remain **HOLD**.

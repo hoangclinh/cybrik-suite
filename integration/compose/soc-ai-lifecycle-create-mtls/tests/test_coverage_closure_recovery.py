@@ -295,10 +295,13 @@ def recovery_fixture(
         requirements_sha256=historical_requirements_sha256,
         requirements_body_sha256=_sha256_bytes(requirements),
         historical_export_command=historical_export_command,
+        authorized_closure_root=paths.closure_root,
+        authorized_evidence_root=paths.evidence_root,
         predecessor_closure_root=predecessor_parent / "d2-cov-closure-r1",
         predecessor_evidence_root=predecessor_evidence,
         predecessor_start_sha256=_sha256_file(predecessor_start_path),
         predecessor_failure_sha256=_sha256_file(predecessor_failure_path),
+        predecessor_requirements_sha256=_sha256_file(predecessor_requirements_path),
         predecessor_failure_reason="requirements_identity_mismatch",
         predecessor_attempt_id="c" * 64,
         predecessor_commit="d" * 40,
@@ -359,6 +362,30 @@ def test_check_only_accepts_pinned_homebrew_uv_build_annotation(
     )
 
     assert result["status"] == "checked_not_executed"
+
+
+def test_check_only_rejects_rebinding_the_authorized_recovery_roots(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, runner, _, _, _ = recovery_fixture
+    rebound = replace(
+        paths,
+        closure_root=paths.closure_root.with_name("d2-cov-closure-r4"),
+        evidence_root=paths.evidence_root.with_name("d2-cov-closure-evidence-r4"),
+    )
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery.run_recovery(
+            rebound,
+            mode="check-only",
+            pins=pins,
+            runner=runner,
+            forbidden_roots=(),
+        )
+
+    assert error.value.reason == "authorized_root_mismatch"
+    assert not rebound.closure_root.exists()
+    assert not rebound.evidence_root.exists()
 
 
 def test_check_only_rejects_body_and_full_export_mismatch_without_roots(
@@ -765,6 +792,19 @@ def test_execute_rejects_post_export_requirement_drift_and_wrong_venv_identity(
         (paths.evidence_root / "recovery-failure.json").read_text(encoding="utf-8")
     )
     assert failure["rollback_status"] == "removed"
+    if fail_stage.startswith("venv_"):
+        diagnostics = failure["venv_diagnostics"]
+        assert diagnostics["stage"] == "initial_graph"
+        assert diagnostics["expected_initial"] == {
+            "python": str(pins.python_path),
+            "python3": "python",
+            "python3.12": "python",
+        }
+        assert set(diagnostics["observed_initial"]) == {
+            "python",
+            "python3",
+            "python3.12",
+        }
     if fail_stage == "requirements_rebind":
         preserved = paths.evidence_root / "requirements-failure.txt"
         assert preserved.read_bytes() == b"changed-after-verification\n"
@@ -887,6 +927,20 @@ def test_preflight_rejects_tampered_or_unsafe_predecessor_evidence(
         recovery.preflight(paths, pins=pins, runner=runner, forbidden_roots=())
     assert error.value.reason == "predecessor_evidence_mismatch"
 
+    failure_path.chmod(0o600)
+    failure = json.loads(failure_path.read_text(encoding="utf-8"))
+    failure["rollback_status"] = "preserved"
+    failure_path.write_text(json.dumps(failure), encoding="utf-8")
+    failure_path.chmod(0o600)
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery.preflight(
+            paths,
+            pins=replace(pins, predecessor_failure_sha256=_sha256_file(failure_path)),
+            runner=runner,
+            forbidden_roots=(),
+        )
+    assert error.value.reason == "predecessor_evidence_mismatch"
+
 
 @pytest.mark.parametrize("mutation", ["missing", "tampered", "unsafe_mode"])
 def test_preflight_rejects_missing_or_tampered_predecessor_requirements(
@@ -904,20 +958,6 @@ def test_preflight_rejects_missing_or_tampered_predecessor_requirements(
 
     with pytest.raises(recovery.RecoveryFailure) as error:
         recovery.preflight(paths, pins=pins, runner=runner, forbidden_roots=())
-    assert error.value.reason == "predecessor_evidence_mismatch"
-
-    failure_path.chmod(0o600)
-    failure = json.loads(failure_path.read_text(encoding="utf-8"))
-    failure["rollback_status"] = "preserved"
-    failure_path.write_text(json.dumps(failure), encoding="utf-8")
-    failure_path.chmod(0o600)
-    with pytest.raises(recovery.RecoveryFailure) as error:
-        recovery.preflight(
-            paths,
-            pins=replace(pins, predecessor_failure_sha256=_sha256_file(failure_path)),
-            runner=runner,
-            forbidden_roots=(),
-        )
     assert error.value.reason == "predecessor_evidence_mismatch"
 
 
@@ -958,6 +998,12 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     assert recovery.DEFAULT_EVIDENCE_ROOT == Path(
         "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3"
     )
+    assert recovery.DEFAULT_PINS.authorized_closure_root == (
+        recovery.DEFAULT_CLOSURE_ROOT
+    )
+    assert recovery.DEFAULT_PINS.authorized_evidence_root == (
+        recovery.DEFAULT_EVIDENCE_ROOT
+    )
     assert recovery.DEFAULT_PINS.uv_path == Path("/opt/homebrew/bin/uv")
     assert recovery.DEFAULT_PINS.uv_version == "0.11.16"
     assert (
@@ -996,6 +1042,10 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     assert (
         recovery.DEFAULT_PINS.predecessor_failure_sha256
         == "c979869dde1e9e3c1378addee8223b2626d73e735a0b159c0dd072782c3947a7"
+    )
+    assert (
+        recovery.DEFAULT_PINS.predecessor_requirements_sha256
+        == "bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d"
     )
     assert recovery.DEFAULT_PINS.predecessor_failure_reason == (
         "venv_identity_mismatch"

@@ -1143,7 +1143,7 @@ release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2
 
-Current state: `AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Current state: `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD`.
 
 Appendix D and sections 7–8 of the exact-action record preserve R1 as consumed terminal evidence
 and authorize one corrected R2 attempt at fresh `-r2` roots. The runner must verify the exact R1
@@ -1158,6 +1158,34 @@ surface or exclusion. Its first root-creating `_execute` consumes the retry. Fai
 there is no automatic R3. This gate remains coverage-closure preparation only and grants no
 Coverage.py extraction, Anycorn/B1 action, product runtime, N1–N10, UAT, demo, POC, RC, GA,
 production or release credit. D2 remains **HOLD** and release dates remain unchanged.
+
+R2 passed the required preproof and executed once at commit
+`7e2db401aefe18428a507f4a32fade3106a360b5`, tree
+`1c23aee6ab0f1b619a03696cbed5e1745a8da9cb`. The exact requirements and 56-wheel acquisition
+passed, but the downstream-required literal `python -> python3.12` link was absent. The full
+deleted-root graph is not present in R2 evidence and is treated only as a bounded R3 inference. Attempt
+`13c07a0ffc8f47f99bc274bdd196234bc82c410ab30224914bc2c9aaaf5a44d2` therefore failed closed with
+`venv_identity_mismatch`; rollback removed the R2 closure root and preserved the exact evidence
+recorded in the closure-recovery exact-action document.
+
+### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3
+
+Current state: `AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+
+Appendix E and section 9 of the exact-action record preserve R1/R2 as consumed terminal history and
+authorize one fresh-root R3 attempt. R3 first binds the exact R2 start/failure evidence and repeats
+the same offline requirements preproof. After the exact no-seed uv venv is created, the runner must
+verify the inferred three-link uv topology and record expected/observed diagnostics on failure;
+only then may it, through owned descriptor-bound directories,
+normalize it to `python -> python3.12`, `python3 -> python`, and
+`python3.12 -> <absolute pinned interpreter>`. The final `python` realpath and executable SHA-256
+must match the existing pinned CPython before offline sync.
+
+R3 changes no dependency, wheel, lock, executable identity, endpoint, closure digest, runtime
+surface or exclusion. Its first root-creating `_execute` consumes the correction. Failure exhausts
+R3; there is no automatic R4. This gate grants no Coverage.py extraction, Anycorn/B1 action,
+product runtime, N1–N10, UAT, demo, POC, RC, GA, production or release credit. D2 remains **HOLD**
+and release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 

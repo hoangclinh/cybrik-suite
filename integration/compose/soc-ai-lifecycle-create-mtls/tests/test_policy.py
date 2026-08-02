@@ -654,7 +654,14 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
         in decision
     )
     assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2" in decision
-    assert "AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN" in decision
+    assert (
+        "EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED" in decision
+    )
+    assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3" in decision
+    assert (
+        "AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN"
+        in decision
+    )
     assert "recover_coverage_closure.py" in harness_readme
     assert "exactly the 56 filenames and SHA-256 values" in normalized
     assert (
@@ -663,8 +670,16 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
     assert "R1 exact-action authority was consumed" in authority
     assert summary["r1"]["network_calls_started"] == 0
     assert summary["r1"]["rollback_status"] == "removed"
-    assert summary["r2"]["execution_status"] == "not_run"
+    assert summary["r2"]["execution_status"] == "failed"
+    assert summary["r2"]["failure_reason"] == "venv_identity_mismatch"
+    assert summary["r2"]["network_phase_status"] == (
+        "wheel_acquisition_and_verification_completed"
+    )
+    assert summary["r2"]["rollback_status"] == "removed"
     assert summary["r2"]["retry_ceiling"] == 1
+    assert summary["r3"]["execution_status"] == "not_run"
+    assert summary["r3"]["retry_ceiling"] == 1
+    assert summary["r3"]["expected_final_links"]["python"] == "python3.12"
     assert summary["runtime_status"] == "HOLD"
     for excluded in (
         "does not install or extract Coverage.py",
