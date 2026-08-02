@@ -455,10 +455,22 @@ def test_later_steps_verify_the_marker_and_never_reconsume(
     assert verified == [stub]
 
 
-def test_rollback_verifies_the_marker_and_stays_usable_without_consumption(
+def _bind_rollback_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path]:
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-rollback"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-rollback"
+    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
+    monkeypatch.setattr(harness, "_outside_repositories", lambda candidate, **_: None)
+    return runtime_root, evidence_root
+
+
+def test_rollback_is_a_noop_only_when_both_roots_are_absent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     checked: list[tuple[Path, Path | None]] = []
+    teardown_calls: list[str] = []
 
     def record_marker_check(
         evidence_root: Path, *, expected_runtime_root: Path | None = None, **_: object
@@ -470,17 +482,71 @@ def test_rollback_verifies_the_marker_and_stays_usable_without_consumption(
         "verify_consumption_marker",
         record_marker_check,
     )
-    monkeypatch.setattr(harness, "teardown", lambda: None)
-    monkeypatch.setattr(harness, "verify_absent", lambda: True)
-    runtime_root = tmp_path / "cybrik-uat-d2-runtime-rollback"
-    evidence_root = tmp_path / "cybrik-uat-d2-evidence-rollback"
-    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
-    monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
-    monkeypatch.setattr(harness, "_outside_repositories", lambda candidate, **_: None)
+    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
 
     harness.rollback()
 
     assert checked == [(evidence_root, runtime_root)]
+    assert teardown_calls == []
+
+
+def test_rollback_refuses_foreign_runtime_material_without_a_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_root, _ = _bind_rollback_roots(tmp_path, monkeypatch)
+    runtime_root.mkdir(mode=0o700)
+    (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
+    teardown_calls: list[str] = []
+    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="runtime material exists without a consumed authorization",
+    ):
+        harness.rollback()
+
+    assert teardown_calls == []
+    assert (runtime_root / "foreign.txt").read_text(encoding="utf-8") == "preserve"
+
+
+def test_rollback_refuses_partial_evidence_root_without_a_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
+    evidence_root.mkdir(mode=0o700)
+    (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
+    teardown_calls: list[str] = []
+    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="consumed authorization marker is invalid",
+    ):
+        harness.rollback()
+
+    assert teardown_calls == []
+    assert (evidence_root / "foreign.json").is_file()
+
+
+def test_rollback_tears_down_only_after_a_valid_consumed_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
+    runtime_root.mkdir(mode=0o700)
+    evidence_root.mkdir(mode=0o700)
+    teardown_calls: list[str] = []
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verify_consumption_marker",
+        lambda evidence, **_: {"status": "consumed"},
+    )
+    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    monkeypatch.setattr(harness, "verify_absent", lambda: True)
+
+    harness.rollback()
+
+    assert teardown_calls == ["called"]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:
