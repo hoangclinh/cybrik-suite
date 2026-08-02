@@ -27,7 +27,14 @@ _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
 _PURE_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
-_RUNTIME_SOURCE_FILES = ("client.py", "harness.py", "pki.py", "server.py", "store.py")
+_RUNTIME_SOURCE_FILES = (
+    "client.py",
+    "harness.py",
+    "pki.py",
+    "runtime_authorization.py",
+    "server.py",
+    "store.py",
+)
 _EXPECTED_SOURCE_FILES = tuple(sorted(_PURE_SOURCE_FILES + _RUNTIME_SOURCE_FILES))
 _PINNED_B1_WHEEL_SHA256 = (
     "d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"

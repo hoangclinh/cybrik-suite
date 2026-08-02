@@ -18,9 +18,19 @@ from typing import Self
 import pytest
 
 from cybrik_suite_uat_mtls import harness, procedure
+from cybrik_suite_uat_mtls import runtime_authorization as runtime_auth
 
 _ROOT = Path(__file__).resolve().parents[1]
 _HARNESS = _ROOT / "src/cybrik_suite_uat_mtls/harness.py"
+_AUTHORIZATION_MODULE = _ROOT / "src/cybrik_suite_uat_mtls/runtime_authorization.py"
+_ONE_SHOT_STEP_GUARDS = {
+    "start": ("assert_runtime_authorized", "consume_once"),
+    "seed": ("assert_runtime_authorized", "verify_consumed"),
+    "reset": ("assert_runtime_authorized", "verify_consumed"),
+    "stop": ("assert_runtime_authorized", "verify_consumed"),
+    "run_runtime_attempt": ("assert_runtime_authorized", "verify_consumed"),
+    "rollback": ("verify_consumption_marker", "teardown"),
+}
 
 
 def test_harness_exposes_exactly_the_five_allowlisted_operator_steps() -> None:
@@ -38,17 +48,50 @@ def test_harness_exposes_exactly_the_five_allowlisted_operator_steps() -> None:
 
 
 def test_runtime_entrypoint_has_a_committed_authorization_guard() -> None:
-    source = _HARNESS.read_text(encoding="utf-8") if _HARNESS.is_file() else ""
+    harness_source = _HARNESS.read_text(encoding="utf-8") if _HARNESS.is_file() else ""
+    module_source = (
+        _AUTHORIZATION_MODULE.read_text(encoding="utf-8")
+        if _AUTHORIZATION_MODULE.is_file()
+        else ""
+    )
+    source = harness_source + "\n" + module_source
     for required in (
         "CYBRIK_UAT_D2_EXECUTION_AUTHORIZED",
         "CYBRIK_UAT_D2_AUTHORIZATION_PATH",
         "CYBRIK_UAT_D2_AUTHORIZATION_SHA256",
         "execution_authorized",
         "not_run",
-        "RUNTIME_ROOT=",
-        "EVIDENCE_ROOT=",
+        "RUNTIME_ROOT",
+        "EVIDENCE_ROOT",
+        "SUITE_ADMISSION_BASE",
+        "RUNTIME_CODE_AGGREGATE_SHA256",
     ):
         assert required in source
+
+
+def test_runtime_guard_declares_no_impossible_self_referential_suite_head() -> None:
+    harness_source = _HARNESS.read_text(encoding="utf-8") if _HARNESS.is_file() else ""
+    module_source = (
+        _AUTHORIZATION_MODULE.read_text(encoding="utf-8")
+        if _AUTHORIZATION_MODULE.is_file()
+        else ""
+    )
+    assert module_source, "the D2 runtime authorization module is not authored"
+    for forbidden in ("SUITE_SHA=", "SUITE_SHA={", 'f"SUITE_SHA'):
+        assert forbidden not in harness_source
+        assert forbidden not in module_source
+
+
+def test_every_mutating_step_binds_the_one_shot_consumption_marker() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    functions = {
+        node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    }
+    for step, required_calls in _ONE_SHOT_STEP_GUARDS.items():
+        assert step in functions, step
+        body = ast.unparse(functions[step])
+        for call in required_calls:
+            assert f"{call}(" in body, f"{step} does not call {call}"
 
 
 def test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure() -> None:
@@ -103,6 +146,30 @@ def test_authorized_runtime_attempt_executes_the_red_green_sequence() -> None:
         "ssl_hardened_options_preserved": True,
         "ssl_no_compression_verified": True,
     }
+
+
+def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None:
+    runner = (
+        _ROOT.parents[2] / "tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "SUITE_EXPECTED_HEAD" not in runner
+    for required in (
+        "--untracked-files=all --ignored",
+        "symbolic-ref",
+        "merge-base --is-ancestor",
+        "cybrik_suite_uat_mtls.runtime_authorization",
+        "--check-only",
+        "PYTHONPATH",
+    ):
+        assert required in runner, required
+    for relative in (
+        "integration/compose/soc-ai-lifecycle-create-mtls/src",
+        "services/api/src",
+        "packages/ai-core/src",
+        "services/ai-api/src",
+    ):
+        assert relative in runner
 
 
 def test_ssl_context_evidence_rejects_missing_file(tmp_path: Path) -> None:
@@ -262,79 +329,137 @@ def test_bounded_external_roots_accepts_purpose_bound_disjoint_paths(
     ]
 
 
-def test_assert_runtime_authorized_rejects_invalid_digest_before_file_reads(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_assert_runtime_authorized_delegates_to_the_exact_binding_module(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXECUTION_AUTHORIZED", "true")
-    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "not-hex")
+    sentinel = object()
     monkeypatch.setattr(
-        harness,
-        "_absolute_env",
-        lambda name, *, must_exist: tmp_path / "authorization.md",
+        harness.runtime_authorization,
+        "authorize_from_environment",
+        lambda: sentinel,
     )
 
-    with pytest.raises(
-        harness.RuntimeAuthorizationError,
-        match="runtime authorization digest is invalid",
-    ):
+    assert harness.assert_runtime_authorized() is sentinel
+
+
+def test_assert_runtime_authorized_wraps_a_stable_fail_closed_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse() -> object:
+        raise runtime_auth.RuntimeAuthorizationFailure("candidate_closed")
+
+    monkeypatch.setattr(
+        harness.runtime_authorization, "authorize_from_environment", refuse
+    )
+
+    with pytest.raises(harness.RuntimeAuthorizationError, match="candidate_closed"):
         harness.assert_runtime_authorized()
 
 
-def test_assert_runtime_authorized_rejects_nonzero_attempt_counters(
+def _stub_authorization(tmp_path: Path) -> SimpleNamespace:
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-step"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-step"
+    return SimpleNamespace(runtime_root=runtime_root, evidence_root=evidence_root)
+
+
+def _bind_step_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> SimpleNamespace:
+    stub = _stub_authorization(tmp_path)
+    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(stub.runtime_root))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(stub.evidence_root))
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: stub)
+    return stub
+
+
+def test_start_consumes_the_one_shot_authorization_before_creating_runtime_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    repo_root = tmp_path / "repo"
-    authorization = repo_root / harness._AUTHORIZATION_REL
-    authorization.parent.mkdir(parents=True)
-    authorization.write_text("SUITE_SHA=" + ("a" * 40), encoding="utf-8")
-    candidate = repo_root / harness._CANDIDATE_REL
-    candidate.parent.mkdir(parents=True, exist_ok=True)
-    candidate.write_text(
-        json.dumps(
-            {
-                "attempt_accounting": {
-                    "current_attempt": {
-                        "execution_authorized": True,
-                        "status": "not_run",
-                        "executed_checks": 1,
-                        "passed_checks": 0,
-                        "failed_checks": 0,
-                    }
-                },
-                "evidence": {
-                    "artifacts": [
-                        {
-                            "path": harness._AUTHORIZATION_REL.as_posix(),
-                            "sha256": "a" * 64,
-                        }
-                    ]
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXECUTION_AUTHORIZED", "true")
-    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
+    stub = _bind_step_environment(tmp_path, monkeypatch)
+    consumed: list[object] = []
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda: None)
     monkeypatch.setattr(
-        harness,
-        "_absolute_env",
-        lambda name, *, must_exist: (
-            authorization
-            if name == harness._AUTHORIZATION_PATH_ENV
-            else tmp_path / "unused"
-        ),
+        harness.runtime_authorization,
+        "consume_once",
+        lambda authorization: (
+            consumed.append(authorization),
+            authorization.evidence_root.mkdir(mode=0o700),
+            {"status": "consumed"},
+        )[-1],
     )
-    monkeypatch.setattr(harness, "_repo_root", lambda: repo_root)
-    monkeypatch.setattr(harness, "_sha256", lambda path: "a" * 64)
+    monkeypatch.setattr(harness.store, "start", lambda runtime: None)
+    monkeypatch.setattr(harness, "_postgres_runtime", lambda root: object())
+
+    harness.start()
+
+    assert consumed == [stub]
+    assert (stub.runtime_root / "postgres-password").is_file()
+    assert stub.evidence_root.is_dir()
+
+
+@pytest.mark.parametrize("step", ("seed", "reset", "stop"))
+def test_later_steps_verify_the_marker_and_never_reconsume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, step: str
+) -> None:
+    stub = _bind_step_environment(tmp_path, monkeypatch)
+    stub.runtime_root.mkdir()
+    stub.evidence_root.mkdir()
+    verified: list[object] = []
+
+    def refuse_consumption(authorization: object) -> object:
+        raise AssertionError("a later step must never consume the authorization")
+
     monkeypatch.setattr(
-        harness, "_git", lambda *args: "a" * 40 if args == ("rev-parse", "HEAD") else ""
+        harness.runtime_authorization,
+        "verify_consumed",
+        lambda authorization: verified.append(authorization),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization, "consume_once", refuse_consumption
+    )
+    monkeypatch.setattr(harness.pki, "create_ephemeral_pki", lambda *a, **k: None)
+    monkeypatch.setattr(harness.store, "migrate", lambda runtime: None)
+    monkeypatch.setattr(harness.store, "stop", lambda: None)
+    monkeypatch.setattr(
+        harness.store,
+        "audit_security_posture",
+        lambda runtime: {
+            "postgres_force_rls_table_count": harness.store.RLS_TABLE_COUNT,
+            "postgres_role_posture_verified": True,
+            "postgres_rls_isolation_verified": True,
+        },
+    )
+    monkeypatch.setattr(harness, "_postgres_runtime", lambda root: object())
+    monkeypatch.setattr(harness, "_repo_root", lambda: tmp_path / "repo")
+    monkeypatch.setattr(
+        harness, "_absolute_env", lambda name, *, must_exist: tmp_path / name
     )
 
-    with pytest.raises(
-        harness.RuntimeAuthorizationError,
-        match="runtime attempt counters are not zero",
-    ):
-        harness.assert_runtime_authorized()
+    getattr(harness, step)()
+
+    assert verified == [stub]
+
+
+def test_rollback_verifies_the_marker_and_stays_usable_without_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checked: list[Path] = []
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verify_consumption_marker",
+        lambda evidence_root, **_: checked.append(evidence_root),
+    )
+    monkeypatch.setattr(harness, "teardown", lambda: None)
+    monkeypatch.setattr(harness, "verify_absent", lambda: True)
+    runtime_root = tmp_path / "cybrik-uat-d2-runtime-rollback"
+    evidence_root = tmp_path / "cybrik-uat-d2-evidence-rollback"
+    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
+    monkeypatch.setattr(harness, "_outside_repositories", lambda candidate, **_: None)
+
+    harness.rollback()
+
+    assert checked == [evidence_root]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:
