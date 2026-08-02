@@ -458,11 +458,17 @@ def test_later_steps_verify_the_marker_and_never_reconsume(
 def test_rollback_verifies_the_marker_and_stays_usable_without_consumption(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    checked: list[Path] = []
+    checked: list[tuple[Path, Path | None]] = []
+
+    def record_marker_check(
+        evidence_root: Path, *, expected_runtime_root: Path | None = None, **_: object
+    ) -> None:
+        checked.append((evidence_root, expected_runtime_root))
+
     monkeypatch.setattr(
         harness.runtime_authorization,
         "verify_consumption_marker",
-        lambda evidence_root, **_: checked.append(evidence_root),
+        record_marker_check,
     )
     monkeypatch.setattr(harness, "teardown", lambda: None)
     monkeypatch.setattr(harness, "verify_absent", lambda: True)
@@ -474,7 +480,7 @@ def test_rollback_verifies_the_marker_and_stays_usable_without_consumption(
 
     harness.rollback()
 
-    assert checked == [evidence_root]
+    assert checked == [(evidence_root, runtime_root)]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:

@@ -953,6 +953,20 @@ def test_rollback_marker_check_rejects_a_foreign_authorization_digest(
     assert caught.value.reason == "authorization_consumption_mismatch"
 
 
+def test_rollback_marker_check_rejects_a_foreign_runtime_root(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    authorization.consume_once(validated)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_consumption_marker(
+            validated.evidence_root,
+            expected_runtime_root=tmp_path / "cybrik-uat-d2-runtime-foreign",
+        )
+    assert caught.value.reason == "authorization_consumption_mismatch"
+
+
 # --------------------------------------------------------------------------
 # Static environment observation and check-only entrypoint
 # --------------------------------------------------------------------------
