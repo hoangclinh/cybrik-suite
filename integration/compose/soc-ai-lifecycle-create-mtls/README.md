@@ -235,7 +235,7 @@ is `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — R
 the full initial link graph, then failed closed because uv used its exact minor-version alias
 literal for `python`; rollback removed the R3 closure root and preserved exact evidence.
 `UAT-MTLS-D2-CLOSURE-RECOVERY-R4` is
-`AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+`EXECUTED — VERIFIED — AUTHORIZATION CONSUMED — COVERAGE CLOSURE READY — RUNTIME HOLD`.
 The pure-stdlib
 `scripts/recover_coverage_closure.py` reconstructs the exact D1 test closure under the bounded
 authority in
@@ -250,10 +250,21 @@ the 56 hash-pinned binary wheels, create a no-seed venv, verify and normalize on
 three-link interpreter graph, sync offline and verify the exact installed closure digest
 `6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`.
 
-R4 execution has not run. R1 made no network call; R2 and R3 completed only their permitted
+R4 executed exactly once at detached Suite commit
+`3c20de6ff6b44ff8b2c8b6c33d13f2f76672adfb`, tree
+`dae9bb5621ecefe10f62c2164dd4e1565cfcb377`, and attempt
+`ab467ae45163e72dc1bdb22c50d0db8cb478eb87b123ca5efdd71269b590e2b6` completed successfully
+without retry. The durable closure preserves exactly 56 locked distributions, matches digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`, and has the exact normalized
+link graph documented above. Both external roots remain mode `0700`; all six evidence files are
+mode `0600`. Independent inventory inspection found no `anycorn`, `coverage`, `pip`, `setuptools`
+or `wheel` distribution.
+
+R1 made no network call; R2 and R3 completed only their permitted
 wheel-acquisition phases before their respective venv-link mismatches. None of the four actions
 installs or extracts Coverage.py,
 installs or executes Anycorn/B1, creates a listener/database/certificate/container, runs a migration
-or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime. D2 remains
+or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime. The R4
+closure is ready only for a separately reviewed Coverage.py extraction/measurement action. D2 remains
 **HOLD** and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates remain
 unchanged.

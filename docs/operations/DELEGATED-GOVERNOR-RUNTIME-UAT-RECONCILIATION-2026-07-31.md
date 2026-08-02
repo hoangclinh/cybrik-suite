@@ -336,3 +336,26 @@ Acting under the same delegated non-production authority, the Codex Governor rec
 This appendix corrects only the exact alias-literal defect proven by R3. It grants no Coverage.py,
 Anycorn/B1, product process, listener, database, certificate, migration, deployment, N1-N10,
 legal/risk acceptance or release authority.
+
+### Appendix F terminal result
+
+Appendix F was consumed exactly once and completed successfully without retry. Attempt
+`ab467ae45163e72dc1bdb22c50d0db8cb478eb87b123ca5efdd71269b590e2b6` ran from
+`2026-08-02T03:26:51.384928+00:00` through `2026-08-02T03:27:07.084539+00:00` at detached, clean
+Suite commit `3c20de6ff6b44ff8b2c8b6c33d13f2f76672adfb`, tree
+`dae9bb5621ecefe10f62c2164dd4e1565cfcb377`. The durable closure contains exactly 56 locked
+distributions and matches digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`; the wheel manifest matches
+`bbec1a442f93066c684590be33560386e62e4257ec9d53a6b0119a92e6e2bc15`. Independent inventory
+inspection found no `anycorn`, `coverage`, `pip`, `setuptools` or `wheel` distribution. The closure
+and evidence roots remain effective-uid-owned mode `0700`, and all six evidence files are mode
+`0600`.
+
+The verified final graph is `python -> python3.12`, `python3 -> python`, and
+`python3.12 -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12`.
+The preserved start/result hashes are respectively
+`40f57b331949e1ffaa0db73d4903cf631ad6207fd57a7776ef0a2b4dbb24654e` and
+`7d8b81036e48e4ffe0bd4ba94545f1aa2cd42d7dc82ba27e4eec68f6c6526b7f`. The durable closure is
+ready only for a separately reviewed Coverage.py action. `UAT-MTLS-D2=HOLD`; Coverage.py
+extraction, Anycorn/B1, runtime, N1–N10 and release promotion remain unexecuted, release dates are
+unchanged, and production/public GA remain Founder-controlled.

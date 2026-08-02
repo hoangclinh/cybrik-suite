@@ -69,9 +69,10 @@ failed closed on uv's actual venv-link topology, rolled back its closure root an
 evidence. Appendix E was consumed by R3, which passed its preproof and wheel acquisition but failed
 closed because uv used its owned exact minor-version alias rather than the patch-level interpreter
 literal, rolled back its closure root and preserved exact evidence. Appendix F and
-`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md` authorize exactly
-one R4 uv-minor-alias correction using fresh roots only after a non-mutating offline digest and
-alias-identity preproof succeeds. R4 does not authorize Coverage.py extraction, Anycorn execution,
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md` were consumed by
+one R4 uv-minor-alias correction after its non-mutating offline digest and alias-identity preproof
+succeeded. R4 completed successfully and preserved the exact durable D1 test closure and evidence;
+that result grants no automatic next action. R4 does not authorize Coverage.py extraction, Anycorn execution,
 product dependency changes, runtime, migration, deployment, legal/risk disposition, public
 release, GA or production.
 
