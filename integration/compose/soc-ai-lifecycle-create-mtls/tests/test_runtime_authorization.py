@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import inspect
 import json
 import os
 import stat
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -266,6 +267,14 @@ def test_runtime_code_allowlist_is_sorted_unique_and_covers_the_runtime_surface(
         "integration/compose/soc-ai-lifecycle-create-mtls/tests/"
         "test_lifecycle_runtime.py" in paths
     )
+    assert "integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml" in paths
+    assert authorization.MUST_BE_ABSENT_RUNTIME_PATHS == tuple(
+        sorted(set(authorization.MUST_BE_ABSENT_RUNTIME_PATHS))
+    )
+    assert (
+        "integration/compose/soc-ai-lifecycle-create-mtls/tests/conftest.py"
+        in authorization.MUST_BE_ABSENT_RUNTIME_PATHS
+    )
 
 
 def test_runtime_code_allowlist_excludes_the_authorization_and_candidate() -> None:
@@ -298,6 +307,9 @@ def test_runtime_code_aggregate_follows_the_declared_versioned_recipe(
     suite = _suite_root(tmp_path)
     payload = f"{authorization.AGGREGATE_ALGORITHM}\n"
     payload += f"{len(authorization.RUNTIME_CODE_PATHS)}\n"
+    payload += f"{len(authorization.MUST_BE_ABSENT_RUNTIME_PATHS)}\n"
+    for relative in authorization.MUST_BE_ABSENT_RUNTIME_PATHS:
+        payload += f"absent  {relative}\n"
     for relative in authorization.RUNTIME_CODE_PATHS:
         digest = hashlib.sha256((suite / relative).read_bytes()).hexdigest()
         payload += f"{digest}  {relative}\n"
@@ -305,6 +317,18 @@ def test_runtime_code_aggregate_follows_the_declared_versioned_recipe(
     assert authorization.runtime_code_aggregate(suite) == (
         hashlib.sha256(payload.encode("utf-8")).hexdigest()
     )
+
+
+def test_runtime_code_aggregate_refuses_an_auto_loaded_test_addition(
+    tmp_path: Path,
+) -> None:
+    suite = _suite_root(tmp_path)
+    denied = suite / authorization.MUST_BE_ABSENT_RUNTIME_PATHS[0]
+    _write(denied, "def pytest_configure():\n    raise AssertionError\n")
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.runtime_code_aggregate(suite)
+    assert caught.value.reason == "runtime_denied_path_present"
 
 
 def test_runtime_code_aggregate_changes_when_runtime_code_changes(
@@ -514,6 +538,7 @@ def test_validate_authorization_rejects_an_expired_or_future_window(
         ({"admission_base_is_ancestor_of_head": False}, "suite_admission_base_invalid"),
         ({"admission_base_descends_d1_base": False}, "suite_admission_base_invalid"),
         ({"suite_status": " M docs/x.md"}, "suite_checkout_not_clean"),
+        ({"suite_head": "not-a-commit"}, "suite_state_mismatch"),
         ({"b1_wheel_sha256": "d" * 64}, "b1_wheel_digest_mismatch"),
         ({"authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
         ({"expected_authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
@@ -858,6 +883,18 @@ def test_verify_consumed_accepts_the_marker_written_by_the_first_start(
     assert authorization.verify_consumed(validated) == record
 
 
+def test_verify_consumed_accepts_a_later_cross_process_observation(
+    tmp_path: Path,
+) -> None:
+    first_process = _validated(tmp_path)
+    record = authorization.consume_once(first_process)
+    later_process = dataclasses.replace(
+        first_process, now=first_process.now + timedelta(minutes=30)
+    )
+
+    assert authorization.verify_consumed(later_process) == record
+
+
 def test_verify_consumed_fails_closed_when_the_attempt_was_never_consumed(
     tmp_path: Path,
 ) -> None:
@@ -876,6 +913,7 @@ def test_verify_consumed_fails_closed_when_the_attempt_was_never_consumed(
 @pytest.mark.parametrize(
     "key",
     (
+        "consumed_at",
         "authorization_id",
         "authorization_sha256",
         "runtime_code_aggregate_sha256",
@@ -895,6 +933,62 @@ def test_verify_consumed_rejects_a_tampered_marker(tmp_path: Path, key: str) -> 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.verify_consumed(validated)
     assert caught.value.reason == "authorization_consumption_mismatch"
+
+
+@pytest.mark.parametrize(
+    "consumed_at",
+    (
+        "not-a-timestamp",
+        "2026-08-02T10:59:59+00:00",
+        "2026-08-02T15:00:01+00:00",
+    ),
+)
+def test_verify_consumed_rejects_a_timestamp_outside_the_authorized_window(
+    tmp_path: Path, consumed_at: str
+) -> None:
+    validated = _validated(tmp_path)
+    authorization.consume_once(validated)
+    marker = validated.evidence_root / authorization.CONSUMPTION_MARKER
+    record = json.loads(marker.read_text(encoding="utf-8"))
+    record["consumed_at"] = consumed_at
+    marker.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_consumed(validated)
+    assert caught.value.reason == "authorization_consumption_mismatch"
+
+
+def test_consume_once_cleans_its_fresh_root_when_marker_creation_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validated = _validated(tmp_path)
+    real_open = authorization.os.open
+
+    def refuse_marker(path: object, *args: object, **kwargs: object) -> int:
+        if path == authorization.CONSUMPTION_MARKER:
+            raise OSError("synthetic marker create failure")
+        return real_open(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(authorization.os, "open", refuse_marker)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure):
+        authorization.consume_once(validated)
+    assert not validated.evidence_root.exists()
+
+
+def test_consume_once_cleans_partial_marker_when_descriptor_write_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validated = _validated(tmp_path)
+
+    def refuse_write(descriptor: int, payload: bytes) -> int:
+        raise OSError("synthetic marker write failure")
+
+    monkeypatch.setattr(authorization.os, "write", refuse_write)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure):
+        authorization.consume_once(validated)
+    assert not validated.evidence_root.exists()
 
 
 def test_verify_consumed_rejects_a_relocated_evidence_root(tmp_path: Path) -> None:
@@ -1014,7 +1108,7 @@ def test_candidate_observation_reads_the_exact_current_attempt_digest(
         encoding="utf-8",
     )
 
-    observed = authorization._candidate(candidate, _AUTHORIZATION_SHA)
+    observed = authorization._candidate(candidate)
 
     assert observed.authorization_sha256 == _AUTHORIZATION_SHA
     assert observed.status == "not_run"
@@ -1051,9 +1145,21 @@ def test_candidate_observation_accepts_only_the_canonical_artifact_fallback(
     )
 
     assert (
-        authorization._candidate(candidate, _AUTHORIZATION_SHA).authorization_sha256
+        authorization._candidate(candidate).authorization_sha256
         == _AUTHORIZATION_SHA
     )
+
+
+def test_candidate_observer_has_no_dead_authorization_digest_parameter() -> None:
+    assert tuple(inspect.signature(authorization._candidate).parameters) == ("path",)
+
+
+def test_admission_base_is_validated_before_it_can_become_git_argv() -> None:
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._admission_base_for_git(
+            {"SUITE_ADMISSION_BASE": "not-a-commit"}
+        )
+    assert caught.value.reason == "authorization_digest_invalid"
 
 
 def test_required_absolute_environment_path_is_canonical_and_fail_closed(
@@ -1099,3 +1205,17 @@ def test_check_only_cli_validates_without_consuming(
 
     assert authorization.main(["--check-only"]) == 0
     assert calls == ["validate"]
+
+
+def test_check_only_cli_emits_only_a_stable_reason_for_known_refusals(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def refuse() -> object:
+        raise authorization.RuntimeAuthorizationFailure("candidate_closed")
+
+    monkeypatch.setattr(authorization, "authorize_from_environment", refuse)
+
+    assert authorization.main(["--check-only"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "D2 runtime authorization refused: candidate_closed\n"

@@ -11,6 +11,8 @@ import ast
 import json
 import os
 import ssl
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Self
@@ -176,6 +178,11 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "cybrik_suite_uat_mtls.runtime_authorization",
         "--check-only",
         "PYTHONPATH",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1",
+        "-p no:cacheprovider",
+        "-o addopts=",
+        "--noconftest",
+        "-c /dev/null",
     ):
         assert required in runner, required
     for relative in (
@@ -185,6 +192,84 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "services/ai-api/src",
     ):
         assert relative in runner
+
+
+def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "synthetic-clean-checkout"
+    repository.mkdir()
+    (repository / ".gitignore").write_text(
+        ".pytest_cache/\n__pycache__/\n*.pyc\n", encoding="utf-8"
+    )
+    smoke = repository / "test_smoke.py"
+    smoke.write_text("def test_smoke():\n    assert True\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q", str(repository)), check=True)
+    subprocess.run(("git", "-C", str(repository), "add", "."), check=True)
+    subprocess.run(
+        (
+            "git",
+            "-C",
+            str(repository),
+            "-c",
+            "user.name=Cybrik UAT",
+            "-c",
+            "user.email=uat@invalid.local",
+            "commit",
+            "-q",
+            "-m",
+            "synthetic fixture",
+        ),
+        check=True,
+    )
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+    )
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "-o",
+            "addopts=",
+            "--noconftest",
+            "-c",
+            "/dev/null",
+            str(smoke),
+        ),
+        cwd=repository,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    status = subprocess.run(
+        (
+            "git",
+            "-C",
+            str(repository),
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--ignored",
+        ),
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout
+
+    assert completed.returncode == 0, completed.stderr
+    assert status == ""
 
 
 def test_ssl_context_evidence_rejects_missing_file(tmp_path: Path) -> None:
