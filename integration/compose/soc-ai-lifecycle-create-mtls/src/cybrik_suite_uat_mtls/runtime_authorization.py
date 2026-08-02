@@ -62,6 +62,7 @@ RUNTIME_CODE_PATHS: Final = tuple(
             f"{_PACKAGE}/secret_inventory.py",
             f"{_PACKAGE}/server.py",
             f"{_PACKAGE}/store.py",
+            f"{_PACKAGE}/terminal_integration.py",
             "integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml",
             (
                 "integration/compose/soc-ai-lifecycle-create-mtls/tests/"

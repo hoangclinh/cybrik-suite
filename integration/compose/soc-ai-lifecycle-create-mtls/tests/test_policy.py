@@ -17,7 +17,6 @@ import types
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import policy
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "cybrik_suite_uat_mtls"
@@ -36,6 +35,7 @@ _RUNTIME_SOURCE_FILES = (
     "secret_inventory.py",
     "server.py",
     "store.py",
+    "terminal_integration.py",
 )
 _EXPECTED_SOURCE_FILES = tuple(sorted(_PURE_SOURCE_FILES + _RUNTIME_SOURCE_FILES))
 _PINNED_B1_WHEEL_SHA256 = (
