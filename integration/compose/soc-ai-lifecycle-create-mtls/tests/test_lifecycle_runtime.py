@@ -392,7 +392,7 @@ def test_start_consumes_the_one_shot_authorization_before_creating_runtime_state
 ) -> None:
     stub = _bind_step_environment(tmp_path, monkeypatch)
     consumed: list[object] = []
-    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda: None)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
     monkeypatch.setattr(
         harness.runtime_authorization,
         "consume_once",

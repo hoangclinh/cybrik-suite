@@ -117,7 +117,9 @@ def _bounded_external_roots(*, repositories_must_exist: bool) -> tuple[Path, Pat
     return runtime_root, evidence_root
 
 
-def assert_product_api_compatibility() -> None:
+def assert_product_api_compatibility(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> None:
     """Import the exact pinned SOC/AI symbols before creating any resource."""
 
     try:
@@ -149,6 +151,22 @@ def assert_product_api_compatibility() -> None:
     )
     if not all(callable(symbol) for symbol in required):
         raise RuntimeAuthorizationError("pinned product API surface is incompatible")
+    module_paths: list[Path] = []
+    for symbol in required:
+        module_name = getattr(symbol, "__module__", None)
+        module = sys.modules.get(module_name) if isinstance(module_name, str) else None
+        module_file = getattr(module, "__file__", None)
+        if not isinstance(module_file, str):
+            raise RuntimeAuthorizationError(
+                "pinned product API module origin is unavailable"
+            )
+        module_paths.append(Path(module_file))
+    try:
+        runtime_authorization.verify_module_origins(authorization, module_paths)
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
+        raise RuntimeAuthorizationError(
+            f"pinned product API module origin is refused: {exc.reason}"
+        ) from exc
 
 
 def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
@@ -208,7 +226,7 @@ def _postgres_runtime(root: Path) -> store.PostgresRuntime:
 
 def start() -> None:
     authorization = assert_runtime_authorized()
-    assert_product_api_compatibility()
+    assert_product_api_compatibility(authorization)
     root = authorization.runtime_root
     evidence_root = authorization.evidence_root
     if (
