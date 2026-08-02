@@ -1,0 +1,427 @@
+"""Pure unit contract for immutable D2 Phase-B terminal evidence."""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import os
+import stat
+from pathlib import Path
+
+import pytest
+
+from cybrik_suite_uat_mtls import runtime_evidence
+
+
+HEX40 = "1" * 40
+HEX64 = "a" * 64
+
+
+def _write_artifact(root: Path, relative_path: str, payload: bytes) -> dict[str, object]:
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return {
+        "name": relative_path.removesuffix(".json").replace("/", "-"),
+        "kind": "case",
+        "case_id": relative_path.removeprefix("case-").removesuffix(".json").upper(),
+        "relative_path": relative_path,
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "size_bytes": len(payload),
+    }
+
+
+def _passing_candidate(root: Path) -> dict[str, object]:
+    artifacts = [
+        _write_artifact(root, f"case-n{number}.json", b'{"passed":true}\n')
+        for number in range(1, 11)
+    ]
+    for kind, filename in (
+        ("authorization", "authority-binding.json"),
+        ("b1", "b1-binding.json"),
+        ("tls", "tls-extension.json"),
+        ("ssl", "ssl-context.json"),
+        ("postgresql", "postgres-security.json"),
+        ("secret_sweep", "secret-sweep.json"),
+    ):
+        payload = b'{"verified":true}\n'
+        (root / filename).write_bytes(payload)
+        artifacts.append(
+            {
+                "name": filename.removesuffix(".json"),
+                "kind": kind,
+                "case_id": None,
+                "relative_path": filename,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "size_bytes": len(payload),
+            }
+        )
+    cases = [
+        {
+            "case_id": f"N{number}",
+            "outcome": "passed",
+            "reason_code": None,
+            "duration_ms": number,
+            "artifact_name": f"case-n{number}",
+        }
+        for number in range(1, 11)
+    ]
+    return {
+        "schema_version": runtime_evidence.TERMINAL_SCHEMA_VERSION,
+        "attempt_id": "d2-runtime-r1",
+        "outcome": "passed",
+        "failure_reason_code": None,
+        "repository_tuple": {
+            name: {"commit_sha": HEX40, "tree_sha": "2" * 40}
+            for name in ("suite", "soc", "ai", "fabric")
+        },
+        "authority": {
+            "phase_a_auth_sha256": HEX64,
+            "consumption_sha256": "b" * 64,
+            "one_shot_consumed": True,
+        },
+        "b1": {
+            "wheel_sha256": "c" * 64,
+            "provenance_sha256": "d" * 64,
+            "containment_test_sha256": "e" * 64,
+            "loader_base_sha256": "f" * 64,
+        },
+        "counts": {
+            "case_count": 10,
+            "passed_count": 10,
+            "failed_count": 0,
+            "not_run_count": 0,
+        },
+        "cases": cases,
+        "transport": {
+            "tls_version": "TLSv1.3",
+            "mtls_verified": True,
+            "cnf_binding_verified": True,
+            "asgi_tls_extension_verified": True,
+            "ssl_hardened_options_preserved": True,
+            "ssl_no_compression_verified": True,
+        },
+        "postgresql": {
+            "role_rolsuper": False,
+            "role_rolbypassrls": False,
+            "role_rolcreaterole": False,
+            "force_rls_table_count": 5,
+            "cross_tenant_row_count": 0,
+            "replay_row_count": 1,
+        },
+        "timings": {
+            "started_at": "2026-08-02T08:00:00Z",
+            "finished_at": "2026-08-02T08:00:01Z",
+            "setup_ms": 400,
+            "cases_ms": sum(range(1, 11)),
+            "teardown_ms": 545,
+            "total_ms": 1000,
+        },
+        "teardown": {
+            "completed": True,
+            "ai_process_absent": True,
+            "soc_process_absent": True,
+            "postgres_container_absent": True,
+            "ai_listener_absent": True,
+            "postgres_listener_absent": True,
+            "runtime_root_absent": True,
+            "pki_absent": True,
+        },
+        "pki_public": {
+            "ephemeral": True,
+            "destroyed": True,
+            "certificate_count": 4,
+            "public_artifact_count": 5,
+            "public_artifact_sha256": [str(number) * 64 for number in range(5)],
+        },
+        "artifacts": artifacts,
+    }
+
+
+@pytest.fixture
+def evidence_root(tmp_path: Path) -> Path:
+    root = tmp_path / "cybrik-uat-d2-evidence-unit"
+    root.mkdir(mode=0o700)
+    os.chmod(root, 0o700)
+    return root
+
+
+def _assert_reason(candidate: dict[str, object], reason: str) -> None:
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.validate_terminal_result(candidate)
+    assert caught.value.reason == reason
+    assert str(caught.value) == reason
+
+
+def test_validate_accepts_and_detaches_exact_passed_result(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    validated = runtime_evidence.validate_terminal_result(candidate)
+    assert validated == candidate
+    assert validated is not candidate
+    assert validated["cases"] is not candidate["cases"]
+    candidate["attempt_id"] = "mutated"
+    assert validated["attempt_id"] == "d2-runtime-r1"
+
+
+@pytest.mark.parametrize("missing", ("suite", "soc", "ai", "fabric"))
+def test_exact_repository_tuple_is_mandatory(
+    evidence_root: Path, missing: str
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    del candidate["repository_tuple"][missing]  # type: ignore[index]
+    _assert_reason(candidate, "repository_tuple_invalid")
+
+
+def test_auth_consumption_and_all_b1_digests_are_mandatory(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate["authority"]["one_shot_consumed"] = False  # type: ignore[index]
+    _assert_reason(candidate, "authority_not_consumed")
+    candidate = _passing_candidate(evidence_root)
+    candidate["b1"]["loader_base_sha256"] = "not-a-digest"  # type: ignore[index]
+    _assert_reason(candidate, "digest_invalid")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason"),
+    (
+        (lambda value: value["cases"].pop(), "case_inventory_invalid"),
+        (
+            lambda value: value["cases"].__setitem__(1, copy.deepcopy(value["cases"][0])),
+            "case_inventory_invalid",
+        ),
+        (
+            lambda value: value["counts"].__setitem__("passed_count", 9),
+            "counts_do_not_reconcile",
+        ),
+        (
+            lambda value: value["cases"][0].__setitem__("outcome", "failed"),
+            "case_result_invalid",
+        ),
+    ),
+)
+def test_n1_n10_and_counts_are_exact(
+    evidence_root: Path, mutation: object, reason: str
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    mutation(candidate)  # type: ignore[operator]
+    _assert_reason(candidate, reason)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value", "reason"),
+    (
+        ("transport", "tls_version", "TLSv1.2", "passed_transport_invalid"),
+        ("transport", "mtls_verified", False, "passed_transport_invalid"),
+        ("transport", "cnf_binding_verified", False, "passed_transport_invalid"),
+        ("postgresql", "role_rolsuper", True, "passed_postgresql_invalid"),
+        ("postgresql", "role_rolbypassrls", True, "passed_postgresql_invalid"),
+        ("postgresql", "role_rolcreaterole", True, "passed_postgresql_invalid"),
+        ("postgresql", "force_rls_table_count", 4, "passed_postgresql_invalid"),
+        ("postgresql", "cross_tenant_row_count", 1, "passed_postgresql_invalid"),
+        ("postgresql", "replay_row_count", 2, "passed_postgresql_invalid"),
+        ("teardown", "runtime_root_absent", False, "teardown_incomplete"),
+        ("pki_public", "destroyed", False, "teardown_incomplete"),
+    ),
+)
+def test_pass_requires_exact_security_and_teardown_invariants(
+    evidence_root: Path,
+    section: str,
+    field: str,
+    value: object,
+    reason: str,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate[section][field] = value  # type: ignore[index]
+    _assert_reason(candidate, reason)
+
+
+def test_failed_terminal_is_canonical_and_cannot_claim_pass(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate["outcome"] = "failed"
+    candidate["failure_reason_code"] = "n4_relying_party_refusal_missing"
+    candidate["cases"][3].update(  # type: ignore[index]
+        outcome="failed", reason_code="unexpected_accept"
+    )
+    candidate["cases"][4].update(  # type: ignore[index]
+        outcome="not_run", reason_code="not_reached"
+    )
+    candidate["counts"] = {
+        "case_count": 10,
+        "passed_count": 8,
+        "failed_count": 1,
+        "not_run_count": 1,
+    }
+    assert runtime_evidence.validate_terminal_result(candidate)["outcome"] == "failed"
+
+    false_failure = _passing_candidate(evidence_root)
+    false_failure["outcome"] = "failed"
+    false_failure["failure_reason_code"] = "claimed_failure"
+    _assert_reason(false_failure, "failed_result_claims_pass")
+
+
+def test_public_pki_metadata_cannot_carry_private_or_raw_material(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate["pki_public"]["private_key_pem"] = "-----BEGIN PRIVATE KEY-----"  # type: ignore[index]
+    _assert_reason(candidate, "pki_public_invalid")
+
+
+def test_required_artifacts_are_unique_regular_contained_bounded_and_pinned(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate["artifacts"][0]["sha256"] = HEX64  # type: ignore[index]
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_digest_mismatch"
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+@pytest.mark.parametrize("relative_path", ("../escape.json", "/tmp/escape.json", "a//b"))
+def test_artifact_traversal_is_rejected(
+    evidence_root: Path, relative_path: str
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    candidate["artifacts"][0]["relative_path"] = relative_path  # type: ignore[index]
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_path_invalid"
+
+
+def test_symlinked_artifact_and_intermediate_directory_are_rejected(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    outside = evidence_root.parent / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+    linked = evidence_root / "linked.json"
+    linked.symlink_to(outside)
+    candidate["artifacts"][0].update(  # type: ignore[index]
+        relative_path="linked.json",
+        sha256=hashlib.sha256(b"{}").hexdigest(),
+        size_bytes=2,
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_unsafe"
+
+    linked.unlink()
+    outside_dir = evidence_root.parent / "outside-dir"
+    outside_dir.mkdir()
+    (outside_dir / "nested.json").write_text("{}", encoding="utf-8")
+    (evidence_root / "alias").symlink_to(outside_dir, target_is_directory=True)
+    candidate["artifacts"][0].update(  # type: ignore[index]
+        relative_path="alias/nested.json",
+        sha256=hashlib.sha256(b"{}").hexdigest(),
+        size_bytes=2,
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_unsafe"
+
+
+def test_persist_writes_canonical_no_overwrite_mode_0600_packet(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    persisted = runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+
+    paths = [
+        evidence_root / runtime_evidence.RESULT_FILENAME,
+        evidence_root / runtime_evidence.TEARDOWN_FILENAME,
+        evidence_root / runtime_evidence.SUMMARY_FILENAME,
+    ]
+    assert all(path.is_file() and not path.is_symlink() for path in paths)
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in paths)
+    assert stat.S_IMODE(evidence_root.stat().st_mode) == 0o700
+    result = json.loads(paths[0].read_text(encoding="utf-8"))
+    teardown = json.loads(paths[1].read_text(encoding="utf-8"))
+    summary = json.loads(paths[2].read_text(encoding="utf-8"))
+    assert result == candidate
+    assert teardown["resources"] == candidate["teardown"]
+    assert summary["terminal_passed"] is True
+    assert summary["result_sha256"] == persisted.result_sha256
+    assert summary["teardown_sha256"] == persisted.teardown_sha256
+    assert paths[2].read_bytes().endswith(b"\n")
+
+    before = {path.name: path.read_bytes() for path in paths}
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_path_exists"
+    assert {path.name: path.read_bytes() for path in paths} == before
+
+
+def test_evidence_root_must_be_absolute_descriptor_bound_mode_0700(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    os.chmod(evidence_root, 0o755)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "evidence_root_unsafe"
+
+    target = evidence_root.parent / "cybrik-uat-d2-evidence-target"
+    target.mkdir(mode=0o700)
+    alias = evidence_root.parent / "cybrik-uat-d2-evidence-alias"
+    alias.symlink_to(target, target_is_directory=True)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(alias, candidate)
+    assert caught.value.reason == "evidence_root_unsafe"
+
+
+def test_persist_fsyncs_each_file_and_directory(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    real_fsync = runtime_evidence.os.fsync
+    synced_modes: list[int] = []
+
+    def recording_fsync(descriptor: int) -> None:
+        synced_modes.append(stat.S_IFMT(os.fstat(descriptor).st_mode))
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "fsync", recording_fsync)
+    runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert synced_modes.count(stat.S_IFREG) >= 3
+    assert synced_modes.count(stat.S_IFDIR) >= 3
+
+
+def test_write_failure_preserves_existing_evidence_and_never_deletes_root(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    sentinel = evidence_root / "preexisting-evidence.json"
+    sentinel.write_text("preserve", encoding="utf-8")
+    real_link = runtime_evidence.os.link
+    calls = 0
+
+    def fail_second_link(*args: object, **kwargs: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("synthetic link failure")
+        real_link(*args, **kwargs)
+
+    monkeypatch.setattr(runtime_evidence.os, "link", fail_second_link)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_write_failed"
+    assert evidence_root.is_dir()
+    assert sentinel.read_text(encoding="utf-8") == "preserve"
+    assert (evidence_root / runtime_evidence.RESULT_FILENAME).is_file()
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+def test_canonical_bytes_are_order_independent_and_secret_free(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    reversed_candidate = dict(reversed(tuple(candidate.items())))
+    assert runtime_evidence.canonical_json(candidate) == runtime_evidence.canonical_json(
+        reversed_candidate
+    )
+    secret = copy.deepcopy(candidate)
+    secret["attempt_id"] = "Bearer secret-value"
+    _assert_reason(secret, "identifier_invalid")
