@@ -43,6 +43,11 @@ _ADMISSION_BASE = "b" * 40
 _SUITE_HEAD = "c" * 40
 _AUTHORIZATION_SHA = "a" * 64
 _EXACT_HEAD_GRANT_SHA = "e" * 64
+_ALLOWED_SIGNERS = (
+    "cybrik-codex-governor ssh-ed25519 "
+    "AAAAC3NzaC1lZDI1NTE5AAAAIEsyntheticValidationOnlyKey000000000000000\n"
+)
+_ALLOWED_SIGNERS_SHA = hashlib.sha256(_ALLOWED_SIGNERS.encode("ascii")).hexdigest()
 _NOW = datetime(2026, 8, 2, 12, 0, tzinfo=UTC)
 
 
@@ -104,6 +109,7 @@ def _fields(
         "AUTHORIZED_AT": "2026-08-02T11:00:00+00:00",
         "AUTHORIZATION_EXPIRES_AT": "2026-08-02T15:00:00+00:00",
         "BINDING_VERSION": authorization.BINDING_VERSION,
+        "EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256": _ALLOWED_SIGNERS_SHA,
         "SUITE_ROOT": str(suite),
         "SUITE_ADMISSION_BASE": _ADMISSION_BASE,
         "RUNTIME_CODE_AGGREGATE_ALGORITHM": authorization.AGGREGATE_ALGORITHM,
@@ -138,6 +144,12 @@ def _observed(
         suite.parent / "grant-holder/cybrik-uat-d2-exact-head-grant-unit.txt"
     )
     _write(exact_head_grant_path, "synthetic external exact-head grant\n")
+    allowed_signers_path = exact_head_grant_path.with_name(
+        "cybrik-uat-d2-exact-head-allowed-signers-unit.txt"
+    )
+    signature_path = exact_head_grant_path.with_suffix(".txt.sig")
+    _write(allowed_signers_path, _ALLOWED_SIGNERS)
+    _write(signature_path, "-----BEGIN SSH SIGNATURE-----\nsynthetic\n")
     return authorization.ObservedRuntimeState(
         now=_NOW,
         suite_root=suite,
@@ -151,10 +163,13 @@ def _observed(
         expected_authorization_sha256=_AUTHORIZATION_SHA,
         exact_head_grant_path=exact_head_grant_path,
         exact_head_grant_sha256=_EXACT_HEAD_GRANT_SHA,
-        expected_exact_head_grant_sha256=_EXACT_HEAD_GRANT_SHA,
+        exact_head_grant_signature_path=signature_path,
+        exact_head_grant_allowed_signers_path=allowed_signers_path,
+        exact_head_grant_allowed_signers_sha256=_ALLOWED_SIGNERS_SHA,
+        exact_head_grant_signature_verified=True,
         exact_head_grant={
             "D2_EXACT_HEAD_GRANT": "APPROVE",
-            "AUTHORIZED_BY": "FOUNDER",
+            "AUTHORIZED_BY": "CODEX-GOVERNOR",
             "GRANT_VERSION": authorization.EXACT_HEAD_GRANT_VERSION,
             "AUTHORIZATION_SHA256": _AUTHORIZATION_SHA,
             "SUITE_HEAD": _SUITE_HEAD,
@@ -251,9 +266,10 @@ def test_two_layer_grant_binds_exact_head_without_repo_self_reference() -> None:
     assert "RUNTIME_CODE_AGGREGATE_SHA256" in authorization.EXACT_HEAD_GRANT_FIELDS
     assert authorization.EXACT_HEAD_GRANT_PINNED_VALUES == {
         "D2_EXACT_HEAD_GRANT": "APPROVE",
-        "AUTHORIZED_BY": "FOUNDER",
+        "AUTHORIZED_BY": "CODEX-GOVERNOR",
         "GRANT_VERSION": authorization.EXACT_HEAD_GRANT_VERSION,
     }
+    assert "EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256" in authorization.EXPECTED_FIELDS
 
 
 def test_expected_fields_are_unique_and_pinned_values_are_a_subset() -> None:
@@ -484,7 +500,7 @@ def test_parse_exact_head_grant_accepts_only_the_exact_ordered_document(
     assert caught.value.reason == "exact_head_grant_invalid"
 
 
-def test_exact_head_grant_environment_observer_binds_file_digest(
+def test_exact_head_grant_environment_observer_verifies_detached_signature(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = _fixture(tmp_path)
@@ -494,16 +510,68 @@ def test_exact_head_grant_environment_observer_binds_file_digest(
         for key in authorization.EXACT_HEAD_GRANT_FIELDS
     )
     grant_path.write_text(payload, encoding="utf-8")
-    digest = hashlib.sha256(grant_path.read_bytes()).hexdigest()
+    private_key = tmp_path / "ephemeral-test-only-ed25519"
+    subprocess.run(
+        (
+            "/usr/bin/ssh-keygen",
+            "-q",
+            "-t",
+            "ed25519",
+            "-N",
+            "",
+            "-f",
+            str(private_key),
+        ),
+        check=True,
+        timeout=30,
+    )
+    public_line = private_key.with_suffix(".pub").read_text(encoding="ascii").strip()
+    allowed_signers = fixture.observed.exact_head_grant_allowed_signers_path
+    allowed_signers.write_text(
+        f"{authorization.EXACT_HEAD_GRANT_SIGNER_IDENTITY} {public_line}\n",
+        encoding="ascii",
+    )
+    subprocess.run(
+        (
+            "/usr/bin/ssh-keygen",
+            "-Y",
+            "sign",
+            "-f",
+            str(private_key),
+            "-n",
+            authorization.EXACT_HEAD_GRANT_NAMESPACE,
+            str(grant_path),
+        ),
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    signature = grant_path.with_suffix(".txt.sig")
+    fields = dict(fixture.fields)
+    fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"] = hashlib.sha256(
+        allowed_signers.read_bytes()
+    ).hexdigest()
     monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(grant_path))
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", digest)
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE", str(signature))
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", str(allowed_signers)
+    )
 
-    assert authorization._exact_head_grant_from_environment() == (
+    observed = authorization._exact_head_grant_from_environment(fields)
+    assert observed == (
         grant_path,
         fixture.observed.exact_head_grant,
-        digest,
-        digest,
+        hashlib.sha256(grant_path.read_bytes()).hexdigest(),
+        signature,
+        allowed_signers,
+        fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"],
+        True,
     )
+
+    grant_path.write_text(payload.replace(_SUITE_HEAD, "d" * 40), encoding="utf-8")
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._exact_head_grant_from_environment(fields)
+    assert caught.value.reason == "exact_head_grant_signature_invalid"
 
 
 def test_exact_head_grant_environment_observer_rejects_a_symlink(
@@ -514,10 +582,17 @@ def test_exact_head_grant_environment_observer_rejects_a_symlink(
     link = target.with_name("cybrik-uat-d2-exact-head-grant-symlink.txt")
     link.symlink_to(target)
     monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(link))
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
+        str(fixture.observed.exact_head_grant_signature_path),
+    )
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS",
+        str(fixture.observed.exact_head_grant_allowed_signers_path),
+    )
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization._exact_head_grant_from_environment()
+        authorization._exact_head_grant_from_environment(fixture.fields)
     assert caught.value.reason == "exact_head_grant_path_invalid"
 
 
@@ -662,12 +737,12 @@ def test_validate_authorization_rejects_an_expired_or_future_window(
         ({"authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
         ({"expected_authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
         (
-            {"exact_head_grant_sha256": "d" * 64},
-            "exact_head_grant_digest_mismatch",
+            {"exact_head_grant_sha256": "not-a-digest"},
+            "exact_head_grant_digest_invalid",
         ),
         (
-            {"expected_exact_head_grant_sha256": "d" * 64},
-            "exact_head_grant_digest_mismatch",
+            {"exact_head_grant_signature_verified": False},
+            "exact_head_grant_signature_invalid",
         ),
     ),
 )
@@ -1334,6 +1409,43 @@ def test_rollback_marker_check_rejects_a_foreign_exact_head_grant_digest(
             expected_exact_head_grant_sha256="d" * 64,
         )
     assert caught.value.reason == "authorization_consumption_mismatch"
+
+
+def test_exact_head_grant_refuses_operator_supplied_digest_without_signature(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    grant_path = fixture.observed.exact_head_grant_path
+    payload = "".join(
+        f"{key}={fixture.observed.exact_head_grant[key]}\n"
+        for key in authorization.EXACT_HEAD_GRANT_FIELDS
+    )
+    grant_path.write_text(payload, encoding="utf-8")
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(grant_path))
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256",
+        hashlib.sha256(grant_path.read_bytes()).hexdigest(),
+    )
+    monkeypatch.delenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE", raising=False)
+    monkeypatch.delenv("CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", raising=False)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._exact_head_grant_from_environment(fixture.fields)
+    assert caught.value.reason == "exact_head_grant_signature_invalid"
+    assert "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256" not in inspect.getsource(
+        authorization._exact_head_grant_from_environment
+    )
+
+
+def test_exact_head_grant_uses_root_owned_fixed_verifier() -> None:
+    verifier = authorization.EXACT_HEAD_GRANT_VERIFY_BINARY
+    metadata = verifier.lstat()
+
+    assert verifier == Path("/usr/bin/ssh-keygen")
+    assert verifier.resolve(strict=True) == verifier
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == 0
+    assert stat.S_IMODE(metadata.st_mode) & 0o022 == 0
 
 
 def test_rollback_marker_check_rejects_a_foreign_runtime_root(

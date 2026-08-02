@@ -62,7 +62,8 @@ def test_runtime_entrypoint_has_a_committed_authorization_guard() -> None:
         "CYBRIK_UAT_D2_AUTHORIZATION_PATH",
         "CYBRIK_UAT_D2_AUTHORIZATION_SHA256",
         "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
-        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
+        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS",
         "execution_authorized",
         "not_run",
         "RUNTIME_ROOT",
@@ -214,7 +215,11 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "sys.dont_write_bytecode",
         "unsafe Python import path",
         "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
-        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
+        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS",
+        "/usr/bin/ssh-keygen",
+        "cybrik-codex-governor",
+        "cybrik-d2-exact-head-grant",
         "exact Suite HEAD mismatch",
         "--import-mode=importlib",
         "-p no:cacheprovider",
@@ -223,6 +228,7 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "-c /dev/null",
     ):
         assert required in runner, required
+    assert "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256" not in runner
     assert runner.count("verify_suite_unchanged") >= 6
     for relative in (
         "integration/compose/soc-ai-lifecycle-create-mtls/src",
@@ -723,7 +729,11 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
     (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
     teardown_calls: list[str] = []
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verified_exact_head_grant_sha_for_rollback",
+        lambda: "e" * 64,
+    )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -744,7 +754,11 @@ def test_rollback_refuses_partial_evidence_root_without_a_marker(
     (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
     teardown_calls: list[str] = []
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verified_exact_head_grant_sha_for_rollback",
+        lambda: "e" * 64,
+    )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -768,7 +782,11 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     authorization_sha = "a" * 64
     exact_head_grant_sha = "e" * 64
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", authorization_sha)
-    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", exact_head_grant_sha)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verified_exact_head_grant_sha_for_rollback",
+        lambda: exact_head_grant_sha,
+    )
 
     def accept_marker(
         evidence: Path,
