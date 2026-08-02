@@ -108,6 +108,7 @@ done
 
 export PYTHONPATH="$suite_src:$soc_src:$ai_core_src:$ai_api_src"
 export PYTHONDONTWRITEBYTECODE=1
+export PYTHONSAFEPATH=1
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 export CYBRIK_UAT_D2_EXECUTION_AUTHORIZED=true
 export CYBRIK_UAT_D2_SOC_REPO="$soc_repo"
@@ -119,19 +120,57 @@ export CYBRIK_UAT_D2_B1_WHEEL="$b1_wheel"
 export CYBRIK_UAT_D2_AUTHORIZATION_PATH="$authorization_path"
 export CYBRIK_UAT_D2_AUTHORIZATION_SHA256="$authorization_sha"
 
+# Discover only the selected interpreter's own dependency roots under isolated
+# startup. Product/Suite imports remain the exact PYTHONPATH tuple checked by
+# runtime_authorization; -I then ignores that environment until this bootstrap
+# installs the admitted roots explicitly, after site customization is disabled.
+python_purelib="$("$python_bin" -I -c 'import sysconfig; print(sysconfig.get_path("purelib"))')"
+python_platlib="$("$python_bin" -I -c 'import sysconfig; print(sysconfig.get_path("platlib"))')"
+[[ "$python_purelib" == /* && -d "$python_purelib" ]] \
+  || die "Python purelib root is unavailable"
+[[ "$python_platlib" == /* && -d "$python_platlib" ]] \
+  || die "Python platlib root is unavailable"
+python_import_roots="$PYTHONPATH:$python_purelib"
+if [[ "$python_platlib" != "$python_purelib" ]]; then
+  python_import_roots="$python_import_roots:$python_platlib"
+fi
+
+run_python_module() {
+  "$python_bin" -I -S -c '
+import os
+import runpy
+import sys
+
+roots = tuple(sys.argv[1].split(os.pathsep))
+if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
+    raise SystemExit("unsafe Python startup flags")
+if not roots or any(not root or not os.path.isabs(root) for root in roots):
+    raise SystemExit("unsafe Python import roots")
+if any(item in {"", ".", os.getcwd()} for item in sys.path):
+    raise SystemExit("unsafe Python import path")
+sys.path[:] = list(roots) + [
+    item for item in sys.path
+    if item and os.path.isabs(item) and item not in roots
+]
+module = sys.argv[2]
+sys.argv = [module, *sys.argv[3:]]
+runpy.run_module(module, run_name="__main__", alter_sys=True)
+' "$python_import_roots" "$@"
+}
+
 # This single check observes the admitted Suite ancestor, versioned runtime
 # aggregate, exact authorization/candidate digests, B1 wheel, clean detached
 # product tuple, external roots and exact PYTHONPATH again.  It creates no
 # process, listener, database, PKI or evidence root.
 cd "$suite_src"
-"$python_bin" -m cybrik_suite_uat_mtls.runtime_authorization --check-only
+run_python_module cybrik_suite_uat_mtls.runtime_authorization --check-only
 
 cleanup_required=true
 cleanup() {
   local exit_code=$?
   trap - EXIT INT TERM
   if $cleanup_required; then
-    if ! "$python_bin" -m cybrik_suite_uat_mtls.harness rollback; then
+    if ! run_python_module cybrik_suite_uat_mtls.harness rollback; then
       echo "soc-ai lifecycle D2 runner: cleanup failed" >&2
       exit 3
     fi
@@ -140,13 +179,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"$python_bin" -m cybrik_suite_uat_mtls.harness start \
+run_python_module cybrik_suite_uat_mtls.harness start \
   --ai-bind 127.0.0.1:58443 \
   --postgres-bind 127.0.0.1:55432
 cd "$runtime_dir"
-"$python_bin" -m cybrik_suite_uat_mtls.harness seed
-"$python_bin" -m cybrik_suite_uat_mtls.harness reset
-"$python_bin" -m pytest -q \
+run_python_module cybrik_suite_uat_mtls.harness seed
+run_python_module cybrik_suite_uat_mtls.harness reset
+run_python_module pytest -q \
   -p no:cacheprovider \
   -o addopts= \
   --noconftest \
@@ -154,7 +193,7 @@ cd "$runtime_dir"
   "$suite_root/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence"
 [[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
   || die "pytest changed the exact Suite checkout before stop"
-"$python_bin" -m cybrik_suite_uat_mtls.harness stop
-"$python_bin" -m cybrik_suite_uat_mtls.harness rollback
+run_python_module cybrik_suite_uat_mtls.harness stop
+run_python_module cybrik_suite_uat_mtls.harness rollback
 cleanup_required=false
 trap - EXIT INT TERM

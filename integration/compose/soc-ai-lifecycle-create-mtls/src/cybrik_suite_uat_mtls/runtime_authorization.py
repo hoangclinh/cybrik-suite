@@ -41,7 +41,8 @@ CANDIDATE_REL: Final = Path(
     "runtime-admission.json"
 )
 
-_PACKAGE = "integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls"
+_SOURCE_ROOT = "integration/compose/soc-ai-lifecycle-create-mtls/src"
+_PACKAGE = f"{_SOURCE_ROOT}/cybrik_suite_uat_mtls"
 RUNTIME_CODE_PATHS: Final = tuple(
     sorted(
         (
@@ -69,9 +70,26 @@ MUST_BE_ABSENT_RUNTIME_PATHS: Final = tuple(
         (
             "conftest.py",
             "integration/compose/soc-ai-lifecycle-create-mtls/conftest.py",
+            f"{_SOURCE_ROOT}/cybrik_ai_api",
+            f"{_SOURCE_ROOT}/cybrik_ai_core",
+            f"{_SOURCE_ROOT}/cybrik_soc",
+            f"{_SOURCE_ROOT}/sitecustomize.py",
+            f"{_SOURCE_ROOT}/usercustomize.py",
             "integration/compose/soc-ai-lifecycle-create-mtls/tests/conftest.py",
             "tests/conftest.py",
         )
+    )
+)
+RUNTIME_SOURCE_TREE_PATHS: Final = tuple(
+    sorted(
+        {
+            "cybrik_suite_uat_mtls",
+            *(
+                Path(relative).relative_to(_SOURCE_ROOT).as_posix()
+                for relative in RUNTIME_CODE_PATHS
+                if relative.startswith(f"{_SOURCE_ROOT}/")
+            ),
+        }
     )
 )
 
@@ -80,6 +98,26 @@ IMPORT_SOURCE_ROOTS: Final = (
     ("soc", Path("services/api/src")),
     ("cyber_ai", Path("packages/ai-core/src")),
     ("cyber_ai", Path("services/ai-api/src")),
+)
+MODULE_ORIGIN_ROOTS: Final = MappingProxyType(
+    {
+        "cybrik_suite_uat_mtls": (
+            "suite",
+            Path(
+                "integration/compose/soc-ai-lifecycle-create-mtls/src/"
+                "cybrik_suite_uat_mtls"
+            ),
+        ),
+        "cybrik_soc": ("soc", Path("services/api/src/cybrik_soc")),
+        "cybrik_ai_core": (
+            "cyber_ai",
+            Path("packages/ai-core/src/cybrik_ai_core"),
+        ),
+        "cybrik_ai_api": (
+            "cyber_ai",
+            Path("services/ai-api/src/cybrik_ai_api"),
+        ),
+    }
 )
 
 EXPECTED_FIELDS: Final = (
@@ -234,6 +272,45 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _verify_runtime_source_tree(root: Path) -> None:
+    source_root = root / _SOURCE_ROOT
+    try:
+        metadata = source_root.lstat()
+    except OSError:
+        _fail("runtime_source_tree_not_closed")
+    if not stat.S_ISDIR(metadata.st_mode) or source_root.is_symlink():
+        _fail("runtime_source_tree_not_closed")
+
+    observed: dict[str, str] = {}
+
+    def visit(directory: Path) -> None:
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    path = Path(entry.path)
+                    relative = path.relative_to(source_root).as_posix()
+                    entry_metadata = entry.stat(follow_symlinks=False)
+                    if stat.S_ISLNK(entry_metadata.st_mode):
+                        _fail("runtime_source_tree_not_closed")
+                    if stat.S_ISDIR(entry_metadata.st_mode):
+                        observed[relative] = "directory"
+                        visit(path)
+                    elif stat.S_ISREG(entry_metadata.st_mode):
+                        observed[relative] = "file"
+                    else:
+                        _fail("runtime_source_tree_not_closed")
+        except OSError:
+            _fail("runtime_source_tree_not_closed")
+
+    visit(source_root)
+    expected = {
+        relative: ("directory" if relative == "cybrik_suite_uat_mtls" else "file")
+        for relative in RUNTIME_SOURCE_TREE_PATHS
+    }
+    if observed != expected:
+        _fail("runtime_source_tree_not_closed")
+
+
 def runtime_code_aggregate(suite_root: Path) -> str:
     """Digest the sorted exact runtime surface using the versioned recipe."""
 
@@ -252,6 +329,7 @@ def runtime_code_aggregate(suite_root: Path) -> str:
         except OSError:
             _fail("runtime_denied_path_present")
         _fail("runtime_denied_path_present")
+    _verify_runtime_source_tree(root)
     for relative in RUNTIME_CODE_PATHS:
         path = root / relative
         try:
@@ -311,7 +389,12 @@ def _timestamp(value: str) -> datetime:
 
 def _path(value: str, reason: str) -> Path:
     path = Path(value)
-    if not path.is_absolute() or path != Path(os.path.normpath(path)):
+    if (
+        not path.is_absolute()
+        or value.startswith("//")
+        or value != os.path.normpath(value)
+        or value != str(path)
+    ):
         _fail(reason)
     return path
 
@@ -477,12 +560,23 @@ def resolve_import_source_roots(
 
 
 def verify_module_origins(
-    authorization: RuntimeAuthorization, module_paths: Sequence[Path]
+    authorization: RuntimeAuthorization,
+    module_origins: Sequence[tuple[str, Path]],
 ) -> None:
-    """Refuse imported modules whose physical origin is outside pinned roots."""
+    """Bind each imported namespace to its single pinned package root."""
 
-    roots: list[Path] = []
-    for role, relative in IMPORT_SOURCE_ROOTS:
+    for module_name, path in module_origins:
+        namespace = next(
+            (
+                prefix
+                for prefix in MODULE_ORIGIN_ROOTS
+                if module_name == prefix or module_name.startswith(f"{prefix}.")
+            ),
+            None,
+        )
+        if namespace is None:
+            _fail("import_source_root_invalid")
+        role, relative = MODULE_ORIGIN_ROOTS[namespace]
         owner = (
             authorization.suite_root
             if role == "suite"
@@ -496,13 +590,11 @@ def verify_module_origins(
             _fail("import_source_root_invalid")
         if root != lexical_root or not root.is_relative_to(resolved_owner):
             _fail("import_source_root_invalid")
-        roots.append(root)
-    for path in module_paths:
         try:
             resolved = Path(path).resolve(strict=True)
         except OSError:
             _fail("import_source_root_invalid")
-        if not any(resolved.is_relative_to(root) for root in roots):
+        if not resolved.is_relative_to(root):
             _fail("import_source_root_invalid")
 
 

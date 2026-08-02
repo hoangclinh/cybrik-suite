@@ -357,9 +357,7 @@ def test_runtime_code_aggregate_refuses_every_unlisted_suite_source_entry(
     tmp_path: Path, relative: str, content: str
 ) -> None:
     suite = _suite_root(tmp_path)
-    source_root = (
-        suite / "integration/compose/soc-ai-lifecycle-create-mtls/src"
-    )
+    source_root = suite / "integration/compose/soc-ai-lifecycle-create-mtls/src"
     _write(source_root / relative, content)
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
@@ -417,12 +415,18 @@ def test_runtime_code_aggregate_refuses_absent_or_symlinked_members(
     (suite / harness_relative).symlink_to(target)
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.runtime_code_aggregate(suite)
-    assert caught.value.reason == "runtime_code_path_invalid"
+    assert caught.value.reason in {
+        "runtime_code_path_invalid",
+        "runtime_source_tree_not_closed",
+    }
 
     (suite / harness_relative).unlink()
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.runtime_code_aggregate(suite)
-    assert caught.value.reason == "runtime_code_path_invalid"
+    assert caught.value.reason in {
+        "runtime_code_path_invalid",
+        "runtime_source_tree_not_closed",
+    }
 
 
 # --------------------------------------------------------------------------
@@ -923,7 +927,9 @@ def test_verify_module_origins_rejects_unknown_namespaces(tmp_path: Path) -> Non
     _write(inside, "")
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization.verify_module_origins(validated, (("unexpected_package", inside),))
+        authorization.verify_module_origins(
+            validated, (("unexpected_package", inside),)
+        )
     assert caught.value.reason == "import_source_root_invalid"
 
 

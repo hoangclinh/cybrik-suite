@@ -34,12 +34,9 @@ RESOURCE_KINDS = (
     "pki_material",
 )
 
-_AUTHORIZATION_ENV: Final = "CYBRIK_UAT_D2_EXECUTION_AUTHORIZED"
-_AUTHORIZATION_PATH_ENV: Final = "CYBRIK_UAT_D2_AUTHORIZATION_PATH"
 _AUTHORIZATION_SHA_ENV: Final = "CYBRIK_UAT_D2_AUTHORIZATION_SHA256"
 _RUNTIME_DIR_ENV: Final = "CYBRIK_UAT_D2_RUNTIME_DIR"
 _EVIDENCE_DIR_ENV: Final = "CYBRIK_UAT_D2_EVIDENCE_DIR"
-_B1_WHEEL_ENV: Final = "CYBRIK_UAT_D2_B1_WHEEL"
 _SOC_REPO_ENV: Final = "CYBRIK_UAT_D2_SOC_REPO"
 _AI_REPO_ENV: Final = "CYBRIK_UAT_D2_AI_REPO"
 _FABRIC_REPO_ENV: Final = "CYBRIK_UAT_D2_FABRIC_REPO"
@@ -69,7 +66,13 @@ def _repo_root() -> Path:
 def _absolute_env(name: str, *, must_exist: bool) -> Path:
     raw = os.environ.get(name, "")
     candidate = Path(raw)
-    if not raw or not candidate.is_absolute():
+    if (
+        not raw
+        or not candidate.is_absolute()
+        or raw.startswith("//")
+        or raw != os.path.normpath(raw)
+        or raw != str(candidate)
+    ):
         raise RuntimeAuthorizationError("required D2 absolute path is absent")
     if must_exist:
         return candidate.resolve(strict=True)
@@ -151,18 +154,22 @@ def assert_product_api_compatibility(
     )
     if not all(callable(symbol) for symbol in required):
         raise RuntimeAuthorizationError("pinned product API surface is incompatible")
-    module_paths: list[Path] = []
+    module_origins: list[tuple[str, Path]] = []
     for symbol in required:
         module_name = getattr(symbol, "__module__", None)
-        module = sys.modules.get(module_name) if isinstance(module_name, str) else None
+        if not isinstance(module_name, str):
+            raise RuntimeAuthorizationError(
+                "pinned product API module origin is unavailable"
+            )
+        module = sys.modules.get(module_name)
         module_file = getattr(module, "__file__", None)
         if not isinstance(module_file, str):
             raise RuntimeAuthorizationError(
                 "pinned product API module origin is unavailable"
             )
-        module_paths.append(Path(module_file))
+        module_origins.append((module_name, Path(module_file)))
     try:
-        runtime_authorization.verify_module_origins(authorization, module_paths)
+        runtime_authorization.verify_module_origins(authorization, module_origins)
     except runtime_authorization.RuntimeAuthorizationFailure as exc:
         raise RuntimeAuthorizationError(
             f"pinned product API module origin is refused: {exc.reason}"
@@ -178,14 +185,6 @@ def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
         raise RuntimeAuthorizationError(
             f"runtime authorization is closed: {exc.reason}"
         ) from exc
-
-
-def _runtime_root(*, exists: bool) -> Path:
-    return _absolute_env(_RUNTIME_DIR_ENV, must_exist=exists)
-
-
-def _evidence_root(*, exists: bool) -> Path:
-    return _absolute_env(_EVIDENCE_DIR_ENV, must_exist=exists)
 
 
 def _password(root: Path) -> str:
