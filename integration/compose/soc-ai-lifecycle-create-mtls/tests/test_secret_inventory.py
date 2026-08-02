@@ -455,6 +455,33 @@ def test_apply_remediation_refuses_a_symlinked_target(tmp_path: Path) -> None:
     outside.unlink()
 
 
+@pytest.mark.parametrize(
+    ("reason", "label"),
+    (
+        (si.EXACT_SECRET_MATCH, "db_password"),
+        (evidence.JWT_VALUE, None),
+    ),
+)
+def test_apply_remediation_refuses_an_intermediate_symlink_without_touching_outside(
+    tmp_path: Path,
+    reason: str,
+    label: str | None,
+) -> None:
+    root = tmp_path / "evidence"
+    outside = tmp_path / "outside"
+    (root / "nested").mkdir(parents=True)
+    outside.mkdir()
+    outside_artifact = outside / "outside.txt"
+    outside_artifact.write_text(_DB_PASSWORD, encoding="utf-8")
+    (root / "nested/linkdir").symlink_to(outside, target_is_directory=True)
+    finding = si.ScanFinding("nested/linkdir/outside.txt", reason, label)
+
+    with pytest.raises(si.SecretInventoryError, match="symlink"):
+        si.apply_remediation(root, finding)
+
+    assert outside_artifact.read_text(encoding="utf-8") == _DB_PASSWORD
+
+
 def test_apply_remediation_refuses_a_path_that_escapes_the_root(
     tmp_path: Path,
 ) -> None:
