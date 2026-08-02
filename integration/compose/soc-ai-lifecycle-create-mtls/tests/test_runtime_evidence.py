@@ -10,15 +10,15 @@ import stat
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import runtime_evidence
-
 
 HEX40 = "1" * 40
 HEX64 = "a" * 64
 
 
-def _write_artifact(root: Path, relative_path: str, payload: bytes) -> dict[str, object]:
+def _write_artifact(
+    root: Path, relative_path: str, payload: bytes
+) -> dict[str, object]:
     path = root / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
@@ -164,10 +164,15 @@ def test_validate_accepts_and_detaches_exact_passed_result(evidence_root: Path) 
     assert validated["attempt_id"] == "d2-runtime-r1"
 
 
+def test_canonical_result_can_be_read_and_validated_again(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    canonical = runtime_evidence.canonical_json(candidate)
+    reparsed = json.loads(canonical)
+    assert runtime_evidence.validate_terminal_result(reparsed) == candidate
+
+
 @pytest.mark.parametrize("missing", ("suite", "soc", "ai", "fabric"))
-def test_exact_repository_tuple_is_mandatory(
-    evidence_root: Path, missing: str
-) -> None:
+def test_exact_repository_tuple_is_mandatory(evidence_root: Path, missing: str) -> None:
     candidate = _passing_candidate(evidence_root)
     del candidate["repository_tuple"][missing]  # type: ignore[index]
     _assert_reason(candidate, "repository_tuple_invalid")
@@ -187,7 +192,9 @@ def test_auth_consumption_and_all_b1_digests_are_mandatory(evidence_root: Path) 
     (
         (lambda value: value["cases"].pop(), "case_inventory_invalid"),
         (
-            lambda value: value["cases"].__setitem__(1, copy.deepcopy(value["cases"][0])),
+            lambda value: value["cases"].__setitem__(
+                1, copy.deepcopy(value["cases"][0])
+            ),
             "case_inventory_invalid",
         ),
         (
@@ -236,7 +243,9 @@ def test_pass_requires_exact_security_and_teardown_invariants(
     _assert_reason(candidate, reason)
 
 
-def test_failed_terminal_is_canonical_and_cannot_claim_pass(evidence_root: Path) -> None:
+def test_failed_terminal_is_canonical_and_cannot_claim_pass(
+    evidence_root: Path,
+) -> None:
     candidate = _passing_candidate(evidence_root)
     candidate["outcome"] = "failed"
     candidate["failure_reason_code"] = "n4_relying_party_refusal_missing"
@@ -279,7 +288,25 @@ def test_required_artifacts_are_unique_regular_contained_bounded_and_pinned(
     assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 
-@pytest.mark.parametrize("relative_path", ("../escape.json", "/tmp/escape.json", "a//b"))
+def test_secret_bearing_artifact_is_rejected_before_terminal_write(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    payload = b"Authorization: Bearer synthetic-secret\n"
+    path = evidence_root / "case-n1.json"
+    path.write_bytes(payload)
+    candidate["artifacts"][0].update(  # type: ignore[index]
+        sha256=hashlib.sha256(payload).hexdigest(), size_bytes=len(payload)
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_secret_bearing"
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+@pytest.mark.parametrize(
+    "relative_path", ("../escape.json", "/tmp/escape.json", "a//b")
+)
 def test_artifact_traversal_is_rejected(
     evidence_root: Path, relative_path: str
 ) -> None:
@@ -371,6 +398,32 @@ def test_evidence_root_must_be_absolute_descriptor_bound_mode_0700(
     assert caught.value.reason == "evidence_root_unsafe"
 
 
+def test_evidence_root_rebind_is_detected_before_terminal_write(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    preserved = evidence_root.with_name("cybrik-uat-d2-evidence-preserved")
+    real_verify = runtime_evidence._verify_artifacts
+    calls = 0
+
+    def verify_then_rebind(root_fd: int, artifacts: object) -> None:
+        nonlocal calls
+        real_verify(root_fd, artifacts)  # type: ignore[arg-type]
+        calls += 1
+        if calls == 1:
+            evidence_root.rename(preserved)
+            evidence_root.mkdir(mode=0o700)
+            os.chmod(evidence_root, 0o700)
+
+    monkeypatch.setattr(runtime_evidence, "_verify_artifacts", verify_then_rebind)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "evidence_root_rebound"
+    assert preserved.is_dir()
+    assert not (preserved / runtime_evidence.SUMMARY_FILENAME).exists()
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
 def test_persist_fsyncs_each_file_and_directory(
     evidence_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -419,9 +472,9 @@ def test_canonical_bytes_are_order_independent_and_secret_free(
 ) -> None:
     candidate = _passing_candidate(evidence_root)
     reversed_candidate = dict(reversed(tuple(candidate.items())))
-    assert runtime_evidence.canonical_json(candidate) == runtime_evidence.canonical_json(
-        reversed_candidate
-    )
+    assert runtime_evidence.canonical_json(
+        candidate
+    ) == runtime_evidence.canonical_json(reversed_candidate)
     secret = copy.deepcopy(candidate)
     secret["attempt_id"] = "Bearer secret-value"
     _assert_reason(secret, "identifier_invalid")
