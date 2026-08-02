@@ -759,6 +759,26 @@ def test_verify_module_origins_rejects_a_module_outside_the_pinned_roots(
     assert caught.value.reason == "import_source_root_invalid"
 
 
+def test_verify_module_origins_rejects_a_swapped_symlink_source_root(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    role, relative = next(
+        item for item in authorization.IMPORT_SOURCE_ROOTS if item[0] == "soc"
+    )
+    source_root = validated.product_roots[role] / relative
+    source_root.rmdir()
+    attacker_root = tmp_path / "attacker-src"
+    attacker_module = attacker_root / "cybrik_soc/injected.py"
+    attacker_module.parent.mkdir(parents=True)
+    attacker_module.write_text("", encoding="utf-8")
+    source_root.symlink_to(attacker_root, target_is_directory=True)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_module_origins(validated, (attacker_module,))
+    assert caught.value.reason == "import_source_root_invalid"
+
+
 # --------------------------------------------------------------------------
 # Atomic one-shot consumption and replay prevention
 # --------------------------------------------------------------------------
