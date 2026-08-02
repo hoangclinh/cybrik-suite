@@ -4868,6 +4868,11 @@ test('UAT mTLS D2 coverage measurement chain is terminal while runtime remains h
     evidence.historical_corrections.commit_93c8b6e_test_shape,
     '488_passed_1_deselected_not_1_gated_skip',
   );
+  assert.doesNotMatch(decision, /Its section 7\.3 coverage gate remains unsatisfied/);
+  assert.match(
+    decision,
+    /At P0 execution time, its section 7\.3 coverage gate remained unsatisfied/,
+  );
   assert.deepEqual(evidence.independent_reviews, {
     codex_post_execution: 'GO_WITH_REMEDIATED_P3',
     claude_opus_post_execution: 'GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA',

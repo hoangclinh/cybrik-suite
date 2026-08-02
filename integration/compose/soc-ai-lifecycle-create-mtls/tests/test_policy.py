@@ -855,6 +855,11 @@ def test_d2_coverage_measurement_chain_is_terminal_and_runtime_stays_hold() -> N
     assert summary["historical_corrections"]["p0_gate_hash_semantics"] == (
         "baseline_FAIL_integrity_anchor_not_M2_PASS_result"
     )
+    assert "Its section 7.3 coverage gate remains unsatisfied" not in decision
+    assert (
+        "At P0 execution time, its section 7.3 coverage gate remained unsatisfied"
+        in decision
+    )
     assert summary["independent_reviews"] == {
         "codex_post_execution": "GO_WITH_REMEDIATED_P3",
         "claude_opus_post_execution": "GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA",
