@@ -647,6 +647,7 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
     summary = json.loads(
         (_HARNESS_ROOT / "evidence/coverage-closure-recovery.json").read_text()
     )
+    assert summary["schema_version"] == "1.3.0"
 
     def current_state(gate: str) -> str:
         match = re.search(
@@ -668,8 +669,7 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
         "EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD"
     )
     assert current_state("Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R4") == (
-        "AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — "
-        "RUNTIME HOLD"
+        "EXECUTED — VERIFIED — AUTHORIZATION CONSUMED — COVERAGE CLOSURE READY — RUNTIME HOLD"
     )
     assert "recover_coverage_closure.py" in harness_readme
     assert "exactly the 56 filenames and SHA-256 values" in normalized
@@ -694,12 +694,46 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
     assert summary["r3"]["rollback_status"] == "removed"
     assert summary["r3"]["retry_ceiling"] == 1
     assert summary["r3"]["expected_final_links"]["python"] == "python3.12"
-    assert summary["r4"]["execution_status"] == "not_run"
+    assert summary["r4"]["execution_status"] == "passed"
+    assert summary["r4"]["status"] == "verified"
+    assert summary["r4"]["closure_root_removed"] is False
+    assert summary["r4"]["attempt_id"] == (
+        "ab467ae45163e72dc1bdb22c50d0db8cb478eb87b123ca5efdd71269b590e2b6"
+    )
+    assert summary["r4"]["commit"] == ("3c20de6ff6b44ff8b2c8b6c33d13f2f76672adfb")
+    assert summary["r4"]["tree"] == "dae9bb5621ecefe10f62c2164dd4e1565cfcb377"
+    assert summary["r4"]["closure_sha256"] == (
+        "6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919"
+    )
+    assert summary["r4"]["wheel_count"] == 56
+    assert summary["r4"]["recovery_start_sha256"] == (
+        "40f57b331949e1ffaa0db73d4903cf631ad6207fd57a7776ef0a2b4dbb24654e"
+    )
+    assert summary["r4"]["recovery_result_sha256"] == (
+        "7d8b81036e48e4ffe0bd4ba94545f1aa2cd42d7dc82ba27e4eec68f6c6526b7f"
+    )
+    assert summary["r4"]["recovery_result_digest_file_sha256"] == (
+        "900e66a512e8e1ea03ab30c45c8efc23f3216371c5afc620feccea9569ccb861"
+    )
+    assert summary["r4"]["installed_closure_file_sha256"] == (
+        "6a83b0ea9693dc69cee4ccce517ac2d953e7df0c55ef8b82d99a877266f16538"
+    )
+    assert summary["r4"]["requirements_file_sha256"] == (
+        "bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d"
+    )
+    assert summary["r4"]["wheel_manifest_sha256"] == (
+        "bbec1a442f93066c684590be33560386e62e4257ec9d53a6b0119a92e6e2bc15"
+    )
+    assert summary["r4"]["started_at"] == "2026-08-02T03:26:51.384928+00:00"
+    assert summary["r4"]["completed_at"] == "2026-08-02T03:27:07.084539+00:00"
     assert summary["r4"]["retry_ceiling"] == 1
     assert summary["r4"]["authorized_initial_links"]["python"].endswith(
         "cpython-3.12-macos-aarch64-none/bin/python3.12"
     )
     assert summary["r4"]["expected_final_links"]["python"] == "python3.12"
+    assert (
+        summary["r4"]["observed_final_links"] == summary["r4"]["expected_final_links"]
+    )
     assert summary["r4"]["pinned_alias"]["sha256"] == (
         "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623"
     )

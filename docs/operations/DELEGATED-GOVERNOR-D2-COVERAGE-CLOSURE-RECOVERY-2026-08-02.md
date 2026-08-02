@@ -1,6 +1,6 @@
 # Delegated Governor D2 coverage-closure recovery — 2026-08-02
 
-Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R3 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R4 AUTHORIZED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R3 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R4 CONSUMED — VERIFIED — COVERAGE CLOSURE READY — RUNTIME HOLD`.
 
 ## 1. Authority and outcome
 
@@ -298,3 +298,32 @@ extract Coverage.py. It does not install, select, execute or change Anycorn/B1. 
 listeners, certificates, keys, containers or databases. It does not satisfy coverage, runtime
 admission, UAT, demo, POC, RC, GA or production gates. D2 runtime, N1–N10 and every release
 boundary remain **HOLD**; release dates remain unchanged.
+
+### 10.1 R4 terminal execution evidence
+
+After the required successful non-mutating `--check-only`, the sole R4 `--execute` completed
+successfully without retry. Attempt
+`ab467ae45163e72dc1bdb22c50d0db8cb478eb87b123ca5efdd71269b590e2b6` ran from
+`2026-08-02T03:26:51.384928+00:00` through `2026-08-02T03:27:07.084539+00:00` against detached,
+clean Suite commit `3c20de6ff6b44ff8b2c8b6c33d13f2f76672adfb`, tree
+`dae9bb5621ecefe10f62c2164dd4e1565cfcb377`.
+
+The durable root contains exactly 56 locked distributions and matches closure digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`; its wheel-manifest digest is
+`bbec1a442f93066c684590be33560386e62e4257ec9d53a6b0119a92e6e2bc15`. Independent inventory
+inspection found no `anycorn`, `coverage`, `pip`, `setuptools` or `wheel` distribution. The exact
+normalized graph is `python -> python3.12`, `python3 -> python`, and
+`python3.12 -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12`.
+Both roots are effective-uid-owned mode `0700`; all six evidence files are mode `0600`.
+
+The preserved evidence hashes are: start
+`40f57b331949e1ffaa0db73d4903cf631ad6207fd57a7776ef0a2b4dbb24654e`, result
+`7d8b81036e48e4ffe0bd4ba94545f1aa2cd42d7dc82ba27e4eec68f6c6526b7f`, result-digest file
+`900e66a512e8e1ea03ab30c45c8efc23f3216371c5afc620feccea9569ccb861`, installed-closure file
+`6a83b0ea9693dc69cee4ccce517ac2d953e7df0c55ef8b82d99a877266f16538`, and requirements file
+`bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d`.
+
+This successful terminal result consumes R4 and makes only the durable D1 test closure ready.
+Coverage.py extraction and measurement still require their own reviewed action. D2 runtime,
+Anycorn/B1, N1–N10, UAT, demo, POC, RC, stable-v1, GA and production remain **HOLD**; release dates
+remain unchanged.

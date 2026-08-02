@@ -1198,7 +1198,7 @@ reopened.
 
 ### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R4
 
-Current state: `AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Current state: `EXECUTED — VERIFIED — AUTHORIZATION CONSUMED — COVERAGE CLOSURE READY — RUNTIME HOLD`.
 
 Appendix F and section 10 of the exact-action record authorize one fresh-root R4 attempt. R4 binds
 the exact R3 terminal evidence, which proves the observed venv link graph but does not contain
@@ -1220,6 +1220,21 @@ R4; there is no automatic R5. This gate does not install or extract Coverage.py.
 install, select, execute or change Anycorn/B1. It does not create listeners, certificates, keys,
 containers or databases. It does not satisfy coverage, runtime admission, UAT, demo, POC, RC, GA
 or production gates. D2 remains **HOLD** and release dates remain unchanged.
+
+The sole R4 execution succeeded at detached Suite commit
+`3c20de6ff6b44ff8b2c8b6c33d13f2f76672adfb`, tree
+`dae9bb5621ecefe10f62c2164dd4e1565cfcb377`, under attempt
+`ab467ae45163e72dc1bdb22c50d0db8cb478eb87b123ca5efdd71269b590e2b6`. It ran from
+`2026-08-02T03:26:51.384928+00:00` through `2026-08-02T03:27:07.084539+00:00`, verified all 56
+locked distributions and the installed-closure digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`, and preserved the fresh
+closure and evidence roots with modes `0700`; evidence files are mode `0600`. The final link graph
+is exactly `python -> python3.12`, `python3 -> python`, and
+`python3.12 -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12`.
+The inventory contains no `anycorn`, `coverage`, `pip`, `setuptools` or `wheel` distribution.
+R4 is consumed and the durable D1 test closure is ready for a separately reviewed Coverage.py
+action only. Coverage.py extraction, Anycorn/B1, product runtime, N1–N10 and every release boundary
+remain **HOLD**.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 
