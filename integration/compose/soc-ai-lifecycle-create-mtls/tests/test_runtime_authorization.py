@@ -105,9 +105,7 @@ def _fields(
         "SUITE_ROOT": str(suite),
         "SUITE_ADMISSION_BASE": _ADMISSION_BASE,
         "RUNTIME_CODE_AGGREGATE_ALGORITHM": authorization.AGGREGATE_ALGORITHM,
-        "RUNTIME_CODE_AGGREGATE_FILE_COUNT": str(
-            len(authorization.RUNTIME_CODE_PATHS)
-        ),
+        "RUNTIME_CODE_AGGREGATE_FILE_COUNT": str(len(authorization.RUNTIME_CODE_PATHS)),
         "RUNTIME_CODE_AGGREGATE_SHA256": aggregate,
         "B1_WHEEL_SHA256": policy.PINNED_B1_WHEEL_SHA256,
         "RUNTIME_ROOT": str(runtime_root),
@@ -234,9 +232,7 @@ def test_authorization_never_declares_a_self_referential_suite_head() -> None:
 
 
 def test_expected_fields_are_unique_and_pinned_values_are_a_subset() -> None:
-    assert len(set(authorization.EXPECTED_FIELDS)) == len(
-        authorization.EXPECTED_FIELDS
-    )
+    assert len(set(authorization.EXPECTED_FIELDS)) == len(authorization.EXPECTED_FIELDS)
     assert set(authorization.PINNED_VALUES) <= set(authorization.EXPECTED_FIELDS)
     assert authorization.PINNED_VALUES["B1_WHEEL_SHA256"] == (
         policy.PINNED_B1_WHEEL_SHA256
@@ -249,7 +245,9 @@ def test_runtime_code_allowlist_is_sorted_unique_and_covers_the_runtime_surface(
 ):
     paths = authorization.RUNTIME_CODE_PATHS
     assert paths == tuple(sorted(set(paths)))
-    package = "integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls"
+    package = (
+        "integration/compose/soc-ai-lifecycle-create-mtls/src/cybrik_suite_uat_mtls"
+    )
     for module in (
         "__init__",
         "client",
@@ -289,9 +287,7 @@ def test_runtime_code_allowlist_matches_the_authored_package_exactly(
     allowlisted = sorted(
         Path(relative).name
         for relative in authorization.RUNTIME_CODE_PATHS
-        if relative.startswith(
-            "integration/compose/soc-ai-lifecycle-create-mtls/src/"
-        )
+        if relative.startswith("integration/compose/soc-ai-lifecycle-create-mtls/src/")
     )
     assert allowlisted == authored
 
@@ -561,7 +557,9 @@ def test_validate_authorization_keeps_execution_closed_for_the_candidate(
     fixture = _fixture(tmp_path)
     observed = dataclasses.replace(
         fixture.observed,
-        candidate=dataclasses.replace(fixture.observed.candidate, **candidate_overrides),
+        candidate=dataclasses.replace(
+            fixture.observed.candidate, **candidate_overrides
+        ),
     )
 
     assert _reason(fixture.fields, observed) == expected_reason
@@ -693,11 +691,7 @@ def test_resolve_import_source_roots_returns_roots_inside_the_pinned_roots(
 ) -> None:
     validated = _validated(tmp_path)
     expected = [
-        (
-            validated.suite_root
-            if role == "suite"
-            else validated.product_roots[role]
-        )
+        (validated.suite_root if role == "suite" else validated.product_roots[role])
         / relative
         for role, relative in authorization.IMPORT_SOURCE_ROOTS
     ]
@@ -804,11 +798,14 @@ def test_consume_once_refuses_a_second_consumption_and_preserves_evidence(
 
     assert caught.value.reason == "authorization_already_consumed"
     assert (validated.evidence_root / "case-n1.json").is_file()
-    assert json.loads(
-        (validated.evidence_root / authorization.CONSUMPTION_MARKER).read_text(
-            encoding="utf-8"
+    assert (
+        json.loads(
+            (validated.evidence_root / authorization.CONSUMPTION_MARKER).read_text(
+                encoding="utf-8"
+            )
         )
-    ) == record
+        == record
+    )
 
 
 def test_consume_once_refuses_a_pre_existing_evidence_root(tmp_path: Path) -> None:
@@ -954,3 +951,117 @@ def test_rollback_marker_check_rejects_a_foreign_authorization_digest(
             validated.evidence_root, expected_authorization_sha256="d" * 64
         )
     assert caught.value.reason == "authorization_consumption_mismatch"
+
+
+# --------------------------------------------------------------------------
+# Static environment observation and check-only entrypoint
+# --------------------------------------------------------------------------
+
+
+def test_candidate_observation_reads_the_exact_current_attempt_digest(
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_text(
+        json.dumps(
+            {
+                "attempt_accounting": {
+                    "current_attempt": {
+                        "status": "not_run",
+                        "execution_authorized": True,
+                        "executed_checks": 0,
+                        "passed_checks": 0,
+                        "failed_checks": 0,
+                        "authorization_sha256": _AUTHORIZATION_SHA,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    observed = authorization._candidate(candidate, _AUTHORIZATION_SHA)
+
+    assert observed.authorization_sha256 == _AUTHORIZATION_SHA
+    assert observed.status == "not_run"
+    assert observed.execution_authorized is True
+
+
+def test_candidate_observation_accepts_only_the_canonical_artifact_fallback(
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_text(
+        json.dumps(
+            {
+                "attempt_accounting": {
+                    "current_attempt": {
+                        "status": "not_run",
+                        "execution_authorized": True,
+                        "executed_checks": 0,
+                        "passed_checks": 0,
+                        "failed_checks": 0,
+                    }
+                },
+                "evidence": {
+                    "artifacts": [
+                        {
+                            "path": authorization.AUTHORIZATION_REL.as_posix(),
+                            "sha256": _AUTHORIZATION_SHA,
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        authorization._candidate(candidate, _AUTHORIZATION_SHA).authorization_sha256
+        == _AUTHORIZATION_SHA
+    )
+
+
+def test_required_absolute_environment_path_is_canonical_and_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("D2_TEST_PATH", raising=False)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._required_absolute_env("D2_TEST_PATH", existing=False)
+    assert caught.value.reason == "runtime_environment_invalid"
+
+    monkeypatch.setenv("D2_TEST_PATH", "relative")
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._required_absolute_env("D2_TEST_PATH", existing=False)
+    assert caught.value.reason == "runtime_environment_invalid"
+
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    monkeypatch.setenv("D2_TEST_PATH", str(existing))
+    assert (
+        authorization._required_absolute_env("D2_TEST_PATH", existing=True) == existing
+    )
+    future = tmp_path / "future"
+    monkeypatch.setenv("D2_TEST_PATH", str(future))
+    assert (
+        authorization._required_absolute_env("D2_TEST_PATH", existing=False) == future
+    )
+
+
+def test_check_only_cli_validates_without_consuming(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        authorization,
+        "authorize_from_environment",
+        lambda: calls.append("validate"),
+    )
+    monkeypatch.setattr(
+        authorization,
+        "consume_once",
+        lambda _: (_ for _ in ()).throw(AssertionError("must not consume")),
+    )
+
+    assert authorization.main(["--check-only"]) == 0
+    assert calls == ["validate"]

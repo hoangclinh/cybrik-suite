@@ -14,7 +14,6 @@ b1_sha256="d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 suite_root="$(cd -- "$script_dir/../.." && pwd -P)"
-suite_expected_head="${SUITE_EXPECTED_HEAD:-}"
 soc_repo="${SOC_REPO:-}"
 ai_repo="${CYBER_AI_REPO:-${AI_REPO:-}}"
 fabric_repo="${FABRIC_REPO:-}"
@@ -48,11 +47,13 @@ verify_exact_checkout() {
   actual_tree="$(git -C "$repo" rev-parse 'HEAD^{tree}')"
   [[ "$actual_commit" == "$expected_commit" ]] || die "$label commit mismatch"
   [[ "$actual_tree" == "$expected_tree" ]] || die "$label tree mismatch"
-  [[ -z "$(git -C "$repo" status --porcelain --untracked-files=all)" ]] \
+  if git -C "$repo" symbolic-ref -q HEAD >/dev/null; then
+    die "$label checkout must be detached"
+  fi
+  [[ -z "$(git -C "$repo" status --porcelain --untracked-files=all --ignored)" ]] \
     || die "$label checkout is not clean"
 }
 
-[[ "$suite_expected_head" =~ ^[0-9a-f]{40}$ ]] || die "SUITE_EXPECTED_HEAD must be exact 40-hex"
 [[ "$python_bin" == /* && -x "$python_bin" ]] || die "PYTHON must be an absolute executable"
 [[ "$soc_repo" == /* ]] || die "SOC repository path must be absolute"
 [[ "$ai_repo" == /* ]] || die "Cyber AI repository path must be absolute"
@@ -89,11 +90,9 @@ done
 [[ "$(shasum -a 256 "$b1_wheel" | awk '{print $1}')" == "$b1_sha256" ]] \
   || die "B1 wheel digest mismatch"
 
-[[ "$(git -C "$suite_root" rev-parse HEAD)" == "$suite_expected_head" ]] \
-  || die "Suite HEAD does not match the admitted candidate"
 git -C "$suite_root" merge-base --is-ancestor "$suite_d1_base" HEAD \
   || die "Suite candidate is not descended from integrated D1"
-[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all)" ]] \
+[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
   || die "Suite checkout is not clean"
 verify_exact_checkout "SOC" "$soc_repo" "$soc_commit" "$soc_tree"
 verify_exact_checkout "Cyber AI" "$ai_repo" "$ai_commit" "$ai_tree"
@@ -113,6 +112,17 @@ export CYBRIK_UAT_D2_EXECUTION_AUTHORIZED=true
 export CYBRIK_UAT_D2_SOC_REPO="$soc_repo"
 export CYBRIK_UAT_D2_AI_REPO="$ai_repo"
 export CYBRIK_UAT_D2_FABRIC_REPO="$fabric_repo"
+export CYBRIK_UAT_D2_RUNTIME_DIR="$runtime_dir"
+export CYBRIK_UAT_D2_EVIDENCE_DIR="$evidence_dir"
+export CYBRIK_UAT_D2_B1_WHEEL="$b1_wheel"
+export CYBRIK_UAT_D2_AUTHORIZATION_PATH="$authorization_path"
+export CYBRIK_UAT_D2_AUTHORIZATION_SHA256="$authorization_sha"
+
+# This single check observes the admitted Suite ancestor, versioned runtime
+# aggregate, exact authorization/candidate digests, B1 wheel, clean detached
+# product tuple, external roots and exact PYTHONPATH again.  It creates no
+# process, listener, database, PKI or evidence root.
+"$python_bin" -m cybrik_suite_uat_mtls.runtime_authorization --check-only
 
 cleanup_required=true
 cleanup() {

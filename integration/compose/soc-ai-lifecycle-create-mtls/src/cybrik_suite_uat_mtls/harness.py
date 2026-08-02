@@ -8,7 +8,6 @@ commit and external runtime roots. Importing this module is inert.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -23,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Final
 
-from . import evidence, pki, policy, procedure, store
+from . import evidence, pki, procedure, runtime_authorization, store
 
 RESOURCE_KINDS = (
     "ai_process",
@@ -44,14 +43,6 @@ _B1_WHEEL_ENV: Final = "CYBRIK_UAT_D2_B1_WHEEL"
 _SOC_REPO_ENV: Final = "CYBRIK_UAT_D2_SOC_REPO"
 _AI_REPO_ENV: Final = "CYBRIK_UAT_D2_AI_REPO"
 _FABRIC_REPO_ENV: Final = "CYBRIK_UAT_D2_FABRIC_REPO"
-_HEX64 = re.compile(r"^[0-9a-f]{64}$")
-_HEX40 = re.compile(r"^[0-9a-f]{40}$")
-_CANDIDATE_REL: Final = Path(
-    "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json"
-)
-_AUTHORIZATION_REL: Final = Path(
-    "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/04-runtime-authorization.md"
-)
 _PASSWORD_FILE: Final = "postgres-password"
 _SERVER_LOG: Final = "ai-server.log"
 _SERVER_PID: Final = "ai-server.pid"
@@ -73,26 +64,6 @@ class RuntimeAuthorizationError(RuntimeError):
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[5]
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _git(*args: str) -> str:
-    completed = subprocess.run(
-        ("git", "-C", str(_repo_root()), *args),
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        shell=False,
-    )
-    return completed.stdout.strip()
 
 
 def _absolute_env(name: str, *, must_exist: bool) -> Path:
@@ -180,66 +151,15 @@ def assert_product_api_compatibility() -> None:
         raise RuntimeAuthorizationError("pinned product API surface is incompatible")
 
 
-def assert_runtime_authorized() -> None:
-    """Validate the committed Phase A exact-bit authorization or fail closed."""
+def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
+    """Validate every Phase A exact binding, returning only an admitted tuple."""
 
-    if os.environ.get(_AUTHORIZATION_ENV) != "true":
-        raise RuntimeAuthorizationError("runtime authorization is closed")
-    authorization = _absolute_env(_AUTHORIZATION_PATH_ENV, must_exist=True)
-    expected_authorization_sha = os.environ.get(_AUTHORIZATION_SHA_ENV, "")
-    if _HEX64.fullmatch(expected_authorization_sha) is None:
-        raise RuntimeAuthorizationError("runtime authorization digest is invalid")
-    if authorization != (_repo_root() / _AUTHORIZATION_REL).resolve(strict=True):
-        raise RuntimeAuthorizationError("runtime authorization path is not canonical")
-    if _sha256(authorization) != expected_authorization_sha:
-        raise RuntimeAuthorizationError("runtime authorization digest mismatch")
-
-    candidate_path = _repo_root() / _CANDIDATE_REL
-    record = json.loads(candidate_path.read_text(encoding="utf-8"))
-    current = record["attempt_accounting"]["current_attempt"]
-    if (
-        current.get("execution_authorized") is not True
-        or current.get("status") != "not_run"
-    ):
-        raise RuntimeAuthorizationError("runtime authorization is closed")
-    if any(
-        current.get(field) != 0
-        for field in ("executed_checks", "passed_checks", "failed_checks")
-    ):
-        raise RuntimeAuthorizationError("runtime attempt counters are not zero")
-    artifacts = record.get("evidence", {}).get("artifacts", [])
-    if not any(
-        artifact.get("path") == _AUTHORIZATION_REL.as_posix()
-        and artifact.get("sha256") == expected_authorization_sha
-        for artifact in artifacts
-    ):
+    try:
+        return runtime_authorization.authorize_from_environment()
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
         raise RuntimeAuthorizationError(
-            "candidate does not pin the authorization artifact"
-        )
-
-    head = _git("rev-parse", "HEAD")
-    if _HEX40.fullmatch(
-        head
-    ) is None or f"SUITE_SHA={head}" not in authorization.read_text(encoding="utf-8"):
-        raise RuntimeAuthorizationError(
-            "authorization does not pin the exact Suite commit"
-        )
-    if _git("status", "--porcelain", "--untracked-files=all"):
-        raise RuntimeAuthorizationError("Suite checkout is not clean")
-
-    runtime_root, evidence_root = _bounded_external_roots(repositories_must_exist=True)
-    authorization_lines = set(authorization.read_text(encoding="utf-8").splitlines())
-    required_root_lines = {
-        f"RUNTIME_ROOT={runtime_root}",
-        f"EVIDENCE_ROOT={evidence_root}",
-    }
-    if not required_root_lines.issubset(authorization_lines):
-        raise RuntimeAuthorizationError(
-            "authorization does not pin the exact one-shot external roots"
-        )
-    wheel = _absolute_env(_B1_WHEEL_ENV, must_exist=True)
-    if _sha256(wheel) != policy.PINNED_B1_WHEEL_SHA256:
-        raise RuntimeAuthorizationError("B1 wheel digest mismatch")
+            f"runtime authorization is closed: {exc.reason}"
+        ) from exc
 
 
 def _runtime_root(*, exists: bool) -> Path:
@@ -287,10 +207,10 @@ def _postgres_runtime(root: Path) -> store.PostgresRuntime:
 
 
 def start() -> None:
-    assert_runtime_authorized()
+    authorization = assert_runtime_authorized()
     assert_product_api_compatibility()
-    root = _runtime_root(exists=False)
-    evidence_root = _evidence_root(exists=False)
+    root = authorization.runtime_root
+    evidence_root = authorization.evidence_root
     if (
         root.exists()
         or root.is_symlink()
@@ -298,10 +218,9 @@ def start() -> None:
         or evidence_root.is_symlink()
     ):
         raise RuntimeAuthorizationError("D2 external roots must be fresh")
+    runtime_authorization.consume_once(authorization)
     root.mkdir(mode=0o700)
-    evidence_root.mkdir(mode=0o700)
     os.chmod(root, 0o700)
-    os.chmod(evidence_root, 0o700)
     password_path = root / _PASSWORD_FILE
     descriptor = os.open(password_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
@@ -316,8 +235,9 @@ def start() -> None:
 
 
 def seed() -> None:
-    assert_runtime_authorized()
-    root = _runtime_root(exists=True)
+    authorization = assert_runtime_authorized()
+    runtime_authorization.verify_consumed(authorization)
+    root = authorization.runtime_root
     material_root = root / "pki"
     pki.create_ephemeral_pki(
         material_root,
@@ -332,16 +252,18 @@ def seed() -> None:
 
 
 def reset() -> None:
-    assert_runtime_authorized()
-    runtime = _postgres_runtime(_runtime_root(exists=True))
+    authorization = assert_runtime_authorized()
+    runtime_authorization.verify_consumed(authorization)
+    runtime = _postgres_runtime(authorization.runtime_root)
     store.migrate(runtime)
     posture = evidence.validate_evidence(store.audit_security_posture(runtime))
-    destination = _evidence_root(exists=True) / _POSTGRES_SECURITY_EVIDENCE
+    destination = authorization.evidence_root / _POSTGRES_SECURITY_EVIDENCE
     _write_atomic_evidence(destination, posture)
 
 
 def stop() -> None:
-    assert_runtime_authorized()
+    authorization = assert_runtime_authorized()
+    runtime_authorization.verify_consumed(authorization)
     store.stop()
 
 
@@ -362,6 +284,8 @@ def _pki_material(root: Path) -> pki.PkiMaterial:
 
 
 def rollback() -> None:
+    _, evidence_root = _bounded_external_roots(repositories_must_exist=False)
+    runtime_authorization.verify_consumption_marker(evidence_root)
     teardown()
     if not verify_absent():
         raise RuntimeAuthorizationError("D2 rollback did not verify resource absence")
@@ -662,9 +586,10 @@ def _assert_secret_free_process_output(root: Path, *streams: str) -> None:
 def run_runtime_attempt() -> dict[str, object]:
     """Execute the authorized RED→GREEN sequence exactly once."""
 
-    assert_runtime_authorized()
-    root = _runtime_root(exists=True)
-    evidence_root = _evidence_root(exists=True)
+    authorization = assert_runtime_authorized()
+    runtime_authorization.verify_consumed(authorization)
+    root = authorization.runtime_root
+    evidence_root = authorization.evidence_root
     process: subprocess.Popen[str] | None = None
     log: object | None = None
     results: list[dict[str, object]] = []
