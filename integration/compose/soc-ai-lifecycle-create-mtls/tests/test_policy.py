@@ -528,7 +528,7 @@ def test_d1_readmes_record_artifact_complete_but_runtime_not_run() -> None:
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     compose_readme = (_HARNESS_ROOT.parent / "README.md").read_text(encoding="utf-8")
 
-    exact_status = "Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`."
+    exact_status = "Status: `D2 COVERAGE GATE PASS — RUNTIME NOT RUN`."
     for text in (harness_readme, compose_readme):
         assert text.splitlines()[2] == exact_status
         assert "D1 ARTIFACT COMPLETE — RUNTIME NOT RUN" in text
