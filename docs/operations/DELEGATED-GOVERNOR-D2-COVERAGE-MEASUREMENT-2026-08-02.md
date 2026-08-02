@@ -85,12 +85,17 @@ branch base passed `31 passed in 0.91s`. Its JUnit artifact SHA-256 is
    `e4694bf51e02091cfcaf3f0bb470792ed2149d9a9208df6e5ae48de650f2ec65`; independent review
    classified the original mode as nonblocking P3 hygiene drift.
 8. The verifier's own 31-test suite was executed separately and is anchored in section 4.
+9. P1 and P2 authoring-time states are preserved as history, while their current-state labels now
+   bind the later P0 consumption and M2 verification without granting runtime credit.
 
 ## 6. Independent review and boundary
 
-Codex independent post-execution review returned `GO` with no P0–P3. Claude Opus independently
-read the scripts, tests, source ranges and raw evidence and returned `GO` with no P0–P2; its eight
-nonblocking errata are reconciled in section 5.
+Codex independent post-execution review returned `GO`; a follow-up mode review classified one P3
+hygiene drift, after which the file mode was hardened with its digest unchanged. Claude Opus
+independently read the scripts, tests, source ranges and raw evidence and returned `GO` with no
+P0–P2; its eight nonblocking errata are reconciled in section 5. A terminal-packet R1 review then
+found the P2 overclaim in the first sentence above; this R2 wording and the committed summary remove
+that contradiction before merge.
 
 No listener, product process, Docker container, database, migration, certificate, private key,
 PKI action or N1–N10 runtime case executed in M1 or M2. The accepted result is only:
@@ -104,6 +109,6 @@ admission and independent review remain mandatory.
 ## 7. Rollback
 
 Repository rollback is a normal revert of this nine-path terminal packet. External P0/M1/M2
-evidence remains immutable historical evidence. The P0 mode hardening changed metadata only and
-left the recorded artifact digest unchanged. Nothing in this record authorizes deleting or
+evidence bytes remain immutable historical evidence. The P0 mode hardening changed metadata only
+and left the recorded artifact digest unchanged. Nothing in this record authorizes deleting or
 replaying consumed evidence roots.

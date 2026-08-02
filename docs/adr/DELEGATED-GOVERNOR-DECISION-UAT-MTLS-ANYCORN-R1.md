@@ -955,7 +955,7 @@ Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring
 
-Current state: `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+Current state: `AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD`.
 
 The Codex Governor pulls forward only the dependency-neutral verifier required by D2-COV-P0. The
 verifier is pure stdlib and import-inert. It reads the already-produced Coverage.py JSON format 3
@@ -1036,14 +1036,16 @@ commands complete:
   --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
 ```
 
-The authoring tests use synthetic format-3 reports to prove the PASS path and false-green
-refusals; they do not measure the real package. D2-COV-P1 does not install Coverage.py, does not
-satisfy the section 7.3 coverage gate, does not open Phase A and grants no UAT or release credit.
+The P1 authoring slice does not install Coverage.py and does not satisfy the section 7.3 coverage gate.
+At authoring time, its tests used synthetic format-3 reports to prove the PASS path and false-green
+refusals; that slice did not measure the real package or grant gate credit. M2 later
+consumed the authored verifier and independently satisfied the section 7.3 coverage gate. P1 does not open Phase A
+or grant runtime, UAT or release credit; M2 also leaves those boundaries closed.
 D2 remains **HOLD**. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-COV-P2 — executable authorization hardening
 
-Current state: `AUTHORED — VALIDATOR TESTS GREEN — DEPENDENCY ACTION NOT RUN — RUNTIME HOLD`.
+Current state: `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD`.
 
 The independent review of D2-COV-P0 found that interpreter and pytest pins alone could not
 distinguish the accepted D1 closure from a superseded environment. It also found that the P0

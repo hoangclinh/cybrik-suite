@@ -156,8 +156,9 @@
     "p0_gate_hash_semantics": "baseline_FAIL_integrity_anchor_not_M2_PASS_result"
   },
   "independent_reviews": {
-    "codex": "GO_NO_P0_P3",
-    "claude_opus": "GO_NO_P0_P2"
+    "codex_post_execution": "GO_WITH_REMEDIATED_P3",
+    "claude_opus_post_execution": "GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA",
+    "terminal_packet_r1": "P2_OVERCLAIM_FIXED_IN_R2"
   },
   "release_dates": "unchanged"
 }

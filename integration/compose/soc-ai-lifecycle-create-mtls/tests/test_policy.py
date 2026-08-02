@@ -897,10 +897,7 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
         "tools/contract-validation/tests/validate-transport.test.mjs",
     ]
     normalized = " ".join(section.split())
-    assert (
-        "AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD"
-        in section
-    )
+    assert "AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD" in section
     assert "pure stdlib and import-inert" in normalized
     assert "Coverage.py JSON format 3" in normalized
     assert "58c5f326cd785026b22123eb99385cad44d026aff64bd96dc0840a1baf26dea2" in section
@@ -965,8 +962,7 @@ def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action(
     assert "Release dates remain unchanged" in section
     assert "validate_coverage_authorization.py" in harness_readme
     assert (
-        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — "
-        "RUNTIME HOLD"
+        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD"
     ) in harness_readme
 
 

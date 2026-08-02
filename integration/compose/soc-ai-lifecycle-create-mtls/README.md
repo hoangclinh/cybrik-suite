@@ -159,7 +159,7 @@ itself opens Phase A, recovers B1, runs N1–N10 or grants UAT/release credit.
 
 ## Authored stdlib coverage verifier
 
-`UAT-MTLS-D2-COV-P1` is `AUTHORED — STATIC TESTS GREEN — COVERAGE NOT MEASURED — RUNTIME HOLD`.
+`UAT-MTLS-D2-COV-P1` is `AUTHORED — STATIC TESTS GREEN — M2 VERIFIED — RUNTIME HOLD`.
 The pure-stdlib, import-inert `scripts/verify_coverage_gate.py` independently checks one pinned
 Coverage.py 7.15.2 JSON format-3 report. It requires the exact package file set, recomputes package
 line and branch ratios separately, cross-checks report summaries, and binds each critical function
@@ -190,15 +190,15 @@ verifier command remains:
   --result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json
 ```
 
-This authoring slice does not install Coverage.py, does not measure the current package, does not
-satisfy the section 7.3 coverage gate and does not open Phase A. D2 remains **HOLD** and all
-runtime/UAT/release boundaries above remain unchanged.
+At authoring time this slice did not install Coverage.py, measure the current package or satisfy the
+section 7.3 coverage gate. M2 later consumed the verifier and verified that gate. Neither action
+opens Phase A; D2 remains **HOLD** and all runtime/UAT/release boundaries above remain unchanged.
 
 ## Executable authorization hardening
 
-`UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — DEPENDENCY ACTION NOT RUN — RUNTIME
-HOLD`. The pure-stdlib `scripts/validate_coverage_authorization.py` replaces manual trust in the P0
-artifact with an executable fail-closed preflight. It binds the exact ordered field set, clean
+`UAT-MTLS-D2-COV-P2` is `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD`.
+The pure-stdlib `scripts/validate_coverage_authorization.py` replaces manual trust in the P0 artifact
+with an executable fail-closed preflight. It binds the exact ordered field set, clean
 detached Suite commit/tree/root with no tracked, untracked or ignored residue, current authorization
 window, durable non-temporary roots, pinned Python symlink and real executable, the committed D1
 lock/requirements/wheel evidence and exact 56-member installed closure digest
@@ -224,9 +224,10 @@ contains Anycorn B1, so a durable pip-less reconstruction of the exact 56-member
 closure is mandatory and needs its own prospective bounded Founder authorization; a surviving older
 closure is not substitutable.
 
-This hardening is not the dependency authorization. Coverage extraction and measurement are still
-not run, D2 runtime remains **HOLD**, and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and
-release dates remain unchanged.
+At P2 authoring time this hardening was not the dependency authorization, and coverage extraction
+and measurement had not run. P0 was later separately authorized and consumed; M2 later verified
+coverage. D2 runtime remains **HOLD**, and all UAT/demo/POC/RC/stable-v1/GA/production boundaries
+and release dates remain unchanged.
 
 ## Authorized durable coverage-closure recovery
 
