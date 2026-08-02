@@ -108,6 +108,7 @@ done
 
 export PYTHONPATH="$suite_src:$soc_src:$ai_core_src:$ai_api_src"
 export PYTHONDONTWRITEBYTECODE=1
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 export CYBRIK_UAT_D2_EXECUTION_AUTHORIZED=true
 export CYBRIK_UAT_D2_SOC_REPO="$soc_repo"
 export CYBRIK_UAT_D2_AI_REPO="$ai_repo"
@@ -122,6 +123,7 @@ export CYBRIK_UAT_D2_AUTHORIZATION_SHA256="$authorization_sha"
 # aggregate, exact authorization/candidate digests, B1 wheel, clean detached
 # product tuple, external roots and exact PYTHONPATH again.  It creates no
 # process, listener, database, PKI or evidence root.
+cd "$suite_src"
 "$python_bin" -m cybrik_suite_uat_mtls.runtime_authorization --check-only
 
 cleanup_required=true
@@ -141,10 +143,17 @@ trap cleanup EXIT INT TERM
 "$python_bin" -m cybrik_suite_uat_mtls.harness start \
   --ai-bind 127.0.0.1:58443 \
   --postgres-bind 127.0.0.1:55432
+cd "$runtime_dir"
 "$python_bin" -m cybrik_suite_uat_mtls.harness seed
 "$python_bin" -m cybrik_suite_uat_mtls.harness reset
 "$python_bin" -m pytest -q \
+  -p no:cacheprovider \
+  -o addopts= \
+  --noconftest \
+  -c /dev/null \
   "$suite_root/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence"
+[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
+  || die "pytest changed the exact Suite checkout before stop"
 "$python_bin" -m cybrik_suite_uat_mtls.harness stop
 "$python_bin" -m cybrik_suite_uat_mtls.harness rollback
 cleanup_required=false

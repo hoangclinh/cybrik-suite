@@ -1145,8 +1145,7 @@ def test_candidate_observation_accepts_only_the_canonical_artifact_fallback(
     )
 
     assert (
-        authorization._candidate(candidate).authorization_sha256
-        == _AUTHORIZATION_SHA
+        authorization._candidate(candidate).authorization_sha256 == _AUTHORIZATION_SHA
     )
 
 
@@ -1156,9 +1155,7 @@ def test_candidate_observer_has_no_dead_authorization_digest_parameter() -> None
 
 def test_admission_base_is_validated_before_it_can_become_git_argv() -> None:
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization._admission_base_for_git(
-            {"SUITE_ADMISSION_BASE": "not-a-commit"}
-        )
+        authorization._admission_base_for_git({"SUITE_ADMISSION_BASE": "not-a-commit"})
     assert caught.value.reason == "authorization_digest_invalid"
 
 

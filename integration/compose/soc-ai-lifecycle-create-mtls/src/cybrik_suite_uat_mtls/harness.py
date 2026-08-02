@@ -303,25 +303,33 @@ def _pki_material(root: Path) -> pki.PkiMaterial:
 
 def rollback() -> None:
     runtime_root, evidence_root = _bounded_external_roots(repositories_must_exist=False)
+    roots_exist = (
+        runtime_root.exists()
+        or runtime_root.is_symlink()
+        or evidence_root.exists()
+        or evidence_root.is_symlink()
+    )
+    if not roots_exist:
+        return
+    expected_authorization_sha = os.environ.get(_AUTHORIZATION_SHA_ENV, "")
+    if re.fullmatch(r"[0-9a-f]{64}", expected_authorization_sha) is None:
+        raise RuntimeAuthorizationError(
+            "consumed authorization marker is invalid: authorization digest absent"
+        )
     try:
         marker = runtime_authorization.verify_consumption_marker(
-            evidence_root, expected_runtime_root=runtime_root
+            evidence_root,
+            expected_authorization_sha256=expected_authorization_sha,
+            expected_runtime_root=runtime_root,
         )
     except runtime_authorization.RuntimeAuthorizationFailure as exc:
         raise RuntimeAuthorizationError(
             f"consumed authorization marker is invalid: {exc.reason}"
         ) from exc
     if marker is None:
-        if (
-            runtime_root.exists()
-            or runtime_root.is_symlink()
-            or evidence_root.exists()
-            or evidence_root.is_symlink()
-        ):
-            raise RuntimeAuthorizationError(
-                "runtime material exists without a consumed authorization"
-            )
-        return
+        raise RuntimeAuthorizationError(
+            "runtime material exists without a consumed authorization"
+        )
     teardown()
     if not verify_absent():
         raise RuntimeAuthorizationError("D2 rollback did not verify resource absence")

@@ -568,7 +568,7 @@ def test_rollback_is_a_noop_only_when_both_roots_are_absent(
         record_marker_check,
     )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
-    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
+    _runtime_root, _evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
 
     harness.rollback()
 

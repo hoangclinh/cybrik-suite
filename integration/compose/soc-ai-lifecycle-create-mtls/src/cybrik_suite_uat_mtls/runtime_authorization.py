@@ -16,6 +16,7 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -54,11 +55,22 @@ RUNTIME_CODE_PATHS: Final = tuple(
             f"{_PACKAGE}/runtime_authorization.py",
             f"{_PACKAGE}/server.py",
             f"{_PACKAGE}/store.py",
+            "integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml",
             (
                 "integration/compose/soc-ai-lifecycle-create-mtls/tests/"
                 "test_lifecycle_runtime.py"
             ),
             "tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh",
+        )
+    )
+)
+MUST_BE_ABSENT_RUNTIME_PATHS: Final = tuple(
+    sorted(
+        (
+            "conftest.py",
+            "integration/compose/soc-ai-lifecycle-create-mtls/conftest.py",
+            "integration/compose/soc-ai-lifecycle-create-mtls/tests/conftest.py",
+            "tests/conftest.py",
         )
     )
 )
@@ -226,7 +238,20 @@ def runtime_code_aggregate(suite_root: Path) -> str:
     """Digest the sorted exact runtime surface using the versioned recipe."""
 
     root = Path(suite_root)
-    payload = f"{AGGREGATE_ALGORITHM}\n{len(RUNTIME_CODE_PATHS)}\n"
+    payload = (
+        f"{AGGREGATE_ALGORITHM}\n{len(RUNTIME_CODE_PATHS)}\n"
+        f"{len(MUST_BE_ABSENT_RUNTIME_PATHS)}\n"
+    )
+    for relative in MUST_BE_ABSENT_RUNTIME_PATHS:
+        path = root / relative
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            payload += f"absent  {relative}\n"
+            continue
+        except OSError:
+            _fail("runtime_denied_path_present")
+        _fail("runtime_denied_path_present")
     for relative in RUNTIME_CODE_PATHS:
         path = root / relative
         try:
@@ -270,8 +295,6 @@ def read_authorization(path: Path) -> bytes:
             _fail("authorization_artifact_invalid")
         with os.fdopen(descriptor, "rb") as stream:
             return stream.read()
-    except RuntimeAuthorizationFailure:
-        raise
     except OSError:
         _fail("authorization_artifact_invalid")
 
@@ -325,7 +348,10 @@ def validate_authorization(
         _fail("authorization_not_current")
 
     suite_root = _path(fields["SUITE_ROOT"], "suite_root_invalid")
-    if suite_root != observed.suite_root:
+    if (
+        suite_root != observed.suite_root
+        or _HEX40.fullmatch(observed.suite_head) is None
+    ):
         _fail("suite_state_mismatch")
     canonical_authorization = suite_root / AUTHORIZATION_REL
     if observed.authorization_path != canonical_authorization:
@@ -521,12 +547,49 @@ def _open_directory_without_symlinks(path: Path) -> int:
         raise
 
 
+def _cleanup_failed_consumption(
+    *,
+    parent_descriptor: int,
+    directory_descriptor: int,
+    root_name: str,
+    created_identity: os.stat_result | None,
+    marker_created: bool,
+) -> None:
+    """Remove only this call's partial marker and still-empty fresh directory."""
+
+    if directory_descriptor >= 0 and marker_created:
+        try:
+            os.unlink(CONSUMPTION_MARKER, dir_fd=directory_descriptor)
+            os.fsync(directory_descriptor)
+        except OSError:
+            return
+    if parent_descriptor < 0 or created_identity is None:
+        return
+    try:
+        current = os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
+        if (
+            not stat.S_ISDIR(current.st_mode)
+            or current.st_dev != created_identity.st_dev
+            or current.st_ino != created_identity.st_ino
+        ):
+            return
+        os.rmdir(root_name, dir_fd=parent_descriptor)
+        os.fsync(parent_descriptor)
+    except OSError:
+        # A concurrent addition or rename makes deletion unsafe.  Leave the
+        # burned root in place rather than deleting material we did not create.
+        return
+
+
 def consume_once(authorization: RuntimeAuthorization) -> dict[str, object]:
     """Atomically consume authorization by creating a fresh root and marker."""
 
     root = authorization.evidence_root
     parent_descriptor = -1
     directory_descriptor = -1
+    marker_descriptor = -1
+    created_identity: os.stat_result | None = None
+    marker_created = False
     try:
         parent_descriptor = _open_directory_without_symlinks(root.parent)
         os.mkdir(root.name, 0o700, dir_fd=parent_descriptor)
@@ -563,21 +626,44 @@ def consume_once(authorization: RuntimeAuthorization) -> dict[str, object]:
             0o600,
             dir_fd=directory_descriptor,
         )
+        marker_created = True
         try:
-            with os.fdopen(marker_descriptor, "wb", closefd=False) as stream:
-                stream.write(payload)
-                stream.flush()
-                os.fsync(stream.fileno())
+            offset = 0
+            while offset < len(payload):
+                written = os.write(marker_descriptor, payload[offset:])
+                if written <= 0:
+                    raise OSError("marker write made no progress")
+                offset += written
+            os.fsync(marker_descriptor)
             os.fchmod(marker_descriptor, 0o600)
         finally:
             os.close(marker_descriptor)
+            marker_descriptor = -1
         os.fsync(directory_descriptor)
         return record
     except RuntimeAuthorizationFailure:
+        _cleanup_failed_consumption(
+            parent_descriptor=parent_descriptor,
+            directory_descriptor=directory_descriptor,
+            root_name=root.name,
+            created_identity=created_identity,
+            marker_created=marker_created,
+        )
         raise
     except OSError:
-        _fail("authorization_already_consumed")
+        _cleanup_failed_consumption(
+            parent_descriptor=parent_descriptor,
+            directory_descriptor=directory_descriptor,
+            root_name=root.name,
+            created_identity=created_identity,
+            marker_created=marker_created,
+        )
+        if created_identity is None:
+            _fail("authorization_already_consumed")
+        _fail("authorization_consumption_failed")
     finally:
+        if marker_descriptor >= 0:
+            os.close(marker_descriptor)
         if directory_descriptor >= 0:
             os.close(directory_descriptor)
         if parent_descriptor >= 0:
@@ -603,8 +689,6 @@ def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result
             | getattr(os, "O_CLOEXEC", 0),
             dir_fd=parent_descriptor,
         )
-    except RuntimeAuthorizationFailure:
-        raise
     except OSError:
         _fail("authorization_not_consumed")
     finally:
@@ -630,8 +714,6 @@ def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result
                 payload = stream.read()
         finally:
             os.close(marker_descriptor)
-    except RuntimeAuthorizationFailure:
-        raise
     except OSError:
         _fail("authorization_not_consumed")
     finally:
@@ -645,6 +727,19 @@ def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result
     return record, root_identity
 
 
+def _consumed_at(record: Mapping[str, object]) -> datetime:
+    value = record.get("consumed_at")
+    if not isinstance(value, str):
+        _fail("authorization_consumption_mismatch")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        _fail("authorization_consumption_mismatch")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        _fail("authorization_consumption_mismatch")
+    return parsed.astimezone(UTC)
+
+
 def verify_consumption_marker(
     evidence_root: Path,
     *,
@@ -655,12 +750,8 @@ def verify_consumption_marker(
 
     if not evidence_root.exists() and not evidence_root.is_symlink():
         return None
-    try:
-        record, identity = _read_marker(evidence_root)
-    except RuntimeAuthorizationFailure as exc:
-        if exc.reason == "authorization_not_consumed":
-            raise
-        raise
+    record, identity = _read_marker(evidence_root)
+    _consumed_at(record)
     expected_identity = {"st_dev": identity.st_dev, "st_ino": identity.st_ino}
     if (
         record.get("status") != "consumed"
@@ -694,7 +785,17 @@ def verify_consumed(authorization: RuntimeAuthorization) -> dict[str, object]:
         authorization,
         os.stat(authorization.evidence_root, follow_symlinks=False),
     )
-    if record != expected:
+    consumed_at = _consumed_at(record)
+    if (
+        not authorization.authorized_at <= consumed_at <= authorization.expires_at
+        or consumed_at > authorization.now
+        or set(record) != set(expected)
+        or any(
+            record.get(key) != value
+            for key, value in expected.items()
+            if key != "consumed_at"
+        )
+    ):
         _fail("authorization_consumption_mismatch")
     return record
 
@@ -716,14 +817,12 @@ def _git(root: Path, *args: str, allow_status: bool = False) -> str:
     return completed.stdout.strip()
 
 
-def _candidate(path: Path, authorization_sha256: str) -> CandidateState:
+def _candidate(path: Path) -> CandidateState:
     try:
         if path.is_symlink() or not path.is_file():
             _fail("candidate_invalid")
         document = json.loads(path.read_text(encoding="utf-8"))
         current = document["attempt_accounting"]["current_attempt"]
-    except RuntimeAuthorizationFailure:
-        raise
     except (OSError, KeyError, TypeError, json.JSONDecodeError):
         _fail("candidate_invalid")
     pinned = current.get("authorization_sha256")
@@ -758,6 +857,13 @@ def _required_absolute_env(name: str, *, existing: bool) -> Path:
     except OSError:
         _fail("runtime_environment_invalid")
     return parent / path.name
+
+
+def _admission_base_for_git(fields: Mapping[str, str]) -> str:
+    admission_base = fields.get("SUITE_ADMISSION_BASE", "")
+    if _HEX40.fullmatch(admission_base) is None:
+        _fail("authorization_digest_invalid")
+    return admission_base
 
 
 def authorize_from_environment() -> RuntimeAuthorization:
@@ -817,7 +923,7 @@ def authorize_from_environment() -> RuntimeAuthorization:
                 ),
             )
         )
-    admission_base = fields["SUITE_ADMISSION_BASE"]
+    admission_base = _admission_base_for_git(fields)
     observed = ObservedRuntimeState(
         now=datetime.now(UTC),
         suite_root=suite_root,
@@ -868,7 +974,7 @@ def authorize_from_environment() -> RuntimeAuthorization:
         authorization_sha256=authorization_sha,
         expected_authorization_sha256=expected_sha,
         b1_wheel_sha256=_sha256(wheel),
-        candidate=_candidate(suite_root / CANDIDATE_REL, authorization_sha),
+        candidate=_candidate(suite_root / CANDIDATE_REL),
         products=tuple(products),
         host_temp_root=Path(tempfile.gettempdir()).resolve(),
     )
@@ -883,7 +989,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--check-only", action="store_true", required=True)
     parser.parse_args(argv)
-    authorize_from_environment()
+    try:
+        authorize_from_environment()
+    except RuntimeAuthorizationFailure as exc:
+        print(
+            f"D2 runtime authorization refused: {exc.reason}",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 
