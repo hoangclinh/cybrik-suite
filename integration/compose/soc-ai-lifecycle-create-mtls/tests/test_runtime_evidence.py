@@ -457,6 +457,17 @@ def test_certificate_framing_does_not_admit_random_non_x509_bytes(
     assert not any(path.name.startswith("sealed-") for path in evidence_root.iterdir())
 
 
+def test_public_certificate_contract_discloses_no_role_chain_or_distinctness_proof(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    limitation = (runtime_evidence.__doc__ or "").casefold()
+    assert "parse-valid" in limitation
+    assert "does not prove" in limitation
+    assert all(word in limitation for word in ("role", "chain", "distinctness"))
+
+
 def test_required_artifacts_are_unique_regular_contained_bounded_and_pinned(
     evidence_root: Path,
 ) -> None:
@@ -873,6 +884,126 @@ def test_atomic_writer_post_link_failure_keeps_committed_destination(
         assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
     finally:
         os.close(root_fd)
+
+
+@pytest.mark.parametrize(
+    "target_name",
+    (
+        runtime_evidence.RESULT_FILENAME,
+        runtime_evidence.TEARDOWN_FILENAME,
+        runtime_evidence.SUMMARY_FILENAME,
+    ),
+)
+def test_terminal_payload_corruption_fails_descriptor_readback_without_acceptance(
+    evidence_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_name: str,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    raw = runtime_evidence.validate_terminal_result(candidate)
+    sealed = runtime_evidence._sealed_projection(raw)
+    terminal_payloads = runtime_evidence._terminal_payloads(sealed)[:3]
+    payload_by_name = dict(
+        zip(
+            (
+                runtime_evidence.RESULT_FILENAME,
+                runtime_evidence.TEARDOWN_FILENAME,
+                runtime_evidence.SUMMARY_FILENAME,
+            ),
+            terminal_payloads,
+            strict=True,
+        )
+    )
+    target_payload = payload_by_name[target_name]
+    real_write = runtime_evidence.os.write
+    corrupted = False
+
+    def corrupt_exact_terminal_write(descriptor: int, payload: bytes) -> int:
+        nonlocal corrupted
+        if not corrupted and payload == target_payload:
+            corrupted = True
+            return real_write(descriptor, b"[" + payload[1:])
+        return real_write(descriptor, payload)
+
+    monkeypatch.setattr(runtime_evidence.os, "write", corrupt_exact_terminal_write)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert corrupted is True
+    assert caught.value.reason == "terminal_readback_failed"
+    assert "/" not in str(caught.value)
+    if target_name != runtime_evidence.SUMMARY_FILENAME:
+        assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+def test_atomic_writer_cleans_temp_when_initial_fstat_fails(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_fstat = runtime_evidence.os.fstat
+    first = True
+
+    def fail_initial_fstat(descriptor: int) -> os.stat_result:
+        nonlocal first
+        if first:
+            first = False
+            raise OSError("synthetic initial fstat failure")
+        return real_fstat(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "fstat", fail_initial_fstat)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._atomic_no_overwrite(root_fd, "bounded.json", b"{}\n")
+        assert caught.value.reason == "terminal_write_failed"
+        assert not (evidence_root / "bounded.json").exists()
+        assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
+    finally:
+        os.close(root_fd)
+
+
+def test_atomic_writer_rejects_lied_short_write_by_final_size(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_write = runtime_evidence.os.write
+    lied = False
+
+    def truncate_but_report_complete(descriptor: int, payload: bytes) -> int:
+        nonlocal lied
+        lied = True
+        real_write(descriptor, payload[:-1])
+        return len(payload)
+
+    monkeypatch.setattr(runtime_evidence.os, "write", truncate_but_report_complete)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._atomic_no_overwrite(root_fd, "bounded.json", b"{}\n")
+        assert lied is True
+        assert caught.value.reason == "terminal_write_failed"
+        assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
+    finally:
+        os.close(root_fd)
+
+
+def test_artifact_root_dup_failure_is_stable_and_path_free(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+
+    def fail_dup(descriptor: int) -> int:
+        raise OSError(f"synthetic dup failure for descriptor {descriptor}")
+
+    monkeypatch.setattr(runtime_evidence.os, "dup", fail_dup)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "pki_public_artifact_unsafe"
+    assert "/" not in str(caught.value)
+
+
+def test_partial_seal_poisoning_is_documented_as_non_retryable_preservation() -> None:
+    contract = (runtime_evidence.__doc__ or "").casefold()
+    assert "partially sealed" in contract
+    assert "non-retryable" in contract
+    assert "do not delete" in contract
 
 
 def test_canonical_bytes_are_order_independent_and_secret_free(
