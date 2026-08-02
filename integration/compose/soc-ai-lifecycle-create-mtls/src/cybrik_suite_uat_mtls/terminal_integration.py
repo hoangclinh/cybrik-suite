@@ -27,6 +27,10 @@ from typing import Final, NoReturn
 from . import runtime_authorization, runtime_evidence
 from . import secret_inventory as secret_inventory_module
 
+PENDING_HANDOFF_SCHEMA_VERSION: Final = "cybrik.d2.pending-terminal-handoff.v1"
+PENDING_HANDOFF_FILENAME: Final = ".cybrik-d2-terminal-handoff.pending.json"
+MAX_PENDING_HANDOFF_BYTES: Final = 1024 * 1024
+
 _PUBLIC_PKI: Final = (
     ("ca_certificate", "ca-cert.pem"),
     ("server_certificate", "server-cert.pem"),
@@ -63,6 +67,7 @@ _TERMINAL_FILENAMES: Final = frozenset(
         runtime_evidence.RESULT_FILENAME,
         runtime_evidence.TEARDOWN_FILENAME,
         runtime_evidence.SUMMARY_FILENAME,
+        PENDING_HANDOFF_FILENAME,
     }
 )
 _HEX40: Final = re.compile(r"[0-9a-f]{40}")
@@ -139,8 +144,72 @@ class PreparedTerminalHandoff:
         )
 
 
+@dataclass(frozen=True, slots=True, repr=False)
+class _LoadedPendingHandoff:
+    """Validated, path-free state recovered by the rollback process."""
+
+    candidate: dict[str, object]
+    marker_sha256: str
+    artifact_bindings: tuple[_ArtifactBinding, ...]
+
+
 def _fail(reason: str) -> NoReturn:
     raise TerminalIntegrationError(reason)
+
+
+def _descriptor_open(
+    path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    flags: int,
+    mode: int = 0o777,
+    *,
+    dir_fd: int | None = None,
+) -> int:
+    """Open one descriptor or collapse the transition to a stable refusal."""
+
+    try:
+        descriptor = os.open(path, flags, mode, dir_fd=dir_fd)
+    except (OSError, TypeError, ValueError):
+        raise TerminalIntegrationError("descriptor_transition_failed") from None
+    if (
+        isinstance(descriptor, bool)
+        or not isinstance(descriptor, int)
+        or descriptor < 0
+    ):
+        _fail("descriptor_transition_failed")
+    return descriptor
+
+
+def _descriptor_close(descriptor: int) -> None:
+    """Close one descriptor without ever exposing an OS error or locator."""
+
+    try:
+        os.close(descriptor)
+    except (OSError, TypeError, ValueError):
+        raise TerminalIntegrationError("descriptor_transition_failed") from None
+
+
+def _descriptor_fstat(descriptor: int) -> os.stat_result:
+    """Inspect one descriptor through the stable transition boundary."""
+
+    try:
+        metadata = os.fstat(descriptor)
+    except (OSError, TypeError, ValueError):
+        raise TerminalIntegrationError("descriptor_transition_failed") from None
+    if not isinstance(metadata, os.stat_result):
+        _fail("descriptor_transition_failed")
+    return metadata
+
+
+def _descriptor_dup(descriptor: int) -> int:
+    """Duplicate one descriptor through the stable transition boundary."""
+
+    try:
+        duplicate = os.dup(descriptor)
+    except (OSError, TypeError, ValueError):
+        raise TerminalIntegrationError("descriptor_transition_failed") from None
+    if isinstance(duplicate, bool) or not isinstance(duplicate, int) or duplicate < 0:
+        _fail("descriptor_transition_failed")
+    return duplicate
 
 
 def _canonical_json(value: object, reason: str) -> bytes:
@@ -154,6 +223,43 @@ def _canonical_json(value: object, reason: str) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError, UnicodeError):
         _fail(reason)
+
+
+def _canonical_record(value: object, reason: str) -> bytes:
+    payload = _canonical_json(value, reason) + b"\n"
+    if len(payload) > MAX_PENDING_HANDOFF_BYTES:
+        _fail(reason)
+    return payload
+
+
+def _identity_record(identity: tuple[int, int, int]) -> dict[str, int]:
+    return {
+        "file_type": identity[2],
+        "st_dev": identity[0],
+        "st_ino": identity[1],
+    }
+
+
+def _authorization_record(binding: _AuthorizationBinding) -> dict[str, object]:
+    return {
+        "authorization_id": binding.authorization_id,
+        "authorization_sha256": binding.authorization_sha256,
+        "exact_head_grant_sha256": binding.exact_head_grant_sha256,
+        "runtime_code_aggregate_sha256": binding.aggregate_sha256,
+        "suite_admission_base": binding.suite_admission_base,
+        "suite_head": binding.suite_head,
+    }
+
+
+def _artifact_record(binding: _ArtifactBinding) -> dict[str, object]:
+    return {
+        "file_type": binding.identity[2],
+        "relative_path": binding.relative_path,
+        "sha256": binding.sha256,
+        "size_bytes": binding.size_bytes,
+        "st_dev": binding.identity[0],
+        "st_ino": binding.identity[1],
+    }
 
 
 def _safe_absolute_path(value: object, pattern: re.Pattern[str]) -> Path:
@@ -229,35 +335,35 @@ def _authorization_binding(
 def _open_absolute_directory(path: Path, reason: str) -> int:
     descriptor = -1
     try:
-        descriptor = os.open(path.anchor, _DIRECTORY_FLAGS)
+        descriptor = _descriptor_open(path.anchor, _DIRECTORY_FLAGS)
         for component in path.parts[1:]:
-            child = os.open(component, _DIRECTORY_FLAGS, dir_fd=descriptor)
-            os.close(descriptor)
+            child = _descriptor_open(component, _DIRECTORY_FLAGS, dir_fd=descriptor)
+            _descriptor_close(descriptor)
             descriptor = child
-        metadata = os.fstat(descriptor)
+        metadata = _descriptor_fstat(descriptor)
         if not stat.S_ISDIR(metadata.st_mode):
             _fail(reason)
         return descriptor
     except TerminalIntegrationError:
         if descriptor >= 0:
-            os.close(descriptor)
+            _descriptor_close(descriptor)
         raise
     except (OSError, TypeError, ValueError):
         if descriptor >= 0:
-            os.close(descriptor)
+            _descriptor_close(descriptor)
         _fail(reason)
 
 
 def _directory_identity(descriptor: int) -> tuple[int, int, int]:
-    metadata = os.fstat(descriptor)
+    metadata = _descriptor_fstat(descriptor)
     return (metadata.st_dev, metadata.st_ino, stat.S_IFMT(metadata.st_mode))
 
 
 def _open_evidence_root(path: Path) -> int:
     descriptor = _open_absolute_directory(path, "evidence_root_changed")
-    metadata = os.fstat(descriptor)
+    metadata = _descriptor_fstat(descriptor)
     if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
-        os.close(descriptor)
+        _descriptor_close(descriptor)
         _fail("evidence_root_changed")
     return descriptor
 
@@ -336,19 +442,19 @@ def _relative_artifact(path: Path, evidence_root: Path) -> tuple[str, ...]:
 
 def _open_relative_file(root_descriptor: int, parts: tuple[str, ...]) -> int:
     descriptors: list[int] = []
-    current = os.dup(root_descriptor)
+    current = _descriptor_dup(root_descriptor)
     descriptors.append(current)
     try:
         for component in parts[:-1]:
-            child = os.open(component, _DIRECTORY_FLAGS, dir_fd=current)
+            child = _descriptor_open(component, _DIRECTORY_FLAGS, dir_fd=current)
             descriptors.append(child)
             current = child
-        result = os.open(parts[-1], _FILE_READ_FLAGS, dir_fd=current)
-    except OSError:
+        result = _descriptor_open(parts[-1], _FILE_READ_FLAGS, dir_fd=current)
+    except TerminalIntegrationError:
         result = -1
     finally:
         for descriptor in reversed(descriptors):
-            os.close(descriptor)
+            _descriptor_close(descriptor)
     if result < 0:
         _fail("terminal_artifact_changed")
     return result
@@ -358,7 +464,7 @@ def _read_bound_file(
     descriptor: int, *, reason: str, maximum: int
 ) -> tuple[bytes, os.stat_result]:
     try:
-        before = os.fstat(descriptor)
+        before = _descriptor_fstat(descriptor)
         if (
             not stat.S_ISREG(before.st_mode)
             or before.st_nlink != 1
@@ -374,7 +480,7 @@ def _read_bound_file(
             chunks.append(chunk)
             remaining -= len(chunk)
         payload = b"".join(chunks)
-        after = os.fstat(descriptor)
+        after = _descriptor_fstat(descriptor)
     except TerminalIntegrationError:
         raise
     except OSError:
@@ -410,7 +516,7 @@ def _artifact_binding(
             maximum=runtime_evidence.MAX_ARTIFACT_BYTES,
         )
     finally:
-        os.close(descriptor)
+        _descriptor_close(descriptor)
     return _ArtifactBinding(
         relative_path="/".join(relative_parts),
         sha256=hashlib.sha256(payload).hexdigest(),
@@ -423,8 +529,8 @@ def _source_bytes(path: Path) -> bytes:
     parent = _open_absolute_directory(path.parent, "public_pki_invalid")
     try:
         try:
-            descriptor = os.open(path.name, _FILE_READ_FLAGS, dir_fd=parent)
-        except OSError:
+            descriptor = _descriptor_open(path.name, _FILE_READ_FLAGS, dir_fd=parent)
+        except TerminalIntegrationError:
             descriptor = -1
         if descriptor < 0:
             _fail("public_pki_invalid")
@@ -435,10 +541,10 @@ def _source_bytes(path: Path) -> bytes:
                 maximum=runtime_evidence.MAX_ARTIFACT_BYTES,
             )
         finally:
-            os.close(descriptor)
+            _descriptor_close(descriptor)
         return payload
     finally:
-        os.close(parent)
+        _descriptor_close(parent)
 
 
 def _write_all(descriptor: int, payload: bytes) -> None:
@@ -467,16 +573,18 @@ def _freeze_public_pki(
 
     try:
         os.mkdir("pki-public", 0o700, dir_fd=root_descriptor)
-        pki_descriptor = os.open("pki-public", _DIRECTORY_FLAGS, dir_fd=root_descriptor)
-    except OSError:
+        pki_descriptor = _descriptor_open(
+            "pki-public", _DIRECTORY_FLAGS, dir_fd=root_descriptor
+        )
+    except TerminalIntegrationError:
         _fail("public_pki_freeze_failed")
     try:
-        metadata = os.fstat(pki_descriptor)
+        metadata = _descriptor_fstat(pki_descriptor)
         if stat.S_IMODE(metadata.st_mode) != 0o700:
             _fail("public_pki_freeze_failed")
         for filename, payload in payloads:
             try:
-                descriptor = os.open(
+                descriptor = _descriptor_open(
                     filename,
                     os.O_WRONLY
                     | os.O_CREAT
@@ -486,7 +594,7 @@ def _freeze_public_pki(
                     0o600,
                     dir_fd=pki_descriptor,
                 )
-            except OSError:
+            except TerminalIntegrationError:
                 _fail("public_pki_freeze_failed")
             try:
                 _write_all(descriptor, payload)
@@ -495,11 +603,11 @@ def _freeze_public_pki(
             except OSError:
                 _fail("public_pki_freeze_failed")
             finally:
-                os.close(descriptor)
+                _descriptor_close(descriptor)
         os.fsync(pki_descriptor)
         os.fsync(root_descriptor)
     finally:
-        os.close(pki_descriptor)
+        _descriptor_close(pki_descriptor)
     bindings: list[_ArtifactBinding] = []
     for (filename, payload), (_, expected_filename) in zip(
         payloads, _PUBLIC_PKI, strict=True
@@ -567,7 +675,92 @@ def _candidate_payload(
         or candidate.get("authority") != expected_authority
     ):
         _fail("terminal_grant_mismatch")
-    return _canonical_json(dict(candidate), "terminal_candidate_invalid")
+    return _canonical_record(dict(candidate), "terminal_candidate_invalid")
+
+
+def _persist_pending_handoff(
+    root_descriptor: int,
+    binding: _AuthorizationBinding,
+    evidence_identity: tuple[int, int, int],
+    marker_sha256: str,
+    candidate_payload: bytes,
+    artifact_bindings: tuple[_ArtifactBinding, ...],
+    receipts: tuple[tuple[tuple[str, object], ...], ...],
+) -> None:
+    """Create the immutable prepare-to-rollback handoff exactly once."""
+
+    descriptor = -1
+    try:
+        descriptor = _descriptor_open(
+            PENDING_HANDOFF_FILENAME,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+            dir_fd=root_descriptor,
+        )
+        metadata = _descriptor_fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            _fail("pending_handoff_write_failed")
+        pending_identity = (
+            metadata.st_dev,
+            metadata.st_ino,
+            stat.S_IFMT(metadata.st_mode),
+        )
+        try:
+            candidate = json.loads(candidate_payload)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            _fail("terminal_candidate_invalid")
+        if not isinstance(candidate, dict):
+            _fail("terminal_candidate_invalid")
+        receipt_payload = _canonical_record(
+            [dict(receipt) for receipt in receipts], "pending_handoff_write_failed"
+        )
+        document = {
+            "artifact_bindings": [
+                _artifact_record(artifact) for artifact in artifact_bindings
+            ],
+            "authorization": _authorization_record(binding),
+            "candidate": candidate,
+            "candidate_payload_sha256": hashlib.sha256(candidate_payload).hexdigest(),
+            "consumption_marker_sha256": marker_sha256,
+            "evidence_root_identity": _identity_record(evidence_identity),
+            "pending_file_identity": _identity_record(pending_identity),
+            "public_pki_names": [name for name, _ in _PUBLIC_PKI],
+            "remediation_receipt_sha256": hashlib.sha256(receipt_payload).hexdigest(),
+            "schema_version": PENDING_HANDOFF_SCHEMA_VERSION,
+        }
+        payload = _canonical_record(document, "pending_handoff_write_failed")
+        if (
+            str(binding.runtime_root).encode("utf-8") in payload
+            or str(binding.evidence_root).encode("utf-8") in payload
+        ):
+            _fail("pending_handoff_write_failed")
+        _write_all(descriptor, payload)
+        os.fchmod(descriptor, 0o600)
+        os.fsync(descriptor)
+        after = _descriptor_fstat(descriptor)
+        if (
+            (after.st_dev, after.st_ino, stat.S_IFMT(after.st_mode)) != pending_identity
+            or after.st_nlink != 1
+            or after.st_size != len(payload)
+            or stat.S_IMODE(after.st_mode) != 0o600
+        ):
+            _fail("pending_handoff_write_failed")
+        os.fsync(root_descriptor)
+    except TerminalIntegrationError:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail("pending_handoff_write_failed")
+    finally:
+        if descriptor >= 0:
+            _descriptor_close(descriptor)
 
 
 def prepare_terminal_handoff(
@@ -611,13 +804,23 @@ def prepare_terminal_handoff(
             _artifact_binding(root_descriptor, ("pki-public", filename))
             for _, filename in _PUBLIC_PKI
         )
+        all_artifact_bindings = artifact_bindings + public_bindings
+        _persist_pending_handoff(
+            root_descriptor,
+            binding,
+            evidence_identity,
+            marker_sha256,
+            candidate_payload,
+            all_artifact_bindings,
+            receipts,
+        )
         os.fsync(root_descriptor)
         return PreparedTerminalHandoff(
             _authorization=binding,
             _marker_sha256=marker_sha256,
             _candidate_payload=candidate_payload,
             _evidence_identity=evidence_identity,
-            _artifact_bindings=artifact_bindings + public_bindings,
+            _artifact_bindings=all_artifact_bindings,
             _public_pki_names=tuple(name for name, _ in _PUBLIC_PKI),
             _remediation_receipts=receipts,
         )
@@ -626,7 +829,7 @@ def prepare_terminal_handoff(
     except OSError:
         _fail("terminal_prepare_failed")
     finally:
-        os.close(root_descriptor)
+        _descriptor_close(root_descriptor)
 
 
 def _verify_artifact_binding(root_descriptor: int, expected: _ArtifactBinding) -> None:
@@ -635,6 +838,204 @@ def _verify_artifact_binding(root_descriptor: int, expected: _ArtifactBinding) -
     )
     if actual != expected or not hmac.compare_digest(actual.sha256, expected.sha256):
         _fail("terminal_artifact_changed")
+
+
+def _record_integer(value: object, reason: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        _fail(reason)
+    return value
+
+
+def _record_identity(
+    value: object,
+    *,
+    expected_type: int,
+    reason: str,
+) -> tuple[int, int, int]:
+    if not isinstance(value, dict) or set(value) != {"file_type", "st_dev", "st_ino"}:
+        _fail(reason)
+    file_type = _record_integer(value.get("file_type"), reason)
+    if file_type != expected_type:
+        _fail(reason)
+    return (
+        _record_integer(value.get("st_dev"), reason),
+        _record_integer(value.get("st_ino"), reason),
+        file_type,
+    )
+
+
+def _loaded_artifact(value: object) -> _ArtifactBinding:
+    keys = {"file_type", "relative_path", "sha256", "size_bytes", "st_dev", "st_ino"}
+    if not isinstance(value, dict) or set(value) != keys:
+        _fail("pending_handoff_invalid")
+    relative_path = value.get("relative_path")
+    sha256 = value.get("sha256")
+    if (
+        not isinstance(relative_path, str)
+        or not relative_path
+        or relative_path.startswith("/")
+        or "\\" in relative_path
+        or any(part in {"", ".", ".."} for part in relative_path.split("/"))
+        or relative_path in _TERMINAL_FILENAMES
+        or not isinstance(sha256, str)
+        or _HEX64.fullmatch(sha256) is None
+    ):
+        _fail("pending_handoff_invalid")
+    size_bytes = _record_integer(value.get("size_bytes"), "pending_handoff_invalid")
+    if size_bytes > runtime_evidence.MAX_ARTIFACT_BYTES:
+        _fail("pending_handoff_invalid")
+    identity = _record_identity(
+        {
+            "file_type": value.get("file_type"),
+            "st_dev": value.get("st_dev"),
+            "st_ino": value.get("st_ino"),
+        },
+        expected_type=stat.S_IFREG,
+        reason="pending_handoff_invalid",
+    )
+    return _ArtifactBinding(
+        relative_path=relative_path,
+        sha256=sha256,
+        size_bytes=size_bytes,
+        identity=identity,
+    )
+
+
+def _load_pending_handoff(
+    root_descriptor: int,
+    binding: _AuthorizationBinding,
+    evidence_identity: tuple[int, int, int],
+) -> _LoadedPendingHandoff:
+    """Descriptor-load and fully validate the preserved pending handoff."""
+
+    descriptor = _descriptor_open(
+        PENDING_HANDOFF_FILENAME, _FILE_READ_FLAGS, dir_fd=root_descriptor
+    )
+    try:
+        payload, metadata = _read_bound_file(
+            descriptor,
+            reason="pending_handoff_invalid",
+            maximum=MAX_PENDING_HANDOFF_BYTES,
+        )
+    finally:
+        _descriptor_close(descriptor)
+    if stat.S_IMODE(metadata.st_mode) != 0o600 or not payload:
+        _fail("pending_handoff_invalid")
+    try:
+        document = json.loads(payload)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        _fail("pending_handoff_invalid")
+    if not isinstance(document, dict):
+        _fail("pending_handoff_invalid")
+    canonical = _canonical_record(document, "pending_handoff_invalid")
+    if not hmac.compare_digest(payload, canonical):
+        _fail("pending_handoff_noncanonical")
+    if (
+        str(binding.runtime_root).encode("utf-8") in payload
+        or str(binding.evidence_root).encode("utf-8") in payload
+    ):
+        _fail("pending_handoff_invalid")
+
+    expected_keys = {
+        "artifact_bindings",
+        "authorization",
+        "candidate",
+        "candidate_payload_sha256",
+        "consumption_marker_sha256",
+        "evidence_root_identity",
+        "pending_file_identity",
+        "public_pki_names",
+        "remediation_receipt_sha256",
+        "schema_version",
+    }
+    if set(document) != expected_keys:
+        _fail("pending_handoff_invalid")
+    if document.get("schema_version") != PENDING_HANDOFF_SCHEMA_VERSION:
+        _fail("pending_handoff_invalid")
+
+    actual_pending_identity = (
+        metadata.st_dev,
+        metadata.st_ino,
+        stat.S_IFMT(metadata.st_mode),
+    )
+    recorded_pending_identity = _record_identity(
+        document.get("pending_file_identity"),
+        expected_type=stat.S_IFREG,
+        reason="pending_handoff_invalid",
+    )
+    if recorded_pending_identity != actual_pending_identity:
+        _fail("pending_handoff_replaced")
+    recorded_evidence_identity = _record_identity(
+        document.get("evidence_root_identity"),
+        expected_type=stat.S_IFDIR,
+        reason="pending_handoff_invalid",
+    )
+    if recorded_evidence_identity != evidence_identity:
+        _fail("evidence_root_changed")
+
+    authorization_record = document.get("authorization")
+    if (
+        not isinstance(authorization_record, dict)
+        or set(authorization_record)
+        != {
+            "authorization_id",
+            "authorization_sha256",
+            "exact_head_grant_sha256",
+            "runtime_code_aggregate_sha256",
+            "suite_admission_base",
+            "suite_head",
+        }
+        or authorization_record != _authorization_record(binding)
+    ):
+        _fail("terminal_grant_mismatch")
+
+    marker_sha256 = document.get("consumption_marker_sha256")
+    candidate_sha256 = document.get("candidate_payload_sha256")
+    receipt_sha256 = document.get("remediation_receipt_sha256")
+    if any(
+        not isinstance(digest, str) or _HEX64.fullmatch(digest) is None
+        for digest in (marker_sha256, candidate_sha256, receipt_sha256)
+    ):
+        _fail("pending_handoff_invalid")
+    candidate = document.get("candidate")
+    if not isinstance(candidate, dict) or not all(
+        isinstance(key, str) for key in candidate
+    ):
+        _fail("terminal_candidate_invalid")
+    actual_candidate_sha256 = hashlib.sha256(
+        _canonical_record(candidate, "terminal_candidate_invalid")
+    ).hexdigest()
+    if not hmac.compare_digest(candidate_sha256, actual_candidate_sha256):
+        _fail("terminal_candidate_invalid")
+
+    public_names = document.get("public_pki_names")
+    expected_public_names = [name for name, _ in _PUBLIC_PKI]
+    if public_names != expected_public_names:
+        _fail("public_pki_invalid")
+    artifact_values = document.get("artifact_bindings")
+    if not isinstance(artifact_values, list) or len(artifact_values) < len(_PUBLIC_PKI):
+        _fail("pending_handoff_invalid")
+    artifact_bindings = tuple(_loaded_artifact(value) for value in artifact_values)
+    expected_public_paths = tuple(
+        f"pki-public/{filename}" for _, filename in _PUBLIC_PKI
+    )
+    if (
+        tuple(
+            artifact.relative_path
+            for artifact in artifact_bindings[-len(_PUBLIC_PKI) :]
+        )
+        != expected_public_paths
+    ):
+        _fail("public_pki_invalid")
+    if len({artifact.relative_path for artifact in artifact_bindings}) != len(
+        artifact_bindings
+    ):
+        _fail("pending_handoff_invalid")
+    return _LoadedPendingHandoff(
+        candidate=dict(candidate),
+        marker_sha256=marker_sha256,
+        artifact_bindings=artifact_bindings,
+    )
 
 
 def _live_absence(
@@ -657,7 +1058,6 @@ def _live_absence(
 
 
 def finalize_terminal_handoff(
-    prepared: PreparedTerminalHandoff,
     *,
     authorization: runtime_authorization.RuntimeAuthorization,
     consumed_marker: Mapping[str, object],
@@ -665,34 +1065,24 @@ def finalize_terminal_handoff(
 ) -> runtime_evidence.PersistedTerminalEvidence:
     """Recheck live teardown and delegate the summary-last immutable write."""
 
-    if not isinstance(prepared, PreparedTerminalHandoff):
-        _fail("terminal_grant_mismatch")
     binding = _authorization_binding(authorization)
-    if binding != prepared._authorization:
-        _fail("terminal_grant_mismatch")
     root_descriptor = _open_evidence_root(binding.evidence_root)
     try:
         evidence_identity = _directory_identity(root_descriptor)
-        if evidence_identity != prepared._evidence_identity:
-            _fail("evidence_root_changed")
+        pending = _load_pending_handoff(root_descriptor, binding, evidence_identity)
         marker_sha256 = _marker_digest(binding, consumed_marker, evidence_identity)
-        if not hmac.compare_digest(marker_sha256, prepared._marker_sha256):
+        if not hmac.compare_digest(marker_sha256, pending.marker_sha256):
             _fail("consumption_marker_mismatch")
-        for artifact in prepared._artifact_bindings:
+        for artifact in pending.artifact_bindings:
             _verify_artifact_binding(root_descriptor, artifact)
     finally:
-        os.close(root_descriptor)
+        _descriptor_close(root_descriptor)
 
     teardown = _live_absence(live_absence_probe)
-    try:
-        candidate = json.loads(prepared._candidate_payload)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        _fail("terminal_candidate_invalid")
-    if not isinstance(candidate, dict):
-        _fail("terminal_candidate_invalid")
+    candidate = pending.candidate
     expected_authority = {
         "phase_a_auth_sha256": binding.authorization_sha256,
-        "consumption_sha256": prepared._marker_sha256,
+        "consumption_sha256": pending.marker_sha256,
         "one_shot_consumed": True,
     }
     if (
