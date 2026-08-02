@@ -231,21 +231,28 @@ closure root and preserved exact failure evidence. `UAT-MTLS-D2-CLOSURE-RECOVERY
 offline preproof and exact requirements/wheel verification, then failed closed because uv's actual
 no-seed venv link topology did not yet satisfy the downstream literal `python -> python3.12`
 contract. Its closure root was removed and exact evidence preserved. `UAT-MTLS-D2-CLOSURE-RECOVERY-R3`
-is `AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+is `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD`. R3 proved
+the full initial link graph, then failed closed because uv used its exact minor-version alias
+literal for `python`; rollback removed the R3 closure root and preserved exact evidence.
+`UAT-MTLS-D2-CLOSURE-RECOVERY-R4` is
+`AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
 The pure-stdlib
 `scripts/recover_coverage_closure.py` reconstructs the exact D1 test closure under the bounded
 authority in
 `docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md`. Its `--check-only`
-mode additionally verifies the immutable R2 evidence, absent R2 closure root, two offline stdout
+mode additionally verifies the immutable R3 evidence, absent R3 closure root, two offline stdout
 exports, header-free body SHA-256 and reconstructed historical D1 requirements SHA-256 before it
-can create an R3 root. Its separately consumed R3 `--execute` mode may create only the exact fresh
-`-r3` durable closure/evidence roots, export the locked header-free requirements, download exactly
+can create an R4 root. It also proves that uv's exact minor-version alias is owned, literally points
+to the patch-level Python root, and resolves to the same device/inode and pinned SHA-256. Its
+separately consumed R4 `--execute` mode may create only the exact fresh
+`-r4` durable closure/evidence roots, export the locked header-free requirements, download exactly
 the 56 hash-pinned binary wheels, create a no-seed venv, verify and normalize only the exact uv
 three-link interpreter graph, sync offline and verify the exact installed closure digest
 `6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`.
 
-R3 execution has not run. R1 made no network call; R2 completed only its permitted wheel-acquisition
-phase before the venv-link mismatch. None of the three actions installs or extracts Coverage.py,
+R4 execution has not run. R1 made no network call; R2 and R3 completed only their permitted
+wheel-acquisition phases before their respective venv-link mismatches. None of the four actions
+installs or extracts Coverage.py,
 installs or executes Anycorn/B1, creates a listener/database/certificate/container, runs a migration
 or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime. D2 remains
 **HOLD** and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates remain

@@ -34,17 +34,57 @@
     "tree": "1c23aee6ab0f1b619a03696cbed5e1745a8da9cb"
   },
   "r3": {
+    "attempt_id": "bcc39fa10ea3b21fca7cad8e9a41986c80fd5c48018cec6cb04351ebfcdcc157",
     "closure_root": "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r3",
+    "closure_root_removed": true,
+    "commit": "a1b66b34fecc450141c6325f04423304b8e4252f",
     "correction": "verify_and_normalize_exact_uv_venv_python_link_graph",
     "evidence_root": "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3",
+    "execution_status": "failed",
+    "expected_final_links": {
+      "python": "python3.12",
+      "python3": "python",
+      "python3.12": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+    },
+    "failure_reason": "venv_identity_mismatch",
+    "network_phase_status": "wheel_acquisition_and_verification_completed",
+    "observed_initial_links": {
+      "python": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12",
+      "python3": "python",
+      "python3.12": "python"
+    },
+    "recovery_failure_sha256": "4e9c684eda9a431f3decbeae4bcf861b0de09ec89722ea022f2c1d9b8b277bbe",
+    "recovery_start_sha256": "e3fd44e695addfcffbaf9f4005d3cd4cf8cb253b2a98d038e7577b09186af220",
+    "requirements_failure_sha256": "bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d",
+    "retry_ceiling": 1,
+    "rollback_status": "removed",
+    "status": "failed_after_wheel_acquisition_authorization_consumed",
+    "tree": "fe8aa8ffac96f2cea375ef4788fe712f8e3abb28"
+  },
+  "r4": {
+    "authorized_initial_links": {
+      "python": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12",
+      "python3": "python",
+      "python3.12": "python"
+    },
+    "closure_root": "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r4",
+    "correction": "pin_and_verify_exact_uv_minor_alias_target",
+    "evidence_root": "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r4",
     "execution_status": "not_run",
     "expected_final_links": {
       "python": "python3.12",
       "python3": "python",
       "python3.12": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
     },
+    "pinned_alias": {
+      "alias_parent_literal_target": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none",
+      "alias_parent_owner_requirement": "effective_uid",
+      "literal_path": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12",
+      "realpath": "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12",
+      "sha256": "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623"
+    },
     "retry_ceiling": 1,
-    "status": "authorized_exact_venv_link_correction_preproof_required"
+    "status": "authorized_exact_uv_minor_alias_correction_preproof_required"
   },
-  "schema_version": "1.1.0"
+  "schema_version": "1.2.0"
 }

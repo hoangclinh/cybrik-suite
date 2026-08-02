@@ -1,6 +1,6 @@
 # Delegated Governor D2 coverage-closure recovery — 2026-08-02
 
-Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R3 AUTHORIZED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Status: `R1 CONSUMED — FAILED PRE-NETWORK — R2 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R3 CONSUMED — FAILED AFTER WHEEL ACQUISITION — R4 AUTHORIZED — EXECUTION NOT RUN — RUNTIME HOLD`.
 
 ## 1. Authority and outcome
 
@@ -228,3 +228,73 @@ Only a successful non-mutating `--check-only` against a clean detached exact R3 
 precede the sole R3 `--execute`. R3 is consumed when `_execute` creates its fresh evidence root.
 Any R3 failure exhausts this record; there is no automatic R4. D2 runtime, Coverage.py extraction,
 N1–N10 and every demo/POC/RC/GA/production or release boundary remain **HOLD**.
+
+### 9.1 R3 terminal execution evidence
+
+R3 passed its independent review, hosted required checks and non-mutating `--check-only`, then
+executed exactly once at Suite commit `a1b66b34fecc450141c6325f04423304b8e4252f`, tree
+`fe8aa8ffac96f2cea375ef4788fe712f8e3abb28`. Attempt
+`bcc39fa10ea3b21fca7cad8e9a41986c80fd5c48018cec6cb04351ebfcdcc157` completed the permitted
+56-wheel acquisition and verification, created the no-seed venv, and failed closed with
+`venv_identity_mismatch`. Identity-bound rollback removed the R3 closure root and preserved:
+
+- `recovery-start.json` SHA-256
+  `e3fd44e695addfcffbaf9f4005d3cd4cf8cb253b2a98d038e7577b09186af220`;
+- `recovery-failure.json` SHA-256
+  `4e9c684eda9a431f3decbeae4bcf861b0de09ec89722ea022f2c1d9b8b277bbe`;
+- `requirements-failure.txt` SHA-256
+  `bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d`;
+- evidence root
+  `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3`.
+
+The preserved failure diagnostics prove the complete initial graph was
+`python -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`,
+`python3 -> python`, and `python3.12 -> python`. The only R3 mismatch was the first link's literal:
+uv used its minor-version alias rather than the patch-level interpreter path. Separate read-only
+live-host inspection after R3—not the preserved R3 evidence—observed that the alias parent literal
+currently targets the absolute path
+`/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none` and that alias and exact
+executable currently resolve to the same regular file, device/inode and SHA-256
+`a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`. Those observations are
+inputs to the R4 design, not accepted evidence; R4 must independently prove them fail-closed before
+root creation. R3 is terminal consumed history and is not reopened or retried.
+
+## 10. Exact R4 uv-minor-alias correction authorization
+
+R4 is one separately reviewed correction for the R3 alias-literal contract defect. It retains the
+same exact ten repository paths, dependency set, 56 wheels, lock/requirements/closure digests,
+executables, endpoint boundary, rollback, negative gates and exclusions. It may use only these
+fresh roots:
+
+- closure root: `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r4`;
+- evidence root: `/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r4`.
+
+Before either R4 root can be created, the runner must bind the exact R3 attempt, commit, tree,
+failure reason and three preserved evidence digests above; prove the R3 closure root absent; prove
+a detached clean Suite commit/tree supplied to the runner; repeat the two offline requirements
+probes; and prove all of the following for the exact uv minor alias:
+
+1. literal executable
+   `/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`;
+2. its alias parent is a symlink owned by the effective uid whose literal target is exactly
+   `/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none`;
+3. alias and exact executable resolve to the same regular file and device/inode;
+4. the exact root and executable satisfy the existing owner/mode/executable controls; and
+5. the resolved executable SHA-256 remains
+   `a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`.
+
+After `uv venv --no-seed`, the only authorized initial graph is the exact R3-observed graph above.
+The runner must repeat the alias proof before normalization, normalize through descriptor-bound
+owned directories to `python -> python3.12`, `python3 -> python`, and
+`python3.12 -> <absolute patch-level pinned interpreter>`, then repeat the alias proof and verify
+the final realpath/SHA before offline sync. A regular-directory alias substitute, wrong or
+retargeted alias, unexpected link literal, unsafe owner/mode, inode drift or digest drift fails
+closed with bounded observed diagnostics and identity-bound rollback.
+
+Only a successful non-mutating `--check-only` against a clean detached exact R4 commit/tree may
+precede the sole R4 `--execute`. R4 is consumed when `_execute` creates its fresh evidence root.
+Any R4 failure exhausts this record; there is no automatic R5. This action does not install or
+extract Coverage.py. It does not install, select, execute or change Anycorn/B1. It does not create
+listeners, certificates, keys, containers or databases. It does not satisfy coverage, runtime
+admission, UAT, demo, POC, RC, GA or production gates. D2 runtime, N1–N10 and every release
+boundary remain **HOLD**; release dates remain unchanged.

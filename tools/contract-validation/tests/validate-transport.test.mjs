@@ -4696,13 +4696,21 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   );
   assert.ok(match, 'the ADR must bind the separately authorized closure-recovery prerequisite');
   const section = match[1];
-  assert.match(section, /EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD/);
-  assert.match(section, /Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2/);
-  assert.match(section, /EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED/);
-  assert.match(section, /Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3/);
   assert.match(
-    section,
-    /AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN/,
+    decision,
+    /^### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1\n\nCurrent state: `EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD`\.$/m,
+  );
+  assert.match(
+    decision,
+    /^### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2\n\nCurrent state: `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD`\.$/m,
+  );
+  assert.match(
+    decision,
+    /^### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3\n\nCurrent state: `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD`\.$/m,
+  );
+  assert.match(
+    decision,
+    /^### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R4\n\nCurrent state: `AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`\.$/m,
   );
   assert.match(section, /recover_coverage_closure\.py/);
   assert.match(section, /exactly the 56/);
@@ -4719,9 +4727,28 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   assert.equal(evidence.r2.network_phase_status, 'wheel_acquisition_and_verification_completed');
   assert.equal(evidence.r2.rollback_status, 'removed');
   assert.equal(evidence.r2.retry_ceiling, 1);
-  assert.equal(evidence.r3.execution_status, 'not_run');
+  assert.equal(evidence.r3.execution_status, 'failed');
+  assert.equal(evidence.r3.failure_reason, 'venv_identity_mismatch');
+  assert.equal(evidence.r3.network_phase_status, 'wheel_acquisition_and_verification_completed');
+  assert.equal(evidence.r3.rollback_status, 'removed');
   assert.equal(evidence.r3.retry_ceiling, 1);
   assert.equal(evidence.r3.expected_final_links.python, 'python3.12');
+  assert.equal(evidence.r4.execution_status, 'not_run');
+  assert.equal(evidence.r4.retry_ceiling, 1);
+  assert.match(evidence.r4.authorized_initial_links.python, /cpython-3\.12-macos-aarch64-none/);
+  assert.equal(evidence.r4.expected_final_links.python, 'python3.12');
+  assert.equal(
+    evidence.r4.pinned_alias.sha256,
+    'a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623',
+  );
+  assert.equal(
+    evidence.r4.pinned_alias.alias_parent_literal_target,
+    join(
+      dirname(dirname(dirname(evidence.r4.pinned_alias.literal_path))),
+      'cpython-3.12.13-macos-aarch64-none',
+    ),
+  );
+  assert.equal(evidence.r4.pinned_alias.alias_parent_owner_requirement, 'effective_uid');
   assert.equal(evidence.runtime_status, 'HOLD');
 });
 
