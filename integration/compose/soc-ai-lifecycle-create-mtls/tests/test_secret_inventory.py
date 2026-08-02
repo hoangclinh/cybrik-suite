@@ -36,6 +36,12 @@ _CNF_THUMBPRINT = "b" * 64
 _DB_PASSWORD = "p" * 32
 
 
+def _assert_opaque_artifact_id(value: str, relative_path: str) -> None:
+    assert len(value) == 64
+    int(value, 16)
+    assert value != hashlib.sha256(os.fsencode(relative_path)).hexdigest()
+
+
 # --------------------------------------------------------------------------
 # register / labels / summary
 # --------------------------------------------------------------------------
@@ -260,14 +266,15 @@ def test_path_component_matching_and_ids_use_filesystem_encoded_bytes() -> None:
         si.EXACT_SECRET_MATCH,
         "raw_filename_fragment",
     )
-    locator = si._ArtifactLocator(
-        decoded_component, artifact_id_key=artifact_id_key
+    locator = si._ArtifactLocator(decoded_component, artifact_id_key=artifact_id_key)
+    assert (
+        locator.artifact_id
+        == hmac.new(
+            artifact_id_key,
+            os.fsencode(decoded_component),
+            hashlib.sha256,
+        ).hexdigest()
     )
-    assert locator.artifact_id == hmac.new(
-        artifact_id_key,
-        os.fsencode(decoded_component),
-        hashlib.sha256,
-    ).hexdigest()
 
 
 # --------------------------------------------------------------------------
@@ -295,7 +302,7 @@ def test_scan_tree_detects_an_exact_secret_in_a_nested_file(tmp_path: Path) -> N
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].artifact_id == hashlib.sha256(b"nested/leak.txt").hexdigest()
+    _assert_opaque_artifact_id(findings[0].artifact_id, "nested/leak.txt")
     assert findings[0].reason == si.EXACT_SECRET_MATCH
     assert findings[0].label == "db_password"
 
@@ -326,7 +333,7 @@ def test_scan_tree_flags_a_symlink_as_a_finding_without_following_it(
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].artifact_id == hashlib.sha256(b"escape-link.txt").hexdigest()
+    _assert_opaque_artifact_id(findings[0].artifact_id, "escape-link.txt")
     assert findings[0].reason == si.SYMLINK_NOT_PERMITTED
     assert findings[0].label is None
     outside.unlink()
@@ -340,7 +347,7 @@ def test_scan_tree_flags_a_non_regular_file_without_blocking(tmp_path: Path) -> 
     findings = inventory.scan_tree(tmp_path)
 
     assert len(findings) == 1
-    assert findings[0].artifact_id == hashlib.sha256(b"pipe").hexdigest()
+    _assert_opaque_artifact_id(findings[0].artifact_id, "pipe")
     assert findings[0].reason == si.NON_REGULAR_FILE_NOT_PERMITTED
 
 
@@ -489,12 +496,18 @@ def test_scan_tree_detects_and_safely_remediates_an_exact_secret_in_a_filename(
     finding = findings[0]
     assert finding.reason == si.EXACT_SECRET_MATCH
     assert finding.label == "db_password"
-    assert (
-        finding.artifact_id == hashlib.sha256(artifact.name.encode("utf-8")).hexdigest()
-    )
+    _assert_opaque_artifact_id(finding.artifact_id, artifact.name)
     assert not hasattr(finding, "relative_path")
     assert _DB_PASSWORD not in repr(finding)
-    serialized_finding = json.dumps(asdict(finding), default=repr)
+    with pytest.raises(TypeError):
+        asdict(finding)
+    serialized_finding = json.dumps(
+        {
+            "artifact_id": finding.artifact_id,
+            "label": finding.label,
+            "reason": finding.reason,
+        }
+    )
     assert _DB_PASSWORD not in serialized_finding
     assert artifact.name not in serialized_finding
     assert "relative_path" not in serialized_finding
@@ -522,6 +535,18 @@ def test_scan_finding_refuses_dataclass_deepcopy_and_pickle_locator_exfiltration
         copy.deepcopy(finding)
     with pytest.raises((TypeError, pickle.PicklingError)):
         pickle.dumps(finding)
+    with pytest.raises(TypeError):
+        copy.deepcopy(finding._locator)
+    with pytest.raises((TypeError, pickle.PicklingError)):
+        pickle.dumps(finding._locator)
+    with pytest.raises(AttributeError):
+        finding.reason = evidence.JWT_VALUE
+    with pytest.raises(AttributeError):
+        finding._locator.artifact_id = "0" * 64
+    with pytest.raises(AttributeError):
+        del finding.reason
+    with pytest.raises(AttributeError):
+        del finding._locator._parts
     assert raw_component not in repr(finding)
     assert _DB_PASSWORD not in repr(finding)
 

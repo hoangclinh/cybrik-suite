@@ -14,12 +14,14 @@ starts a subprocess, or touches Docker, a database or PKI material.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import re
+import secrets
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -59,31 +61,60 @@ class SecretHandle:
 class _ArtifactLocator:
     """Private path capability whose repr never exposes its components."""
 
-    __slots__ = ("_parts", "artifact_id")
+    __slots__ = ("_parts", "_sealed", "artifact_id")
 
-    def __init__(self, relative_path: str) -> None:
+    def __init__(
+        self, relative_path: str, *, artifact_id_key: bytes | None = None
+    ) -> None:
         parts = _bounded_parts(relative_path)
-        canonical = "/".join(parts).encode("utf-8", errors="surrogatepass")
-        self._parts = parts
-        self.artifact_id = hashlib.sha256(canonical).hexdigest()
+        key = secrets.token_bytes(32) if artifact_id_key is None else artifact_id_key
+        if len(key) != 32:
+            raise SecretInventoryError("artifact-id key shape is invalid")
+        canonical = os.fsencode("/".join(parts))
+        object.__setattr__(self, "_parts", parts)
+        object.__setattr__(
+            self,
+            "artifact_id",
+            hmac.new(key, canonical, hashlib.sha256).hexdigest(),
+        )
+        object.__setattr__(self, "_sealed", True)
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        if getattr(self, "_sealed", False):
+            raise AttributeError("artifact locator capabilities are immutable")
+        object.__setattr__(self, _name, _value)
+
+    def __delattr__(self, _name: str) -> None:
+        raise AttributeError("artifact locator capabilities are immutable")
 
     def __repr__(self) -> str:
         return f"<_ArtifactLocator artifact_id={self.artifact_id}>"
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> _ArtifactLocator:
+        raise TypeError("artifact locator capabilities cannot be copied")
+
+    def __reduce__(self) -> object:
+        raise TypeError("artifact locator capabilities cannot be serialized")
+
+    def __reduce_ex__(self, _protocol: int) -> object:
+        raise TypeError("artifact locator capabilities cannot be serialized")
 
 
 def _entry_identity(status: os.stat_result) -> tuple[int, int, int]:
     return (status.st_dev, status.st_ino, stat.S_IFMT(status.st_mode))
 
 
-@dataclass(frozen=True, slots=True, init=False)
 class ScanFinding:
     """A safe public finding plus a private, non-serializable path capability."""
 
-    artifact_id: str
-    reason: str
-    label: str | None
-    _locator: _ArtifactLocator = field(repr=False, compare=False)
-    _expected_identity: tuple[int, int, int] | None = field(repr=False, compare=False)
+    __slots__ = (
+        "_expected_identity",
+        "_locator",
+        "_sealed",
+        "artifact_id",
+        "label",
+        "reason",
+    )
 
     def __init__(
         self,
@@ -103,6 +134,7 @@ class ScanFinding:
             "_expected_identity",
             _entry_identity(_expected_status) if _expected_status is not None else None,
         )
+        object.__setattr__(self, "_sealed", True)
 
     @classmethod
     def _from_locator(
@@ -118,7 +150,61 @@ class ScanFinding:
         object.__setattr__(finding, "label", label)
         object.__setattr__(finding, "_locator", locator)
         object.__setattr__(finding, "_expected_identity", _entry_identity(status))
+        object.__setattr__(finding, "_sealed", True)
         return finding
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        if getattr(self, "_sealed", False):
+            raise AttributeError("scan findings are immutable")
+        object.__setattr__(self, _name, _value)
+
+    def __delattr__(self, _name: str) -> None:
+        raise AttributeError("scan findings are immutable")
+
+    def __repr__(self) -> str:
+        return (
+            "ScanFinding("
+            f"artifact_id={self.artifact_id!r}, reason={self.reason!r}, "
+            f"label={self.label!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ScanFinding):
+            return NotImplemented
+        return (
+            self.artifact_id,
+            self.reason,
+            self.label,
+            self._expected_identity,
+        ) == (
+            other.artifact_id,
+            other.reason,
+            other.label,
+            other._expected_identity,
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.artifact_id,
+                self.reason,
+                self.label,
+                self._expected_identity,
+            )
+        )
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> ScanFinding:
+        raise TypeError("scan findings containing path capabilities cannot be copied")
+
+    def __reduce__(self) -> object:
+        raise TypeError(
+            "scan findings containing path capabilities cannot be serialized"
+        )
+
+    def __reduce_ex__(self, _protocol: int) -> object:
+        raise TypeError(
+            "scan findings containing path capabilities cannot be serialized"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +227,10 @@ def remediation_plan_for(finding: ScanFinding) -> RemediationPlan:
 
 
 def _bounded_parts(relative_path: str) -> tuple[str, ...]:
+    if "\x00" in relative_path:
+        raise SecretInventoryError(
+            "remediation target contains an invalid path component"
+        )
     relative = Path(relative_path)
     if (
         not relative_path
@@ -321,6 +411,10 @@ def apply_remediation(
                 if is_directory:
                     os.rmdir(leaf, dir_fd=parent_fd)
                 else:
+                    # POSIX has no compare-and-unlink primitive.  A replacement
+                    # made after the final identity check may itself be removed,
+                    # but ``dir_fd`` pins the already-validated parent inode and
+                    # unlink never follows a symlink leaf, so it cannot escape.
                     os.unlink(leaf, dir_fd=parent_fd)
             except OSError:
                 delete_failed = True
@@ -409,7 +503,7 @@ class SecretInventory:
 
     def _path_match(self, parts: tuple[str, ...]) -> tuple[str, str | None] | None:
         for component in parts:
-            data = component.encode("utf-8", errors="surrogatepass")
+            data = os.fsencode(component)
             label = self._exact_label(data)
             if label is not None:
                 return EXACT_SECRET_MATCH, label
@@ -471,29 +565,43 @@ class SecretInventory:
             raise SecretInventoryError("scan root must be an absolute path")
         if root.is_symlink():
             raise SecretInventoryError("scan root must not be a symlink")
-        resolved_root = root.resolve(strict=True)
+        try:
+            resolved_root = root.resolve(strict=True)
+        except OSError:
+            resolved_root = None
+        if resolved_root is None:
+            raise SecretInventoryError("scan root could not be resolved safely")
         if not resolved_root.is_dir():
             raise SecretInventoryError("scan root must be a directory")
 
+        paths_list: list[Path] = []
         try:
-            paths = tuple(resolved_root.rglob("*"))
+            for path in resolved_root.rglob("*"):
+                paths_list.append(path)
+                if len(paths_list) > MAX_SCAN_FILE_COUNT:
+                    raise SecretInventoryError(
+                        "bounded artifact tree scan exceeded the file-count bound"
+                    )
         except OSError:
-            paths = None
-        if paths is None:
+            paths_list = []
+            enumeration_failed = True
+        else:
+            enumeration_failed = False
+        if enumeration_failed:
             raise SecretInventoryError("artifact tree could not be enumerated safely")
 
         findings: list[ScanFinding] = []
-        scanned = 0
         ordered_paths = sorted(
-            paths,
+            paths_list,
             key=lambda path: (
                 -len(path.relative_to(resolved_root).parts),
                 path.relative_to(resolved_root).as_posix(),
             ),
         )
+        artifact_id_key = secrets.token_bytes(32)
         for path in ordered_paths:
             relative_posix = path.relative_to(resolved_root).as_posix()
-            locator = _ArtifactLocator(relative_posix)
+            locator = _ArtifactLocator(relative_posix, artifact_id_key=artifact_id_key)
             with _bounded_parent_descriptor(resolved_root, locator) as (
                 parent_fd,
                 leaf,
@@ -515,11 +623,6 @@ class SecretInventory:
                 continue
             if stat.S_ISDIR(status.st_mode):
                 continue
-            scanned += 1
-            if scanned > MAX_SCAN_FILE_COUNT:
-                raise SecretInventoryError(
-                    "bounded artifact tree scan exceeded the file-count bound"
-                )
             if not stat.S_ISREG(status.st_mode):
                 finding = ScanFinding._from_locator(
                     locator, NON_REGULAR_FILE_NOT_PERMITTED, None, status
