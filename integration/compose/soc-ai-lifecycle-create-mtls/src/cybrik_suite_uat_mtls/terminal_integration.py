@@ -569,7 +569,12 @@ def _freeze_public_pki(
         source = public_pki_paths.get(name)
         if not isinstance(source, Path) or source != expected_source_root / filename:
             _fail("public_pki_invalid")
-        payloads.append((filename, _source_bytes(source)))
+        payload = _source_bytes(source)
+        try:
+            runtime_evidence._validate_public_material(name, payload)
+        except runtime_evidence.RuntimeEvidenceError:
+            _fail("public_pki_invalid")
+        payloads.append((filename, payload))
 
     try:
         os.mkdir("pki-public", 0o700, dir_fd=root_descriptor)
@@ -790,16 +795,16 @@ def prepare_terminal_handoff(
         evidence_identity = _directory_identity(root_descriptor)
         marker_sha256 = _marker_digest(binding, consumed_marker, evidence_identity)
         candidate_payload = _candidate_payload(candidate, binding, marker_sha256)
-        _freeze_public_pki(root_descriptor, binding, public_pki_paths)
         receipts = _secret_sweep(
             secret_inventory, binding.evidence_root, candidate_payload
         )
+        _freeze_public_pki(root_descriptor, binding, public_pki_paths)
         artifact_bindings = tuple(
             _artifact_binding(root_descriptor, relative)
             for relative in relative_artifacts
         )
-        # Rebind public copies after the sweep so a secret-classifier deletion
-        # or replacement can never be mistaken for a successful freeze.
+        # Bind the validated public copies after the secret sweep and freeze so
+        # neither a classifier action nor a later replacement can be accepted.
         public_bindings = tuple(
             _artifact_binding(root_descriptor, ("pki-public", filename))
             for _, filename in _PUBLIC_PKI
