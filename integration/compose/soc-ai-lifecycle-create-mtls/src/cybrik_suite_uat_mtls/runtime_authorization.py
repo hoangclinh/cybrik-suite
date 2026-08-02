@@ -462,9 +462,13 @@ def verify_module_origins(
             if role == "suite"
             else authorization.product_roots[role]
         )
+        lexical_root = owner / relative
         try:
-            root = (owner / relative).resolve(strict=True)
+            resolved_owner = owner.resolve(strict=True)
+            root = lexical_root.resolve(strict=True)
         except OSError:
+            _fail("import_source_root_invalid")
+        if root != lexical_root or not root.is_relative_to(resolved_owner):
             _fail("import_source_root_invalid")
         roots.append(root)
     for path in module_paths:
