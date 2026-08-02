@@ -130,6 +130,14 @@ class PersistedTerminalEvidence:
     summary_sha256: str
 
 
+@dataclass(frozen=True)
+class _CommittedWrite:
+    """Actual digest and inode identity observed after an immutable link."""
+
+    sha256: str
+    identity: tuple[int, int]
+
+
 def _fail(reason: str) -> NoReturn:
     raise RuntimeEvidenceError(reason)
 
@@ -836,8 +844,8 @@ def _seal_artifact(
 ) -> dict[str, object]:
     payload = _read_bound_artifact(root_fd, artifact, namespace="artifact")
     snapshot_path = f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
-    snapshot_sha256 = _atomic_no_overwrite(root_fd, snapshot_path, payload)
-    if snapshot_sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
+    committed = _atomic_no_overwrite(root_fd, snapshot_path, payload)
+    if committed.sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
         _fail("artifact_digest_mismatch")
     return {**artifact, "relative_path": snapshot_path}
 
@@ -850,8 +858,8 @@ def _seal_pki_public_artifact(
         _fail("pki_public_inventory_invalid")
     payload = _read_bound_artifact(root_fd, artifact, namespace="pki")
     _validate_public_material(name, payload)
-    snapshot_sha256 = _atomic_no_overwrite(root_fd, snapshot_path, payload)
-    if snapshot_sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
+    committed = _atomic_no_overwrite(root_fd, snapshot_path, payload)
+    if committed.sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
         _fail("pki_public_artifact_digest_mismatch")
     return {**artifact, "relative_path": snapshot_path}
 
@@ -929,10 +937,13 @@ def _read_committed_payload(
         _fail(reason)
     finally:
         if descriptor >= 0:
-            os.close(descriptor)
+            try:
+                os.close(descriptor)
+            except OSError:
+                _fail(reason)
 
 
-def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
+def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> _CommittedWrite:
     temporary = f".{name}.{secrets.token_hex(16)}.tmp"
     descriptor = -1
     temporary_created = False
@@ -1020,7 +1031,8 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
         _fail("terminal_write_failed")
     if failure_reason is not None:
         _fail(failure_reason)
-    assert temporary_identity is not None
+    if temporary_identity is None:
+        _fail("terminal_write_failed")
     committed = _read_committed_payload(
         root_fd,
         name,
@@ -1028,7 +1040,10 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
         "terminal_write_failed",
         expected_identity=temporary_identity,
     )
-    return hashlib.sha256(committed).hexdigest()
+    return _CommittedWrite(
+        sha256=hashlib.sha256(committed).hexdigest(),
+        identity=temporary_identity,
+    )
 
 
 def _sealed_projection(raw_result: Mapping[str, object]) -> dict[str, object]:
@@ -1113,6 +1128,7 @@ def _validate_terminal_readback(
     root_fd: int,
     name: str,
     expected_payload: bytes,
+    expected_identity: tuple[int, int],
 ) -> str:
     """Read, hash, parse, and canonically validate one committed terminal file."""
 
@@ -1121,16 +1137,19 @@ def _validate_terminal_readback(
         name,
         len(expected_payload),
         "terminal_readback_failed",
+        expected_identity=expected_identity,
     )
     actual_sha256 = hashlib.sha256(actual).hexdigest()
     try:
         document = json.loads(actual)
-        if actual != expected_payload or canonical_json(document) != actual:
+        if canonical_json(document) != actual:
             _fail("terminal_readback_failed")
         if name == RESULT_FILENAME:
             validated = validate_terminal_result(document)
             if canonical_json(validated) != actual:
                 _fail("terminal_readback_failed")
+        if actual != expected_payload:
+            _fail("terminal_readback_failed")
     except (json.JSONDecodeError, UnicodeDecodeError, RuntimeEvidenceError):
         _fail("terminal_readback_failed")
     return actual_sha256
@@ -1175,14 +1194,22 @@ def persist_terminal_evidence(
             or sealed_artifacts != result["artifacts"]
         ):
             _fail("artifact_snapshot_inventory_invalid")
-        _atomic_no_overwrite(root_fd, RESULT_FILENAME, result_payload)
+        result_write = _atomic_no_overwrite(root_fd, RESULT_FILENAME, result_payload)
         result_sha256 = _validate_terminal_readback(
-            root_fd, RESULT_FILENAME, result_payload
+            root_fd,
+            RESULT_FILENAME,
+            result_payload,
+            result_write.identity,
         )
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
-        _atomic_no_overwrite(root_fd, TEARDOWN_FILENAME, teardown_payload)
-        teardown_sha256 = _validate_terminal_readback(
+        teardown_write = _atomic_no_overwrite(
             root_fd, TEARDOWN_FILENAME, teardown_payload
+        )
+        teardown_sha256 = _validate_terminal_readback(
+            root_fd,
+            TEARDOWN_FILENAME,
+            teardown_payload,
+            teardown_write.identity,
         )
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         try:
@@ -1194,9 +1221,12 @@ def persist_terminal_evidence(
             or expected_summary.get("teardown_sha256") != teardown_sha256
         ):
             _fail("terminal_readback_failed")
-        _atomic_no_overwrite(root_fd, SUMMARY_FILENAME, summary_payload)
+        summary_write = _atomic_no_overwrite(root_fd, SUMMARY_FILENAME, summary_payload)
         summary_sha256 = _validate_terminal_readback(
-            root_fd, SUMMARY_FILENAME, summary_payload
+            root_fd,
+            SUMMARY_FILENAME,
+            summary_payload,
+            summary_write.identity,
         )
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         os.fsync(root_fd)

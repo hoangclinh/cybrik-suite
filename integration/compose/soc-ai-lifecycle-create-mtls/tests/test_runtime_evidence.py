@@ -457,8 +457,9 @@ def test_certificate_framing_does_not_admit_random_non_x509_bytes(
     assert not any(path.name.startswith("sealed-") for path in evidence_root.iterdir())
 
 
-def test_public_certificate_contract_discloses_no_role_chain_or_distinctness_proof(
-) -> None:
+def test_public_certificate_contract_discloses_no_role_chain_or_distinctness_proof() -> (
+    None
+):
     limitation = (runtime_evidence.__doc__ or "").casefold()
     assert "parse-valid" in limitation
     assert "does not prove" in limitation
@@ -957,9 +958,7 @@ def test_terminal_result_valid_json_schema_corruption_reaches_revalidation(
             )
         return real_write(descriptor, payload)
 
-    monkeypatch.setattr(
-        runtime_evidence, "validate_terminal_result", record_validation
-    )
+    monkeypatch.setattr(runtime_evidence, "validate_terminal_result", record_validation)
     monkeypatch.setattr(runtime_evidence.os, "write", corrupt_schema_but_keep_json)
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
@@ -1016,9 +1015,7 @@ def test_terminal_readback_rejects_byte_identical_inode_replacement(
     real_atomic = runtime_evidence._atomic_no_overwrite
     replaced = False
 
-    def replace_result_after_commit(
-        root_fd: int, name: str, payload: bytes
-    ) -> object:
+    def replace_result_after_commit(root_fd: int, name: str, payload: bytes) -> object:
         nonlocal replaced
         committed = real_atomic(root_fd, name, payload)
         if name == runtime_evidence.RESULT_FILENAME:
@@ -1031,7 +1028,9 @@ def test_terminal_readback_rejects_byte_identical_inode_replacement(
             replaced = True
         return committed
 
-    monkeypatch.setattr(runtime_evidence, "_atomic_no_overwrite", replace_result_after_commit)
+    monkeypatch.setattr(
+        runtime_evidence, "_atomic_no_overwrite", replace_result_after_commit
+    )
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert replaced is True
@@ -1101,6 +1100,39 @@ def test_artifact_root_dup_failure_is_stable_and_path_free(
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == "pki_public_artifact_unsafe"
     assert "/" not in str(caught.value)
+
+
+def test_committed_readback_close_failure_is_stable(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    payload = b"{}\n"
+    runtime_evidence._atomic_no_overwrite(root_fd, "bounded.json", payload)
+    real_close = runtime_evidence.os.close
+    failed = False
+
+    def fail_regular_file_close(descriptor: int) -> None:
+        nonlocal failed
+        if not failed and stat.S_ISREG(os.fstat(descriptor).st_mode):
+            failed = True
+            real_close(descriptor)
+            raise OSError("synthetic close failure")
+        real_close(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "close", fail_regular_file_close)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._read_committed_payload(
+                root_fd,
+                "bounded.json",
+                len(payload),
+                "terminal_readback_failed",
+            )
+        assert failed is True
+        assert caught.value.reason == "terminal_readback_failed"
+    finally:
+        monkeypatch.setattr(runtime_evidence.os, "close", real_close)
+        real_close(root_fd)
 
 
 def test_partial_seal_poisoning_is_documented_as_non_retryable_preservation() -> None:
