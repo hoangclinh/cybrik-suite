@@ -4567,7 +4567,10 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.ok(match, 'the ADR must define one D2-COV-P0 dependency proposal before verifier authoring');
   const section = match[1];
 
-  assert.match(section, /Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`/);
+  assert.match(
+    section,
+    /Current state: `EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — AUTHORIZATION CONSUMED — RUNTIME HOLD`/,
+  );
   assert.doesNotMatch(section, /<PINNED_PYTHON> -m pip install/);
   assert.doesNotMatch(section, /\bpip install\b|ensurepip|uv pip/);
   assert.match(section, /<PINNED_PYTHON> -m zipfile -e/);

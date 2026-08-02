@@ -570,7 +570,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     normalized_readme = " ".join(harness_readme.split())
 
     assert "Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal" in decision
-    assert "PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION" in decision
+    assert (
+        "EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — "
+        "AUTHORIZATION CONSUMED — RUNTIME HOLD"
+    ) in decision
     assert "coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl" in decision
     assert (
         "b868acc62aa5de3be7a9d05c2333bf8359ca987e43f9cb30ff8fbda6a024ab73" in decision
