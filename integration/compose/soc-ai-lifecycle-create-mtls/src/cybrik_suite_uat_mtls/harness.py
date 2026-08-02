@@ -35,6 +35,7 @@ RESOURCE_KINDS = (
 )
 
 _AUTHORIZATION_SHA_ENV: Final = "CYBRIK_UAT_D2_AUTHORIZATION_SHA256"
+_EXACT_HEAD_GRANT_SHA_ENV: Final = "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256"
 _RUNTIME_DIR_ENV: Final = "CYBRIK_UAT_D2_RUNTIME_DIR"
 _EVIDENCE_DIR_ENV: Final = "CYBRIK_UAT_D2_EVIDENCE_DIR"
 _SOC_REPO_ENV: Final = "CYBRIK_UAT_D2_SOC_REPO"
@@ -311,7 +312,11 @@ def rollback() -> None:
     if not roots_exist:
         return
     expected_authorization_sha = os.environ.get(_AUTHORIZATION_SHA_ENV, "")
-    if re.fullmatch(r"[0-9a-f]{64}", expected_authorization_sha) is None:
+    expected_exact_head_grant_sha = os.environ.get(_EXACT_HEAD_GRANT_SHA_ENV, "")
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", expected_authorization_sha) is None
+        or re.fullmatch(r"[0-9a-f]{64}", expected_exact_head_grant_sha) is None
+    ):
         raise RuntimeAuthorizationError(
             "consumed authorization marker is invalid: authorization digest absent"
         )
@@ -319,6 +324,7 @@ def rollback() -> None:
         marker = runtime_authorization.verify_consumption_marker(
             evidence_root,
             expected_authorization_sha256=expected_authorization_sha,
+            expected_exact_head_grant_sha256=expected_exact_head_grant_sha,
             expected_runtime_root=runtime_root,
         )
     except runtime_authorization.RuntimeAuthorizationFailure as exc:

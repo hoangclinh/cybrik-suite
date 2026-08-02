@@ -1,10 +1,10 @@
 """Fail-closed authorization boundary for the single D2 runtime attempt.
 
-The authorization document binds an admitted Suite ancestor and a digest of
-the exact runtime surface.  It deliberately does not bind the commit that
-contains the authorization document: doing so would create an impossible Git
-self-reference.  Importing this module is inert and every helper is suitable
-for synthetic, no-network unit tests.
+The committed authorization binds an admitted Suite ancestor and the runtime
+surface.  A separate, external, digest-pinned post-commit grant binds that
+authorization to the exact final Suite HEAD and aggregate without creating a
+Git self-reference.  Importing this module is inert and every helper is
+suitable for synthetic, no-network unit tests.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from typing import Final, Never
 from . import policy
 
 BINDING_VERSION: Final = "CYBRIK-D2-RUNTIME-AUTH/v1"
+EXACT_HEAD_GRANT_VERSION: Final = "CYBRIK-D2-EXACT-HEAD-GRANT/v1"
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
@@ -150,6 +151,21 @@ EXPECTED_FIELDS: Final = (
     "CONSUMPTION_MARKER",
     "ROLLBACK",
 )
+EXACT_HEAD_GRANT_FIELDS: Final = (
+    "D2_EXACT_HEAD_GRANT",
+    "AUTHORIZED_BY",
+    "GRANT_VERSION",
+    "AUTHORIZATION_SHA256",
+    "SUITE_HEAD",
+    "RUNTIME_CODE_AGGREGATE_SHA256",
+)
+EXACT_HEAD_GRANT_PINNED_VALUES: Final = MappingProxyType(
+    {
+        "D2_EXACT_HEAD_GRANT": "APPROVE",
+        "AUTHORIZED_BY": "FOUNDER",
+        "GRANT_VERSION": EXACT_HEAD_GRANT_VERSION,
+    }
+)
 
 _PRODUCT_IDENTITIES: Final = MappingProxyType(
     {
@@ -190,6 +206,9 @@ PINNED_VALUES: Final = MappingProxyType(
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _AUTHORIZATION_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
+_EXACT_HEAD_GRANT_NAME = re.compile(
+    r"cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt"
+)
 _ROOT_NAMES: Final = {
     "RUNTIME_ROOT": re.compile(r"cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}"),
     "EVIDENCE_ROOT": re.compile(r"cybrik-uat-d2-evidence-[a-z0-9][a-z0-9._-]{0,63}"),
@@ -238,6 +257,10 @@ class ObservedRuntimeState:
     authorization_path: Path
     authorization_sha256: str
     expected_authorization_sha256: str
+    exact_head_grant_path: Path
+    exact_head_grant_sha256: str
+    expected_exact_head_grant_sha256: str
+    exact_head_grant: Mapping[str, str]
     b1_wheel_sha256: str
     candidate: CandidateState
     products: tuple[ObservedProduct, ...]
@@ -251,9 +274,11 @@ class RuntimeAuthorization:
     expires_at: datetime
     now: datetime
     suite_root: Path
+    suite_head: str
     suite_admission_base: str
     aggregate_sha256: str
     authorization_sha256: str
+    exact_head_grant_sha256: str
     runtime_root: Path
     evidence_root: Path
     product_roots: Mapping[str, Path]
@@ -363,6 +388,25 @@ def parse_authorization(text: str) -> dict[str, str]:
     return fields
 
 
+def parse_exact_head_grant(text: str) -> dict[str, str]:
+    """Parse the external post-commit exact-head grant."""
+
+    if not isinstance(text, str) or "\r" in text or not text.endswith("\n"):
+        _fail("exact_head_grant_invalid")
+    lines = text.splitlines()
+    if len(lines) != len(EXACT_HEAD_GRANT_FIELDS):
+        _fail("exact_head_grant_invalid")
+    fields: dict[str, str] = {}
+    for expected, line in zip(EXACT_HEAD_GRANT_FIELDS, lines, strict=True):
+        if not line.startswith(f"{expected}="):
+            _fail("exact_head_grant_invalid")
+        value = line[len(expected) + 1 :]
+        if not value or value != value.strip():
+            _fail("exact_head_grant_invalid")
+        fields[expected] = value
+    return fields
+
+
 def read_authorization(path: Path) -> bytes:
     """Read a regular authorization file without following its final symlink."""
 
@@ -443,6 +487,31 @@ def validate_authorization(
         _fail("authorization_path_not_canonical")
     if observed.authorization_sha256 != observed.expected_authorization_sha256:
         _fail("authorization_digest_mismatch")
+    if observed.runtime_code_aggregate != fields["RUNTIME_CODE_AGGREGATE_SHA256"]:
+        _fail("runtime_code_aggregate_mismatch")
+    grant = observed.exact_head_grant
+    if tuple(grant) != EXACT_HEAD_GRANT_FIELDS:
+        _fail("exact_head_grant_invalid")
+    for key, expected in EXACT_HEAD_GRANT_PINNED_VALUES.items():
+        if grant.get(key) != expected:
+            _fail("exact_head_grant_pinned_value_mismatch")
+    if (
+        _HEX64.fullmatch(observed.exact_head_grant_sha256) is None
+        or _HEX64.fullmatch(observed.expected_exact_head_grant_sha256) is None
+        or observed.exact_head_grant_sha256 != observed.expected_exact_head_grant_sha256
+    ):
+        _fail("exact_head_grant_digest_mismatch")
+    if _HEX40.fullmatch(grant["SUITE_HEAD"]) is None or any(
+        _HEX64.fullmatch(grant[key]) is None
+        for key in ("AUTHORIZATION_SHA256", "RUNTIME_CODE_AGGREGATE_SHA256")
+    ):
+        _fail("exact_head_grant_invalid")
+    if grant["AUTHORIZATION_SHA256"] != observed.authorization_sha256:
+        _fail("exact_head_grant_authorization_mismatch")
+    if grant["SUITE_HEAD"] != observed.suite_head:
+        _fail("suite_exact_head_mismatch")
+    if grant["RUNTIME_CODE_AGGREGATE_SHA256"] != observed.runtime_code_aggregate:
+        _fail("exact_head_grant_aggregate_mismatch")
     if observed.suite_status:
         _fail("suite_checkout_not_clean")
     if (
@@ -450,8 +519,6 @@ def validate_authorization(
         or not observed.admission_base_descends_d1_base
     ):
         _fail("suite_admission_base_invalid")
-    if observed.runtime_code_aggregate != fields["RUNTIME_CODE_AGGREGATE_SHA256"]:
-        _fail("runtime_code_aggregate_mismatch")
     if observed.b1_wheel_sha256 != fields["B1_WHEEL_SHA256"]:
         _fail("b1_wheel_digest_mismatch")
 
@@ -504,6 +571,22 @@ def validate_authorization(
         if any(root == temp or root.is_relative_to(temp) for temp in temp_roots):
             _fail("external_root_under_temp")
     repository_roots = (suite_root, *roots_by_role.values())
+    grant_path = observed.exact_head_grant_path
+    try:
+        grant_metadata = grant_path.lstat()
+        resolved_grant_path = grant_path.resolve(strict=True)
+    except OSError:
+        _fail("exact_head_grant_path_invalid")
+    if (
+        grant_path != resolved_grant_path
+        or grant_path.is_symlink()
+        or not stat.S_ISREG(grant_metadata.st_mode)
+        or grant_metadata.st_nlink != 1
+        or stat.S_IMODE(grant_metadata.st_mode) & 0o022
+        or _EXACT_HEAD_GRANT_NAME.fullmatch(grant_path.name) is None
+        or any(_overlap(grant_path, repository) for repository in repository_roots)
+    ):
+        _fail("exact_head_grant_path_invalid")
     if _overlap(runtime_root, evidence_root) or any(
         _overlap(external, repository)
         for external in (runtime_root, evidence_root)
@@ -517,9 +600,11 @@ def validate_authorization(
         expires_at=expires_at,
         now=now,
         suite_root=suite_root,
+        suite_head=observed.suite_head,
         suite_admission_base=fields["SUITE_ADMISSION_BASE"],
         aggregate_sha256=fields["RUNTIME_CODE_AGGREGATE_SHA256"],
         authorization_sha256=observed.authorization_sha256,
+        exact_head_grant_sha256=observed.exact_head_grant_sha256,
         runtime_root=runtime_root,
         evidence_root=evidence_root,
         product_roots=MappingProxyType(roots_by_role),
@@ -606,6 +691,7 @@ def _marker_record(
     return {
         "authorization_id": authorization.authorization_id,
         "authorization_sha256": authorization.authorization_sha256,
+        "exact_head_grant_sha256": authorization.exact_head_grant_sha256,
         "consumed_at": authorization.now.isoformat(),
         "evidence_root": str(authorization.evidence_root),
         "evidence_root_identity": {
@@ -617,6 +703,7 @@ def _marker_record(
         "runtime_root": str(authorization.runtime_root),
         "status": "consumed",
         "suite_admission_base": authorization.suite_admission_base,
+        "suite_head": authorization.suite_head,
     }
 
 
@@ -838,6 +925,7 @@ def verify_consumption_marker(
     evidence_root: Path,
     *,
     expected_authorization_sha256: str | None = None,
+    expected_exact_head_grant_sha256: str | None = None,
     expected_runtime_root: Path | None = None,
 ) -> dict[str, object] | None:
     """Read a marker for rollback without ever consuming authorization."""
@@ -857,6 +945,11 @@ def verify_consumption_marker(
             and record.get("authorization_sha256") != expected_authorization_sha256
         )
         or (
+            expected_exact_head_grant_sha256 is not None
+            and record.get("exact_head_grant_sha256")
+            != expected_exact_head_grant_sha256
+        )
+        or (
             expected_runtime_root is not None
             and record.get("runtime_root") != str(expected_runtime_root)
         )
@@ -871,6 +964,7 @@ def verify_consumed(authorization: RuntimeAuthorization) -> dict[str, object]:
     record = verify_consumption_marker(
         authorization.evidence_root,
         expected_authorization_sha256=authorization.authorization_sha256,
+        expected_exact_head_grant_sha256=authorization.exact_head_grant_sha256,
         expected_runtime_root=authorization.runtime_root,
     )
     if record is None:
@@ -953,6 +1047,34 @@ def _required_absolute_env(name: str, *, existing: bool) -> Path:
     return parent / path.name
 
 
+def _exact_head_grant_from_environment() -> tuple[Path, dict[str, str], str, str]:
+    raw_path = os.environ.get("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", "")
+    path = _path(raw_path, "exact_head_grant_path_invalid")
+    try:
+        metadata = path.lstat()
+        resolved = path.resolve(strict=True)
+    except OSError:
+        _fail("exact_head_grant_path_invalid")
+    if (
+        resolved != path
+        or path.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or stat.S_IMODE(metadata.st_mode) & 0o022
+        or _EXACT_HEAD_GRANT_NAME.fullmatch(path.name) is None
+    ):
+        _fail("exact_head_grant_path_invalid")
+    raw = read_authorization(path)
+    try:
+        fields = parse_exact_head_grant(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        _fail("exact_head_grant_invalid")
+    expected_sha = os.environ.get("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "")
+    if _HEX64.fullmatch(expected_sha) is None:
+        _fail("exact_head_grant_digest_mismatch")
+    return path, fields, hashlib.sha256(raw).hexdigest(), expected_sha
+
+
 def _admission_base_for_git(fields: Mapping[str, str]) -> str:
     admission_base = fields.get("SUITE_ADMISSION_BASE", "")
     if _HEX40.fullmatch(admission_base) is None:
@@ -979,6 +1101,12 @@ def authorize_from_environment() -> RuntimeAuthorization:
     if _HEX64.fullmatch(expected_sha) is None:
         _fail("authorization_digest_invalid")
     authorization_sha = hashlib.sha256(raw).hexdigest()
+    (
+        exact_head_grant_path,
+        exact_head_grant,
+        exact_head_grant_sha,
+        expected_exact_head_grant_sha,
+    ) = _exact_head_grant_from_environment()
     wheel = _required_absolute_env("CYBRIK_UAT_D2_B1_WHEEL", existing=True)
     runtime_environment_root = _required_absolute_env(
         "CYBRIK_UAT_D2_RUNTIME_DIR", existing=False
@@ -1067,6 +1195,10 @@ def authorize_from_environment() -> RuntimeAuthorization:
         authorization_path=authorization_path,
         authorization_sha256=authorization_sha,
         expected_authorization_sha256=expected_sha,
+        exact_head_grant_path=exact_head_grant_path,
+        exact_head_grant_sha256=exact_head_grant_sha,
+        expected_exact_head_grant_sha256=expected_exact_head_grant_sha,
+        exact_head_grant=exact_head_grant,
         b1_wheel_sha256=_sha256(wheel),
         candidate=_candidate(suite_root / CANDIDATE_REL),
         products=tuple(products),

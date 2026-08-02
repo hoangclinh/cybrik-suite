@@ -61,6 +61,8 @@ def test_runtime_entrypoint_has_a_committed_authorization_guard() -> None:
         "CYBRIK_UAT_D2_EXECUTION_AUTHORIZED",
         "CYBRIK_UAT_D2_AUTHORIZATION_PATH",
         "CYBRIK_UAT_D2_AUTHORIZATION_SHA256",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256",
         "execution_authorized",
         "not_run",
         "RUNTIME_ROOT",
@@ -311,7 +313,15 @@ def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(
         ".pytest_cache/\n__pycache__/\n*.pyc\n", encoding="utf-8"
     )
     smoke = repository / "test_smoke.py"
-    smoke.write_text("def test_smoke():\n    assert True\n", encoding="utf-8")
+    smoke.write_text(
+        "from pathlib import Path\n"
+        "import sys\n\n"
+        "def test_smoke():\n"
+        "    observed = {Path(item).resolve() for item in sys.path if item}\n"
+        "    assert Path.cwd().resolve() not in observed\n"
+        "    assert Path(__file__).parent.resolve() not in observed\n",
+        encoding="utf-8",
+    )
     subprocess.run(("git", "init", "-q", str(repository)), check=True)
     subprocess.run(("git", "-C", str(repository), "add", "."), check=True)
     subprocess.run(
@@ -335,8 +345,10 @@ def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(
         {
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
             "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONSAFEPATH": "1",
         }
     )
+    environment.pop("PYTHONPATH", None)
 
     completed = subprocess.run(
         (
@@ -349,6 +361,7 @@ def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(
             "-o",
             "addopts=",
             "--noconftest",
+            "--import-mode=importlib",
             "-c",
             "/dev/null",
             str(smoke),
@@ -710,6 +723,7 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
     (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
     teardown_calls: list[str] = []
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -730,6 +744,7 @@ def test_rollback_refuses_partial_evidence_root_without_a_marker(
     (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
     teardown_calls: list[str] = []
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
@@ -749,18 +764,26 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     runtime_root.mkdir(mode=0o700)
     evidence_root.mkdir(mode=0o700)
     teardown_calls: list[str] = []
-    marker_checks: list[tuple[Path, str | None, Path | None]] = []
+    marker_checks: list[tuple[Path, str | None, str | None, Path | None]] = []
     authorization_sha = "a" * 64
+    exact_head_grant_sha = "e" * 64
     monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", authorization_sha)
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", exact_head_grant_sha)
 
     def accept_marker(
         evidence: Path,
         *,
         expected_authorization_sha256: str | None = None,
+        expected_exact_head_grant_sha256: str | None = None,
         expected_runtime_root: Path | None = None,
     ) -> dict[str, str]:
         marker_checks.append(
-            (evidence, expected_authorization_sha256, expected_runtime_root)
+            (
+                evidence,
+                expected_authorization_sha256,
+                expected_exact_head_grant_sha256,
+                expected_runtime_root,
+            )
         )
         return {"status": "consumed"}
 
@@ -775,7 +798,9 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     harness.rollback()
 
     assert teardown_calls == ["called"]
-    assert marker_checks == [(evidence_root, authorization_sha, runtime_root)]
+    assert marker_checks == [
+        (evidence_root, authorization_sha, exact_head_grant_sha, runtime_root)
+    ]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:

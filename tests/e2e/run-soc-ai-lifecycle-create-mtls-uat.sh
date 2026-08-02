@@ -23,6 +23,8 @@ evidence_dir="${CYBRIK_UAT_D2_EVIDENCE_DIR:-}"
 b1_wheel="${CYBRIK_UAT_D2_B1_WHEEL:-}"
 authorization_path="${CYBRIK_UAT_D2_AUTHORIZATION_PATH:-}"
 authorization_sha="${CYBRIK_UAT_D2_AUTHORIZATION_SHA256:-}"
+exact_head_grant="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT:-}"
+exact_head_grant_sha="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256:-}"
 
 die() {
   echo "soc-ai lifecycle D2 runner: $*" >&2
@@ -54,6 +56,13 @@ verify_exact_checkout() {
     || die "$label checkout is not clean"
 }
 
+verify_suite_unchanged() {
+  [[ "$(git -C "$suite_root" rev-parse HEAD)" == "$exact_suite_head" ]] \
+    || die "exact Suite HEAD mismatch"
+  [[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
+    || die "Suite checkout changed during the exact attempt"
+}
+
 [[ "$python_bin" == /* && -x "$python_bin" ]] || die "PYTHON must be an absolute executable"
 [[ "$soc_repo" == /* ]] || die "SOC repository path must be absolute"
 [[ "$ai_repo" == /* ]] || die "Cyber AI repository path must be absolute"
@@ -81,19 +90,32 @@ for repo in "$suite_root" "$soc_repo" "$ai_repo" "$fabric_repo"; do
   esac
 done
 [[ "$b1_wheel" == /* && -f "$b1_wheel" ]] || die "B1 wheel path must be an absolute file"
+[[ "$exact_head_grant" == /* && -f "$exact_head_grant" && ! -L "$exact_head_grant" ]] \
+  || die "exact-head grant must be an external regular file"
+[[ "${exact_head_grant##*/}" =~ ^cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt$ ]] \
+  || die "exact-head grant name is not purpose-bound"
+for repo in "$suite_root" "$soc_repo" "$ai_repo" "$fabric_repo"; do
+  case "$exact_head_grant/" in "$repo/"*) die "exact-head grant must be outside repositories" ;; esac
+done
 [[ "$authorization_path" == "$suite_root/docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/04-runtime-authorization.md" ]] \
   || die "authorization path is not canonical"
 [[ ${#authorization_sha} -eq 64 ]] && is_hex "$authorization_sha" \
   || die "authorization digest must be exact lowercase SHA-256"
 [[ "$(shasum -a 256 "$authorization_path" | awk '{print $1}')" == "$authorization_sha" ]] \
   || die "authorization artifact digest mismatch"
+[[ ${#exact_head_grant_sha} -eq 64 ]] && is_hex "$exact_head_grant_sha" \
+  || die "exact-head grant digest must be exact lowercase SHA-256"
+[[ "$(shasum -a 256 "$exact_head_grant" | awk '{print $1}')" == "$exact_head_grant_sha" ]] \
+  || die "exact-head grant digest mismatch"
+exact_suite_head="$(awk -F= '$1 == "SUITE_HEAD" { print $2 }' "$exact_head_grant")"
+[[ ${#exact_suite_head} -eq 40 ]] && is_hex "$exact_suite_head" \
+  || die "exact-head grant Suite HEAD is invalid"
 [[ "$(shasum -a 256 "$b1_wheel" | awk '{print $1}')" == "$b1_sha256" ]] \
   || die "B1 wheel digest mismatch"
 
 git -C "$suite_root" merge-base --is-ancestor "$suite_d1_base" HEAD \
   || die "Suite candidate is not descended from integrated D1"
-[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
-  || die "Suite checkout is not clean"
+verify_suite_unchanged
 verify_exact_checkout "SOC" "$soc_repo" "$soc_commit" "$soc_tree"
 verify_exact_checkout "Cyber AI" "$ai_repo" "$ai_commit" "$ai_tree"
 verify_exact_checkout "Tool Fabric" "$fabric_repo" "$fabric_commit" "$fabric_tree"
@@ -119,13 +141,15 @@ export CYBRIK_UAT_D2_EVIDENCE_DIR="$evidence_dir"
 export CYBRIK_UAT_D2_B1_WHEEL="$b1_wheel"
 export CYBRIK_UAT_D2_AUTHORIZATION_PATH="$authorization_path"
 export CYBRIK_UAT_D2_AUTHORIZATION_SHA256="$authorization_sha"
+export CYBRIK_UAT_D2_EXACT_HEAD_GRANT="$exact_head_grant"
+export CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256="$exact_head_grant_sha"
 
 # Discover only the selected interpreter's own dependency roots under isolated
 # startup. Product/Suite imports remain the exact PYTHONPATH tuple checked by
 # runtime_authorization; -I then ignores that environment until this bootstrap
 # installs the admitted roots explicitly, after site customization is disabled.
-python_purelib="$("$python_bin" -I -c 'import sysconfig; print(sysconfig.get_path("purelib"))')"
-python_platlib="$("$python_bin" -I -c 'import sysconfig; print(sysconfig.get_path("platlib"))')"
+python_purelib="$("$python_bin" -I -B -c 'import sysconfig; print(sysconfig.get_path("purelib"))')"
+python_platlib="$("$python_bin" -I -B -c 'import sysconfig; print(sysconfig.get_path("platlib"))')"
 [[ "$python_purelib" == /* && -d "$python_purelib" ]] \
   || die "Python purelib root is unavailable"
 [[ "$python_platlib" == /* && -d "$python_platlib" ]] \
@@ -136,7 +160,7 @@ if [[ "$python_platlib" != "$python_purelib" ]]; then
 fi
 
 run_python_module() {
-  "$python_bin" -I -S -c '
+  "$python_bin" -I -B -S -c '
 import os
 import runpy
 import sys
@@ -144,6 +168,8 @@ import sys
 roots = tuple(sys.argv[1].split(os.pathsep))
 if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
     raise SystemExit("unsafe Python startup flags")
+if not sys.dont_write_bytecode:
+    raise SystemExit("Python bytecode writes are enabled")
 if not roots or any(not root or not os.path.isabs(root) for root in roots):
     raise SystemExit("unsafe Python import roots")
 if any(item in {"", ".", os.getcwd()} for item in sys.path):
@@ -164,6 +190,7 @@ runpy.run_module(module, run_name="__main__", alter_sys=True)
 # process, listener, database, PKI or evidence root.
 cd "$suite_src"
 run_python_module cybrik_suite_uat_mtls.runtime_authorization --check-only
+verify_suite_unchanged
 
 cleanup_required=true
 cleanup() {
@@ -182,18 +209,22 @@ trap cleanup EXIT INT TERM
 run_python_module cybrik_suite_uat_mtls.harness start \
   --ai-bind 127.0.0.1:58443 \
   --postgres-bind 127.0.0.1:55432
+verify_suite_unchanged
 cd "$runtime_dir"
 run_python_module cybrik_suite_uat_mtls.harness seed
+verify_suite_unchanged
 run_python_module cybrik_suite_uat_mtls.harness reset
+verify_suite_unchanged
 run_python_module pytest -q \
   -p no:cacheprovider \
   -o addopts= \
   --noconftest \
+  --import-mode=importlib \
   -c /dev/null \
   "$suite_root/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence"
-[[ -z "$(git -C "$suite_root" status --porcelain --untracked-files=all --ignored)" ]] \
-  || die "pytest changed the exact Suite checkout before stop"
+verify_suite_unchanged
 run_python_module cybrik_suite_uat_mtls.harness stop
+verify_suite_unchanged
 run_python_module cybrik_suite_uat_mtls.harness rollback
 cleanup_required=false
 trap - EXIT INT TERM

@@ -135,8 +135,7 @@ def _observed(
     host_temp: Path,
 ) -> authorization.ObservedRuntimeState:
     exact_head_grant_path = (
-        suite.parent
-        / "grant-holder/cybrik-uat-d2-exact-head-grant-unit.txt"
+        suite.parent / "grant-holder/cybrik-uat-d2-exact-head-grant-unit.txt"
     )
     _write(exact_head_grant_path, "synthetic external exact-head grant\n")
     return authorization.ObservedRuntimeState(
@@ -483,6 +482,43 @@ def test_parse_exact_head_grant_accepts_only_the_exact_ordered_document(
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.parse_exact_head_grant(text + "EXTRA=denied\n")
     assert caught.value.reason == "exact_head_grant_invalid"
+
+
+def test_exact_head_grant_environment_observer_binds_file_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    grant_path = fixture.observed.exact_head_grant_path
+    payload = "".join(
+        f"{key}={fixture.observed.exact_head_grant[key]}\n"
+        for key in authorization.EXACT_HEAD_GRANT_FIELDS
+    )
+    grant_path.write_text(payload, encoding="utf-8")
+    digest = hashlib.sha256(grant_path.read_bytes()).hexdigest()
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(grant_path))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", digest)
+
+    assert authorization._exact_head_grant_from_environment() == (
+        grant_path,
+        fixture.observed.exact_head_grant,
+        digest,
+        digest,
+    )
+
+
+def test_exact_head_grant_environment_observer_rejects_a_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    target = fixture.observed.exact_head_grant_path
+    link = target.with_name("cybrik-uat-d2-exact-head-grant-symlink.txt")
+    link.symlink_to(target)
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(link))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "e" * 64)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._exact_head_grant_from_environment()
+    assert caught.value.reason == "exact_head_grant_path_invalid"
 
 
 @pytest.mark.parametrize(
