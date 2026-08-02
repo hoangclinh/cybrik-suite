@@ -33,6 +33,8 @@ EXACT_HEAD_GRANT_SIGNER_IDENTITY: Final = "cybrik-codex-governor"
 EXACT_HEAD_GRANT_NAMESPACE: Final = "cybrik-d2-exact-head-grant"
 EXACT_HEAD_GRANT_VERIFY_BINARY: Final = Path("/usr/bin/ssh-keygen")
 MAX_ALLOWED_SIGNERS_BYTES: Final = 16 * 1024
+MAX_AUTHORIZATION_BYTES: Final = 64 * 1024
+MAX_CANDIDATE_BYTES: Final = 1024 * 1024
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
@@ -48,6 +50,14 @@ CANDIDATE_REL: Final = Path(
 
 _SOURCE_ROOT = "integration/compose/soc-ai-lifecycle-create-mtls/src"
 _PACKAGE = f"{_SOURCE_ROOT}/cybrik_suite_uat_mtls"
+_GIT_ENV: Final = MappingProxyType(
+    {
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
+)
 RUNTIME_CODE_PATHS: Final = tuple(
     sorted(
         (
@@ -423,28 +433,74 @@ def parse_exact_head_grant(text: str) -> dict[str, str]:
     return fields
 
 
-def read_authorization(path: Path) -> bytes:
-    """Read a regular authorization file without following its final symlink."""
+def _read_bound_regular_file(path: Path, *, maximum: int, reason: str) -> bytes:
+    """Read one bounded regular-file inode without reopening its pathname."""
 
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     descriptor: int | None = None
     try:
         descriptor = os.open(path, flags)
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode):
-            _fail("authorization_artifact_invalid")
-        stream = os.fdopen(descriptor, "rb")
-        descriptor = None
-        with stream:
-            return stream.read()
-    except OSError:
-        _fail("authorization_artifact_invalid")
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before.st_size < 0
+            or before.st_size > maximum
+        ):
+            _fail(reason)
+        chunks: list[bytes] = []
+        remaining = maximum + 1
+        while remaining > 0:
+            chunk = os.read(descriptor, min(64 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        before_identity = (
+            before.st_dev,
+            before.st_ino,
+            stat.S_IFMT(before.st_mode),
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        )
+        after_identity = (
+            after.st_dev,
+            after.st_ino,
+            stat.S_IFMT(after.st_mode),
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+        if (
+            before_identity != after_identity
+            or len(payload) != before.st_size
+            or len(payload) > maximum
+        ):
+            _fail(reason)
+        return payload
+    except RuntimeAuthorizationFailure:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail(reason)
     finally:
         if descriptor is not None:
             try:
                 os.close(descriptor)
             except OSError:
                 pass
+
+
+def read_authorization(path: Path) -> bytes:
+    """Read the bounded authorization artifact from one stable inode."""
+
+    return _read_bound_regular_file(
+        path,
+        maximum=MAX_AUTHORIZATION_BYTES,
+        reason="authorization_artifact_invalid",
+    )
 
 
 def _timestamp(value: str) -> datetime:
@@ -1064,6 +1120,7 @@ def _git(root: Path, *args: str, allow_status: bool = False) -> str:
             text=True,
             timeout=30,
             shell=False,
+            env=dict(_GIT_ENV),
         )
     except (OSError, subprocess.SubprocessError):
         _fail("repository_observation_failed")
@@ -1090,6 +1147,7 @@ def _is_git_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
             capture_output=True,
             timeout=30,
             shell=False,
+            env=dict(_GIT_ENV),
         )
     except (OSError, subprocess.SubprocessError):
         _fail("repository_observation_failed")
@@ -1100,9 +1158,12 @@ def _is_git_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
 
 def _candidate(path: Path) -> CandidateState:
     try:
-        if path.is_symlink() or not path.is_file():
-            _fail("candidate_invalid")
-        document = json.loads(path.read_text(encoding="utf-8"))
+        payload = _read_bound_regular_file(
+            path,
+            maximum=MAX_CANDIDATE_BYTES,
+            reason="candidate_invalid",
+        )
+        document = json.loads(payload.decode("utf-8"))
         if not isinstance(document, Mapping):
             _fail("candidate_invalid")
         current = document["attempt_accounting"]["current_attempt"]
@@ -1114,8 +1175,7 @@ def _candidate(path: Path) -> CandidateState:
         KeyError,
         RecursionError,
         TypeError,
-        UnicodeDecodeError,
-        json.JSONDecodeError,
+        ValueError,
     ):
         _fail("candidate_invalid")
     pinned = current.get("authorization_sha256")
@@ -1408,6 +1468,24 @@ def _admission_base_for_git(fields: Mapping[str, str]) -> str:
     return admission_base
 
 
+def _observe_suite(root: Path, admission_base: str) -> tuple[str, str, bool]:
+    """Resolve Suite HEAD once and reuse that immutable value for ancestry."""
+
+    suite_head = _git(root, "rev-parse", "HEAD")
+    suite_status = _git(
+        root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--ignored",
+    )
+    return (
+        suite_head,
+        suite_status,
+        _is_git_ancestor(root, admission_base, suite_head),
+    )
+
+
 def authorize_from_environment() -> RuntimeAuthorization:
     """Observe the live exact tuple and authorize no action unless all pass."""
 
@@ -1475,20 +1553,15 @@ def authorize_from_environment() -> RuntimeAuthorization:
             )
         )
     admission_base = _admission_base_for_git(fields)
+    suite_head, suite_status, admission_base_is_ancestor = _observe_suite(
+        suite_root, admission_base
+    )
     observed = ObservedRuntimeState(
         now=datetime.now(UTC),
         suite_root=suite_root,
-        suite_head=_git(suite_root, "rev-parse", "HEAD"),
-        suite_status=_git(
-            suite_root,
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-            "--ignored",
-        ),
-        admission_base_is_ancestor_of_head=_is_git_ancestor(
-            suite_root, admission_base, "HEAD"
-        ),
+        suite_head=suite_head,
+        suite_status=suite_status,
+        admission_base_is_ancestor_of_head=admission_base_is_ancestor,
         admission_base_descends_d1_base=_is_git_ancestor(
             suite_root, _D1_BASE, admission_base
         ),
