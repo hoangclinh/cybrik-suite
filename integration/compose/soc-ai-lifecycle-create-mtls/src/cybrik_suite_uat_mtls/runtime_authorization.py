@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final
+from typing import Final, Never
 
 from . import policy
 
@@ -207,7 +207,7 @@ class RuntimeAuthorization:
     product_roots: Mapping[str, Path]
 
 
-def _fail(reason: str) -> None:
+def _fail(reason: str) -> Never:
     raise RuntimeAuthorizationFailure(reason)
 
 
