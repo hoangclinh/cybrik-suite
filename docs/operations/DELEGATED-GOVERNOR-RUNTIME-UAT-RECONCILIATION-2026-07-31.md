@@ -200,3 +200,29 @@ production with the Founder. Acting under that delegation, the Codex Governor re
 This appendix is the separately recorded exact-action authorization required by §5. It supersedes
 only §5's default dependency-installation HOLD for this consumed D1 action. Every other reserved
 boundary remains unchanged.
+
+## Appendix C. Exact D2 coverage-only closure recovery authorization
+
+Source: the Founder objective supplied to the active Cybrik Governor task and applied on
+`2026-08-02`. It directs the Codex Governor to perform bounded dependency installation, build and
+local development/UAT preparation without waiting for an ordinary operating decision, while
+retaining production, public GA, legal/compliance decisions, acceptance of Critical/High risk and
+material trust-boundary changes with the Founder.
+
+Acting under that delegation, the Codex Governor records:
+
+- `UAT-MTLS-D2-CLOSURE-RECOVERY=AUTHORIZED-EXACT-ACTION`;
+- authority is limited to the exact roots, pinned executables, lock and requirements digests,
+  56-wheel inventory, commands, HTTPS endpoint classes, negative gates, evidence and rollback in
+  `docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md`;
+- the action is one-shot and is consumed by the first `--execute` attempt against the exact fresh
+  closure and evidence roots recorded there;
+- it grants no reusable or product-wide dependency authority and does not authorize Coverage.py
+  extraction, Anycorn execution, a product process, listener, certificate, database, migration,
+  deployment, legal/compliance claim or acceptance of Critical/High risk;
+- `UAT-MTLS-D2=HOLD`; runtime remains not run and cannot receive release credit from this action;
+  and
+- production and public GA remain Founder-controlled.
+
+This appendix supersedes §5's default dependency-installation HOLD only for that one local,
+reversible closure-recovery attempt. Every other reserved boundary remains unchanged.

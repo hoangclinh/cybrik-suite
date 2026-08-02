@@ -619,7 +619,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         in normalized
     )
     assert "HOST_TEMP_ROOT=" in decision
-    assert "derive the canonical Darwin user temporary directory at execution" in normalized
+    assert (
+        "derive the canonical Darwin user temporary directory at execution"
+        in normalized
+    )
     assert "must equal the recorded `HOST_TEMP_ROOT`" in normalized
     assert (
         "equal the exact `COVERAGE_ROOT` and `COVERAGE_EVIDENCE_ROOT` values from the Founder"
@@ -629,6 +632,34 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
     assert "No successful install or measurement by itself opens Phase A" in normalized
     assert "UAT-MTLS-D2-COV-P0" in harness_readme
     assert "authorizes nothing until Founder approval is recorded" in normalized_readme
+
+
+def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> None:
+    harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
+    decision = (
+        _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"
+    ).read_text(encoding="utf-8")
+    authority = (
+        _REPO_ROOT
+        / "docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md"
+    ).read_text(encoding="utf-8")
+    normalized = " ".join((decision + "\n" + harness_readme + "\n" + authority).split())
+
+    assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1" in decision
+    assert "AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD" in decision
+    assert "recover_coverage_closure.py" in harness_readme
+    assert "exactly the 56 filenames and SHA-256 values" in normalized
+    assert (
+        "6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919" in normalized
+    )
+    assert "consumed by the first `--execute` attempt" in authority
+    for excluded in (
+        "does not install or extract Coverage.py",
+        "does not install, select, execute or change Anycorn/B1",
+        "does not create listeners, certificates, keys, containers or databases",
+        "does not satisfy coverage, runtime admission, UAT, demo, POC, RC, GA or production gates",
+    ):
+        assert excluded in normalized
 
 
 def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() -> None:
@@ -680,7 +711,9 @@ def test_d2_coverage_verifier_authoring_is_finite_and_grants_no_gate_credit() ->
     assert "--result-json <COVERAGE_EVIDENCE_ROOT>/coverage-gate.json" in harness_readme
 
 
-def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action() -> None:
+def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action() -> (
+    None
+):
     harness_readme = (_HARNESS_ROOT / "README.md").read_text(encoding="utf-8")
     decision = (
         _REPO_ROOT / "docs/adr/DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md"

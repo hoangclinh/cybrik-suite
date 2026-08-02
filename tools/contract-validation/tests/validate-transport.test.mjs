@@ -4683,6 +4683,27 @@ test('UAT mTLS D2-COV-P0 is executable without pip and binds one durable one-sho
   assert.match(section, /Release dates remain unchanged/);
 });
 
+test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not runtime authority', () => {
+  const decision = read(UAT_MTLS_DECISION_REL);
+  const authority = read(
+    'docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md',
+  );
+  const match = decision.match(
+    /### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
+  );
+  assert.ok(match, 'the ADR must bind the separately authorized closure-recovery prerequisite');
+  const section = match[1];
+  assert.match(section, /AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD/);
+  assert.match(section, /recover_coverage_closure\.py/);
+  assert.match(section, /exactly the 56/);
+  assert.match(section, /6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919/);
+  assert.match(section, /does not install or extract Coverage\.py/);
+  assert.match(section, /does not open D2 runtime/);
+  assert.match(authority, /repository writes are limited to exactly these ten paths/);
+  assert.match(authority, /consumed by the first `--execute` attempt/);
+  assert.match(authority, /production and public GA remain Founder-controlled/);
+});
+
 test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator', () => {
   const decision = read(UAT_MTLS_DECISION_REL);
   const match = decision.match(

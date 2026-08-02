@@ -61,6 +61,14 @@ delegation chain and the Codex Governor's one exact authorization for the D1 dep
 That exception is consumed and complete; it is not reusable
 for D2, another dependency change, product selection, runtime, deployment or production.
 
+UAT-MTLS-D2 coverage-closure recovery exact-action exception: Appendix C of the same reconciliation
+record and
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md` authorize one
+bounded, reversible reconstruction of the exact 56-member coverage-only test closure outside all
+repositories and temporary roots. The exception is consumed by its first `--execute` attempt. It
+does not authorize Coverage.py extraction, Anycorn execution, product dependency changes,
+runtime, migration, deployment, legal/risk disposition, public release, GA or production.
+
 ## Data-handling boundary
 
 - Never read, copy, or print secrets: `.env*` (except `.env.example`), tokens, private keys,
