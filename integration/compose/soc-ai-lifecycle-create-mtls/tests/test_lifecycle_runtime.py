@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import ssl
 import subprocess
 import sys
@@ -126,6 +127,7 @@ def test_product_api_compatibility_confines_actual_import_origins() -> None:
     body = ast.unparse(compatibility)
 
     assert "runtime_authorization.verify_module_origins" in body
+    assert "runtime_authorization.verify_loaded_module_origins" in body
     assert "__module__" in body
     assert "__file__" in body
     assert "module_origins" in body
@@ -228,7 +230,17 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
     ):
         assert required in runner, required
     assert "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256" not in runner
-    assert runner.count("verify_suite_unchanged") >= 6
+    assert runner.count("verify_suite_unchanged") >= 8
+    assert re.search(
+        r"run_python_module cybrik_suite_uat_mtls\.harness rollback\n"
+        r"\s+verify_suite_unchanged",
+        runner,
+    )
+    assert (
+        "run_python_module cybrik_suite_uat_mtls.harness rollback\n"
+        "verify_suite_unchanged\n"
+        "cleanup_required=false"
+    ) in runner
     for relative in (
         "integration/compose/soc-ai-lifecycle-create-mtls/src",
         "services/api/src",
@@ -257,28 +269,16 @@ def test_safe_python_startup_ignores_auto_customization_and_current_directory(
     (trusted / "trusted_probe.py").write_text(
         "print('trusted module loaded')\n", encoding="utf-8"
     )
-    bootstrap = """
-import os
-import runpy
-import sys
-
-roots = tuple(sys.argv[1].split(os.pathsep))
-if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
-    raise SystemExit("unsafe Python startup flags")
-if not sys.dont_write_bytecode:
-    raise SystemExit("Python bytecode writes are enabled")
-if not roots or any(not root or not os.path.isabs(root) for root in roots):
-    raise SystemExit("unsafe Python import roots")
-sys.path[:] = list(roots) + [
-    item for item in sys.path
-    if item and os.path.isabs(item) and item not in roots
-]
-if "" in sys.path or "." in sys.path or os.getcwd() in sys.path:
-    raise SystemExit("unsafe Python import path")
-module = sys.argv[2]
-sys.argv = [module, *sys.argv[3:]]
-runpy.run_module(module, run_name="__main__", alter_sys=True)
-"""
+    runner = _ROOT.parents[2] / "tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh"
+    runner_source = runner.read_text(encoding="utf-8")
+    match = re.search(
+        r'"\$python_bin" -I -B -S -c \'\n(?P<bootstrap>.*?)\n\' '
+        r'"\$python_import_roots" "\$python_repository_roots" "\$@"',
+        runner_source,
+        flags=re.DOTALL,
+    )
+    assert match is not None, "exact shipped Python bootstrap is unavailable"
+    bootstrap = match.group("bootstrap")
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(attacker)
     environment["PYTHONSAFEPATH"] = "1"
@@ -292,6 +292,7 @@ runpy.run_module(module, run_name="__main__", alter_sys=True)
             "-c",
             bootstrap,
             str(trusted),
+            str(attacker),
             "trusted_probe",
         ),
         cwd=attacker,

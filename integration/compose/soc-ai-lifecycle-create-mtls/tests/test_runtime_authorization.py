@@ -15,8 +15,10 @@ import json
 import os
 import stat
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from cybrik_suite_uat_mtls import policy
@@ -641,6 +643,27 @@ def test_read_authorization_returns_exact_bytes(tmp_path: Path) -> None:
     )
 
 
+def test_read_authorization_closes_descriptor_when_fstat_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read_descriptor, write_descriptor = os.pipe()
+    original_fstat = os.fstat
+    monkeypatch.setattr(os, "open", lambda *_args, **_kwargs: read_descriptor)
+    monkeypatch.setattr(
+        os,
+        "fstat",
+        lambda _descriptor: (_ for _ in ()).throw(OSError("synthetic fstat failure")),
+    )
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.read_authorization(tmp_path / "authorization.md")
+    assert caught.value.reason == "authorization_artifact_invalid"
+    monkeypatch.setattr(os, "fstat", original_fstat)
+    with pytest.raises(OSError):
+        original_fstat(read_descriptor)
+    os.close(write_descriptor)
+
+
 # --------------------------------------------------------------------------
 # Exact-binding validation
 # --------------------------------------------------------------------------
@@ -1129,6 +1152,47 @@ def test_verify_module_origins_rejects_unknown_namespaces(tmp_path: Path) -> Non
             validated, (("unexpected_package", inside),)
         )
     assert caught.value.reason == "import_source_root_invalid"
+
+
+@pytest.mark.parametrize(
+    "bad_module",
+    (
+        None,
+        SimpleNamespace(),
+        SimpleNamespace(__file__="/outside/cybrik_soc/injected.py"),
+    ),
+)
+def test_verify_loaded_module_origins_rejects_every_unverifiable_namespace_entry(
+    tmp_path: Path, bad_module: object
+) -> None:
+    validated = _validated(tmp_path)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_loaded_module_origins(
+            validated, {"cybrik_soc.injected": bad_module}
+        )
+    assert caught.value.reason == "import_source_root_invalid"
+
+
+def test_verify_loaded_module_origins_checks_every_loaded_namespace_entry(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    modules: dict[str, object] = {}
+    for namespace, (role, relative) in authorization.MODULE_ORIGIN_ROOTS.items():
+        owner = (
+            validated.suite_root
+            if role == "suite"
+            else validated.product_roots[role]
+        )
+        module_file = owner / relative / "synthetic_loaded.py"
+        _write(module_file, "# synthetic loaded module\n")
+        modules[f"{namespace}.synthetic_loaded"] = SimpleNamespace(
+            __file__=str(module_file)
+        )
+
+    authorization.verify_loaded_module_origins(validated, modules)
+    assert set(modules).isdisjoint(sys.modules)
 
 
 # --------------------------------------------------------------------------
