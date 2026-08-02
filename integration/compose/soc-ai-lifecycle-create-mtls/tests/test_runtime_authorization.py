@@ -1739,6 +1739,79 @@ def test_candidate_observer_stabilizes_non_mapping_nested_shapes(
     assert caught.value.reason == "candidate_invalid"
 
 
+@pytest.mark.parametrize(
+    "raw",
+    (
+        b"\xff\n",
+        ("[" * 2000 + "0" + "]" * 2000).encode("ascii"),
+    ),
+)
+def test_candidate_observer_stabilizes_decode_and_nesting_failures(
+    tmp_path: Path, raw: bytes
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_bytes(raw)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._candidate(candidate)
+    assert caught.value.reason == "candidate_invalid"
+
+
+def test_merge_base_observation_stabilizes_process_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(("git", "merge-base"), 30)
+
+    monkeypatch.setattr(authorization.subprocess, "run", fail)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._is_git_ancestor(tmp_path, "a" * 40, "b" * 40)
+    assert caught.value.reason == "repository_observation_failed"
+
+
+def test_non_ascii_allowed_signers_refusal_closes_the_bound_descriptor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    allowed_signers = fixture.observed.exact_head_grant_allowed_signers_path
+    allowed_signers.write_bytes(b"\xff\n")
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
+        str(fixture.observed.exact_head_grant_path),
+    )
+    monkeypatch.setenv(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
+        str(fixture.observed.exact_head_grant_signature_path),
+    )
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", str(allowed_signers))
+    opened: list[int] = []
+    closed: set[int] = set()
+    original_open = authorization._open_bound_allowed_signers
+    original_close = os.close
+
+    def observe(path: Path) -> tuple[int, bytes, tuple[int, ...]]:
+        result = original_open(path)
+        opened.append(result[0])
+        return result
+
+    def close(descriptor: int) -> None:
+        closed.add(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(authorization, "_open_bound_allowed_signers", observe)
+    monkeypatch.setattr(authorization.os, "close", close)
+    try:
+        with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+            authorization._exact_head_grant_from_environment(fixture.fields)
+        assert caught.value.reason == "exact_head_grant_signer_mismatch"
+        assert opened and opened[0] in closed
+    finally:
+        for descriptor in opened:
+            if descriptor not in closed:
+                original_close(descriptor)
+
+
 def test_check_only_cli_validates_without_consuming(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
