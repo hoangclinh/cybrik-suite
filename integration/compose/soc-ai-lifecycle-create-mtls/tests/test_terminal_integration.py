@@ -239,9 +239,7 @@ def _public_pki(runtime_root: Path) -> dict[str, Path]:
     for name, filename in _PUBLIC_PKI:
         path = pki_root / filename
         payload = (
-            _PUBLIC_TEST_JWK
-            if name == "jwt_public_jwk"
-            else _PUBLIC_TEST_CERTIFICATE
+            _PUBLIC_TEST_JWK if name == "jwt_public_jwk" else _PUBLIC_TEST_CERTIFICATE
         )
         path.write_bytes(payload)
         result[name] = path
