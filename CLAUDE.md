@@ -76,6 +76,19 @@ that result grants no automatic next action. R4 does not authorize Coverage.py e
 product dependency changes, runtime, migration, deployment, legal/risk disposition, public
 release, GA or production.
 
+UAT-MTLS-D2 coverage-tooling and measurement exact actions: the Founder-authorized P0 action was
+consumed once at Suite commit `a209d66c277efce2de62528efdda4070febf6b16`. It verified the pinned
+Coverage.py `7.15.2` wheel and extraction, then truthfully recorded a failing baseline coverage
+gate. Governor M1 failed closed because its absolute pytest node-id did not deselect the guarded
+runtime test; that test skipped before importing the runtime harness, so no runtime action
+occurred. Corrected Governor M2 executed once at commit
+`93c8b6efbd141ab3f37ff2f07f331153de5f314a` and passed the coverage-only gate with 488 tests
+passed, one runtime target deselected, 87.117% line coverage, 85.409% branch coverage and 100%
+coverage of all eight critical symbols. The exact terminal record is
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md`. This closes only the
+coverage prerequisite. It grants no Anycorn/B1 execution, listener, Docker, database, PKI,
+migration, N1-N10, runtime UAT, release, GA or production authority.
+
 ## Data-handling boundary
 
 - Never read, copy, or print secrets: `.env*` (except `.env.example`), tokens, private keys,

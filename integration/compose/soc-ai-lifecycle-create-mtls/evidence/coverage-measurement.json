@@ -1,0 +1,163 @@
+{
+  "schema_version": "1.0.0",
+  "status": "verified",
+  "gate": "UAT-MTLS-D2-COV-M2",
+  "disposition": "COVERAGE_GATE_PASS_RUNTIME_HOLD",
+  "suite_commit": "93c8b6efbd141ab3f37ff2f07f331153de5f314a",
+  "suite_tree": "c67470e531dd3345744e3ef48bc11e0b3d3af218",
+  "p0": {
+    "authorization_id": "d2-cov-p0-r1-20260802t0355z",
+    "tooling_status": "verified",
+    "baseline_gate_status": "FAIL",
+    "baseline_gate_reason": "package_line_coverage_below_80",
+    "test_result": {
+      "passed": 385,
+      "skipped": 1,
+      "failed": 0
+    },
+    "line": {
+      "covered": 849,
+      "total": 1568
+    },
+    "branch": {
+      "covered": 265,
+      "total": 514
+    },
+    "network_calls": [
+      {
+        "kind": "osv_post",
+        "endpoint": "https://api.osv.dev/v1/query",
+        "http_status": 200
+      },
+      {
+        "kind": "wheel_get",
+        "endpoint": "https://files.pythonhosted.org/packages/06/d1/da99af464c335d4e023a6efcd7ec30f63b88a43c93745154ab74ffb31cea/coverage-7.15.2-cp312-cp312-macosx_11_0_arm64.whl"
+      }
+    ],
+    "authorization_sha256": "01af528bfd4e90d1c35d78b4089dd34571b7e10bf2eb3771e1848e30b580e2ae",
+    "authorization_consumption_sha256": "ba011a4a82867a59e1adc76d43e3c38915deff15b6d718ba20a37a6c529e4698",
+    "tooling_result_sha256": "afd29aeb54281312c07c05cb2c07417afa65b4e418d82e1fd25366bd2118b185",
+    "coverage_json_sha256": "e4694bf51e02091cfcaf3f0bb470792ed2149d9a9208df6e5ae48de650f2ec65",
+    "coverage_gate_sha256": "937752ebffa9437e1e7139d0fb3755e6faf111fa608fb69ce0abf2e313f08128",
+    "osv_request_sha256": "c01011168771934d729261c649c71dadc0d47300cd698c64763cad12a4b7bec7",
+    "osv_response_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "coverage_json_mode_hardening": {
+      "before": "0644",
+      "after": "0600",
+      "sha256_unchanged": true,
+      "classification": "P3_NONBLOCKING_HYGIENE"
+    }
+  },
+  "m1": {
+    "authorization_id": "d2-cov-m1-r1-20260802t0501z",
+    "status": "FAIL",
+    "failure_class": "runtime_test_was_not_deselected",
+    "runtime_executed": false,
+    "network_calls": [],
+    "test_result": {
+      "passed": 488,
+      "skipped": 1,
+      "failed": 0
+    },
+    "authorization_sha256": "a7e5e0ecf13c86ebd43f6dd144970c6d1157ea27db5faad4cb09e42ac6737cb0",
+    "measurement_script_sha256": "834ef2c22d79f12e10e4448e48b231577abc422388117b1c036bc718446ca1ba",
+    "pytest_output_sha256": "518ad302224e2fc41d70516ac7a8a9cfb5ecfdcf054ae69accfbb33e2c407f47",
+    "failure_sha256": "989355888fb0ab53303f55bb0c7ae3ea41476548058dc921844cdda3495adaaa"
+  },
+  "m2": {
+    "authorization_id": "d2-cov-m2-r1-20260802t0515z",
+    "status": "PASS",
+    "completed_at": "2026-08-02T05:30:34Z",
+    "test_result": {
+      "passed": 488,
+      "deselected": 1,
+      "skipped": 0,
+      "failed": 0
+    },
+    "line": {
+      "covered": 1366,
+      "total": 1568
+    },
+    "branch": {
+      "covered": 439,
+      "total": 514
+    },
+    "critical_symbols": [
+      {
+        "symbol": "server.build_patched_ssl_context",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "policy.parse_loopback_bind",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "policy.validate_proposed_bind",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "evidence.secret_reason",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "evidence.validate_evidence",
+        "line_ratio": 1.0,
+        "branch_ratio": null,
+        "branch_requirement": "not-applicable-no-static-branch"
+      },
+      {
+        "symbol": "harness._assert_ssl_context_evidence",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "harness.teardown",
+        "line_ratio": 1.0,
+        "branch_ratio": 1.0,
+        "branch_requirement": "one-hundred-percent"
+      },
+      {
+        "symbol": "harness.verify_absent",
+        "line_ratio": 1.0,
+        "branch_ratio": null,
+        "branch_requirement": "not-applicable-no-static-branch"
+      }
+    ],
+    "authorization_sha256": "d0d3d7e0d5f2b59682f96297369fd987f0fb82dc54aff7c6757e7db6d1f793d1",
+    "measurement_script_sha256": "def4be591e5c23cfcd64bfc7dd9fa8014ef9d6b74f60bf0cc614fd7a95251424",
+    "pytest_output_sha256": "87ca0ed87bd1d0f219f776dd07e5662fb2fbc5227f341fa6bfb844868da84c20",
+    "coverage_json_sha256": "a1a74b2fbe3c94c42b9bb85027fed79b3baaa5d5a8920fd5ec1b54a72e2c5a45",
+    "coverage_report_sha256": "fe5e90efc53c80a77f5d11a63ac7124a9103531f3f9214969d7505de3a093e74",
+    "coverage_gate_sha256": "5126c5d8888ce071693e7dbc167f0ef560ff9e8bfd35f053d67f049f20be3f95",
+    "verifier_output_sha256": "299a9ae6ca6a54f6cac573aa7657e03f3e879b4266658f083db4042ae59c73a4",
+    "measurement_result_sha256": "4a85daaeb793b2dbe573dab643ad3431024e8173159c408419837b2c743938f5",
+    "network_calls": [],
+    "runtime_status": "HOLD"
+  },
+  "verifier_tests": {
+    "target": "integration/compose/soc-ai-lifecycle-create-mtls/tests/test_coverage_gate.py",
+    "passed": 31,
+    "failed": 0,
+    "duration_seconds": 0.91,
+    "junit_sha256": "51ab9cdb2c1fddd34393735c4dd5ab9117b1fd4561cac0308e68d27a828907fe"
+  },
+  "historical_corrections": {
+    "commit_93c8b6e_evidence_timing": "coverage_values_verified_later_by_M2_not_at_commit_time",
+    "commit_93c8b6e_test_shape": "488_passed_1_deselected_not_1_gated_skip",
+    "p0_gate_hash_semantics": "baseline_FAIL_integrity_anchor_not_M2_PASS_result"
+  },
+  "independent_reviews": {
+    "codex": "GO_NO_P0_P3",
+    "claude_opus": "GO_NO_P0_P2"
+  },
+  "release_dates": "unchanged"
+}

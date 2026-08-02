@@ -715,7 +715,7 @@ remain **NO-GO**. Production and public GA remain Founder-controlled. Release da
 
 ### Gate UAT-MTLS-D2-COV-P0 — isolated coverage-tooling proposal
 
-Current state: `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`.
+Current state: `EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — AUTHORIZATION CONSUMED — RUNTIME HOLD`.
 
 The merged D2-P0 candidate is canonical at Suite commit
 `fd19b88e9cf40704284f0494f6dc8349e7c45a0c`. Its section 7.3 coverage gate remains unsatisfied
@@ -889,7 +889,7 @@ PYTHONPATH=<COVERAGE_ROOT>/site-packages:<SUITE_ROOT>/integration/compose/soc-ai
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_negative_cases.py \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_teardown.py \
   <SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py \
-  --deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence
+  --deselect=tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence
 
 PYTHONPATH=<COVERAGE_ROOT>/site-packages \
 <PINNED_PYTHON> -m coverage report --rcfile=/dev/null \
@@ -943,8 +943,15 @@ The official PyPI release JSON at `https://pypi.org/pypi/coverage/7.15.2/json` h
 that mutable project-document digest is informational, not a future equality gate. The exact
 OSV query for PyPI `coverage` version `7.15.2` returned no vulnerabilities; its raw `{}` response
 had SHA-256 `44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a`.
-These are proposal facts, not an install, audit artifact, coverage result or risk acceptance.
-D2 remains **HOLD**. Release dates remain unchanged.
+At proposal time these were proposal facts, not an install, audit artifact, coverage result or
+risk acceptance. The P0 authorization was later consumed once at detached Suite commit
+`a209d66c277efce2de62528efdda4070febf6b16`. The pinned wheel, OSV response, interpreter and
+extraction passed their integrity gates. Its conservative baseline measured 385 passed and one
+guarded skip, then failed truthfully at 54.145% line and 51.556% branch coverage with
+`package_line_coverage_below_80`. That baseline FAIL does not invalidate the verified tooling and
+does not grant runtime credit. The exact terminal measurement chain is recorded in
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md`. D2 remains **HOLD**.
+Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-COV-P1 — stdlib verifier authoring
 
@@ -1232,9 +1239,42 @@ closure and evidence roots with modes `0700`; evidence files are mode `0600`. Th
 is exactly `python -> python3.12`, `python3 -> python`, and
 `python3.12 -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12`.
 The inventory contains no `anycorn`, `coverage`, `pip`, `setuptools` or `wheel` distribution.
-R4 is consumed and the durable D1 test closure is ready for a separately reviewed Coverage.py
-action only. Coverage.py extraction, Anycorn/B1, product runtime, N1–N10 and every release boundary
-remain **HOLD**.
+R4 is consumed and the durable D1 test closure was ready for a separately reviewed Coverage.py
+action only. That sentence records the R4 terminal boundary; the subsequent P0/M1/M2 gates below
+performed the separately reviewed Coverage.py action without opening Anycorn/B1, product runtime,
+N1–N10 or any release boundary.
+
+### Gate UAT-MTLS-D2-COV-M1 — failed command-shape measurement
+
+Current state: `EXECUTED — FAILED CLOSED — RUNTIME NOT EXECUTED — AUTHORIZATION CONSUMED`.
+
+M1 ran once at detached clean Suite commit
+`93c8b6efbd141ab3f37ff2f07f331153de5f314a`, tree
+`c67470e531dd3345744e3ef48bc11e0b3d3af218`. The absolute pytest node-id inherited from the
+earlier command packet did not deselect the guarded runtime target. Pytest therefore reported
+`488 passed, 1 skipped`; the guard skipped before importing the runtime harness. The runner rejected
+that shape, recorded `runtime_test_was_not_deselected`, `runtime_executed=false` and no network
+calls, then stopped before coverage verification. M1 is terminal failed evidence and is not
+replayed.
+
+### Gate UAT-MTLS-D2-COV-M2 — terminal coverage measurement
+
+Current state: `VERIFIED — COVERAGE GATE PASS — RUNTIME HOLD`.
+
+M2 corrected only the command contract. It first proved that
+`tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence`
+was a collected node-id relative to the component rootdir, then deselected exactly that target.
+The result was `488 passed, 1 deselected`, with zero skipped and zero failed. Coverage.py 7.15.2
+measured line coverage `1366/1568` (87.117%) and branch coverage `439/514` (85.409%). The stdlib
+verifier returned PASS for all eight critical symbols at 100% line and applicable branch coverage.
+Its independent 31-test suite also passed.
+
+The terminal evidence and every digest are bound by
+`integration/compose/soc-ai-lifecycle-create-mtls/evidence/coverage-measurement.json` and the
+operation record above. Internal and Claude Opus post-execution reviews returned GO. This closes
+only the section 7.3 coverage prerequisite. It performs no listener, Docker, database, PKI,
+migration, product process or N1–N10 action. D2 runtime remains **HOLD** and requires the separate
+admission below. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 

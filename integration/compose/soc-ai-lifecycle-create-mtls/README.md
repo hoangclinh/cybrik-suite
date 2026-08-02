@@ -1,6 +1,6 @@
 # SOC-to-AI lifecycle-create mTLS UAT preparation
 
-Status: `D2-P0 PREFLIGHT AUTHORED — RUNTIME NOT RUN`.
+Status: `D2 COVERAGE GATE PASS — RUNTIME NOT RUN`.
 
 This directory contains the dependency-neutral policy/evidence/procedure library plus the bounded
 D1 dependency artifact and its supply-chain evidence. The internally versioned
@@ -8,11 +8,16 @@ D1 dependency artifact and its supply-chain evidence. The internally versioned
 patch, was byte-identical across both builds, and was installed only into an isolated offline UAT
 tool environment. It is not a selected CYBRIK product server and no runtime UAT has executed.
 
-The D1 dependency boundary remains `D1 ARTIFACT COMPLETE — RUNTIME NOT RUN`. D2-P0 adds an
+The D1 dependency boundary remains `D1 ARTIFACT COMPLETE — RUNTIME NOT RUN`. D2-P0 added an
 import-inert harness, ephemeral PKI builder, exact digest-pinned PostgreSQL controller, real SOC
 client/AI composition adapters, N1–N10 drivers and an authorization-guarded operator runner. This
 authoring gate confers no permission to install, restore or execute B1, create PKI, open listeners,
 start PostgreSQL, run migrations or execute any runtime case.
+
+The separately measured `UAT-MTLS-D2-COV-M2` coverage prerequisite is now **PASS**: 488 tests
+passed, the sole guarded runtime target was deselected, package line coverage is 87.117%, package
+branch coverage is 85.409%, and all eight critical symbols satisfy 100% line and applicable branch
+coverage. This is coverage-only evidence; D2 runtime and N1–N10 remain **HOLD**.
 
 The authored runner preserves sanitized TLS and PostgreSQL posture evidence outside every
 repository while rollback destroys only the disjoint runtime root. Its first runtime action must
@@ -130,9 +135,10 @@ paths. If the pinned environment does not already contain the required coverage 
 separate bounded coverage-tooling action must be reviewed before it is installed or used. Static
 pass counts are not a substitute for this coverage evidence. Release dates are unchanged.
 
-## Proposed isolated coverage-tooling action
+## Consumed isolated coverage-tooling action
 
-`UAT-MTLS-D2-COV-P0` is `PROPOSED — HOLD PENDING FOUNDER DEPENDENCY AUTHORIZATION`. It requests
+`UAT-MTLS-D2-COV-P0` is `EXECUTED — TOOLING VERIFIED — BASELINE COVERAGE FAIL — AUTHORIZATION
+CONSUMED — RUNTIME HOLD`. It originally requested
 one outside-repository-only, pip-free stdlib extraction of the exact SHA-256-pinned Coverage.py
 `7.15.2` macOS arm64 CPython 3.12 wheel into a fresh tool-only target directory. A second disjoint,
 non-temporary evidence root is preserved on success, failure and rollback. The one-shot Founder
@@ -147,9 +153,9 @@ runtime target is explicitly deselected. Extraction integrity and the coverage r
 gates. Coverage `PASS` requires at least 80% line and branch coverage across the full harness
 package plus 100% line/branch coverage of the exact builder, bind-validation, sanitizer and
 teardown functions named in the ADR, exercised only through fakes, monkeypatches and temporary
-roots. The proposal authorizes nothing until Founder approval is recorded, and neither extraction
-nor a passing coverage result by itself opens Phase A, recovers B1, runs N1–N10 or grants
-UAT/release credit.
+roots. The historical proposal authorizes nothing until Founder approval is recorded; that
+approval was later supplied and consumed. Neither extraction nor a passing coverage result by
+itself opens Phase A, recovers B1, runs N1–N10 or grants UAT/release credit.
 
 ## Authored stdlib coverage verifier
 
@@ -173,8 +179,8 @@ The preceding measurement must run after the literal `cd <SUITE_ROOT>`, set
 residue check must also be empty. These controls prevent test residue or caller/checkout
 configuration from changing exclusions, partial branches or reported file keys.
 
-After the separately authorized D2-COV-P0 extraction and measurement produce `coverage.json`,
-the exact verifier command is:
+The consumed D2-COV-P0 extraction produced its conservative baseline `coverage.json`; the exact
+verifier command remains:
 
 ```sh
 <PINNED_PYTHON> \
@@ -264,7 +270,26 @@ R1 made no network call; R2 and R3 completed only their permitted
 wheel-acquisition phases before their respective venv-link mismatches. None of the four actions
 installs or extracts Coverage.py,
 installs or executes Anycorn/B1, creates a listener/database/certificate/container, runs a migration
-or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime. The R4
-closure is ready only for a separately reviewed Coverage.py extraction/measurement action. D2 remains
-**HOLD** and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates remain
+or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime. At R4
+completion the closure was ready only for a separately reviewed Coverage.py action. That action
+and the corrected M2 measurement have now completed without opening runtime.
+
+## Terminal D2 coverage measurement
+
+`UAT-MTLS-D2-COV-M1` failed closed because an absolute pytest node-id did not deselect the guarded
+runtime test. The guard skipped before importing the runtime harness, producing 488 passed and one
+skip; M1 recorded `runtime_executed=false`, no network calls and stopped.
+
+`UAT-MTLS-D2-COV-M2` is `VERIFIED — COVERAGE GATE PASS — RUNTIME HOLD`. It used the component-root
+node-id
+`tests/test_lifecycle_runtime.py::test_authorized_runtime_attempt_executes_the_red_green_sequence`,
+proved it with collection preflight and required the exact result `488 passed, 1 deselected`.
+Coverage was 87.117% line and 85.409% branch; all eight critical symbols passed at 100%. The
+verifier's separate static suite passed `31 passed`. Full hashes, the P0 baseline FAIL semantics,
+M1 failure, M2 PASS, historical commit-message correction and independent reviews are recorded in
+`evidence/coverage-measurement.json` and
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-MEASUREMENT-2026-08-02.md`.
+
+The accepted state is **COVERAGE GATE PASS — RUNTIME HOLD**. D2 runtime, N1–N10 and all
+UAT/demo/POC/RC/stable-v1/GA/production boundaries remain unchanged. Release dates remain
 unchanged.

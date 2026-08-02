@@ -600,7 +600,10 @@ def test_d2_coverage_tooling_proposal_is_exact_and_grants_no_runtime() -> None:
         "test_authorized_runtime_attempt_executes_the_red_green_sequence"
     )
     assert f"--deselect={runtime_nodeid}" in decision
-    assert f"--deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/{runtime_nodeid}" not in decision
+    assert (
+        f"--deselect=<SUITE_ROOT>/integration/compose/soc-ai-lifecycle-create-mtls/{runtime_nodeid}"
+        not in decision
+    )
     assert "coverage report --rcfile=/dev/null" in normalized
     assert "coverage json --rcfile=/dev/null" in normalized
     assert "coverage run --rcfile=/dev/null --branch" in normalized
