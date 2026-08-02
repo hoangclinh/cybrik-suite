@@ -125,6 +125,7 @@ def _passing_candidate(root: Path) -> dict[str, object]:
     ]
     return {
         "schema_version": runtime_evidence.TERMINAL_SCHEMA_VERSION,
+        "artifact_state": "raw",
         "attempt_id": "d2-runtime-r1",
         "outcome": "passed",
         "failure_reason_code": None,
@@ -339,6 +340,8 @@ def test_public_pki_inventory_binds_exact_real_files(evidence_root: Path) -> Non
     result = json.loads(
         (evidence_root / runtime_evidence.RESULT_FILENAME).read_text(encoding="utf-8")
     )
+    assert result["artifact_state"] == "sealed"
+    assert runtime_evidence.validate_terminal_result(result) == result
     assert (
         persisted.result_sha256
         == hashlib.sha256(
@@ -460,7 +463,7 @@ def test_artifact_traversal_is_rejected(
     assert caught.value.reason == "artifact_path_invalid"
 
 
-def test_symlinked_artifact_and_intermediate_directory_are_rejected(
+def test_symlinked_artifact_is_rejected(
     evidence_root: Path,
 ) -> None:
     candidate = _passing_candidate(evidence_root)
@@ -477,7 +480,11 @@ def test_symlinked_artifact_and_intermediate_directory_are_rejected(
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == "artifact_unsafe"
 
-    linked.unlink()
+
+def test_symlinked_intermediate_artifact_directory_is_rejected(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
     outside_dir = evidence_root.parent / "outside-dir"
     outside_dir.mkdir()
     (outside_dir / "nested.json").write_text("{}", encoding="utf-8")
@@ -510,6 +517,7 @@ def test_persist_writes_canonical_no_overwrite_mode_0600_packet(
     teardown = json.loads(paths[1].read_text(encoding="utf-8"))
     summary = json.loads(paths[2].read_text(encoding="utf-8"))
     assert result["repository_tuple"] == candidate["repository_tuple"]
+    assert result["artifact_state"] == "sealed"
     assert all(
         artifact["relative_path"]
         == f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
@@ -616,19 +624,22 @@ def test_evidence_root_rebind_is_detected_before_terminal_write(
 ) -> None:
     candidate = _passing_candidate(evidence_root)
     preserved = evidence_root.with_name("cybrik-uat-d2-evidence-preserved")
-    real_verify = runtime_evidence._verify_artifacts
+    real_seal = runtime_evidence._seal_pki_public_artifact
     calls = 0
 
-    def verify_then_rebind(root_fd: int, artifacts: object) -> None:
+    def seal_then_rebind(
+        root_fd: int, artifact: object, index: int
+    ) -> dict[str, object]:
         nonlocal calls
-        real_verify(root_fd, artifacts)  # type: ignore[arg-type]
+        sealed = real_seal(root_fd, artifact, index)  # type: ignore[arg-type]
         calls += 1
         if calls == 1:
             evidence_root.rename(preserved)
             evidence_root.mkdir(mode=0o700)
             os.chmod(evidence_root, 0o700)
+        return sealed
 
-    monkeypatch.setattr(runtime_evidence, "_verify_artifacts", verify_then_rebind)
+    monkeypatch.setattr(runtime_evidence, "_seal_pki_public_artifact", seal_then_rebind)
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == "evidence_root_rebound"
@@ -676,7 +687,8 @@ def test_write_failure_preserves_existing_evidence_and_never_deletes_root(
     assert caught.value.reason == "terminal_write_failed"
     assert evidence_root.is_dir()
     assert sentinel.read_text(encoding="utf-8") == "preserve"
-    assert (evidence_root / runtime_evidence.RESULT_FILENAME).is_file()
+    assert (evidence_root / "sealed-pki-00-ca_certificate.snapshot").is_file()
+    assert not (evidence_root / runtime_evidence.RESULT_FILENAME).exists()
     assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 

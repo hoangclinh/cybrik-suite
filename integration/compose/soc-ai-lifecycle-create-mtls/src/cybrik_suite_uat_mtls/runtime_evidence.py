@@ -44,6 +44,33 @@ _REPOSITORIES: Final = ("suite", "soc", "ai", "fabric")
 _REQUIRED_ARTIFACT_KINDS: Final = frozenset(
     {"authorization", "b1", "tls", "ssl", "postgresql", "secret_sweep"}
 )
+_PKI_PUBLIC_INVENTORY: Final = (
+    (
+        "ca_certificate",
+        "pki-public/ca-cert.pem",
+        "sealed-pki-00-ca_certificate.snapshot",
+    ),
+    (
+        "server_certificate",
+        "pki-public/server-cert.pem",
+        "sealed-pki-01-server_certificate.snapshot",
+    ),
+    (
+        "client_certificate",
+        "pki-public/client-cert.pem",
+        "sealed-pki-02-client_certificate.snapshot",
+    ),
+    (
+        "alternate_client_certificate",
+        "pki-public/alternate-client-cert.pem",
+        "sealed-pki-03-alternate_client_certificate.snapshot",
+    ),
+    (
+        "jwt_public_jwk",
+        "pki-public/jwt-public-jwk.json",
+        "sealed-pki-04-jwt_public_jwk.snapshot",
+    ),
+)
 _TERMINAL_FILENAMES: Final = frozenset(
     {RESULT_FILENAME, TEARDOWN_FILENAME, SUMMARY_FILENAME}
 )
@@ -365,13 +392,13 @@ def _validate_teardown(value: object) -> dict[str, bool]:
     return {key: True for key in _TEARDOWN_KEYS}
 
 
-def _validate_pki_public(value: object) -> dict[str, object]:
+def _validate_pki_public(value: object, artifact_state: str) -> dict[str, object]:
     keys = (
         "ephemeral",
         "destroyed",
         "certificate_count",
         "public_artifact_count",
-        "public_artifact_sha256",
+        "public_artifacts",
     )
     record = _exact_mapping(value, keys, "pki_public_invalid")
     if record["ephemeral"] is not True or record["destroyed"] is not True:
@@ -382,21 +409,56 @@ def _validate_pki_public(value: object) -> dict[str, object]:
     public_count = _nonnegative_int(
         record["public_artifact_count"], "pki_public_invalid"
     )
-    digests = record["public_artifact_sha256"]
+    artifacts = record["public_artifacts"]
     if (
         certificate_count != 4
         or public_count != 5
-        or isinstance(digests, (str, bytes))
-        or not isinstance(digests, Sequence)
-        or len(digests) != public_count
+        or isinstance(artifacts, (str, bytes))
+        or not isinstance(artifacts, Sequence)
+        or len(artifacts) != public_count
     ):
         _fail("pki_public_invalid")
+    public_artifacts: list[dict[str, object]] = []
+    observed_paths: list[str] = []
+    for candidate, (name, source_path, sealed_path) in zip(
+        artifacts, _PKI_PUBLIC_INVENTORY, strict=True
+    ):
+        artifact = _exact_mapping(
+            candidate,
+            ("name", "relative_path", "sha256", "size_bytes"),
+            "pki_public_inventory_invalid",
+        )
+        if artifact["name"] != name or artifact["relative_path"] not in {
+            source_path,
+            sealed_path,
+        }:
+            _fail("pki_public_inventory_invalid")
+        relative_path = _relative_artifact_path(artifact["relative_path"])
+        observed_paths.append(relative_path)
+        size_bytes = _nonnegative_int(
+            artifact["size_bytes"], "pki_public_inventory_invalid"
+        )
+        if size_bytes > MAX_ARTIFACT_BYTES:
+            _fail("pki_public_inventory_invalid")
+        public_artifacts.append(
+            {
+                "name": name,
+                "relative_path": relative_path,
+                "sha256": _digest(artifact["sha256"]),
+                "size_bytes": size_bytes,
+            }
+        )
+    source_paths = [source for _, source, _ in _PKI_PUBLIC_INVENTORY]
+    sealed_paths = [sealed for _, _, sealed in _PKI_PUBLIC_INVENTORY]
+    expected_paths = source_paths if artifact_state == "raw" else sealed_paths
+    if observed_paths != expected_paths:
+        _fail("pki_public_inventory_invalid")
     return {
         "ephemeral": True,
         "destroyed": True,
         "certificate_count": certificate_count,
         "public_artifact_count": public_count,
-        "public_artifact_sha256": [_digest(item) for item in digests],
+        "public_artifacts": public_artifacts,
     }
 
 
@@ -414,7 +476,10 @@ def _relative_artifact_path(value: object) -> str:
 
 
 def _validate_artifacts(
-    value: object, cases: Sequence[Mapping[str, object]], outcome: str
+    value: object,
+    cases: Sequence[Mapping[str, object]],
+    outcome: str,
+    artifact_state: str,
 ) -> list[dict[str, object]]:
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or not value:
         _fail("artifacts_invalid")
@@ -466,6 +531,16 @@ def _validate_artifacts(
         observed_kinds = {str(artifact["kind"]) for artifact in result}
         if not _REQUIRED_ARTIFACT_KINDS <= observed_kinds:
             _fail("required_artifact_missing")
+    expected_snapshot_paths = [
+        f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
+        for index, artifact in enumerate(result)
+    ]
+    observed_snapshot_paths = [str(artifact["relative_path"]) for artifact in result]
+    if artifact_state == "sealed":
+        if observed_snapshot_paths != expected_snapshot_paths:
+            _fail("artifact_snapshot_inventory_invalid")
+    elif any(path.startswith("sealed-") for path in observed_snapshot_paths):
+        _fail("artifact_snapshot_inventory_invalid")
     return result
 
 
@@ -474,6 +549,7 @@ def validate_terminal_result(candidate: object) -> dict[str, object]:
 
     keys = (
         "schema_version",
+        "artifact_state",
         "attempt_id",
         "outcome",
         "failure_reason_code",
@@ -492,6 +568,9 @@ def validate_terminal_result(candidate: object) -> dict[str, object]:
     record = _exact_mapping(candidate, keys, "terminal_schema_invalid")
     if record["schema_version"] != TERMINAL_SCHEMA_VERSION:
         _fail("terminal_schema_invalid")
+    artifact_state = record["artifact_state"]
+    if artifact_state not in {"raw", "sealed"}:
+        _fail("artifact_snapshot_inventory_invalid")
     attempt_id = _identifier(record["attempt_id"])
     outcome = record["outcome"]
     if outcome not in {"passed", "failed"}:
@@ -509,8 +588,14 @@ def validate_terminal_result(candidate: object) -> dict[str, object]:
     postgresql = _validate_postgresql(record["postgresql"])
     timings = _validate_timings(record["timings"], cases)
     teardown = _validate_teardown(record["teardown"])
-    pki_public = _validate_pki_public(record["pki_public"])
-    artifacts = _validate_artifacts(record["artifacts"], cases, str(outcome))
+    pki_public = _validate_pki_public(record["pki_public"], str(artifact_state))
+    artifacts = _validate_artifacts(
+        record["artifacts"], cases, str(outcome), str(artifact_state)
+    )
+    pki_paths = {str(item["relative_path"]) for item in pki_public["public_artifacts"]}
+    artifact_paths = {str(item["relative_path"]) for item in artifacts}
+    if pki_paths & artifact_paths:
+        _fail("artifacts_invalid")
 
     cases_pass = counts["passed_count"] == 10
     transport_pass = _transport_passes(transport)
@@ -528,6 +613,7 @@ def validate_terminal_result(candidate: object) -> dict[str, object]:
 
     result: dict[str, object] = {
         "schema_version": TERMINAL_SCHEMA_VERSION,
+        "artifact_state": artifact_state,
         "attempt_id": attempt_id,
         "outcome": outcome,
         "failure_reason_code": failure_reason,
@@ -594,7 +680,20 @@ def _open_evidence_root(path: Path) -> int:
     return descriptor
 
 
-def _read_artifact(root_fd: int, artifact: Mapping[str, object]) -> None:
+def _read_bound_artifact(
+    root_fd: int, artifact: Mapping[str, object], *, namespace: str
+) -> bytes:
+    unsafe_reason = (
+        "pki_public_artifact_unsafe" if namespace == "pki" else "artifact_unsafe"
+    )
+    rebound_reason = (
+        "pki_public_artifact_rebound" if namespace == "pki" else "artifact_rebound"
+    )
+    digest_reason = (
+        "pki_public_artifact_digest_mismatch"
+        if namespace == "pki"
+        else "artifact_digest_mismatch"
+    )
     components = str(artifact["relative_path"]).split("/")
     directory_fd = os.dup(root_fd)
     file_fd = -1
@@ -618,7 +717,7 @@ def _read_artifact(root_fd: int, artifact: Mapping[str, object]) -> None:
             or before.st_size > MAX_ARTIFACT_BYTES
             or before.st_size != artifact["size_bytes"]
         ):
-            _fail("artifact_unsafe")
+            _fail(unsafe_reason)
         digest = hashlib.sha256()
         content = bytearray()
         remaining = MAX_ARTIFACT_BYTES + 1
@@ -639,28 +738,103 @@ def _read_artifact(root_fd: int, artifact: Mapping[str, object]) -> None:
             != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
             or (after.st_dev, after.st_ino) != (named_after.st_dev, named_after.st_ino)
         ):
-            _fail("artifact_rebound")
+            _fail(rebound_reason)
         if digest.hexdigest() != artifact["sha256"]:
-            _fail("artifact_digest_mismatch")
-        try:
-            text = bytes(content).decode("utf-8")
-        except UnicodeDecodeError:
-            _fail("artifact_not_text")
-        if evidence.secret_reason(text) is not None:
-            _fail("artifact_secret_bearing")
+            _fail(digest_reason)
+        payload = bytes(content)
+        if namespace == "artifact":
+            try:
+                text = payload.decode("utf-8")
+            except UnicodeDecodeError:
+                _fail("artifact_not_text")
+            if evidence.secret_reason(text) is not None:
+                _fail("artifact_secret_bearing")
+        return payload
     except RuntimeEvidenceError:
         raise
     except (OSError, ValueError, TypeError):
-        _fail("artifact_unsafe")
+        _fail(unsafe_reason)
     finally:
         if file_fd >= 0:
             os.close(file_fd)
         os.close(directory_fd)
 
 
-def _verify_artifacts(root_fd: int, artifacts: Sequence[Mapping[str, object]]) -> None:
-    for artifact in artifacts:
-        _read_artifact(root_fd, artifact)
+def _validate_public_material(name: str, payload: bytes) -> None:
+    try:
+        text = payload.decode("ascii")
+    except UnicodeDecodeError:
+        _fail("pki_public_material_invalid")
+    if name != "jwt_public_jwk":
+        lines = text.splitlines()
+        if (
+            not text.endswith("\n")
+            or len(lines) < 3
+            or lines[0] != "-----BEGIN CERTIFICATE-----"
+            or lines[-1] != "-----END CERTIFICATE-----"
+            or any(
+                re.fullmatch(r"[A-Za-z0-9+/=]+", line) is None for line in lines[1:-1]
+            )
+            or text.count("-----BEGIN CERTIFICATE-----") != 1
+            or text.count("-----END CERTIFICATE-----") != 1
+        ):
+            _fail("pki_public_material_invalid")
+        return
+
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        if len(pairs) != len({key for key, _ in pairs}):
+            _fail("pki_public_material_invalid")
+        return dict(pairs)
+
+    try:
+        document = json.loads(text, object_pairs_hook=unique_object)
+    except (json.JSONDecodeError, RuntimeEvidenceError):
+        _fail("pki_public_material_invalid")
+    if not isinstance(document, dict) or set(document) != {"keys"}:
+        _fail("pki_public_material_invalid")
+    keys = document["keys"]
+    if not isinstance(keys, list) or len(keys) != 1 or not isinstance(keys[0], dict):
+        _fail("pki_public_material_invalid")
+    jwk = keys[0]
+    if set(jwk) != {"alg", "crv", "kid", "kty", "x", "y"}:
+        _fail("pki_public_material_invalid")
+    if (
+        jwk["alg"] != "ES256"
+        or jwk["crv"] != "P-256"
+        or jwk["kty"] != "EC"
+        or not isinstance(jwk["kid"], str)
+        or _IDENTIFIER.fullmatch(jwk["kid"]) is None
+        or not isinstance(jwk["x"], str)
+        or not isinstance(jwk["y"], str)
+        or re.fullmatch(r"[A-Za-z0-9_-]{43}", jwk["x"]) is None
+        or re.fullmatch(r"[A-Za-z0-9_-]{43}", jwk["y"]) is None
+    ):
+        _fail("pki_public_material_invalid")
+
+
+def _seal_artifact(
+    root_fd: int, artifact: Mapping[str, object], index: int
+) -> dict[str, object]:
+    payload = _read_bound_artifact(root_fd, artifact, namespace="artifact")
+    snapshot_path = f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
+    snapshot_sha256 = _atomic_no_overwrite(root_fd, snapshot_path, payload)
+    if snapshot_sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
+        _fail("artifact_digest_mismatch")
+    return {**artifact, "relative_path": snapshot_path}
+
+
+def _seal_pki_public_artifact(
+    root_fd: int, artifact: Mapping[str, object], index: int
+) -> dict[str, object]:
+    name, source_path, snapshot_path = _PKI_PUBLIC_INVENTORY[index]
+    if artifact["name"] != name or artifact["relative_path"] != source_path:
+        _fail("pki_public_inventory_invalid")
+    payload = _read_bound_artifact(root_fd, artifact, namespace="pki")
+    _validate_public_material(name, payload)
+    snapshot_sha256 = _atomic_no_overwrite(root_fd, snapshot_path, payload)
+    if snapshot_sha256 != artifact["sha256"] or len(payload) != artifact["size_bytes"]:
+        _fail("pki_public_artifact_digest_mismatch")
+    return {**artifact, "relative_path": snapshot_path}
 
 
 def _terminal_paths_absent(root_fd: int) -> None:
@@ -736,15 +910,37 @@ def persist_terminal_evidence(
     """Seal one terminal packet without overwriting or deleting any evidence."""
 
     result = validate_terminal_result(candidate)
+    if result["artifact_state"] != "raw":
+        _fail("artifact_snapshot_inventory_invalid")
     root_fd = _open_evidence_root(evidence_root)
     try:
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         _terminal_paths_absent(root_fd)
+        public_artifacts = result["pki_public"]["public_artifacts"]
+        assert isinstance(public_artifacts, list)
+        sealed_public_artifacts: list[dict[str, object]] = []
+        for index, artifact in enumerate(public_artifacts):
+            sealed_public_artifacts.append(
+                _seal_pki_public_artifact(root_fd, artifact, index)
+            )
+            _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
+
         artifacts = result["artifacts"]
         assert isinstance(artifacts, list)
-        _verify_artifacts(root_fd, artifacts)
-        _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
-        _verify_artifacts(root_fd, artifacts)
+        sealed_artifacts: list[dict[str, object]] = []
+        for index, artifact in enumerate(artifacts):
+            sealed_artifacts.append(_seal_artifact(root_fd, artifact, index))
+            _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
+
+        result = {
+            **result,
+            "artifact_state": "sealed",
+            "pki_public": {
+                **result["pki_public"],
+                "public_artifacts": sealed_public_artifacts,
+            },
+            "artifacts": sealed_artifacts,
+        }
 
         result_payload = canonical_json(result)
         teardown_record = {
@@ -771,9 +967,15 @@ def persist_terminal_evidence(
             "passed_count": result["counts"]["passed_count"],
             "failed_count": result["counts"]["failed_count"],
             "not_run_count": result["counts"]["not_run_count"],
-            "artifact_count": len(artifacts),
+            "artifact_count": len(sealed_artifacts) + len(sealed_public_artifacts),
+            "pki_public_artifact_count": len(sealed_public_artifacts),
             "artifact_manifest_sha256": hashlib.sha256(
-                canonical_json(artifacts)
+                canonical_json(
+                    {
+                        "runtime_artifacts": sealed_artifacts,
+                        "pki_public_artifacts": sealed_public_artifacts,
+                    }
+                )
             ).hexdigest(),
             "result_sha256": result_sha256,
             "teardown_sha256": teardown_sha256,
