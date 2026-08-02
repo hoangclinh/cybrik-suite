@@ -1145,6 +1145,32 @@ def test_committed_readback_close_failure_is_stable(
         real_close(root_fd)
 
 
+def test_terminal_json_recursion_failure_is_stable(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    payload = b"{}\n"
+    committed = runtime_evidence._atomic_no_overwrite(
+        root_fd, runtime_evidence.SUMMARY_FILENAME, payload
+    )
+
+    def fail_json_decode(value: object) -> object:
+        raise RecursionError("synthetic nested JSON failure")
+
+    monkeypatch.setattr(runtime_evidence.json, "loads", fail_json_decode)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._validate_terminal_readback(
+                root_fd,
+                runtime_evidence.SUMMARY_FILENAME,
+                payload,
+                committed.identity,
+            )
+        assert caught.value.reason == "terminal_readback_failed"
+    finally:
+        os.close(root_fd)
+
+
 def test_bound_artifact_close_failure_is_stable(
     evidence_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -774,10 +774,19 @@ def _read_bound_artifact(
     except (OSError, ValueError, TypeError):
         _fail(unsafe_reason)
     finally:
+        close_failed = False
         if file_fd >= 0:
-            os.close(file_fd)
+            try:
+                os.close(file_fd)
+            except OSError:
+                close_failed = True
         if directory_fd >= 0:
-            os.close(directory_fd)
+            try:
+                os.close(directory_fd)
+            except OSError:
+                close_failed = True
+        if close_failed:
+            _fail(unsafe_reason)
 
 
 def _validate_public_material(name: str, payload: bytes) -> None:
@@ -1051,8 +1060,8 @@ def _sealed_projection(raw_result: Mapping[str, object]) -> dict[str, object]:
 
     public_artifacts = raw_result["pki_public"]["public_artifacts"]
     artifacts = raw_result["artifacts"]
-    assert isinstance(public_artifacts, list)
-    assert isinstance(artifacts, list)
+    if not isinstance(public_artifacts, list) or not isinstance(artifacts, list):
+        _fail("artifact_snapshot_inventory_invalid")
     projected_public = [
         {**artifact, "relative_path": _PKI_PUBLIC_INVENTORY[index][2]}
         for index, artifact in enumerate(public_artifacts)
@@ -1096,8 +1105,10 @@ def _terminal_payloads(
     teardown_sha256 = hashlib.sha256(teardown_payload).hexdigest()
     sealed_artifacts = result["artifacts"]
     sealed_public_artifacts = result["pki_public"]["public_artifacts"]
-    assert isinstance(sealed_artifacts, list)
-    assert isinstance(sealed_public_artifacts, list)
+    if not isinstance(sealed_artifacts, list) or not isinstance(
+        sealed_public_artifacts, list
+    ):
+        _fail("artifact_snapshot_inventory_invalid")
     summary_record = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "attempt_id": result["attempt_id"],
@@ -1150,7 +1161,12 @@ def _validate_terminal_readback(
                 _fail("terminal_readback_failed")
         if actual != expected_payload:
             _fail("terminal_readback_failed")
-    except (json.JSONDecodeError, UnicodeDecodeError, RuntimeEvidenceError):
+    except (
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+        RecursionError,
+        RuntimeEvidenceError,
+    ):
         _fail("terminal_readback_failed")
     return actual_sha256
 
@@ -1174,7 +1190,8 @@ def persist_terminal_evidence(
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         _terminal_paths_absent(root_fd)
         raw_public_artifacts = raw_result["pki_public"]["public_artifacts"]
-        assert isinstance(raw_public_artifacts, list)
+        if not isinstance(raw_public_artifacts, list):
+            _fail("artifact_snapshot_inventory_invalid")
         sealed_public_artifacts: list[dict[str, object]] = []
         for index, artifact in enumerate(raw_public_artifacts):
             sealed_public_artifacts.append(
@@ -1183,7 +1200,8 @@ def persist_terminal_evidence(
             _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
 
         raw_artifacts = raw_result["artifacts"]
-        assert isinstance(raw_artifacts, list)
+        if not isinstance(raw_artifacts, list):
+            _fail("artifact_snapshot_inventory_invalid")
         sealed_artifacts: list[dict[str, object]] = []
         for index, artifact in enumerate(raw_artifacts):
             sealed_artifacts.append(_seal_artifact(root_fd, artifact, index))
@@ -1237,4 +1255,7 @@ def persist_terminal_evidence(
             summary_sha256=summary_sha256,
         )
     finally:
-        os.close(root_fd)
+        try:
+            os.close(root_fd)
+        except OSError:
+            _fail("evidence_root_close_failed")
