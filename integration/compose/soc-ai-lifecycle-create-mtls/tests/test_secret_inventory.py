@@ -10,8 +10,10 @@ subprocess, Docker, database or PKI operation.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -377,6 +379,100 @@ def test_scan_tree_raises_on_an_unsafe_toctou_path_change(
         inventory.scan_tree(tmp_path)
 
 
+def test_scan_tree_detects_and_safely_remediates_an_exact_secret_in_a_filename(
+    tmp_path: Path,
+) -> None:
+    inventory = si.SecretInventory()
+    inventory.register("db_password", _DB_PASSWORD)
+    artifact = tmp_path / f"trace-{_DB_PASSWORD}.txt"
+    artifact.write_text("content is clean", encoding="utf-8")
+
+    findings = inventory.scan_tree(tmp_path)
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding.reason == si.EXACT_SECRET_MATCH
+    assert finding.label == "db_password"
+    assert finding.artifact_id == hashlib.sha256(
+        artifact.name.encode("utf-8")
+    ).hexdigest()
+    assert not hasattr(finding, "relative_path")
+    assert _DB_PASSWORD not in repr(finding)
+
+    plan_record = asdict(si.remediation_plan_for(finding))
+    assert _DB_PASSWORD not in json.dumps(plan_record)
+    assert evidence.validate_evidence(plan_record) == plan_record
+
+    remediation_record = si.apply_remediation(tmp_path, finding)
+    assert not artifact.exists()
+    assert _DB_PASSWORD not in json.dumps(remediation_record)
+    assert remediation_record["artifact_id"] == finding.artifact_id
+    assert evidence.validate_evidence(remediation_record) == remediation_record
+
+
+def test_scan_tree_detects_and_safely_remediates_an_exact_secret_directory_name(
+    tmp_path: Path,
+) -> None:
+    inventory = si.SecretInventory()
+    inventory.register("delegation_token", _OPAQUE_DELEGATION_TOKEN)
+    secret_directory = tmp_path / f"run-{_OPAQUE_DELEGATION_TOKEN}"
+    secret_directory.mkdir()
+
+    findings = inventory.scan_tree(tmp_path)
+
+    assert len(findings) == 1
+    assert findings[0].reason == si.EXACT_SECRET_MATCH
+    assert findings[0].label == "delegation_token"
+    assert _OPAQUE_DELEGATION_TOKEN not in repr(findings[0])
+
+    record = si.apply_remediation(tmp_path, findings[0])
+    assert not secret_directory.exists()
+    assert _OPAQUE_DELEGATION_TOKEN not in json.dumps(record)
+    assert evidence.validate_evidence(record) == record
+
+
+def test_scan_tree_detects_generic_high_risk_text_in_a_path_component(
+    tmp_path: Path,
+) -> None:
+    inventory = si.SecretInventory()
+    raw_component = "token=opaque-value.txt"
+    artifact = tmp_path / raw_component
+    artifact.write_text("content is clean", encoding="utf-8")
+
+    findings = inventory.scan_tree(tmp_path)
+
+    assert len(findings) == 1
+    assert findings[0].reason == evidence.INLINE_CREDENTIAL_ASSIGNMENT
+    assert findings[0].label is None
+    assert raw_component not in repr(findings[0])
+    record = si.apply_remediation(tmp_path, findings[0])
+    assert not artifact.exists()
+    assert raw_component not in json.dumps(record)
+    assert evidence.validate_evidence(record) == record
+
+
+def test_path_bearing_errors_expose_neither_the_raw_path_nor_secret(
+    tmp_path: Path,
+) -> None:
+    raw_component = f"trace-{_DB_PASSWORD}.txt"
+    finding = si.ScanFinding(raw_component, si.EXACT_SECRET_MATCH, "db_password")
+
+    with pytest.raises(si.SecretInventoryError) as caught:
+        si.apply_remediation(tmp_path, finding)
+
+    rendered = "|".join(
+        (
+            str(caught.value),
+            repr(caught.value),
+            repr(caught.value.args),
+            repr(caught.value.__cause__),
+            repr(caught.value.__context__),
+        )
+    )
+    assert raw_component not in rendered
+    assert _DB_PASSWORD not in rendered
+
+
 # --------------------------------------------------------------------------
 # remediation contract
 # --------------------------------------------------------------------------
@@ -519,3 +615,65 @@ def test_apply_remediation_refuses_a_path_that_escapes_the_root(
 
     with pytest.raises(si.SecretInventoryError, match="escapes"):
         si.apply_remediation(tmp_path, finding)
+
+
+def test_scanner_generated_symlink_finding_unlinks_only_the_leaf(
+    tmp_path: Path,
+) -> None:
+    inventory = si.SecretInventory()
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-symlink.txt"
+    outside.write_text(_DB_PASSWORD, encoding="utf-8")
+    link = tmp_path / "escape-link.txt"
+    link.symlink_to(outside)
+
+    finding = inventory.scan_tree(tmp_path)[0]
+    assert finding.reason == si.SYMLINK_NOT_PERMITTED
+
+    record = si.apply_remediation(tmp_path, finding)
+
+    assert not link.exists()
+    assert not link.is_symlink()
+    assert outside.read_text(encoding="utf-8") == _DB_PASSWORD
+    assert evidence.validate_evidence(record) == record
+    outside.unlink()
+
+
+def test_scanner_generated_fifo_finding_unlinks_the_leaf_without_opening_it(
+    tmp_path: Path,
+) -> None:
+    inventory = si.SecretInventory()
+    fifo = tmp_path / "pipe"
+    os.mkfifo(fifo)
+
+    finding = inventory.scan_tree(tmp_path)[0]
+    assert finding.reason == si.NON_REGULAR_FILE_NOT_PERMITTED
+
+    record = si.apply_remediation(tmp_path, finding)
+
+    assert not fifo.exists()
+    assert evidence.validate_evidence(record) == record
+
+
+@pytest.mark.parametrize("entry_kind", ("symlink", "fifo"))
+def test_special_leaf_remediation_refuses_a_type_rebind_to_a_regular_file(
+    tmp_path: Path,
+    entry_kind: str,
+) -> None:
+    inventory = si.SecretInventory()
+    artifact = tmp_path / "artifact"
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-race.txt"
+    outside.write_text(_DB_PASSWORD, encoding="utf-8")
+    if entry_kind == "symlink":
+        artifact.symlink_to(outside)
+    else:
+        os.mkfifo(artifact)
+    finding = inventory.scan_tree(tmp_path)[0]
+    artifact.unlink()
+    artifact.write_text("replacement must survive", encoding="utf-8")
+
+    with pytest.raises(si.SecretInventoryError, match="changed"):
+        si.apply_remediation(tmp_path, finding)
+
+    assert artifact.read_text(encoding="utf-8") == "replacement must survive"
+    assert outside.read_text(encoding="utf-8") == _DB_PASSWORD
+    outside.unlink()
