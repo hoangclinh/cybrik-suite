@@ -1072,6 +1072,32 @@ def _git(root: Path, *args: str, allow_status: bool = False) -> str:
     return completed.stdout.strip()
 
 
+def _is_git_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    """Return one bounded merge-base result without reflecting process details."""
+
+    try:
+        completed = subprocess.run(
+            (
+                "git",
+                "-C",
+                str(root),
+                "merge-base",
+                "--is-ancestor",
+                ancestor,
+                descendant,
+            ),
+            check=False,
+            capture_output=True,
+            timeout=30,
+            shell=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        _fail("repository_observation_failed")
+    if completed.returncode not in (0, 1):
+        _fail("repository_observation_failed")
+    return completed.returncode == 0
+
+
 def _candidate(path: Path) -> CandidateState:
     try:
         if path.is_symlink() or not path.is_file():
@@ -1082,7 +1108,15 @@ def _candidate(path: Path) -> CandidateState:
         current = document["attempt_accounting"]["current_attempt"]
         if not isinstance(current, Mapping):
             _fail("candidate_invalid")
-    except (AttributeError, OSError, KeyError, TypeError, json.JSONDecodeError):
+    except (
+        AttributeError,
+        OSError,
+        KeyError,
+        RecursionError,
+        TypeError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ):
         _fail("candidate_invalid")
     pinned = current.get("authorization_sha256")
     if pinned is None:
@@ -1300,15 +1334,14 @@ def _exact_head_grant_from_environment(
         _EXACT_HEAD_ALLOWED_SIGNERS_NAME,
     )
     raw = read_authorization(path)
-    allowed_signers_descriptor: int | None = None
+    allowed_signers_descriptor, allowed_signers_raw, allowed_signers_identity = (
+        _open_bound_allowed_signers(allowed_signers)
+    )
     try:
-        allowed_signers_descriptor, allowed_signers_raw, allowed_signers_identity = (
-            _open_bound_allowed_signers(allowed_signers)
-        )
-        allowed_signers_text = allowed_signers_raw.decode("ascii")
-    except UnicodeDecodeError:
-        _fail("exact_head_grant_signer_mismatch")
-    try:
+        try:
+            allowed_signers_text = allowed_signers_raw.decode("ascii")
+        except UnicodeDecodeError:
+            _fail("exact_head_grant_signer_mismatch")
         signer_pattern = re.compile(
             rf"{re.escape(EXACT_HEAD_GRANT_SIGNER_IDENTITY)} "
             r"ssh-ed25519 [A-Za-z0-9+/]+={0,3}(?: [^\r\n]+)?\n"
@@ -1326,11 +1359,10 @@ def _exact_head_grant_from_environment(
             allowed_signers_descriptor, allowed_signers, allowed_signers_identity
         )
     finally:
-        if allowed_signers_descriptor is not None:
-            try:
-                os.close(allowed_signers_descriptor)
-            except OSError:
-                pass
+        try:
+            os.close(allowed_signers_descriptor)
+        except OSError:
+            pass
     try:
         fields = parse_exact_head_grant(raw.decode("utf-8"))
     except UnicodeDecodeError:
@@ -1454,39 +1486,11 @@ def authorize_from_environment() -> RuntimeAuthorization:
             "--untracked-files=all",
             "--ignored",
         ),
-        admission_base_is_ancestor_of_head=(
-            subprocess.run(
-                (
-                    "git",
-                    "-C",
-                    str(suite_root),
-                    "merge-base",
-                    "--is-ancestor",
-                    admission_base,
-                    "HEAD",
-                ),
-                check=False,
-                capture_output=True,
-                timeout=30,
-            ).returncode
-            == 0
+        admission_base_is_ancestor_of_head=_is_git_ancestor(
+            suite_root, admission_base, "HEAD"
         ),
-        admission_base_descends_d1_base=(
-            subprocess.run(
-                (
-                    "git",
-                    "-C",
-                    str(suite_root),
-                    "merge-base",
-                    "--is-ancestor",
-                    _D1_BASE,
-                    admission_base,
-                ),
-                check=False,
-                capture_output=True,
-                timeout=30,
-            ).returncode
-            == 0
+        admission_base_descends_d1_base=_is_git_ancestor(
+            suite_root, _D1_BASE, admission_base
         ),
         runtime_code_aggregate=runtime_code_aggregate(suite_root),
         authorization_path=authorization_path,
