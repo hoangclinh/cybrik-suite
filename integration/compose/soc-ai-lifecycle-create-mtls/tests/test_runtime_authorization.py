@@ -575,6 +575,96 @@ def test_exact_head_grant_environment_observer_verifies_detached_signature(
     assert caught.value.reason == "exact_head_grant_signature_invalid"
 
 
+def test_exact_head_grant_verification_is_bound_to_the_digest_checked_signer_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    grant_path = fixture.observed.exact_head_grant_path
+    payload = "".join(
+        f"{key}={fixture.observed.exact_head_grant[key]}\n"
+        for key in authorization.EXACT_HEAD_GRANT_FIELDS
+    )
+    grant_path.write_text(payload, encoding="utf-8")
+    trusted_key = tmp_path / "trusted-test-only-ed25519"
+    attacker_key = tmp_path / "attacker-test-only-ed25519"
+    for key in (trusted_key, attacker_key):
+        subprocess.run(
+            (
+                "/usr/bin/ssh-keygen",
+                "-q",
+                "-t",
+                "ed25519",
+                "-N",
+                "",
+                "-f",
+                str(key),
+            ),
+            check=True,
+            timeout=30,
+        )
+    allowed_signers = fixture.observed.exact_head_grant_allowed_signers_path
+    trusted_public = trusted_key.with_suffix(".pub").read_text(
+        encoding="ascii"
+    ).strip()
+    attacker_public = attacker_key.with_suffix(".pub").read_text(
+        encoding="ascii"
+    ).strip()
+    allowed_signers.write_text(
+        f"{authorization.EXACT_HEAD_GRANT_SIGNER_IDENTITY} {trusted_public}\n",
+        encoding="ascii",
+    )
+    replacement = allowed_signers.with_name("replacement-allowed-signers.txt")
+    replacement.write_text(
+        f"{authorization.EXACT_HEAD_GRANT_SIGNER_IDENTITY} {attacker_public}\n",
+        encoding="ascii",
+    )
+    fixture.observed.exact_head_grant_signature_path.unlink()
+    subprocess.run(
+        (
+            "/usr/bin/ssh-keygen",
+            "-Y",
+            "sign",
+            "-f",
+            str(attacker_key),
+            "-n",
+            authorization.EXACT_HEAD_GRANT_NAMESPACE,
+            str(grant_path),
+        ),
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    signature = grant_path.with_suffix(".txt.sig")
+    fields = dict(fixture.fields)
+    fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"] = hashlib.sha256(
+        allowed_signers.read_bytes()
+    ).hexdigest()
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(grant_path))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE", str(signature))
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", str(allowed_signers))
+    original_run = subprocess.run
+    swapped = False
+
+    def swap_before_verify(*args: object, **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        nonlocal swapped
+        command = args[0]
+        if (
+            not swapped
+            and isinstance(command, tuple)
+            and command[:3] == ("/usr/bin/ssh-keygen", "-Y", "verify")
+        ):
+            os.replace(replacement, allowed_signers)
+            swapped = True
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(authorization.subprocess, "run", swap_before_verify)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._exact_head_grant_from_environment(fields)
+    assert caught.value.reason == "exact_head_grant_signature_invalid"
+    assert swapped is True
+
+
 def test_exact_head_grant_environment_observer_rejects_a_symlink(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1625,6 +1715,27 @@ def test_required_absolute_environment_path_is_canonical_and_fail_closed(
     assert (
         authorization._required_absolute_env("D2_TEST_PATH", existing=False) == future
     )
+
+    detour = tmp_path / "detour"
+    detour.mkdir()
+    monkeypatch.setenv("D2_TEST_PATH", str(detour / ".." / existing.name))
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._required_absolute_env("D2_TEST_PATH", existing=True)
+    assert caught.value.reason == "runtime_environment_invalid"
+
+
+def test_candidate_observer_stabilizes_non_mapping_nested_shapes(
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "runtime-admission.json"
+    candidate.write_text(
+        json.dumps({"attempt_accounting": {"current_attempt": "not-a-mapping"}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._candidate(candidate)
+    assert caught.value.reason == "candidate_invalid"
 
 
 def test_check_only_cli_validates_without_consuming(
