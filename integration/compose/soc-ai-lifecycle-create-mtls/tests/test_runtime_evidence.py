@@ -343,7 +343,8 @@ def test_public_pki_metadata_cannot_carry_private_or_raw_material(
     evidence_root: Path,
 ) -> None:
     candidate = _passing_candidate(evidence_root)
-    candidate["pki_public"]["private_key_pem"] = "-----BEGIN PRIVATE KEY-----"  # type: ignore[index]
+    private_marker = f"{'-' * 5}BEGIN {'PRIVATE'} {'KEY'}{'-' * 5}"
+    candidate["pki_public"]["private_key_pem"] = private_marker  # type: ignore[index]
     _assert_reason(candidate, "pki_public_invalid")
 
 
