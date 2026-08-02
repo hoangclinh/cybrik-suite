@@ -31,6 +31,45 @@ _HEX_B: Final = "b" * 64
 _HEX_C: Final = "c" * 64
 _HEX_D: Final = "d" * 64
 _RUNTIME_SECRET: Final = "synthetic-d2-runtime-secret-" + "x" * 40
+_PUBLIC_TEST_CERTIFICATE: Final = b"""-----BEGIN CERTIFICATE-----
+MIICGTCCAZ+gAwIBAgIQCeCTZaz32ci5PhwLBCou8zAKBggqhkjOPQQDAzBOMQsw
+CQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJjAkBgNVBAMTHURp
+Z2lDZXJ0IFRMUyBFQ0MgUDM4NCBSb290IEc1MB4XDTIxMDExNTAwMDAwMFoXDTQ2
+MDExNDIzNTk1OVowTjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJ
+bmMuMSYwJAYDVQQDEx1EaWdpQ2VydCBUTFMgRUNDIFAzODQgUm9vdCBHNTB2MBAG
+ByqGSM49AgEGBSuBBAAiA2IABMFEoc8Rl1Ca3iOCNQfN0MsYndLxf3c1TzvdlHJS
+7cI7+Oz6e2tYIOyZrsn8aLN1udsJ7MgT9U7GCh1mMEy7H0cKPGEQQil8pQgO4CLp
+0zVozptjn4S1mU1YoI71VOeVyaNCMEAwHQYDVR0OBBYEFMFRRVBZqz7nLFr6ICIS
+B4CIfBFqMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
+BAMDA2gAMGUCMQCJao1H5+z8blUD2WdsJk6Dxv3J+ysTvLd6jLRl0mlpYxNjOyZQ
+LgGheQaRnUi/wr4CMEfDFXuxoJGZSZOoPHzoRgaLLPIxAJSdYsiJvRmEFOml+wG4
+DXZDjC5Ty3zfDBeWUA==
+-----END CERTIFICATE-----
+"""
+_PUBLIC_TEST_JWK: Final = (
+    json.dumps(
+        {
+            "keys": [
+                {
+                    "alg": "ES256",
+                    "crv": "P-256",
+                    "kid": "d2-public-key",
+                    "kty": "EC",
+                    "x": "A" * 43,
+                    "y": "B" * 43,
+                }
+            ]
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("ascii")
+    + b"\n"
+)
+_PRIVATE_KEY_PEM: Final = (
+    b"-----BEGIN PRIVATE KEY-----\n"
+    b"c3ludGhldGljLXByaXZhdGUta2V5LW1hdGVyaWFs\n"
+    b"-----END PRIVATE KEY-----\n"
+)
 
 _PUBLIC_PKI: Final = (
     ("ca_certificate", "ca-cert.pem"),
@@ -197,9 +236,14 @@ def _public_pki(runtime_root: Path) -> dict[str, Path]:
     pki_root = runtime_root / "pki"
     pki_root.mkdir()
     result: dict[str, Path] = {}
-    for index, (name, filename) in enumerate(_PUBLIC_PKI):
+    for name, filename in _PUBLIC_PKI:
         path = pki_root / filename
-        path.write_bytes(f"synthetic-public-material-{index}\n".encode("ascii"))
+        payload = (
+            _PUBLIC_TEST_JWK
+            if name == "jwt_public_jwk"
+            else _PUBLIC_TEST_CERTIFICATE
+        )
+        path.write_bytes(payload)
         result[name] = path
     return result
 
@@ -248,6 +292,56 @@ def test_pre_teardown_freezes_exact_five_public_pki_before_runtime_deletion(
         frozen = evidence_root / "pki-public" / filename
         assert frozen.is_file() and not frozen.is_symlink()
         assert frozen.read_bytes() == expected[name]
+
+
+def test_pre_teardown_remediates_private_key_pem_beside_public_copies(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    leaked_private_key = evidence_root / "runtime-private-key.pem"
+    leaked_private_key.write_bytes(_PRIVATE_KEY_PEM)
+
+    prepared = _prepare(
+        terminal,
+        authorization=authorization,
+        marker=marker,
+        public_pki_paths=_public_pki(runtime_root),
+    )
+
+    assert not leaked_private_key.exists()
+    assert len(prepared.remediation_receipts) == 1
+    assert prepared.remediation_receipts[0]["reason"] == "pem_private_key"
+    assert _PRIVATE_KEY_PEM.decode("ascii") not in repr(prepared)
+    for _name, filename in _PUBLIC_PKI:
+        assert (evidence_root / "pki-public" / filename).is_file()
+
+
+def test_pre_teardown_rejects_corrupt_public_certificate_before_freeze(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    public_pki_paths = _public_pki(runtime_root)
+    corrupt = _PUBLIC_TEST_CERTIFICATE.replace(b"MIIC", b"NIIC", 1)
+    public_pki_paths["server_certificate"].write_bytes(corrupt)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=public_pki_paths,
+        )
+
+    assert caught.value.reason == "public_pki_invalid"
+    assert str(public_pki_paths["server_certificate"]) not in str(caught.value)
+    assert not (evidence_root / "pki-public").exists()
+    assert not _pending_path(terminal, evidence_root).exists()
 
 
 def test_pre_teardown_secret_sweep_remediates_content_and_filename_without_locator_leak(
