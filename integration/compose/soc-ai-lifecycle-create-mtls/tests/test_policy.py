@@ -861,6 +861,15 @@ def test_d2_coverage_measurement_chain_is_terminal_and_runtime_stays_hold() -> N
         "At P0 execution time, its section 7.3 coverage gate remained unsatisfied"
         in decision
     )
+    assert "Phase A must remain closed until exact commands" not in decision
+    assert (
+        "At D2-P0 authoring time, Phase A therefore remained closed" in decision
+    )
+    assert (
+        "Phase A remains closed until a separately pinned command"
+        not in harness_readme
+    )
+    assert "At D2-P0 authoring time, Phase A remained closed" in harness_readme
     assert summary["independent_reviews"] == {
         "codex_post_execution": "GO_WITH_REMEDIATED_P3",
         "claude_opus_post_execution": "GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA",
@@ -968,8 +977,9 @@ def test_d2_coverage_authorization_hardening_is_executable_but_grants_no_action(
     assert "Release dates remain unchanged" in section
     assert "validate_coverage_authorization.py" in harness_readme
     assert (
-        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD"
-    ) in harness_readme
+        "AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — RUNTIME HOLD"
+        in harness_readme
+    )
 
 
 def test_dependency_neutral_readme_command_names_only_the_four_static_files() -> None:

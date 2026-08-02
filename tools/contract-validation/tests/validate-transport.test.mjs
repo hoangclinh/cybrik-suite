@@ -4873,6 +4873,19 @@ test('UAT mTLS D2 coverage measurement chain is terminal while runtime remains h
     decision,
     /At P0 execution time, its section 7\.3 coverage gate remained unsatisfied/,
   );
+  assert.doesNotMatch(decision, /Phase A must remain closed until exact commands/);
+  assert.match(
+    decision,
+    /At D2-P0 authoring time, Phase A therefore remained closed/,
+  );
+  assert.doesNotMatch(
+    read(UAT_MTLS_HARNESS_README_REL),
+    /Phase A remains closed until a separately pinned command/,
+  );
+  assert.match(
+    read(UAT_MTLS_HARNESS_README_REL),
+    /At D2-P0 authoring time, Phase A remained closed/,
+  );
   assert.deepEqual(evidence.independent_reviews, {
     codex_post_execution: 'GO_WITH_REMEDIATED_P3',
     claude_opus_post_execution: 'GO_NO_P0_P2_WITH_8_RECONCILED_ERRATA',
@@ -4899,7 +4912,7 @@ test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator
   assert.match(section, /D2 remains \*\*HOLD\*\*/);
   assert.match(
     section,
-    /Current state: `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — M2 VERIFIED — RUNTIME HOLD`/,
+    /Current state: `AUTHORED — VALIDATOR TESTS GREEN — P0 CONSUMED — RUNTIME HOLD`/,
   );
 });
 
