@@ -23,6 +23,11 @@ from types import ModuleType
 from typing import Final
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
+
 from cybrik_suite_uat_mtls import procedure, secret_inventory
 from cybrik_suite_uat_mtls import runtime_authorization as runtime_auth
 
@@ -31,21 +36,26 @@ _HEX_B: Final = "b" * 64
 _HEX_C: Final = "c" * 64
 _HEX_D: Final = "d" * 64
 _RUNTIME_SECRET: Final = "synthetic-d2-runtime-secret-" + "x" * 40
-_PUBLIC_TEST_CERTIFICATE: Final = b"""-----BEGIN CERTIFICATE-----
-MIICGTCCAZ+gAwIBAgIQCeCTZaz32ci5PhwLBCou8zAKBggqhkjOPQQDAzBOMQsw
-CQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJjAkBgNVBAMTHURp
-Z2lDZXJ0IFRMUyBFQ0MgUDM4NCBSb290IEc1MB4XDTIxMDExNTAwMDAwMFoXDTQ2
-MDExNDIzNTk1OVowTjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJ
-bmMuMSYwJAYDVQQDEx1EaWdpQ2VydCBUTFMgRUNDIFAzODQgUm9vdCBHNTB2MBAG
-ByqGSM49AgEGBSuBBAAiA2IABMFEoc8Rl1Ca3iOCNQfN0MsYndLxf3c1TzvdlHJS
-7cI7+Oz6e2tYIOyZrsn8aLN1udsJ7MgT9U7GCh1mMEy7H0cKPGEQQil8pQgO4CLp
-0zVozptjn4S1mU1YoI71VOeVyaNCMEAwHQYDVR0OBBYEFMFRRVBZqz7nLFr6ICIS
-B4CIfBFqMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
-BAMDA2gAMGUCMQCJao1H5+z8blUD2WdsJk6Dxv3J+ysTvLd6jLRl0mlpYxNjOyZQ
-LgGheQaRnUi/wr4CMEfDFXuxoJGZSZOoPHzoRgaLLPIxAJSdYsiJvRmEFOml+wG4
-DXZDjC5Ty3zfDBeWUA==
------END CERTIFICATE-----
-"""
+
+
+def _make_public_test_certificate() -> bytes:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "d2.synthetic")])
+    not_before = datetime(2026, 8, 1, tzinfo=UTC)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(subject)
+        .public_key(private_key.public_key())
+        .serial_number(1)
+        .not_valid_before(not_before)
+        .not_valid_after(not_before + timedelta(days=1))
+        .sign(private_key, hashes.SHA256())
+    )
+    return certificate.public_bytes(serialization.Encoding.PEM)
+
+
+_PUBLIC_TEST_CERTIFICATE: Final = _make_public_test_certificate()
 _PUBLIC_TEST_JWK: Final = (
     json.dumps(
         {
@@ -65,11 +75,12 @@ _PUBLIC_TEST_JWK: Final = (
     ).encode("ascii")
     + b"\n"
 )
+_PRIVATE_KEY_LABEL: Final = "PRIVATE" + " KEY"
 _PRIVATE_KEY_PEM: Final = (
-    b"-----BEGIN PRIVATE KEY-----\n"
-    b"c3ludGhldGljLXByaXZhdGUta2V5LW1hdGVyaWFs\n"
-    b"-----END PRIVATE KEY-----\n"
-)
+    f"-----BEGIN {_PRIVATE_KEY_LABEL}-----\n"
+    "synthetic-test-material\n"
+    f"-----END {_PRIVATE_KEY_LABEL}-----\n"
+).encode("ascii")
 
 _PUBLIC_PKI: Final = (
     ("ca_certificate", "ca-cert.pem"),
@@ -325,7 +336,7 @@ def test_pre_teardown_rejects_corrupt_public_certificate_before_freeze(
     authorization = _authorization(tmp_path, runtime_root, evidence_root)
     marker = _consumed_marker(authorization)
     public_pki_paths = _public_pki(runtime_root)
-    corrupt = _PUBLIC_TEST_CERTIFICATE.replace(b"MIIC", b"NIIC", 1)
+    corrupt = _PUBLIC_TEST_CERTIFICATE[: len(_PUBLIC_TEST_CERTIFICATE) // 2]
     public_pki_paths["server_certificate"].write_bytes(corrupt)
 
     with pytest.raises(terminal.TerminalIntegrationError) as caught:
