@@ -859,7 +859,10 @@ def prepare_terminal_handoff(
     relative_artifacts = tuple(
         _relative_artifact(path, binding.evidence_root) for path in artifact_paths
     )
-    if len(relative_artifacts) != len(set(relative_artifacts)):
+    folded_artifacts = tuple(
+        "/".join(relative).casefold() for relative in relative_artifacts
+    )
+    if len(folded_artifacts) != len(set(folded_artifacts)):
         _fail("artifact_outside_evidence_root")
 
     root_descriptor = _open_evidence_root(binding.evidence_root)
@@ -960,7 +963,7 @@ def _loaded_artifact(value: object) -> _ArtifactBinding:
         or relative_path.startswith("/")
         or "\\" in relative_path
         or any(part in {"", ".", ".."} for part in relative_path.split("/"))
-        or relative_path in _TERMINAL_FILENAMES
+        or relative_path.casefold() in _TERMINAL_FILENAMES_CASEFOLDED
         or not isinstance(sha256, str)
         or _HEX64.fullmatch(sha256) is None
     ):
@@ -1111,9 +1114,9 @@ def _load_pending_handoff(
         != expected_public_paths
     ):
         _fail("public_pki_invalid")
-    if len({artifact.relative_path for artifact in artifact_bindings}) != len(
-        artifact_bindings
-    ):
+    if len(
+        {artifact.relative_path.casefold() for artifact in artifact_bindings}
+    ) != len(artifact_bindings):
         _fail("pending_handoff_invalid")
     return _LoadedPendingHandoff(
         candidate=dict(candidate),
@@ -1160,20 +1163,21 @@ def finalize_terminal_handoff(
             _fail("consumption_marker_mismatch")
         for artifact in pending.artifact_bindings:
             _verify_artifact_binding(root_descriptor, artifact)
+        teardown = _live_absence(live_absence_probe)
+        candidate = pending.candidate
+        expected_authority = {
+            "phase_a_auth_sha256": binding.authorization_sha256,
+            "consumption_sha256": pending.marker_sha256,
+            "one_shot_consumed": True,
+        }
+        if (
+            candidate.get("attempt_id") != binding.authorization_id
+            or candidate.get("authority") != expected_authority
+        ):
+            _fail("terminal_grant_mismatch")
+        candidate["teardown"] = teardown
+        return runtime_evidence.persist_terminal_evidence(
+            binding.evidence_root, candidate
+        )
     finally:
         _descriptor_close(root_descriptor)
-
-    teardown = _live_absence(live_absence_probe)
-    candidate = pending.candidate
-    expected_authority = {
-        "phase_a_auth_sha256": binding.authorization_sha256,
-        "consumption_sha256": pending.marker_sha256,
-        "one_shot_consumed": True,
-    }
-    if (
-        candidate.get("attempt_id") != binding.authorization_id
-        or candidate.get("authority") != expected_authority
-    ):
-        _fail("terminal_grant_mismatch")
-    candidate["teardown"] = teardown
-    return runtime_evidence.persist_terminal_evidence(binding.evidence_root, candidate)
