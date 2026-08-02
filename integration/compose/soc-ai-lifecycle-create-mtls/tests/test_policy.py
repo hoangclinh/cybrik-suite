@@ -32,6 +32,7 @@ _RUNTIME_SOURCE_FILES = (
     "harness.py",
     "pki.py",
     "runtime_authorization.py",
+    "runtime_evidence.py",
     "secret_inventory.py",
     "server.py",
     "store.py",

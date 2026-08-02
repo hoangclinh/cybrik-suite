@@ -54,6 +54,8 @@ RUNTIME_CODE_PATHS: Final = tuple(
             f"{_PACKAGE}/policy.py",
             f"{_PACKAGE}/procedure.py",
             f"{_PACKAGE}/runtime_authorization.py",
+            f"{_PACKAGE}/runtime_evidence.py",
+            f"{_PACKAGE}/secret_inventory.py",
             f"{_PACKAGE}/server.py",
             f"{_PACKAGE}/store.py",
             "integration/compose/soc-ai-lifecycle-create-mtls/pyproject.toml",
