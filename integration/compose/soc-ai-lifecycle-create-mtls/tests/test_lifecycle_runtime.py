@@ -111,6 +111,21 @@ def test_missing_pinned_trust_factory_is_wrapped_as_authorization_failure() -> N
     assert "from_pinned_jwks" in ast.unparse(compatibility)
 
 
+def test_product_api_compatibility_confines_actual_import_origins() -> None:
+    tree = ast.parse(_HARNESS.read_text(encoding="utf-8"), filename=str(_HARNESS))
+    compatibility = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "assert_product_api_compatibility"
+    )
+    body = ast.unparse(compatibility)
+
+    assert "runtime_authorization.verify_module_origins" in body
+    assert "__module__" in body
+    assert "__file__" in body
+
+
 def test_runtime_driver_is_collected_but_cannot_run_without_phase_a() -> None:
     source = Path(__file__).read_text(encoding="utf-8")
     harness_source = _HARNESS.read_text(encoding="utf-8") if _HARNESS.is_file() else ""
