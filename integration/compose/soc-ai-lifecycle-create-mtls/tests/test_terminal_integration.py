@@ -820,6 +820,205 @@ def test_whole_module_uses_descriptor_wrappers_for_open_close_fstat_and_dup() ->
     assert violations == []
 
 
+def _leaked_private_key(evidence_root: Path) -> Path:
+    """Plant one sweepable artifact that proves no mutation phase ran."""
+
+    leaked = evidence_root / "runtime-private-key.pem"
+    leaked.write_bytes(_PRIVATE_KEY_PEM)
+    return leaked
+
+
+def test_prepare_reentry_refuses_before_any_sweep_freeze_or_persist_mutation(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    pending_path = _pending_path(terminal, evidence_root)
+    prior_bytes = b'{"prior":"handoff"}\n'
+    pending_path.write_bytes(prior_bytes)
+    pending_path.chmod(0o600)
+    leaked = _leaked_private_key(evidence_root)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+        )
+
+    assert caught.value.reason == "terminal_handoff_already_prepared"
+    assert pending_path.read_bytes() == prior_bytes
+    assert leaked.read_bytes() == _PRIVATE_KEY_PEM
+    assert not os.path.lexists(evidence_root / "pki-public")
+
+
+def test_prepare_reentry_preserves_a_dangling_reserved_public_directory_entry(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    reserved = evidence_root / "pki-public"
+    dangling_target = tmp_path / "absent-reserved-target"
+    reserved.symlink_to(dangling_target)
+    leaked = _leaked_private_key(evidence_root)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+        )
+
+    assert caught.value.reason == "terminal_handoff_already_prepared"
+    assert reserved.is_symlink()
+    assert os.readlink(reserved) == str(dangling_target)
+    assert not reserved.exists()
+    assert leaked.read_bytes() == _PRIVATE_KEY_PEM
+    assert not os.path.lexists(_pending_path(terminal, evidence_root))
+
+
+def test_public_payload_with_registered_exact_marker_is_refused_before_freeze(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    inventory = secret_inventory.SecretInventory()
+    embedded_marker = json.loads(_PUBLIC_TEST_JWK)["keys"][0]["kid"]
+    inventory.register("runtime_secret", embedded_marker)
+    leaked = _leaked_private_key(evidence_root)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+            inventory=inventory,
+        )
+
+    assert caught.value.reason == "public_pki_secret_detected"
+    assert embedded_marker not in str(caught.value)
+    # Every public certificate carries a generic PEM classification.  The four
+    # certificates ahead of the marked JWK were accepted, so that generic class
+    # alone never refuses a public payload.
+    assert inventory.scan_bytes(_PUBLIC_TEST_CERTIFICATE) is not None
+    assert not os.path.lexists(evidence_root / "pki-public")
+    assert leaked.read_bytes() == _PRIVATE_KEY_PEM
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_reason"),
+    (
+        ("oversized", "public_pki_too_large"),
+        ("inventory", "public_pki_scan_failed"),
+    ),
+)
+def test_public_payload_size_and_inventory_errors_map_to_stable_reasons(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    expected_reason: str,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    public_pki_paths = _public_pki(runtime_root)
+    sensitive_locator = tmp_path / "must-not-leak"
+    if failure == "oversized":
+        oversized = b"A" * (secret_inventory.MAX_SCAN_TEXT_BYTES + 1)
+        public_pki_paths["ca_certificate"].write_bytes(oversized)
+    else:
+
+        def fail_scan(_self: object, _data: bytes) -> str | None:
+            raise secret_inventory.SecretInventoryError(str(sensitive_locator))
+
+        monkeypatch.setattr(
+            secret_inventory.SecretInventory, "_exact_label", fail_scan
+        )
+    leaked = _leaked_private_key(evidence_root)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=public_pki_paths,
+        )
+
+    assert caught.value.reason == expected_reason
+    assert str(sensitive_locator) not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+    assert not os.path.lexists(evidence_root / "pki-public")
+    assert leaked.read_bytes() == _PRIVATE_KEY_PEM
+
+
+def test_caller_supplied_reserved_public_namespace_artifact_is_refused(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    public_pki_paths = _public_pki(runtime_root)
+    reserved_root = evidence_root / "pki-public"
+
+    for reserved in (reserved_root, reserved_root / "ca-cert.pem"):
+        with pytest.raises(terminal.TerminalIntegrationError) as caught:
+            _prepare(
+                terminal,
+                authorization=authorization,
+                marker=marker,
+                public_pki_paths=public_pki_paths,
+                artifact_paths=(reserved,),
+            )
+        assert caught.value.reason == "artifact_reserved_namespace"
+
+    assert not os.path.lexists(reserved_root)
+    assert not os.path.lexists(_pending_path(terminal, evidence_root))
+
+
+def test_reserved_directory_creation_failure_is_stable_and_path_free(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    public_pki_paths = _public_pki(runtime_root)
+    sensitive_locator = tmp_path / "must-not-leak"
+
+    def fail_mkdir(*_args: object, **_kwargs: object) -> None:
+        raise OSError(str(sensitive_locator))
+
+    monkeypatch.setattr(terminal.os, "mkdir", fail_mkdir)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=public_pki_paths,
+        )
+
+    assert caught.value.reason == "public_pki_freeze_failed"
+    assert str(sensitive_locator) not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+    assert not isinstance(caught.value, OSError)
+    assert not os.path.lexists(_pending_path(terminal, evidence_root))
+
+
 def test_terminal_handoff_adds_no_operator_lifecycle_command() -> None:
     assert procedure.LIFECYCLE_STEPS == (
         "start",
