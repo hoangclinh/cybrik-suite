@@ -648,19 +648,28 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
         (_HARNESS_ROOT / "evidence/coverage-closure-recovery.json").read_text()
     )
 
+    def current_state(gate: str) -> str:
+        match = re.search(
+            rf"^### {re.escape(gate)}\n\nCurrent state: `([^`]+)`\.$",
+            decision,
+            re.MULTILINE,
+        )
+        assert match is not None
+        return match.group(1)
+
     assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1" in decision
-    assert (
+    assert current_state("Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1") == (
         "EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD"
-        in decision
     )
-    assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2" in decision
-    assert (
-        "EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED" in decision
+    assert current_state("Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2") == (
+        "EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD"
     )
-    assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3" in decision
-    assert (
-        "AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN"
-        in decision
+    assert current_state("Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3") == (
+        "EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD"
+    )
+    assert current_state("Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R4") == (
+        "AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — "
+        "RUNTIME HOLD"
     )
     assert "recover_coverage_closure.py" in harness_readme
     assert "exactly the 56 filenames and SHA-256 values" in normalized
@@ -677,9 +686,30 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
     )
     assert summary["r2"]["rollback_status"] == "removed"
     assert summary["r2"]["retry_ceiling"] == 1
-    assert summary["r3"]["execution_status"] == "not_run"
+    assert summary["r3"]["execution_status"] == "failed"
+    assert summary["r3"]["failure_reason"] == "venv_identity_mismatch"
+    assert summary["r3"]["network_phase_status"] == (
+        "wheel_acquisition_and_verification_completed"
+    )
+    assert summary["r3"]["rollback_status"] == "removed"
     assert summary["r3"]["retry_ceiling"] == 1
     assert summary["r3"]["expected_final_links"]["python"] == "python3.12"
+    assert summary["r4"]["execution_status"] == "not_run"
+    assert summary["r4"]["retry_ceiling"] == 1
+    assert summary["r4"]["authorized_initial_links"]["python"].endswith(
+        "cpython-3.12-macos-aarch64-none/bin/python3.12"
+    )
+    assert summary["r4"]["expected_final_links"]["python"] == "python3.12"
+    assert summary["r4"]["pinned_alias"]["sha256"] == (
+        "a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623"
+    )
+    assert summary["r4"]["pinned_alias"]["alias_parent_literal_target"] == (
+        "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none"
+    )
+    assert (
+        summary["r4"]["pinned_alias"]["alias_parent_owner_requirement"]
+        == "effective_uid"
+    )
     assert summary["runtime_status"] == "HOLD"
     for excluded in (
         "does not install or extract Coverage.py",

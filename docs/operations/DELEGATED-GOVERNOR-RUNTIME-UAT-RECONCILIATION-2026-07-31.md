@@ -294,3 +294,45 @@ This appendix corrects only the literal-link contract defect proven by R2 and va
 three-link cause before mutation. It grants no
 Coverage.py, Anycorn/B1, product process, listener, database, certificate, migration, deployment,
 legal/risk acceptance or release authority. Release dates remain unchanged.
+
+Appendix E is now immutable consumed history. R3 executed exactly once at commit
+`a1b66b34fecc450141c6325f04423304b8e4252f`, tree
+`fe8aa8ffac96f2cea375ef4788fe712f8e3abb28`. Attempt
+`bcc39fa10ea3b21fca7cad8e9a41986c80fd5c48018cec6cb04351ebfcdcc157` completed the permitted
+wheel acquisition and verification, then failed closed with `venv_identity_mismatch` because uv
+created `python` against its exact minor-version alias literal. Rollback removed the R3 closure
+root and preserved its exact start, failure and requirements evidence. Appendix E is not reopened
+or reused.
+
+## Appendix F. Exact D2 coverage-only closure recovery R4 authorization
+
+The R3 diagnostics prove this exact initial graph:
+`python -> /Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`,
+`python3 -> python`, and `python3.12 -> python`. Separate read-only live-host inspection—not the
+preserved R3 evidence—observed an effective-uid-owned minor-alias parent whose literal target is
+the absolute patch-level root
+`/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none`, with alias and exact
+executable currently resolving to the same device/inode and pinned SHA-256
+`a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623`. R4 must independently
+prove those live inputs before they can authorize root creation.
+
+Acting under the same delegated non-production authority, the Codex Governor records:
+
+- `UAT-MTLS-D2-CLOSURE-RECOVERY-R4=AUTHORIZED-EXACT-UV-MINOR-ALIAS-CORRECTION`;
+- R4 retains the same exact ten paths, dependencies, wheel set, digests, endpoint classes,
+  evidence rules and exclusions, using fresh `-r4` closure/evidence roots only;
+- before either R4 root is created, the runner must bind the exact R3 terminal evidence and absent
+  closure root, repeat the offline requirements probes and prove the alias literal, alias-parent
+  ownership/target, resolved executable identity, mode and SHA-256;
+- after no-seed venv creation, the exact R3-observed link graph is the only accepted initial graph;
+  the alias proof must pass before and after descriptor-bound normalization to the existing exact
+  final graph;
+- only a successful non-mutating `--check-only` may precede the sole R4 `--execute`;
+- the first R4 root-creating execute consumes Appendix F. Any R4 failure exhausts this authority
+  and cannot create an automatic R5; and
+- `UAT-MTLS-D2=HOLD`; runtime remains not run, release dates remain unchanged, and
+  production/public GA remain Founder-controlled.
+
+This appendix corrects only the exact alias-literal defect proven by R3. It grants no Coverage.py,
+Anycorn/B1, product process, listener, database, certificate, migration, deployment, N1-N10,
+legal/risk acceptance or release authority.

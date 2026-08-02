@@ -1170,7 +1170,7 @@ recorded in the closure-recovery exact-action document.
 
 ### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3
 
-Current state: `AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Current state: `EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED — RUNTIME HOLD`.
 
 Appendix E and section 9 of the exact-action record preserve R1/R2 as consumed terminal history and
 authorize one fresh-root R3 attempt. R3 first binds the exact R2 start/failure evidence and repeats
@@ -1186,6 +1186,40 @@ surface or exclusion. Its first root-creating `_execute` consumes the correction
 R3; there is no automatic R4. This gate grants no Coverage.py extraction, Anycorn/B1 action,
 product runtime, N1–N10, UAT, demo, POC, RC, GA, production or release credit. D2 remains **HOLD**
 and release dates remain unchanged.
+
+R3 passed preproof and executed exactly once at commit
+`a1b66b34fecc450141c6325f04423304b8e4252f`, tree
+`fe8aa8ffac96f2cea375ef4788fe712f8e3abb28`. Attempt
+`bcc39fa10ea3b21fca7cad8e9a41986c80fd5c48018cec6cb04351ebfcdcc157` completed the permitted
+56-wheel acquisition and verification, then failed closed with `venv_identity_mismatch`. The
+observed graph used uv's exact minor-version alias for `python`; rollback removed the R3 closure
+root and preserved the exact start, failure and requirements evidence. R3 is terminal and is not
+reopened.
+
+### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R4
+
+Current state: `AUTHORIZED EXACT UV-MINOR-ALIAS CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+
+Appendix F and section 10 of the exact-action record authorize one fresh-root R4 attempt. R4 binds
+the exact R3 terminal evidence, which proves the observed venv link graph but does not contain
+alias-parent ownership, target, inode or digest proof. R4 independently proves that
+`/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12` is reached
+through an effective-uid-owned alias parent whose literal target is the exact patch-level Python
+root. The alias and patch-level executable must resolve to the same regular file, device/inode and
+pinned SHA-256 before root creation, before normalization and after normalization.
+
+The exact R3-observed graph is the only accepted R4 initial graph. Descriptor-bound normalization
+retains `python3 -> python`, replaces `python3.12` with the absolute patch-level interpreter and
+then replaces `python` with `python3.12`. Wrong, regular-directory, unsafe or retargeted aliases;
+unexpected link literals; owner/mode drift; inode drift; and executable-digest drift all fail
+closed with bounded diagnostics and identity-bound rollback.
+
+R4 changes no dependency, wheel, lock, executable identity, endpoint, closure digest, runtime
+surface or exclusion. Its first root-creating `_execute` consumes the correction. Failure exhausts
+R4; there is no automatic R5. This gate does not install or extract Coverage.py. It does not
+install, select, execute or change Anycorn/B1. It does not create listeners, certificates, keys,
+containers or databases. It does not satisfy coverage, runtime admission, UAT, demo, POC, RC, GA
+or production gates. D2 remains **HOLD** and release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 

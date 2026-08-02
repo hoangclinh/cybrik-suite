@@ -288,6 +288,7 @@ def recovery_fixture(
         uv_sha256=_sha256_file(uv),
         uv_version="0.11.16",
         python_path=python,
+        uv_venv_python_target_path=python,
         python_sha256=_sha256_file(python),
         python_version="3.12.13",
         pip_version="26.1.1",
@@ -362,6 +363,188 @@ def test_check_only_accepts_pinned_homebrew_uv_build_annotation(
     )
 
     assert result["status"] == "checked_not_executed"
+
+
+def test_preflight_rejects_uv_venv_alias_that_resolves_to_another_executable(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, runner, _, _, _ = recovery_fixture
+    wrong_root = paths.suite_root.parent / "wrong-python"
+    (wrong_root / "bin").mkdir(parents=True)
+    wrong_python = wrong_root / "bin" / "python3.12"
+    wrong_python.write_bytes(pins.python_path.read_bytes())
+    wrong_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    alias_root.symlink_to(wrong_root, target_is_directory=True)
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery.preflight(
+            paths,
+            pins=replace(
+                pins,
+                uv_venv_python_target_path=alias_root / "bin" / "python3.12",
+            ),
+            runner=runner,
+            forbidden_roots=(),
+        )
+
+    assert error.value.reason == "venv_target_identity_mismatch"
+    assert not paths.closure_root.exists()
+    assert not paths.evidence_root.exists()
+
+
+def test_normalization_accepts_the_exact_pinned_uv_minor_alias(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, _, _, _, _ = recovery_fixture
+    exact_root = paths.suite_root.parent / "cpython-3.12.13-macos-aarch64-none"
+    (exact_root / "bin").mkdir(parents=True)
+    exact_python = exact_root / "bin" / "python3.12"
+    exact_python.write_bytes(pins.python_path.read_bytes())
+    exact_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    alias_root.symlink_to(exact_root, target_is_directory=True)
+    alias_python = alias_root / "bin" / exact_python.name
+    pins = replace(
+        pins,
+        python_path=exact_python,
+        uv_venv_python_target_path=alias_python,
+    )
+    handle = recovery.create_fresh_root(paths.closure_root)
+    try:
+        bin_root = paths.closure_root / "venv" / "bin"
+        bin_root.mkdir(parents=True)
+        (bin_root / "python").symlink_to(alias_python)
+        (bin_root / "python3").symlink_to("python")
+        (bin_root / "python3.12").symlink_to("python")
+        diagnostics: dict[str, object] = {}
+
+        result = recovery.normalize_venv_python_links(handle, pins, diagnostics)
+
+        assert result["initial"]["python"] == str(alias_python)
+        assert diagnostics["target_pre_normalization"]["verified"] is True
+        assert diagnostics["target_post_normalization"]["verified"] is True
+        assert (bin_root / "python").readlink() == Path("python3.12")
+        assert (bin_root / "python3.12").readlink() == pins.python_path
+    finally:
+        handle.close()
+
+
+def test_uv_venv_alias_root_must_be_the_owned_symlink_to_the_exact_root(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, _, _, _, _ = recovery_fixture
+    exact_root = paths.suite_root.parent / "cpython-3.12.13-macos-aarch64-none"
+    (exact_root / "bin").mkdir(parents=True)
+    exact_python = exact_root / "bin" / "python3.12"
+    exact_python.write_bytes(pins.python_path.read_bytes())
+    exact_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    (alias_root / "bin").mkdir(parents=True)
+    alias_python = alias_root / "bin" / "python3.12"
+    os.link(exact_python, alias_python)
+    pins = replace(
+        pins,
+        python_path=exact_python,
+        uv_venv_python_target_path=alias_python,
+    )
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery._prove_uv_venv_target(pins)
+
+    assert error.value.reason == "venv_target_identity_mismatch"
+
+
+def test_uv_venv_alias_rejects_a_relative_alias_parent_literal(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, _, _, _, _ = recovery_fixture
+    exact_root = paths.suite_root.parent / "cpython-3.12.13-macos-aarch64-none"
+    (exact_root / "bin").mkdir(parents=True)
+    exact_python = exact_root / "bin" / "python3.12"
+    exact_python.write_bytes(pins.python_path.read_bytes())
+    exact_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    alias_root.symlink_to(exact_root.name, target_is_directory=True)
+    pins = replace(
+        pins,
+        python_path=exact_python,
+        uv_venv_python_target_path=alias_root / "bin" / exact_python.name,
+    )
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery._prove_uv_venv_target(pins)
+
+    assert error.value.reason == "venv_target_identity_mismatch"
+
+
+def test_uv_venv_alias_rejects_a_group_writable_exact_root(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, _, _, _, _ = recovery_fixture
+    exact_root = paths.suite_root.parent / "cpython-3.12.13-macos-aarch64-none"
+    (exact_root / "bin").mkdir(parents=True)
+    exact_python = exact_root / "bin" / "python3.12"
+    exact_python.write_bytes(pins.python_path.read_bytes())
+    exact_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    alias_root.symlink_to(exact_root, target_is_directory=True)
+    exact_root.chmod(0o770)
+    pins = replace(
+        pins,
+        python_path=exact_python,
+        uv_venv_python_target_path=alias_root / "bin" / exact_python.name,
+    )
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery._prove_uv_venv_target(pins)
+
+    assert error.value.reason == "venv_target_identity_mismatch"
+
+
+def test_normalization_rejects_alias_retarget_after_preproof(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, _, _, _, _ = recovery_fixture
+    exact_root = paths.suite_root.parent / "cpython-3.12.13-macos-aarch64-none"
+    (exact_root / "bin").mkdir(parents=True)
+    exact_python = exact_root / "bin" / "python3.12"
+    exact_python.write_bytes(pins.python_path.read_bytes())
+    exact_python.chmod(0o700)
+    alias_root = paths.suite_root.parent / "cpython-3.12-macos-aarch64-none"
+    alias_root.symlink_to(exact_root, target_is_directory=True)
+    alias_python = alias_root / "bin" / exact_python.name
+    pins = replace(
+        pins,
+        python_path=exact_python,
+        uv_venv_python_target_path=alias_python,
+    )
+    assert recovery._prove_uv_venv_target(pins)["verified"] is True
+
+    wrong_root = paths.suite_root.parent / "cpython-3.12.99-macos-aarch64-none"
+    (wrong_root / "bin").mkdir(parents=True)
+    wrong_python = wrong_root / "bin" / "python3.12"
+    wrong_python.write_bytes(exact_python.read_bytes())
+    wrong_python.chmod(0o700)
+    alias_root.unlink()
+    alias_root.symlink_to(wrong_root, target_is_directory=True)
+    handle = recovery.create_fresh_root(paths.closure_root)
+    try:
+        bin_root = paths.closure_root / "venv" / "bin"
+        bin_root.mkdir(parents=True)
+        (bin_root / "python").symlink_to(alias_python)
+        (bin_root / "python3").symlink_to("python")
+        (bin_root / "python3.12").symlink_to("python")
+        diagnostics: dict[str, object] = {}
+
+        with pytest.raises(recovery.RecoveryFailure) as error:
+            recovery.normalize_venv_python_links(handle, pins, diagnostics)
+
+        assert error.value.reason == "venv_target_identity_mismatch"
+        assert diagnostics["target_pre_normalization"]["verified"] is False
+        assert diagnostics["observed_initial"]["python"]["target"] == str(alias_python)
+    finally:
+        handle.close()
 
 
 def test_check_only_rejects_rebinding_the_authorized_recovery_roots(
@@ -993,10 +1176,10 @@ def test_sanitized_environment_drops_proxy_path_home_and_python_injection() -> N
 
 def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     assert recovery.DEFAULT_CLOSURE_ROOT == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r3"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r4"
     )
     assert recovery.DEFAULT_EVIDENCE_ROOT == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r4"
     )
     assert recovery.DEFAULT_PINS.authorized_closure_root == (
         recovery.DEFAULT_CLOSURE_ROOT
@@ -1012,6 +1195,9 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     )
     assert recovery.DEFAULT_PINS.python_path == Path(
         "/Users/hoanglinh/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+    )
+    assert recovery.DEFAULT_PINS.uv_venv_python_target_path == Path(
+        "/Users/hoanglinh/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12"
     )
     assert (
         recovery.DEFAULT_PINS.python_sha256
@@ -1030,18 +1216,18 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
         == "bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d"
     )
     assert recovery.DEFAULT_PINS.predecessor_closure_root == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r2"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r3"
     )
     assert recovery.DEFAULT_PINS.predecessor_evidence_root == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r2"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3"
     )
     assert (
         recovery.DEFAULT_PINS.predecessor_start_sha256
-        == "de64c42ca6054260f52a8f04822f27f5f576c73c381be20c55c86dbd37f28c15"
+        == "e3fd44e695addfcffbaf9f4005d3cd4cf8cb253b2a98d038e7577b09186af220"
     )
     assert (
         recovery.DEFAULT_PINS.predecessor_failure_sha256
-        == "c979869dde1e9e3c1378addee8223b2626d73e735a0b159c0dd072782c3947a7"
+        == "4e9c684eda9a431f3decbeae4bcf861b0de09ec89722ea022f2c1d9b8b277bbe"
     )
     assert (
         recovery.DEFAULT_PINS.predecessor_requirements_sha256
@@ -1049,6 +1235,17 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     )
     assert recovery.DEFAULT_PINS.predecessor_failure_reason == (
         "venv_identity_mismatch"
+    )
+    assert recovery.DEFAULT_PINS.predecessor_attempt_id == (
+        "bcc39fa10ea3b21fca7cad8e9a41986c80fd5c48018cec6cb04351ebfcdcc157"
+    )
+    assert (
+        recovery.DEFAULT_PINS.predecessor_commit
+        == "a1b66b34fecc450141c6325f04423304b8e4252f"
+    )
+    assert (
+        recovery.DEFAULT_PINS.predecessor_tree
+        == "fe8aa8ffac96f2cea375ef4788fe712f8e3abb28"
     )
     assert recovery.DEFAULT_PINS.wheel_count == 56
     assert (

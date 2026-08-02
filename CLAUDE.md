@@ -66,12 +66,14 @@ reconciliation record was consumed by R1, which failed before network on an auto
 identity defect and rolled back its closure root while preserving evidence. Appendix D and
 the same exact-action record were consumed by R2, which passed preproof and wheel acquisition but
 failed closed on uv's actual venv-link topology, rolled back its closure root and preserved
-evidence. Appendix E and
+evidence. Appendix E was consumed by R3, which passed its preproof and wheel acquisition but failed
+closed because uv used its owned exact minor-version alias rather than the patch-level interpreter
+literal, rolled back its closure root and preserved exact evidence. Appendix F and
 `docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md` authorize exactly
-one R3 venv-link correction using fresh roots only after a non-mutating offline digest pre-proof
-succeeds. R3
-does not authorize Coverage.py extraction, Anycorn execution, product dependency changes,
-runtime, migration, deployment, legal/risk disposition, public release, GA or production.
+one R4 uv-minor-alias correction using fresh roots only after a non-mutating offline digest and
+alias-identity preproof succeeds. R4 does not authorize Coverage.py extraction, Anycorn execution,
+product dependency changes, runtime, migration, deployment, legal/risk disposition, public
+release, GA or production.
 
 ## Data-handling boundary
 
