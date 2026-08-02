@@ -43,6 +43,7 @@ class FakeRunner:
         fail_stage: str | None = None,
         git_branch: str = "HEAD",
         git_status: str = "",
+        uv_version_output: str = "uv 0.11.16",
     ) -> None:
         self.requirements = requirements
         self.wheel_payloads = wheel_payloads
@@ -50,6 +51,7 @@ class FakeRunner:
         self.fail_stage = fail_stage
         self.git_branch = git_branch
         self.git_status = git_status
+        self.uv_version_output = uv_version_output
         self.calls: list[tuple[list[str], Path, dict[str, str]]] = []
 
     def __call__(self, argv: list[str], *, cwd: Path, env: dict[str, str]) -> str:
@@ -66,7 +68,7 @@ class FakeRunner:
             if argv[1:] == ["status", "--porcelain=v1", "-uall", "--ignored"]:
                 return self.git_status
         if argv[-1:] == ["--version"] and Path(argv[0]).name == "uv":
-            return "uv 0.11.16"
+            return self.uv_version_output
         if argv[1:4] == ["-I", "-c", recovery.PYTHON_VERSION_PROBE]:
             return "3.12.13"
         if argv[1:5] == ["-I", "-m", "pip", "--version"]:
@@ -247,6 +249,50 @@ def test_check_only_validates_exact_plan_without_writes_or_network(
         "export" not in argv and "download" not in argv and "sync" not in argv
         for argv, _, _ in runner.calls
     )
+
+
+def test_check_only_accepts_pinned_homebrew_uv_build_annotation(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+) -> None:
+    paths, pins, runner, _, _, _ = recovery_fixture
+    runner.uv_version_output = "uv 0.11.16 (Homebrew 2026-05-21 aarch64-apple-darwin)"
+
+    result = recovery.run_recovery(
+        paths,
+        mode="check-only",
+        pins=pins,
+        runner=runner,
+        forbidden_roots=(),
+    )
+
+    assert result["status"] == "checked_not_executed"
+
+
+@pytest.mark.parametrize(
+    "version_output",
+    [
+        "uv 0.11.17 (Homebrew 2026-05-21 aarch64-apple-darwin)",
+        "uv 0.11.16 (untrusted build)",
+        "uv 0.11.16 trailing",
+    ],
+)
+def test_check_only_rejects_unpinned_uv_version_annotations(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+    version_output: str,
+) -> None:
+    paths, pins, runner, _, _, _ = recovery_fixture
+    runner.uv_version_output = version_output
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery.run_recovery(
+            paths,
+            mode="check-only",
+            pins=pins,
+            runner=runner,
+            forbidden_roots=(),
+        )
+
+    assert error.value.reason == "uv_version_mismatch"
 
 
 def test_plan_uses_exact_locked_export_download_no_seed_and_offline_sync(

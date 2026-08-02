@@ -66,6 +66,7 @@ EVIDENCE_ROOT_NAME: Final = re.compile(
     r"d2-cov-closure-evidence-[a-z0-9][a-z0-9._-]{0,63}"
 )
 COMMAND_TIMEOUT_SECONDS: Final = 600
+PINNED_UV_BUILD_ANNOTATION: Final = "Homebrew 2026-05-21 aarch64-apple-darwin"
 DEFAULT_CLOSURE_ROOT: Final = Path(
     "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r1"
 )
@@ -349,6 +350,13 @@ def _invoke(runner: Callable[..., str], argv: list[str], *, cwd: Path) -> str:
     return runner(list(argv), cwd=cwd, env=dict(SANITIZED_ENV)).strip()
 
 
+def _uv_version_output_is_pinned(output: str, version: str) -> bool:
+    return output in {
+        f"uv {version}",
+        f"uv {version} ({PINNED_UV_BUILD_ANNOTATION})",
+    }
+
+
 def _collect_and_validate_git_state(
     paths: RecoveryPaths, runner: Callable[..., str]
 ) -> tuple[str, str]:
@@ -602,9 +610,8 @@ def preflight(
         pins.python_path, pins.python_sha256, "python_identity_mismatch"
     )
     harness = roots.suite_root / HARNESS_RELATIVE
-    if _invoke(runner, [str(pins.uv_path), "--version"], cwd=harness) != (
-        f"uv {pins.uv_version}"
-    ):
+    uv_version_output = _invoke(runner, [str(pins.uv_path), "--version"], cwd=harness)
+    if not _uv_version_output_is_pinned(uv_version_output, pins.uv_version):
         _fail("uv_version_mismatch")
     if (
         _invoke(
