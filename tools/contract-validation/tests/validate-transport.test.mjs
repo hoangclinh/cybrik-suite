@@ -4688,12 +4688,17 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   const authority = read(
     'docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md',
   );
+  const evidence = JSON.parse(
+    read('integration/compose/soc-ai-lifecycle-create-mtls/evidence/coverage-closure-recovery.json'),
+  );
   const match = decision.match(
     /### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1([\s\S]*?)(?=\n### Gate UAT-MTLS-D2 — real runtime execution)/,
   );
   assert.ok(match, 'the ADR must bind the separately authorized closure-recovery prerequisite');
   const section = match[1];
-  assert.match(section, /AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD/);
+  assert.match(section, /EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD/);
+  assert.match(section, /Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2/);
+  assert.match(section, /AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN/);
   assert.match(section, /recover_coverage_closure\.py/);
   assert.match(section, /exactly the 56/);
   assert.match(section, /6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919/);
@@ -4702,6 +4707,11 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   assert.match(authority, /repository writes are limited to exactly these ten paths/);
   assert.match(authority, /consumed by the first `--execute` attempt/);
   assert.match(authority, /Production and public GA remain Founder-controlled/);
+  assert.equal(evidence.r1.network_calls_started, 0);
+  assert.equal(evidence.r1.rollback_status, 'removed');
+  assert.equal(evidence.r2.execution_status, 'not_run');
+  assert.equal(evidence.r2.retry_ceiling, 1);
+  assert.equal(evidence.runtime_status, 'HOLD');
 });
 
 test('UAT mTLS D2-COV-P2 provides an executable closure-bound one-shot validator', () => {

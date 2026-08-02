@@ -1114,7 +1114,7 @@ environment. D2 remains **HOLD**. Release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1
 
-Current state: `AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD`.
+Current state: `EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD`.
 
 Appendix C of
 `docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md` and the exact-action
@@ -1140,6 +1140,24 @@ Anycorn/B1. It does not create listeners, certificates, keys, containers or data
 run a migration, product process or N1-N10, and it does not open D2 runtime. It does not satisfy
 coverage, runtime admission, UAT, demo, POC, RC, GA or production gates. D2 remains **HOLD** and
 release dates remain unchanged.
+
+### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2
+
+Current state: `AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`.
+
+Appendix D and sections 7–8 of the exact-action record preserve R1 as consumed terminal evidence
+and authorize one corrected R2 attempt at fresh `-r2` roots. The runner must verify the exact R1
+start/failure evidence and absent R1 closure root, then complete two offline stdout exports before
+creating an R2 root. It accepts only a header-free body SHA-256
+`bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d` whose reconstructed D1
+historical-header payload reproduces the unchanged requirements SHA-256
+`93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603`.
+
+R2 changes no dependency, wheel, lock, executable identity, endpoint, closure digest, runtime
+surface or exclusion. Its first root-creating `_execute` consumes the retry. Failure exhausts R2;
+there is no automatic R3. This gate remains coverage-closure preparation only and grants no
+Coverage.py extraction, Anycorn/B1 action, product runtime, N1–N10, UAT, demo, POC, RC, GA,
+production or release credit. D2 remains **HOLD** and release dates remain unchanged.
 
 ### Gate UAT-MTLS-D2 — real runtime execution
 

@@ -644,15 +644,28 @@ def test_d2_coverage_closure_recovery_is_one_shot_and_grants_no_runtime() -> Non
         / "docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md"
     ).read_text(encoding="utf-8")
     normalized = " ".join((decision + "\n" + harness_readme + "\n" + authority).split())
+    summary = json.loads(
+        (_HARNESS_ROOT / "evidence/coverage-closure-recovery.json").read_text()
+    )
 
     assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1" in decision
-    assert "AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD" in decision
+    assert (
+        "EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD"
+        in decision
+    )
+    assert "Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2" in decision
+    assert "AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN" in decision
     assert "recover_coverage_closure.py" in harness_readme
     assert "exactly the 56 filenames and SHA-256 values" in normalized
     assert (
         "6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919" in normalized
     )
-    assert "consumed by the first `--execute` attempt" in authority
+    assert "R1 exact-action authority was consumed" in authority
+    assert summary["r1"]["network_calls_started"] == 0
+    assert summary["r1"]["rollback_status"] == "removed"
+    assert summary["r2"]["execution_status"] == "not_run"
+    assert summary["r2"]["retry_ceiling"] == 1
+    assert summary["runtime_status"] == "HOLD"
     for excluded in (
         "does not install or extract Coverage.py",
         "does not install, select, execute or change Anycorn/B1",

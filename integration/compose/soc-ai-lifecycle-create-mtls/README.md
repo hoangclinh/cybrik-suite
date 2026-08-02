@@ -224,18 +224,23 @@ release dates remain unchanged.
 
 ## Authorized durable coverage-closure recovery
 
-`UAT-MTLS-D2-CLOSURE-RECOVERY-R1` is `AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME
-HOLD`. The pure-stdlib `scripts/recover_coverage_closure.py` reconstructs the exact D1 test closure
-under the bounded authority in
+`UAT-MTLS-D2-CLOSURE-RECOVERY-R1` is `EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED —
+RUNTIME HOLD`. Its only attempt failed on a path-dependent uv export header, removed the fresh R1
+closure root and preserved exact failure evidence. `UAT-MTLS-D2-CLOSURE-RECOVERY-R2` is
+`AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN — RUNTIME HOLD`. The pure-stdlib
+`scripts/recover_coverage_closure.py` reconstructs the exact D1 test closure under the bounded
+authority in
 `docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md`. Its `--check-only`
-mode validates the immutable tools, committed dependency evidence, exact paths and command plan
-without writing, downloading or installing anything. Its separately consumed `--execute` mode may
-create only the exact fresh durable closure/evidence roots, export the locked requirements,
-download exactly the 56 hash-pinned binary wheels, create a no-seed venv, sync offline and verify
-the exact installed closure digest
+mode additionally verifies the immutable R1 evidence, absent R1 closure root, two offline stdout
+exports, header-free body SHA-256 and reconstructed historical D1 requirements SHA-256 before it
+can create an R2 root. Its separately consumed R2 `--execute` mode may create only the exact fresh
+`-r2` durable closure/evidence roots, export the locked header-free requirements, download exactly
+the 56 hash-pinned binary wheels, create a no-seed venv, sync offline and verify the exact installed
+closure digest
 `6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`.
 
-The execution has not run. This action does not install or extract Coverage.py, install or execute
-Anycorn/B1, create a listener/database/certificate/container, run a migration or N1-N10, edit a
-product environment, satisfy the coverage gate or open D2 runtime. D2 remains **HOLD** and all
-UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates remain unchanged.
+R2 execution has not run. R1 made no network call. Neither action installs or extracts Coverage.py,
+installs or executes Anycorn/B1, creates a listener/database/certificate/container, runs a
+migration or N1-N10, edits a product environment, satisfies the coverage gate or opens D2 runtime.
+D2 remains **HOLD** and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates
+remain unchanged.
