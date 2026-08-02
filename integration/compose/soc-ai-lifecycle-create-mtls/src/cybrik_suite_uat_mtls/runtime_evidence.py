@@ -6,6 +6,13 @@ filesystem decisions are made relative to open directory descriptors; the
 terminal summary is linked last and therefore acts as the completion marker.
 A symlinked ancestor in an evidence-root or artifact path fails closed; no
 resolved-path fallback is permitted for that boundary.
+
+If any immutable snapshot is linked before a later failure, the evidence root
+is partially sealed and non-retryable: preserve it; do not delete or reuse it.
+Use a fresh bounded root for any separately authorized attempt.
+Public-certificate checks prove exact inventory, digest, and parse-valid X.509
+material only.  The check does not prove certificate role, chain relationships,
+public/private key correspondence, intended usage, or certificate distinctness.
 """
 
 from __future__ import annotations
@@ -698,9 +705,10 @@ def _read_bound_artifact(
         else "artifact_digest_mismatch"
     )
     components = str(artifact["relative_path"]).split("/")
-    directory_fd = os.dup(root_fd)
+    directory_fd = -1
     file_fd = -1
     try:
+        directory_fd = os.dup(root_fd)
         for component in components[:-1]:
             next_fd = os.open(component, _directory_flags(), dir_fd=directory_fd)
             os.close(directory_fd)
@@ -760,7 +768,8 @@ def _read_bound_artifact(
     finally:
         if file_fd >= 0:
             os.close(file_fd)
-        os.close(directory_fd)
+        if directory_fd >= 0:
+            os.close(directory_fd)
 
 
 def _validate_public_material(name: str, payload: bytes) -> None:
@@ -867,9 +876,66 @@ def _write_all(descriptor: int, payload: bytes) -> None:
         offset += written
 
 
+def _read_committed_payload(
+    root_fd: int,
+    name: str,
+    expected_size: int,
+    reason: str,
+    *,
+    expected_identity: tuple[int, int] | None = None,
+) -> bytes:
+    """Descriptor-read one immutable committed file with stable failure output."""
+
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=root_fd,
+        )
+        before = os.fstat(descriptor)
+        named = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        identity = (before.st_dev, before.st_ino)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_uid != os.geteuid()
+            or before.st_size != expected_size
+            or identity != (named.st_dev, named.st_ino)
+            or (expected_identity is not None and identity != expected_identity)
+        ):
+            _fail(reason)
+        content = bytearray()
+        remaining = expected_size + 1
+        while remaining:
+            block = os.read(descriptor, min(1024 * 1024, remaining))
+            if not block:
+                break
+            content.extend(block)
+            remaining -= len(block)
+        after = os.fstat(descriptor)
+        named_after = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        if (
+            len(content) != expected_size
+            or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+            or (after.st_dev, after.st_ino) != (named_after.st_dev, named_after.st_ino)
+        ):
+            _fail(reason)
+        return bytes(content)
+    except RuntimeEvidenceError:
+        raise
+    except (OSError, ValueError, TypeError):
+        _fail(reason)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
 def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
     temporary = f".{name}.{secrets.token_hex(16)}.tmp"
     descriptor = -1
+    temporary_created = False
     temporary_identity: tuple[int, int] | None = None
     failure_reason: str | None = None
     cleanup_failed = False
@@ -884,13 +950,23 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
             0o600,
             dir_fd=root_fd,
         )
+        temporary_created = True
         opened = os.fstat(descriptor)
         temporary_identity = (opened.st_dev, opened.st_ino)
         os.fchmod(descriptor, 0o600)
         _write_all(descriptor, payload)
         os.fsync(descriptor)
         details = os.fstat(descriptor)
-        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
+        named_before_link = os.stat(temporary, dir_fd=root_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or stat.S_IMODE(details.st_mode) != 0o600
+            or details.st_size != len(payload)
+            or (details.st_dev, details.st_ino) != temporary_identity
+            or (named_before_link.st_dev, named_before_link.st_ino)
+            != temporary_identity
+            or named_before_link.st_size != len(payload)
+        ):
             _fail("terminal_write_failed")
         os.link(
             temporary,
@@ -899,6 +975,17 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
             dst_dir_fd=root_fd,
             follow_symlinks=False,
         )
+        final = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+        named_after_link = os.stat(temporary, dir_fd=root_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(final.st_mode)
+            or stat.S_IMODE(final.st_mode) != 0o600
+            or final.st_size != len(payload)
+            or (final.st_dev, final.st_ino) != temporary_identity
+            or (named_after_link.st_dev, named_after_link.st_ino) != temporary_identity
+            or named_after_link.st_size != len(payload)
+        ):
+            _fail("terminal_write_failed")
         os.fsync(root_fd)
     except RuntimeEvidenceError as exc:
         failure_reason = exc.reason
@@ -908,11 +995,21 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
         failure_reason = "terminal_write_failed"
     finally:
         if descriptor >= 0:
-            os.close(descriptor)
-        if temporary_identity is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                cleanup_failed = True
+        if temporary_created:
             try:
                 named = os.stat(temporary, dir_fd=root_fd, follow_symlinks=False)
-                if (named.st_dev, named.st_ino) != temporary_identity:
+                if (
+                    temporary_identity is not None
+                    and (
+                        named.st_dev,
+                        named.st_ino,
+                    )
+                    != temporary_identity
+                ):
                     cleanup_failed = True
                 else:
                     os.unlink(temporary, dir_fd=root_fd)
@@ -923,13 +1020,15 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
         _fail("terminal_write_failed")
     if failure_reason is not None:
         _fail(failure_reason)
-    try:
-        final = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
-    except (OSError, ValueError, TypeError):
-        _fail("terminal_write_failed")
-    if not stat.S_ISREG(final.st_mode) or stat.S_IMODE(final.st_mode) != 0o600:
-        _fail("terminal_write_failed")
-    return hashlib.sha256(payload).hexdigest()
+    assert temporary_identity is not None
+    committed = _read_committed_payload(
+        root_fd,
+        name,
+        len(payload),
+        "terminal_write_failed",
+        expected_identity=temporary_identity,
+    )
+    return hashlib.sha256(committed).hexdigest()
 
 
 def _sealed_projection(raw_result: Mapping[str, object]) -> dict[str, object]:
@@ -966,7 +1065,7 @@ def _sealed_projection(raw_result: Mapping[str, object]) -> dict[str, object]:
 
 def _terminal_payloads(
     result: Mapping[str, object],
-) -> tuple[bytes, bytes, bytes, str, str]:
+) -> tuple[bytes, bytes, bytes]:
     """Precompute every bounded canonical terminal payload before filesystem writes."""
 
     result_payload = canonical_json(result)
@@ -1007,13 +1106,34 @@ def _terminal_payloads(
         "teardown_sha256": teardown_sha256,
     }
     summary_payload = canonical_json(summary_record)
-    return (
-        result_payload,
-        teardown_payload,
-        summary_payload,
-        result_sha256,
-        teardown_sha256,
+    return result_payload, teardown_payload, summary_payload
+
+
+def _validate_terminal_readback(
+    root_fd: int,
+    name: str,
+    expected_payload: bytes,
+) -> str:
+    """Read, hash, parse, and canonically validate one committed terminal file."""
+
+    actual = _read_committed_payload(
+        root_fd,
+        name,
+        len(expected_payload),
+        "terminal_readback_failed",
     )
+    actual_sha256 = hashlib.sha256(actual).hexdigest()
+    try:
+        document = json.loads(actual)
+        if actual != expected_payload or canonical_json(document) != actual:
+            _fail("terminal_readback_failed")
+        if name == RESULT_FILENAME:
+            validated = validate_terminal_result(document)
+            if canonical_json(validated) != actual:
+                _fail("terminal_readback_failed")
+    except (json.JSONDecodeError, UnicodeDecodeError, RuntimeEvidenceError):
+        _fail("terminal_readback_failed")
+    return actual_sha256
 
 
 def persist_terminal_evidence(
@@ -1029,8 +1149,6 @@ def persist_terminal_evidence(
         result_payload,
         teardown_payload,
         summary_payload,
-        projected_result_sha256,
-        projected_teardown_sha256,
     ) = _terminal_payloads(result)
     root_fd = _open_evidence_root(evidence_root)
     try:
@@ -1057,17 +1175,27 @@ def persist_terminal_evidence(
             or sealed_artifacts != result["artifacts"]
         ):
             _fail("artifact_snapshot_inventory_invalid")
-        result_sha256 = _atomic_no_overwrite(root_fd, RESULT_FILENAME, result_payload)
-        if result_sha256 != projected_result_sha256:
-            _fail("terminal_write_failed")
+        _atomic_no_overwrite(root_fd, RESULT_FILENAME, result_payload)
+        result_sha256 = _validate_terminal_readback(
+            root_fd, RESULT_FILENAME, result_payload
+        )
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
-        teardown_sha256 = _atomic_no_overwrite(
+        _atomic_no_overwrite(root_fd, TEARDOWN_FILENAME, teardown_payload)
+        teardown_sha256 = _validate_terminal_readback(
             root_fd, TEARDOWN_FILENAME, teardown_payload
         )
-        if teardown_sha256 != projected_teardown_sha256:
-            _fail("terminal_write_failed")
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
-        summary_sha256 = _atomic_no_overwrite(
+        try:
+            expected_summary = json.loads(summary_payload)
+        except json.JSONDecodeError:
+            _fail("terminal_readback_failed")
+        if (
+            expected_summary.get("result_sha256") != result_sha256
+            or expected_summary.get("teardown_sha256") != teardown_sha256
+        ):
+            _fail("terminal_readback_failed")
+        _atomic_no_overwrite(root_fd, SUMMARY_FILENAME, summary_payload)
+        summary_sha256 = _validate_terminal_readback(
             root_fd, SUMMARY_FILENAME, summary_payload
         )
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
