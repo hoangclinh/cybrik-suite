@@ -17,6 +17,8 @@ import hashlib
 import os
 import re
 import stat
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -28,7 +30,6 @@ SYMLINK_NOT_PERMITTED: Final = "symlink_not_permitted"
 NON_REGULAR_FILE_NOT_PERMITTED: Final = "non_regular_file_not_permitted"
 FILE_TOO_LARGE: Final = "file_too_large"
 
-QUARANTINE: Final = "quarantine"
 DELETE: Final = "delete"
 
 MAX_SCAN_FILE_BYTES: Final = 8 * 1024 * 1024
@@ -37,6 +38,9 @@ MAX_SCAN_FILE_COUNT: Final = 4096
 
 _LABEL_PATTERN: Final = re.compile(r"[a-z][a-z0-9_-]{0,127}")
 _OPEN_FLAGS: Final = os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+_DIRECTORY_OPEN_FLAGS: Final = (
+    _OPEN_FLAGS | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
+)
 
 
 class SecretInventoryError(RuntimeError):
@@ -72,45 +76,146 @@ class RemediationPlan:
 
 
 def remediation_plan_for(finding: ScanFinding) -> RemediationPlan:
-    action = QUARANTINE if finding.reason == EXACT_SECRET_MATCH else DELETE
     return RemediationPlan(
         relative_path=finding.relative_path,
-        action=action,
+        action=DELETE,
         reason=finding.reason,
         label=finding.label,
     )
 
 
-def _bounded_target(root: Path, relative_path: str) -> Path:
+def _bounded_parts(relative_path: str) -> tuple[str, ...]:
     relative = Path(relative_path)
-    if relative.is_absolute() or ".." in relative.parts:
+    if (
+        not relative_path
+        or relative.is_absolute()
+        or ".." in relative.parts
+        or relative.parts in ((), (".",))
+    ):
         raise SecretInventoryError("remediation target escapes the bounded root")
-    resolved_root = root.resolve(strict=True)
-    target = resolved_root / relative
-    if target.is_symlink():
-        raise SecretInventoryError("remediation target must not be a symlink")
-    return target
+    return relative.parts
+
+
+def _stat_no_follow(name: str, *, dir_fd: int) -> os.stat_result:
+    try:
+        return os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+    except OSError as exc:
+        raise SecretInventoryError(
+            "remediation target could not be inspected safely"
+        ) from exc
+
+
+def _same_inode(left: os.stat_result, right: os.stat_result) -> bool:
+    return (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino)
+
+
+@contextmanager
+def _bounded_parent_descriptor(
+    root: Path, relative_path: str
+) -> Iterator[tuple[int, str]]:
+    """Yield the target's parent descriptor after a no-follow root walk.
+
+    Every pathname component is opened relative to the already-open parent.
+    The descriptor chain pins the directories reached beneath ``root`` and
+    prevents a symlink or pathname rebind from redirecting the final unlink.
+    """
+
+    if not root.is_absolute():
+        raise SecretInventoryError("remediation root must be an absolute path")
+    parts = _bounded_parts(relative_path)
+    try:
+        root_status = root.lstat()
+    except OSError as exc:
+        raise SecretInventoryError(
+            "remediation root could not be inspected safely"
+        ) from exc
+    if stat.S_ISLNK(root_status.st_mode):
+        raise SecretInventoryError("remediation path must not contain a symlink")
+    if not stat.S_ISDIR(root_status.st_mode):
+        raise SecretInventoryError("remediation root must be a directory")
+
+    descriptors: list[int] = []
+    try:
+        try:
+            current = os.open(root, _DIRECTORY_OPEN_FLAGS)
+        except OSError as exc:
+            raise SecretInventoryError(
+                "remediation root could not be opened safely"
+            ) from exc
+        descriptors.append(current)
+        if not _same_inode(root_status, os.fstat(current)):
+            raise SecretInventoryError("remediation root changed during safe traversal")
+
+        for component in parts[:-1]:
+            before = _stat_no_follow(component, dir_fd=current)
+            if stat.S_ISLNK(before.st_mode):
+                raise SecretInventoryError(
+                    "remediation path must not contain a symlink"
+                )
+            if not stat.S_ISDIR(before.st_mode):
+                raise SecretInventoryError(
+                    "remediation path parent must be a directory"
+                )
+            try:
+                child = os.open(component, _DIRECTORY_OPEN_FLAGS, dir_fd=current)
+            except OSError as exc:
+                raise SecretInventoryError(
+                    "remediation path parent could not be opened safely"
+                ) from exc
+            descriptors.append(child)
+            if not _same_inode(before, os.fstat(child)):
+                raise SecretInventoryError(
+                    "remediation path changed during safe traversal"
+                )
+            current = child
+
+        yield current, parts[-1]
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 def apply_remediation(
     root: Path,
     finding: ScanFinding,
-    *,
-    quarantine_root: Path | None = None,
 ) -> dict[str, object]:
-    """Delete or quarantine the finding's artifact and return a sanitized record."""
+    """Delete the finding's artifact and return a sanitized record.
 
-    target = _bounded_target(root, finding.relative_path)
+    Secret-bearing artifacts are never quarantined: retaining raw secrets in
+    or next to the evidence tree would merely move the N10 exposure.  Deletion
+    is descriptor-relative and refuses symlinked or non-regular targets.
+    """
+
     plan = remediation_plan_for(finding)
-    if plan.action == DELETE:
-        target.unlink()
-    else:
-        destination = (quarantine_root or root.resolve(strict=True) / "quarantine") / (
-            finding.relative_path
-        )
-        destination.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-        os.replace(target, destination)
-        os.chmod(destination, 0o600)
+    with _bounded_parent_descriptor(root, finding.relative_path) as (parent_fd, leaf):
+        before = _stat_no_follow(leaf, dir_fd=parent_fd)
+        if stat.S_ISLNK(before.st_mode):
+            raise SecretInventoryError("remediation target must not be a symlink")
+        if not stat.S_ISREG(before.st_mode):
+            raise SecretInventoryError("remediation target must be a regular file")
+        try:
+            descriptor = os.open(leaf, _OPEN_FLAGS, dir_fd=parent_fd)
+        except OSError as exc:
+            raise SecretInventoryError(
+                "remediation target could not be opened safely"
+            ) from exc
+        try:
+            if not _same_inode(before, os.fstat(descriptor)):
+                raise SecretInventoryError(
+                    "remediation target changed during safe traversal"
+                )
+            current = _stat_no_follow(leaf, dir_fd=parent_fd)
+            if not _same_inode(before, current):
+                raise SecretInventoryError(
+                    "remediation target changed during safe traversal"
+                )
+            os.unlink(leaf, dir_fd=parent_fd)
+        except OSError as exc:
+            raise SecretInventoryError(
+                "remediation target could not be deleted safely"
+            ) from exc
+        finally:
+            os.close(descriptor)
     record: dict[str, object] = {
         "action": plan.action,
         "reason": plan.reason,

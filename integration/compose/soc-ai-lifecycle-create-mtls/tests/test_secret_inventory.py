@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 from pathlib import Path
 
 import pytest
+
 from cybrik_suite_uat_mtls import evidence
 from cybrik_suite_uat_mtls import secret_inventory as si
 
@@ -382,13 +382,11 @@ def test_scan_tree_raises_on_an_unsafe_toctou_path_change(
 # --------------------------------------------------------------------------
 
 
-def test_remediation_plan_quarantines_exact_matches_and_deletes_generic_matches() -> (
-    None
-):
+def test_remediation_plan_deletes_exact_and_generic_secret_matches() -> None:
     exact = si.ScanFinding("leak.txt", si.EXACT_SECRET_MATCH, "db_password")
     generic = si.ScanFinding("other.txt", evidence.JWT_VALUE, None)
 
-    assert si.remediation_plan_for(exact).action == si.QUARANTINE
+    assert si.remediation_plan_for(exact).action == si.DELETE
     assert si.remediation_plan_for(generic).action == si.DELETE
 
 
@@ -403,7 +401,7 @@ def test_apply_remediation_deletes_the_artifact_and_returns_a_sanitized_record(
 
     assert not artifact.exists()
     assert record == {
-        "action": si.QUARANTINE,
+        "action": si.DELETE,
         "label": "db_password",
         "reason": si.EXACT_SECRET_MATCH,
         "relative_path": "leak.txt",
@@ -423,24 +421,21 @@ def test_apply_remediation_deletes_a_generic_match_artifact(tmp_path: Path) -> N
     assert "label" not in record
 
 
-def test_apply_remediation_moves_quarantined_artifacts_into_the_quarantine_root(
+def test_apply_remediation_does_not_retain_exact_secrets_in_a_quarantine_tree(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "evidence"
     root.mkdir()
-    quarantine = tmp_path / "quarantine"
     (root / "nested").mkdir()
     artifact = root / "nested/leak.txt"
     artifact.write_text(_DB_PASSWORD, encoding="utf-8")
     finding = si.ScanFinding("nested/leak.txt", si.EXACT_SECRET_MATCH, "db_password")
 
-    si.apply_remediation(root, finding, quarantine_root=quarantine)
+    record = si.apply_remediation(root, finding)
 
     assert not artifact.exists()
-    quarantined = quarantine / "nested/leak.txt"
-    assert quarantined.is_file()
-    assert quarantined.read_text(encoding="utf-8") == _DB_PASSWORD
-    assert stat.S_IMODE(quarantined.stat().st_mode) == 0o600
+    assert not (root / "quarantine").exists()
+    assert record["action"] == si.DELETE
 
 
 def test_apply_remediation_refuses_a_symlinked_target(tmp_path: Path) -> None:
@@ -477,6 +472,41 @@ def test_apply_remediation_refuses_an_intermediate_symlink_without_touching_outs
     finding = si.ScanFinding("nested/linkdir/outside.txt", reason, label)
 
     with pytest.raises(si.SecretInventoryError, match="symlink"):
+        si.apply_remediation(root, finding)
+
+    assert outside_artifact.read_text(encoding="utf-8") == _DB_PASSWORD
+
+
+def test_apply_remediation_refuses_an_intermediate_directory_rebind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "evidence"
+    outside = tmp_path / "outside"
+    (root / "nested").mkdir(parents=True)
+    outside.mkdir()
+    outside_artifact = outside / "outside.txt"
+    outside_artifact.write_text(_DB_PASSWORD, encoding="utf-8")
+    finding = si.ScanFinding("nested/outside.txt", si.EXACT_SECRET_MATCH, "db_password")
+    real_open = si.os.open
+    rebound = False
+
+    def _rebind_before_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal rebound
+        if path == "nested" and dir_fd is not None and not rebound:
+            rebound = True
+            (root / "nested").rmdir()
+            (root / "nested").symlink_to(outside, target_is_directory=True)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(si.os, "open", _rebind_before_open)
+
+    with pytest.raises(si.SecretInventoryError, match="opened safely"):
         si.apply_remediation(root, finding)
 
     assert outside_artifact.read_text(encoding="utf-8") == _DB_PASSWORD
