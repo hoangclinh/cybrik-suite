@@ -425,16 +425,24 @@ def read_authorization(path: Path) -> bytes:
     """Read a regular authorization file without following its final symlink."""
 
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor: int | None = None
     try:
         descriptor = os.open(path, flags)
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
-            os.close(descriptor)
             _fail("authorization_artifact_invalid")
-        with os.fdopen(descriptor, "rb") as stream:
+        stream = os.fdopen(descriptor, "rb")
+        descriptor = None
+        with stream:
             return stream.read()
     except OSError:
         _fail("authorization_artifact_invalid")
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def _timestamp(value: str) -> datetime:
@@ -708,12 +716,38 @@ def verify_module_origins(
             _fail("import_source_root_invalid")
         if root != lexical_root or not root.is_relative_to(resolved_owner):
             _fail("import_source_root_invalid")
+        candidate = Path(path)
         try:
-            resolved = Path(path).resolve(strict=True)
+            resolved = candidate.resolve(strict=True)
         except OSError:
             _fail("import_source_root_invalid")
-        if not resolved.is_relative_to(root):
+        if (
+            candidate != resolved
+            or not resolved.is_file()
+            or not resolved.is_relative_to(root)
+        ):
             _fail("import_source_root_invalid")
+
+
+def verify_loaded_module_origins(
+    authorization: RuntimeAuthorization,
+    modules: Mapping[str, object] | None = None,
+) -> None:
+    """Verify every currently loaded module in each admitted Cybrik namespace."""
+
+    inventory = sys.modules if modules is None else modules
+    origins: list[tuple[str, Path]] = []
+    for module_name, module in inventory.items():
+        if not any(
+            module_name == namespace or module_name.startswith(f"{namespace}.")
+            for namespace in MODULE_ORIGIN_ROOTS
+        ):
+            continue
+        module_file = getattr(module, "__file__", None)
+        if not isinstance(module_file, str) or not module_file:
+            _fail("import_source_root_invalid")
+        origins.append((module_name, Path(module_file)))
+    verify_module_origins(authorization, origins)
 
 
 def _marker_record(

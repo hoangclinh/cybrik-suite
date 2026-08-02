@@ -1181,9 +1181,7 @@ def test_verify_loaded_module_origins_checks_every_loaded_namespace_entry(
     modules: dict[str, object] = {}
     for namespace, (role, relative) in authorization.MODULE_ORIGIN_ROOTS.items():
         owner = (
-            validated.suite_root
-            if role == "suite"
-            else validated.product_roots[role]
+            validated.suite_root if role == "suite" else validated.product_roots[role]
         )
         module_file = owner / relative / "synthetic_loaded.py"
         _write(module_file, "# synthetic loaded module\n")

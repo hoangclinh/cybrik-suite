@@ -232,9 +232,10 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
     assert "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256" not in runner
     assert runner.count("verify_suite_unchanged") >= 8
     assert re.search(
-        r"run_python_module cybrik_suite_uat_mtls\.harness rollback\n"
-        r"\s+verify_suite_unchanged",
+        r"run_python_module cybrik_suite_uat_mtls\.harness rollback; then.*?"
+        r"\n    fi\n    verify_suite_unchanged",
         runner,
+        flags=re.DOTALL,
     )
     assert (
         "run_python_module cybrik_suite_uat_mtls.harness rollback\n"

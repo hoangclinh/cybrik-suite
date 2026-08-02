@@ -177,6 +177,7 @@ python_import_roots="$PYTHONPATH:$python_purelib"
 if [[ "$python_platlib" != "$python_purelib" ]]; then
   python_import_roots="$python_import_roots:$python_platlib"
 fi
+python_repository_roots="$suite_root:$soc_repo:$ai_repo:$fabric_repo"
 
 run_python_module() {
   "$python_bin" -I -B -S -c '
@@ -185,22 +186,40 @@ import runpy
 import sys
 
 roots = tuple(sys.argv[1].split(os.pathsep))
+repositories = tuple(sys.argv[2].split(os.pathsep))
 if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
     raise SystemExit("unsafe Python startup flags")
 if not sys.dont_write_bytecode:
     raise SystemExit("Python bytecode writes are enabled")
-if not roots or any(not root or not os.path.isabs(root) for root in roots):
+if (
+    not roots
+    or not repositories
+    or len(set(roots)) != len(roots)
+    or len(set(repositories)) != len(repositories)
+    or any(not root or not os.path.isabs(root) for root in (*roots, *repositories))
+):
     raise SystemExit("unsafe Python import roots")
 if any(item in {"", ".", os.getcwd()} for item in sys.path):
     raise SystemExit("unsafe Python import path")
-sys.path[:] = list(roots) + [
+interpreter_roots = tuple(
     item for item in sys.path
     if item and os.path.isabs(item) and item not in roots
-]
-module = sys.argv[2]
-sys.argv = [module, *sys.argv[3:]]
+)
+sys.path[:] = [*roots, *interpreter_roots]
+if tuple(sys.path) != (*roots, *interpreter_roots):
+    raise SystemExit("effective Python import path mismatch")
+for item in sys.path[len(roots):]:
+    resolved = os.path.realpath(item)
+    if any(
+        os.path.commonpath((resolved, os.path.realpath(repository)))
+        == os.path.realpath(repository)
+        for repository in repositories
+    ):
+        raise SystemExit("repository import path escaped admitted prefix")
+module = sys.argv[3]
+sys.argv = [module, *sys.argv[4:]]
 runpy.run_module(module, run_name="__main__", alter_sys=True)
-' "$python_import_roots" "$@"
+' "$python_import_roots" "$python_repository_roots" "$@"
 }
 
 # This single check observes the admitted Suite ancestor, versioned runtime
@@ -220,6 +239,7 @@ cleanup() {
       echo "soc-ai lifecycle D2 runner: cleanup failed" >&2
       exit 3
     fi
+    verify_suite_unchanged
   fi
   exit "$exit_code"
 }
@@ -245,5 +265,6 @@ verify_suite_unchanged
 run_python_module cybrik_suite_uat_mtls.harness stop
 verify_suite_unchanged
 run_python_module cybrik_suite_uat_mtls.harness rollback
+verify_suite_unchanged
 cleanup_required=false
 trap - EXIT INT TERM

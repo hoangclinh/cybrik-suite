@@ -170,6 +170,7 @@ def assert_product_api_compatibility(
         module_origins.append((module_name, Path(module_file)))
     try:
         runtime_authorization.verify_module_origins(authorization, module_origins)
+        runtime_authorization.verify_loaded_module_origins(authorization)
     except runtime_authorization.RuntimeAuthorizationFailure as exc:
         raise RuntimeAuthorizationError(
             f"pinned product API module origin is refused: {exc.reason}"
