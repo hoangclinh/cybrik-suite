@@ -119,9 +119,20 @@ class FakeRunner:
                 if self.fail_stage == "venv_identity"
                 else pinned_python
             )
-            (venv / "bin" / "python").symlink_to(target)
-            (venv / "bin" / "python3").symlink_to("python")
-            (venv / "bin" / "python3.12").symlink_to("python")
+            if self.fail_stage == "venv_regular_python":
+                (venv / "bin" / "python").write_bytes(b"not-a-link")
+            else:
+                (venv / "bin" / "python").symlink_to(target)
+            python3_target = (
+                "python3.12" if self.fail_stage == "venv_python3_identity" else "python"
+            )
+            python312_target = (
+                str(pinned_python)
+                if self.fail_stage == "venv_python312_identity"
+                else "python"
+            )
+            (venv / "bin" / "python3").symlink_to(python3_target)
+            (venv / "bin" / "python3.12").symlink_to(python312_target)
             return ""
         if "sync" in argv:
             if self.fail_stage == "sync":
@@ -255,12 +266,15 @@ def recovery_fixture(
     }
     predecessor_start_path = predecessor_evidence / "recovery-start.json"
     predecessor_failure_path = predecessor_evidence / "recovery-failure.json"
+    predecessor_requirements_path = predecessor_evidence / "requirements-failure.txt"
     predecessor_start_path.write_text(json.dumps(predecessor_start), encoding="utf-8")
     predecessor_failure_path.write_text(
         json.dumps(predecessor_failure), encoding="utf-8"
     )
+    predecessor_requirements_path.write_bytes(requirements)
     predecessor_start_path.chmod(0o600)
     predecessor_failure_path.chmod(0o600)
+    predecessor_requirements_path.chmod(0o600)
     paths = recovery.RecoveryPaths(
         suite_root=suite,
         suite_commit="a" * 40,
@@ -285,6 +299,7 @@ def recovery_fixture(
         predecessor_evidence_root=predecessor_evidence,
         predecessor_start_sha256=_sha256_file(predecessor_start_path),
         predecessor_failure_sha256=_sha256_file(predecessor_failure_path),
+        predecessor_failure_reason="requirements_identity_mismatch",
         predecessor_attempt_id="c" * 64,
         predecessor_commit="d" * 40,
         predecessor_tree="e" * 40,
@@ -717,6 +732,9 @@ def test_execute_rolls_back_only_fresh_identity_bound_closure_and_preserves_evid
     [
         ("requirements_rebind", "requirements_identity_mismatch"),
         ("venv_identity", "venv_identity_mismatch"),
+        ("venv_regular_python", "venv_identity_mismatch"),
+        ("venv_python3_identity", "venv_identity_mismatch"),
+        ("venv_python312_identity", "venv_identity_mismatch"),
     ],
 )
 def test_execute_rejects_post_export_requirement_drift_and_wrong_venv_identity(
@@ -869,6 +887,25 @@ def test_preflight_rejects_tampered_or_unsafe_predecessor_evidence(
         recovery.preflight(paths, pins=pins, runner=runner, forbidden_roots=())
     assert error.value.reason == "predecessor_evidence_mismatch"
 
+
+@pytest.mark.parametrize("mutation", ["missing", "tampered", "unsafe_mode"])
+def test_preflight_rejects_missing_or_tampered_predecessor_requirements(
+    recovery_fixture: tuple[object, object, FakeRunner, bytes, dict[str, bytes], list],
+    mutation: str,
+) -> None:
+    paths, pins, runner, _, _, _ = recovery_fixture
+    requirements_path = pins.predecessor_evidence_root / "requirements-failure.txt"
+    if mutation == "missing":
+        requirements_path.unlink()
+    elif mutation == "tampered":
+        requirements_path.write_bytes(b"tampered\n")
+    else:
+        requirements_path.chmod(0o644)
+
+    with pytest.raises(recovery.RecoveryFailure) as error:
+        recovery.preflight(paths, pins=pins, runner=runner, forbidden_roots=())
+    assert error.value.reason == "predecessor_evidence_mismatch"
+
     failure_path.chmod(0o600)
     failure = json.loads(failure_path.read_text(encoding="utf-8"))
     failure["rollback_status"] = "preserved"
@@ -916,10 +953,10 @@ def test_sanitized_environment_drops_proxy_path_home_and_python_injection() -> N
 
 def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     assert recovery.DEFAULT_CLOSURE_ROOT == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r2"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r3"
     )
     assert recovery.DEFAULT_EVIDENCE_ROOT == Path(
-        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r2"
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r3"
     )
     assert recovery.DEFAULT_PINS.uv_path == Path("/opt/homebrew/bin/uv")
     assert recovery.DEFAULT_PINS.uv_version == "0.11.16"
@@ -945,6 +982,23 @@ def test_default_pins_are_the_reviewed_exact_d1_closure() -> None:
     assert (
         recovery.DEFAULT_PINS.requirements_body_sha256
         == "bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d"
+    )
+    assert recovery.DEFAULT_PINS.predecessor_closure_root == Path(
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r2"
+    )
+    assert recovery.DEFAULT_PINS.predecessor_evidence_root == Path(
+        "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r2"
+    )
+    assert (
+        recovery.DEFAULT_PINS.predecessor_start_sha256
+        == "de64c42ca6054260f52a8f04822f27f5f576c73c381be20c55c86dbd37f28c15"
+    )
+    assert (
+        recovery.DEFAULT_PINS.predecessor_failure_sha256
+        == "c979869dde1e9e3c1378addee8223b2626d73e735a0b159c0dd072782c3947a7"
+    )
+    assert recovery.DEFAULT_PINS.predecessor_failure_reason == (
+        "venv_identity_mismatch"
     )
     assert recovery.DEFAULT_PINS.wheel_count == 56
     assert (
