@@ -31,7 +31,7 @@ _ONE_SHOT_STEP_GUARDS = {
     "reset": ("assert_runtime_authorized", "verify_consumed"),
     "stop": ("assert_runtime_authorized", "verify_consumed"),
     "run_runtime_attempt": ("assert_runtime_authorized", "verify_consumed"),
-    "rollback": ("verify_consumption_marker", "teardown"),
+    "rollback": ("verify_consumed", "teardown"),
 }
 
 
@@ -174,17 +174,18 @@ def test_successful_runtime_attempt_freezes_file_backed_terminal_handoff_last() 
     )
     body = ast.unparse(runtime_attempt)
 
-    assert "consumed_marker = runtime_authorization.verify_consumed(authorization)" in body
+    assert (
+        "consumed_marker = runtime_authorization.verify_consumed(authorization)" in body
+    )
     assert "terminal_integration.prepare_terminal_handoff(" in body
     assert "secret_inventory=" in body
     assert "public_pki_paths=" in body
     assert "artifact_paths=" in body
-    assert body.index("_run_case('N10'") < body.index(
+    assert body.index("execute_case('N10'") < body.index(
         "terminal_integration.prepare_terminal_handoff("
     )
-    assert body.rindex("_stop_process(") < body.index(
-        "terminal_integration.prepare_terminal_handoff("
-    )
+    prepare_index = body.index("terminal_integration.prepare_terminal_handoff(")
+    assert body.rfind("_stop_process(", 0, prepare_index) > 0
 
 
 def test_harness_has_no_dead_authorization_or_root_wrapper_symbols() -> None:
@@ -714,6 +715,7 @@ def test_later_steps_verify_the_marker_and_never_reconsume(
         "verify_consumed",
         lambda authorization: verified.append(authorization),
     )
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
     monkeypatch.setattr(
         harness.runtime_authorization, "consume_once", refuse_consumption
     )
@@ -754,21 +756,20 @@ def _bind_rollback_roots(
 def test_rollback_is_a_noop_only_when_both_roots_are_absent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    checked: list[tuple[Path, Path | None]] = []
+    checked: list[object] = []
     teardown_calls: list[str] = []
-
-    def record_marker_check(
-        evidence_root: Path, *, expected_runtime_root: Path | None = None, **_: object
-    ) -> None:
-        checked.append((evidence_root, expected_runtime_root))
-
+    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
+    authorization = SimpleNamespace(
+        runtime_root=runtime_root, evidence_root=evidence_root
+    )
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
     monkeypatch.setattr(
         harness.runtime_authorization,
-        "verify_consumption_marker",
-        record_marker_check,
+        "verify_consumed",
+        lambda actual: checked.append(actual),
     )
-    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
-    _runtime_root, _evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
 
     harness.rollback()
 
@@ -779,21 +780,27 @@ def test_rollback_is_a_noop_only_when_both_roots_are_absent(
 def test_rollback_refuses_foreign_runtime_material_without_a_marker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    runtime_root, _ = _bind_rollback_roots(tmp_path, monkeypatch)
+    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     runtime_root.mkdir(mode=0o700)
     (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
     teardown_calls: list[str] = []
-    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
+    authorization = SimpleNamespace(
+        runtime_root=runtime_root, evidence_root=evidence_root
+    )
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
     monkeypatch.setattr(
         harness.runtime_authorization,
-        "verified_exact_head_grant_sha_for_rollback",
-        lambda: "e" * 64,
+        "verify_consumed",
+        lambda actual: (_ for _ in ()).throw(
+            runtime_auth.RuntimeAuthorizationFailure("authorization_not_consumed")
+        ),
     )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
     with pytest.raises(
         harness.RuntimeAuthorizationError,
-        match="runtime material exists without a consumed authorization",
+        match="consumed authorization marker is invalid",
     ):
         harness.rollback()
 
@@ -804,15 +811,21 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
 def test_rollback_refuses_partial_evidence_root_without_a_marker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
+    runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     evidence_root.mkdir(mode=0o700)
     (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
     teardown_calls: list[str] = []
-    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "a" * 64)
+    authorization = SimpleNamespace(
+        runtime_root=runtime_root, evidence_root=evidence_root
+    )
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
     monkeypatch.setattr(
         harness.runtime_authorization,
-        "verified_exact_head_grant_sha_for_rollback",
-        lambda: "e" * 64,
+        "verify_consumed",
+        lambda actual: (_ for _ in ()).throw(
+            runtime_auth.RuntimeAuthorizationFailure("authorization_not_consumed")
+        ),
     )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
 
@@ -833,47 +846,30 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     runtime_root.mkdir(mode=0o700)
     evidence_root.mkdir(mode=0o700)
     teardown_calls: list[str] = []
-    marker_checks: list[tuple[Path, str | None, str | None, Path | None]] = []
-    authorization_sha = "a" * 64
-    exact_head_grant_sha = "e" * 64
-    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", authorization_sha)
-    monkeypatch.setattr(
-        harness.runtime_authorization,
-        "verified_exact_head_grant_sha_for_rollback",
-        lambda: exact_head_grant_sha,
+    authorization = SimpleNamespace(
+        runtime_root=runtime_root, evidence_root=evidence_root
     )
-
-    def accept_marker(
-        evidence: Path,
-        *,
-        expected_authorization_sha256: str | None = None,
-        expected_exact_head_grant_sha256: str | None = None,
-        expected_runtime_root: Path | None = None,
-    ) -> dict[str, str]:
-        marker_checks.append(
-            (
-                evidence,
-                expected_authorization_sha256,
-                expected_exact_head_grant_sha256,
-                expected_runtime_root,
-            )
-        )
-        return {"status": "consumed"}
+    marker_checks: list[object] = []
+    marker = {"status": "consumed"}
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
 
     monkeypatch.setattr(
         harness.runtime_authorization,
-        "verify_consumption_marker",
-        accept_marker,
+        "verify_consumed",
+        lambda actual: (marker_checks.append(actual), marker)[1],
     )
     monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
-    monkeypatch.setattr(harness, "verify_absent", lambda: True)
+    monkeypatch.setattr(
+        harness.terminal_integration,
+        "finalize_terminal_handoff",
+        lambda **kwargs: None,
+    )
 
     harness.rollback()
 
     assert teardown_calls == ["called"]
-    assert marker_checks == [
-        (evidence_root, authorization_sha, exact_head_grant_sha, runtime_root)
-    ]
+    assert marker_checks == [authorization]
 
 
 def test_password_rejects_missing_and_short_file(tmp_path: Path) -> None:

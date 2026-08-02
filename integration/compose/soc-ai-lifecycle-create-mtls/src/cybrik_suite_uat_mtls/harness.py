@@ -8,6 +8,7 @@ commit and external runtime roots. Importing this module is inert.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -18,11 +19,22 @@ import socket
 import ssl
 import subprocess
 import sys
+import sysconfig
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Final
 
-from . import evidence, pki, procedure, runtime_authorization, store
+from . import (
+    evidence,
+    pki,
+    procedure,
+    runtime_authorization,
+    runtime_evidence,
+    secret_inventory,
+    store,
+    terminal_integration,
+)
 
 RESOURCE_KINDS = (
     "ai_process",
@@ -47,6 +59,73 @@ _CLIENT_PID: Final = "soc-client.pid"
 _TLS_EVIDENCE: Final = "tls-extension.json"
 _SSL_CONTEXT_EVIDENCE: Final = "ssl-context.json"
 _POSTGRES_SECURITY_EVIDENCE: Final = "postgres-security.json"
+_AUTHORITY_BINDING_EVIDENCE: Final = "authority-binding.json"
+_B1_BINDING_EVIDENCE: Final = "b1-binding.json"
+_SECRET_SWEEP_EVIDENCE: Final = "secret-sweep.json"
+_B1_PROVENANCE_SHA256: Final = (
+    "ae8cfa7a0b15483377a4344eca37d2b5aefbb2b4030cf70cad9e6ca0175540de"
+)
+_B1_CONTAINMENT_TEST_SHA256: Final = (
+    "10ba8cb192415c52becfe41906f1d36a43ed4720a68d291b10f1702bde80ff14"
+)
+_B1_LOADER_BASE_SHA256: Final = (
+    "d6c7cef7e7d17ef677fe21b3ee1c88df6e1a5c5841c951a60202fbf8db8a39a1"
+)
+_PUBLIC_PKI_FILES: Final = (
+    ("ca_certificate", "ca-cert.pem"),
+    ("server_certificate", "server-cert.pem"),
+    ("client_certificate", "client-cert.pem"),
+    ("alternate_client_certificate", "alternate-client-cert.pem"),
+    ("jwt_public_jwk", "jwt-public-jwk.json"),
+)
+_TERMINAL_ARTIFACTS: Final = (
+    *(f"case-n{ordinal}.json" for ordinal in range(1, 11)),
+    _AUTHORITY_BINDING_EVIDENCE,
+    _B1_BINDING_EVIDENCE,
+    _TLS_EVIDENCE,
+    _SSL_CONTEXT_EVIDENCE,
+    _POSTGRES_SECURITY_EVIDENCE,
+    _SECRET_SWEEP_EVIDENCE,
+)
+_ISOLATED_MODULE_BOOTSTRAP: Final = """
+import os
+import runpy
+import sys
+
+roots = tuple(sys.argv[1].split(os.pathsep))
+repositories = tuple(sys.argv[2].split(os.pathsep))
+if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
+    raise SystemExit("unsafe Python startup flags")
+if not sys.dont_write_bytecode:
+    raise SystemExit("Python bytecode writes are enabled")
+if (
+    not roots
+    or not repositories
+    or len(set(roots)) != len(roots)
+    or len(set(repositories)) != len(repositories)
+    or any(not item or not os.path.isabs(item) for item in (*roots, *repositories))
+):
+    raise SystemExit("unsafe Python import roots")
+if any(item in {"", ".", os.getcwd()} for item in sys.path):
+    raise SystemExit("unsafe Python import path")
+interpreter_roots = tuple(
+    item for item in sys.path if item and os.path.isabs(item) and item not in roots
+)
+sys.path[:] = [*roots, *interpreter_roots]
+if tuple(sys.path) != (*roots, *interpreter_roots):
+    raise SystemExit("effective Python import path mismatch")
+for item in sys.path[len(roots):]:
+    resolved = os.path.realpath(item)
+    if any(
+        os.path.commonpath((resolved, os.path.realpath(repository)))
+        == os.path.realpath(repository)
+        for repository in repositories
+    ):
+        raise SystemExit("repository import path escaped admitted prefix")
+module = sys.argv[3]
+sys.argv = [module, *sys.argv[4:]]
+runpy.run_module(module, run_name="__main__", alter_sys=True)
+"""
 _RUNTIME_ROOT_NAME = re.compile(r"^cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}$")
 _EVIDENCE_ROOT_NAME = re.compile(r"^cybrik-uat-d2-evidence-[a-z0-9][a-z0-9._-]{0,63}$")
 _JWT_LIKE = re.compile(
@@ -188,6 +267,52 @@ def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
         ) from exc
 
 
+def _isolated_module_argv(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    module: str,
+) -> tuple[str, ...]:
+    """Build the same isolated, exact-source bootstrap used by the runner."""
+
+    try:
+        source_roots = runtime_authorization.resolve_import_source_roots(authorization)
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
+        raise RuntimeAuthorizationError(
+            f"isolated child import roots are refused: {exc.reason}"
+        ) from exc
+    purelib = Path(sysconfig.get_path("purelib")).resolve(strict=True)
+    platlib = Path(sysconfig.get_path("platlib")).resolve(strict=True)
+    roots = tuple(dict.fromkeys((*source_roots, purelib, platlib)))
+    repositories = (
+        authorization.suite_root,
+        *tuple(authorization.product_roots.values()),
+    )
+    if (
+        not module.startswith("cybrik_suite_uat_mtls.")
+        or any(not root.is_absolute() or not root.is_dir() for root in roots)
+        or any(not repository.is_absolute() for repository in repositories)
+    ):
+        raise RuntimeAuthorizationError("isolated child import roots are invalid")
+    for dependency_root in roots[len(source_roots) :]:
+        resolved_dependency = dependency_root.resolve(strict=True)
+        for repository in repositories:
+            resolved_repository = repository.resolve(strict=True)
+            if resolved_dependency.is_relative_to(resolved_repository):
+                raise RuntimeAuthorizationError(
+                    "isolated child dependency root escaped confinement"
+                )
+    return (
+        sys.executable,
+        "-I",
+        "-B",
+        "-S",
+        "-c",
+        _ISOLATED_MODULE_BOOTSTRAP,
+        os.pathsep.join(str(root) for root in roots),
+        os.pathsep.join(str(root) for root in repositories),
+        module,
+    )
+
+
 def _password(root: Path) -> str:
     path = root / _PASSWORD_FILE
     if not path.is_file() or path.is_symlink():
@@ -199,6 +324,8 @@ def _password(root: Path) -> str:
 
 
 def _write_atomic_evidence(destination: Path, record: object) -> None:
+    if destination.exists() or destination.is_symlink():
+        raise RuntimeAuthorizationError("terminal binding evidence already exists")
     temporary = destination.with_suffix(".tmp")
     try:
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -254,6 +381,7 @@ def start() -> None:
 
 def seed() -> None:
     authorization = assert_runtime_authorized()
+    assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
     root = authorization.runtime_root
     material_root = root / "pki"
@@ -271,6 +399,7 @@ def seed() -> None:
 
 def reset() -> None:
     authorization = assert_runtime_authorized()
+    assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
     runtime = _postgres_runtime(authorization.runtime_root)
     store.migrate(runtime)
@@ -281,6 +410,7 @@ def reset() -> None:
 
 def stop() -> None:
     authorization = assert_runtime_authorized()
+    assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
     store.stop()
 
@@ -302,6 +432,8 @@ def _pki_material(root: Path) -> pki.PkiMaterial:
 
 
 def rollback() -> None:
+    authorization = assert_runtime_authorized()
+    assert_product_api_compatibility(authorization)
     runtime_root, evidence_root = _bounded_external_roots(repositories_must_exist=False)
     roots_exist = (
         runtime_root.exists()
@@ -311,32 +443,23 @@ def rollback() -> None:
     )
     if not roots_exist:
         return
-    expected_authorization_sha = os.environ.get(_AUTHORIZATION_SHA_ENV, "")
-    if re.fullmatch(r"[0-9a-f]{64}", expected_authorization_sha) is None:
-        raise RuntimeAuthorizationError(
-            "consumed authorization marker is invalid: authorization digest absent"
-        )
     try:
-        expected_exact_head_grant_sha = (
-            runtime_authorization.verified_exact_head_grant_sha_for_rollback()
-        )
-        marker = runtime_authorization.verify_consumption_marker(
-            evidence_root,
-            expected_authorization_sha256=expected_authorization_sha,
-            expected_exact_head_grant_sha256=expected_exact_head_grant_sha,
-            expected_runtime_root=runtime_root,
-        )
+        marker = runtime_authorization.verify_consumed(authorization)
     except runtime_authorization.RuntimeAuthorizationFailure as exc:
         raise RuntimeAuthorizationError(
             f"consumed authorization marker is invalid: {exc.reason}"
         ) from exc
-    if marker is None:
-        raise RuntimeAuthorizationError(
-            "runtime material exists without a consumed authorization"
-        )
     teardown()
-    if not verify_absent():
-        raise RuntimeAuthorizationError("D2 rollback did not verify resource absence")
+    try:
+        terminal_integration.finalize_terminal_handoff(
+            authorization=authorization,
+            consumed_marker=marker,
+            live_absence_probe=_live_absence_state,
+        )
+    except terminal_integration.TerminalIntegrationError as exc:
+        raise RuntimeAuthorizationError(
+            f"terminal evidence finalization is refused: {exc.reason}"
+        ) from exc
 
 
 def _server_environment(
@@ -358,7 +481,11 @@ def _server_environment(
 
 
 def _spawn_server(
-    root: Path, evidence_root: Path, *, strip_tls: bool
+    root: Path,
+    evidence_root: Path,
+    authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    strip_tls: bool,
 ) -> tuple[subprocess.Popen[str], object]:
     pid_path = root / _SERVER_PID
     if pid_path.exists() or pid_path.is_symlink():
@@ -366,7 +493,7 @@ def _spawn_server(
     log = (evidence_root / _SERVER_LOG).open("a", encoding="utf-8")
     try:
         process = subprocess.Popen(
-            (sys.executable, "-m", "cybrik_suite_uat_mtls.server"),
+            _isolated_module_argv(authorization, "cybrik_suite_uat_mtls.server"),
             stdout=log,
             stderr=subprocess.STDOUT,
             text=True,
@@ -567,7 +694,12 @@ def _postgres_security_summary(evidence_root: Path) -> dict[str, object]:
     return expected
 
 
-def _run_case(case_id: str, root: Path, evidence_root: Path) -> dict[str, object]:
+def _run_case(
+    case_id: str,
+    root: Path,
+    evidence_root: Path,
+    authorization: runtime_authorization.RuntimeAuthorization | None = None,
+) -> dict[str, object]:
     result_path = evidence_root / f"case-{case_id.casefold()}.json"
     environment = _server_environment(root, evidence_root, strip_tls=False)
     environment["CYBRIK_UAT_D2_CASE_ID"] = case_id
@@ -576,7 +708,10 @@ def _run_case(case_id: str, root: Path, evidence_root: Path) -> dict[str, object
     if pid_path.exists() or pid_path.is_symlink():
         raise RuntimeAuthorizationError("SOC client process record already exists")
     process = subprocess.Popen(
-        (sys.executable, "-m", "cybrik_suite_uat_mtls.client"),
+        _isolated_module_argv(
+            assert_runtime_authorized() if authorization is None else authorization,
+            "cybrik_suite_uat_mtls.client",
+        ),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -631,20 +766,346 @@ def _assert_secret_free_process_output(root: Path, *streams: str) -> None:
                 )
 
 
+def _sha256_file(path: Path) -> str:
+    if not path.is_file() or path.is_symlink():
+        raise RuntimeAuthorizationError("terminal artifact is unavailable")
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError as exc:
+        raise RuntimeAuthorizationError("terminal artifact is unavailable") from exc
+    return digest.hexdigest()
+
+
+def _git_value(root: Path, revision: str) -> str:
+    try:
+        completed = subprocess.run(
+            ("git", "-C", str(root), "rev-parse", revision),
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            shell=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeAuthorizationError(
+            "terminal repository tuple is unavailable"
+        ) from exc
+    value = completed.stdout.strip()
+    if re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise RuntimeAuthorizationError("terminal repository tuple is invalid")
+    return value
+
+
+def _repository_tuple(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> dict[str, dict[str, str]]:
+    roots = {
+        "suite": authorization.suite_root,
+        "soc": authorization.product_roots["soc"],
+        "ai": authorization.product_roots["cyber_ai"],
+        "fabric": authorization.product_roots["tool_fabric"],
+    }
+    result: dict[str, dict[str, str]] = {}
+    for name, root in roots.items():
+        commit = _git_value(root, "HEAD")
+        tree = _git_value(root, "HEAD^{tree}")
+        if name == "suite" and commit != authorization.suite_head:
+            raise RuntimeAuthorizationError("terminal Suite tuple changed")
+        result[name] = {"commit_sha": commit, "tree_sha": tree}
+    return result
+
+
+def _public_pki_paths(root: Path) -> dict[str, Path]:
+    material_root = root / "pki"
+    paths = {name: material_root / filename for name, filename in _PUBLIC_PKI_FILES}
+    if any(not path.is_file() or path.is_symlink() for path in paths.values()):
+        raise RuntimeAuthorizationError("terminal public PKI inventory is incomplete")
+    return paths
+
+
+def _runtime_secret_inventory(root: Path) -> secret_inventory.SecretInventory:
+    inventory = secret_inventory.SecretInventory()
+    secret_paths = (
+        ("postgres_password", root / _PASSWORD_FILE),
+        ("server_private_key", root / "pki/server-key.pem"),
+        ("client_private_key", root / "pki/client-key.pem"),
+        ("alternate_client_private_key", root / "pki/alternate-client-key.pem"),
+        ("jwt_private_key", root / "pki/jwt-signing-key.pem"),
+    )
+    try:
+        for label, path in secret_paths:
+            if not path.is_file() or path.is_symlink():
+                raise RuntimeAuthorizationError(
+                    "terminal runtime secret inventory is incomplete"
+                )
+            inventory.register(label, path.read_bytes())
+    except (OSError, secret_inventory.SecretInventoryError) as exc:
+        inventory.clear()
+        raise RuntimeAuthorizationError(
+            "terminal runtime secret inventory is incomplete"
+        ) from exc
+    return inventory
+
+
+def _write_terminal_bindings(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    inventory: secret_inventory.SecretInventory,
+) -> None:
+    evidence_root = authorization.evidence_root
+    _write_atomic_evidence(
+        evidence_root / _AUTHORITY_BINDING_EVIDENCE,
+        {
+            "authorization_id": authorization.authorization_id,
+            "authorization_sha256": authorization.authorization_sha256,
+            "exact_head_grant_sha256": authorization.exact_head_grant_sha256,
+            "runtime_code_aggregate_sha256": authorization.aggregate_sha256,
+            "suite_head": authorization.suite_head,
+        },
+    )
+    _write_atomic_evidence(
+        evidence_root / _B1_BINDING_EVIDENCE,
+        {
+            "containment_test_sha256": _B1_CONTAINMENT_TEST_SHA256,
+            "loader_base_sha256": _B1_LOADER_BASE_SHA256,
+            "provenance_sha256": _B1_PROVENANCE_SHA256,
+            "wheel_sha256": runtime_authorization.policy.PINNED_B1_WHEEL_SHA256,
+        },
+    )
+    _write_atomic_evidence(
+        evidence_root / _SECRET_SWEEP_EVIDENCE,
+        inventory.summary(),
+    )
+
+
+def _artifact_record(
+    evidence_root: Path,
+    relative_path: str,
+    *,
+    name: str,
+    kind: str,
+    case_id: str | None,
+) -> dict[str, object]:
+    path = evidence_root / relative_path
+    try:
+        size_bytes = path.stat(follow_symlinks=False).st_size
+    except OSError as exc:
+        raise RuntimeAuthorizationError("terminal artifact is unavailable") from exc
+    return {
+        "name": name,
+        "kind": kind,
+        "case_id": case_id,
+        "relative_path": relative_path,
+        "sha256": _sha256_file(path),
+        "size_bytes": size_bytes,
+    }
+
+
+def _terminal_artifacts(evidence_root: Path) -> list[dict[str, object]]:
+    artifacts = [
+        _artifact_record(
+            evidence_root,
+            f"case-n{ordinal}.json",
+            name=f"case-n{ordinal}",
+            kind="case",
+            case_id=f"N{ordinal}",
+        )
+        for ordinal in range(1, 11)
+    ]
+    for relative_path, name, kind in (
+        (_AUTHORITY_BINDING_EVIDENCE, "authority-binding", "authorization"),
+        (_B1_BINDING_EVIDENCE, "b1-binding", "b1"),
+        (_TLS_EVIDENCE, "tls-extension", "tls"),
+        (_SSL_CONTEXT_EVIDENCE, "ssl-context", "ssl"),
+        (_POSTGRES_SECURITY_EVIDENCE, "postgres-security", "postgresql"),
+        (_SECRET_SWEEP_EVIDENCE, "secret-sweep", "secret_sweep"),
+    ):
+        artifacts.append(
+            _artifact_record(
+                evidence_root,
+                relative_path,
+                name=name,
+                kind=kind,
+                case_id=None,
+            )
+        )
+    return artifacts
+
+
+def _public_pki_inventory(paths: dict[str, Path]) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for name, filename in _PUBLIC_PKI_FILES:
+        path = paths[name]
+        result.append(
+            {
+                "name": name,
+                "relative_path": f"pki-public/{filename}",
+                "sha256": _sha256_file(path),
+                "size_bytes": path.stat(follow_symlinks=False).st_size,
+            }
+        )
+    return result
+
+
+def _marker_sha256(marker: object) -> str:
+    try:
+        payload = json.dumps(
+            marker,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise RuntimeAuthorizationError("consumed marker is not canonical") from exc
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _utc_text(value: datetime) -> str:
+    return (
+        value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    )
+
+
+def _terminal_candidate(
+    *,
+    authorization: runtime_authorization.RuntimeAuthorization,
+    marker: dict[str, object],
+    results: list[dict[str, object]],
+    case_durations_ms: list[int],
+    summary: dict[str, object],
+    started_at: datetime,
+    elapsed_ms: int,
+    public_pki_paths: dict[str, Path],
+) -> dict[str, object]:
+    if len(results) != 10 or len(case_durations_ms) != 10:
+        raise RuntimeAuthorizationError("terminal case inventory is incomplete")
+    cases_ms = sum(case_durations_ms)
+    total_ms = max(elapsed_ms, cases_ms)
+    setup_ms = total_ms - cases_ms
+    finished_at = started_at + timedelta(milliseconds=total_ms)
+    observed = {
+        result.get("case_id"): (result, duration_ms)
+        for result, duration_ms in zip(results, case_durations_ms, strict=True)
+    }
+    if set(observed) != {f"N{ordinal}" for ordinal in range(1, 11)}:
+        raise RuntimeAuthorizationError("terminal case inventory is inconsistent")
+    cases = []
+    for ordinal in range(1, 11):
+        case_id = f"N{ordinal}"
+        result, duration_ms = observed[case_id]
+        if result.get("case_id") != case_id or result.get("passed") is not True:
+            raise RuntimeAuthorizationError("terminal case inventory is inconsistent")
+        cases.append(
+            {
+                "case_id": case_id,
+                "outcome": "passed",
+                "reason_code": None,
+                "duration_ms": duration_ms,
+                "artifact_name": f"case-n{ordinal}",
+            }
+        )
+    return {
+        "schema_version": runtime_evidence.TERMINAL_SCHEMA_VERSION,
+        "artifact_state": "raw",
+        "attempt_id": authorization.authorization_id,
+        "outcome": "passed",
+        "failure_reason_code": None,
+        "repository_tuple": _repository_tuple(authorization),
+        "authority": {
+            "phase_a_auth_sha256": authorization.authorization_sha256,
+            "consumption_sha256": _marker_sha256(marker),
+            "one_shot_consumed": True,
+        },
+        "b1": {
+            "wheel_sha256": runtime_authorization.policy.PINNED_B1_WHEEL_SHA256,
+            "provenance_sha256": _B1_PROVENANCE_SHA256,
+            "containment_test_sha256": _B1_CONTAINMENT_TEST_SHA256,
+            "loader_base_sha256": _B1_LOADER_BASE_SHA256,
+        },
+        "counts": {
+            "case_count": 10,
+            "passed_count": 10,
+            "failed_count": 0,
+            "not_run_count": 0,
+        },
+        "cases": cases,
+        "transport": {
+            "tls_version": "TLSv1.3",
+            "mtls_verified": summary["mtls_client_certificate_count"] == 1,
+            "cnf_binding_verified": summary["relying_party_refusal_count"] == 9,
+            "asgi_tls_extension_verified": True,
+            "ssl_hardened_options_preserved": summary["ssl_hardened_options_preserved"],
+            "ssl_no_compression_verified": summary["ssl_no_compression_verified"],
+        },
+        "postgresql": {
+            "role_rolsuper": False,
+            "role_rolbypassrls": False,
+            "role_rolcreaterole": False,
+            "force_rls_table_count": summary["postgres_force_rls_table_count"],
+            "cross_tenant_row_count": 0,
+            "replay_row_count": summary["postgres_replay_row_count"],
+        },
+        "timings": {
+            "started_at": _utc_text(started_at),
+            "finished_at": _utc_text(finished_at),
+            "setup_ms": setup_ms,
+            "cases_ms": cases_ms,
+            "teardown_ms": 0,
+            "total_ms": total_ms,
+        },
+        "teardown": {
+            key: True
+            for key in (
+                "completed",
+                "ai_process_absent",
+                "soc_process_absent",
+                "postgres_container_absent",
+                "ai_listener_absent",
+                "postgres_listener_absent",
+                "runtime_root_absent",
+                "pki_absent",
+            )
+        },
+        "pki_public": {
+            "ephemeral": True,
+            "destroyed": True,
+            "certificate_count": 4,
+            "public_artifact_count": 5,
+            "public_artifacts": _public_pki_inventory(public_pki_paths),
+        },
+        "artifacts": _terminal_artifacts(authorization.evidence_root),
+    }
+
+
 def run_runtime_attempt() -> dict[str, object]:
     """Execute the authorized RED→GREEN sequence exactly once."""
 
     authorization = assert_runtime_authorized()
-    runtime_authorization.verify_consumed(authorization)
+    assert_product_api_compatibility(authorization)
+    consumed_marker = runtime_authorization.verify_consumed(authorization)
     root = authorization.runtime_root
     evidence_root = authorization.evidence_root
+    attempt_started_at = datetime.now(UTC)
+    attempt_started_monotonic = time.monotonic()
     process: subprocess.Popen[str] | None = None
     log: object | None = None
     results: list[dict[str, object]] = []
+    case_durations_ms: list[int] = []
+    inventory: secret_inventory.SecretInventory | None = None
+
+    def execute_case(case_id: str) -> dict[str, object]:
+        started = time.monotonic()
+        result = _run_case(case_id, root, evidence_root, authorization)
+        case_durations_ms.append(max(0, round((time.monotonic() - started) * 1000)))
+        return result
+
     try:
-        process, log = _spawn_server(root, evidence_root, strip_tls=True)
+        process, log = _spawn_server(root, evidence_root, authorization, strip_tls=True)
         _wait_ai_listener(root, process)
-        results.append(_run_case("N8", root, evidence_root))
+        results.append(execute_case("N8"))
         if (evidence_root / _TLS_EVIDENCE).exists():
             raise RuntimeAuthorizationError("N8 unexpectedly retained a TLS extension")
         _stop_process(process, root)
@@ -653,12 +1114,14 @@ def run_runtime_attempt() -> dict[str, object]:
             log.close()  # type: ignore[union-attr]
         log = None
 
-        process, log = _spawn_server(root, evidence_root, strip_tls=False)
+        process, log = _spawn_server(
+            root, evidence_root, authorization, strip_tls=False
+        )
         _wait_ai_listener(root, process)
         runtime = _postgres_runtime(root)
         postgres_replay_row_count = 0
         for case_id in ("N1", "N2", "N3", "N4", "N5", "N6", "N7"):
-            results.append(_run_case(case_id, root, evidence_root))
+            results.append(execute_case(case_id))
             if case_id == "N1":
                 postgres_replay_row_count = store.replay_row_count(
                     runtime, tenant_id="11111111-2222-4333-8444-555555555555"
@@ -670,14 +1133,14 @@ def run_runtime_attempt() -> dict[str, object]:
         store.stop()
         if not store.verify_absent():
             raise RuntimeAuthorizationError("N9 PostgreSQL outage was not established")
-        results.append(_run_case("N9", root, evidence_root))
+        results.append(execute_case("N9"))
         mtls_summary = _assert_mtls_evidence(evidence_root)
         _stop_process(process, root)
         process = None
         if hasattr(log, "close"):
             log.close()  # type: ignore[union-attr]
         log = None
-        results.append(_run_case("N10", root, evidence_root))
+        results.append(execute_case("N10"))
         relying_party_refusal_count = sum(
             1
             for result in results
@@ -702,11 +1165,43 @@ def run_runtime_attempt() -> dict[str, object]:
         summary.update(mtls_summary)
         summary.update(_assert_ssl_context_evidence(evidence_root))
         summary.update(_postgres_security_summary(evidence_root))
-        return evidence.validate_evidence(summary)  # type: ignore[return-value]
+        validated_summary = evidence.validate_evidence(summary)
+        if not isinstance(validated_summary, dict):
+            raise RuntimeAuthorizationError("terminal runtime summary is invalid")
+        inventory = _runtime_secret_inventory(root)
+        _write_terminal_bindings(authorization, inventory)
+        public_paths = _public_pki_paths(root)
+        candidate = _terminal_candidate(
+            authorization=authorization,
+            marker=consumed_marker,
+            results=results,
+            case_durations_ms=case_durations_ms,
+            summary=validated_summary,
+            started_at=attempt_started_at,
+            elapsed_ms=max(
+                0, round((time.monotonic() - attempt_started_monotonic) * 1000)
+            ),
+            public_pki_paths=public_paths,
+        )
+        runtime_evidence.validate_terminal_result(candidate)
+        terminal_integration.prepare_terminal_handoff(
+            authorization=authorization,
+            consumed_marker=consumed_marker,
+            candidate=candidate,
+            public_pki_paths=public_paths,
+            artifact_paths=tuple(
+                evidence_root / relative_path for relative_path in _TERMINAL_ARTIFACTS
+            ),
+            secret_inventory=inventory,
+        )
+        inventory = None
+        return validated_summary
     finally:
         _stop_process(process, root)
         if hasattr(log, "close"):
             log.close()  # type: ignore[union-attr]
+        if inventory is not None:
+            inventory.clear()
 
 
 def teardown() -> None:
@@ -728,19 +1223,33 @@ def teardown() -> None:
             shutil.rmtree(root)
 
 
-def verify_absent() -> bool:
-    root, _ = _bounded_external_roots(repositories_must_exist=False)
-    material = _pki_material(root)
+def _listener_absent(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.settimeout(0.25)
-        ai_listener_absent = probe.connect_ex(("127.0.0.1", 58443)) != 0
-    return (
-        store.verify_absent()
-        and pki.verify_absent(material)
-        and not root.exists()
-        and not root.is_symlink()
-        and ai_listener_absent
-    )
+        return probe.connect_ex(("127.0.0.1", port)) != 0
+
+
+def _live_absence_state() -> dict[str, bool]:
+    """Observe each bounded resource separately after teardown."""
+
+    root, _ = _bounded_external_roots(repositories_must_exist=False)
+    material = _pki_material(root)
+    observed = {
+        "ai_process_absent": not (root / _SERVER_PID).exists()
+        and not (root / _SERVER_PID).is_symlink(),
+        "soc_process_absent": not (root / _CLIENT_PID).exists()
+        and not (root / _CLIENT_PID).is_symlink(),
+        "postgres_container_absent": not store.container_exists(),
+        "ai_listener_absent": _listener_absent(58443),
+        "postgres_listener_absent": _listener_absent(store.POSTGRES_PORT),
+        "runtime_root_absent": not root.exists() and not root.is_symlink(),
+        "pki_absent": pki.verify_absent(material),
+    }
+    return {"completed": all(observed.values()), **observed}
+
+
+def verify_absent() -> bool:
+    return all(_live_absence_state().values())
 
 
 def _parser() -> argparse.ArgumentParser:

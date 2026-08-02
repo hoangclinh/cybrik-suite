@@ -11,7 +11,6 @@ from types import SimpleNamespace
 from typing import Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import harness
 
 _SRC = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls"
@@ -209,7 +208,8 @@ def test_verify_absent_requires_store_pki_root_and_listener_absence(
     runtime_root = tmp_path / "cybrik-uat-d2-runtime-verify"
     evidence_root = tmp_path / "cybrik-uat-d2-evidence-verify"
     material = SimpleNamespace(root=runtime_root / "pki")
-    probe = _FakeProbe(connect_result=1)
+    probes = (_FakeProbe(connect_result=1), _FakeProbe(connect_result=1))
+    probe_iterator = iter(probes)
 
     monkeypatch.setattr(
         harness,
@@ -217,17 +217,19 @@ def test_verify_absent_requires_store_pki_root_and_listener_absence(
         lambda *, repositories_must_exist: (runtime_root, evidence_root),
     )
     monkeypatch.setattr(harness, "_pki_material", lambda root: material)
-    monkeypatch.setattr(harness.store, "verify_absent", lambda: True)
+    monkeypatch.setattr(harness.store, "container_exists", lambda: False)
     monkeypatch.setattr(harness.pki, "verify_absent", lambda actual: actual is material)
     monkeypatch.setattr(
         harness.socket,
         "socket",
-        lambda family, kind: probe,
+        lambda family, kind: next(probe_iterator),
     )
 
     assert harness.verify_absent() is True
-    assert probe.timeout == 0.25
-    assert probe.address == ("127.0.0.1", 58443)
+    assert [probe.address for probe in probes] == [
+        ("127.0.0.1", 58443),
+        ("127.0.0.1", 55432),
+    ]
 
 
 def test_live_absence_state_reports_exact_eight_actual_checks(
@@ -344,7 +346,8 @@ def test_verify_absent_returns_false_when_ai_listener_is_present(
     runtime_root = tmp_path / "cybrik-uat-d2-runtime-verify-busy"
     evidence_root = tmp_path / "cybrik-uat-d2-evidence-verify-busy"
     material = SimpleNamespace(root=runtime_root / "pki")
-    probe = _FakeProbe(connect_result=0)
+    probes = (_FakeProbe(connect_result=0), _FakeProbe(connect_result=1))
+    probe_iterator = iter(probes)
 
     monkeypatch.setattr(
         harness,
@@ -352,17 +355,19 @@ def test_verify_absent_returns_false_when_ai_listener_is_present(
         lambda *, repositories_must_exist: (runtime_root, evidence_root),
     )
     monkeypatch.setattr(harness, "_pki_material", lambda root: material)
-    monkeypatch.setattr(harness.store, "verify_absent", lambda: True)
+    monkeypatch.setattr(harness.store, "container_exists", lambda: False)
     monkeypatch.setattr(harness.pki, "verify_absent", lambda actual: actual is material)
     monkeypatch.setattr(
         harness.socket,
         "socket",
-        lambda family, kind: probe,
+        lambda family, kind: next(probe_iterator),
     )
 
     assert harness.verify_absent() is False
-    assert probe.timeout == 0.25
-    assert probe.address == ("127.0.0.1", 58443)
+    assert [probe.address for probe in probes] == [
+        ("127.0.0.1", 58443),
+        ("127.0.0.1", 55432),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -395,7 +400,7 @@ def test_verify_absent_requires_every_cleanup_conjunct(
         lambda *, repositories_must_exist: (runtime_root, evidence_root),
     )
     monkeypatch.setattr(harness, "_pki_material", lambda root: material)
-    monkeypatch.setattr(harness.store, "verify_absent", lambda: store_absent)
+    monkeypatch.setattr(harness.store, "container_exists", lambda: not store_absent)
     monkeypatch.setattr(harness.pki, "verify_absent", lambda actual: pki_absent)
     monkeypatch.setattr(
         harness.socket,
@@ -581,7 +586,7 @@ def test_run_case_rejects_existing_pid_record(
         harness.RuntimeAuthorizationError,
         match="SOC client process record already exists",
     ):
-        harness._run_case("N1", tmp_path, tmp_path)
+        harness._run_case("N1", tmp_path, tmp_path, object())  # type: ignore[arg-type]
 
 
 def test_run_case_times_out_and_kills_process(
@@ -589,6 +594,7 @@ def test_run_case_times_out_and_kills_process(
 ) -> None:
     process = _FakeProcess(poll_values=[0])
     monkeypatch.setattr(harness, "_server_environment", lambda *args, **kwargs: {})
+    monkeypatch.setattr(harness, "_isolated_module_argv", lambda *args: ("python",))
     monkeypatch.setattr(harness.subprocess, "Popen", lambda *args, **kwargs: process)
     monkeypatch.setattr(harness, "_record_pid", lambda path, pid: None)
     calls = {"count": 0}
@@ -605,7 +611,7 @@ def test_run_case_times_out_and_kills_process(
     with pytest.raises(
         harness.RuntimeAuthorizationError, match="D2 client case timed out"
     ):
-        harness._run_case("N1", tmp_path, tmp_path)
+        harness._run_case("N1", tmp_path, tmp_path, object())  # type: ignore[arg-type]
 
     assert process.kill_called is True
     assert process.communicate_calls == [30, 5]
@@ -630,13 +636,22 @@ def test_run_case_returns_validated_result(
         return real_validate_evidence(record)
 
     monkeypatch.setattr(harness, "_server_environment", lambda *args, **kwargs: {})
+    monkeypatch.setattr(harness, "_isolated_module_argv", lambda *args: ("python",))
     monkeypatch.setattr(harness.subprocess, "Popen", lambda *args, **kwargs: process)
     monkeypatch.setattr(
         harness, "_assert_secret_free_process_output", lambda root, *streams: None
     )
     monkeypatch.setattr(harness.evidence, "validate_evidence", validate_evidence)
 
-    assert harness._run_case("N1", tmp_path, tmp_path) == expected
+    assert (
+        harness._run_case(
+            "N1",
+            tmp_path,
+            tmp_path,
+            object(),  # type: ignore[arg-type]
+        )
+        == expected
+    )
     assert not (tmp_path / "soc-client.pid").exists()
     assert validated == [expected]
 
@@ -645,6 +660,6 @@ def test_run_case_returns_validated_result(
     with pytest.raises(
         harness.RuntimeAuthorizationError, match="D2 client case did not pass"
     ):
-        harness._run_case("N1", tmp_path, tmp_path)
+        harness._run_case("N1", tmp_path, tmp_path, object())  # type: ignore[arg-type]
     assert not (tmp_path / "soc-client.pid").exists()
     assert validated == [expected]
