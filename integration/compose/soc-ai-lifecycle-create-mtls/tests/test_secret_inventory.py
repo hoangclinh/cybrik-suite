@@ -10,9 +10,13 @@ subprocess, Docker, database or PKI operation.
 
 from __future__ import annotations
 
+import copy
+import errno
 import hashlib
+import hmac
 import json
 import os
+import pickle
 from dataclasses import asdict
 from pathlib import Path
 
@@ -245,6 +249,27 @@ def test_scan_text_rejects_oversized_input(monkeypatch: pytest.MonkeyPatch) -> N
         inventory.scan_text("0123456789")
 
 
+def test_path_component_matching_and_ids_use_filesystem_encoded_bytes() -> None:
+    inventory = si.SecretInventory()
+    raw_component = b"artifact-\xff"
+    decoded_component = os.fsdecode(raw_component)
+    inventory.register("raw_filename_fragment", b"\xff")
+    artifact_id_key = b"k" * 32
+
+    assert inventory._path_match((decoded_component,)) == (
+        si.EXACT_SECRET_MATCH,
+        "raw_filename_fragment",
+    )
+    locator = si._ArtifactLocator(
+        decoded_component, artifact_id_key=artifact_id_key
+    )
+    assert locator.artifact_id == hmac.new(
+        artifact_id_key,
+        os.fsencode(decoded_component),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 # --------------------------------------------------------------------------
 # scan_tree (bounded artifact walk)
 # --------------------------------------------------------------------------
@@ -344,6 +369,19 @@ def test_scan_tree_raises_when_the_file_count_bound_is_exceeded(
         inventory.scan_tree(tmp_path)
 
 
+def test_scan_tree_counts_directories_and_symlinks_toward_the_entry_bound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inventory = si.SecretInventory()
+    monkeypatch.setattr(si, "MAX_SCAN_FILE_COUNT", 1)
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    (tmp_path / "link").symlink_to(directory, target_is_directory=True)
+
+    with pytest.raises(si.SecretInventoryError, match="file-count bound"):
+        inventory.scan_tree(tmp_path)
+
+
 def test_scan_tree_rejects_a_relative_root() -> None:
     inventory = si.SecretInventory()
 
@@ -362,6 +400,28 @@ def test_scan_tree_rejects_a_symlinked_root(tmp_path: Path) -> None:
         inventory.scan_tree(link_root)
 
 
+def test_scan_tree_wraps_resolve_failure_without_exposing_the_root_path(
+    tmp_path: Path,
+) -> None:
+    raw_component = f"missing-{_DB_PASSWORD}"
+    missing_root = tmp_path / raw_component
+
+    with pytest.raises(si.SecretInventoryError) as caught:
+        si.SecretInventory().scan_tree(missing_root)
+
+    rendered = "|".join(
+        (
+            str(caught.value),
+            repr(caught.value),
+            repr(caught.value.args),
+            repr(caught.value.__cause__),
+            repr(caught.value.__context__),
+        )
+    )
+    assert raw_component not in rendered
+    assert _DB_PASSWORD not in rendered
+
+
 def test_scan_tree_raises_on_an_unsafe_toctou_path_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -375,6 +435,44 @@ def test_scan_tree_raises_on_an_unsafe_toctou_path_change(
 
     with pytest.raises(si.SecretInventoryError, match="safely"):
         inventory.scan_tree(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="raw-byte filenames require POSIX")
+def test_scan_tree_detects_a_surrogateescape_filename_at_the_filesystem_boundary(
+    tmp_path: Path,
+) -> None:
+    raw_name = b"artifact-\xff"
+    raw_path = os.fsencode(tmp_path) + b"/" + raw_name
+    try:
+        descriptor = os.open(raw_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except OSError as exc:
+        if exc.errno in (errno.EILSEQ, errno.ENOTSUP):
+            pytest.skip("host filesystem rejects undecodable filename bytes")
+        raise
+    os.write(descriptor, b"content is clean")
+    os.close(descriptor)
+    inventory = si.SecretInventory()
+    inventory.register("raw_filename_fragment", b"\xff")
+
+    findings = inventory.scan_tree(tmp_path)
+
+    assert len(findings) == 1
+    assert findings[0].reason == si.EXACT_SECRET_MATCH
+    assert findings[0].label == "raw_filename_fragment"
+    record = si.apply_remediation(tmp_path, findings[0])
+    assert not os.path.lexists(raw_path)
+    assert evidence.validate_evidence(record) == record
+
+
+def test_each_scan_uses_a_fresh_non_guessable_artifact_id_key(tmp_path: Path) -> None:
+    inventory = si.SecretInventory()
+    inventory.register("db_password", _DB_PASSWORD)
+    (tmp_path / "artifact.txt").write_text(_DB_PASSWORD, encoding="utf-8")
+
+    first = inventory.scan_tree(tmp_path)[0]
+    second = inventory.scan_tree(tmp_path)[0]
+
+    assert first.artifact_id != second.artifact_id
 
 
 def test_scan_tree_detects_and_safely_remediates_an_exact_secret_in_a_filename(
@@ -410,6 +508,50 @@ def test_scan_tree_detects_and_safely_remediates_an_exact_secret_in_a_filename(
     assert _DB_PASSWORD not in json.dumps(remediation_record)
     assert remediation_record["artifact_id"] == finding.artifact_id
     assert evidence.validate_evidence(remediation_record) == remediation_record
+
+
+def test_scan_finding_refuses_dataclass_deepcopy_and_pickle_locator_exfiltration() -> (
+    None
+):
+    raw_component = f"trace-{_DB_PASSWORD}.txt"
+    finding = si.ScanFinding(raw_component, si.EXACT_SECRET_MATCH, "db_password")
+
+    with pytest.raises(TypeError):
+        asdict(finding)
+    with pytest.raises(TypeError):
+        copy.deepcopy(finding)
+    with pytest.raises((TypeError, pickle.PicklingError)):
+        pickle.dumps(finding)
+    assert raw_component not in repr(finding)
+    assert _DB_PASSWORD not in repr(finding)
+
+
+def test_scan_finding_equality_and_hash_include_the_scanner_identity(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.write_text("safe", encoding="utf-8")
+    unbound = si.ScanFinding("artifact", si.EXACT_SECRET_MATCH, "db_password")
+    bound = si.ScanFinding._from_locator(
+        unbound._locator,
+        si.EXACT_SECRET_MATCH,
+        "db_password",
+        artifact.stat(),
+    )
+
+    assert bound != unbound
+    assert len({bound, unbound}) == 2
+
+
+def test_bounded_locator_rejects_nul_without_exposing_the_raw_component() -> None:
+    raw_component = f"artifact-{_DB_PASSWORD}\x00tail"
+
+    with pytest.raises(si.SecretInventoryError) as caught:
+        si.ScanFinding(raw_component, si.EXACT_SECRET_MATCH, "db_password")
+
+    rendered = f"{caught.value}|{caught.value!r}|{caught.value.args!r}"
+    assert _DB_PASSWORD not in rendered
+    assert raw_component not in rendered
 
 
 def test_scan_tree_detects_and_safely_remediates_an_exact_secret_directory_name(
@@ -710,3 +852,40 @@ def test_special_leaf_remediation_refuses_a_rebind_during_inode_checks(
     assert link.read_text(encoding="utf-8") == "replacement must survive"
     assert outside.read_text(encoding="utf-8") == _DB_PASSWORD
     outside.unlink()
+
+
+def test_unlink_name_swap_window_remains_bounded_to_the_pinned_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inventory = si.SecretInventory()
+    outside_first = tmp_path.parent / f"{tmp_path.name}-outside-first.txt"
+    outside_second = tmp_path.parent / f"{tmp_path.name}-outside-second.txt"
+    outside_first.write_text("first must survive", encoding="utf-8")
+    outside_second.write_text("second must survive", encoding="utf-8")
+    link = tmp_path / "artifact"
+    link.symlink_to(outside_first)
+    finding = inventory.scan_tree(tmp_path)[0]
+    real_unlink = si.os.unlink
+    swapped = False
+
+    def _swap_leaf_then_unlink(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        nonlocal swapped
+        if path == "artifact" and dir_fd is not None and not swapped:
+            swapped = True
+            real_unlink(path, dir_fd=dir_fd)
+            link.symlink_to(outside_second)
+        real_unlink(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(si.os, "unlink", _swap_leaf_then_unlink)
+
+    si.apply_remediation(tmp_path, finding)
+
+    assert not link.is_symlink()
+    assert outside_first.read_text(encoding="utf-8") == "first must survive"
+    assert outside_second.read_text(encoding="utf-8") == "second must survive"
+    outside_first.unlink()
+    outside_second.unlink()
