@@ -1171,18 +1171,39 @@ def test_terminal_json_recursion_failure_is_stable(
         os.close(root_fd)
 
 
+@pytest.mark.parametrize(
+    ("target_kind", "reason"),
+    (
+        ("regular", "pki_public_artifact_unsafe"),
+        ("directory", "artifact_unsafe"),
+    ),
+)
 def test_bound_artifact_close_failure_is_stable(
-    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+    evidence_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_kind: str,
+    reason: str,
 ) -> None:
     candidate = _passing_candidate(evidence_root)
-    artifact = candidate["pki_public"]["public_artifacts"][0]  # type: ignore[index]
+    if target_kind == "regular":
+        artifact = candidate["pki_public"]["public_artifacts"][0]  # type: ignore[index]
+        namespace = "pki"
+    else:
+        artifact = candidate["artifacts"][0]  # type: ignore[index]
+        namespace = "artifact"
     root_fd = runtime_evidence._open_evidence_root(evidence_root)
     real_close = runtime_evidence.os.close
     failed = False
 
     def fail_regular_file_close(descriptor: int) -> None:
         nonlocal failed
-        if not failed and stat.S_ISREG(os.fstat(descriptor).st_mode):
+        details = os.fstat(descriptor)
+        matches = (
+            stat.S_ISREG(details.st_mode)
+            if target_kind == "regular"
+            else stat.S_ISDIR(details.st_mode) and descriptor != root_fd
+        )
+        if not failed and matches:
             failed = True
             real_close(descriptor)
             raise OSError("synthetic artifact close failure")
@@ -1194,10 +1215,10 @@ def test_bound_artifact_close_failure_is_stable(
             runtime_evidence._read_bound_artifact(
                 root_fd,
                 artifact,  # type: ignore[arg-type]
-                namespace="pki",
+                namespace=namespace,
             )
         assert failed is True
-        assert caught.value.reason == "pki_public_artifact_unsafe"
+        assert caught.value.reason == reason
         assert "/" not in str(caught.value)
     finally:
         monkeypatch.setattr(runtime_evidence.os, "close", real_close)
@@ -1228,6 +1249,100 @@ def test_evidence_root_close_failure_is_stable_after_terminal_write(
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == "evidence_root_close_failed"
+    assert "/" not in str(caught.value)
+
+
+def test_absolute_directory_transition_close_failure_is_stable(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_close = runtime_evidence.os.close
+    failed = False
+
+    def fail_first_close(descriptor: int) -> None:
+        nonlocal failed
+        real_close(descriptor)
+        if not failed:
+            failed = True
+            raise OSError("synthetic directory transition close failure")
+
+    monkeypatch.setattr(runtime_evidence.os, "close", fail_first_close)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence._open_absolute_directory(
+            evidence_root, "evidence_root_unsafe"
+        )
+    assert failed is True
+    assert caught.value.reason == "evidence_root_unsafe"
+    assert "/" not in str(caught.value)
+
+
+def test_directory_binding_rebound_close_failure_is_stable(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor = runtime_evidence._open_evidence_root(evidence_root)
+    real_open_absolute = runtime_evidence._open_absolute_directory
+    real_close = runtime_evidence.os.close
+    rebound_fd = -1
+
+    def record_rebound(path: Path, reason: str) -> int:
+        nonlocal rebound_fd
+        rebound_fd = real_open_absolute(path, reason)
+        return rebound_fd
+
+    def fail_rebound_close(candidate_fd: int) -> None:
+        real_close(candidate_fd)
+        if candidate_fd == rebound_fd:
+            raise OSError("synthetic rebound close failure")
+
+    monkeypatch.setattr(runtime_evidence, "_open_absolute_directory", record_rebound)
+    monkeypatch.setattr(runtime_evidence.os, "close", fail_rebound_close)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._assert_directory_binding(
+                evidence_root, descriptor, "evidence_root_rebound"
+            )
+        assert caught.value.reason == "evidence_root_rebound"
+    finally:
+        monkeypatch.setattr(runtime_evidence.os, "close", real_close)
+        real_close(descriptor)
+
+
+@pytest.mark.parametrize("failure", ("fstat", "close"))
+def test_open_evidence_root_descriptor_failures_are_stable(
+    evidence_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    real_open_absolute = runtime_evidence._open_absolute_directory
+    real_fstat = runtime_evidence.os.fstat
+    real_close = runtime_evidence.os.close
+    final_fd = -1
+    armed = False
+
+    def record_final(path: Path, reason: str) -> int:
+        nonlocal final_fd, armed
+        final_fd = real_open_absolute(path, reason)
+        armed = True
+        return final_fd
+
+    def fail_final_fstat(descriptor: int) -> os.stat_result:
+        if armed and descriptor == final_fd:
+            raise OSError("synthetic root fstat failure")
+        return real_fstat(descriptor)
+
+    def fail_final_close(descriptor: int) -> None:
+        real_close(descriptor)
+        if descriptor == final_fd:
+            raise OSError("synthetic unsafe root close failure")
+
+    monkeypatch.setattr(runtime_evidence, "_open_absolute_directory", record_final)
+    if failure == "fstat":
+        monkeypatch.setattr(runtime_evidence.os, "fstat", fail_final_fstat)
+    else:
+        os.chmod(evidence_root, 0o755)
+        monkeypatch.setattr(runtime_evidence.os, "close", fail_final_close)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence._open_evidence_root(evidence_root)
+    assert caught.value.reason == "evidence_root_unsafe"
     assert "/" not in str(caught.value)
 
 
