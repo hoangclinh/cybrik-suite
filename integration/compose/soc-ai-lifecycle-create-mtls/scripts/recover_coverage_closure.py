@@ -1,0 +1,1163 @@
+"""Recover the exact D1 closure into durable, identity-bound roots.
+
+``--check-only`` performs identity, evidence, path, and command-plan checks.  It
+does not create a path, access the network, or install a distribution.
+``--execute`` is the separately authorized mutating mode: it exports the locked
+requirements, downloads only hash-bound binary wheels, creates a no-seed venv,
+performs an offline strict sync, and verifies the complete installed closure.
+
+The implementation is pure stdlib.  It deliberately does not import from the
+environment it is constructing.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Final
+from urllib.parse import urlsplit
+
+import tomllib
+
+HARNESS_RELATIVE: Final = Path("integration/compose/soc-ai-lifecycle-create-mtls")
+DEPENDENCY_EVIDENCE_RELATIVE: Final = HARNESS_RELATIVE / "evidence/dependency-lock.json"
+LOCK_RELATIVE: Final = HARNESS_RELATIVE / "uv.lock"
+
+PYTHON_VERSION_PROBE: Final = "import platform;print(platform.python_version())"
+INVENTORY_PROBE: Final = (
+    "import importlib.metadata as m,json;"
+    "print(json.dumps(sorted((d.metadata['Name'],d.version) "
+    "for d in m.distributions()),separators=(',',':')))"
+)
+
+SANITIZED_ENV: Final = {
+    "LANG": "C",
+    "LC_ALL": "C",
+    "PATH": "/usr/bin:/bin",
+    "PIP_CONFIG_FILE": os.devnull,
+    "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+    "PIP_NO_INPUT": "1",
+    "PYTHONNOUSERSITE": "1",
+}
+
+FORBIDDEN_DISTRIBUTIONS: Final = {
+    "anycorn",
+    "coverage",
+    "pip",
+    "setuptools",
+    "wheel",
+}
+HEX_40: Final = re.compile(r"[0-9a-f]{40}")
+HEX_64: Final = re.compile(r"[0-9a-f]{64}")
+WHEEL_NAME: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*\.whl")
+CLOSURE_ROOT_NAME: Final = re.compile(r"d2-cov-closure-[a-z0-9][a-z0-9._-]{0,63}")
+EVIDENCE_ROOT_NAME: Final = re.compile(
+    r"d2-cov-closure-evidence-[a-z0-9][a-z0-9._-]{0,63}"
+)
+COMMAND_TIMEOUT_SECONDS: Final = 600
+DEFAULT_CLOSURE_ROOT: Final = Path(
+    "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-r1"
+)
+DEFAULT_EVIDENCE_ROOT: Final = Path(
+    "/Users/hoanglinh/.local/share/cybrik-uat/d2-cov-closure-evidence-r1"
+)
+
+
+class RecoveryFailure(Exception):
+    """A stable fail-closed reason that excludes subprocess/user payloads."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _fail(reason: str) -> None:
+    raise RecoveryFailure(reason)
+
+
+@dataclass(frozen=True)
+class RecoveryPins:
+    uv_path: Path
+    uv_sha256: str
+    uv_version: str
+    python_path: Path
+    python_sha256: str
+    python_version: str
+    pip_version: str
+    lock_sha256: str
+    requirements_sha256: str
+    wheel_count: int
+    closure_sha256: str
+    pytest_version: str
+    cryptography_version: str
+    index_url: str
+
+
+DEFAULT_PINS: Final = RecoveryPins(
+    uv_path=Path("/opt/homebrew/bin/uv"),
+    uv_sha256="96e422f83fd306848446170d97c1d1af8290f00e4aacfa7134e130280d573126",
+    uv_version="0.11.16",
+    python_path=Path(
+        "/Users/hoanglinh/.local/share/uv/python/"
+        "cpython-3.12.13-macos-aarch64-none/bin/python3.12"
+    ),
+    python_sha256="a395f264e5612a2819662ed3e37fd30d39ed61179b98e5f86c3c783a008d8623",
+    python_version="3.12.13",
+    pip_version="26.1.1",
+    lock_sha256="e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add",
+    requirements_sha256="93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603",
+    wheel_count=56,
+    closure_sha256="6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919",
+    pytest_version="9.1.1",
+    cryptography_version="50.0.0",
+    index_url="https://pypi.org/simple",
+)
+
+
+@dataclass(frozen=True)
+class RecoveryPaths:
+    suite_root: Path
+    suite_commit: str
+    suite_tree: str
+    closure_root: Path
+    evidence_root: Path
+
+
+@dataclass(frozen=True)
+class ValidatedRoots:
+    suite_root: Path
+    closure_root: Path
+    evidence_root: Path
+    closure_parent_identity: tuple[int, int]
+    evidence_parent_identity: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class RecoveryPlan:
+    paths: ValidatedRoots
+    pins: RecoveryPins
+    suite_commit: str
+    suite_tree: str
+    expected_wheels: dict[str, str]
+    expected_wheel_sources: dict[str, dict[str, object]]
+    commands: dict[str, list[str]]
+
+
+@dataclass
+class RootHandle:
+    path: Path
+    parent_fd: int
+    root_fd: int
+    parent_identity: tuple[int, int]
+    root_identity: tuple[int, int]
+
+    def close(self) -> None:
+        for descriptor_name in ("root_fd", "parent_fd"):
+            descriptor = getattr(self, descriptor_name)
+            if descriptor >= 0:
+                os.close(descriptor)
+                setattr(self, descriptor_name, -1)
+
+
+Runner = Callable[[list[str]], str]
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        _fail("identity_file_unavailable")
+    return digest.hexdigest()
+
+
+def _canonical_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def closure_digest(distributions: Iterable[tuple[str, str]]) -> str:
+    rows: list[tuple[str, str]] = []
+    for raw_name, raw_version in distributions:
+        name = _canonical_name(str(raw_name))
+        version = str(raw_version)
+        if (
+            not name
+            or not version
+            or "\n" in name
+            or "\r" in name
+            or "\n" in version
+            or "\r" in version
+        ):
+            _fail("installed_closure_mismatch")
+        rows.append((name, version))
+    rows.sort()
+    if len(rows) != len(set(rows)) or len({name for name, _ in rows}) != len(rows):
+        _fail("installed_closure_mismatch")
+    payload = "".join(f"{name}=={version}\n" for name, version in rows).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _overlap(first: Path, second: Path) -> bool:
+    return (
+        first == second
+        or _is_relative_to(first, second)
+        or _is_relative_to(second, first)
+    )
+
+
+def _directory_flags() -> int:
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        _fail("secure_directory_operations_unavailable")
+    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+
+def _safe_existing_directory(path: Path, reason: str) -> tuple[Path, tuple[int, int]]:
+    if not path.is_absolute():
+        _fail(reason)
+    try:
+        resolved = path.resolve(strict=True)
+        named = os.stat(path, follow_symlinks=False)
+    except OSError:
+        _fail(reason)
+    if resolved != path or not stat.S_ISDIR(named.st_mode):
+        _fail(reason)
+    if named.st_uid != os.geteuid() or named.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        _fail("root_parent_unsafe")
+    return resolved, (named.st_dev, named.st_ino)
+
+
+def _fresh_root(path: Path, pattern: re.Pattern[str]) -> tuple[Path, tuple[int, int]]:
+    if not path.is_absolute() or pattern.fullmatch(path.name) is None:
+        _fail("root_name_invalid")
+    if path.exists() or path.is_symlink():
+        _fail("root_not_fresh")
+    parent, identity = _safe_existing_directory(path.parent, "root_parent_invalid")
+    if parent != path.parent:
+        _fail("root_parent_invalid")
+    return path, identity
+
+
+def _default_forbidden_roots() -> tuple[Path, ...]:
+    candidates = (Path("/tmp"), Path("/private/tmp"), Path(tempfile.gettempdir()))
+    roots: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            continue
+        if resolved not in roots:
+            roots.append(resolved)
+    return tuple(roots)
+
+
+def validate_root_requests(
+    paths: RecoveryPaths, *, forbidden_roots: Iterable[Path] | None = None
+) -> ValidatedRoots:
+    """Validate fresh durable roots without creating them."""
+
+    suite_root, _ = _safe_existing_directory(paths.suite_root, "suite_root_invalid")
+    closure_root, closure_parent_identity = _fresh_root(
+        paths.closure_root, CLOSURE_ROOT_NAME
+    )
+    evidence_root, evidence_parent_identity = _fresh_root(
+        paths.evidence_root, EVIDENCE_ROOT_NAME
+    )
+    if _overlap(closure_root, evidence_root) or any(
+        _overlap(root, suite_root) for root in (closure_root, evidence_root)
+    ):
+        _fail("root_overlap")
+    forbidden = (
+        _default_forbidden_roots() if forbidden_roots is None else forbidden_roots
+    )
+    try:
+        normalized_forbidden = tuple(root.resolve(strict=True) for root in forbidden)
+    except OSError:
+        _fail("forbidden_root_invalid")
+    if any(
+        _is_relative_to(root, forbidden_root)
+        for root in (closure_root, evidence_root)
+        for forbidden_root in normalized_forbidden
+    ):
+        _fail("root_under_forbidden_location")
+    return ValidatedRoots(
+        suite_root=suite_root,
+        closure_root=closure_root,
+        evidence_root=evidence_root,
+        closure_parent_identity=closure_parent_identity,
+        evidence_parent_identity=evidence_parent_identity,
+    )
+
+
+def _validate_executable(path: Path, expected_sha256: str, reason: str) -> None:
+    if not path.is_absolute() or HEX_64.fullmatch(expected_sha256) is None:
+        _fail(reason)
+    try:
+        resolved = path.resolve(strict=True)
+        details = resolved.stat()
+    except OSError:
+        _fail(reason)
+    if (
+        not stat.S_ISREG(details.st_mode)
+        or details.st_uid not in {0, os.geteuid()}
+        or details.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        or not details.st_mode & stat.S_IXUSR
+        or _sha256_file(resolved) != expected_sha256
+    ):
+        _fail(reason)
+
+
+def _run_subprocess(argv: list[str], *, cwd: Path, env: dict[str, str]) -> str:
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        _fail("command_failed")
+    return completed.stdout.strip()
+
+
+def _invoke(runner: Callable[..., str], argv: list[str], *, cwd: Path) -> str:
+    if not argv or not Path(argv[0]).is_absolute():
+        _fail("command_shape_invalid")
+    return runner(list(argv), cwd=cwd, env=dict(SANITIZED_ENV)).strip()
+
+
+def _collect_and_validate_git_state(
+    paths: RecoveryPaths, runner: Callable[..., str]
+) -> tuple[str, str]:
+    """Require the exact clean detached checkout, including ignored residue."""
+
+    if (
+        HEX_40.fullmatch(paths.suite_commit) is None
+        or HEX_40.fullmatch(paths.suite_tree) is None
+    ):
+        _fail("suite_identity_invalid")
+    suite_root = paths.suite_root
+    observed_root = _invoke(
+        runner, ["/usr/bin/git", "rev-parse", "--show-toplevel"], cwd=suite_root
+    )
+    observed_commit = _invoke(
+        runner, ["/usr/bin/git", "rev-parse", "HEAD"], cwd=suite_root
+    )
+    observed_tree = _invoke(
+        runner, ["/usr/bin/git", "rev-parse", "HEAD^{tree}"], cwd=suite_root
+    )
+    observed_branch = _invoke(
+        runner,
+        ["/usr/bin/git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=suite_root,
+    )
+    observed_status = _invoke(
+        runner,
+        [
+            "/usr/bin/git",
+            "status",
+            "--porcelain=v1",
+            "-uall",
+            "--ignored",
+        ],
+        cwd=suite_root,
+    )
+    try:
+        canonical_observed_root = Path(observed_root).resolve(strict=True)
+    except OSError:
+        _fail("suite_state_mismatch")
+    if (
+        canonical_observed_root != suite_root
+        or observed_commit != paths.suite_commit
+        or observed_tree != paths.suite_tree
+        or observed_branch != "HEAD"
+        or observed_status
+    ):
+        _fail("suite_state_mismatch")
+    return observed_commit, observed_tree
+
+
+def _load_expected_wheels(suite_root: Path, pins: RecoveryPins) -> dict[str, str]:
+    harness = suite_root / HARNESS_RELATIVE
+    lock_path = suite_root / LOCK_RELATIVE
+    evidence_path = suite_root / DEPENDENCY_EVIDENCE_RELATIVE
+    if _sha256_file(lock_path) != pins.lock_sha256:
+        _fail("lock_identity_mismatch")
+    try:
+        raw = evidence_path.read_bytes()
+        if len(raw) > 2 * 1024 * 1024:
+            _fail("dependency_evidence_mismatch")
+        evidence = json.loads(raw)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        _fail("dependency_evidence_mismatch")
+    if not isinstance(evidence, dict):
+        _fail("dependency_evidence_mismatch")
+    expected_fields: Mapping[str, object] = {
+        "uv_version": pins.uv_version,
+        "python_executable": str(pins.python_path),
+        "python_executable_sha256": pins.python_sha256,
+        "python_version": pins.python_version,
+        "pip_version": pins.pip_version,
+        "index_url": pins.index_url,
+        "requirements_sha256": pins.requirements_sha256,
+        "uv_lock_sha256": pins.lock_sha256,
+        "wheel_count": pins.wheel_count,
+    }
+    if any(evidence.get(key) != value for key, value in expected_fields.items()):
+        _fail("dependency_evidence_mismatch")
+    raw_wheels = evidence.get("wheels")
+    if not isinstance(raw_wheels, list) or len(raw_wheels) != pins.wheel_count:
+        _fail("dependency_evidence_mismatch")
+    wheels: dict[str, str] = {}
+    for row in raw_wheels:
+        if not isinstance(row, dict) or set(row) != {"filename", "sha256"}:
+            _fail("dependency_evidence_mismatch")
+        filename = row.get("filename")
+        digest = row.get("sha256")
+        if (
+            not isinstance(filename, str)
+            or WHEEL_NAME.fullmatch(filename) is None
+            or not isinstance(digest, str)
+            or HEX_64.fullmatch(digest) is None
+            or filename in wheels
+        ):
+            _fail("dependency_evidence_mismatch")
+        wheels[filename] = digest
+    if len(set(wheels.values())) != len(wheels):
+        _fail("dependency_evidence_mismatch")
+    if not harness.is_dir():
+        _fail("dependency_evidence_mismatch")
+    return wheels
+
+
+def _load_expected_wheel_sources(
+    suite_root: Path, expected_wheels: Mapping[str, str]
+) -> dict[str, dict[str, object]]:
+    """Bind every selected wheel to its exact files.pythonhosted.org lock source."""
+
+    try:
+        with (suite_root / LOCK_RELATIVE).open("rb") as stream:
+            lock = tomllib.load(stream)
+    except (OSError, tomllib.TOMLDecodeError):
+        _fail("lock_source_mismatch")
+    packages = lock.get("package")
+    if not isinstance(packages, list):
+        _fail("lock_source_mismatch")
+    sources: dict[str, dict[str, object]] = {}
+    for package in packages:
+        if not isinstance(package, dict):
+            _fail("lock_source_mismatch")
+        wheels = package.get("wheels", [])
+        if not isinstance(wheels, list):
+            _fail("lock_source_mismatch")
+        for wheel in wheels:
+            if not isinstance(wheel, dict):
+                _fail("lock_source_mismatch")
+            url = wheel.get("url")
+            digest = wheel.get("hash")
+            size = wheel.get("size")
+            if not isinstance(url, str):
+                continue
+            parsed = urlsplit(url)
+            filename = parsed.path.rsplit("/", 1)[-1]
+            if filename not in expected_wheels:
+                continue
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname != "files.pythonhosted.org"
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.port is not None
+                or parsed.query
+                or parsed.fragment
+                or not parsed.path.startswith("/packages/")
+                or digest != f"sha256:{expected_wheels[filename]}"
+                or not isinstance(size, int)
+                or size <= 0
+                or filename in sources
+            ):
+                _fail("lock_source_mismatch")
+            sources[filename] = {"size": size, "url": url}
+    if set(sources) != set(expected_wheels):
+        _fail("lock_source_mismatch")
+    return sources
+
+
+def _build_commands(paths: ValidatedRoots, pins: RecoveryPins) -> dict[str, list[str]]:
+    requirements = paths.closure_root / "requirements.txt"
+    wheelhouse = paths.closure_root / "wheelhouse"
+    venv = paths.closure_root / "venv"
+    return {
+        "export": [
+            str(pins.uv_path),
+            "export",
+            "--format",
+            "requirements.txt",
+            "--locked",
+            "--no-emit-project",
+            "--no-emit-local",
+            "--no-sources",
+            "--group",
+            "test",
+            "--no-config",
+            "--no-cache",
+            "--output-file",
+            str(requirements),
+        ],
+        "download": [
+            str(pins.python_path),
+            "-I",
+            "-m",
+            "pip",
+            "--isolated",
+            "download",
+            "--require-hashes",
+            "--only-binary",
+            ":all:",
+            "--index-url",
+            pins.index_url,
+            "--no-cache-dir",
+            "--disable-pip-version-check",
+            "--no-input",
+            "--dest",
+            str(wheelhouse),
+            "-r",
+            str(requirements),
+        ],
+        "venv": [
+            str(pins.uv_path),
+            "venv",
+            "--python",
+            str(pins.python_path),
+            "--no-project",
+            "--no-python-downloads",
+            "--no-config",
+            "--no-cache",
+            str(venv),
+        ],
+        "sync": [
+            str(pins.uv_path),
+            "pip",
+            "sync",
+            "--python",
+            str(venv / "bin/python"),
+            "--no-index",
+            "--find-links",
+            str(wheelhouse),
+            "--require-hashes",
+            "--strict",
+            "--no-config",
+            "--no-cache",
+            str(requirements),
+        ],
+        "inventory": [str(venv / "bin/python"), "-I", "-c", INVENTORY_PROBE],
+    }
+
+
+def preflight(
+    paths: RecoveryPaths,
+    *,
+    pins: RecoveryPins = DEFAULT_PINS,
+    runner: Callable[..., str] = _run_subprocess,
+    forbidden_roots: Iterable[Path] | None = None,
+) -> RecoveryPlan:
+    """Validate exact immutable inputs and return a non-mutating command plan."""
+
+    for digest in (
+        pins.uv_sha256,
+        pins.python_sha256,
+        pins.lock_sha256,
+        pins.requirements_sha256,
+        pins.closure_sha256,
+    ):
+        if HEX_64.fullmatch(digest) is None:
+            _fail("pin_format_invalid")
+    roots = validate_root_requests(paths, forbidden_roots=forbidden_roots)
+    suite_commit, suite_tree = _collect_and_validate_git_state(paths, runner)
+    _validate_executable(pins.uv_path, pins.uv_sha256, "uv_identity_mismatch")
+    _validate_executable(
+        pins.python_path, pins.python_sha256, "python_identity_mismatch"
+    )
+    harness = roots.suite_root / HARNESS_RELATIVE
+    if _invoke(runner, [str(pins.uv_path), "--version"], cwd=harness) != (
+        f"uv {pins.uv_version}"
+    ):
+        _fail("uv_version_mismatch")
+    if (
+        _invoke(
+            runner,
+            [str(pins.python_path), "-I", "-c", PYTHON_VERSION_PROBE],
+            cwd=harness,
+        )
+        != pins.python_version
+    ):
+        _fail("python_version_mismatch")
+    pip_version = _invoke(
+        runner,
+        [str(pins.python_path), "-I", "-m", "pip", "--version"],
+        cwd=harness,
+    )
+    if re.match(r"^pip ([^ ]+) ", pip_version) is None or pip_version.split()[1] != (
+        pins.pip_version
+    ):
+        _fail("pip_version_mismatch")
+    wheels = _load_expected_wheels(roots.suite_root, pins)
+    wheel_sources = _load_expected_wheel_sources(roots.suite_root, wheels)
+    return RecoveryPlan(
+        paths=roots,
+        pins=pins,
+        suite_commit=suite_commit,
+        suite_tree=suite_tree,
+        expected_wheels=wheels,
+        expected_wheel_sources=wheel_sources,
+        commands=_build_commands(roots, pins),
+    )
+
+
+def _same_identity(details: os.stat_result, identity: tuple[int, int]) -> bool:
+    return (details.st_dev, details.st_ino) == identity
+
+
+def _open_bound_parent(path: Path, identity: tuple[int, int]) -> int:
+    descriptor = -1
+    try:
+        named = os.stat(path, follow_symlinks=False)
+        descriptor = os.open(path, _directory_flags())
+        opened = os.fstat(descriptor)
+    except OSError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        _fail("root_parent_identity_mismatch")
+    if (
+        not stat.S_ISDIR(named.st_mode)
+        or not stat.S_ISDIR(opened.st_mode)
+        or not _same_identity(named, identity)
+        or not _same_identity(opened, identity)
+        or named.st_uid != os.geteuid()
+        or named.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        os.close(descriptor)
+        _fail("root_parent_identity_mismatch")
+    return descriptor
+
+
+def create_fresh_root(
+    path: Path, expected_parent_identity: tuple[int, int] | None = None
+) -> RootHandle:
+    """Create one root through a bound parent descriptor with mode 0700."""
+
+    if expected_parent_identity is None:
+        _, expected_parent_identity = _safe_existing_directory(
+            path.parent, "root_parent_invalid"
+        )
+    parent_fd = _open_bound_parent(path.parent, expected_parent_identity)
+    root_fd = -1
+    created_identity: tuple[int, int] | None = None
+    try:
+        os.mkdir(path.name, 0o700, dir_fd=parent_fd)
+        named = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+        created_identity = (named.st_dev, named.st_ino)
+        root_fd = os.open(path.name, _directory_flags(), dir_fd=parent_fd)
+        opened = os.fstat(root_fd)
+        if (
+            not stat.S_ISDIR(named.st_mode)
+            or not stat.S_ISDIR(opened.st_mode)
+            or not _same_identity(opened, created_identity)
+            or opened.st_uid != os.geteuid()
+            or stat.S_IMODE(opened.st_mode) != 0o700
+        ):
+            _fail("root_identity_mismatch")
+        return RootHandle(
+            path=path,
+            parent_fd=parent_fd,
+            root_fd=root_fd,
+            parent_identity=expected_parent_identity,
+            root_identity=created_identity,
+        )
+    except FileExistsError:
+        os.close(parent_fd)
+        _fail("root_not_fresh")
+    except (OSError, RecoveryFailure):
+        if root_fd >= 0:
+            os.close(root_fd)
+        if created_identity is not None:
+            try:
+                current = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+                if _same_identity(current, created_identity):
+                    os.rmdir(path.name, dir_fd=parent_fd)
+            except OSError:
+                pass
+        os.close(parent_fd)
+        _fail("root_creation_failed")
+
+
+def _assert_bound(handle: RootHandle) -> None:
+    try:
+        parent_named = os.stat(handle.path.parent, follow_symlinks=False)
+        parent_opened = os.fstat(handle.parent_fd)
+        root_named = os.stat(
+            handle.path.name, dir_fd=handle.parent_fd, follow_symlinks=False
+        )
+        root_opened = os.fstat(handle.root_fd)
+    except OSError:
+        _fail("root_identity_mismatch")
+    if not all(
+        (
+            _same_identity(parent_named, handle.parent_identity),
+            _same_identity(parent_opened, handle.parent_identity),
+            _same_identity(root_named, handle.root_identity),
+            _same_identity(root_opened, handle.root_identity),
+            stat.S_ISDIR(root_named.st_mode),
+            stat.S_ISDIR(root_opened.st_mode),
+        )
+    ):
+        _fail("root_identity_mismatch")
+
+
+def _write_exclusive(handle: RootHandle, name: str, payload: bytes) -> None:
+    if "/" in name or name in {"", ".", ".."}:
+        _fail("evidence_write_failed")
+    _assert_bound(handle)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    descriptor = -1
+    try:
+        descriptor = os.open(name, flags, 0o600, dir_fd=handle.root_fd)
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("short write")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+    except OSError:
+        _fail("evidence_write_failed")
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _mkdir_at(handle: RootHandle, name: str) -> None:
+    if "/" in name or name in {"", ".", ".."}:
+        _fail("root_creation_failed")
+    _assert_bound(handle)
+    try:
+        os.mkdir(name, 0o700, dir_fd=handle.root_fd)
+    except OSError:
+        _fail("root_creation_failed")
+
+
+def verify_wheelhouse(wheelhouse: Path, expected: Mapping[str, str]) -> None:
+    """Require the exact expected regular-file set and every pinned digest."""
+
+    try:
+        entries = list(wheelhouse.iterdir())
+    except OSError:
+        _fail("wheelhouse_mismatch")
+    if {entry.name for entry in entries} != set(expected):
+        _fail("wheelhouse_mismatch")
+    for entry in entries:
+        try:
+            details = entry.lstat()
+        except OSError:
+            _fail("wheelhouse_mismatch")
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or entry.is_symlink()
+            or details.st_uid != os.geteuid()
+            or details.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        ):
+            _fail("wheelhouse_mismatch")
+        if _sha256_file(entry) != expected[entry.name]:
+            _fail("wheel_hash_mismatch")
+
+
+def verify_inventory(
+    distributions: Iterable[tuple[str, str]], pins: RecoveryPins
+) -> tuple[str, list[tuple[str, str]]]:
+    """Verify count, forbidden set, critical versions, and aggregate digest."""
+
+    rows = [
+        (_canonical_name(str(name)), str(version)) for name, version in distributions
+    ]
+    try:
+        digest = closure_digest(rows)
+    except RecoveryFailure:
+        _fail("installed_closure_mismatch")
+    versions = {name: version for name, version in rows}
+    if (
+        len(rows) != pins.wheel_count
+        or set(versions) & FORBIDDEN_DISTRIBUTIONS
+        or versions.get("pytest") != pins.pytest_version
+        or versions.get("cryptography") != pins.cryptography_version
+        or digest != pins.closure_sha256
+    ):
+        _fail("installed_closure_mismatch")
+    return digest, sorted(rows)
+
+
+def _parse_inventory(raw: str) -> list[tuple[str, str]]:
+    try:
+        value = json.loads(raw)
+        if not isinstance(value, list):
+            raise TypeError
+        rows: list[tuple[str, str]] = []
+        for row in value:
+            if (
+                not isinstance(row, list)
+                and not isinstance(row, tuple)
+                or len(row) != 2
+                or not all(isinstance(item, str) for item in row)
+            ):
+                raise TypeError
+            rows.append((row[0], row[1]))
+        return rows
+    except (json.JSONDecodeError, TypeError, IndexError):
+        _fail("installed_closure_mismatch")
+
+
+def _json_bytes(value: object) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _remove_tree_fd(directory_fd: int) -> None:
+    for name in os.listdir(directory_fd):
+        details = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        if stat.S_ISDIR(details.st_mode):
+            child_fd = os.open(name, _directory_flags(), dir_fd=directory_fd)
+            try:
+                opened = os.fstat(child_fd)
+                if not _same_identity(opened, (details.st_dev, details.st_ino)):
+                    _fail("rollback_identity_mismatch")
+                _remove_tree_fd(child_fd)
+            finally:
+                os.close(child_fd)
+            current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if not _same_identity(current, (details.st_dev, details.st_ino)):
+                _fail("rollback_identity_mismatch")
+            os.rmdir(name, dir_fd=directory_fd)
+        else:
+            current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if not _same_identity(current, (details.st_dev, details.st_ino)):
+                _fail("rollback_identity_mismatch")
+            os.unlink(name, dir_fd=directory_fd)
+
+
+def rollback_closure(handle: RootHandle) -> bool:
+    """Remove only the still-name-bound root created by this invocation."""
+
+    try:
+        _assert_bound(handle)
+        _remove_tree_fd(handle.root_fd)
+        _assert_bound(handle)
+        os.rmdir(handle.path.name, dir_fd=handle.parent_fd)
+        return True
+    except (OSError, RecoveryFailure):
+        return False
+
+
+def _execute(plan: RecoveryPlan, runner: Callable[..., str]) -> dict[str, object]:
+    evidence_handle: RootHandle | None = None
+    closure_handle: RootHandle | None = None
+    reason = "recovery_failed"
+    succeeded = False
+    rollback_status = "not_created"
+    harness = plan.paths.suite_root / HARNESS_RELATIVE
+    started_at = datetime.now(UTC).isoformat()
+    attempt_id = hashlib.sha256(
+        "\0".join(
+            (
+                plan.suite_commit,
+                plan.suite_tree,
+                str(plan.paths.closure_root),
+                str(plan.paths.evidence_root),
+            )
+        ).encode()
+    ).hexdigest()
+    try:
+        evidence_handle = create_fresh_root(
+            plan.paths.evidence_root, plan.paths.evidence_parent_identity
+        )
+        start = {
+            "attempt_id": attempt_id,
+            "closure_root": str(plan.paths.closure_root),
+            "expected_closure_sha256": plan.pins.closure_sha256,
+            "expected_wheel_count": plan.pins.wheel_count,
+            "started_at": started_at,
+            "status": "started_pre_network",
+            "suite": {
+                "commit": plan.suite_commit,
+                "root": str(plan.paths.suite_root),
+                "tree": plan.suite_tree,
+            },
+        }
+        _write_exclusive(evidence_handle, "recovery-start.json", _json_bytes(start))
+        closure_handle = create_fresh_root(
+            plan.paths.closure_root, plan.paths.closure_parent_identity
+        )
+        _mkdir_at(closure_handle, "wheelhouse")
+
+        _assert_bound(closure_handle)
+        _invoke(runner, plan.commands["export"], cwd=harness)
+        _assert_bound(closure_handle)
+        requirements_path = plan.paths.closure_root / "requirements.txt"
+        if _sha256_file(requirements_path) != plan.pins.requirements_sha256:
+            _fail("requirements_identity_mismatch")
+
+        _invoke(runner, plan.commands["download"], cwd=harness)
+        _assert_bound(closure_handle)
+        verify_wheelhouse(plan.paths.closure_root / "wheelhouse", plan.expected_wheels)
+
+        _invoke(runner, plan.commands["venv"], cwd=harness)
+        _assert_bound(closure_handle)
+        venv_python = plan.paths.closure_root / "venv/bin/python"
+        try:
+            venv_details = venv_python.lstat()
+        except OSError:
+            _fail("venv_identity_mismatch")
+        if (
+            not stat.S_ISLNK(venv_details.st_mode)
+            or os.readlink(venv_python) != "python3.12"
+        ):
+            _fail("venv_identity_mismatch")
+        try:
+            resolved_venv_python = venv_python.resolve(strict=True)
+            resolved_pinned_python = plan.pins.python_path.resolve(strict=True)
+        except OSError:
+            _fail("venv_identity_mismatch")
+        if resolved_venv_python != resolved_pinned_python:
+            _fail("venv_identity_mismatch")
+
+        _invoke(runner, plan.commands["sync"], cwd=harness)
+        _assert_bound(closure_handle)
+        inventory = _parse_inventory(
+            _invoke(runner, plan.commands["inventory"], cwd=harness)
+        )
+        digest, canonical_inventory = verify_inventory(inventory, plan.pins)
+        _collect_and_validate_git_state(
+            RecoveryPaths(
+                suite_root=plan.paths.suite_root,
+                suite_commit=plan.suite_commit,
+                suite_tree=plan.suite_tree,
+                closure_root=plan.paths.closure_root,
+                evidence_root=plan.paths.evidence_root,
+            ),
+            runner,
+        )
+
+        requirements = requirements_path.read_bytes()
+        if hashlib.sha256(requirements).hexdigest() != plan.pins.requirements_sha256:
+            _fail("requirements_identity_mismatch")
+        wheel_manifest = [
+            {
+                "filename": name,
+                "sha256": digest_value,
+                **plan.expected_wheel_sources[name],
+            }
+            for name, digest_value in sorted(plan.expected_wheels.items())
+        ]
+        wheel_manifest_payload = _json_bytes(wheel_manifest)
+        result: dict[str, object] = {
+            "attempt_id": attempt_id,
+            "closure_sha256": digest,
+            "completed_at": datetime.now(UTC).isoformat(),
+            "commands": plan.commands,
+            "cryptography_version": plan.pins.cryptography_version,
+            "evidence_root_identity": {
+                "st_dev": evidence_handle.root_identity[0],
+                "st_ino": evidence_handle.root_identity[1],
+            },
+            "lock_sha256": plan.pins.lock_sha256,
+            "pytest_version": plan.pins.pytest_version,
+            "requirements_sha256": plan.pins.requirements_sha256,
+            "root_identity": {
+                "st_dev": closure_handle.root_identity[0],
+                "st_ino": closure_handle.root_identity[1],
+            },
+            "status": "verified",
+            "started_at": started_at,
+            "suite": {
+                "commit": plan.suite_commit,
+                "head_mode": "detached",
+                "root": str(plan.paths.suite_root),
+                "status": "",
+                "tree": plan.suite_tree,
+            },
+            "tools": {
+                "python": {
+                    "path": str(plan.pins.python_path),
+                    "realpath": str(plan.pins.python_path.resolve(strict=True)),
+                    "sha256": plan.pins.python_sha256,
+                    "version": plan.pins.python_version,
+                    "pip_version": plan.pins.pip_version,
+                },
+                "uv": {
+                    "path": str(plan.pins.uv_path),
+                    "realpath": str(plan.pins.uv_path.resolve(strict=True)),
+                    "sha256": plan.pins.uv_sha256,
+                    "version": plan.pins.uv_version,
+                },
+            },
+            "wheel_count": len(plan.expected_wheels),
+            "wheel_manifest_sha256": hashlib.sha256(wheel_manifest_payload).hexdigest(),
+        }
+        _write_exclusive(evidence_handle, "requirements.txt", requirements)
+        _write_exclusive(
+            evidence_handle,
+            "wheel-manifest.json",
+            wheel_manifest_payload,
+        )
+        _write_exclusive(
+            evidence_handle,
+            "installed-closure.json",
+            _json_bytes(
+                [
+                    {"name": name, "version": version}
+                    for name, version in canonical_inventory
+                ]
+            ),
+        )
+        result_payload = _json_bytes(result)
+        _write_exclusive(evidence_handle, "recovery-result.json", result_payload)
+        _write_exclusive(
+            evidence_handle,
+            "recovery-result.sha256",
+            (hashlib.sha256(result_payload).hexdigest() + "\n").encode(),
+        )
+        succeeded = True
+        return result
+    except RecoveryFailure as error:
+        reason = error.reason
+        raise
+    except (OSError, UnicodeError, ValueError):
+        reason = "recovery_failed"
+        _fail(reason)
+    finally:
+        if not succeeded:
+            if closure_handle is not None:
+                rollback_status = (
+                    "removed" if rollback_closure(closure_handle) else "preserved"
+                )
+            if evidence_handle is not None:
+                try:
+                    _write_exclusive(
+                        evidence_handle,
+                        "recovery-failure.json",
+                        _json_bytes(
+                            {
+                                "attempt_id": attempt_id,
+                                "failed_at": datetime.now(UTC).isoformat(),
+                                "reason": reason,
+                                "rollback_status": rollback_status,
+                                "started_at": started_at,
+                                "status": "failed",
+                            }
+                        ),
+                    )
+                except RecoveryFailure:
+                    pass
+        if closure_handle is not None:
+            closure_handle.close()
+        if evidence_handle is not None:
+            evidence_handle.close()
+
+
+def run_recovery(
+    paths: RecoveryPaths,
+    *,
+    mode: str,
+    pins: RecoveryPins = DEFAULT_PINS,
+    runner: Callable[..., str] = _run_subprocess,
+    forbidden_roots: Iterable[Path] | None = None,
+) -> dict[str, object]:
+    """Check or execute one exact recovery plan."""
+
+    if mode not in {"check-only", "execute"}:
+        _fail("mode_invalid")
+    plan = preflight(
+        paths,
+        pins=pins,
+        runner=runner,
+        forbidden_roots=forbidden_roots,
+    )
+    if mode == "check-only":
+        return {
+            "commands": plan.commands,
+            "expected_closure_sha256": pins.closure_sha256,
+            "expected_wheel_count": len(plan.expected_wheels),
+            "status": "checked_not_executed",
+            "suite": {
+                "commit": plan.suite_commit,
+                "head_mode": "detached",
+                "root": str(plan.paths.suite_root),
+                "status": "",
+                "tree": plan.suite_tree,
+            },
+        }
+    return _execute(plan, runner)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--suite-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[4],
+    )
+    parser.add_argument("--suite-commit", required=True)
+    parser.add_argument("--suite-tree", required=True)
+    parser.add_argument("--closure-root", type=Path, default=DEFAULT_CLOSURE_ROOT)
+    parser.add_argument("--evidence-root", type=Path, default=DEFAULT_EVIDENCE_ROOT)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--check-only", action="store_true")
+    mode.add_argument("--execute", action="store_true")
+    args = parser.parse_args(argv)
+    selected_mode = "execute" if args.execute else "check-only"
+    try:
+        result = run_recovery(
+            RecoveryPaths(
+                suite_root=args.suite_root,
+                suite_commit=args.suite_commit,
+                suite_tree=args.suite_tree,
+                closure_root=args.closure_root,
+                evidence_root=args.evidence_root,
+            ),
+            mode=selected_mode,
+        )
+        print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+        return 0
+    except RecoveryFailure as error:
+        print(
+            json.dumps(
+                {"reason": error.reason, "status": "refused"},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

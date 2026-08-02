@@ -1112,6 +1112,35 @@ the only permitted OSV POST, wheel fetch and stdlib extraction. A missing accept
 a new, separately reviewed recovery authorization; P2 cannot silently select a surviving older
 environment. D2 remains **HOLD**. Release dates remain unchanged.
 
+### Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R1
+
+Current state: `AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME HOLD`.
+
+Appendix C of
+`docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md` and the exact-action
+record
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md` authorize one
+local, reversible attempt to reconstruct the coverage-only D1 closure that P2 requires. The
+pure-stdlib `scripts/recover_coverage_closure.py` provides a non-mutating `--check-only` mode and a
+separate one-shot `--execute` mode. It validates the pinned uv and CPython identities, regenerates
+the locked requirements, accepts exactly the 56 lock-evidenced wheel filenames and SHA-256 values,
+creates a no-seed venv, performs only an offline hash-enforced sync, and fail-closes unless the
+installed closure digest is
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919` with the exact required
+pytest and cryptography versions and without Anycorn, Coverage.py, pip, setuptools or wheel.
+
+The maximum repository write scope is the exact ten-path list in the exact-action record. Generated
+requirements, wheels, environment and detailed execution evidence remain in the two exact durable
+outside-repository roots. Failure preserves bounded evidence and may remove only the fresh,
+identity-bound closure root created by the attempt. A pre-existing, rebound, temporary, unsafe or
+repository-overlapping root fails closed.
+
+This gate does not install or extract Coverage.py. It does not install, select, execute or change
+Anycorn/B1. It does not create listeners, certificates, keys, containers or databases. It does not
+run a migration, product process or N1-N10, and it does not open D2 runtime. It does not satisfy
+coverage, runtime admission, UAT, demo, POC, RC, GA or production gates. D2 remains **HOLD** and
+release dates remain unchanged.
+
 ### Gate UAT-MTLS-D2 — real runtime execution
 
 Current state: `HOLD — SEPARATE REVIEWED RUNTIME-ADMISSION UPDATE REQUIRED`.

@@ -221,3 +221,21 @@ closure is not substitutable.
 This hardening is not the dependency authorization. Coverage extraction and measurement are still
 not run, D2 runtime remains **HOLD**, and all UAT/demo/POC/RC/stable-v1/GA/production boundaries and
 release dates remain unchanged.
+
+## Authorized durable coverage-closure recovery
+
+`UAT-MTLS-D2-CLOSURE-RECOVERY-R1` is `AUTHORIZED — RUNNER AUTHORED — EXECUTION NOT RUN — RUNTIME
+HOLD`. The pure-stdlib `scripts/recover_coverage_closure.py` reconstructs the exact D1 test closure
+under the bounded authority in
+`docs/operations/DELEGATED-GOVERNOR-D2-COVERAGE-CLOSURE-RECOVERY-2026-08-02.md`. Its `--check-only`
+mode validates the immutable tools, committed dependency evidence, exact paths and command plan
+without writing, downloading or installing anything. Its separately consumed `--execute` mode may
+create only the exact fresh durable closure/evidence roots, export the locked requirements,
+download exactly the 56 hash-pinned binary wheels, create a no-seed venv, sync offline and verify
+the exact installed closure digest
+`6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919`.
+
+The execution has not run. This action does not install or extract Coverage.py, install or execute
+Anycorn/B1, create a listener/database/certificate/container, run a migration or N1-N10, edit a
+product environment, satisfy the coverage gate or open D2 runtime. D2 remains **HOLD** and all
+UAT/demo/POC/RC/stable-v1/GA/production boundaries and release dates remain unchanged.
