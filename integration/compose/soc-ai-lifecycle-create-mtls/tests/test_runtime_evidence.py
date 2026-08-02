@@ -458,10 +458,7 @@ def test_certificate_framing_does_not_admit_random_non_x509_bytes(
 
 
 def test_public_certificate_contract_discloses_no_role_chain_or_distinctness_proof(
-    evidence_root: Path,
 ) -> None:
-    candidate = _passing_candidate(evidence_root)
-    runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     limitation = (runtime_evidence.__doc__ or "").casefold()
     assert "parse-valid" in limitation
     assert "does not prove" in limitation
@@ -933,6 +930,113 @@ def test_terminal_payload_corruption_fails_descriptor_readback_without_acceptanc
     assert "/" not in str(caught.value)
     if target_name != runtime_evidence.SUMMARY_FILENAME:
         assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+def test_terminal_result_valid_json_schema_corruption_reaches_revalidation(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    raw = runtime_evidence.validate_terminal_result(candidate)
+    sealed = runtime_evidence._sealed_projection(raw)
+    result_payload = runtime_evidence._terminal_payloads(sealed)[0]
+    real_write = runtime_evidence.os.write
+    real_validate = runtime_evidence.validate_terminal_result
+    validation_calls = 0
+
+    def record_validation(value: object) -> dict[str, object]:
+        nonlocal validation_calls
+        validation_calls += 1
+        return real_validate(value)
+
+    def corrupt_schema_but_keep_json(descriptor: int, payload: bytes) -> int:
+        if payload == result_payload:
+            payload = payload.replace(
+                b'"artifact_state":"sealed"',
+                b'"artifact_state":"xealed"',
+                1,
+            )
+        return real_write(descriptor, payload)
+
+    monkeypatch.setattr(
+        runtime_evidence, "validate_terminal_result", record_validation
+    )
+    monkeypatch.setattr(runtime_evidence.os, "write", corrupt_schema_but_keep_json)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_readback_failed"
+    assert validation_calls == 3
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+@pytest.mark.parametrize(
+    "target_name",
+    (
+        runtime_evidence.RESULT_FILENAME,
+        runtime_evidence.TEARDOWN_FILENAME,
+        runtime_evidence.SUMMARY_FILENAME,
+    ),
+)
+def test_valid_canonical_terminal_mismatch_is_rejected(
+    evidence_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_name: str,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    raw = runtime_evidence.validate_terminal_result(candidate)
+    sealed = runtime_evidence._sealed_projection(raw)
+    payload_by_name = dict(
+        zip(
+            (
+                runtime_evidence.RESULT_FILENAME,
+                runtime_evidence.TEARDOWN_FILENAME,
+                runtime_evidence.SUMMARY_FILENAME,
+            ),
+            runtime_evidence._terminal_payloads(sealed),
+            strict=True,
+        )
+    )
+    target_payload = payload_by_name[target_name]
+    real_write = runtime_evidence.os.write
+
+    def change_valid_identifier(descriptor: int, payload: bytes) -> int:
+        if payload == target_payload:
+            payload = payload.replace(b"d2-runtime-r1", b"d2-runtime-r2", 1)
+        return real_write(descriptor, payload)
+
+    monkeypatch.setattr(runtime_evidence.os, "write", change_valid_identifier)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_readback_failed"
+
+
+def test_terminal_readback_rejects_byte_identical_inode_replacement(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    real_atomic = runtime_evidence._atomic_no_overwrite
+    replaced = False
+
+    def replace_result_after_commit(
+        root_fd: int, name: str, payload: bytes
+    ) -> object:
+        nonlocal replaced
+        committed = real_atomic(root_fd, name, payload)
+        if name == runtime_evidence.RESULT_FILENAME:
+            path = evidence_root / name
+            prior_inode = path.stat().st_ino
+            path.unlink()
+            path.write_bytes(payload)
+            os.chmod(path, 0o600)
+            assert path.stat().st_ino != prior_inode
+            replaced = True
+        return committed
+
+    monkeypatch.setattr(runtime_evidence, "_atomic_no_overwrite", replace_result_after_commit)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert replaced is True
+    assert caught.value.reason == "terminal_readback_failed"
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 
 def test_atomic_writer_cleans_temp_when_initial_fstat_fails(
