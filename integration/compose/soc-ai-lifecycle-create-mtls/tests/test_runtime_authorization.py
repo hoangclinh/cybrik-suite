@@ -275,6 +275,17 @@ def test_runtime_code_allowlist_is_sorted_unique_and_covers_the_runtime_surface(
         "integration/compose/soc-ai-lifecycle-create-mtls/tests/conftest.py"
         in authorization.MUST_BE_ABSENT_RUNTIME_PATHS
     )
+    for denied in (
+        "sitecustomize.py",
+        "usercustomize.py",
+        "cybrik_soc",
+        "cybrik_ai_api",
+        "cybrik_ai_core",
+    ):
+        assert (
+            "integration/compose/soc-ai-lifecycle-create-mtls/src/" + denied
+            in authorization.MUST_BE_ABSENT_RUNTIME_PATHS
+        )
 
 
 def test_runtime_code_allowlist_excludes_the_authorization_and_candidate() -> None:
@@ -329,6 +340,34 @@ def test_runtime_code_aggregate_refuses_an_auto_loaded_test_addition(
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.runtime_code_aggregate(suite)
     assert caught.value.reason == "runtime_denied_path_present"
+
+
+@pytest.mark.parametrize(
+    ("relative", "content"),
+    (
+        ("sitecustomize.py", "raise RuntimeError('pre-guard')\n"),
+        ("usercustomize.py", "raise RuntimeError('pre-guard')\n"),
+        ("cybrik_soc/__init__.py", "SHADOW = True\n"),
+        ("cybrik_ai_api/__init__.py", "SHADOW = True\n"),
+        ("cybrik_ai_core/__init__.py", "SHADOW = True\n"),
+        ("unexpected_package/__init__.py", "ADDED = True\n"),
+    ),
+)
+def test_runtime_code_aggregate_refuses_every_unlisted_suite_source_entry(
+    tmp_path: Path, relative: str, content: str
+) -> None:
+    suite = _suite_root(tmp_path)
+    source_root = (
+        suite / "integration/compose/soc-ai-lifecycle-create-mtls/src"
+    )
+    _write(source_root / relative, content)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.runtime_code_aggregate(suite)
+    assert caught.value.reason in {
+        "runtime_denied_path_present",
+        "runtime_source_tree_not_closed",
+    }
 
 
 def test_runtime_code_aggregate_changes_when_runtime_code_changes(
@@ -680,6 +719,17 @@ def test_validate_authorization_rejects_roots_under_unsafe_temporary_trees(
     assert _reason(fields, fixture.observed) == "external_root_under_temp"
 
 
+@pytest.mark.parametrize("prefix", ("//tmp", "//private/tmp"))
+def test_validate_authorization_rejects_noncanonical_double_slash_roots(
+    tmp_path: Path, prefix: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    fields = dict(fixture.fields)
+    fields["RUNTIME_ROOT"] = f"{prefix}/cybrik-uat-d2-runtime-unsafe"
+
+    assert _reason(fields, fixture.observed) == "external_root_not_purpose_bound"
+
+
 def test_validate_authorization_rejects_roots_under_the_host_temporary_root(
     tmp_path: Path,
 ) -> None:
@@ -774,13 +824,15 @@ def test_verify_module_origins_rejects_a_module_outside_the_pinned_roots(
     inside.parent.mkdir(parents=True, exist_ok=True)
     inside.write_text("", encoding="utf-8")
 
-    authorization.verify_module_origins(validated, (inside,))
+    authorization.verify_module_origins(validated, (("cybrik_soc.example", inside),))
 
     outside = tmp_path / "elsewhere/module.py"
     outside.parent.mkdir(parents=True, exist_ok=True)
     outside.write_text("", encoding="utf-8")
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization.verify_module_origins(validated, (outside,))
+        authorization.verify_module_origins(
+            validated, (("cybrik_soc.example", outside),)
+        )
     assert caught.value.reason == "import_source_root_invalid"
 
 
@@ -800,7 +852,78 @@ def test_verify_module_origins_rejects_a_swapped_symlink_source_root(
     source_root.symlink_to(attacker_root, target_is_directory=True)
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization.verify_module_origins(validated, (attacker_module,))
+        authorization.verify_module_origins(
+            validated, (("cybrik_soc.injected", attacker_module),)
+        )
+    assert caught.value.reason == "import_source_root_invalid"
+
+
+def test_verify_module_origins_binds_each_namespace_to_its_exact_role_root(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    valid = (
+        (
+            "cybrik_suite_uat_mtls.harness",
+            validated.suite_root
+            / "integration/compose/soc-ai-lifecycle-create-mtls/src/"
+            "cybrik_suite_uat_mtls/harness.py",
+        ),
+        (
+            "cybrik_soc.modules.copilot.lifecycle_create",
+            validated.product_roots["soc"]
+            / "services/api/src/cybrik_soc/modules/copilot/lifecycle_create.py",
+        ),
+        (
+            "cybrik_ai_core.delegation",
+            validated.product_roots["cyber_ai"]
+            / "packages/ai-core/src/cybrik_ai_core/delegation.py",
+        ),
+        (
+            "cybrik_ai_api.runtime_composition",
+            validated.product_roots["cyber_ai"]
+            / "services/ai-api/src/cybrik_ai_api/runtime_composition.py",
+        ),
+    )
+    for _, path in valid:
+        _write(path, "")
+
+    authorization.verify_module_origins(validated, valid)
+
+
+@pytest.mark.parametrize(
+    ("module_name", "wrong_relative"),
+    (
+        ("cybrik_soc.injected", "services/ai-api/src/cybrik_soc/injected.py"),
+        (
+            "cybrik_ai_api.injected",
+            "packages/ai-core/src/cybrik_ai_api/injected.py",
+        ),
+        ("cybrik_ai_core.injected", "services/ai-api/src/cybrik_ai_core/injected.py"),
+    ),
+)
+def test_verify_module_origins_rejects_cross_role_shadow_packages(
+    tmp_path: Path, module_name: str, wrong_relative: str
+) -> None:
+    validated = _validated(tmp_path)
+    wrong = validated.product_roots["cyber_ai"] / wrong_relative
+    _write(wrong, "")
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_module_origins(validated, ((module_name, wrong),))
+    assert caught.value.reason == "import_source_root_invalid"
+
+
+def test_verify_module_origins_rejects_unknown_namespaces(tmp_path: Path) -> None:
+    validated = _validated(tmp_path)
+    inside = (
+        validated.product_roots["soc"]
+        / "services/api/src/unexpected_package/injected.py"
+    )
+    _write(inside, "")
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_module_origins(validated, (("unexpected_package", inside),))
     assert caught.value.reason == "import_source_root_invalid"
 
 

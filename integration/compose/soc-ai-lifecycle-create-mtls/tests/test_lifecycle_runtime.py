@@ -126,6 +126,19 @@ def test_product_api_compatibility_confines_actual_import_origins() -> None:
     assert "runtime_authorization.verify_module_origins" in body
     assert "__module__" in body
     assert "__file__" in body
+    assert "module_origins" in body
+
+
+def test_harness_has_no_dead_authorization_or_root_wrapper_symbols() -> None:
+    source = _HARNESS.read_text(encoding="utf-8")
+    for dead in (
+        "_AUTHORIZATION_ENV",
+        "_AUTHORIZATION_PATH_ENV",
+        "_B1_WHEEL_ENV",
+        "def _runtime_root",
+        "def _evidence_root",
+    ):
+        assert dead not in source
 
 
 def test_runtime_driver_is_collected_but_cannot_run_without_phase_a() -> None:
@@ -179,6 +192,11 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "--check-only",
         "PYTHONPATH",
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1",
+        "PYTHONSAFEPATH=1",
+        '"$python_bin" -I -S -c',
+        "sys.flags.safe_path",
+        "sys.flags.no_site",
+        "unsafe Python import path",
         "-p no:cacheprovider",
         "-o addopts=",
         "--noconftest",
@@ -192,6 +210,72 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "services/ai-api/src",
     ):
         assert relative in runner
+    assert '"$python_bin" -m' not in runner
+
+
+def test_safe_python_startup_ignores_auto_customization_and_current_directory(
+    tmp_path: Path,
+) -> None:
+    attacker = tmp_path / "attacker"
+    trusted = tmp_path / "trusted"
+    attacker.mkdir()
+    trusted.mkdir()
+    sentinel = tmp_path / "auto-loaded"
+    (attacker / "sitecustomize.py").write_text(
+        f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('loaded')\n",
+        encoding="utf-8",
+    )
+    (attacker / "trusted_probe.py").write_text(
+        "raise RuntimeError('shadow module loaded')\n", encoding="utf-8"
+    )
+    (trusted / "trusted_probe.py").write_text(
+        "print('trusted module loaded')\n", encoding="utf-8"
+    )
+    bootstrap = """
+import os
+import runpy
+import sys
+
+roots = tuple(sys.argv[1].split(os.pathsep))
+if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
+    raise SystemExit("unsafe Python startup flags")
+if not roots or any(not root or not os.path.isabs(root) for root in roots):
+    raise SystemExit("unsafe Python import roots")
+sys.path[:] = list(roots) + [
+    item for item in sys.path
+    if item and os.path.isabs(item) and item not in roots
+]
+if "" in sys.path or "." in sys.path or os.getcwd() in sys.path:
+    raise SystemExit("unsafe Python import path")
+module = sys.argv[2]
+sys.argv = [module, *sys.argv[3:]]
+runpy.run_module(module, run_name="__main__", alter_sys=True)
+"""
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(attacker)
+    environment["PYTHONSAFEPATH"] = "1"
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-S",
+            "-c",
+            bootstrap,
+            str(trusted),
+            "trusted_probe",
+        ),
+        cwd=attacker,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "trusted module loaded"
+    assert not sentinel.exists()
 
 
 def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(
@@ -373,6 +457,24 @@ def test_absolute_env_resolves_parent_for_fresh_path(
     assert harness._absolute_env(
         "CYBRIK_UAT_D2_RUNTIME_DIR", must_exist=False
     ) == candidate.resolve(strict=False)
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    (
+        "//tmp/cybrik-uat-d2-runtime-unit",
+        "/private//tmp/cybrik-uat-d2-runtime-unit",
+    ),
+)
+def test_absolute_env_rejects_noncanonical_absolute_paths(
+    monkeypatch: pytest.MonkeyPatch, candidate: str
+) -> None:
+    monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", candidate)
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError, match="required D2 absolute path is absent"
+    ):
+        harness._absolute_env("CYBRIK_UAT_D2_RUNTIME_DIR", must_exist=False)
 
 
 def test_bounded_external_roots_rejects_bad_name_and_overlap(
