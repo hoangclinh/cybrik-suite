@@ -8,9 +8,9 @@ import json
 import os
 import stat
 from pathlib import Path
+from typing import NoReturn, get_type_hints
 
 import pytest
-
 from cybrik_suite_uat_mtls import runtime_evidence
 
 HEX40 = "1" * 40
@@ -22,15 +22,26 @@ PKI_PUBLIC_PATHS = (
     ("alternate_client_certificate", "pki-public/alternate-client-cert.pem"),
     ("jwt_public_jwk", "pki-public/jwt-public-jwk.json"),
 )
+PUBLIC_TEST_CERTIFICATE = b"""-----BEGIN CERTIFICATE-----
+MIICGTCCAZ+gAwIBAgIQCeCTZaz32ci5PhwLBCou8zAKBggqhkjOPQQDAzBOMQsw
+CQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJjAkBgNVBAMTHURp
+Z2lDZXJ0IFRMUyBFQ0MgUDM4NCBSb290IEc1MB4XDTIxMDExNTAwMDAwMFoXDTQ2
+MDExNDIzNTk1OVowTjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJ
+bmMuMSYwJAYDVQQDEx1EaWdpQ2VydCBUTFMgRUNDIFAzODQgUm9vdCBHNTB2MBAG
+ByqGSM49AgEGBSuBBAAiA2IABMFEoc8Rl1Ca3iOCNQfN0MsYndLxf3c1TzvdlHJS
+7cI7+Oz6e2tYIOyZrsn8aLN1udsJ7MgT9U7GCh1mMEy7H0cKPGEQQil8pQgO4CLp
+0zVozptjn4S1mU1YoI71VOeVyaNCMEAwHQYDVR0OBBYEFMFRRVBZqz7nLFr6ICIS
+B4CIfBFqMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
+BAMDA2gAMGUCMQCJao1H5+z8blUD2WdsJk6Dxv3J+ysTvLd6jLRl0mlpYxNjOyZQ
+LgGheQaRnUi/wr4CMEfDFXuxoJGZSZOoPHzoRgaLLPIxAJSdYsiJvRmEFOml+wG4
+DXZDjC5Ty3zfDBeWUA==
+-----END CERTIFICATE-----
+"""
 
 
 def _public_certificate(label: str) -> bytes:
-    body = (label.encode("ascii").hex().upper() + "A" * 64)[:64]
-    return (
-        b"-----BEGIN CERTIFICATE-----\n"
-        + body.encode("ascii")
-        + b"\n-----END CERTIFICATE-----\n"
-    )
+    assert label
+    return PUBLIC_TEST_CERTIFICATE
 
 
 def _write_public_pki(root: Path) -> list[dict[str, object]]:
@@ -424,6 +435,27 @@ def test_public_pki_rejects_private_pem_and_private_jwk_even_when_rehashed(
     assert caught.value.reason == "pki_public_material_invalid"
 
 
+def test_certificate_framing_does_not_admit_random_non_x509_bytes(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    framed_random = (
+        b"-----BEGIN CERTIFICATE-----\n"
+        b"bm90LWEtdmFsaWQteDUwOS1jZXJ0aWZpY2F0ZQ==\n"
+        b"-----END CERTIFICATE-----\n"
+    )
+    certificate = evidence_root / "pki-public/ca-cert.pem"
+    certificate.write_bytes(framed_random)
+    candidate["pki_public"]["public_artifacts"][0].update(  # type: ignore[index]
+        sha256=hashlib.sha256(framed_random).hexdigest(),
+        size_bytes=len(framed_random),
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "pki_public_material_invalid"
+    assert not any(path.name.startswith("sealed-") for path in evidence_root.iterdir())
+
+
 def test_required_artifacts_are_unique_regular_contained_bounded_and_pinned(
     evidence_root: Path,
 ) -> None:
@@ -602,6 +634,40 @@ def test_preexisting_snapshot_path_is_never_overwritten(evidence_root: Path) -> 
     assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 
+def test_sealed_projection_path_overflow_fails_before_first_write(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    long_name = "a" * 120
+    candidate["artifacts"][0]["name"] = long_name  # type: ignore[index]
+    candidate["cases"][0]["artifact_name"] = long_name  # type: ignore[index]
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "artifact_path_invalid"
+    assert not any(path.name.startswith("sealed-") for path in evidence_root.iterdir())
+    assert not any(
+        (evidence_root / name).exists()
+        for name in (
+            runtime_evidence.RESULT_FILENAME,
+            runtime_evidence.TEARDOWN_FILENAME,
+            runtime_evidence.SUMMARY_FILENAME,
+        )
+    )
+
+
+def test_sealed_projection_size_overflow_fails_before_first_write(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    raw_size = len(runtime_evidence.canonical_json(candidate))
+    monkeypatch.setattr(runtime_evidence, "MAX_TERMINAL_BYTES", raw_size + 1)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_record_too_large"
+    assert not any(path.name.startswith("sealed-") for path in evidence_root.iterdir())
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
 def test_evidence_root_must_be_absolute_descriptor_bound_mode_0700(
     evidence_root: Path,
 ) -> None:
@@ -618,6 +684,28 @@ def test_evidence_root_must_be_absolute_descriptor_bound_mode_0700(
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(alias, candidate)
     assert caught.value.reason == "evidence_root_unsafe"
+
+
+def test_symlinked_evidence_ancestor_fails_closed_with_stable_reason(
+    tmp_path: Path,
+) -> None:
+    actual_parent = tmp_path / "actual-parent"
+    actual_parent.mkdir()
+    actual_root = actual_parent / "cybrik-uat-d2-evidence-ancestor"
+    actual_root.mkdir(mode=0o700)
+    os.chmod(actual_root, 0o700)
+    candidate = _passing_candidate(actual_root)
+    alias_parent = tmp_path / "alias-parent"
+    alias_parent.symlink_to(actual_parent, target_is_directory=True)
+    aliased_root = alias_parent / actual_root.name
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(aliased_root, candidate)
+    assert caught.value.reason == "evidence_root_unsafe"
+    assert "symlinked ancestor" in (runtime_evidence.__doc__ or "").casefold()
+
+
+def test_fail_is_annotated_as_non_returning() -> None:
+    assert get_type_hints(runtime_evidence._fail)["return"] is NoReturn
 
 
 def test_evidence_root_rebind_is_detected_before_terminal_write(
@@ -691,6 +779,99 @@ def test_write_failure_preserves_existing_evidence_and_never_deletes_root(
     assert (evidence_root / "sealed-pki-00-ca_certificate.snapshot").is_file()
     assert not (evidence_root / runtime_evidence.RESULT_FILENAME).exists()
     assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+def test_atomic_writer_cleans_temp_descriptor_bound_after_write_failure(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_unlink = runtime_evidence.os.unlink
+    real_fsync = runtime_evidence.os.fsync
+    unlinks: list[tuple[str, int | None]] = []
+    directory_fsyncs = 0
+
+    def fail_write(descriptor: int, payload: bytes) -> int:
+        raise OSError("synthetic write failure")
+
+    def record_unlink(path: str, *, dir_fd: int | None = None) -> None:
+        unlinks.append((path, dir_fd))
+        real_unlink(path, dir_fd=dir_fd)
+
+    def record_fsync(descriptor: int) -> None:
+        nonlocal directory_fsyncs
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            directory_fsyncs += 1
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "write", fail_write)
+    monkeypatch.setattr(runtime_evidence.os, "unlink", record_unlink)
+    monkeypatch.setattr(runtime_evidence.os, "fsync", record_fsync)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._atomic_no_overwrite(root_fd, "bounded.json", b"{}\n")
+        assert caught.value.reason == "terminal_write_failed"
+        assert unlinks and all(dir_fd == root_fd for _, dir_fd in unlinks)
+        assert directory_fsyncs >= 1
+        assert not (evidence_root / "bounded.json").exists()
+        assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
+    finally:
+        os.close(root_fd)
+
+
+def test_atomic_writer_cleans_temp_after_link_failure_without_destination(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_fsync = runtime_evidence.os.fsync
+    directory_fsyncs = 0
+
+    def fail_link(*args: object, **kwargs: object) -> None:
+        raise OSError("synthetic link failure")
+
+    def record_fsync(descriptor: int) -> None:
+        nonlocal directory_fsyncs
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            directory_fsyncs += 1
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "link", fail_link)
+    monkeypatch.setattr(runtime_evidence.os, "fsync", record_fsync)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._atomic_no_overwrite(root_fd, "bounded.json", b"{}\n")
+        assert caught.value.reason == "terminal_write_failed"
+        assert directory_fsyncs >= 1
+        assert not (evidence_root / "bounded.json").exists()
+        assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
+    finally:
+        os.close(root_fd)
+
+
+def test_atomic_writer_post_link_failure_keeps_committed_destination(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_fsync = runtime_evidence.os.fsync
+    raised = False
+
+    def fail_first_directory_fsync(descriptor: int) -> None:
+        nonlocal raised
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode) and not raised:
+            raised = True
+            raise OSError("synthetic post-link fsync failure")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "fsync", fail_first_directory_fsync)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._atomic_no_overwrite(
+                root_fd, "bounded.json", b'{"preserve":true}\n'
+            )
+        assert caught.value.reason == "terminal_write_failed"
+        assert (evidence_root / "bounded.json").read_bytes() == b'{"preserve":true}\n'
+        assert not any(path.name.endswith(".tmp") for path in evidence_root.iterdir())
+    finally:
+        os.close(root_fd)
 
 
 def test_canonical_bytes_are_order_independent_and_secret_free(
