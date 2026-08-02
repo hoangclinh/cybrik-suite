@@ -302,8 +302,10 @@ def _pki_material(root: Path) -> pki.PkiMaterial:
 
 
 def rollback() -> None:
-    _, evidence_root = _bounded_external_roots(repositories_must_exist=False)
-    runtime_authorization.verify_consumption_marker(evidence_root)
+    runtime_root, evidence_root = _bounded_external_roots(repositories_must_exist=False)
+    runtime_authorization.verify_consumption_marker(
+        evidence_root, expected_runtime_root=runtime_root
+    )
     teardown()
     if not verify_absent():
         raise RuntimeAuthorizationError("D2 rollback did not verify resource absence")

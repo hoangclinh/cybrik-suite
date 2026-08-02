@@ -642,7 +642,10 @@ def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result
 
 
 def verify_consumption_marker(
-    evidence_root: Path, *, expected_authorization_sha256: str | None = None
+    evidence_root: Path,
+    *,
+    expected_authorization_sha256: str | None = None,
+    expected_runtime_root: Path | None = None,
 ) -> dict[str, object] | None:
     """Read a marker for rollback without ever consuming authorization."""
 
@@ -664,6 +667,10 @@ def verify_consumption_marker(
             expected_authorization_sha256 is not None
             and record.get("authorization_sha256") != expected_authorization_sha256
         )
+        or (
+            expected_runtime_root is not None
+            and record.get("runtime_root") != str(expected_runtime_root)
+        )
     ):
         _fail("authorization_consumption_mismatch")
     return record
@@ -675,6 +682,7 @@ def verify_consumed(authorization: RuntimeAuthorization) -> dict[str, object]:
     record = verify_consumption_marker(
         authorization.evidence_root,
         expected_authorization_sha256=authorization.authorization_sha256,
+        expected_runtime_root=authorization.runtime_root,
     )
     if record is None:
         _fail("authorization_not_consumed")
