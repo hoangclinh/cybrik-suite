@@ -989,6 +989,19 @@ def test_caller_supplied_reserved_public_namespace_artifact_is_refused(
     assert not os.path.lexists(_pending_path(terminal, evidence_root))
 
 
+def test_terminal_output_filename_reservation_is_case_insensitive(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    _runtime_root, evidence_root = _roots(tmp_path)
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        terminal._relative_artifact(
+            evidence_root / "TERMINAL-RESULT.JSON", evidence_root
+        )
+    assert caught.value.reason == "artifact_outside_evidence_root"
+
+
 def test_reserved_directory_creation_failure_is_stable_and_path_free(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1053,6 +1066,47 @@ def test_prepare_lock_refuses_concurrent_attempt_without_exception_context(
     assert caught.value.__context__ is None
 
 
+def test_prepare_lock_proves_real_exclusion_and_survives_dup_close(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    evidence_root = tmp_path / "evidence"
+    evidence_root.mkdir()
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    first = os.open(evidence_root, flags)
+    second = os.open(evidence_root, flags)
+    try:
+        terminal._acquire_prepare_lock(first)
+        duplicate = os.dup(first)
+        os.close(duplicate)
+        with pytest.raises(terminal.TerminalIntegrationError) as caught:
+            terminal._acquire_prepare_lock(second)
+        assert caught.value.reason == "terminal_handoff_busy"
+        os.close(first)
+        first = -1
+        terminal._acquire_prepare_lock(second)
+    finally:
+        if first >= 0:
+            os.close(first)
+        os.close(second)
+
+
+def test_prepare_lock_distinguishes_an_unavailable_locking_primitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminal = _terminal_integration()
+
+    def unavailable(*_args: object, **_kwargs: object) -> None:
+        raise OSError("synthetic unsupported locking")
+
+    monkeypatch.setattr(terminal.fcntl, "flock", unavailable)
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        terminal._acquire_prepare_lock(17)
+    assert caught.value.reason == "terminal_lock_unavailable"
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
 def test_public_directory_fsync_failure_uses_the_freeze_reason(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1079,6 +1133,40 @@ def test_public_directory_fsync_failure_uses_the_freeze_reason(
     assert caught.value.reason == "public_pki_freeze_failed"
     assert caught.value.__cause__ is None
     assert caught.value.__context__ is None
+
+
+def test_public_file_fsync_failure_suppresses_os_error_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    original_fsync = terminal.os.fsync
+    original_fstat = terminal.os.fstat
+
+    def fail_file_fsync(descriptor: int) -> None:
+        if stat.S_ISREG(original_fstat(descriptor).st_mode):
+            raise OSError("synthetic file durability failure")
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(terminal.os, "fsync", fail_file_fsync)
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+        )
+    assert caught.value.reason == "public_pki_freeze_failed"
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
+def test_finalize_uses_the_same_evidence_root_lock_as_prepare() -> None:
+    terminal = _terminal_integration()
+    source = inspect.getsource(terminal.finalize_terminal_handoff)
+    assert "_acquire_prepare_lock(root_descriptor)" in source
 
 
 def test_terminal_handoff_adds_no_operator_lifecycle_command() -> None:
