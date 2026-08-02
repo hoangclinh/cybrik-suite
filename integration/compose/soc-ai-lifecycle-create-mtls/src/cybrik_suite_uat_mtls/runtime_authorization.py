@@ -29,6 +29,9 @@ from . import policy
 
 BINDING_VERSION: Final = "CYBRIK-D2-RUNTIME-AUTH/v1"
 EXACT_HEAD_GRANT_VERSION: Final = "CYBRIK-D2-EXACT-HEAD-GRANT/v1"
+EXACT_HEAD_GRANT_SIGNER_IDENTITY: Final = "cybrik-codex-governor"
+EXACT_HEAD_GRANT_NAMESPACE: Final = "cybrik-d2-exact-head-grant"
+EXACT_HEAD_GRANT_VERIFY_BINARY: Final = Path("/usr/bin/ssh-keygen")
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
@@ -130,6 +133,7 @@ EXPECTED_FIELDS: Final = (
     "AUTHORIZED_AT",
     "AUTHORIZATION_EXPIRES_AT",
     "BINDING_VERSION",
+    "EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256",
     "SUITE_ROOT",
     "SUITE_ADMISSION_BASE",
     "RUNTIME_CODE_AGGREGATE_ALGORITHM",
@@ -162,7 +166,7 @@ EXACT_HEAD_GRANT_FIELDS: Final = (
 EXACT_HEAD_GRANT_PINNED_VALUES: Final = MappingProxyType(
     {
         "D2_EXACT_HEAD_GRANT": "APPROVE",
-        "AUTHORIZED_BY": "FOUNDER",
+        "AUTHORIZED_BY": "CODEX-GOVERNOR",
         "GRANT_VERSION": EXACT_HEAD_GRANT_VERSION,
     }
 )
@@ -208,6 +212,13 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 _AUTHORIZATION_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
 _EXACT_HEAD_GRANT_NAME = re.compile(
     r"cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt"
+)
+_EXACT_HEAD_GRANT_SIGNATURE_NAME = re.compile(
+    r"cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt\.sig"
+)
+_EXACT_HEAD_ALLOWED_SIGNERS_NAME = re.compile(
+    r"cybrik-uat-d2-exact-head-allowed-signers-"
+    r"[a-z0-9][a-z0-9._-]{0,63}\.txt"
 )
 _ROOT_NAMES: Final = {
     "RUNTIME_ROOT": re.compile(r"cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}"),
@@ -259,7 +270,10 @@ class ObservedRuntimeState:
     expected_authorization_sha256: str
     exact_head_grant_path: Path
     exact_head_grant_sha256: str
-    expected_exact_head_grant_sha256: str
+    exact_head_grant_signature_path: Path
+    exact_head_grant_allowed_signers_path: Path
+    exact_head_grant_allowed_signers_sha256: str
+    exact_head_grant_signature_verified: bool
     exact_head_grant: Mapping[str, str]
     b1_wheel_sha256: str
     candidate: CandidateState
@@ -495,12 +509,16 @@ def validate_authorization(
     for key, expected in EXACT_HEAD_GRANT_PINNED_VALUES.items():
         if grant.get(key) != expected:
             _fail("exact_head_grant_pinned_value_mismatch")
+    if _HEX64.fullmatch(observed.exact_head_grant_sha256) is None:
+        _fail("exact_head_grant_digest_invalid")
+    if not observed.exact_head_grant_signature_verified:
+        _fail("exact_head_grant_signature_invalid")
     if (
-        _HEX64.fullmatch(observed.exact_head_grant_sha256) is None
-        or _HEX64.fullmatch(observed.expected_exact_head_grant_sha256) is None
-        or observed.exact_head_grant_sha256 != observed.expected_exact_head_grant_sha256
+        _HEX64.fullmatch(fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"]) is None
+        or observed.exact_head_grant_allowed_signers_sha256
+        != fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"]
     ):
-        _fail("exact_head_grant_digest_mismatch")
+        _fail("exact_head_grant_signer_mismatch")
     if _HEX40.fullmatch(grant["SUITE_HEAD"]) is None or any(
         _HEX64.fullmatch(grant[key]) is None
         for key in ("AUTHORIZATION_SHA256", "RUNTIME_CODE_AGGREGATE_SHA256")
@@ -571,22 +589,35 @@ def validate_authorization(
         if any(root == temp or root.is_relative_to(temp) for temp in temp_roots):
             _fail("external_root_under_temp")
     repository_roots = (suite_root, *roots_by_role.values())
-    grant_path = observed.exact_head_grant_path
-    try:
-        grant_metadata = grant_path.lstat()
-        resolved_grant_path = grant_path.resolve(strict=True)
-    except OSError:
-        _fail("exact_head_grant_path_invalid")
-    if (
-        grant_path != resolved_grant_path
-        or grant_path.is_symlink()
-        or not stat.S_ISREG(grant_metadata.st_mode)
-        or grant_metadata.st_nlink != 1
-        or stat.S_IMODE(grant_metadata.st_mode) & 0o022
-        or _EXACT_HEAD_GRANT_NAME.fullmatch(grant_path.name) is None
-        or any(_overlap(grant_path, repository) for repository in repository_roots)
-    ):
-        _fail("exact_head_grant_path_invalid")
+    grant_artifacts = (
+        (observed.exact_head_grant_path, _EXACT_HEAD_GRANT_NAME),
+        (
+            observed.exact_head_grant_signature_path,
+            _EXACT_HEAD_GRANT_SIGNATURE_NAME,
+        ),
+        (
+            observed.exact_head_grant_allowed_signers_path,
+            _EXACT_HEAD_ALLOWED_SIGNERS_NAME,
+        ),
+    )
+    for grant_artifact, name_pattern in grant_artifacts:
+        try:
+            metadata = grant_artifact.lstat()
+            resolved = grant_artifact.resolve(strict=True)
+        except OSError:
+            _fail("exact_head_grant_path_invalid")
+        if (
+            grant_artifact != resolved
+            or grant_artifact.is_symlink()
+            or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) & 0o022
+            or name_pattern.fullmatch(grant_artifact.name) is None
+            or any(
+                _overlap(grant_artifact, repository) for repository in repository_roots
+            )
+        ):
+            _fail("exact_head_grant_path_invalid")
     if _overlap(runtime_root, evidence_root) or any(
         _overlap(external, repository)
         for external in (runtime_root, evidence_root)
@@ -1047,9 +1078,10 @@ def _required_absolute_env(name: str, *, existing: bool) -> Path:
     return parent / path.name
 
 
-def _exact_head_grant_from_environment() -> tuple[Path, dict[str, str], str, str]:
-    raw_path = os.environ.get("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", "")
-    path = _path(raw_path, "exact_head_grant_path_invalid")
+def _external_grant_artifact(
+    environment_name: str, name_pattern: re.Pattern[str]
+) -> Path:
+    path = _path(os.environ.get(environment_name, ""), "exact_head_grant_path_invalid")
     try:
         metadata = path.lstat()
         resolved = path.resolve(strict=True)
@@ -1061,18 +1093,130 @@ def _exact_head_grant_from_environment() -> tuple[Path, dict[str, str], str, str
         or not stat.S_ISREG(metadata.st_mode)
         or metadata.st_nlink != 1
         or stat.S_IMODE(metadata.st_mode) & 0o022
-        or _EXACT_HEAD_GRANT_NAME.fullmatch(path.name) is None
+        or name_pattern.fullmatch(path.name) is None
     ):
         _fail("exact_head_grant_path_invalid")
+    return path
+
+
+def _verify_exact_head_signature(
+    raw: bytes, signature: Path, allowed_signers: Path
+) -> None:
+    try:
+        verifier = EXACT_HEAD_GRANT_VERIFY_BINARY
+        metadata = verifier.lstat()
+        resolved = verifier.resolve(strict=True)
+    except OSError:
+        _fail("exact_head_grant_verifier_invalid")
+    if (
+        resolved != verifier
+        or verifier.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != 0
+        or stat.S_IMODE(metadata.st_mode) & 0o022
+    ):
+        _fail("exact_head_grant_verifier_invalid")
+    try:
+        completed = subprocess.run(
+            (
+                str(verifier),
+                "-Y",
+                "verify",
+                "-f",
+                str(allowed_signers),
+                "-I",
+                EXACT_HEAD_GRANT_SIGNER_IDENTITY,
+                "-n",
+                EXACT_HEAD_GRANT_NAMESPACE,
+                "-s",
+                str(signature),
+            ),
+            input=raw,
+            check=False,
+            capture_output=True,
+            timeout=30,
+            shell=False,
+            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        _fail("exact_head_grant_signature_invalid")
+    if completed.returncode != 0:
+        _fail("exact_head_grant_signature_invalid")
+
+
+def _exact_head_grant_from_environment(
+    authorization_fields: Mapping[str, str],
+) -> tuple[Path, dict[str, str], str, Path, Path, str, bool]:
+    if not os.environ.get(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE"
+    ) or not os.environ.get("CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS"):
+        _fail("exact_head_grant_signature_invalid")
+    path = _external_grant_artifact(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT", _EXACT_HEAD_GRANT_NAME
+    )
+    signature = _external_grant_artifact(
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE",
+        _EXACT_HEAD_GRANT_SIGNATURE_NAME,
+    )
+    allowed_signers = _external_grant_artifact(
+        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS",
+        _EXACT_HEAD_ALLOWED_SIGNERS_NAME,
+    )
     raw = read_authorization(path)
+    allowed_signers_raw = read_authorization(allowed_signers)
+    try:
+        allowed_signers_text = allowed_signers_raw.decode("ascii")
+    except UnicodeDecodeError:
+        _fail("exact_head_grant_signer_mismatch")
+    signer_pattern = re.compile(
+        rf"{re.escape(EXACT_HEAD_GRANT_SIGNER_IDENTITY)} "
+        r"ssh-ed25519 [A-Za-z0-9+/]+={0,3}(?: [^\r\n]+)?\n"
+    )
+    if signer_pattern.fullmatch(allowed_signers_text) is None:
+        _fail("exact_head_grant_signer_mismatch")
+    allowed_signers_sha = hashlib.sha256(allowed_signers_raw).hexdigest()
+    if (
+        authorization_fields.get("EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256")
+        != allowed_signers_sha
+    ):
+        _fail("exact_head_grant_signer_mismatch")
+    _verify_exact_head_signature(raw, signature, allowed_signers)
     try:
         fields = parse_exact_head_grant(raw.decode("utf-8"))
     except UnicodeDecodeError:
         _fail("exact_head_grant_invalid")
-    expected_sha = os.environ.get("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256", "")
-    if _HEX64.fullmatch(expected_sha) is None:
-        _fail("exact_head_grant_digest_mismatch")
-    return path, fields, hashlib.sha256(raw).hexdigest(), expected_sha
+    return (
+        path,
+        fields,
+        hashlib.sha256(raw).hexdigest(),
+        signature,
+        allowed_signers,
+        allowed_signers_sha,
+        True,
+    )
+
+
+def verified_exact_head_grant_sha_for_rollback() -> str:
+    """Re-authenticate the signed external grant before destructive rollback."""
+
+    suite_root = Path(__file__).resolve().parents[5]
+    authorization_path = _required_absolute_env(
+        "CYBRIK_UAT_D2_AUTHORIZATION_PATH", existing=True
+    )
+    if authorization_path != suite_root / AUTHORIZATION_REL:
+        _fail("authorization_path_not_canonical")
+    raw = read_authorization(authorization_path)
+    expected_sha = os.environ.get("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", "")
+    if (
+        _HEX64.fullmatch(expected_sha) is None
+        or hashlib.sha256(raw).hexdigest() != expected_sha
+    ):
+        _fail("authorization_digest_mismatch")
+    try:
+        fields = parse_authorization(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        _fail("authorization_document_invalid")
+    return _exact_head_grant_from_environment(fields)[2]
 
 
 def _admission_base_for_git(fields: Mapping[str, str]) -> str:
@@ -1105,8 +1249,11 @@ def authorize_from_environment() -> RuntimeAuthorization:
         exact_head_grant_path,
         exact_head_grant,
         exact_head_grant_sha,
-        expected_exact_head_grant_sha,
-    ) = _exact_head_grant_from_environment()
+        exact_head_grant_signature_path,
+        exact_head_grant_allowed_signers_path,
+        exact_head_grant_allowed_signers_sha,
+        exact_head_grant_signature_verified,
+    ) = _exact_head_grant_from_environment(fields)
     wheel = _required_absolute_env("CYBRIK_UAT_D2_B1_WHEEL", existing=True)
     runtime_environment_root = _required_absolute_env(
         "CYBRIK_UAT_D2_RUNTIME_DIR", existing=False
@@ -1197,7 +1344,10 @@ def authorize_from_environment() -> RuntimeAuthorization:
         expected_authorization_sha256=expected_sha,
         exact_head_grant_path=exact_head_grant_path,
         exact_head_grant_sha256=exact_head_grant_sha,
-        expected_exact_head_grant_sha256=expected_exact_head_grant_sha,
+        exact_head_grant_signature_path=exact_head_grant_signature_path,
+        exact_head_grant_allowed_signers_path=exact_head_grant_allowed_signers_path,
+        exact_head_grant_allowed_signers_sha256=(exact_head_grant_allowed_signers_sha),
+        exact_head_grant_signature_verified=exact_head_grant_signature_verified,
         exact_head_grant=exact_head_grant,
         b1_wheel_sha256=_sha256(wheel),
         candidate=_candidate(suite_root / CANDIDATE_REL),

@@ -18,7 +18,6 @@ from types import SimpleNamespace
 from typing import Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import harness, procedure
 from cybrik_suite_uat_mtls import runtime_authorization as runtime_auth
 

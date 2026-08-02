@@ -14,11 +14,11 @@ import inspect
 import json
 import os
 import stat
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from cybrik_suite_uat_mtls import policy
 from cybrik_suite_uat_mtls import runtime_authorization as authorization
 
@@ -531,6 +531,7 @@ def test_exact_head_grant_environment_observer_verifies_detached_signature(
         f"{authorization.EXACT_HEAD_GRANT_SIGNER_IDENTITY} {public_line}\n",
         encoding="ascii",
     )
+    fixture.observed.exact_head_grant_signature_path.unlink()
     subprocess.run(
         (
             "/usr/bin/ssh-keygen",
@@ -553,9 +554,7 @@ def test_exact_head_grant_environment_observer_verifies_detached_signature(
     ).hexdigest()
     monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT", str(grant_path))
     monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE", str(signature))
-    monkeypatch.setenv(
-        "CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", str(allowed_signers)
-    )
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS", str(allowed_signers))
 
     observed = authorization._exact_head_grant_from_environment(fields)
     assert observed == (

@@ -24,7 +24,11 @@ b1_wheel="${CYBRIK_UAT_D2_B1_WHEEL:-}"
 authorization_path="${CYBRIK_UAT_D2_AUTHORIZATION_PATH:-}"
 authorization_sha="${CYBRIK_UAT_D2_AUTHORIZATION_SHA256:-}"
 exact_head_grant="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT:-}"
-exact_head_grant_sha="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256:-}"
+exact_head_grant_signature="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE:-}"
+exact_head_allowed_signers="${CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS:-}"
+exact_head_signer_identity="cybrik-codex-governor"
+exact_head_signature_namespace="cybrik-d2-exact-head-grant"
+ssh_keygen="/usr/bin/ssh-keygen"
 
 die() {
   echo "soc-ai lifecycle D2 runner: $*" >&2
@@ -94,8 +98,18 @@ done
   || die "exact-head grant must be an external regular file"
 [[ "${exact_head_grant##*/}" =~ ^cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt$ ]] \
   || die "exact-head grant name is not purpose-bound"
+[[ "$exact_head_grant_signature" == /* && -f "$exact_head_grant_signature" && ! -L "$exact_head_grant_signature" ]] \
+  || die "exact-head grant signature must be an external regular file"
+[[ "${exact_head_grant_signature##*/}" =~ ^cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt\.sig$ ]] \
+  || die "exact-head grant signature name is not purpose-bound"
+[[ "$exact_head_allowed_signers" == /* && -f "$exact_head_allowed_signers" && ! -L "$exact_head_allowed_signers" ]] \
+  || die "exact-head allowed signers must be an external regular file"
+[[ "${exact_head_allowed_signers##*/}" =~ ^cybrik-uat-d2-exact-head-allowed-signers-[a-z0-9][a-z0-9._-]{0,63}\.txt$ ]] \
+  || die "exact-head allowed signers name is not purpose-bound"
 for repo in "$suite_root" "$soc_repo" "$ai_repo" "$fabric_repo"; do
-  case "$exact_head_grant/" in "$repo/"*) die "exact-head grant must be outside repositories" ;; esac
+  for artifact in "$exact_head_grant" "$exact_head_grant_signature" "$exact_head_allowed_signers"; do
+    case "$artifact/" in "$repo/"*) die "exact-head grant material must be outside repositories" ;; esac
+  done
 done
 [[ "$authorization_path" == "$suite_root/docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/04-runtime-authorization.md" ]] \
   || die "authorization path is not canonical"
@@ -103,10 +117,14 @@ done
   || die "authorization digest must be exact lowercase SHA-256"
 [[ "$(shasum -a 256 "$authorization_path" | awk '{print $1}')" == "$authorization_sha" ]] \
   || die "authorization artifact digest mismatch"
-[[ ${#exact_head_grant_sha} -eq 64 ]] && is_hex "$exact_head_grant_sha" \
-  || die "exact-head grant digest must be exact lowercase SHA-256"
-[[ "$(shasum -a 256 "$exact_head_grant" | awk '{print $1}')" == "$exact_head_grant_sha" ]] \
-  || die "exact-head grant digest mismatch"
+[[ "$ssh_keygen" == "/usr/bin/ssh-keygen" && -x "$ssh_keygen" && ! -L "$ssh_keygen" ]] \
+  || die "fixed OpenSSH verifier is unavailable"
+"$ssh_keygen" -Y verify \
+  -f "$exact_head_allowed_signers" \
+  -I "$exact_head_signer_identity" \
+  -n "$exact_head_signature_namespace" \
+  -s "$exact_head_grant_signature" <"$exact_head_grant" >/dev/null \
+  || die "exact-head grant detached signature is invalid"
 exact_suite_head="$(awk -F= '$1 == "SUITE_HEAD" { print $2 }' "$exact_head_grant")"
 [[ ${#exact_suite_head} -eq 40 ]] && is_hex "$exact_suite_head" \
   || die "exact-head grant Suite HEAD is invalid"
@@ -142,7 +160,8 @@ export CYBRIK_UAT_D2_B1_WHEEL="$b1_wheel"
 export CYBRIK_UAT_D2_AUTHORIZATION_PATH="$authorization_path"
 export CYBRIK_UAT_D2_AUTHORIZATION_SHA256="$authorization_sha"
 export CYBRIK_UAT_D2_EXACT_HEAD_GRANT="$exact_head_grant"
-export CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256="$exact_head_grant_sha"
+export CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE="$exact_head_grant_signature"
+export CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS="$exact_head_allowed_signers"
 
 # Discover only the selected interpreter's own dependency roots under isolated
 # startup. Product/Suite imports remain the exact PYTHONPATH tuple checked by
