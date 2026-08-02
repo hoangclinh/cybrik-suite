@@ -1834,6 +1834,80 @@ def test_authorization_reader_refuses_oversized_regular_file_before_read(
     assert caught.value.reason == "authorization_artifact_invalid"
 
 
+def test_bound_reader_refuses_hardlinks_and_candidate_size_overflow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document = tmp_path / "authorization.md"
+    document.write_bytes(b"small fixture\n")
+    alias = tmp_path / "authorization-alias.md"
+    os.link(document, alias)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.read_authorization(document)
+    assert caught.value.reason == "authorization_artifact_invalid"
+    alias.unlink()
+
+    original_fstat = authorization.os.fstat
+
+    def oversized(descriptor: int) -> SimpleNamespace:
+        observed = original_fstat(descriptor)
+        return SimpleNamespace(
+            st_mode=observed.st_mode,
+            st_nlink=1,
+            st_size=authorization.MAX_CANDIDATE_BYTES + 1,
+            st_dev=observed.st_dev,
+            st_ino=observed.st_ino,
+            st_mtime_ns=observed.st_mtime_ns,
+            st_ctime_ns=observed.st_ctime_ns,
+        )
+
+    monkeypatch.setattr(authorization.os, "fstat", oversized)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._candidate(document)
+    assert caught.value.reason == "candidate_invalid"
+
+
+def test_bound_reader_refuses_post_read_identity_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document = tmp_path / "authorization.md"
+    document.write_bytes(b"small fixture\n")
+    original_fstat = authorization.os.fstat
+    observations = 0
+
+    def changed(descriptor: int) -> os.stat_result | SimpleNamespace:
+        nonlocal observations
+        observed = original_fstat(descriptor)
+        observations += 1
+        if observations == 1:
+            return observed
+        return SimpleNamespace(
+            st_mode=observed.st_mode,
+            st_nlink=observed.st_nlink,
+            st_size=observed.st_size,
+            st_dev=observed.st_dev,
+            st_ino=observed.st_ino,
+            st_mtime_ns=observed.st_mtime_ns,
+            st_ctime_ns=observed.st_ctime_ns + 1,
+        )
+
+    monkeypatch.setattr(authorization.os, "fstat", changed)
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.read_authorization(document)
+    assert caught.value.reason == "authorization_artifact_invalid"
+
+
+def test_bound_reader_refuses_a_short_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document = tmp_path / "authorization.md"
+    document.write_bytes(b"small fixture\n")
+    monkeypatch.setattr(authorization.os, "read", lambda *_args: b"")
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.read_authorization(document)
+    assert caught.value.reason == "authorization_artifact_invalid"
+
+
 def test_merge_base_observation_stabilizes_process_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
