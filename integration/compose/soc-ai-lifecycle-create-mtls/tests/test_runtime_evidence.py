@@ -14,6 +14,61 @@ from cybrik_suite_uat_mtls import runtime_evidence
 
 HEX40 = "1" * 40
 HEX64 = "a" * 64
+PKI_PUBLIC_PATHS = (
+    ("ca_certificate", "pki-public/ca-cert.pem"),
+    ("server_certificate", "pki-public/server-cert.pem"),
+    ("client_certificate", "pki-public/client-cert.pem"),
+    ("alternate_client_certificate", "pki-public/alternate-client-cert.pem"),
+    ("jwt_public_jwk", "pki-public/jwt-public-jwk.json"),
+)
+
+
+def _public_certificate(label: str) -> bytes:
+    body = (label.encode("ascii").hex().upper() + "A" * 64)[:64]
+    return (
+        b"-----BEGIN CERTIFICATE-----\n"
+        + body.encode("ascii")
+        + b"\n-----END CERTIFICATE-----\n"
+    )
+
+
+def _write_public_pki(root: Path) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for name, relative_path in PKI_PUBLIC_PATHS:
+        if name == "jwt_public_jwk":
+            payload = (
+                json.dumps(
+                    {
+                        "keys": [
+                            {
+                                "alg": "ES256",
+                                "crv": "P-256",
+                                "kid": "d2-public-key",
+                                "kty": "EC",
+                                "x": "A" * 43,
+                                "y": "B" * 43,
+                            }
+                        ]
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+                + b"\n"
+            )
+        else:
+            payload = _public_certificate(name)
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+        records.append(
+            {
+                "name": name,
+                "relative_path": relative_path,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "size_bytes": len(payload),
+            }
+        )
+    return records
 
 
 def _write_artifact(
@@ -33,6 +88,7 @@ def _write_artifact(
 
 
 def _passing_candidate(root: Path) -> dict[str, object]:
+    public_pki = _write_public_pki(root)
     artifacts = [
         _write_artifact(root, f"case-n{number}.json", b'{"passed":true}\n')
         for number in range(1, 11)
@@ -133,7 +189,7 @@ def _passing_candidate(root: Path) -> dict[str, object]:
             "destroyed": True,
             "certificate_count": 4,
             "public_artifact_count": 5,
-            "public_artifact_sha256": [str(number) * 64 for number in range(5)],
+            "public_artifacts": public_pki,
         },
         "artifacts": artifacts,
     }
@@ -277,6 +333,93 @@ def test_public_pki_metadata_cannot_carry_private_or_raw_material(
     _assert_reason(candidate, "pki_public_invalid")
 
 
+def test_public_pki_inventory_binds_exact_real_files(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    persisted = runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    result = json.loads(
+        (evidence_root / runtime_evidence.RESULT_FILENAME).read_text(encoding="utf-8")
+    )
+    assert (
+        persisted.result_sha256
+        == hashlib.sha256(
+            (evidence_root / runtime_evidence.RESULT_FILENAME).read_bytes()
+        ).hexdigest()
+    )
+    public_records = result["pki_public"]["public_artifacts"]
+    assert [record["name"] for record in public_records] == [
+        name for name, _ in PKI_PUBLIC_PATHS
+    ]
+    for index, record in enumerate(public_records):
+        assert record["relative_path"] == (
+            f"sealed-pki-{index:02d}-{record['name']}.snapshot"
+        )
+        snapshot = evidence_root / record["relative_path"]
+        assert snapshot.is_file() and not snapshot.is_symlink()
+        assert stat.S_IMODE(snapshot.stat().st_mode) == 0o600
+        assert hashlib.sha256(snapshot.read_bytes()).hexdigest() == record["sha256"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason"),
+    (
+        ("missing", "pki_public_artifact_unsafe"),
+        ("substituted", "pki_public_inventory_invalid"),
+        ("symlinked", "pki_public_artifact_unsafe"),
+        ("tampered", "pki_public_artifact_digest_mismatch"),
+    ),
+)
+def test_public_pki_missing_substituted_symlinked_and_tampered_files_fail(
+    evidence_root: Path, mutation: str, reason: str
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    if mutation == "missing":
+        (evidence_root / "pki-public/server-cert.pem").unlink()
+    elif mutation == "substituted":
+        candidate["pki_public"]["public_artifacts"][1]["relative_path"] = (  # type: ignore[index]
+            "pki-public/client-cert.pem"
+        )
+        _assert_reason(candidate, reason)
+        return
+    elif mutation == "symlinked":
+        source = evidence_root / "pki-public/client-cert.pem"
+        outside = evidence_root.parent / "outside-public-cert.pem"
+        outside.write_bytes(source.read_bytes())
+        source.unlink()
+        source.symlink_to(outside)
+    else:
+        tampered = evidence_root / "pki-public/alternate-client-cert.pem"
+        tampered.write_bytes(_public_certificate("tampered"))
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == reason
+
+
+def test_public_pki_rejects_private_pem_and_private_jwk_even_when_rehashed(
+    evidence_root: Path,
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    private_pem = b"-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n"
+    certificate = evidence_root / "pki-public/ca-cert.pem"
+    certificate.write_bytes(private_pem)
+    candidate["pki_public"]["public_artifacts"][0].update(  # type: ignore[index]
+        sha256=hashlib.sha256(private_pem).hexdigest(), size_bytes=len(private_pem)
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "pki_public_material_invalid"
+
+    candidate = _passing_candidate(evidence_root)
+    private_jwk = b'{"keys":[{"alg":"ES256","crv":"P-256","d":"private","kid":"d2-public-key","kty":"EC","x":"x","y":"y"}]}\n'
+    jwk = evidence_root / "pki-public/jwt-public-jwk.json"
+    jwk.write_bytes(private_jwk)
+    candidate["pki_public"]["public_artifacts"][4].update(  # type: ignore[index]
+        sha256=hashlib.sha256(private_jwk).hexdigest(), size_bytes=len(private_jwk)
+    )
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "pki_public_material_invalid"
+
+
 def test_required_artifacts_are_unique_regular_contained_bounded_and_pinned(
     evidence_root: Path,
 ) -> None:
@@ -366,7 +509,12 @@ def test_persist_writes_canonical_no_overwrite_mode_0600_packet(
     result = json.loads(paths[0].read_text(encoding="utf-8"))
     teardown = json.loads(paths[1].read_text(encoding="utf-8"))
     summary = json.loads(paths[2].read_text(encoding="utf-8"))
-    assert result == candidate
+    assert result["repository_tuple"] == candidate["repository_tuple"]
+    assert all(
+        artifact["relative_path"]
+        == f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
+        for index, artifact in enumerate(result["artifacts"])
+    )
     assert teardown["resources"] == candidate["teardown"]
     assert summary["terminal_passed"] is True
     assert summary["result_sha256"] == persisted.result_sha256
@@ -378,6 +526,71 @@ def test_persist_writes_canonical_no_overwrite_mode_0600_packet(
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == "terminal_path_exists"
     assert {path.name: path.read_bytes() for path in paths} == before
+
+
+def test_raw_artifact_post_snapshot_swap_cannot_change_terminal_evidence(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    original = (evidence_root / "case-n1.json").read_bytes()
+    real_seal = runtime_evidence._seal_artifact
+
+    def seal_then_swap(root_fd: int, artifact: object, index: int) -> dict[str, object]:
+        sealed = real_seal(root_fd, artifact, index)  # type: ignore[arg-type]
+        if index == 0:
+            source = evidence_root / "case-n1.json"
+            source.unlink()
+            source.write_bytes(b'{"passed":false,"tampered":true}\n')
+        return sealed
+
+    monkeypatch.setattr(runtime_evidence, "_seal_artifact", seal_then_swap)
+    runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    result = json.loads(
+        (evidence_root / runtime_evidence.RESULT_FILENAME).read_text(encoding="utf-8")
+    )
+    sealed_path = evidence_root / result["artifacts"][0]["relative_path"]
+    assert sealed_path.read_bytes() == original
+    assert (
+        hashlib.sha256(sealed_path.read_bytes()).hexdigest()
+        == result["artifacts"][0]["sha256"]
+    )
+    assert (evidence_root / "case-n1.json").read_bytes() != original
+
+
+def test_mutation_during_snapshot_preserves_prior_snapshots_without_summary(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    target = evidence_root / "case-n2.json"
+    target_inode = target.stat().st_ino
+    real_read = runtime_evidence.os.read
+    mutated = False
+
+    def read_then_mutate(descriptor: int, count: int) -> bytes:
+        nonlocal mutated
+        block = real_read(descriptor, count)
+        if block and not mutated and os.fstat(descriptor).st_ino == target_inode:
+            mutated = True
+            target.write_bytes(b'{"passed":xxxx}\n')
+        return block
+
+    monkeypatch.setattr(runtime_evidence.os, "read", read_then_mutate)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason in {"artifact_rebound", "artifact_digest_mismatch"}
+    assert (evidence_root / "sealed-artifact-00-case-n1.snapshot").is_file()
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
+
+
+def test_preexisting_snapshot_path_is_never_overwritten(evidence_root: Path) -> None:
+    candidate = _passing_candidate(evidence_root)
+    collision = evidence_root / "sealed-artifact-00-case-n1.snapshot"
+    collision.write_text("preserve", encoding="utf-8")
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "terminal_path_exists"
+    assert collision.read_text(encoding="utf-8") == "preserve"
+    assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 
 def test_evidence_root_must_be_absolute_descriptor_bound_mode_0700(
