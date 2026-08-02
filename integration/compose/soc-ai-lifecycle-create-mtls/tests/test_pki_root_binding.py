@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import pki as runtime_pki
 
 
@@ -261,8 +260,102 @@ def test_pki_leaf_creation_is_descriptor_relative_and_no_follow(
     assert len(leaf_opens) == 9
     assert all(dir_fd is not None for _, _, dir_fd in leaf_opens)
     assert all(
-        isinstance(path, str) and Path(path).name == path
-        for path, _, _ in leaf_opens
+        isinstance(path, str) and Path(path).name == path for path, _, _ in leaf_opens
     ), "leaf opens must use validated single-component names"
     assert all(flags & no_follow for _, flags, _ in leaf_opens)
 
+
+def test_pki_creation_cannot_self_bind_a_replacement_before_the_initial_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The creation API must not adopt a directory substituted before pinning."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    visible_root = tmp_path / "ephemeral-pki"
+    displaced_root = tmp_path / "ephemeral-pki-created"
+    replacement_marker = "replacement-owned.txt"
+    original_open = os.open
+    replaced = False
+
+    def replace_before_root_open(
+        path: os.PathLike[str] | str | bytes,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal replaced
+        if (
+            not replaced
+            and dir_fd is None
+            and Path(path) == visible_root
+            and not flags & os.O_CREAT
+        ):
+            replaced = True
+            visible_root.rename(displaced_root)
+            visible_root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+            (visible_root / replacement_marker).write_text(
+                "harmless replacement sentinel\n", encoding="utf-8"
+            )
+        if dir_fd is None:
+            return original_open(path, flags, mode)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runtime_pki.os, "open", replace_before_root_open)
+
+    with pytest.raises(runtime_pki.PkiBoundaryError):
+        _create_fixture_pki(tmp_path)
+
+    assert replaced, "the fixture must exercise the initial pre-open race"
+    assert (visible_root / replacement_marker).is_file()
+    assert [path.name for path in visible_root.iterdir()] == [replacement_marker]
+    assert list(displaced_root.iterdir()) == []
+
+
+def test_create_ephemeral_pki_refuses_a_bare_path_without_an_authorized_capability(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """PKI creation must consume a pre-bound descriptor capability, not a Path."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    root = tmp_path / "ephemeral-pki"
+    repository_root = tmp_path / "repository"
+    repository_root.mkdir()
+
+    with pytest.raises(runtime_pki.PkiBoundaryError):
+        runtime_pki.create_ephemeral_pki(
+            root,
+            repository_roots=(repository_root,),
+            jwt_kid="fixture-kid",
+        )
+
+    assert not root.exists()
+
+
+@pytest.mark.parametrize("missing_primitive", ("O_DIRECTORY", "O_NOFOLLOW", "dir_fd"))
+def test_missing_secure_directory_primitive_fails_before_root_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    missing_primitive: str,
+) -> None:
+    """Unix security flags are required capabilities, never zero-valued fallbacks."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    root = tmp_path / "ephemeral-pki"
+    repository_root = tmp_path / "repository"
+    repository_root.mkdir()
+    if missing_primitive == "O_DIRECTORY":
+        monkeypatch.setattr(runtime_pki, "_O_DIRECTORY", 0)
+    elif missing_primitive == "O_NOFOLLOW":
+        monkeypatch.setattr(runtime_pki, "_O_NOFOLLOW", 0)
+    else:
+        monkeypatch.setattr(runtime_pki.os, "supports_dir_fd", set())
+
+    with pytest.raises(runtime_pki.PkiBoundaryError):
+        runtime_pki.create_ephemeral_pki(
+            root,
+            repository_roots=(repository_root,),
+            jwt_kid="fixture-kid",
+        )
+
+    assert not root.exists()
