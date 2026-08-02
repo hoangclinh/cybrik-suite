@@ -1002,6 +1002,30 @@ def test_terminal_output_filename_reservation_is_case_insensitive(
     assert caught.value.reason == "artifact_outside_evidence_root"
 
 
+def test_artifact_deduplication_is_case_insensitive(
+    tmp_path: Path,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    lower = evidence_root / "case-n1.json"
+    upper = evidence_root / "CASE-N1.JSON"
+    lower.write_bytes(b'{"synthetic":true}\n')
+    if not upper.exists():
+        upper.write_bytes(b'{"synthetic":true}\n')
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+            artifact_paths=(lower, upper),
+        )
+    assert caught.value.reason == "artifact_outside_evidence_root"
+
+
 def test_reserved_directory_creation_failure_is_stable_and_path_free(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1163,10 +1187,75 @@ def test_public_file_fsync_failure_suppresses_os_error_context(
     assert caught.value.__context__ is None
 
 
-def test_finalize_uses_the_same_evidence_root_lock_as_prepare() -> None:
+def test_finalize_contends_on_the_same_evidence_root_lock_as_prepare(
+    tmp_path: Path,
+) -> None:
     terminal = _terminal_integration()
-    source = inspect.getsource(terminal.finalize_terminal_handoff)
-    assert "_acquire_prepare_lock(root_descriptor)" in source
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    _prepare(
+        terminal,
+        authorization=authorization,
+        marker=marker,
+        public_pki_paths=_public_pki(runtime_root),
+    )
+    descriptor = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        terminal._acquire_prepare_lock(descriptor)
+        with pytest.raises(terminal.TerminalIntegrationError) as caught:
+            terminal.finalize_terminal_handoff(
+                authorization=authorization,
+                consumed_marker=marker,
+                live_absence_probe=lambda: _absence(),
+            )
+        assert caught.value.reason == "terminal_handoff_busy"
+    finally:
+        os.close(descriptor)
+
+
+def test_finalize_holds_the_lock_through_absence_and_persist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    _prepare(
+        terminal,
+        authorization=authorization,
+        marker=marker,
+        public_pki_paths=_public_pki(runtime_root),
+    )
+    events: list[str] = []
+    persisted = object()
+
+    def assert_contended(event: str) -> None:
+        descriptor = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            with pytest.raises(terminal.TerminalIntegrationError) as caught:
+                terminal._acquire_prepare_lock(descriptor)
+            assert caught.value.reason == "terminal_handoff_busy"
+        finally:
+            os.close(descriptor)
+        events.append(event)
+
+    def absence_probe() -> dict[str, bool]:
+        assert_contended("absence")
+        return _absence()
+
+    def persist(_root: Path, _candidate: object) -> object:
+        assert_contended("persist")
+        return persisted
+
+    monkeypatch.setattr(terminal.runtime_evidence, "persist_terminal_evidence", persist)
+    result = terminal.finalize_terminal_handoff(
+        authorization=authorization,
+        consumed_marker=marker,
+        live_absence_probe=absence_probe,
+    )
+    assert result is persisted
+    assert events == ["absence", "persist"]
 
 
 def test_terminal_handoff_adds_no_operator_lifecycle_command() -> None:
