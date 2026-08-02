@@ -156,6 +156,19 @@ def test_authorized_runtime_attempt_executes_the_red_green_sequence() -> None:
     if os.environ.get("CYBRIK_UAT_D2_EXECUTION_AUTHORIZED") != "true":
         pytest.skip("D2 Phase A authorization is closed")
 
+    forbidden_import_roots = {
+        Path.cwd(),
+        _ROOT,
+        _ROOT / "tests",
+        _ROOT.parents[2],
+    }
+    observed_import_roots = {
+        Path(item).resolve(strict=False) for item in sys.path if item
+    }
+    assert not forbidden_import_roots & observed_import_roots
+    assert "" not in sys.path
+    assert "." not in sys.path
+
     from cybrik_suite_uat_mtls.harness import run_runtime_attempt
 
     summary = run_runtime_attempt()
@@ -183,7 +196,6 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         _ROOT.parents[2] / "tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh"
     ).read_text(encoding="utf-8")
 
-    assert "SUITE_EXPECTED_HEAD" not in runner
     for required in (
         "--untracked-files=all --ignored",
         "symbolic-ref",
@@ -193,16 +205,23 @@ def test_runner_verifies_the_same_exact_bindings_as_every_runtime_step() -> None
         "PYTHONPATH",
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1",
         "PYTHONSAFEPATH=1",
-        '"$python_bin" -I -S -c',
+        '"$python_bin" -I -B -S -c',
+        '"$python_bin" -I -B -c',
         "sys.flags.safe_path",
         "sys.flags.no_site",
+        "sys.dont_write_bytecode",
         "unsafe Python import path",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT",
+        "CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SHA256",
+        "exact Suite HEAD mismatch",
+        "--import-mode=importlib",
         "-p no:cacheprovider",
         "-o addopts=",
         "--noconftest",
         "-c /dev/null",
     ):
         assert required in runner, required
+    assert runner.count("verify_suite_unchanged") >= 6
     for relative in (
         "integration/compose/soc-ai-lifecycle-create-mtls/src",
         "services/api/src",
@@ -239,6 +258,8 @@ import sys
 roots = tuple(sys.argv[1].split(os.pathsep))
 if not sys.flags.isolated or not sys.flags.no_site or not sys.flags.safe_path:
     raise SystemExit("unsafe Python startup flags")
+if not sys.dont_write_bytecode:
+    raise SystemExit("Python bytecode writes are enabled")
 if not roots or any(not root or not os.path.isabs(root) for root in roots):
     raise SystemExit("unsafe Python import roots")
 sys.path[:] = list(roots) + [
@@ -259,6 +280,7 @@ runpy.run_module(module, run_name="__main__", alter_sys=True)
         (
             sys.executable,
             "-I",
+            "-B",
             "-S",
             "-c",
             bootstrap,
@@ -276,6 +298,8 @@ runpy.run_module(module, run_name="__main__", alter_sys=True)
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "trusted module loaded"
     assert not sentinel.exists()
+    assert not list(trusted.rglob("*.pyc"))
+    assert not (trusted / "__pycache__").exists()
 
 
 def test_exact_runner_pytest_flags_leave_ignored_status_clean_for_stop(

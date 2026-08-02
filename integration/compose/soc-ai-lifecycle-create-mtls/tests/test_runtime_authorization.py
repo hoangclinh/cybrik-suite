@@ -42,6 +42,7 @@ _PRODUCT_IDENTITY = {
 _ADMISSION_BASE = "b" * 40
 _SUITE_HEAD = "c" * 40
 _AUTHORIZATION_SHA = "a" * 64
+_EXACT_HEAD_GRANT_SHA = "e" * 64
 _NOW = datetime(2026, 8, 2, 12, 0, tzinfo=UTC)
 
 
@@ -133,6 +134,11 @@ def _observed(
     aggregate: str,
     host_temp: Path,
 ) -> authorization.ObservedRuntimeState:
+    exact_head_grant_path = (
+        suite.parent
+        / "grant-holder/cybrik-uat-d2-exact-head-grant-unit.txt"
+    )
+    _write(exact_head_grant_path, "synthetic external exact-head grant\n")
     return authorization.ObservedRuntimeState(
         now=_NOW,
         suite_root=suite,
@@ -144,6 +150,17 @@ def _observed(
         authorization_path=suite / authorization.AUTHORIZATION_REL,
         authorization_sha256=_AUTHORIZATION_SHA,
         expected_authorization_sha256=_AUTHORIZATION_SHA,
+        exact_head_grant_path=exact_head_grant_path,
+        exact_head_grant_sha256=_EXACT_HEAD_GRANT_SHA,
+        expected_exact_head_grant_sha256=_EXACT_HEAD_GRANT_SHA,
+        exact_head_grant={
+            "D2_EXACT_HEAD_GRANT": "APPROVE",
+            "AUTHORIZED_BY": "FOUNDER",
+            "GRANT_VERSION": authorization.EXACT_HEAD_GRANT_VERSION,
+            "AUTHORIZATION_SHA256": _AUTHORIZATION_SHA,
+            "SUITE_HEAD": _SUITE_HEAD,
+            "RUNTIME_CODE_AGGREGATE_SHA256": aggregate,
+        },
         b1_wheel_sha256=policy.PINNED_B1_WHEEL_SHA256,
         candidate=authorization.CandidateState(
             status="not_run",
@@ -223,13 +240,21 @@ def _reason(
 # --------------------------------------------------------------------------
 
 
-def test_authorization_never_declares_a_self_referential_suite_head() -> None:
+def test_two_layer_grant_binds_exact_head_without_repo_self_reference() -> None:
     assert "SUITE_SHA" not in authorization.EXPECTED_FIELDS
     assert "SUITE_HEAD" not in authorization.EXPECTED_FIELDS
     assert "SUITE_COMMIT" not in authorization.EXPECTED_FIELDS
     assert "SUITE_TREE" not in authorization.EXPECTED_FIELDS
     assert "SUITE_ADMISSION_BASE" in authorization.EXPECTED_FIELDS
     assert "RUNTIME_CODE_AGGREGATE_SHA256" in authorization.EXPECTED_FIELDS
+    assert "SUITE_HEAD" in authorization.EXACT_HEAD_GRANT_FIELDS
+    assert "AUTHORIZATION_SHA256" in authorization.EXACT_HEAD_GRANT_FIELDS
+    assert "RUNTIME_CODE_AGGREGATE_SHA256" in authorization.EXACT_HEAD_GRANT_FIELDS
+    assert authorization.EXACT_HEAD_GRANT_PINNED_VALUES == {
+        "D2_EXACT_HEAD_GRANT": "APPROVE",
+        "AUTHORIZED_BY": "FOUNDER",
+        "GRANT_VERSION": authorization.EXACT_HEAD_GRANT_VERSION,
+    }
 
 
 def test_expected_fields_are_unique_and_pinned_values_are_a_subset() -> None:
@@ -445,6 +470,21 @@ def test_parse_authorization_accepts_the_exact_ordered_document(
     assert authorization.parse_authorization(text) == fixture.fields
 
 
+def test_parse_exact_head_grant_accepts_only_the_exact_ordered_document(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    grant = fixture.observed.exact_head_grant
+    text = "".join(
+        f"{key}={grant[key]}\n" for key in authorization.EXACT_HEAD_GRANT_FIELDS
+    )
+
+    assert authorization.parse_exact_head_grant(text) == grant
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.parse_exact_head_grant(text + "EXTRA=denied\n")
+    assert caught.value.reason == "exact_head_grant_invalid"
+
+
 @pytest.mark.parametrize(
     "mutate",
     (
@@ -585,6 +625,14 @@ def test_validate_authorization_rejects_an_expired_or_future_window(
         ({"b1_wheel_sha256": "d" * 64}, "b1_wheel_digest_mismatch"),
         ({"authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
         ({"expected_authorization_sha256": "d" * 64}, "authorization_digest_mismatch"),
+        (
+            {"exact_head_grant_sha256": "d" * 64},
+            "exact_head_grant_digest_mismatch",
+        ),
+        (
+            {"expected_exact_head_grant_sha256": "d" * 64},
+            "exact_head_grant_digest_mismatch",
+        ),
     ),
 )
 def test_validate_authorization_rejects_observation_level_defects(
@@ -594,6 +642,46 @@ def test_validate_authorization_rejects_observation_level_defects(
     observed = dataclasses.replace(fixture.observed, **overrides)
 
     assert _reason(fixture.fields, observed) == expected_reason
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "expected_reason"),
+    (
+        ("SUITE_HEAD", "d" * 40, "suite_exact_head_mismatch"),
+        ("SUITE_HEAD", "not-a-commit", "exact_head_grant_invalid"),
+        (
+            "AUTHORIZATION_SHA256",
+            "d" * 64,
+            "exact_head_grant_authorization_mismatch",
+        ),
+        (
+            "RUNTIME_CODE_AGGREGATE_SHA256",
+            "d" * 64,
+            "exact_head_grant_aggregate_mismatch",
+        ),
+        ("D2_EXACT_HEAD_GRANT", "HOLD", "exact_head_grant_pinned_value_mismatch"),
+    ),
+)
+def test_validate_authorization_requires_external_exact_head_grant_binding(
+    tmp_path: Path, key: str, value: str, expected_reason: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    grant = dict(fixture.observed.exact_head_grant)
+    grant[key] = value
+    observed = dataclasses.replace(fixture.observed, exact_head_grant=grant)
+
+    assert _reason(fixture.fields, observed) == expected_reason
+
+
+def test_validate_authorization_rejects_exact_head_grant_inside_suite(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    path = fixture.suite / "cybrik-uat-d2-exact-head-grant-inside.txt"
+    _write(path, "not external\n")
+    observed = dataclasses.replace(fixture.observed, exact_head_grant_path=path)
+
+    assert _reason(fixture.fields, observed) == "exact_head_grant_path_invalid"
 
 
 def test_validate_authorization_rejects_a_non_canonical_authorization_path(
@@ -1045,7 +1133,9 @@ def test_verify_consumed_fails_closed_when_the_attempt_was_never_consumed(
         "consumed_at",
         "authorization_id",
         "authorization_sha256",
+        "exact_head_grant_sha256",
         "runtime_code_aggregate_sha256",
+        "suite_head",
         "suite_admission_base",
         "runtime_root",
         "evidence_root",
@@ -1192,6 +1282,20 @@ def test_rollback_marker_check_rejects_a_foreign_authorization_digest(
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.verify_consumption_marker(
             validated.evidence_root, expected_authorization_sha256="d" * 64
+        )
+    assert caught.value.reason == "authorization_consumption_mismatch"
+
+
+def test_rollback_marker_check_rejects_a_foreign_exact_head_grant_digest(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    authorization.consume_once(validated)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_consumption_marker(
+            validated.evidence_root,
+            expected_exact_head_grant_sha256="d" * 64,
         )
     assert caught.value.reason == "authorization_consumption_mismatch"
 
