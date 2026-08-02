@@ -1256,6 +1256,97 @@ def test_finalize_holds_the_lock_through_absence_and_persist(
     )
     assert result is persisted
     assert events == ["absence", "persist"]
+    released = os.open(evidence_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        terminal._acquire_prepare_lock(released)
+    finally:
+        os.close(released)
+
+
+def test_finalize_does_not_mask_a_completed_persist_with_close_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    _prepare(
+        terminal,
+        authorization=authorization,
+        marker=marker,
+        public_pki_paths=_public_pki(runtime_root),
+    )
+    persisted = object()
+    persisted_complete = False
+    root_descriptor = -1
+    original_open_root = terminal._open_evidence_root
+    original_close = terminal._descriptor_close
+
+    def observe_root(path: Path) -> int:
+        nonlocal root_descriptor
+        root_descriptor = original_open_root(path)
+        return root_descriptor
+
+    def persist(_root: Path, _candidate: object) -> object:
+        nonlocal persisted_complete
+        persisted_complete = True
+        return persisted
+
+    def close_then_report_failure(descriptor: int) -> None:
+        original_close(descriptor)
+        if descriptor == root_descriptor and persisted_complete:
+            raise terminal.TerminalIntegrationError("descriptor_transition_failed")
+
+    monkeypatch.setattr(terminal, "_open_evidence_root", observe_root)
+    monkeypatch.setattr(terminal, "_descriptor_close", close_then_report_failure)
+    monkeypatch.setattr(terminal.runtime_evidence, "persist_terminal_evidence", persist)
+
+    result = terminal.finalize_terminal_handoff(
+        authorization=authorization,
+        consumed_marker=marker,
+        live_absence_probe=lambda: _absence(),
+    )
+    assert result is persisted
+
+
+@pytest.mark.parametrize(
+    "tampered_relative_path",
+    ("CASE-N1.JSON", "TERMINAL-RESULT.JSON"),
+)
+def test_pending_loader_refuses_casefolded_binding_tampering(
+    tmp_path: Path,
+    tampered_relative_path: str,
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    first = evidence_root / "case-n1.json"
+    second = evidence_root / "case-n2.json"
+    first.write_bytes(b'{"first":true}\n')
+    second.write_bytes(b'{"second":true}\n')
+    _prepare(
+        terminal,
+        authorization=authorization,
+        marker=marker,
+        public_pki_paths=_public_pki(runtime_root),
+        artifact_paths=(first, second),
+    )
+    pending_path = _pending_path(terminal, evidence_root)
+    pending_inode = pending_path.stat().st_ino
+    document = json.loads(pending_path.read_bytes())
+    document["artifact_bindings"][1]["relative_path"] = tampered_relative_path
+    pending_path.write_bytes(_canonical_record(document))
+    pending_path.chmod(0o600)
+    assert pending_path.stat().st_ino == pending_inode
+
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        terminal.finalize_terminal_handoff(
+            authorization=authorization,
+            consumed_marker=marker,
+            live_absence_probe=lambda: _absence(),
+        )
+    assert caught.value.reason == "pending_handoff_invalid"
 
 
 def test_terminal_handoff_adds_no_operator_lifecycle_command() -> None:
