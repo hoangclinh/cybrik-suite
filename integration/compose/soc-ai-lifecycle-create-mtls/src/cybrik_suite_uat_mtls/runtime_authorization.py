@@ -32,6 +32,7 @@ EXACT_HEAD_GRANT_VERSION: Final = "CYBRIK-D2-EXACT-HEAD-GRANT/v1"
 EXACT_HEAD_GRANT_SIGNER_IDENTITY: Final = "cybrik-codex-governor"
 EXACT_HEAD_GRANT_NAMESPACE: Final = "cybrik-d2-exact-head-grant"
 EXACT_HEAD_GRANT_VERIFY_BINARY: Final = Path("/usr/bin/ssh-keygen")
+MAX_ALLOWED_SIGNERS_BYTES: Final = 16 * 1024
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
@@ -1076,13 +1077,24 @@ def _candidate(path: Path) -> CandidateState:
         if path.is_symlink() or not path.is_file():
             _fail("candidate_invalid")
         document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, Mapping):
+            _fail("candidate_invalid")
         current = document["attempt_accounting"]["current_attempt"]
-    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        if not isinstance(current, Mapping):
+            _fail("candidate_invalid")
+    except (AttributeError, OSError, KeyError, TypeError, json.JSONDecodeError):
         _fail("candidate_invalid")
     pinned = current.get("authorization_sha256")
     if pinned is None:
-        artifacts = document.get("evidence", {}).get("artifacts", [])
+        evidence = document.get("evidence", {})
+        if not isinstance(evidence, Mapping):
+            _fail("candidate_invalid")
+        artifacts = evidence.get("artifacts", [])
+        if not isinstance(artifacts, list):
+            _fail("candidate_invalid")
         for artifact in artifacts:
+            if not isinstance(artifact, Mapping):
+                _fail("candidate_invalid")
             if artifact.get("path") == AUTHORIZATION_REL.as_posix():
                 pinned = artifact.get("sha256")
                 break
@@ -1099,7 +1111,12 @@ def _candidate(path: Path) -> CandidateState:
 def _required_absolute_env(name: str, *, existing: bool) -> Path:
     raw = os.environ.get(name, "")
     path = Path(raw)
-    if not raw or not path.is_absolute():
+    if (
+        not raw
+        or not path.is_absolute()
+        or os.path.normpath(raw) != raw
+        or str(path) != raw
+    ):
         _fail("runtime_environment_invalid")
     if existing:
         try:
@@ -1135,7 +1152,7 @@ def _external_grant_artifact(
 
 
 def _verify_exact_head_signature(
-    raw: bytes, signature: Path, allowed_signers: Path
+    raw: bytes, signature: Path, allowed_signers_descriptor: int
 ) -> None:
     try:
         verifier = EXACT_HEAD_GRANT_VERIFY_BINARY
@@ -1151,14 +1168,17 @@ def _verify_exact_head_signature(
         or stat.S_IMODE(metadata.st_mode) & 0o022
     ):
         _fail("exact_head_grant_verifier_invalid")
+    verify_descriptor: int | None = None
     try:
+        os.lseek(allowed_signers_descriptor, 0, os.SEEK_SET)
+        verify_descriptor = os.dup(allowed_signers_descriptor)
         completed = subprocess.run(
             (
                 str(verifier),
                 "-Y",
                 "verify",
                 "-f",
-                str(allowed_signers),
+                f"/dev/fd/{verify_descriptor}",
                 "-I",
                 EXACT_HEAD_GRANT_SIGNER_IDENTITY,
                 "-n",
@@ -1172,11 +1192,93 @@ def _verify_exact_head_signature(
             timeout=30,
             shell=False,
             env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+            pass_fds=(verify_descriptor,),
         )
     except (OSError, subprocess.SubprocessError):
         _fail("exact_head_grant_signature_invalid")
+    finally:
+        if verify_descriptor is not None:
+            try:
+                os.close(verify_descriptor)
+            except OSError:
+                pass
     if completed.returncode != 0:
         _fail("exact_head_grant_signature_invalid")
+
+
+def _file_identity(
+    metadata: os.stat_result,
+) -> tuple[int, int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        stat.S_IFMT(metadata.st_mode),
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def _open_bound_allowed_signers(path: Path) -> tuple[int, bytes, tuple[int, ...]]:
+    """Open, validate and retain the exact signer inode used by OpenSSH."""
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor: int | None = None
+    keep_descriptor = False
+    try:
+        descriptor = os.open(path, flags)
+        before = os.fstat(descriptor)
+        locator = path.lstat()
+        identity = _file_identity(before)
+        if (
+            identity != _file_identity(locator)
+            or not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) & 0o022
+            or before.st_size > MAX_ALLOWED_SIGNERS_BYTES
+        ):
+            _fail("exact_head_grant_signer_mismatch")
+        chunks: list[bytes] = []
+        remaining = MAX_ALLOWED_SIGNERS_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 4096))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if len(raw) > MAX_ALLOWED_SIGNERS_BYTES or _file_identity(after) != identity:
+            _fail("exact_head_grant_signer_mismatch")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        keep_descriptor = True
+        return descriptor, raw, identity
+    except RuntimeAuthorizationFailure:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail("exact_head_grant_signer_mismatch")
+    finally:
+        if descriptor is not None and not keep_descriptor:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+
+def _assert_bound_allowed_signers(
+    descriptor: int, path: Path, identity: tuple[int, ...]
+) -> None:
+    try:
+        if (
+            _file_identity(os.fstat(descriptor)) != identity
+            or _file_identity(path.lstat()) != identity
+        ):
+            _fail("exact_head_grant_signer_mismatch")
+    except RuntimeAuthorizationFailure:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail("exact_head_grant_signer_mismatch")
 
 
 def _exact_head_grant_from_environment(
@@ -1198,24 +1300,37 @@ def _exact_head_grant_from_environment(
         _EXACT_HEAD_ALLOWED_SIGNERS_NAME,
     )
     raw = read_authorization(path)
-    allowed_signers_raw = read_authorization(allowed_signers)
+    allowed_signers_descriptor: int | None = None
     try:
+        allowed_signers_descriptor, allowed_signers_raw, allowed_signers_identity = (
+            _open_bound_allowed_signers(allowed_signers)
+        )
         allowed_signers_text = allowed_signers_raw.decode("ascii")
     except UnicodeDecodeError:
         _fail("exact_head_grant_signer_mismatch")
-    signer_pattern = re.compile(
-        rf"{re.escape(EXACT_HEAD_GRANT_SIGNER_IDENTITY)} "
-        r"ssh-ed25519 [A-Za-z0-9+/]+={0,3}(?: [^\r\n]+)?\n"
-    )
-    if signer_pattern.fullmatch(allowed_signers_text) is None:
-        _fail("exact_head_grant_signer_mismatch")
-    allowed_signers_sha = hashlib.sha256(allowed_signers_raw).hexdigest()
-    if (
-        authorization_fields.get("EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256")
-        != allowed_signers_sha
-    ):
-        _fail("exact_head_grant_signer_mismatch")
-    _verify_exact_head_signature(raw, signature, allowed_signers)
+    try:
+        signer_pattern = re.compile(
+            rf"{re.escape(EXACT_HEAD_GRANT_SIGNER_IDENTITY)} "
+            r"ssh-ed25519 [A-Za-z0-9+/]+={0,3}(?: [^\r\n]+)?\n"
+        )
+        if signer_pattern.fullmatch(allowed_signers_text) is None:
+            _fail("exact_head_grant_signer_mismatch")
+        allowed_signers_sha = hashlib.sha256(allowed_signers_raw).hexdigest()
+        if (
+            authorization_fields.get("EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256")
+            != allowed_signers_sha
+        ):
+            _fail("exact_head_grant_signer_mismatch")
+        _verify_exact_head_signature(raw, signature, allowed_signers_descriptor)
+        _assert_bound_allowed_signers(
+            allowed_signers_descriptor, allowed_signers, allowed_signers_identity
+        )
+    finally:
+        if allowed_signers_descriptor is not None:
+            try:
+                os.close(allowed_signers_descriptor)
+            except OSError:
+                pass
     try:
         fields = parse_exact_head_grant(raw.decode("utf-8"))
     except UnicodeDecodeError:

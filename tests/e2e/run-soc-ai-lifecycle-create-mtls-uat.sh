@@ -26,9 +26,6 @@ authorization_sha="${CYBRIK_UAT_D2_AUTHORIZATION_SHA256:-}"
 exact_head_grant="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT:-}"
 exact_head_grant_signature="${CYBRIK_UAT_D2_EXACT_HEAD_GRANT_SIGNATURE:-}"
 exact_head_allowed_signers="${CYBRIK_UAT_D2_EXACT_HEAD_ALLOWED_SIGNERS:-}"
-exact_head_signer_identity="cybrik-codex-governor"
-exact_head_signature_namespace="cybrik-d2-exact-head-grant"
-ssh_keygen="/usr/bin/ssh-keygen"
 
 die() {
   echo "soc-ai lifecycle D2 runner: $*" >&2
@@ -117,23 +114,11 @@ done
   || die "authorization digest must be exact lowercase SHA-256"
 [[ "$(shasum -a 256 "$authorization_path" | awk '{print $1}')" == "$authorization_sha" ]] \
   || die "authorization artifact digest mismatch"
-[[ "$ssh_keygen" == "/usr/bin/ssh-keygen" && -x "$ssh_keygen" && ! -L "$ssh_keygen" ]] \
-  || die "fixed OpenSSH verifier is unavailable"
-"$ssh_keygen" -Y verify \
-  -f "$exact_head_allowed_signers" \
-  -I "$exact_head_signer_identity" \
-  -n "$exact_head_signature_namespace" \
-  -s "$exact_head_grant_signature" <"$exact_head_grant" >/dev/null \
-  || die "exact-head grant detached signature is invalid"
-exact_suite_head="$(awk -F= '$1 == "SUITE_HEAD" { print $2 }' "$exact_head_grant")"
-[[ ${#exact_suite_head} -eq 40 ]] && is_hex "$exact_suite_head" \
-  || die "exact-head grant Suite HEAD is invalid"
 [[ "$(shasum -a 256 "$b1_wheel" | awk '{print $1}')" == "$b1_sha256" ]] \
   || die "B1 wheel digest mismatch"
 
 git -C "$suite_root" merge-base --is-ancestor "$suite_d1_base" HEAD \
   || die "Suite candidate is not descended from integrated D1"
-verify_suite_unchanged
 verify_exact_checkout "SOC" "$soc_repo" "$soc_commit" "$soc_tree"
 verify_exact_checkout "Cyber AI" "$ai_repo" "$ai_commit" "$ai_tree"
 verify_exact_checkout "Tool Fabric" "$fabric_repo" "$fabric_commit" "$fabric_tree"
@@ -228,6 +213,11 @@ runpy.run_module(module, run_name="__main__", alter_sys=True)
 # process, listener, database, PKI or evidence root.
 cd "$suite_src"
 run_python_module cybrik_suite_uat_mtls.runtime_authorization --check-only
+# Only consume fields from the external grant after the descriptor-bound Python
+# admission check has verified its detached signature and signer-key digest.
+exact_suite_head="$(awk -F= '$1 == "SUITE_HEAD" { print $2 }' "$exact_head_grant")"
+[[ ${#exact_suite_head} -eq 40 ]] && is_hex "$exact_suite_head" \
+  || die "exact-head grant Suite HEAD is invalid"
 verify_suite_unchanged
 
 cleanup_required=true

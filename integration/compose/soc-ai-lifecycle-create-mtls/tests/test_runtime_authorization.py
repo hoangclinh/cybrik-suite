@@ -21,6 +21,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
 from cybrik_suite_uat_mtls import policy
 from cybrik_suite_uat_mtls import runtime_authorization as authorization
 
@@ -603,12 +604,10 @@ def test_exact_head_grant_verification_is_bound_to_the_digest_checked_signer_ino
             timeout=30,
         )
     allowed_signers = fixture.observed.exact_head_grant_allowed_signers_path
-    trusted_public = trusted_key.with_suffix(".pub").read_text(
-        encoding="ascii"
-    ).strip()
-    attacker_public = attacker_key.with_suffix(".pub").read_text(
-        encoding="ascii"
-    ).strip()
+    trusted_public = trusted_key.with_suffix(".pub").read_text(encoding="ascii").strip()
+    attacker_public = (
+        attacker_key.with_suffix(".pub").read_text(encoding="ascii").strip()
+    )
     allowed_signers.write_text(
         f"{authorization.EXACT_HEAD_GRANT_SIGNER_IDENTITY} {trusted_public}\n",
         encoding="ascii",
@@ -645,7 +644,9 @@ def test_exact_head_grant_verification_is_bound_to_the_digest_checked_signer_ino
     original_run = subprocess.run
     swapped = False
 
-    def swap_before_verify(*args: object, **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+    def swap_before_verify(
+        *args: object, **kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
         nonlocal swapped
         command = args[0]
         if (
