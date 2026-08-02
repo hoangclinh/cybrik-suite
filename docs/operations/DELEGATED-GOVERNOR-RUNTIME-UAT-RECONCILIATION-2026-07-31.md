@@ -226,3 +226,32 @@ Acting under that delegation, the Codex Governor records:
 
 This appendix supersedes §5's default dependency-installation HOLD only for that one local,
 reversible closure-recovery attempt. Every other reserved boundary remains unchanged.
+
+## Appendix D. Exact D2 coverage-only closure recovery R2 authorization
+
+Appendix C is immutable consumed history. R1 executed once at Suite commit
+`26d680fbfc1bc9cb25c63f089569c60fcbc54e2b`, tree
+`df54838f6cc84785f50483f869e0bd3a41b56572`, and failed before network with
+`requirements_identity_mismatch`. Attempt
+`7a8f6f6e1c09abf421e327bf5093348c2f0a23a97d73a39fdab038504ab16e11` removed the fresh R1
+closure root and preserved the R1 evidence root. Appendix C is not reopened or reused.
+
+Acting under the same delegated non-production authority, the Codex Governor records:
+
+- `UAT-MTLS-D2-CLOSURE-RECOVERY-R2=AUTHORIZED-EXACT-RETRY`;
+- R2 is limited to the same exact ten repository paths, dependency set, executable identities,
+  endpoint classes, evidence and exclusions as R1, with the fresh `-r2` closure/evidence roots;
+- R2 must verify the two pinned R1 evidence files and absent R1 closure root, then complete two
+  offline stdout exports and the D1 historical-header reconstruction before creating an R2 root;
+- the unchanged D1 full requirements SHA-256 is
+  `93ec6936e7999ee68e04434b563581ccc5a2e3b4010e252554048b7f75bf1603`; the path-stable
+  header-free body SHA-256 is
+  `bf3fc708b271e245eacc1b0696f6892935fec9f45fda762fd5d041d0bdb7d07d`;
+- only a successful non-mutating `--check-only` pre-proof may precede the sole R2 `--execute`;
+- the first R2 root-creating execute attempt consumes Appendix D. Any R2 failure exhausts this
+  authority and cannot create an automatic R3; and
+- `UAT-MTLS-D2=HOLD`; runtime remains not run, and production/public GA remain Founder-controlled.
+
+This appendix corrects only the deterministic header/path defect proven by R1. It grants no
+Coverage.py, Anycorn/B1, product process, listener, database, certificate, migration, deployment,
+legal/risk acceptance or release authority.
