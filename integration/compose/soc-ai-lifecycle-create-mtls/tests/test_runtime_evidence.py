@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import NoReturn, get_type_hints
 
 import pytest
+
 from cybrik_suite_uat_mtls import runtime_evidence
 
 HEX40 = "1" * 40
@@ -403,7 +404,7 @@ def test_public_pki_missing_substituted_symlinked_and_tampered_files_fail(
         source.symlink_to(outside)
     else:
         tampered = evidence_root / "pki-public/alternate-client-cert.pem"
-        tampered.write_bytes(_public_certificate("tampered"))
+        tampered.write_bytes(PUBLIC_TEST_CERTIFICATE.replace(b"MIIC", b"NIIC", 1))
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
     assert caught.value.reason == reason

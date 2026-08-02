@@ -4,6 +4,8 @@ This module does not run the UAT.  It validates a terminal result and seals its
 already-authored artifacts into an existing external evidence directory.  All
 filesystem decisions are made relative to open directory descriptors; the
 terminal summary is linked last and therefore acts as the completion marker.
+A symlinked ancestor in an evidence-root or artifact path fails closed; no
+resolved-path fallback is permitted for that boundary.
 """
 
 from __future__ import annotations
@@ -13,12 +15,13 @@ import json
 import os
 import re
 import secrets
+import ssl
 import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Final, NoReturn
 
 from . import evidence
 
@@ -120,7 +123,7 @@ class PersistedTerminalEvidence:
     summary_sha256: str
 
 
-def _fail(reason: str) -> None:
+def _fail(reason: str) -> NoReturn:
     raise RuntimeEvidenceError(reason)
 
 
@@ -779,6 +782,13 @@ def _validate_public_material(name: str, payload: bytes) -> None:
             or text.count("-----END CERTIFICATE-----") != 1
         ):
             _fail("pki_public_material_invalid")
+        try:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.load_verify_locations(cadata=text)
+        except (ssl.SSLError, ValueError):
+            _fail("pki_public_material_invalid")
+        if context.cert_store_stats().get("x509") != 1:
+            _fail("pki_public_material_invalid")
         return
 
     def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -860,6 +870,9 @@ def _write_all(descriptor: int, payload: bytes) -> None:
 def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
     temporary = f".{name}.{secrets.token_hex(16)}.tmp"
     descriptor = -1
+    temporary_identity: tuple[int, int] | None = None
+    failure_reason: str | None = None
+    cleanup_failed = False
     try:
         descriptor = os.open(
             temporary,
@@ -871,14 +884,14 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
             0o600,
             dir_fd=root_fd,
         )
+        opened = os.fstat(descriptor)
+        temporary_identity = (opened.st_dev, opened.st_ino)
         os.fchmod(descriptor, 0o600)
         _write_all(descriptor, payload)
         os.fsync(descriptor)
         details = os.fstat(descriptor)
         if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
             _fail("terminal_write_failed")
-        os.close(descriptor)
-        descriptor = -1
         os.link(
             temporary,
             name,
@@ -887,21 +900,120 @@ def _atomic_no_overwrite(root_fd: int, name: str, payload: bytes) -> str:
             follow_symlinks=False,
         )
         os.fsync(root_fd)
-        os.unlink(temporary, dir_fd=root_fd)
-        os.fsync(root_fd)
-        final = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
-        if not stat.S_ISREG(final.st_mode) or stat.S_IMODE(final.st_mode) != 0o600:
-            _fail("terminal_write_failed")
-        return hashlib.sha256(payload).hexdigest()
-    except RuntimeEvidenceError:
-        raise
+    except RuntimeEvidenceError as exc:
+        failure_reason = exc.reason
     except FileExistsError:
-        _fail("terminal_path_exists")
+        failure_reason = "terminal_path_exists"
     except (OSError, ValueError, TypeError):
-        _fail("terminal_write_failed")
+        failure_reason = "terminal_write_failed"
     finally:
         if descriptor >= 0:
             os.close(descriptor)
+        if temporary_identity is not None:
+            try:
+                named = os.stat(temporary, dir_fd=root_fd, follow_symlinks=False)
+                if (named.st_dev, named.st_ino) != temporary_identity:
+                    cleanup_failed = True
+                else:
+                    os.unlink(temporary, dir_fd=root_fd)
+                    os.fsync(root_fd)
+            except (OSError, ValueError, TypeError):
+                cleanup_failed = True
+    if cleanup_failed:
+        _fail("terminal_write_failed")
+    if failure_reason is not None:
+        _fail(failure_reason)
+    try:
+        final = os.stat(name, dir_fd=root_fd, follow_symlinks=False)
+    except (OSError, ValueError, TypeError):
+        _fail("terminal_write_failed")
+    if not stat.S_ISREG(final.st_mode) or stat.S_IMODE(final.st_mode) != 0o600:
+        _fail("terminal_write_failed")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _sealed_projection(raw_result: Mapping[str, object]) -> dict[str, object]:
+    """Build and fully validate the deterministic terminal view without I/O."""
+
+    public_artifacts = raw_result["pki_public"]["public_artifacts"]
+    artifacts = raw_result["artifacts"]
+    assert isinstance(public_artifacts, list)
+    assert isinstance(artifacts, list)
+    projected_public = [
+        {**artifact, "relative_path": _PKI_PUBLIC_INVENTORY[index][2]}
+        for index, artifact in enumerate(public_artifacts)
+    ]
+    projected_artifacts = [
+        {
+            **artifact,
+            "relative_path": (
+                f"sealed-artifact-{index:02d}-{artifact['name']}.snapshot"
+            ),
+        }
+        for index, artifact in enumerate(artifacts)
+    ]
+    projection = {
+        **raw_result,
+        "artifact_state": "sealed",
+        "pki_public": {
+            **raw_result["pki_public"],
+            "public_artifacts": projected_public,
+        },
+        "artifacts": projected_artifacts,
+    }
+    return validate_terminal_result(projection)
+
+
+def _terminal_payloads(
+    result: Mapping[str, object],
+) -> tuple[bytes, bytes, bytes, str, str]:
+    """Precompute every bounded canonical terminal payload before filesystem writes."""
+
+    result_payload = canonical_json(result)
+    teardown_record = {
+        "schema_version": TEARDOWN_SCHEMA_VERSION,
+        "attempt_id": result["attempt_id"],
+        "terminal_outcome": result["outcome"],
+        "resources": result["teardown"],
+        "pki_public": result["pki_public"],
+    }
+    teardown_payload = canonical_json(teardown_record)
+    result_sha256 = hashlib.sha256(result_payload).hexdigest()
+    teardown_sha256 = hashlib.sha256(teardown_payload).hexdigest()
+    sealed_artifacts = result["artifacts"]
+    sealed_public_artifacts = result["pki_public"]["public_artifacts"]
+    assert isinstance(sealed_artifacts, list)
+    assert isinstance(sealed_public_artifacts, list)
+    summary_record = {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "attempt_id": result["attempt_id"],
+        "outcome": result["outcome"],
+        "terminal_passed": result["outcome"] == "passed",
+        "case_count": result["counts"]["case_count"],
+        "passed_count": result["counts"]["passed_count"],
+        "failed_count": result["counts"]["failed_count"],
+        "not_run_count": result["counts"]["not_run_count"],
+        "artifact_count": len(sealed_artifacts) + len(sealed_public_artifacts),
+        "pki_public_artifact_count": len(sealed_public_artifacts),
+        "artifact_manifest_sha256": hashlib.sha256(
+            canonical_json(
+                {
+                    "runtime_artifacts": sealed_artifacts,
+                    "pki_public_artifacts": sealed_public_artifacts,
+                }
+            )
+        ).hexdigest(),
+        "result_sha256": result_sha256,
+        "teardown_sha256": teardown_sha256,
+    }
+    summary_payload = canonical_json(summary_record)
+    return (
+        result_payload,
+        teardown_payload,
+        summary_payload,
+        result_sha256,
+        teardown_sha256,
+    )
 
 
 def persist_terminal_evidence(
@@ -909,78 +1021,52 @@ def persist_terminal_evidence(
 ) -> PersistedTerminalEvidence:
     """Seal one terminal packet without overwriting or deleting any evidence."""
 
-    result = validate_terminal_result(candidate)
-    if result["artifact_state"] != "raw":
+    raw_result = validate_terminal_result(candidate)
+    if raw_result["artifact_state"] != "raw":
         _fail("artifact_snapshot_inventory_invalid")
+    result = _sealed_projection(raw_result)
+    (
+        result_payload,
+        teardown_payload,
+        summary_payload,
+        projected_result_sha256,
+        projected_teardown_sha256,
+    ) = _terminal_payloads(result)
     root_fd = _open_evidence_root(evidence_root)
     try:
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         _terminal_paths_absent(root_fd)
-        public_artifacts = result["pki_public"]["public_artifacts"]
-        assert isinstance(public_artifacts, list)
+        raw_public_artifacts = raw_result["pki_public"]["public_artifacts"]
+        assert isinstance(raw_public_artifacts, list)
         sealed_public_artifacts: list[dict[str, object]] = []
-        for index, artifact in enumerate(public_artifacts):
+        for index, artifact in enumerate(raw_public_artifacts):
             sealed_public_artifacts.append(
                 _seal_pki_public_artifact(root_fd, artifact, index)
             )
             _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
 
-        artifacts = result["artifacts"]
-        assert isinstance(artifacts, list)
+        raw_artifacts = raw_result["artifacts"]
+        assert isinstance(raw_artifacts, list)
         sealed_artifacts: list[dict[str, object]] = []
-        for index, artifact in enumerate(artifacts):
+        for index, artifact in enumerate(raw_artifacts):
             sealed_artifacts.append(_seal_artifact(root_fd, artifact, index))
             _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
 
-        result = {
-            **result,
-            "artifact_state": "sealed",
-            "pki_public": {
-                **result["pki_public"],
-                "public_artifacts": sealed_public_artifacts,
-            },
-            "artifacts": sealed_artifacts,
-        }
-
-        result_payload = canonical_json(result)
-        teardown_record = {
-            "schema_version": TEARDOWN_SCHEMA_VERSION,
-            "attempt_id": result["attempt_id"],
-            "terminal_outcome": result["outcome"],
-            "resources": result["teardown"],
-            "pki_public": result["pki_public"],
-        }
-        teardown_payload = canonical_json(teardown_record)
+        if (
+            sealed_public_artifacts != result["pki_public"]["public_artifacts"]
+            or sealed_artifacts != result["artifacts"]
+        ):
+            _fail("artifact_snapshot_inventory_invalid")
         result_sha256 = _atomic_no_overwrite(root_fd, RESULT_FILENAME, result_payload)
+        if result_sha256 != projected_result_sha256:
+            _fail("terminal_write_failed")
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
         teardown_sha256 = _atomic_no_overwrite(
             root_fd, TEARDOWN_FILENAME, teardown_payload
         )
+        if teardown_sha256 != projected_teardown_sha256:
+            _fail("terminal_write_failed")
         _assert_directory_binding(evidence_root, root_fd, "evidence_root_rebound")
-
-        summary_record = {
-            "schema_version": SUMMARY_SCHEMA_VERSION,
-            "attempt_id": result["attempt_id"],
-            "outcome": result["outcome"],
-            "terminal_passed": result["outcome"] == "passed",
-            "case_count": result["counts"]["case_count"],
-            "passed_count": result["counts"]["passed_count"],
-            "failed_count": result["counts"]["failed_count"],
-            "not_run_count": result["counts"]["not_run_count"],
-            "artifact_count": len(sealed_artifacts) + len(sealed_public_artifacts),
-            "pki_public_artifact_count": len(sealed_public_artifacts),
-            "artifact_manifest_sha256": hashlib.sha256(
-                canonical_json(
-                    {
-                        "runtime_artifacts": sealed_artifacts,
-                        "pki_public_artifacts": sealed_public_artifacts,
-                    }
-                )
-            ).hexdigest(),
-            "result_sha256": result_sha256,
-            "teardown_sha256": teardown_sha256,
-        }
-        summary_payload = canonical_json(summary_record)
         summary_sha256 = _atomic_no_overwrite(
             root_fd, SUMMARY_FILENAME, summary_payload
         )
