@@ -26,6 +26,7 @@ from cybrik_suite_uat_mtls import runtime_authorization as runtime_auth
 _HEX_A: Final = "a" * 40
 _HEX_B: Final = "b" * 64
 _HEX_C: Final = "c" * 64
+_HEX_D: Final = "d" * 64
 _RUNTIME_SECRET: Final = "synthetic-d2-runtime-secret-" + "x" * 40
 
 _PUBLIC_PKI: Final = (
@@ -79,9 +80,11 @@ def _authorization(
         expires_at=now + timedelta(minutes=30),
         now=now,
         suite_root=tmp_path / "suite",
+        suite_head=_HEX_A,
         suite_admission_base=_HEX_A,
         aggregate_sha256=_HEX_B,
         authorization_sha256=_HEX_C,
+        exact_head_grant_sha256=_HEX_D,
         runtime_root=runtime_root,
         evidence_root=evidence_root,
         product_roots={},
@@ -95,6 +98,7 @@ def _consumed_marker(
     return {
         "authorization_id": authorization.authorization_id,
         "authorization_sha256": authorization.authorization_sha256,
+        "exact_head_grant_sha256": authorization.exact_head_grant_sha256,
         "consumed_at": authorization.now.isoformat(),
         "evidence_root": str(authorization.evidence_root),
         "evidence_root_identity": {
@@ -106,13 +110,12 @@ def _consumed_marker(
         "runtime_root": str(authorization.runtime_root),
         "status": "consumed",
         "suite_admission_base": authorization.suite_admission_base,
+        "suite_head": authorization.suite_head,
     }
 
 
 def _marker_sha256(marker: dict[str, object]) -> str:
-    payload = json.dumps(marker, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    payload = json.dumps(marker, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -179,9 +182,7 @@ def test_pre_teardown_freezes_exact_five_public_pki_before_runtime_deletion(
     authorization = _authorization(tmp_path, runtime_root, evidence_root)
     marker = _consumed_marker(authorization)
     public_pki_paths = _public_pki(runtime_root)
-    expected = {
-        name: path.read_bytes() for name, path in public_pki_paths.items()
-    }
+    expected = {name: path.read_bytes() for name, path in public_pki_paths.items()}
 
     prepared = _prepare(
         terminal,
