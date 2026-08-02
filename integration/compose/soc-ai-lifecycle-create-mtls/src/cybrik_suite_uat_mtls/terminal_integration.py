@@ -1153,6 +1153,7 @@ def finalize_terminal_handoff(
     """Recheck live teardown and delegate the summary-last immutable write."""
 
     binding = _authorization_binding(authorization)
+    persistence_complete = False
     root_descriptor = _open_evidence_root(binding.evidence_root)
     try:
         _acquire_prepare_lock(root_descriptor)
@@ -1176,8 +1177,14 @@ def finalize_terminal_handoff(
         ):
             _fail("terminal_grant_mismatch")
         candidate["teardown"] = teardown
-        return runtime_evidence.persist_terminal_evidence(
+        persisted = runtime_evidence.persist_terminal_evidence(
             binding.evidence_root, candidate
         )
+        persistence_complete = True
+        return persisted
     finally:
-        _descriptor_close(root_descriptor)
+        try:
+            _descriptor_close(root_descriptor)
+        except TerminalIntegrationError:
+            if not persistence_complete:
+                raise
