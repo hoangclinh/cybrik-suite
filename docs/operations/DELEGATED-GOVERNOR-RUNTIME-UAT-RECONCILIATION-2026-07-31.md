@@ -255,3 +255,42 @@ Acting under the same delegated non-production authority, the Codex Governor rec
 This appendix corrects only the deterministic header/path defect proven by R1. It grants no
 Coverage.py, Anycorn/B1, product process, listener, database, certificate, migration, deployment,
 legal/risk acceptance or release authority.
+
+## Appendix E. Exact D2 coverage-only closure recovery R3 authorization
+
+Appendices C and D are immutable consumed history. R2 passed its offline requirements preproof and
+executed once at Suite commit `7e2db401aefe18428a507f4a32fade3106a360b5`, tree
+`1c23aee6ab0f1b619a03696cbed5e1745a8da9cb`. Attempt
+`13c07a0ffc8f47f99bc274bdd196234bc82c410ab30224914bc2c9aaaf5a44d2` reproduced the two accepted
+requirements digests, completed the permitted wheel acquisition and verification, then failed
+closed with `venv_identity_mismatch`. Identity-bound rollback removed the R2 closure root and
+preserved its evidence root. Appendix D is not reopened or reused.
+
+The failure is a command-contract defect, not dependency drift. R2 proves that uv `0.11.16` did
+not create the downstream-required literal `python -> python3.12` link, but its preserved evidence
+does not prove the deleted venv's complete three-link graph. Appendix E therefore treats
+`python -> <absolute pinned interpreter>`, `python3 -> python`, `python3.12 -> python` as a bounded
+current-host uv inference that R3 must verify fail-closed before mutation, not as an R2 observation.
+
+Acting under the same delegated non-production authority, the Codex Governor records:
+
+- `UAT-MTLS-D2-CLOSURE-RECOVERY-R3=AUTHORIZED-EXACT-VENV-LINK-CORRECTION`;
+- R3 retains the same exact ten repository paths, dependencies, executable identities, endpoint
+  classes, digests, evidence rules and exclusions, with fresh `-r3` closure/evidence roots;
+- before creating either R3 root, the runner must bind the exact R2 start/failure evidence, prove
+  the R2 closure root is absent and repeat the two offline requirements probes;
+- after creating the fresh no-seed venv, the runner must verify the exact initial three-link graph,
+  relink `python3.12` first to the exact absolute pinned interpreter, then relink `python` to
+  `python3.12`, retain `python3 -> python`, and verify literal targets, realpath and executable
+  digest before offline sync; any failure must preserve bounded expected/observed link diagnostics;
+- the exact `-r3` closure and evidence roots are pinned inputs and cannot be rebound to create an
+  implicit later attempt;
+- only a successful non-mutating `--check-only` preproof may precede the sole R3 `--execute`;
+- the first R3 root-creating execute attempt consumes Appendix E. Any R3 failure exhausts this
+  authority and cannot create an automatic R4; and
+- `UAT-MTLS-D2=HOLD`; runtime remains not run, and production/public GA remain Founder-controlled.
+
+This appendix corrects only the literal-link contract defect proven by R2 and validates the inferred
+three-link cause before mutation. It grants no
+Coverage.py, Anycorn/B1, product process, listener, database, certificate, migration, deployment,
+legal/risk acceptance or release authority. Release dates remain unchanged.

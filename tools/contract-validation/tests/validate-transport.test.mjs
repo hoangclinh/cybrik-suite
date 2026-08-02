@@ -4698,7 +4698,12 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   const section = match[1];
   assert.match(section, /EXECUTED — FAILED PRE-NETWORK — AUTHORIZATION CONSUMED — RUNTIME HOLD/);
   assert.match(section, /Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R2/);
-  assert.match(section, /AUTHORIZED EXACT RETRY — PREPROOF REQUIRED — EXECUTION NOT RUN/);
+  assert.match(section, /EXECUTED — FAILED AFTER WHEEL ACQUISITION — AUTHORIZATION CONSUMED/);
+  assert.match(section, /Gate UAT-MTLS-D2-CLOSURE-RECOVERY-R3/);
+  assert.match(
+    section,
+    /AUTHORIZED EXACT VENV-LINK CORRECTION — PREPROOF REQUIRED — EXECUTION NOT RUN/,
+  );
   assert.match(section, /recover_coverage_closure\.py/);
   assert.match(section, /exactly the 56/);
   assert.match(section, /6d6937112e7598ed13e21a96573c9e57c20dbb5df5d986670252391a40c5f919/);
@@ -4709,8 +4714,14 @@ test('UAT mTLS D2 closure recovery is a finite one-shot prerequisite and not run
   assert.match(authority, /Production and public GA remain Founder-controlled/);
   assert.equal(evidence.r1.network_calls_started, 0);
   assert.equal(evidence.r1.rollback_status, 'removed');
-  assert.equal(evidence.r2.execution_status, 'not_run');
+  assert.equal(evidence.r2.execution_status, 'failed');
+  assert.equal(evidence.r2.failure_reason, 'venv_identity_mismatch');
+  assert.equal(evidence.r2.network_phase_status, 'wheel_acquisition_and_verification_completed');
+  assert.equal(evidence.r2.rollback_status, 'removed');
   assert.equal(evidence.r2.retry_ceiling, 1);
+  assert.equal(evidence.r3.execution_status, 'not_run');
+  assert.equal(evidence.r3.retry_ceiling, 1);
+  assert.equal(evidence.r3.expected_final_links.python, 'python3.12');
   assert.equal(evidence.runtime_status, 'HOLD');
 });
 
