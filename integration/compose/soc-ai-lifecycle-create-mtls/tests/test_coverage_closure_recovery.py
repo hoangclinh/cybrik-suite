@@ -113,13 +113,15 @@ class FakeRunner:
                 raise recovery.RecoveryFailure("command_failed")
             venv = Path(argv[-1])
             (venv / "bin").mkdir(parents=True)
-            (venv / "bin" / "python3.12").symlink_to(
-                Path(argv[argv.index("--python") + 1])
-            )
+            pinned_python = Path(argv[argv.index("--python") + 1])
             target = (
-                "python3.11" if self.fail_stage == "venv_identity" else "python3.12"
+                pinned_python.with_name("python3.11")
+                if self.fail_stage == "venv_identity"
+                else pinned_python
             )
             (venv / "bin" / "python").symlink_to(target)
+            (venv / "bin" / "python3").symlink_to("python")
+            (venv / "bin" / "python3.12").symlink_to("python")
             return ""
         if "sync" in argv:
             if self.fail_stage == "sync":
@@ -550,6 +552,13 @@ def test_execute_builds_and_verifies_exact_closure_and_preserved_evidence(
     assert result["started_at"] <= result["completed_at"]
     assert result["tools"]["uv"]["sha256"] == pins.uv_sha256
     assert result["tools"]["python"]["sha256"] == pins.python_sha256
+    venv_bin = paths.closure_root / "venv" / "bin"
+    assert os.readlink(venv_bin / "python") == "python3.12"
+    assert os.readlink(venv_bin / "python3") == "python"
+    assert os.readlink(venv_bin / "python3.12") == str(pins.python_path)
+    assert (venv_bin / "python").resolve(strict=True) == pins.python_path.resolve(
+        strict=True
+    )
     assert result["root_identity"] == {
         "st_dev": paths.closure_root.stat().st_dev,
         "st_ino": paths.closure_root.stat().st_ino,
