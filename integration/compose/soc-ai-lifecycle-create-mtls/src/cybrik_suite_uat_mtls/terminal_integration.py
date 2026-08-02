@@ -30,6 +30,7 @@ from . import secret_inventory as secret_inventory_module
 PENDING_HANDOFF_SCHEMA_VERSION: Final = "cybrik.d2.pending-terminal-handoff.v1"
 PENDING_HANDOFF_FILENAME: Final = ".cybrik-d2-terminal-handoff.pending.json"
 MAX_PENDING_HANDOFF_BYTES: Final = 1024 * 1024
+_PUBLIC_PKI_DIRECTORY: Final = "pki-public"
 
 _PUBLIC_PKI: Final = (
     ("ca_certificate", "ca-cert.pem"),
@@ -437,6 +438,8 @@ def _relative_artifact(path: Path, evidence_root: Path) -> tuple[str, ...]:
         or relative.as_posix() in _TERMINAL_FILENAMES
     ):
         _fail("artifact_outside_evidence_root")
+    if relative.parts[0] == _PUBLIC_PKI_DIRECTORY:
+        _fail("artifact_reserved_namespace")
     return relative.parts
 
 
@@ -556,11 +559,11 @@ def _write_all(descriptor: int, payload: bytes) -> None:
         offset += written
 
 
-def _freeze_public_pki(
-    root_descriptor: int,
+def _validated_public_pki_payloads(
     binding: _AuthorizationBinding,
     public_pki_paths: Mapping[str, Path],
-) -> tuple[_ArtifactBinding, ...]:
+    inventory: secret_inventory_module.SecretInventory,
+) -> tuple[tuple[str, bytes], ...]:
     if tuple(public_pki_paths) != tuple(name for name, _ in _PUBLIC_PKI):
         _fail("public_pki_invalid")
     expected_source_root = binding.runtime_root / "pki"
@@ -570,16 +573,42 @@ def _freeze_public_pki(
         if not isinstance(source, Path) or source != expected_source_root / filename:
             _fail("public_pki_invalid")
         payload = _source_bytes(source)
+        if len(payload) > secret_inventory_module.MAX_SCAN_TEXT_BYTES:
+            _fail("public_pki_too_large")
         try:
             runtime_evidence._validate_public_material(name, payload)
         except runtime_evidence.RuntimeEvidenceError:
             _fail("public_pki_invalid")
+        scan_failed = False
+        try:
+            exact_label = inventory._exact_label(payload)
+        except secret_inventory_module.SecretInventoryError:
+            scan_failed = True
+            exact_label = None
+        if scan_failed:
+            _fail("public_pki_scan_failed")
+        if exact_label is not None:
+            _fail("public_pki_secret_detected")
         payloads.append((filename, payload))
+    return tuple(payloads)
+
+
+def _freeze_public_pki(
+    root_descriptor: int,
+    payloads: tuple[tuple[str, bytes], ...],
+) -> tuple[_ArtifactBinding, ...]:
+    directory_created = False
+    try:
+        os.mkdir(_PUBLIC_PKI_DIRECTORY, 0o700, dir_fd=root_descriptor)
+        directory_created = True
+    except OSError:
+        pass
+    if not directory_created:
+        _fail("public_pki_freeze_failed")
 
     try:
-        os.mkdir("pki-public", 0o700, dir_fd=root_descriptor)
         pki_descriptor = _descriptor_open(
-            "pki-public", _DIRECTORY_FLAGS, dir_fd=root_descriptor
+            _PUBLIC_PKI_DIRECTORY, _DIRECTORY_FLAGS, dir_fd=root_descriptor
         )
     except TerminalIntegrationError:
         _fail("public_pki_freeze_failed")
@@ -619,13 +648,26 @@ def _freeze_public_pki(
     ):
         if filename != expected_filename:
             _fail("public_pki_freeze_failed")
-        binding = _artifact_binding(root_descriptor, ("pki-public", filename))
+        binding = _artifact_binding(root_descriptor, (_PUBLIC_PKI_DIRECTORY, filename))
         if binding.size_bytes != len(payload) or not hmac.compare_digest(
             binding.sha256, hashlib.sha256(payload).hexdigest()
         ):
             _fail("public_pki_freeze_failed")
         bindings.append(binding)
     return tuple(bindings)
+
+
+def _refuse_existing_handoff(root_descriptor: int) -> None:
+    """Refuse re-entry before a sweep can mutate preserved terminal evidence."""
+
+    for entry in (PENDING_HANDOFF_FILENAME, _PUBLIC_PKI_DIRECTORY):
+        try:
+            os.stat(entry, dir_fd=root_descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            _fail("terminal_reentry_observation_failed")
+        _fail("terminal_handoff_already_prepared")
 
 
 def _secret_sweep(
@@ -792,13 +834,19 @@ def prepare_terminal_handoff(
 
     root_descriptor = _open_evidence_root(binding.evidence_root)
     try:
+        _refuse_existing_handoff(root_descriptor)
         evidence_identity = _directory_identity(root_descriptor)
         marker_sha256 = _marker_digest(binding, consumed_marker, evidence_identity)
         candidate_payload = _candidate_payload(candidate, binding, marker_sha256)
+        if not isinstance(secret_inventory, secret_inventory_module.SecretInventory):
+            _fail("secret_sweep_failed")
+        public_payloads = _validated_public_pki_payloads(
+            binding, public_pki_paths, secret_inventory
+        )
         receipts = _secret_sweep(
             secret_inventory, binding.evidence_root, candidate_payload
         )
-        _freeze_public_pki(root_descriptor, binding, public_pki_paths)
+        _freeze_public_pki(root_descriptor, public_payloads)
         artifact_bindings = tuple(
             _artifact_binding(root_descriptor, relative)
             for relative in relative_artifacts
@@ -806,7 +854,7 @@ def prepare_terminal_handoff(
         # Bind the validated public copies after the secret sweep and freeze so
         # neither a classifier action nor a later replacement can be accepted.
         public_bindings = tuple(
-            _artifact_binding(root_descriptor, ("pki-public", filename))
+            _artifact_binding(root_descriptor, (_PUBLIC_PKI_DIRECTORY, filename))
             for _, filename in _PUBLIC_PKI
         )
         all_artifact_bindings = artifact_bindings + public_bindings

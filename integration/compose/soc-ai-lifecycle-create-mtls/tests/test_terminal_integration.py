@@ -941,9 +941,7 @@ def test_public_payload_size_and_inventory_errors_map_to_stable_reasons(
         def fail_scan(_self: object, _data: bytes) -> str | None:
             raise secret_inventory.SecretInventoryError(str(sensitive_locator))
 
-        monkeypatch.setattr(
-            secret_inventory.SecretInventory, "_exact_label", fail_scan
-        )
+        monkeypatch.setattr(secret_inventory.SecretInventory, "_exact_label", fail_scan)
     leaked = _leaked_private_key(evidence_root)
 
     with pytest.raises(terminal.TerminalIntegrationError) as caught:
