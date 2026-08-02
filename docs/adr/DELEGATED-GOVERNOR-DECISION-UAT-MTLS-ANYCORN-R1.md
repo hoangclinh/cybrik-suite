@@ -688,11 +688,12 @@ records, refuses a mismatched process identity, verifies both loopback listeners
 only the runtime root, preserves the evidence root, and reports cleanup failure instead of
 suppressing it.
 
-D2-P0 itself does not satisfy the section 7.3 coverage gate. At D2-P0 authoring time, Phase A therefore remained closed
+D2-P0 does not satisfy the section 7.3 coverage gate. At D2-P0 authoring time, Phase A therefore remained closed
 until exact commands and artifacts proved at least 80% line and branch coverage and 100% coverage
-of the critical paths. M2 later satisfied that coverage condition. Phase A remains closed under the
-separate runtime-admission conditions below. D2-P0 authoring authority did not install a coverage
-runner, widen the dependency lock or reinterpret passing test counts as coverage evidence.
+of the critical paths. M2 later satisfied that coverage condition through a separate bounded
+coverage-tooling action. Phase A remains closed under the separate runtime-admission conditions
+below. D2-P0 authoring authority did not install a coverage runner, widen the dependency lock or
+reinterpret passing test counts as coverage evidence.
 
 The negative issuer used for N2–N7 is an explicitly accepted test-only relying-party probe. It uses
 the unchanged pinned SOC `LifecycleCreateClient` and production issuer implementation, mutates only

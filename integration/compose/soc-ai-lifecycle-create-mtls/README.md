@@ -129,11 +129,12 @@ before that runner can pass its first guard. That artifact must also contain exa
 purpose-bound and disjoint, and the preserved evidence root consumes the authorization after the
 single attempt.
 
-D2-P0 itself does not satisfy the section 7.3 coverage gate. At D2-P0 authoring time, Phase A remained closed
+D2-P0 does not satisfy the section 7.3 coverage gate. At D2-P0 authoring time, Phase A remained closed
 until a separately pinned command proved at least 80% line and branch coverage and 100% coverage of
-the critical paths. M2 later satisfied that coverage condition. Phase A remains closed under the
-separate runtime-admission conditions above. D2-P0 did not install or use the coverage runner, and
-static pass counts were not treated as coverage evidence. Release dates are unchanged.
+the critical paths. M2 later satisfied that coverage condition through a separate bounded
+coverage-tooling action. Phase A remains closed under the separate runtime-admission conditions
+above. D2-P0 did not install or use the coverage runner, and static pass counts were not treated as
+coverage evidence. Release dates are unchanged.
 
 ## Consumed isolated coverage-tooling action
 
