@@ -1267,9 +1267,7 @@ def test_absolute_directory_transition_close_failure_is_stable(
 
     monkeypatch.setattr(runtime_evidence.os, "close", fail_first_close)
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
-        runtime_evidence._open_absolute_directory(
-            evidence_root, "evidence_root_unsafe"
-        )
+        runtime_evidence._open_absolute_directory(evidence_root, "evidence_root_unsafe")
     assert failed is True
     assert caught.value.reason == "evidence_root_unsafe"
     assert "/" not in str(caught.value)

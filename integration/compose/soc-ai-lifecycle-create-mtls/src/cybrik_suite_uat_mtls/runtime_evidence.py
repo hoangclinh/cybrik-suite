@@ -656,6 +656,19 @@ def _directory_flags() -> int:
     return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
 
 
+def _close_descriptor(descriptor: int, reason: str) -> None:
+    """Close a descriptor or fail with one bounded reason, retrying once."""
+
+    try:
+        os.close(descriptor)
+    except OSError:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        _fail(reason)
+
+
 def _open_absolute_directory(path: Path, reason: str) -> int:
     if not isinstance(path, Path) or not path.is_absolute() or ".." in path.parts:
         _fail(reason)
@@ -664,15 +677,25 @@ def _open_absolute_directory(path: Path, reason: str) -> int:
         descriptor = os.open("/", _directory_flags())
         for component in path.parts[1:]:
             next_descriptor = os.open(component, _directory_flags(), dir_fd=descriptor)
-            os.close(descriptor)
+            previous_descriptor = descriptor
             descriptor = next_descriptor
+            try:
+                _close_descriptor(previous_descriptor, reason)
+            except RuntimeEvidenceError:
+                _close_descriptor(descriptor, reason)
+                descriptor = -1
+                raise
         details = os.fstat(descriptor)
         if not stat.S_ISDIR(details.st_mode):
+            _close_descriptor(descriptor, reason)
+            descriptor = -1
             _fail(reason)
         return descriptor
+    except RuntimeEvidenceError:
+        raise
     except (OSError, ValueError, TypeError):
         if descriptor >= 0:
-            os.close(descriptor)
+            _close_descriptor(descriptor, reason)
         _fail(reason)
 
 
@@ -684,16 +707,20 @@ def _assert_directory_binding(path: Path, descriptor: int, reason: str) -> None:
         if (expected.st_dev, expected.st_ino) != (observed.st_dev, observed.st_ino):
             _fail(reason)
     finally:
-        os.close(rebound)
+        _close_descriptor(rebound, reason)
 
 
 def _open_evidence_root(path: Path) -> int:
     if _EVIDENCE_ROOT.fullmatch(path.name) is None:
         _fail("evidence_root_unsafe")
     descriptor = _open_absolute_directory(path, "evidence_root_unsafe")
-    details = os.fstat(descriptor)
+    try:
+        details = os.fstat(descriptor)
+    except (OSError, ValueError, TypeError):
+        _close_descriptor(descriptor, "evidence_root_unsafe")
+        _fail("evidence_root_unsafe")
     if details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o700:
-        os.close(descriptor)
+        _close_descriptor(descriptor, "evidence_root_unsafe")
         _fail("evidence_root_unsafe")
     return descriptor
 
@@ -719,8 +746,14 @@ def _read_bound_artifact(
         directory_fd = os.dup(root_fd)
         for component in components[:-1]:
             next_fd = os.open(component, _directory_flags(), dir_fd=directory_fd)
-            os.close(directory_fd)
+            previous_fd = directory_fd
             directory_fd = next_fd
+            try:
+                _close_descriptor(previous_fd, unsafe_reason)
+            except RuntimeEvidenceError:
+                _close_descriptor(directory_fd, unsafe_reason)
+                directory_fd = -1
+                raise
         file_fd = os.open(
             components[-1],
             os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
