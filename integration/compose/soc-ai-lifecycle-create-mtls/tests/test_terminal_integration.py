@@ -970,7 +970,11 @@ def test_caller_supplied_reserved_public_namespace_artifact_is_refused(
     public_pki_paths = _public_pki(runtime_root)
     reserved_root = evidence_root / "pki-public"
 
-    for reserved in (reserved_root, reserved_root / "ca-cert.pem"):
+    for reserved in (
+        reserved_root,
+        reserved_root / "ca-cert.pem",
+        evidence_root / "PKI-PUBLIC" / "ca-cert.pem",
+    ):
         with pytest.raises(terminal.TerminalIntegrationError) as caught:
             _prepare(
                 terminal,
@@ -1015,6 +1019,66 @@ def test_reserved_directory_creation_failure_is_stable_and_path_free(
     assert caught.value.__context__ is None
     assert not isinstance(caught.value, OSError)
     assert not os.path.lexists(_pending_path(terminal, evidence_root))
+
+
+def test_reentry_observation_failure_has_no_os_error_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminal = _terminal_integration()
+
+    def fail_stat(*_args: object, **_kwargs: object) -> os.stat_result:
+        raise OSError("synthetic locator that must not propagate")
+
+    monkeypatch.setattr(terminal.os, "stat", fail_stat)
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        terminal._refuse_existing_handoff(17)
+    assert caught.value.reason == "terminal_reentry_observation_failed"
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
+def test_prepare_lock_refuses_concurrent_attempt_without_exception_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminal = _terminal_integration()
+
+    def fail_lock(*_args: object, **_kwargs: object) -> None:
+        raise BlockingIOError("synthetic lock owner")
+
+    monkeypatch.setattr(terminal.fcntl, "flock", fail_lock)
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        terminal._acquire_prepare_lock(17)
+    assert caught.value.reason == "terminal_handoff_busy"
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
+def test_public_directory_fsync_failure_uses_the_freeze_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terminal = _terminal_integration()
+    runtime_root, evidence_root = _roots(tmp_path)
+    authorization = _authorization(tmp_path, runtime_root, evidence_root)
+    marker = _consumed_marker(authorization)
+    original_fsync = terminal.os.fsync
+    original_fstat = terminal.os.fstat
+
+    def fail_directory_fsync(descriptor: int) -> None:
+        if stat.S_ISDIR(original_fstat(descriptor).st_mode):
+            raise OSError("synthetic directory durability failure")
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(terminal.os, "fsync", fail_directory_fsync)
+    with pytest.raises(terminal.TerminalIntegrationError) as caught:
+        _prepare(
+            terminal,
+            authorization=authorization,
+            marker=marker,
+            public_pki_paths=_public_pki(runtime_root),
+        )
+    assert caught.value.reason == "public_pki_freeze_failed"
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
 
 
 def test_terminal_handoff_adds_no_operator_lifecycle_command() -> None:
