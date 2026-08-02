@@ -862,12 +862,9 @@ def test_d2_coverage_measurement_chain_is_terminal_and_runtime_stays_hold() -> N
         in decision
     )
     assert "Phase A must remain closed until exact commands" not in decision
+    assert "At D2-P0 authoring time, Phase A therefore remained closed" in decision
     assert (
-        "At D2-P0 authoring time, Phase A therefore remained closed" in decision
-    )
-    assert (
-        "Phase A remains closed until a separately pinned command"
-        not in harness_readme
+        "Phase A remains closed until a separately pinned command" not in harness_readme
     )
     assert "At D2-P0 authoring time, Phase A remained closed" in harness_readme
     assert summary["independent_reviews"] == {
