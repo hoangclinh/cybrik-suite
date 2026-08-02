@@ -72,6 +72,9 @@ _TERMINAL_FILENAMES: Final = frozenset(
         PENDING_HANDOFF_FILENAME,
     }
 )
+_TERMINAL_FILENAMES_CASEFOLDED: Final = frozenset(
+    name.casefold() for name in _TERMINAL_FILENAMES
+)
 _HEX40: Final = re.compile(r"[0-9a-f]{40}")
 _HEX64: Final = re.compile(r"[0-9a-f]{64}")
 _IDENTIFIER: Final = re.compile(r"[a-z0-9][a-z0-9_.-]{0,127}")
@@ -436,7 +439,7 @@ def _relative_artifact(path: Path, evidence_root: Path) -> tuple[str, ...]:
     if (
         relative.parts in ((), (".",))
         or any(part in {"", ".", ".."} for part in relative.parts)
-        or relative.as_posix() in _TERMINAL_FILENAMES
+        or relative.as_posix().casefold() in _TERMINAL_FILENAMES_CASEFOLDED
     ):
         _fail("artifact_outside_evidence_root")
     if relative.parts[0].casefold() == _PUBLIC_PKI_DIRECTORY.casefold():
@@ -631,14 +634,17 @@ def _freeze_public_pki(
                 )
             except TerminalIntegrationError:
                 _fail("public_pki_freeze_failed")
+            write_failed = False
             try:
                 _write_all(descriptor, payload)
                 os.fchmod(descriptor, 0o600)
                 os.fsync(descriptor)
-            except OSError:
-                _fail("public_pki_freeze_failed")
+            except (OSError, TypeError, ValueError):
+                write_failed = True
             finally:
                 _descriptor_close(descriptor)
+            if write_failed:
+                _fail("public_pki_freeze_failed")
         durability_failed = False
         try:
             os.fsync(pki_descriptor)
@@ -683,14 +689,15 @@ def _refuse_existing_handoff(root_descriptor: int) -> None:
 def _acquire_prepare_lock(root_descriptor: int) -> None:
     """Serialize prepare calls on one evidence-root inode without a lock file."""
 
-    acquired = False
+    refusal: str | None = None
     try:
         fcntl.flock(root_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        acquired = True
+    except BlockingIOError:
+        refusal = "terminal_handoff_busy"
     except (OSError, TypeError, ValueError):
-        pass
-    if not acquired:
-        _fail("terminal_handoff_busy")
+        refusal = "terminal_lock_unavailable"
+    if refusal is not None:
+        _fail(refusal)
 
 
 def _secret_sweep(
@@ -1145,6 +1152,7 @@ def finalize_terminal_handoff(
     binding = _authorization_binding(authorization)
     root_descriptor = _open_evidence_root(binding.evidence_root)
     try:
+        _acquire_prepare_lock(root_descriptor)
         evidence_identity = _directory_identity(root_descriptor)
         pending = _load_pending_handoff(root_descriptor, binding, evidence_identity)
         marker_sha256 = _marker_digest(binding, consumed_marker, evidence_identity)
