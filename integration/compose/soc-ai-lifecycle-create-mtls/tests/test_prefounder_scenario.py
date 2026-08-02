@@ -9,6 +9,7 @@ mutation or network action is performed here.
 from __future__ import annotations
 
 import ast
+import hashlib
 import importlib.util
 import json
 import os
@@ -29,7 +30,7 @@ ARCHITECTURE_DOC = (
     / "evidence/02-architecture-and-acceptance.md"
 )
 ALLOWED_IMPORTS = frozenset(
-    {"__future__", "json", "os", "re", "sys", "pathlib", "typing"}
+    {"__future__", "hashlib", "json", "os", "re", "sys", "pathlib", "typing"}
 )
 FORBIDDEN_IMPORTS = frozenset(
     {
@@ -110,6 +111,7 @@ def _observations() -> dict[str, object]:
 def _roots(tmp_path: Path) -> tuple[Path, Path]:
     suite_root = tmp_path / "suite"
     suite_root.mkdir()
+    SCENARIO.BOUND_SUITE_ROOT = suite_root
     return suite_root, tmp_path / "scenario-report.json"
 
 
@@ -241,7 +243,9 @@ def test_frozen_output_vocabulary_is_exact() -> None:
         "report_json_must_be_outside_suite",
         "report_json_write_failed",
         "suite_root_invalid",
+        "suite_root_identity_mismatch",
         "tool_fabric_runtime_receipt_claim_unbacked",
+        "tool_fabric_runtime_receipt_digest_mismatch",
         "tool_fabric_runtime_receipt_not_admitted",
         "vocabulary_violation",
     )
@@ -359,6 +363,63 @@ def test_receipt_presence_claim_with_unadmitted_artifact_fails_closed(
         "tool_fabric_runtime_receipt_not_admitted"
     )
     assert not report_path.exists()
+
+
+def test_admitted_receipt_digest_must_match_exact_artifact_bytes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite_root, report_path = _roots(tmp_path)
+    receipt = suite_root / SCENARIO.TOOL_FABRIC_RECEIPT_REL
+    receipt.parent.mkdir(parents=True)
+    receipt.write_bytes(b"reviewed-receipt-bytes")
+    monkeypatch.setattr(
+        SCENARIO,
+        "ADMITTED_TOOL_FABRIC_RECEIPT_SHA256",
+        hashlib.sha256(b"different-receipt-bytes").hexdigest(),
+    )
+    observations = _observations()
+    observations["tool_fabric_runtime_receipt"] = {"claimed_present": True}
+    observations_path = _write_observations(tmp_path, observations)
+
+    code = _run(suite_root, observations_path, report_path)
+
+    assert code == 2
+    assert capsys.readouterr().err.strip() == (
+        "tool_fabric_runtime_receipt_digest_mismatch"
+    )
+    assert not report_path.exists()
+
+
+def test_matching_admitted_receipt_digest_is_reported_as_pinned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite_root, report_path = _roots(tmp_path)
+    receipt = suite_root / SCENARIO.TOOL_FABRIC_RECEIPT_REL
+    receipt.parent.mkdir(parents=True)
+    receipt_bytes = b"reviewed-receipt-bytes"
+    receipt.write_bytes(receipt_bytes)
+    monkeypatch.setattr(
+        SCENARIO,
+        "ADMITTED_TOOL_FABRIC_RECEIPT_SHA256",
+        hashlib.sha256(receipt_bytes).hexdigest(),
+    )
+    observations = _observations()
+    observations["tool_fabric_runtime_receipt"] = {"claimed_present": True}
+    observations_path = _write_observations(tmp_path, observations)
+
+    code = _run(suite_root, observations_path, report_path)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert code == 0
+    assert report["status"] == "READY"
+    assert report["tool_fabric_runtime_receipt"] == {
+        "admitted_digest_pinned": True,
+        "claimed_present": True,
+        "present_in_tree": True,
+    }
 
 
 def test_absence_claim_contradicted_by_the_tree_fails_closed(
@@ -718,6 +779,22 @@ def test_relative_paths_fail_closed(
 
     assert code == 2
     assert capsys.readouterr().err.strip() == "suite_root_invalid"
+
+
+def test_suite_root_must_be_the_checkout_containing_the_runner(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    foreign_root = tmp_path / "foreign-suite"
+    foreign_root.mkdir()
+    observations_path = _write_observations(tmp_path, _observations())
+    report_path = tmp_path / "report.json"
+    SCENARIO.BOUND_SUITE_ROOT = SUITE_ROOT
+
+    code = _run(foreign_root, observations_path, report_path)
+
+    assert code == 2
+    assert capsys.readouterr().err.strip() == "suite_root_identity_mismatch"
+    assert not report_path.exists()
 
 
 def test_report_inside_the_suite_root_fails_closed(
