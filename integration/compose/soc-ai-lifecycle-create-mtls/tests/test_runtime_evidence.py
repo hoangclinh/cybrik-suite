@@ -996,16 +996,23 @@ def test_valid_canonical_terminal_mismatch_is_rejected(
     )
     target_payload = payload_by_name[target_name]
     real_write = runtime_evidence.os.write
+    changed = False
 
     def change_valid_identifier(descriptor: int, payload: bytes) -> int:
+        nonlocal changed
         if payload == target_payload:
             payload = payload.replace(b"d2-runtime-r1", b"d2-runtime-r2", 1)
+            changed = True
         return real_write(descriptor, payload)
 
     monkeypatch.setattr(runtime_evidence.os, "write", change_valid_identifier)
     with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
         runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert changed is True
     assert caught.value.reason == "terminal_readback_failed"
+    assert "/" not in str(caught.value)
+    if target_name != runtime_evidence.SUMMARY_FILENAME:
+        assert not (evidence_root / runtime_evidence.SUMMARY_FILENAME).exists()
 
 
 def test_terminal_readback_rejects_byte_identical_inode_replacement(
@@ -1021,10 +1028,13 @@ def test_terminal_readback_rejects_byte_identical_inode_replacement(
         if name == runtime_evidence.RESULT_FILENAME:
             path = evidence_root / name
             prior_inode = path.stat().st_ino
+            preserved = evidence_root / ".preserved-result-inode"
+            os.link(path, preserved)
             path.unlink()
             path.write_bytes(payload)
             os.chmod(path, 0o600)
             assert path.stat().st_ino != prior_inode
+            preserved.unlink()
             replaced = True
         return committed
 
@@ -1133,6 +1143,66 @@ def test_committed_readback_close_failure_is_stable(
     finally:
         monkeypatch.setattr(runtime_evidence.os, "close", real_close)
         real_close(root_fd)
+
+
+def test_bound_artifact_close_failure_is_stable(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    artifact = candidate["pki_public"]["public_artifacts"][0]  # type: ignore[index]
+    root_fd = runtime_evidence._open_evidence_root(evidence_root)
+    real_close = runtime_evidence.os.close
+    failed = False
+
+    def fail_regular_file_close(descriptor: int) -> None:
+        nonlocal failed
+        if not failed and stat.S_ISREG(os.fstat(descriptor).st_mode):
+            failed = True
+            real_close(descriptor)
+            raise OSError("synthetic artifact close failure")
+        real_close(descriptor)
+
+    monkeypatch.setattr(runtime_evidence.os, "close", fail_regular_file_close)
+    try:
+        with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+            runtime_evidence._read_bound_artifact(
+                root_fd,
+                artifact,  # type: ignore[arg-type]
+                namespace="pki",
+            )
+        assert failed is True
+        assert caught.value.reason == "pki_public_artifact_unsafe"
+        assert "/" not in str(caught.value)
+    finally:
+        monkeypatch.setattr(runtime_evidence.os, "close", real_close)
+        real_close(root_fd)
+
+
+def test_evidence_root_close_failure_is_stable_after_terminal_write(
+    evidence_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candidate = _passing_candidate(evidence_root)
+    real_open_root = runtime_evidence._open_evidence_root
+    real_close = runtime_evidence.os.close
+    root_fd = -1
+
+    def record_root(path: Path) -> int:
+        nonlocal root_fd
+        root_fd = real_open_root(path)
+        return root_fd
+
+    def fail_root_close(descriptor: int) -> None:
+        if descriptor == root_fd:
+            real_close(descriptor)
+            raise OSError("synthetic evidence root close failure")
+        real_close(descriptor)
+
+    monkeypatch.setattr(runtime_evidence, "_open_evidence_root", record_root)
+    monkeypatch.setattr(runtime_evidence.os, "close", fail_root_close)
+    with pytest.raises(runtime_evidence.RuntimeEvidenceError) as caught:
+        runtime_evidence.persist_terminal_evidence(evidence_root, candidate)
+    assert caught.value.reason == "evidence_root_close_failed"
+    assert "/" not in str(caught.value)
 
 
 def test_partial_seal_poisoning_is_documented_as_non_retryable_preservation() -> None:
