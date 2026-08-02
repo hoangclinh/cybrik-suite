@@ -30,7 +30,17 @@ ARCHITECTURE_DOC = (
     / "evidence/02-architecture-and-acceptance.md"
 )
 ALLOWED_IMPORTS = frozenset(
-    {"__future__", "hashlib", "json", "os", "re", "sys", "pathlib", "typing"}
+    {
+        "__future__",
+        "hashlib",
+        "json",
+        "os",
+        "re",
+        "stat",
+        "sys",
+        "pathlib",
+        "typing",
+    }
 )
 FORBIDDEN_IMPORTS = frozenset(
     {
@@ -242,8 +252,8 @@ def test_frozen_output_vocabulary_is_exact() -> None:
         "report_json_exists",
         "report_json_must_be_outside_suite",
         "report_json_write_failed",
-        "suite_root_invalid",
         "suite_root_identity_mismatch",
+        "suite_root_invalid",
         "tool_fabric_runtime_receipt_claim_unbacked",
         "tool_fabric_runtime_receipt_digest_mismatch",
         "tool_fabric_runtime_receipt_not_admitted",
@@ -420,6 +430,37 @@ def test_matching_admitted_receipt_digest_is_reported_as_pinned(
         "claimed_present": True,
         "present_in_tree": True,
     }
+
+
+def test_receipt_digest_binding_handles_short_descriptor_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite_root, report_path = _roots(tmp_path)
+    receipt = suite_root / SCENARIO.TOOL_FABRIC_RECEIPT_REL
+    receipt.parent.mkdir(parents=True)
+    receipt_bytes = b"reviewed-receipt-bytes-read-in-small-chunks"
+    receipt.write_bytes(receipt_bytes)
+    monkeypatch.setattr(
+        SCENARIO,
+        "ADMITTED_TOOL_FABRIC_RECEIPT_SHA256",
+        hashlib.sha256(receipt_bytes).hexdigest(),
+    )
+    original_read = SCENARIO.os.read
+
+    def short_read(descriptor: int, size: int) -> bytes:
+        return original_read(descriptor, min(size, 3))
+
+    monkeypatch.setattr(SCENARIO.os, "read", short_read)
+    observations = _observations()
+    observations["tool_fabric_runtime_receipt"] = {"claimed_present": True}
+    observations_path = _write_observations(tmp_path, observations)
+
+    code = _run(suite_root, observations_path, report_path)
+
+    assert code == 0
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["status"] == "READY"
 
 
 def test_absence_claim_contradicted_by_the_tree_fails_closed(
