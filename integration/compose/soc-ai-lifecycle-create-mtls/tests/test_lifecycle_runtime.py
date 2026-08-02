@@ -188,6 +188,33 @@ def test_successful_runtime_attempt_freezes_file_backed_terminal_handoff_last() 
     assert body.rfind("_stop_process(", 0, prepare_index) > 0
 
 
+def test_terminal_postgresql_claims_come_from_exact_live_queries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queries: list[str] = []
+    answers = iter(("f|f|f", "0"))
+
+    def psql(_runtime: object, sql: str) -> str:
+        queries.append(sql)
+        return next(answers)
+
+    monkeypatch.setattr(harness.store, "_psql", psql)
+
+    assert harness._terminal_postgresql_posture(
+        object(), replay_row_count=1  # type: ignore[arg-type]
+    ) == {
+        "role_rolsuper": False,
+        "role_rolbypassrls": False,
+        "role_rolcreaterole": False,
+        "force_rls_table_count": harness.store.RLS_TABLE_COUNT,
+        "cross_tenant_row_count": 0,
+        "replay_row_count": 1,
+    }
+    assert "rolsuper, rolbypassrls, rolcreaterole" in queries[0]
+    assert "SET LOCAL ROLE cybrik_ai_api_app" in queries[1]
+    assert "ROLLBACK" in queries[1]
+
+
 def test_harness_has_no_dead_authorization_or_root_wrapper_symbols() -> None:
     source = _HARNESS.read_text(encoding="utf-8")
     for dead in (
