@@ -201,7 +201,8 @@ def test_terminal_postgresql_claims_come_from_exact_live_queries(
     monkeypatch.setattr(harness.store, "_psql", psql)
 
     assert harness._terminal_postgresql_posture(
-        object(), replay_row_count=1  # type: ignore[arg-type]
+        object(),
+        replay_row_count=1,  # type: ignore[arg-type]
     ) == {
         "role_rolsuper": False,
         "role_rolbypassrls": False,

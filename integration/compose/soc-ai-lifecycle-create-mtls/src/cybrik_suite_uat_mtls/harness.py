@@ -694,6 +694,45 @@ def _postgres_security_summary(evidence_root: Path) -> dict[str, object]:
     return expected
 
 
+def _terminal_postgresql_posture(
+    runtime: store.PostgresRuntime,
+    *,
+    replay_row_count: int,
+) -> dict[str, object]:
+    """Observe the exact terminal PostgreSQL fields while the DB is live."""
+
+    role = store._psql(
+        runtime,
+        "SELECT rolsuper, rolbypassrls, rolcreaterole FROM pg_roles "
+        "WHERE rolname = 'cybrik_ai_api_app';",
+    )
+    cross_tenant = store._psql(
+        runtime,
+        "BEGIN; "
+        "INSERT INTO ai_orchestration.delegation_replay "
+        "(tenant_id, jti_hash, expires_at) VALUES "
+        "('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', repeat('c', 64), 4102444800) "
+        "ON CONFLICT DO NOTHING; "
+        "SET LOCAL ROLE cybrik_ai_api_app; "
+        "WITH configured AS ("
+        "SELECT set_config('app.tenant_id', "
+        "'11111111-2222-4333-8444-555555555555', true)"
+        ") SELECT count(*) FROM ai_orchestration.delegation_replay, configured "
+        "WHERE tenant_id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'; "
+        "ROLLBACK;",
+    )
+    if role != "f|f|f" or cross_tenant != "0" or replay_row_count != 1:
+        raise RuntimeAuthorizationError("terminal PostgreSQL posture is inconsistent")
+    return {
+        "role_rolsuper": False,
+        "role_rolbypassrls": False,
+        "role_rolcreaterole": False,
+        "force_rls_table_count": store.RLS_TABLE_COUNT,
+        "cross_tenant_row_count": 0,
+        "replay_row_count": replay_row_count,
+    }
+
+
 def _run_case(
     case_id: str,
     root: Path,
@@ -979,6 +1018,7 @@ def _terminal_candidate(
     started_at: datetime,
     elapsed_ms: int,
     public_pki_paths: dict[str, Path],
+    postgresql: dict[str, object],
 ) -> dict[str, object]:
     if len(results) != 10 or len(case_durations_ms) != 10:
         raise RuntimeAuthorizationError("terminal case inventory is incomplete")
@@ -1040,14 +1080,7 @@ def _terminal_candidate(
             "ssl_hardened_options_preserved": summary["ssl_hardened_options_preserved"],
             "ssl_no_compression_verified": summary["ssl_no_compression_verified"],
         },
-        "postgresql": {
-            "role_rolsuper": False,
-            "role_rolbypassrls": False,
-            "role_rolcreaterole": False,
-            "force_rls_table_count": summary["postgres_force_rls_table_count"],
-            "cross_tenant_row_count": 0,
-            "replay_row_count": summary["postgres_replay_row_count"],
-        },
+        "postgresql": dict(postgresql),
         "timings": {
             "started_at": _utc_text(started_at),
             "finished_at": _utc_text(finished_at),
@@ -1130,6 +1163,9 @@ def run_runtime_attempt() -> dict[str, object]:
                     raise RuntimeAuthorizationError(
                         "N1 did not retain exactly one durable replay row"
                     )
+        terminal_postgresql = _terminal_postgresql_posture(
+            runtime, replay_row_count=postgres_replay_row_count
+        )
         store.stop()
         if not store.verify_absent():
             raise RuntimeAuthorizationError("N9 PostgreSQL outage was not established")
@@ -1182,6 +1218,7 @@ def run_runtime_attempt() -> dict[str, object]:
                 0, round((time.monotonic() - attempt_started_monotonic) * 1000)
             ),
             public_pki_paths=public_paths,
+            postgresql=terminal_postgresql,
         )
         runtime_evidence.validate_terminal_result(candidate)
         terminal_integration.prepare_terminal_handoff(
