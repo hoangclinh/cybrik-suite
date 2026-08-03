@@ -66,12 +66,16 @@
       "note": "The Fabric-owned in-process boundary and signed receipt lane passed bounded review and 638 tests; this is not runtime evidence."
     },
     {
-      "id": "runtime_endpoint_contract_accepted",
+      "id": "runtime_route_profile_implementation_authorized",
       "phase": "implementation",
-      "satisfied": false,
-      "evidence_state": "missing",
-      "evidence": [],
-      "note": "No accepted contract defines the Fabric runtime endpoint, path or operation."
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+        "cybrik-suite:contracts/compatibility/cybrik-suite-contract-packet.v1.manifest.json",
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json"
+      ],
+      "note": "The accepted W2-B createInvocation mapping notes authorize contract-first implementation and the C1 profile reuses that route byte-unchanged; this is not an operational endpoint or deployment authorization."
     },
     {
       "id": "key_lifecycle_trust_bundle_design_accepted",

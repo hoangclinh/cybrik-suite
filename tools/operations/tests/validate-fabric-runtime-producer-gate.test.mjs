@@ -35,7 +35,6 @@ test("committed packet derives HOLD without minting runtime evidence", () => {
     runtimeDisposition: "HOLD",
     runtimeAuthorized: false,
     blockerIds: [
-      "runtime_endpoint_contract_accepted",
       "key_lifecycle_trust_bundle_design_accepted",
       "durable_receipt_store_design_accepted",
       "product_runtime_producer_implemented_reviewed",
@@ -98,7 +97,7 @@ test("open conditions cannot carry pass-like evidence state", () => {
 test("condition phases cannot be reassigned to weaken implementation HOLD", () => {
   const candidate = copyPacket();
   const openImplementationCondition = candidate.conditions.find(
-    ({ id }) => id === "runtime_endpoint_contract_accepted",
+    ({ id }) => id === "key_lifecycle_trust_bundle_design_accepted",
   );
   openImplementationCondition.phase = "runtime";
 
@@ -106,6 +105,21 @@ test("condition phases cannot be reassigned to weaken implementation HOLD", () =
     () => validateFabricRuntimeProducerGate(candidate),
     /condition phase inventory/,
   );
+});
+
+test("accepted mapping notes authorize implementation without claiming an operational endpoint", () => {
+  const routeProfile = packet.conditions.find(
+    ({ id }) => id === "runtime_route_profile_implementation_authorized",
+  );
+
+  assert.equal(routeProfile.satisfied, true);
+  assert.equal(routeProfile.evidence_state, "verified");
+  assert.ok(
+    routeProfile.evidence.includes(
+      "cybrik-suite:contracts/openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+    ),
+  );
+  assert.match(routeProfile.note, /not an operational endpoint or deployment authorization/i);
 });
 
 test("declared dispositions must equal the derived gate result", () => {

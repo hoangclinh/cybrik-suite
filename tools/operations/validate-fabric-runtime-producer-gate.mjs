@@ -9,7 +9,7 @@ export const REQUIRED_CONDITION_IDS = Object.freeze([
   "transport_binding_accepted",
   "receipt_integrity_profile_accepted",
   "fabric_in_process_boundary_reviewed",
-  "runtime_endpoint_contract_accepted",
+  "runtime_route_profile_implementation_authorized",
   "key_lifecycle_trust_bundle_design_accepted",
   "durable_receipt_store_design_accepted",
   "product_runtime_producer_implemented_reviewed",
