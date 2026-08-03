@@ -18,7 +18,7 @@ _PRODUCT_PINS = {
         Path(
             "/Users/hoanglinh/Claude/Projects/cybrik-worktrees/w3-48/ai-d2-runtime-tuple-r1"
         ),
-        "51377267c6adbd7860270253cb212681001c7b1e",
+        "db2a18011072a521824d90783f0ccd4d120fa144",
     ),
     "tool_fabric": (
         Path(
