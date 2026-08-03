@@ -48,7 +48,7 @@ def _environment(
             "alert-state",
         )
     )
-    wheel = tmp_path / "b1.whl"
+    wheel = tmp_path / "anycorn-0.20.0+cybrik.1-py3-none-any.whl"
     python = tmp_path / "python"
     wheel.write_bytes(b"reviewed-wheel")
     python.write_bytes(b"reviewed-python")
@@ -227,6 +227,123 @@ def test_unknown_cybrik_uat_environment_name_fails_closed(tmp_path: Path) -> Non
             expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
             dependencies=dependencies,
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason"),
+    (
+        ("authorization_id", "master_underscore", "authorization_id_invalid"),
+        ("authorized_by", "CODEX_GOVERNOR", "authorized_signer_invalid"),
+    ),
+)
+def test_master_policy_values_are_rejected_before_observation(
+    tmp_path: Path, field: str, value: str, reason: str
+) -> None:
+    module = _implementation()
+    environment, repositories, _private_roots = _environment(tmp_path)
+    dependencies, calls = _dependencies(repositories)
+    arguments = {
+        "authorization_id": "master-uat-20260803-001",
+        "authorized_by": "FOUNDER",
+        "issued_at": datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
+        "expires_at": datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
+        "dependencies": dependencies,
+    }
+    arguments[field] = value
+
+    with pytest.raises(module.PreparationError, match=reason):
+        module.prepare_master_authorization(environment, **arguments)
+
+    assert calls["observe"] == 0
+
+
+@pytest.mark.parametrize(
+    ("target", "mode"),
+    (("wheel", 0o644), ("python", 0o600)),
+)
+def test_pinned_files_require_runtime_compatible_modes(
+    tmp_path: Path, target: str, mode: int
+) -> None:
+    module = _implementation()
+    environment, repositories, _private_roots = _environment(tmp_path)
+    Path(
+        environment[f"CYBRIK_UAT_{'B1_WHEEL' if target == 'wheel' else 'PYTHON'}"]
+    ).chmod(mode)
+    dependencies, calls = _dependencies(repositories)
+
+    with pytest.raises(module.PreparationError, match="pinned_file_invalid"):
+        module.prepare_master_authorization(
+            environment,
+            authorization_id="master-uat-20260803-001",
+            authorized_by="FOUNDER",
+            issued_at=datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
+            dependencies=dependencies,
+        )
+
+    assert calls["pinned"] == 0
+
+
+def test_b1_wheel_requires_exact_reviewed_filename(tmp_path: Path) -> None:
+    module = _implementation()
+    environment, repositories, _private_roots = _environment(tmp_path)
+    original = Path(environment["CYBRIK_UAT_B1_WHEEL"])
+    wrong = original.with_name("renamed-reviewed-bytes.whl")
+    original.rename(wrong)
+    environment["CYBRIK_UAT_B1_WHEEL"] = str(wrong)
+    dependencies, calls = _dependencies(repositories)
+
+    with pytest.raises(module.PreparationError, match="pinned_file_invalid"):
+        module.prepare_master_authorization(
+            environment,
+            authorization_id="master-uat-20260803-001",
+            authorized_by="FOUNDER",
+            issued_at=datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
+            dependencies=dependencies,
+        )
+
+    assert calls["pinned"] == 0
+
+
+def test_runtime_trust_preflight_binds_namespace_and_exact_pins(tmp_path: Path) -> None:
+    module = _implementation()
+    environment, repositories, _private_roots = _environment(tmp_path)
+    base, calls = _dependencies(repositories)
+    observed: list[tuple[object, ...]] = []
+
+    def validate_runtime_inputs(*arguments: object) -> str:
+        observed.append(arguments)
+        return "reviewed-test-namespace"
+
+    dependencies = module.PreparationDependencies(
+        helper_sha256=base.helper_sha256,
+        observe_exact_tuple=base.observe_exact_tuple,
+        pinned_file_sha256=base.pinned_file_sha256,
+        tracked_blob_aggregate=base.tracked_blob_aggregate,
+        validate_runtime_inputs=validate_runtime_inputs,
+    )
+
+    prepared = module.prepare_master_authorization(
+        environment,
+        authorization_id="master-uat-20260803-001",
+        authorized_by="FOUNDER",
+        issued_at=datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
+        expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
+        dependencies=dependencies,
+    )
+
+    assert len(observed) == 1
+    assert observed[0][0] is environment
+    assert observed[0][1] == repositories[0]
+    assert observed[0][2] == Path(environment["CYBRIK_UAT_B1_WHEEL"])
+    assert observed[0][4] == Path(environment["CYBRIK_UAT_PYTHON"])
+    assert observed[0][6] == "FOUNDER"
+    assert (
+        "reviewed-test-namespace"
+        in json.loads(prepared.receipt)["signing_argv_template"]
+    )
+    assert calls["observe"] == 2
 
 
 def test_dirty_repository_observation_fails_before_packet_emission(
