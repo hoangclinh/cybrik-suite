@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -56,6 +57,8 @@ _PRIVATE_ROOT_ENVIRONMENT: Final = (
 _ROLE_ORDER: Final = tuple(role for role, _name in _REPOSITORY_ENVIRONMENT)
 _HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 _HEX64 = re.compile(r"[0-9a-f]{64}\Z")
+_RUN_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,127}\Z")
+_NAMESPACE = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}\Z")
 _D2_PURPOSE_NAMES: Final = (
     re.compile(r"cybrik-uat-d2-runtime-[a-z0-9][a-z0-9._-]{0,63}\Z"),
     re.compile(r"cybrik-uat-d2-evidence-[a-z0-9][a-z0-9._-]{0,63}\Z"),
@@ -63,6 +66,8 @@ _D2_PURPOSE_NAMES: Final = (
 _TRACKED_BLOB_ALGORITHM: Final = "cybrik-uat-tracked-blob-sha256-lines/v1"
 _PREPARATION_SCHEMA: Final = "CYBRIK-INTEGRATED-UAT-PREPARATION-RECEIPT/v1"
 _SIGNING_NAMESPACE: Final = "cybrik-uat-soc-ai-fabric-v1"
+_B1_WHEEL_FILENAME: Final = "anycorn-0.20.0+cybrik.1-py3-none-any.whl"
+_MAX_PINNED_BYTES: Final = 64 * 1024 * 1024
 _GIT_ENV: Final = {
     "GIT_CONFIG_GLOBAL": "/dev/null",
     "GIT_CONFIG_NOSYSTEM": "1",
@@ -98,6 +103,9 @@ class PreparationDependencies:
     tracked_blob_aggregate: Callable[
         [Sequence[object], Mapping[str, Sequence[str]]], object
     ]
+    validate_runtime_inputs: (
+        Callable[[Mapping[str, str], Path, Path, str, Path, str, str], str] | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,19 +153,30 @@ def _canonical_directory(value: str, *, private: bool) -> Path:
     return path
 
 
-def _canonical_file(value: str) -> Path:
+def _canonical_file(value: str, *, kind: str) -> Path:
     path = Path(value)
     try:
         observed = os.lstat(path)
         resolved = path.resolve(strict=True)
     except OSError as exc:
         raise PreparationError("pinned_file_invalid") from exc
-    if (
+    mode = stat.S_IMODE(observed.st_mode)
+    metadata_invalid = (
+        (kind == "b1" and path.name != _B1_WHEEL_FILENAME)
+        or (kind == "b1" and observed.st_uid != os.geteuid())
+        or (kind == "b1" and mode != 0o600)
+        or (kind == "python" and observed.st_uid not in {0, os.geteuid()})
+        or (kind == "python" and mode not in {0o700, 0o755})
+        or (kind == "python" and bool(mode & 0o022))
+    )
+    if kind not in {"b1", "python"} or (
         not path.is_absolute()
         or resolved != path
         or not stat.S_ISREG(observed.st_mode)
         or observed.st_nlink != 1
         or observed.st_size < 1
+        or observed.st_size > _MAX_PINNED_BYTES
+        or metadata_invalid
     ):
         _fail("pinned_file_invalid")
     return path
@@ -243,7 +262,9 @@ def _sha256(value: object, reason: str) -> str:
     return value
 
 
-def _canonical_receipt(payload: bytes, authorization_id: str) -> bytes:
+def _canonical_receipt(
+    payload: bytes, authorization_id: str, signing_namespace: str
+) -> bytes:
     document = {
         "authorization_id": authorization_id,
         "payload_sha256": hashlib.sha256(payload).hexdigest(),
@@ -255,7 +276,7 @@ def _canonical_receipt(payload: bytes, authorization_id: str) -> bytes:
             "-f",
             "<PRIVATE_KEY_PATH>",
             "-n",
-            _SIGNING_NAMESPACE,
+            signing_namespace,
             "<AUTHORIZATION_PAYLOAD_PATH>",
         ],
         "status": "PREPARED_UNSIGNED",
@@ -283,6 +304,13 @@ def prepare_master_authorization(
     }
     if unknown:
         _fail("environment_unknown")
+    if (
+        not isinstance(authorization_id, str)
+        or _RUN_ID.fullmatch(authorization_id) is None
+    ):
+        _fail("authorization_id_invalid")
+    if authorized_by != "FOUNDER":
+        _fail("authorized_signer_invalid")
     expectations, private_roots = _validated_roots(environment)
     suite_root = expectations[0].root
     try:
@@ -319,8 +347,12 @@ def prepare_master_authorization(
             }
             for relative in admission.HELPER_SCRIPTS
         )
-        b1_wheel = _canonical_file(_required(environment, "CYBRIK_UAT_B1_WHEEL"))
-        python = _canonical_file(_required(environment, "CYBRIK_UAT_PYTHON"))
+        b1_wheel = _canonical_file(
+            _required(environment, "CYBRIK_UAT_B1_WHEEL"), kind="b1"
+        )
+        python = _canonical_file(
+            _required(environment, "CYBRIK_UAT_PYTHON"), kind="python"
+        )
         b1_sha256 = _sha256(
             selected.pinned_file_sha256(b1_wheel), "pinned_file_invalid"
         )
@@ -331,6 +363,27 @@ def prepare_master_authorization(
         raise
     except Exception as exc:
         raise PreparationError("binding_collection_failed") from exc
+    signing_namespace = _SIGNING_NAMESPACE
+    if selected.validate_runtime_inputs is not None:
+        try:
+            signing_namespace = selected.validate_runtime_inputs(
+                environment,
+                suite_root,
+                b1_wheel,
+                b1_sha256,
+                python,
+                python_sha256,
+                authorized_by,
+            )
+        except PreparationError:
+            raise
+        except Exception as exc:
+            raise PreparationError("runtime_inputs_invalid") from exc
+    if (
+        not isinstance(signing_namespace, str)
+        or _NAMESPACE.fullmatch(signing_namespace) is None
+    ):
+        _fail("runtime_inputs_invalid")
     try:
         second = _validated_observations(
             selected.observe_exact_tuple(expectations), expectations
@@ -387,7 +440,7 @@ def prepare_master_authorization(
     return PreparedAuthorization(
         bindings=bindings,
         payload=payload,
-        receipt=_canonical_receipt(payload, authorization_id),
+        receipt=_canonical_receipt(payload, authorization_id, signing_namespace),
         protected_roots=(*(item.root for item in expectations), *private_roots),
     )
 
@@ -438,11 +491,56 @@ def _observe_exact_tuple(
 
 def _default_dependencies(suite_root: Path) -> PreparationDependencies:
     selected = admission._default_dependencies(suite_root)
+    source_root = (
+        suite_root / "integration/compose/soc-ai-fabric-alert-context-mtls/src"
+    )
+    authority_wiring = importlib.import_module(
+        "cybrik_suite_uat_fabric.runtime_wiring_admission"
+    )
+    b1_runtime = importlib.import_module("cybrik_suite_uat_fabric.b1_runtime")
+    admission._module_origin(authority_wiring, source_root)
+    admission._module_origin(b1_runtime, source_root)
+
+    def validate_runtime_inputs(
+        _environment: Mapping[str, str],
+        observed_suite_root: Path,
+        b1_wheel: Path,
+        b1_sha256: str,
+        python: Path,
+        python_sha256: str,
+        authorized_by: str,
+    ) -> str:
+        try:
+            descriptor = authority_wiring._trust_descriptor(
+                observed_suite_root / authority_wiring.TRUST_DESCRIPTOR_RELATIVE,
+                observed_suite_root,
+            )
+            namespace = descriptor["namespace"]
+            valid = (
+                observed_suite_root == suite_root
+                and b1_wheel == Path(_required(_environment, "CYBRIK_UAT_B1_WHEEL"))
+                and b1_wheel.name == b1_runtime.B1_WHEEL_FILENAME
+                and b1_sha256 == b1_runtime.B1_WHEEL_SHA256
+                and python == Path(_required(_environment, "CYBRIK_UAT_PYTHON"))
+                and python_sha256 == descriptor["python_sha256"]
+                and authorized_by == descriptor["signer"] == "FOUNDER"
+                and namespace == authority_wiring.AUTHORIZATION_NAMESPACE
+                and descriptor["allowed_signers_sha256"]
+                and descriptor["key_fingerprint"]
+                and descriptor["key_type"] == "ssh-ed25519"
+            )
+        except (AttributeError, KeyError, TypeError) as exc:
+            raise PreparationError("runtime_inputs_invalid") from exc
+        if not valid:
+            _fail("runtime_inputs_invalid")
+        return namespace
+
     return PreparationDependencies(
         helper_sha256=selected.helper_sha256,
         observe_exact_tuple=_observe_exact_tuple,
         pinned_file_sha256=admission._pinned_file_sha256,
         tracked_blob_aggregate=selected.tracked_blob_aggregate,
+        validate_runtime_inputs=validate_runtime_inputs,
     )
 
 
