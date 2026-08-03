@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime
 from pathlib import Path
@@ -437,6 +438,69 @@ def test_default_runtime_trust_validator_rejects_allowed_signers_digest_drift(
             authority_wiring=wiring,
             b1_runtime=b1_runtime,
         )
+
+
+def test_default_git_observer_uses_exact_read_only_commands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _implementation()
+    roots = tuple(
+        _private_root(tmp_path / name) for name in ("suite", "soc", "ai", "fabric")
+    )
+    expectations = tuple(
+        module.RepositoryExpectation(role, root)
+        for role, root in zip(
+            ("suite", "soc", "cyber_ai", "tool_fabric"), roots, strict=True
+        )
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def run(command: tuple[str, ...], **options: object) -> object:
+        calls.append(command)
+        assert command[:3] == ("/usr/bin/git", "-C", str(Path(command[2])))
+        assert options["check"] is True
+        assert options["capture_output"] is True
+        assert options["timeout"] == 15
+        operation = command[3:]
+        if operation == ("rev-parse", "--show-toplevel"):
+            payload = f"{command[2]}\n".encode()
+        elif operation == ("rev-parse", "HEAD^{commit}"):
+            payload = ("a" * 40 + "\n").encode()
+        elif operation == ("rev-parse", "HEAD^{tree}"):
+            payload = ("b" * 40 + "\n").encode()
+        elif operation == ("status", "--porcelain=v1", "--untracked-files=all"):
+            payload = b""
+        else:
+            raise AssertionError(operation)
+        return SimpleNamespace(stdout=payload)
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+
+    observations = module._observe_exact_tuple(expectations)
+
+    assert tuple(item.role for item in observations) == (
+        "suite",
+        "soc",
+        "cyber_ai",
+        "tool_fabric",
+    )
+    assert all(item.clean for item in observations)
+    assert len(calls) == 16
+
+
+def test_default_git_observer_fails_closed_on_git_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _implementation()
+    root = _private_root(tmp_path / "suite")
+
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise subprocess.CalledProcessError(1, ("/usr/bin/git",))
+
+    monkeypatch.setattr(module.subprocess, "run", fail)
+
+    with pytest.raises(module.PreparationError, match="repository_observation_failed"):
+        module._observe_exact_tuple((module.RepositoryExpectation("suite", root),))
 
 
 def test_dirty_repository_observation_fails_before_packet_emission(
