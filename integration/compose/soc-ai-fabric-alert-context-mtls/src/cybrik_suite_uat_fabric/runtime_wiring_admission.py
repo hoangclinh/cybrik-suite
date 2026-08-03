@@ -261,7 +261,7 @@ def _trust_descriptor(path: Path, suite: Path) -> dict[str, str]:
             check=True,
             capture_output=True,
             timeout=10,
-            env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            env=admission._GIT_ENV,
         ).stdout
         if blob != payload:
             raise RuntimeAdmissionWiringError("trust_descriptor_not_tracked")
