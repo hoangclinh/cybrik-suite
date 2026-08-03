@@ -549,6 +549,22 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
     master_evidence = tmp_path / "master-evidence"
     master_evidence.mkdir(mode=0o700)
     identities = _tuple()
+    signed_repository_tuple = tuple(
+        (item.repository, item.commit, item.tree) for item in identities
+    )
+    signed_repository_tuple_sha256 = hashlib.sha256(
+        postgres_stage.canonical_receipt_bytes(
+            [
+                {
+                    "clean": True,
+                    "commit": commit,
+                    "repository": repository,
+                    "tree": tree,
+                }
+                for repository, commit, tree in signed_repository_tuple
+            ]
+        )
+    ).hexdigest()
     facts = runtime_auth.MasterReservationFacts(
         aggregate_sha256="a" * 64,
         authorization_sha256="b" * 64,
@@ -570,10 +586,8 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
                 "suite": suite_root,
             }
         ),
-        repository_tuple=tuple(
-            (item.repository, item.commit, item.tree) for item in identities
-        ),
-        repository_tuple_sha256="e" * 64,
+        repository_tuple=signed_repository_tuple,
+        repository_tuple_sha256=signed_repository_tuple_sha256,
         run_id="master-reserved",
     )
     for name in tuple(os.environ):
@@ -584,6 +598,7 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
     prepared = runtime_auth.prepare_master_stage_roots(binding)
 
     assert isinstance(binding, runtime_auth.ReservedRuntimeBinding)
+    assert binding.repository_tuple == facts.repository_tuple
     assert prepared.prepared_roots is not None
     assert prepared.runtime_root.is_dir()
     assert (prepared.runtime_root / "pki").is_dir()
@@ -614,6 +629,13 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
         lambda _root: True,
     )
     assert all(postgres_stage.harness._stage_absence_state(binding).values())
+
+    with pytest.raises(
+        runtime_auth.RuntimeAuthorizationFailure, match="master_reservation_invalid"
+    ):
+        runtime_auth.authorize_from_master_reservation(
+            replace(facts, repository_tuple_sha256="f" * 64)
+        )
 
 
 def _direct_stage_argv(context: SimpleNamespace, action: str) -> list[str]:

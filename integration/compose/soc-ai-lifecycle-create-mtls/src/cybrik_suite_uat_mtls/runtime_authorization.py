@@ -471,6 +471,7 @@ class ReservedRuntimeBinding:
     runtime_root: Path
     evidence_root: Path
     product_roots: Mapping[str, Path]
+    repository_tuple: tuple[tuple[str, str, str], ...]
     prepared_roots: PreparedRoots | None = None
 
 
@@ -2491,6 +2492,30 @@ def _master_repository_roots_digest(roots: Mapping[str, Path]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _master_repository_tuple_digest(
+    identities: tuple[tuple[str, str, str], ...],
+) -> str:
+    payload = (
+        json.dumps(
+            [
+                {
+                    "clean": True,
+                    "commit": commit,
+                    "repository": repository,
+                    "tree": tree,
+                }
+                for repository, commit, tree in identities
+            ],
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _master_external_roots_digest(roots: tuple[tuple[str, Path], ...]) -> str:
     payload = (
         json.dumps(
@@ -2612,6 +2637,32 @@ def authorize_from_master_reservation(
         != expected_repository_names
     ):
         _fail("master_repository_roots_mismatch")
+    if (
+        not isinstance(facts.repository_tuple, tuple)
+        or len(facts.repository_tuple) != len(expected_repository_names)
+        or any(
+            not isinstance(identity, tuple) or len(identity) != 3
+            for identity in facts.repository_tuple
+        )
+    ):
+        _fail("master_reservation_invalid")
+    for expected_name, identity in zip(
+        expected_repository_names, facts.repository_tuple, strict=True
+    ):
+        repository, commit, tree = identity
+        if (
+            repository != expected_name
+            or not isinstance(commit, str)
+            or _HEX40.fullmatch(commit) is None
+            or not isinstance(tree, str)
+            or _HEX40.fullmatch(tree) is None
+        ):
+            _fail("master_reservation_invalid")
+    if (
+        _master_repository_tuple_digest(facts.repository_tuple)
+        != facts.repository_tuple_sha256
+    ):
+        _fail("master_reservation_invalid")
     roots_by_name = dict(facts.repository_roots)
     suite_root = Path(__file__).resolve().parents[5]
     if roots_by_name["cybrik-suite"] != suite_root:
@@ -2690,6 +2741,7 @@ def authorize_from_master_reservation(
                 "tool_fabric": roots["tool_fabric"],
             }
         ),
+        repository_tuple=facts.repository_tuple,
         prepared_roots=_existing_master_prepared_roots(
             facts.authorization_sha256, runtime_root, evidence_root
         ),

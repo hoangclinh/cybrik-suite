@@ -1317,7 +1317,7 @@ def _git_clean(root: Path) -> bool:
 
 
 def _repository_tuple(
-    authorization: runtime_authorization.RuntimeAuthorization,
+    authorization: runtime_authorization.RuntimeBinding,
 ) -> dict[str, dict[str, str]]:
     roots = {
         "suite": authorization.suite_root,
@@ -1325,34 +1325,50 @@ def _repository_tuple(
         "ai": authorization.product_roots["cyber_ai"],
         "fabric": authorization.product_roots["tool_fabric"],
     }
-    expected_product_identities = {
-        "soc": (
-            runtime_authorization.PINNED_VALUES["SOC_COMMIT"],
-            runtime_authorization.PINNED_VALUES["SOC_TREE"],
-        ),
-        "ai": (
-            runtime_authorization.PINNED_VALUES["CYBER_AI_COMMIT"],
-            runtime_authorization.PINNED_VALUES["CYBER_AI_TREE"],
-        ),
-        "fabric": (
-            runtime_authorization.PINNED_VALUES["TOOL_FABRIC_COMMIT"],
-            runtime_authorization.PINNED_VALUES["TOOL_FABRIC_TREE"],
-        ),
-    }
+    if isinstance(authorization, runtime_authorization.ReservedRuntimeBinding):
+        signed_by_repository = {
+            repository: (commit, tree)
+            for repository, commit, tree in authorization.repository_tuple
+        }
+        expected_identities = {
+            "suite": signed_by_repository["cybrik-suite"],
+            "soc": signed_by_repository["cybrik-soc-command-center"],
+            "ai": signed_by_repository["cybrik-cyber-ai-platform"],
+            "fabric": signed_by_repository["cybrik-security-tool-fabric"],
+        }
+    else:
+        expected_identities = {
+            "soc": (
+                runtime_authorization.PINNED_VALUES["SOC_COMMIT"],
+                runtime_authorization.PINNED_VALUES["SOC_TREE"],
+            ),
+            "ai": (
+                runtime_authorization.PINNED_VALUES["CYBER_AI_COMMIT"],
+                runtime_authorization.PINNED_VALUES["CYBER_AI_TREE"],
+            ),
+            "fabric": (
+                runtime_authorization.PINNED_VALUES["TOOL_FABRIC_COMMIT"],
+                runtime_authorization.PINNED_VALUES["TOOL_FABRIC_TREE"],
+            ),
+        }
     result: dict[str, dict[str, str]] = {}
     for name, root in roots.items():
         commit = _git_value(root, "HEAD")
         tree = _git_value(root, "HEAD^{tree}")
-        if name == "suite" and commit != authorization.suite_head:
-            raise RuntimeAuthorizationError("terminal Suite tuple changed")
-        if name != "suite" and (commit, tree) != expected_product_identities[name]:
+        if name == "suite":
+            expected_suite = expected_identities.get("suite")
+            if commit != authorization.suite_head or (
+                expected_suite is not None and (commit, tree) != expected_suite
+            ):
+                raise RuntimeAuthorizationError("terminal Suite tuple changed")
+        elif (commit, tree) != expected_identities[name]:
             raise RuntimeAuthorizationError(f"terminal {name} repository tuple changed")
         result[name] = {"commit_sha": commit, "tree_sha": tree}
     return result
 
 
 def _stage_repository_tuple(
-    authorization: runtime_authorization.RuntimeAuthorization,
+    authorization: runtime_authorization.RuntimeBinding,
 ) -> dict[str, dict[str, object]]:
     """Re-observe the exact tuple plus worktree cleanliness for master UAT."""
 
@@ -1524,7 +1540,7 @@ def _utc_text(value: datetime) -> str:
 
 def _terminal_candidate(
     *,
-    authorization: runtime_authorization.RuntimeAuthorization,
+    authorization: runtime_authorization.RuntimeBinding,
     marker: dict[str, object],
     results: list[dict[str, object]],
     case_durations_ms: list[int],
@@ -1630,7 +1646,7 @@ def _terminal_candidate(
 
 def run_runtime_attempt(
     *,
-    _stage_authorization: runtime_authorization.RuntimeAuthorization | None = None,
+    _stage_authorization: runtime_authorization.RuntimeBinding | None = None,
     _stage_capability: object | None = None,
 ) -> dict[str, object]:
     """Execute D2 standalone, or through the private non-consuming stage seam."""

@@ -299,6 +299,121 @@ def test_terminal_tuple_rejects_product_identity_drift(
         harness._repository_tuple(authorization)  # type: ignore[arg-type]
 
 
+def test_terminal_tuple_uses_master_signed_repository_identities(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A master reservation must not fall back to legacy D2 product pins."""
+
+    roots = {
+        "suite": tmp_path / "suite",
+        "soc": tmp_path / "soc",
+        "ai": tmp_path / "ai",
+        "fabric": tmp_path / "fabric",
+    }
+    signed = (
+        ("cybrik-soc-command-center", "1" * 40, "2" * 40),
+        ("cybrik-cyber-ai-platform", "3" * 40, "4" * 40),
+        ("cybrik-security-tool-fabric", "5" * 40, "6" * 40),
+        ("cybrik-suite", "7" * 40, "8" * 40),
+    )
+    observed = {
+        roots["soc"]: ("1" * 40, "2" * 40),
+        roots["ai"]: ("3" * 40, "4" * 40),
+        roots["fabric"]: ("5" * 40, "6" * 40),
+        roots["suite"]: ("7" * 40, "8" * 40),
+    }
+
+    authorization = object.__new__(runtime_auth.ReservedRuntimeBinding)
+    object.__setattr__(authorization, "suite_root", roots["suite"])
+    object.__setattr__(authorization, "suite_head", "7" * 40)
+    object.__setattr__(
+        authorization,
+        "product_roots",
+        {
+            "soc": roots["soc"],
+            "cyber_ai": roots["ai"],
+            "tool_fabric": roots["fabric"],
+        },
+    )
+    object.__setattr__(authorization, "repository_tuple", signed)
+
+    monkeypatch.setattr(
+        harness,
+        "_git_value",
+        lambda root, revision: observed[root][0 if revision == "HEAD" else 1],
+    )
+
+    assert harness._repository_tuple(authorization) == {
+        "suite": {"commit_sha": "7" * 40, "tree_sha": "8" * 40},
+        "soc": {"commit_sha": "1" * 40, "tree_sha": "2" * 40},
+        "ai": {"commit_sha": "3" * 40, "tree_sha": "4" * 40},
+        "fabric": {"commit_sha": "5" * 40, "tree_sha": "6" * 40},
+    }
+
+
+@pytest.mark.parametrize(
+    ("role", "revision"),
+    (
+        ("suite", "HEAD"),
+        ("suite", "HEAD^{tree}"),
+        ("soc", "HEAD"),
+        ("soc", "HEAD^{tree}"),
+        ("ai", "HEAD"),
+        ("ai", "HEAD^{tree}"),
+        ("fabric", "HEAD"),
+        ("fabric", "HEAD^{tree}"),
+    ),
+)
+def test_terminal_tuple_rejects_master_signed_identity_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    role: str,
+    revision: str,
+) -> None:
+    roots = {
+        "suite": tmp_path / "suite",
+        "soc": tmp_path / "soc",
+        "ai": tmp_path / "ai",
+        "fabric": tmp_path / "fabric",
+    }
+    signed = (
+        ("cybrik-soc-command-center", "1" * 40, "2" * 40),
+        ("cybrik-cyber-ai-platform", "3" * 40, "4" * 40),
+        ("cybrik-security-tool-fabric", "5" * 40, "6" * 40),
+        ("cybrik-suite", "7" * 40, "8" * 40),
+    )
+    observed = {
+        roots["soc"]: ("1" * 40, "2" * 40),
+        roots["ai"]: ("3" * 40, "4" * 40),
+        roots["fabric"]: ("5" * 40, "6" * 40),
+        roots["suite"]: ("7" * 40, "8" * 40),
+    }
+    authorization = object.__new__(runtime_auth.ReservedRuntimeBinding)
+    object.__setattr__(authorization, "suite_root", roots["suite"])
+    object.__setattr__(authorization, "suite_head", "7" * 40)
+    object.__setattr__(
+        authorization,
+        "product_roots",
+        {
+            "soc": roots["soc"],
+            "cyber_ai": roots["ai"],
+            "tool_fabric": roots["fabric"],
+        },
+    )
+    object.__setattr__(authorization, "repository_tuple", signed)
+
+    def git_value(root: Path, requested_revision: str) -> str:
+        observed_role = next(name for name, path in roots.items() if path == root)
+        if observed_role == role and requested_revision == revision:
+            return "9" * 40
+        return observed[root][0 if requested_revision == "HEAD" else 1]
+
+    monkeypatch.setattr(harness, "_git_value", git_value)
+
+    with pytest.raises(harness.RuntimeAuthorizationError):
+        harness._repository_tuple(authorization)
+
+
 def test_server_environment_strips_ambient_ssl_key_log_destination(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
