@@ -14,6 +14,7 @@ from .models import (
     MasterAuthorization,
     TerminalSeal,
     canonical_json_bytes,
+    d2_control_path_fits,
 )
 
 CONSUMPTION_MARKER = ".cybrik-integrated-uat-consumed.json"
@@ -223,6 +224,9 @@ def preflight_paths(authorization: MasterAuthorization) -> None:
         _fail("external_root_invalid")
     if any(identity.st_nlink not in (1, 2) for identity in external_identities):
         _fail("external_root_invalid")
+    d2_runtime_root = canonical_external_roots[0]
+    if not d2_control_path_fits(d2_runtime_root):
+        _fail("postgres_control_path_too_long")
     marker = canonical / CONSUMPTION_MARKER
     seal = canonical / TERMINAL_SEAL
     pending_seal = canonical / PENDING_TERMINAL_SEAL

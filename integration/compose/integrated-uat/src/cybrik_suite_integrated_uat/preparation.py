@@ -20,6 +20,7 @@ from .models import (
     EXPECTED_EXTERNAL_CAPABILITIES,
     ExternalRootBinding,
     RepositoryRoot,
+    d2_control_path_fits,
     external_roots_digest,
     repository_roots_digest,
 )
@@ -108,6 +109,7 @@ class PreparationDependencies:
     validate_runtime_inputs: (
         Callable[[Mapping[str, str], Path, Path, str, Path, str, str], str] | None
     ) = None
+    validate_d2_control_path: Callable[[Path], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +266,11 @@ def _sha256(value: object, reason: str) -> str:
     return value
 
 
+def _validate_d2_control_path(runtime_root: Path) -> None:
+    if not d2_control_path_fits(runtime_root):
+        _fail("postgres_control_path_too_long")
+
+
 def _canonical_receipt(
     payload: bytes, authorization_id: str, signing_namespace: str
 ) -> bytes:
@@ -321,6 +328,13 @@ def prepare_master_authorization(
         raise
     except Exception as exc:
         raise PreparationError("dependencies_invalid") from exc
+    if selected.validate_d2_control_path is not None:
+        try:
+            selected.validate_d2_control_path(private_roots[1])
+        except PreparationError:
+            raise
+        except Exception as exc:
+            raise PreparationError("postgres_control_path_validation_failed") from exc
     try:
         first = _validated_observations(
             selected.observe_exact_tuple(expectations), expectations
@@ -591,6 +605,7 @@ def _default_dependencies(suite_root: Path) -> PreparationDependencies:
         pinned_file_sha256=admission._pinned_file_sha256,
         tracked_blob_aggregate=selected.tracked_blob_aggregate,
         validate_runtime_inputs=validate_runtime_inputs,
+        validate_d2_control_path=_validate_d2_control_path,
     )
 
 

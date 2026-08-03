@@ -5,7 +5,7 @@ import json
 import os
 import stat
 import subprocess
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -227,6 +227,42 @@ def test_unknown_cybrik_uat_environment_name_fails_closed(tmp_path: Path) -> Non
             issued_at=datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
             expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
             dependencies=dependencies,
+        )
+
+
+def test_preparation_rejects_unusable_d2_control_socket_path_before_observation(
+    tmp_path: Path,
+) -> None:
+    module = _implementation()
+    environment, repositories, private_roots = _environment(tmp_path)
+    dependencies, calls = _dependencies(repositories)
+
+    def reject_control_path(runtime_root: Path) -> None:
+        assert runtime_root == private_roots[1]
+        raise module.PreparationError("postgres_control_path_too_long")
+
+    dependencies = replace(dependencies, validate_d2_control_path=reject_control_path)
+
+    with pytest.raises(module.PreparationError, match="postgres_control_path_too_long"):
+        module.prepare_master_authorization(
+            environment,
+            authorization_id="master-uat-20260803-001",
+            authorized_by="FOUNDER",
+            issued_at=datetime(2026, 8, 3, 0, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 8, 3, 1, 0, tzinfo=UTC),
+            dependencies=dependencies,
+        )
+
+    assert calls["observe"] == 0
+
+
+def test_default_d2_control_path_predicate_rejects_the_overlong_boundary() -> None:
+    module = _implementation()
+    overlong_parent = Path("/") / ("x" * 63)
+
+    with pytest.raises(module.PreparationError, match="postgres_control_path_too_long"):
+        module._validate_d2_control_path(
+            overlong_parent / "cybrik-uat-d2-runtime-boundary"
         )
 
 

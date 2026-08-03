@@ -21,6 +21,20 @@ EXPECTED_EXTERNAL_CAPABILITIES = (
     "alert_context_evidence",
     "alert_context_state",
 )
+D2_CONTROL_ROOT_PREFIX = "cybrik-d2-ctl-"
+D2_CONTROL_AUTHORIZATION_PREFIX_LENGTH = 20
+D2_MAX_CONTROL_ENDPOINT_PATH_BYTES = 100
+
+
+def d2_control_path_fits(runtime_root: Path) -> bool:
+    """Mirror the D2 local control-endpoint layout before any runtime effect."""
+
+    endpoint_path = (
+        runtime_root.parent
+        / f"{D2_CONTROL_ROOT_PREFIX}{'0' * D2_CONTROL_AUTHORIZATION_PREFIX_LENGTH}"
+        / "s"
+    )
+    return len(str(endpoint_path).encode("utf-8")) <= D2_MAX_CONTROL_ENDPOINT_PATH_BYTES
 
 
 def canonical_json_bytes(document: object) -> bytes:

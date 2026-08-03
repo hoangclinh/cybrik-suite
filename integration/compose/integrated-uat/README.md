@@ -110,8 +110,14 @@ admission.
    capability roots listed above. The D2 directory leaf names must match
    `cybrik-uat-d2-runtime-<id>` and `cybrik-uat-d2-evidence-<id>`. Create a
    seventh, separate, empty, current-UID, mode-`0700` private output directory
-   for the unsigned payload and preparation receipt. The two output files must
-   not already exist.
+   for the unsigned payload and preparation receipt. Keep the D2 roots under a
+   compact parent path: the derived local control endpoint
+   `<d2-parent>/cybrik-d2-ctl-<20-hex>/s` must be at most 100 UTF-8 bytes. Both
+   packet preparation and runtime preflight reject an overlong endpoint before
+   authorization can be consumed. Equivalently, `<d2-parent>` must be no more
+   than 63 UTF-8 bytes; the runtime directory leaf itself is not part of this
+   derived endpoint. Use a compact, non-temporary absolute parent such as
+   `/Users/<user>/.cyu/r5`. The two output files must not already exist.
 3. From `integration/compose/integrated-uat`, export exactly the preparation
    environment below, replacing every absolute example path with the frozen
    local path. Do not add unreviewed `CYBRIK_UAT_*` variables.

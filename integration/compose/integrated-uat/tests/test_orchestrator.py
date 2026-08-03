@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import tempfile
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from conftest import register_short_d2_root
 
 from cybrik_suite_integrated_uat import (
     CONSUMPTION_MARKER,
@@ -24,9 +27,12 @@ from cybrik_suite_integrated_uat import (
     storage,
 )
 from cybrik_suite_integrated_uat.models import (
+    D2_CONTROL_ROOT_PREFIX,
+    D2_MAX_CONTROL_ENDPOINT_PATH_BYTES,
     EXPECTED_EXTERNAL_CAPABILITIES,
     ExternalRootBinding,
     RepositoryRoot,
+    d2_control_path_fits,
     external_roots_digest,
     repository_roots_digest,
 )
@@ -36,6 +42,15 @@ AUTHORIZATION_DIGEST = "b" * 64
 GRANT_DIGEST = "c" * 64
 D2_DIGEST = "d" * 64
 ALERT_DIGEST = "e" * 64
+
+
+def _short_d2_runtime_root(tmp_path: Path) -> Path:
+    parent = Path(tempfile.gettempdir()).resolve(strict=True)
+    suffix = hashlib.sha256(str(tmp_path).encode()).hexdigest()[:16]
+    root = parent / f"cybrik-uat-d2-runtime-{suffix}"
+    root.mkdir(mode=0o700)
+    register_short_d2_root(root)
+    return root
 
 
 def repositories(*, clean: bool = True) -> tuple[RepositoryIdentity, ...]:
@@ -62,14 +77,20 @@ def authorization(tmp_path: Path) -> MasterAuthorization:
     )
     for repository_root in repository_roots:
         repository_root.root.mkdir(parents=True)
-    external_roots = tuple(
+    external_roots = (
         ExternalRootBinding(
-            capability=capability,
-            root=tmp_path / "external" / capability,
-        )
-        for capability in EXPECTED_EXTERNAL_CAPABILITIES
+            capability="postgres_d2_runtime",
+            root=_short_d2_runtime_root(tmp_path),
+        ),
+        *tuple(
+            ExternalRootBinding(
+                capability=capability,
+                root=tmp_path / "external" / capability,
+            )
+            for capability in EXPECTED_EXTERNAL_CAPABILITIES[1:]
+        ),
     )
-    for external_root in external_roots:
+    for external_root in external_roots[1:]:
         external_root.root.mkdir(parents=True, mode=0o700)
     identities = repositories()
     return MasterAuthorization(
@@ -262,6 +283,58 @@ def test_success_consumes_once_orders_stages_and_emits_one_combined_seal(
         (CONSUMPTION_MARKER, TERMINAL_SEAL)
     )
     assert json.loads(seal_path.read_text(encoding="utf-8")) == seal.to_dict()
+
+
+def test_preflight_rejects_overlong_d2_control_socket_before_consumption(
+    tmp_path: Path,
+) -> None:
+    auth = authorization(tmp_path)
+    long_parent = tmp_path / ("x" * 90)
+    long_parent.mkdir()
+    long_runtime = long_parent / "cybrik-uat-d2-runtime-overlong"
+    long_runtime.mkdir(mode=0o700)
+    external_roots = (
+        ExternalRootBinding("postgres_d2_runtime", long_runtime),
+        *auth.external_roots[1:],
+    )
+    auth = replace(
+        auth,
+        external_roots=external_roots,
+        external_roots_sha256=external_roots_digest(external_roots),
+    )
+
+    events: list[str] = []
+    with pytest.raises(OrchestrationFailure, match="postgres_control_path_too_long"):
+        orchestrator(auth, events).run(auth)
+
+    assert events == []
+    assert not (auth.evidence_root / CONSUMPTION_MARKER).exists()
+    assert not (auth.evidence_root / TERMINAL_SEAL).exists()
+
+
+def test_master_control_path_mirror_matches_the_d2_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    d2_source = Path(__file__).parents[2] / "soc-ai-lifecycle-create-mtls" / "src"
+    monkeypatch.syspath_prepend(str(d2_source))
+    from cybrik_suite_uat_mtls import process_control
+
+    assert D2_CONTROL_ROOT_PREFIX == process_control._CONTROL_ROOT_PREFIX
+    assert (
+        D2_MAX_CONTROL_ENDPOINT_PATH_BYTES == process_control.MAX_UNIX_SOCKET_PATH_BYTES
+    )
+    authorization_sha256 = "a" * 64
+    for parent_length in range(60, 66):
+        parent = Path("/") / ("x" * (parent_length - 1))
+        runtime_root = parent / "cybrik-uat-d2-runtime-boundary"
+        try:
+            process_control.derive_control_paths(runtime_root, authorization_sha256)
+        except process_control.ProcessControlError as exc:
+            assert exc.reason == "control_socket_path_too_long"
+            d2_accepts = False
+        else:
+            d2_accepts = True
+        assert d2_control_path_fits(runtime_root) is d2_accepts
 
 
 def test_marker_is_bound_and_exists_before_the_first_stage_effect(
