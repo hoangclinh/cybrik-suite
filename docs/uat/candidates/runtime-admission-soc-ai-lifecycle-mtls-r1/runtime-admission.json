@@ -12,7 +12,7 @@
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-      "evidence_sha256": "b467e44fa359c9c1b858cfacd9be19b0b5ba02736798fe942f1b4976bd6a1fe2"
+      "evidence_sha256": "84d8266bb3c6de1cca312ae4b9cca0a12247313b9483ca495450a2bab7724dc6"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -366,11 +366,11 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md",
-      "sha256": "b467e44fa359c9c1b858cfacd9be19b0b5ba02736798fe942f1b4976bd6a1fe2"
+      "sha256": "84d8266bb3c6de1cca312ae4b9cca0a12247313b9483ca495450a2bab7724dc6"
       },
       {
         "path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md",
-      "sha256": "8979520b0ac3283dab2fb91b71108e046c43b22f8d160d1e46afeec0db174ed8"
+      "sha256": "465dd3955c92f1eec543964c9da7663203c3b1f9f84b8c722bfbe73e245c5be7"
       }
     ],
     "limitations": [

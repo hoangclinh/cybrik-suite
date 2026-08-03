@@ -36,6 +36,7 @@ _RUNTIME_SOURCE_FILES = (
     "client.py",
     "harness.py",
     "pki.py",
+    "postgres_stage.py",
     "process_control.py",
     "process_supervisor.py",
     "runtime_authorization.py",

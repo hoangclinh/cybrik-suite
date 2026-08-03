@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
@@ -96,6 +96,7 @@ RUNTIME_CODE_PATHS: Final = tuple(
             f"{_PACKAGE}/harness.py",
             f"{_PACKAGE}/pki.py",
             f"{_PACKAGE}/policy.py",
+            f"{_PACKAGE}/postgres_stage.py",
             f"{_PACKAGE}/procedure.py",
             f"{_PACKAGE}/process_control.py",
             f"{_PACKAGE}/process_supervisor.py",
@@ -109,6 +110,14 @@ RUNTIME_CODE_PATHS: Final = tuple(
             (
                 "integration/compose/soc-ai-lifecycle-create-mtls/tests/"
                 "test_lifecycle_runtime.py"
+            ),
+            (
+                "integration/compose/soc-ai-lifecycle-create-mtls/tests/"
+                "test_postgres_stage.py"
+            ),
+            (
+                "integration/compose/soc-ai-lifecycle-create-mtls/scripts/"
+                "integrated_uat_stage.py"
             ),
             "tests/e2e/run-soc-ai-lifecycle-create-mtls-uat.sh",
         )
@@ -424,6 +433,48 @@ class RuntimeAuthorization:
     product_roots: Mapping[str, Path]
     coverage: CoverageAdmission | None = None
     prepared_roots: PreparedRoots | None = None
+
+
+@dataclass(frozen=True)
+class MasterReservationFacts:
+    """Master-bound facts sufficient to construct a non-consuming D2 stage."""
+
+    aggregate_sha256: str
+    authorization_sha256: str
+    external_roots: tuple[tuple[str, Path], ...]
+    external_roots_sha256: str
+    exact_head_grant_sha256: str
+    master_evidence_root: Path
+    marker_sha256: str
+    postgres_evidence_root: Path
+    postgres_runtime_root: Path
+    repository_roots: tuple[tuple[str, Path], ...]
+    repository_roots_sha256: str
+    repository_tuple: tuple[tuple[str, str, str], ...]
+    repository_tuple_sha256: str
+    run_id: str
+
+
+@dataclass(frozen=True)
+class ReservedRuntimeBinding:
+    """D2 resource binding derived from an already-consumed master authority."""
+
+    authorization_id: str
+    suite_root: Path
+    suite_head: str
+    suite_admission_base: str
+    aggregate_sha256: str
+    authorization_sha256: str
+    exact_head_grant_sha256: str
+    external_roots_sha256: str
+    repository_roots_sha256: str
+    runtime_root: Path
+    evidence_root: Path
+    product_roots: Mapping[str, Path]
+    prepared_roots: PreparedRoots | None = None
+
+
+RuntimeBinding = RuntimeAuthorization | ReservedRuntimeBinding
 
 
 def _fail(reason: str) -> Never:
@@ -2415,6 +2466,296 @@ def authorize_from_environment() -> RuntimeAuthorization:
     authorized = validate_authorization(fields, observed)
     resolve_import_source_roots(authorized)
     return authorized
+
+
+def _master_repository_roots_digest(roots: Mapping[str, Path]) -> str:
+    ordered = (
+        ("cybrik-soc-command-center", roots["soc"]),
+        ("cybrik-cyber-ai-platform", roots["cyber_ai"]),
+        ("cybrik-security-tool-fabric", roots["tool_fabric"]),
+        ("cybrik-suite", roots["suite"]),
+    )
+    payload = (
+        json.dumps(
+            [
+                {"repository": repository, "root": str(root)}
+                for repository, root in ordered
+            ],
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _master_external_roots_digest(roots: tuple[tuple[str, Path], ...]) -> str:
+    payload = (
+        json.dumps(
+            [
+                {"capability": capability, "root": str(root)}
+                for capability, root in roots
+            ],
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _master_root_binding(role: str, path: Path) -> RootBinding:
+    try:
+        metadata = path.lstat()
+        resolved = path.resolve(strict=True)
+    except OSError:
+        _fail("master_stage_root_invalid")
+    if (
+        resolved != path
+        or not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+        or metadata.st_uid != os.geteuid()
+    ):
+        _fail("master_stage_root_invalid")
+    return RootBinding(
+        role=role,
+        path=path,
+        identity=DirectoryIdentity(
+            mode=PREPARED_ROOT_MODE,
+            st_dev=metadata.st_dev,
+            st_ino=metadata.st_ino,
+            uid=metadata.st_uid,
+        ),
+        inventory=PREPARED_ROOT_INITIAL_INVENTORY[role],
+    )
+
+
+def _existing_master_prepared_roots(
+    authorization_sha256: str, runtime_root: Path, evidence_root: Path
+) -> PreparedRoots | None:
+    pki_root = runtime_root / PREPARED_PKI_LEAF
+    existence = tuple(
+        path.exists() or path.is_symlink()
+        for path in (evidence_root, pki_root, runtime_root)
+    )
+    evidence_exists, pki_exists, runtime_exists = existence
+    if evidence_exists and runtime_exists and not pki_exists:
+        return None
+    if not all(existence):
+        _fail("master_stage_root_invalid")
+    bindings = {
+        "evidence": _master_root_binding("evidence", evidence_root),
+        "pki": _master_root_binding("pki", pki_root),
+        "runtime": _master_root_binding("runtime", runtime_root),
+    }
+    receipt_payload = {
+        "authorization_sha256": authorization_sha256,
+        "roots": {
+            role: {
+                "path": str(binding.path),
+                "st_dev": binding.identity.st_dev,
+                "st_ino": binding.identity.st_ino,
+                "uid": binding.identity.uid,
+            }
+            for role, binding in bindings.items()
+        },
+        "schema": "cybrik.integrated-uat.postgres-roots.v1",
+    }
+    receipt_sha256 = hashlib.sha256(_canonical_json(receipt_payload)).hexdigest()
+    return PreparedRoots(receipt_sha256=receipt_sha256, **bindings)
+
+
+def authorize_from_master_reservation(
+    facts: MasterReservationFacts,
+) -> ReservedRuntimeBinding:
+    """Map one consumed master reservation into D2 authority without a child grant."""
+
+    if not isinstance(facts, MasterReservationFacts):
+        _fail("master_reservation_invalid")
+    text_fields = (
+        facts.aggregate_sha256,
+        facts.authorization_sha256,
+        facts.external_roots_sha256,
+        facts.exact_head_grant_sha256,
+        facts.marker_sha256,
+        facts.repository_roots_sha256,
+        facts.repository_tuple_sha256,
+    )
+    if any(_HEX64.fullmatch(value) is None for value in text_fields):
+        _fail("master_reservation_invalid")
+    expected_external_capabilities = (
+        "postgres_d2_runtime",
+        "postgres_d2_evidence",
+        "alert_context_runtime",
+        "alert_context_evidence",
+        "alert_context_state",
+    )
+    if (
+        tuple(capability for capability, _root in facts.external_roots)
+        != expected_external_capabilities
+        or _master_external_roots_digest(facts.external_roots)
+        != facts.external_roots_sha256
+    ):
+        _fail("master_stage_root_mismatch")
+    expected_repository_names = (
+        "cybrik-soc-command-center",
+        "cybrik-cyber-ai-platform",
+        "cybrik-security-tool-fabric",
+        "cybrik-suite",
+    )
+    if (
+        tuple(name for name, _root in facts.repository_roots)
+        != expected_repository_names
+    ):
+        _fail("master_repository_roots_mismatch")
+    roots_by_name = dict(facts.repository_roots)
+    suite_root = Path(__file__).resolve().parents[5]
+    if roots_by_name["cybrik-suite"] != suite_root:
+        _fail("master_repository_roots_mismatch")
+    roots = {
+        "suite": suite_root,
+        "soc": roots_by_name["cybrik-soc-command-center"],
+        "cyber_ai": roots_by_name["cybrik-cyber-ai-platform"],
+        "tool_fabric": roots_by_name["cybrik-security-tool-fabric"],
+    }
+    for root in roots.values():
+        try:
+            if root.resolve(strict=True) != root or not root.is_dir():
+                _fail("master_repository_roots_mismatch")
+        except OSError:
+            _fail("master_repository_roots_mismatch")
+    if _master_repository_roots_digest(roots) != facts.repository_roots_sha256:
+        _fail("master_repository_roots_mismatch")
+    runtime_root = facts.postgres_runtime_root
+    evidence_root = facts.postgres_evidence_root
+    try:
+        runtime_parent = runtime_root.parent.resolve(strict=True)
+        evidence_parent = evidence_root.parent.resolve(strict=True)
+    except OSError:
+        _fail("master_stage_root_mismatch")
+    if (
+        not runtime_root.is_absolute()
+        or not evidence_root.is_absolute()
+        or runtime_parent / runtime_root.name != runtime_root
+        or evidence_parent / evidence_root.name != evidence_root
+        or runtime_root == Path(runtime_root.anchor)
+        or evidence_root == Path(evidence_root.anchor)
+        or _ROOT_NAMES["RUNTIME_ROOT"].fullmatch(runtime_root.name) is None
+        or _ROOT_NAMES["EVIDENCE_ROOT"].fullmatch(evidence_root.name) is None
+    ):
+        _fail("master_stage_root_mismatch")
+    repository_roots = tuple(roots.values())
+    if (
+        _overlap(runtime_root, evidence_root)
+        or _overlap(runtime_root, facts.master_evidence_root)
+        or _overlap(evidence_root, facts.master_evidence_root)
+        or any(
+            _overlap(external, repository)
+            for external in (runtime_root, evidence_root, facts.master_evidence_root)
+            for repository in repository_roots
+        )
+    ):
+        _fail("master_stage_root_overlap")
+    tuple_by_name = {
+        repository: (commit, tree)
+        for repository, commit, tree in facts.repository_tuple
+    }
+    if set(tuple_by_name) != {
+        "cybrik-soc-command-center",
+        "cybrik-cyber-ai-platform",
+        "cybrik-security-tool-fabric",
+        "cybrik-suite",
+    }:
+        _fail("master_reservation_invalid")
+    return ReservedRuntimeBinding(
+        authorization_id=facts.run_id,
+        suite_root=suite_root,
+        suite_head=tuple_by_name["cybrik-suite"][0],
+        suite_admission_base=tuple_by_name["cybrik-suite"][0],
+        aggregate_sha256=facts.aggregate_sha256,
+        authorization_sha256=facts.authorization_sha256,
+        exact_head_grant_sha256=facts.exact_head_grant_sha256,
+        external_roots_sha256=facts.external_roots_sha256,
+        repository_roots_sha256=facts.repository_roots_sha256,
+        runtime_root=runtime_root,
+        evidence_root=evidence_root,
+        product_roots=MappingProxyType(
+            {
+                "soc": roots["soc"],
+                "cyber_ai": roots["cyber_ai"],
+                "tool_fabric": roots["tool_fabric"],
+            }
+        ),
+        prepared_roots=_existing_master_prepared_roots(
+            facts.authorization_sha256, runtime_root, evidence_root
+        ),
+    )
+
+
+def prepare_master_stage_roots(
+    authorization: ReservedRuntimeBinding,
+) -> ReservedRuntimeBinding:
+    """Bind pre-created master roots and create only their nested PKI directory."""
+
+    if not isinstance(authorization, ReservedRuntimeBinding):
+        _fail("master_stage_authorization_invalid")
+    if authorization.prepared_roots is not None:
+        verify_prepared_runtime_roots(authorization)
+        return authorization
+    runtime_root = authorization.runtime_root
+    evidence_root = authorization.evidence_root
+    pki_root = runtime_root / PREPARED_PKI_LEAF
+    try:
+        evidence_binding = _master_root_binding("evidence", evidence_root)
+        runtime_binding = _master_root_binding("runtime", runtime_root)
+        if any(evidence_root.iterdir()) or any(runtime_root.iterdir()):
+            _fail("master_stage_root_not_empty")
+    except OSError:
+        _fail("master_stage_root_invalid")
+    try:
+        os.mkdir(pki_root, 0o700)
+        for path in (pki_root, runtime_root):
+            descriptor = os.open(
+                path,
+                os.O_RDONLY
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    except OSError:
+        try:
+            pki_root.rmdir()
+        except OSError:
+            pass
+        _fail("master_stage_root_preparation_failed")
+    pki_binding = _master_root_binding("pki", pki_root)
+    receipt_payload = {
+        "authorization_sha256": authorization.authorization_sha256,
+        "external_roots_sha256": authorization.external_roots_sha256,
+        "roots": {
+            role: str(binding.path)
+            for role, binding in (
+                ("evidence", evidence_binding),
+                ("pki", pki_binding),
+                ("runtime", runtime_binding),
+            )
+        },
+        "schema": "cybrik.integrated-uat.postgres-roots.v1",
+    }
+    prepared = PreparedRoots(
+        receipt_sha256=hashlib.sha256(_canonical_json(receipt_payload)).hexdigest(),
+        evidence=evidence_binding,
+        pki=pki_binding,
+        runtime=runtime_binding,
+    )
+    return replace(authorization, prepared_roots=prepared)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

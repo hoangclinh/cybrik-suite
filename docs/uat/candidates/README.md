@@ -40,14 +40,18 @@ Rules:
 - Current series status: `runtime-admission-soc-ai-lifecycle-mtls` is a distinct objective
   (`cybrik.suite.golden-workflow` / `golden-uat-v1`) and is `HOLD` at attempt `1` of `2`, with
   `not_run` status, `execution_authorized` `false` and zero executed, passed and failed checks. No
-  separate-process mTLS harness exists and all ten required runtime tests remain authored/not run.
-  `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN` pins the isolated B1 dependency preflight: wheel
+  admitted runtime result exists yet. A Suite-owned SOC→AI→Fabric harness now exists and static
+  verification is green (Alert harness `292 passed, 1 warning`; integrated master `120 passed` on
+  `2026-08-03`), but no exact-head authorization,
+  listener startup, PostgreSQL runtime or runtime-result artifact has executed. The current state
+  is `D2_HARNESS_PRESENT_RUNTIME_UNEXECUTED`. The carried-forward dependency substate remains
+  `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`. `D1` pins the isolated B1 dependency preflight: wheel
   `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`, patch
   `1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e`, dedicated lock
   `e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`, and no-socket probe
   `91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45`. The raw Anycorn High
-  remains open and B1 stays `in_triage` pending D2 runtime proof. The two loopback binds remain
-  proposals; no listener is opened. The candidate pins `runtime-admission-ai-pg-r3` only as
+  remains open and B1 stays `in_triage` pending D2 runtime proof. The bounded loopback binds remain
+  proposals; no listener is opened by the current record. The candidate pins `runtime-admission-ai-pg-r3` only as
   a non-authorizing `historical_prerequisite`, which grants no execution authority and does not
   reopen the terminal R1/R2/R3 results.
 - Any recovery must preserve every prior result. A later, genuinely distinct objective does so

@@ -1,10 +1,12 @@
 # Runtime Admission SOC→AI Lifecycle mTLS R1 — HOLD Status
 
-Status: `D1 ARTIFACT COMPLETE — RUNTIME NOT EXECUTED`
+Status: `D2 HARNESS PRESENT — RUNTIME NOT EXECUTED`
 
-Recorded at `2026-08-01T13:16:35Z`.
+Recorded at `2026-08-03T12:48:48Z`.
 
-Live state: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
+Live state: `D2_HARNESS_PRESENT_RUNTIME_UNEXECUTED`.
+
+Carried-forward D1 dependency substate: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
 
 ## 1. Identity
 
@@ -45,18 +47,20 @@ authorize this runtime candidate and does not change its zero-count `not_run` st
 
 Two independent reasons, either of which alone is sufficient:
 
-1. **No harness exists.** The separate-process, real-TLS-socket harness described in
-   `02-architecture-and-acceptance.md` is a design only. Nothing in the pinned tuple opens a bound
-   ASGI TLS server, and no negative test in the required set has been written or run.
+1. **The candidate still has no admitted runtime result.** A Suite-owned three-service harness now
+   exists and static verification is green, but no exact-head authorization artifact has been
+   issued for it, no real listener or PostgreSQL runtime has been started, and the required
+   runtime N1–N10 evidence remains unexecuted for this candidate.
 2. **The raw upstream HIGH remains open and B1 mitigation is not runtime-proven.** Anycorn — the
    prospective ASGI server for the AI-side HTTPS/mTLS listener — has no release that contains the
    upstream fix preserving hardened SSL options. D1 proves an internal patch only in an isolated
    no-socket probe; D2 must provide the real listener/TLS-extension evidence. Details in §4.
 
 The committed candidate is unauthorized for the two reasons above. Under §7, a future exact-bit
-preflight update may authorize one bounded `not_run` attempt after the harness is authored while
-the Anycorn High remains truthfully open; the empirical probe from that run is what can close A1.
-That authorization is permission to obtain evidence, not a claim that runtime evidence exists.
+preflight update may authorize one bounded `not_run` attempt after the current harness, tuple and
+procedures are re-pinned while the Anycorn High remains truthfully open; the empirical probe from
+that run is what can close A1. That authorization is permission to obtain evidence, not a claim
+that runtime evidence exists.
 
 ## 4. Blocking upstream finding — Anycorn (HIGH, prospective exercised transport dependency)
 
@@ -89,7 +93,7 @@ ASGI TLS-extension evidence.
 
 ## 4.1 D1 exact dependency evidence
 
-- State: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
+- State: `D2_HARNESS_PRESENT_RUNTIME_UNEXECUTED`.
 - B1 wheel SHA-256: `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`.
 - Patch SHA-256: `1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e`.
 - Dedicated `uv.lock` SHA-256: `e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`.
@@ -97,6 +101,9 @@ ASGI TLS-extension evidence.
 - SBOM SHA-256: `7702ea5d3a63d9cbd4fbf00e1aeeee51efe0df3fe3a8d979669bd441e82752dd`.
 - VEX SHA-256: `51bc8e75eec3584607bd67640a77ea4d27b4442efc896d92dbb5cd3ed5442512`.
 - Runtime: `not_run`; `execution_authorized=false`; checks `0 / 0 / 0`; disposition `HOLD`.
+- Static harness verification at the current branch tip: Alert harness `292 passed, 1 warning` and
+  integrated master `120 passed` on `2026-08-03`. These are non-runtime tests; they do not change
+  the candidate's zero-count `not_run` record.
 
 Official sources:
 
@@ -109,7 +116,9 @@ Official sources:
 
 | Prospective bind | Purpose |
 |---|---|
+| `127.0.0.1:58442` | SOC-side HTTPS/mTLS ASGI listener for the prospective separate-process harness |
 | `127.0.0.1:58443` | AI-side HTTPS/mTLS ASGI listener for the prospective separate-process harness |
+| `127.0.0.1:58444` | Tool Fabric HTTPS/mTLS ASGI listener for the prospective separate-process harness |
 | `127.0.0.1:55432` | PostgreSQL durable-replay backing store for the prospective harness |
 
 Mode is `local_only`. **No listener is opened by this packet.** Both binds are proposals recorded
@@ -147,8 +156,8 @@ exactly one bounded attempt while its status is still `not_run`. Before that upd
 following preflight evidence must exist at one re-pinned four-repository tuple:
 
 1. the exact dependency artifact, lock, patch, SBOM, VEX and supply-chain review remain complete;
-2. the separate-process harness and all N1–N10 tests are authored and independently reviewed but
-   have not been executed;
+2. the current separate-process harness, its source aggregate and all N1–N10 tests are authored
+   and independently reviewed but have not been executed;
 3. start, stop, reset, seed and rollback procedures, synthetic-only data policy, loopback-only
    exposure and production exclusions are exact and reviewable;
 4. all rendered required checks are refreshed and green; and

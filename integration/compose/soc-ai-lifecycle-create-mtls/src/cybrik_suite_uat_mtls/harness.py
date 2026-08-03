@@ -20,6 +20,7 @@ import subprocess
 import sys
 import sysconfig
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -67,6 +68,7 @@ _CONTROL_READY_ATTEMPTS: Final = 80
 _CONTROL_RELEASE_ATTEMPTS: Final = 80
 _PGREP_EXECUTABLE: Final = "/usr/bin/pgrep"
 _PROCESS_OBSERVATION_TIMEOUT_SECONDS: Final = 5
+_STAGE_EXECUTION_CAPABILITY: Final = object()
 _AI_PROCESS_PATTERNS: Final = (
     r"(^|[[:space:]])cybrik_suite_uat_mtls[.]server([[:space:]]|$)",
     r"(^|[[:space:]])cybrik_suite_uat_mtls[.]process_supervisor([[:space:]]|$)",
@@ -374,6 +376,17 @@ def _postgres_runtime(root: Path) -> store.PostgresRuntime:
     )
 
 
+def _bound_postgres_runtime(
+    authorization: runtime_authorization.RuntimeBinding,
+) -> store.PostgresRuntime:
+    if isinstance(authorization, runtime_authorization.ReservedRuntimeBinding):
+        return store.PostgresRuntime(
+            password=_password(authorization.runtime_root),
+            ai_repository=authorization.product_roots["cyber_ai"],
+        )
+    return _postgres_runtime(authorization.runtime_root)
+
+
 def _control_binding(
     authorization: runtime_authorization.RuntimeAuthorization,
 ) -> process_control.ControlBinding:
@@ -485,6 +498,7 @@ def _start_supervisor(
         authorization.runtime_root,
         authorization.evidence_root,
         strip_tls=False,
+        authorization=authorization,
     )
     environment[process_supervisor.SERVER_ARGV_ENV] = json.dumps(
         _isolated_module_argv(authorization, "cybrik_suite_uat_mtls.server"),
@@ -758,9 +772,13 @@ def _cleanup_ready_bootstrap(
     _verify_prepared_runtime_roots(authorization)
 
 
-def start() -> None:
-    authorization = assert_runtime_authorized()
-    assert_product_api_compatibility(authorization)
+def _start_runtime(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    on_supervisor_ready: Callable[[], None],
+) -> None:
+    """Start the bounded runtime, optionally consuming legacy child authority."""
+
     root = authorization.runtime_root
     control_root = _control_paths(authorization).root
     if control_root.exists() or control_root.is_symlink():
@@ -780,11 +798,11 @@ def start() -> None:
             binding=_control_binding(authorization),
             random_bytes=secrets.token_bytes,
         )
-        store.start(_postgres_runtime(root))
+        store.start(_bound_postgres_runtime(authorization))
         store_started = True
         _start_supervisor(authorization, control_store, material)
         supervisor_ready = True
-        runtime_authorization.consume_once(authorization)
+        on_supervisor_ready()
     except BaseException as primary:
         try:
             if supervisor_ready:
@@ -814,11 +832,41 @@ def start() -> None:
         raise
 
 
-def seed() -> None:
+def start() -> None:
+    """Legacy standalone start; preserves child one-shot consumption."""
+
     authorization = assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
-    runtime_authorization.verify_consumed(authorization)
+
+    def consume_child_authorization() -> None:
+        runtime_authorization.consume_once(authorization)
+
+    _start_runtime(authorization, on_supervisor_ready=consume_child_authorization)
+
+
+def _stage_start(authorization: runtime_authorization.RuntimeAuthorization) -> None:
+    """Start under a validated master reservation without child consumption."""
+
+    assert_product_api_compatibility(authorization)
+    _start_runtime(authorization, on_supervisor_ready=lambda: None)
+
+
+def _seed_runtime(authorization: runtime_authorization.RuntimeAuthorization) -> None:
     signed = _signed_pki_root(authorization)
+    product_roots = getattr(authorization, "product_roots", None)
+    repositories = (
+        (
+            product_roots["soc"],
+            product_roots["cyber_ai"],
+            product_roots["tool_fabric"],
+        )
+        if product_roots is not None
+        else (
+            _absolute_env(_SOC_REPO_ENV, must_exist=True),
+            _absolute_env(_AI_REPO_ENV, must_exist=True),
+            _absolute_env(_FABRIC_REPO_ENV, must_exist=True),
+        )
+    )
     # The PKI root is prepared, signed and already admitted: seeding opens the
     # exact pinned inode and never creates one or infers a fresh identity.
     with pki.authorized_pki_root(
@@ -832,23 +880,42 @@ def seed() -> None:
             authorized_root,
             repository_roots=(
                 _repo_root(),
-                _absolute_env(_SOC_REPO_ENV, must_exist=True),
-                _absolute_env(_AI_REPO_ENV, must_exist=True),
-                _absolute_env(_FABRIC_REPO_ENV, must_exist=True),
+                *repositories,
             ),
             jwt_kid="soc-lifecycle-d2-ephemeral",
         )
+
+
+def seed() -> None:
+    authorization = assert_runtime_authorized()
+    assert_product_api_compatibility(authorization)
+    runtime_authorization.verify_consumed(authorization)
+    _seed_runtime(authorization)
+
+
+def _stage_seed(authorization: runtime_authorization.RuntimeAuthorization) -> None:
+    assert_product_api_compatibility(authorization)
+    _seed_runtime(authorization)
+
+
+def _reset_runtime(authorization: runtime_authorization.RuntimeAuthorization) -> None:
+    runtime = _bound_postgres_runtime(authorization)
+    store.migrate(runtime)
+    posture = evidence.validate_evidence(store.audit_security_posture(runtime))
+    destination = authorization.evidence_root / _POSTGRES_SECURITY_EVIDENCE
+    _write_atomic_evidence(destination, posture)
 
 
 def reset() -> None:
     authorization = assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
-    runtime = _postgres_runtime(authorization.runtime_root)
-    store.migrate(runtime)
-    posture = evidence.validate_evidence(store.audit_security_posture(runtime))
-    destination = authorization.evidence_root / _POSTGRES_SECURITY_EVIDENCE
-    _write_atomic_evidence(destination, posture)
+    _reset_runtime(authorization)
+
+
+def _stage_reset(authorization: runtime_authorization.RuntimeAuthorization) -> None:
+    assert_product_api_compatibility(authorization)
+    _reset_runtime(authorization)
 
 
 def stop() -> None:
@@ -942,9 +1009,17 @@ def rollback() -> None:
 
 
 def _server_environment(
-    root: Path, evidence_root: Path, *, strip_tls: bool
+    root: Path,
+    evidence_root: Path,
+    *,
+    strip_tls: bool,
+    authorization: runtime_authorization.RuntimeBinding | None = None,
 ) -> dict[str, str]:
-    runtime = _postgres_runtime(root)
+    runtime = (
+        _bound_postgres_runtime(authorization)
+        if authorization is not None
+        else _postgres_runtime(root)
+    )
     environment = dict(os.environ)
     environment.pop("SSLKEYLOGFILE", None)
     environment.update(
@@ -1204,6 +1279,43 @@ def _git_value(root: Path, revision: str) -> str:
     return value
 
 
+def _git_clean(root: Path) -> bool:
+    """Observe tracked and non-ignored untracked drift without exposing paths."""
+
+    try:
+        completed = subprocess.run(
+            (
+                "git",
+                "-C",
+                str(root),
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--ignored=no",
+                "--ignore-submodules=none",
+            ),
+            check=False,
+            capture_output=True,
+            env={
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_OPTIONAL_LOCKS": "0",
+                "LC_ALL": "C",
+                "PATH": "/usr/bin:/bin",
+            },
+            text=True,
+            timeout=30,
+            shell=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeAuthorizationError(
+            "stage repository cleanliness is unavailable"
+        ) from exc
+    if completed.returncode != 0 or completed.stderr:
+        raise RuntimeAuthorizationError("stage repository cleanliness is unavailable")
+    return completed.stdout == ""
+
+
 def _repository_tuple(
     authorization: runtime_authorization.RuntimeAuthorization,
 ) -> dict[str, dict[str, str]]:
@@ -1237,6 +1349,26 @@ def _repository_tuple(
             raise RuntimeAuthorizationError(f"terminal {name} repository tuple changed")
         result[name] = {"commit_sha": commit, "tree_sha": tree}
     return result
+
+
+def _stage_repository_tuple(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> dict[str, dict[str, object]]:
+    """Re-observe the exact tuple plus worktree cleanliness for master UAT."""
+
+    observed: dict[str, dict[str, object]] = {
+        role: dict(identity)
+        for role, identity in _repository_tuple(authorization).items()
+    }
+    roots = {
+        "suite": authorization.suite_root,
+        "soc": authorization.product_roots["soc"],
+        "ai": authorization.product_roots["cyber_ai"],
+        "fabric": authorization.product_roots["tool_fabric"],
+    }
+    for role, root in roots.items():
+        observed[role]["clean"] = _git_clean(root)
+    return observed
 
 
 def _public_pki_paths(root: Path) -> dict[str, Path]:
@@ -1496,12 +1628,31 @@ def _terminal_candidate(
     }
 
 
-def run_runtime_attempt() -> dict[str, object]:
-    """Execute the authorized RED→GREEN sequence exactly once."""
+def run_runtime_attempt(
+    *,
+    _stage_authorization: runtime_authorization.RuntimeAuthorization | None = None,
+    _stage_capability: object | None = None,
+) -> dict[str, object]:
+    """Execute D2 standalone, or through the private non-consuming stage seam."""
 
-    authorization = assert_runtime_authorized()
+    stage_mode = _stage_capability is _STAGE_EXECUTION_CAPABILITY and isinstance(
+        _stage_authorization,
+        (
+            runtime_authorization.RuntimeAuthorization,
+            runtime_authorization.ReservedRuntimeBinding,
+        ),
+    )
+    if (_stage_authorization is None) != (_stage_capability is None):
+        raise RuntimeAuthorizationError("D2 stage capability is invalid")
+    if _stage_authorization is not None and not stage_mode:
+        raise RuntimeAuthorizationError("D2 stage capability is invalid")
+    authorization = _stage_authorization if stage_mode else assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
-    consumed_marker = runtime_authorization.verify_consumed(authorization)
+    if stage_mode:
+        consumed_marker = None
+    else:
+        consumed_marker = runtime_authorization.verify_consumed(authorization)
+
     root = authorization.runtime_root
     evidence_root = authorization.evidence_root
     attempt_started_at = datetime.now(UTC)
@@ -1537,7 +1688,7 @@ def run_runtime_attempt() -> dict[str, object]:
         )
         server_started = True
         _wait_ai_listener(root)
-        runtime = _postgres_runtime(root)
+        runtime = _bound_postgres_runtime(authorization)
         postgres_replay_row_count = 0
         for case_id in ("N1", "N2", "N3", "N4", "N5", "N6", "N7"):
             results.append(execute_case(case_id))
@@ -1587,6 +1738,10 @@ def run_runtime_attempt() -> dict[str, object]:
         validated_summary = evidence.validate_evidence(summary)
         if not isinstance(validated_summary, dict):
             raise RuntimeAuthorizationError("terminal runtime summary is invalid")
+        if stage_mode:
+            return validated_summary
+        if consumed_marker is None:
+            raise RuntimeAuthorizationError("consumed marker is required for terminal")
         inventory = _runtime_secret_inventory(root)
         _write_terminal_bindings(authorization, inventory)
         public_paths = _public_pki_paths(root)
@@ -1623,6 +1778,17 @@ def run_runtime_attempt() -> dict[str, object]:
             inventory.clear()
 
 
+def _stage_run_runtime_attempt(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> dict[str, object]:
+    """Execute D2 without child consumption or child terminal preparation."""
+
+    return run_runtime_attempt(
+        _stage_authorization=authorization,
+        _stage_capability=_STAGE_EXECUTION_CAPABILITY,
+    )
+
+
 def _wait_liveness_released(
     control_store: process_control.ControlStore,
     material: process_control.ControlMaterial,
@@ -1636,14 +1802,35 @@ def _wait_liveness_released(
 
 def _destroy_runtime_root(
     authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    preserve_root: bool = False,
 ) -> None:
     root = authorization.runtime_root
     if root.is_symlink():
         raise RuntimeAuthorizationError("refusing a symlinked runtime teardown root")
     if not root.exists():
         return
+    if preserve_root and not (root / runtime_authorization.PREPARED_PKI_LEAF).exists():
+        try:
+            if not any(root.iterdir()):
+                return
+        except OSError as exc:
+            raise RuntimeAuthorizationError(
+                "runtime root contains unverified material"
+            ) from exc
     pki.destroy_ephemeral_pki(_signed_pki_material(authorization))
     (root / _PASSWORD_FILE).unlink(missing_ok=True)
+    if preserve_root:
+        try:
+            if any(root.iterdir()):
+                raise RuntimeAuthorizationError(
+                    "runtime root contains unverified material"
+                )
+        except OSError as exc:
+            raise RuntimeAuthorizationError(
+                "runtime root contains unverified material"
+            ) from exc
+        return
     try:
         root.rmdir()
     except OSError as exc:
@@ -1652,30 +1839,36 @@ def _destroy_runtime_root(
         ) from exc
 
 
-def teardown(
-    authorization: runtime_authorization.RuntimeAuthorization | None = None,
+def _teardown_runtime(
+    admitted: runtime_authorization.RuntimeAuthorization,
+    *,
+    bind_legacy_environment: bool,
+    preserve_runtime_root: bool,
 ) -> None:
-    """Reap through stable authority before any destructive cleanup."""
-
-    admitted = assert_runtime_authorized() if authorization is None else authorization
-    environment_root, environment_evidence = _bounded_external_roots(
-        repositories_must_exist=False
-    )
-    admitted_root = getattr(admitted, "runtime_root", environment_root)
-    admitted_evidence = getattr(admitted, "evidence_root", environment_evidence)
-    if environment_root != admitted_root:
-        raise RuntimeAuthorizationError(
-            "authorized runtime root does not match the bounded environment root"
+    if bind_legacy_environment:
+        environment_root, environment_evidence = _bounded_external_roots(
+            repositories_must_exist=False
         )
-    if environment_evidence != admitted_evidence:
-        raise RuntimeAuthorizationError(
-            "authorized evidence root does not match the bounded environment root"
-        )
+        admitted_root = getattr(admitted, "runtime_root", environment_root)
+        admitted_evidence = getattr(admitted, "evidence_root", environment_evidence)
+        if environment_root != admitted_root:
+            raise RuntimeAuthorizationError(
+                "authorized runtime root does not match the bounded environment root"
+            )
+        if environment_evidence != admitted_evidence:
+            raise RuntimeAuthorizationError(
+                "authorized evidence root does not match the bounded environment root"
+            )
+    else:
+        admitted_root = admitted.runtime_root
     root = admitted_root
     control_root = _control_paths(admitted).root
     if root.is_symlink() or control_root.is_symlink():
         raise RuntimeAuthorizationError("refusing a symlinked runtime teardown root")
     if not root.exists() and not control_root.exists():
+        return
+    if preserve_runtime_root and not control_root.exists():
+        _destroy_runtime_root(admitted, preserve_root=True)
         return
     control_store, material, client = _load_control(admitted)
 
@@ -1697,13 +1890,42 @@ def teardown(
                 control_store, material
             ),
             stop_store=store.stop,
-            destroy_runtime=lambda: _destroy_runtime_root(admitted),
+            destroy_runtime=(
+                (lambda: _destroy_runtime_root(admitted, preserve_root=True))
+                if preserve_runtime_root
+                else (lambda: _destroy_runtime_root(admitted))
+            ),
             remove_control_root=lambda: control_store.remove_control_root(material),
         )
     except process_control.ProcessControlError as exc:
         raise RuntimeAuthorizationError(
             f"stable process-control teardown is refused: {exc.reason}"
         ) from exc
+
+
+def teardown(
+    authorization: runtime_authorization.RuntimeAuthorization | None = None,
+) -> None:
+    """Reap standalone D2 through its legacy environment authority."""
+
+    admitted = assert_runtime_authorized() if authorization is None else authorization
+    _teardown_runtime(
+        admitted,
+        bind_legacy_environment=True,
+        preserve_runtime_root=False,
+    )
+
+
+def _stage_teardown(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> None:
+    """Reap only roots carried directly by the master stage capability."""
+
+    _teardown_runtime(
+        authorization,
+        bind_legacy_environment=False,
+        preserve_runtime_root=True,
+    )
 
 
 def _listener_absent(port: int) -> bool:
@@ -1754,12 +1976,13 @@ def _process_absence_state() -> dict[str, bool]:
     }
 
 
-def _live_absence_state() -> dict[str, bool]:
-    """Observe each bounded resource separately after teardown."""
-
-    root, _ = _bounded_external_roots(repositories_must_exist=False)
+def _absence_state_for(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    preserve_runtime_root: bool,
+) -> dict[str, bool]:
+    root = authorization.runtime_root
     material = _pki_material(root)
-    authorization = assert_runtime_authorized()
     process_absence = _process_absence_state()
     control_absent = process_control.control_root_absent(
         _control_paths(authorization).root
@@ -1769,11 +1992,33 @@ def _live_absence_state() -> dict[str, bool]:
         "postgres_container_absent": not store.container_exists(),
         "ai_listener_absent": _listener_absent(58443),
         "postgres_listener_absent": _listener_absent(store.POSTGRES_PORT),
-        "runtime_root_absent": not root.exists() and not root.is_symlink(),
+        "runtime_root_absent": (
+            root.is_dir() and not root.is_symlink() and not any(root.iterdir())
+            if preserve_runtime_root
+            else not root.exists() and not root.is_symlink()
+        ),
         "pki_absent": pki.verify_absent(material),
         "control_root_absent": control_absent,
     }
     return {"completed": all(observed.values()), **observed}
+
+
+def _live_absence_state() -> dict[str, bool]:
+    """Observe each legacy environment-bound resource after teardown."""
+
+    root, _ = _bounded_external_roots(repositories_must_exist=False)
+    authorization = assert_runtime_authorized()
+    if root != authorization.runtime_root:
+        raise RuntimeAuthorizationError("authorized runtime root changed")
+    return _absence_state_for(authorization, preserve_runtime_root=False)
+
+
+def _stage_absence_state(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> dict[str, bool]:
+    """Observe only resources bound by the direct master stage capability."""
+
+    return _absence_state_for(authorization, preserve_runtime_root=True)
 
 
 def verify_absent() -> bool:

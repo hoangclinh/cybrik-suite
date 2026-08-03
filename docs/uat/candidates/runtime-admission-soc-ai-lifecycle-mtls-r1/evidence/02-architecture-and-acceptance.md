@@ -1,15 +1,18 @@
 # Runtime Admission SOC→AI Lifecycle mTLS R1 — Architecture and Acceptance
 
-Status: `D1 ARTIFACT COMPLETE — RUNTIME NOT EXECUTED`
+Status: `D2 HARNESS PRESENT — RUNTIME NOT EXECUTED`
 
-Recorded at `2026-08-01T13:16:35Z`.
+Recorded at `2026-08-03T12:48:48Z`.
 
-Live state: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
+Live state: `D2_HARNESS_PRESENT_RUNTIME_UNEXECUTED`.
 
-This document describes what a *true* SOC→AI lifecycle mTLS runtime-admission candidate would have
-to be. D1 has built and offline-installed only the isolated internal B1 dependency artifact; the
-separate-process harness, listener, PostgreSQL path and N1–N10 runtime tests remain authored/not run.
-This document authorizes nothing. Any UAT claim is additionally bound by
+Carried-forward D1 dependency substate: `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
+
+This document describes what the current SOC→AI→Fabric mTLS runtime-admission candidate contains
+and what still blocks execution. D1 built and offline-installed the isolated internal B1 dependency
+artifact; D2 has now added a Suite-owned three-service harness and static verification, while the
+listener, PostgreSQL runtime and admitted N1–N10 execution remain unrun. This document authorizes
+nothing. Any UAT claim is additionally bound by
 `cybrik-suite:docs/uat/UAT-GATE-STANDARD.md`; this document grants no UAT pass, demo, POC, RC or
 release claim.
 
@@ -30,7 +33,7 @@ release claim.
 
 ### 2.1 Suite
 
-`D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN` records the bounded dependency preflight:
+`D2_HARNESS_PRESENT_RUNTIME_UNEXECUTED` carries forward the bounded dependency preflight:
 
 - B1 wheel SHA-256: `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`.
 - Patch SHA-256: `1090569a745fc8cf9aa543505fc6616ebc724e6a16864ecb122cf4888954394e`.
@@ -51,6 +54,21 @@ A golden SOSIM harness exists for the SOC→AI lifecycle create path:
 socket, no TLS handshake, no certificate chain, no separate process boundary and no durable store.
 It is useful as a contract-shape and sequencing check, and it is not evidence for any of the
 acceptance criteria in §4.
+
+A separate Suite-owned three-service UAT harness now also exists at:
+
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/README.md`
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/admission.py`
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/runner.py`
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/soc_service_app.py`
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/ai_app.py`
+- `cybrik-suite:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/fabric_app.py`
+
+Current static verification result: Alert harness `292 passed, 1 warning` and integrated master
+`120 passed` on `2026-08-03`.
+
+This is still not runtime evidence. No listener, PostgreSQL process, external one-shot
+authorization or exact attempt result has been produced.
 
 ### 2.2 SOC (`cybrik-soc-command-center`)
 
@@ -79,11 +97,15 @@ but nothing terminates a real TLS connection.
 
 ### 2.4 Tool Fabric (`cybrik-security-tool-fabric`)
 
-Pinned for **suite tuple and governance completeness only**. The create-only SOC→AI path does not
-technically exercise Tool Fabric. Its required checks are recorded because the admission record
-requires every repository in the tuple to carry green required checks, not because the harness
-touches it. `control-plane` and `detect` are deliberately **not** recorded as required; the
-non-required `executor` job is recorded as skipped.
+The current harness statically exercises the pinned Fabric runtime producer surface through a
+Suite-owned composition that imports the real route, journal, receipt reader and invocation
+service without modifying Fabric's default application. This proves the read-only alert-context
+vertical can be wired at source level across all three products.
+
+It does **not** yet prove a separate Fabric process, a bound loopback mTLS listener, or runtime
+receipt evidence under an admitted exact-head attempt. Hosted required checks are still recorded
+for tuple governance, and `control-plane` / `detect` remain deliberately non-required in the
+candidate's hosted-check model.
 
 ---
 
@@ -92,10 +114,11 @@ non-required `executor` job is recorded as skipped.
 A candidate that could honestly be considered for runtime admission must satisfy **all** of the
 following. Each is a property of the harness, not an aspiration.
 
-1. **Separate process.** SOC-side client and AI-side server run in distinct OS processes. No
-   in-process ASGI transport shortcut, no shared interpreter state.
-2. **Actual loopback TLS socket.** A real TLS handshake over a real bound socket on loopback.
-   Prospective binds: `127.0.0.1:58443` (AI HTTPS/mTLS) and `127.0.0.1:55432` (PostgreSQL).
+1. **Separate process.** SOC-side client, AI-side server and Fabric-side server run in distinct OS
+   processes. No in-process ASGI transport shortcut, no shared interpreter state.
+2. **Actual loopback TLS socket.** Real TLS handshakes over real bound sockets on loopback.
+   Prospective binds: `127.0.0.1:58442` (SOC HTTPS/mTLS), `127.0.0.1:58443` (Cyber AI HTTPS/mTLS),
+   `127.0.0.1:58444` (Tool Fabric HTTPS/mTLS) and `127.0.0.1:55432` (PostgreSQL).
 3. **Ephemeral dev-only PKI, generated outside the repository.** CA, server and client material is
    created per run in a temporary directory outside any repository working tree, is dev-only, is
    never committed, and is destroyed on teardown. No production or long-lived material.
@@ -183,8 +206,8 @@ Official sources:
 **A1–A7 are evidence-closure criteria, not preauthorization criteria.** Requiring their empirical
 runtime results before authorizing the only run that can produce them would be circular.
 
-- **Phase A — preflight admission:** after the artifact/lock/patch/SBOM/VEX review, authored but
-  unexecuted separate-process harness and N1–N10 tests, exact lifecycle procedures, refreshed green
+- **Phase A — preflight admission:** after the artifact/lock/patch/SBOM/VEX review, the current
+  authored but unexecuted harness source aggregate and N1–N10 tests, exact lifecycle procedures, refreshed green
   required checks and independent preflight `GO` are pinned, a future exact-bit update may set
   `execution_authorized=true` for exactly one `not_run` local-only attempt. The candidate remains
   `HOLD`; open findings and unexecuted smoke rows remain truthful.
