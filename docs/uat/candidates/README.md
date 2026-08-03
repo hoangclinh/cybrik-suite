@@ -8,6 +8,10 @@ Rules:
 
 - Candidate discovery validates only `docs/uat/candidates/*/runtime-admission.json`.
 - This `README.md` is documentation, not a candidate.
+- Planning packet: [Browser Integrated UAT Bridge R1](browser-integrated-uat-bridge-r1/README.md)
+  is `PROPOSED — NOT IMPLEMENTED — NOT RUN`. It defines the backend-to-browser state machine,
+  SOC-only UI/BFF boundary and G-B0..G-U7 evidence plan; it contains no
+  `runtime-admission.json`, grants no execution authority and is not discovered as a candidate.
 - `docs/uat/templates/runtime-admission.hold.json` is a template, not a candidate.
 - The parent directory must equal `candidate_id`; each candidate ID and
   `(attempt_accounting.series_id, attempt_ordinal)` pair is unique.
