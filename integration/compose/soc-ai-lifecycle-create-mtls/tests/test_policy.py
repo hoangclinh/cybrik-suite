@@ -25,7 +25,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SOURCE_FILES = tuple(
     sorted(path.relative_to(_SRC_ROOT).as_posix() for path in _SRC_ROOT.rglob("*.py"))
 )
-_PURE_SOURCE_FILES = ("__init__.py", "evidence.py", "policy.py", "procedure.py")
+_PURE_SOURCE_FILES = (
+    "__init__.py",
+    "callable_fabric_rehearsal.py",
+    "evidence.py",
+    "policy.py",
+    "procedure.py",
+)
 _RUNTIME_SOURCE_FILES = (
     "client.py",
     "harness.py",
