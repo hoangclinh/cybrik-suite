@@ -56,6 +56,10 @@ def _signed_facts(
         )
     )
     aggregate = "a" * 64
+    b1_wheel = tmp_path / "b1.whl"
+    b1_wheel.write_bytes(b"pinned B1 wheel fixture")
+    b1_wheel.chmod(0o600)
+    b1_sha256 = hashlib.sha256(b1_wheel.read_bytes()).hexdigest()
     now = datetime.now(UTC)
     external_sha = authorization._master_external_roots_digest(external)
     repository_sha = hashlib.sha256(
@@ -75,7 +79,7 @@ def _signed_facts(
     record = {
         "authorization_id": "master-sshsig-test",
         "authorized_by": "FOUNDER",
-        "b1_wheel": {"path": "/test/b1.whl", "sha256": "b" * 64},
+        "b1_wheel": {"path": str(b1_wheel), "sha256": b1_sha256},
         "decision": "APPROVE",
         "evidence_root": str(tmp_path / "master-evidence"),
         "expires_at": (now + timedelta(hours=1)).isoformat(),
@@ -141,6 +145,8 @@ def _signed_facts(
     monkeypatch.setattr(authorization, "_master_trust_descriptor", lambda _: descriptor)
     return authorization.MasterReservationFacts(
         aggregate_sha256=aggregate,
+        b1_wheel=b1_wheel,
+        b1_wheel_sha256=b1_sha256,
         authorization_file=authorization_file,
         authorization_sha256=hashlib.sha256(payload).hexdigest(),
         authorization_signature=signature,
@@ -173,6 +179,13 @@ def test_master_reservation_requires_valid_founder_sshsig(
     ):
         authorization.verify_signed_master_reservation(
             replace(facts, aggregate_sha256="f" * 64)
+        )
+    with pytest.raises(
+        authorization.RuntimeAuthorizationFailure,
+        match="signed_master_reservation_invalid",
+    ):
+        authorization.verify_signed_master_reservation(
+            replace(facts, b1_wheel_sha256="f" * 64)
         )
 
 

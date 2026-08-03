@@ -585,6 +585,8 @@ class PostgresD2Stage(_SubprocessStage):
         authorization_file: Path,
         authorization_signature: Path,
         allowed_signers_file: Path,
+        b1_wheel: Path,
+        b1_wheel_sha256: str,
         **kwargs: object,
     ) -> None:
         artifacts = tuple(
@@ -602,6 +604,12 @@ class PostgresD2Stage(_SubprocessStage):
         )
         if len(set(artifacts)) != len(artifacts):
             _fail("adapter_master_trust_artifact_invalid")
+        wheel, observed_wheel_sha256 = _pinned_file(
+            b1_wheel,
+            digest=b1_wheel_sha256,
+            exact_mode=0o600,
+            reason="adapter_b1_wheel_invalid",
+        )
         super().__init__(
             relative_script=POSTGRES_D2_SCRIPT,
             extra_argv=(
@@ -611,6 +619,10 @@ class PostgresD2Stage(_SubprocessStage):
                 str(artifacts[1]),
                 "--master-allowed-signers",
                 str(artifacts[2]),
+                "--b1-wheel",
+                str(wheel),
+                "--b1-wheel-sha256",
+                observed_wheel_sha256,
             ),
             **kwargs,
         )

@@ -36,6 +36,7 @@ EXACT_HEAD_GRANT_NAMESPACE: Final = "cybrik-d2-exact-head-grant"
 EXACT_HEAD_GRANT_VERIFY_BINARY: Final = Path("/usr/bin/ssh-keygen")
 MAX_ALLOWED_SIGNERS_BYTES: Final = 16 * 1024
 MAX_AUTHORIZATION_BYTES: Final = 64 * 1024
+MAX_MASTER_B1_WHEEL_BYTES: Final = 64 * 1024 * 1024
 MAX_CANDIDATE_BYTES: Final = 1024 * 1024
 MAX_CONSUMPTION_MARKER_BYTES: Final = 16 * 1024
 MAX_ADMISSION_ARTIFACT_BYTES: Final = 64 * 1024
@@ -450,6 +451,8 @@ class MasterReservationFacts:
     """Master-bound facts sufficient to construct a non-consuming D2 stage."""
 
     aggregate_sha256: str
+    b1_wheel: Path
+    b1_wheel_sha256: str
     authorization_file: Path
     authorization_sha256: str
     authorization_signature: Path
@@ -477,6 +480,8 @@ class ReservedRuntimeBinding:
     suite_head: str
     suite_admission_base: str
     aggregate_sha256: str
+    b1_wheel: Path
+    b1_wheel_sha256: str
     authorization_sha256: str
     exact_head_grant_sha256: str
     external_roots_sha256: str
@@ -502,6 +507,8 @@ def master_reservation_payload(
         _fail("master_reservation_frame_invalid")
     return {
         "aggregate_sha256": facts.aggregate_sha256,
+        "b1_wheel": str(facts.b1_wheel),
+        "b1_wheel_sha256": facts.b1_wheel_sha256,
         "authorization_file": str(facts.authorization_file),
         "authorization_sha256": facts.authorization_sha256,
         "authorization_signature": str(facts.authorization_signature),
@@ -536,6 +543,8 @@ def master_reservation_from_payload(payload: object) -> MasterReservationFacts:
 
     expected = {
         "aggregate_sha256",
+        "b1_wheel",
+        "b1_wheel_sha256",
         "authorization_file",
         "authorization_sha256",
         "authorization_signature",
@@ -607,6 +616,7 @@ def master_reservation_from_payload(payload: object) -> MasterReservationFacts:
         _fail("master_reservation_frame_invalid")
     scalar_names = (
         "aggregate_sha256",
+        "b1_wheel_sha256",
         "authorization_sha256",
         "external_roots_sha256",
         "exact_head_grant_sha256",
@@ -619,6 +629,8 @@ def master_reservation_from_payload(payload: object) -> MasterReservationFacts:
         _fail("master_reservation_frame_invalid")
     return MasterReservationFacts(
         aggregate_sha256=payload["aggregate_sha256"],
+        b1_wheel=path(payload["b1_wheel"]),
+        b1_wheel_sha256=payload["b1_wheel_sha256"],
         authorization_file=path(payload["authorization_file"]),
         authorization_sha256=payload["authorization_sha256"],
         authorization_signature=path(payload["authorization_signature"]),
@@ -1492,6 +1504,12 @@ def verify_signed_master_reservation(facts: MasterReservationFacts) -> None:
             reason=reason,
         )
         artifact_descriptors.append(allowed_descriptor)
+        b1_descriptor, b1_payload = _open_master_public_artifact(
+            facts.b1_wheel,
+            maximum=MAX_MASTER_B1_WHEEL_BYTES,
+            reason=reason,
+        )
+        artifact_descriptors.append(b1_descriptor)
         descriptor = _master_trust_descriptor(suite_root)
         signer, key_type, fingerprint = _master_allowed_signer_identity(allowed_payload)
         if (
@@ -1502,6 +1520,7 @@ def verify_signed_master_reservation(facts: MasterReservationFacts) -> None:
             or signer != descriptor["signer"]
             or key_type != descriptor["key_type"]
             or fingerprint != descriptor["key_fingerprint"]
+            or hashlib.sha256(b1_payload).hexdigest() != facts.b1_wheel_sha256
         ):
             _fail(reason)
         verifier = _master_sshsig_verifier()
@@ -1614,6 +1633,8 @@ def verify_signed_master_reservation(facts: MasterReservationFacts) -> None:
         or expires <= issued
         or expires - issued > timedelta(hours=24)
         or document.get("evidence_root") != str(facts.master_evidence_root)
+        or document.get("b1_wheel")
+        != {"path": str(facts.b1_wheel), "sha256": facts.b1_wheel_sha256}
         or document.get("external_roots") != expected_external
         or document.get("external_roots_sha256") != facts.external_roots_sha256
         or document.get("repository_roots") != expected_repositories
@@ -3170,6 +3191,7 @@ def authorize_from_master_reservation(
         _fail("master_reservation_invalid")
     text_fields = (
         facts.aggregate_sha256,
+        facts.b1_wheel_sha256,
         facts.authorization_sha256,
         facts.external_roots_sha256,
         facts.exact_head_grant_sha256,
@@ -3301,6 +3323,8 @@ def authorize_from_master_reservation(
         suite_head=tuple_by_name["cybrik-suite"][0],
         suite_admission_base=tuple_by_name["cybrik-suite"][0],
         aggregate_sha256=facts.aggregate_sha256,
+        b1_wheel=facts.b1_wheel,
+        b1_wheel_sha256=facts.b1_wheel_sha256,
         authorization_sha256=facts.authorization_sha256,
         exact_head_grant_sha256=facts.exact_head_grant_sha256,
         external_roots_sha256=facts.external_roots_sha256,

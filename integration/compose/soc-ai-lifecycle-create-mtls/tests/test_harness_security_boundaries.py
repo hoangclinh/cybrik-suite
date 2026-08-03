@@ -459,6 +459,8 @@ def _reserved_child_authority(
     )
     facts = runtime_auth.MasterReservationFacts(
         aggregate_sha256="a" * 64,
+        b1_wheel=tmp_path / "b1.whl",
+        b1_wheel_sha256="9" * 64,
         authorization_file=tmp_path / "master-authorization.json",
         authorization_sha256="b" * 64,
         authorization_signature=tmp_path / "master-authorization.sig",
@@ -489,6 +491,8 @@ def _reserved_child_authority(
         suite_head="1" * 40,
         suite_admission_base="1" * 40,
         aggregate_sha256=facts.aggregate_sha256,
+        b1_wheel=facts.b1_wheel,
+        b1_wheel_sha256=facts.b1_wheel_sha256,
         authorization_sha256=facts.authorization_sha256,
         exact_head_grant_sha256=facts.exact_head_grant_sha256,
         external_roots_sha256=facts.external_roots_sha256,
@@ -558,6 +562,7 @@ def test_reserved_child_environment_carries_only_supervisor_mac_proof(
         environment[harness._AUTHORIZATION_SHA_ENV]
         == authorization.authorization_sha256
     )
+    assert environment["CYBRIK_UAT_D2_B1_WHEEL"] == str(authorization.b1_wheel)
 
 
 def test_child_mac_proof_verifies_marker_tuple_environment_and_imports(

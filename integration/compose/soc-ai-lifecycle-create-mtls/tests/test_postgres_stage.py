@@ -154,6 +154,9 @@ def _context(tmp_path: Path) -> SimpleNamespace:
     for artifact in master_artifacts:
         artifact.write_bytes(b"fixture")
         artifact.chmod(0o600)
+    b1_wheel = tmp_path / "b1.whl"
+    b1_wheel.write_bytes(b"pinned b1 fixture")
+    b1_wheel.chmod(0o600)
     return SimpleNamespace(
         aggregate_sha256=HEX["aggregate"],
         authorization_sha256=HEX["authorization"],
@@ -168,6 +171,8 @@ def _context(tmp_path: Path) -> SimpleNamespace:
         master_authorization_file=master_artifacts[0],
         master_authorization_signature=master_artifacts[1],
         master_allowed_signers=master_artifacts[2],
+        b1_wheel=b1_wheel,
+        b1_wheel_sha256=hashlib.sha256(b1_wheel.read_bytes()).hexdigest(),
         configured_external_roots=external_roots,
         configured_repository_roots=repository_roots,
     )
@@ -539,6 +544,8 @@ def test_adapter_matches_live_master_model_and_digest(
         master_authorization_file=context.master_authorization_file,
         master_authorization_signature=context.master_authorization_signature,
         master_allowed_signers=context.master_allowed_signers,
+        b1_wheel=context.b1_wheel,
+        b1_wheel_sha256=context.b1_wheel_sha256,
     )
 
     receipt = postgres_stage.PostgresD2StageAdapter(
@@ -601,6 +608,8 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
     ).hexdigest()
     facts = runtime_auth.MasterReservationFacts(
         aggregate_sha256="a" * 64,
+        b1_wheel=tmp_path / "b1.whl",
+        b1_wheel_sha256="9" * 64,
         authorization_file=tmp_path / "master-authorization.json",
         authorization_sha256="b" * 64,
         authorization_signature=tmp_path / "master-authorization.sig",
@@ -751,6 +760,10 @@ def _direct_stage_argv(context: SimpleNamespace, action: str) -> list[str]:
             str(context.master_authorization_signature),
             "--master-allowed-signers",
             str(context.master_allowed_signers),
+            "--b1-wheel",
+            str(context.b1_wheel),
+            "--b1-wheel-sha256",
+            context.b1_wheel_sha256,
         )
     )
     return arguments
@@ -901,6 +914,8 @@ def test_live_master_adapter_argv_is_accepted_by_real_postgres_parser(
         authorization_file=base.master_authorization_file,
         authorization_signature=base.master_authorization_signature,
         allowed_signers_file=base.master_allowed_signers,
+        b1_wheel=base.b1_wheel,
+        b1_wheel_sha256=base.b1_wheel_sha256,
         authorization=authorization,
         executor=executor,
         python_executable=Path(sys.executable).resolve(),

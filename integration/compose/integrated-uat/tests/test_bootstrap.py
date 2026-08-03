@@ -72,6 +72,8 @@ def test_concrete_builder_passes_alert_runtime_pins_and_uses_composite(
         postgres_kwargs["authorization_signature"] == admitted.authorization_signature
     )
     assert postgres_kwargs["allowed_signers_file"] == admitted.allowed_signers_file
+    assert postgres_kwargs["b1_wheel"] == admitted.b1_wheel
+    assert postgres_kwargs["b1_wheel_sha256"] == admitted.b1_wheel_sha256
     assert records["composite"] == {
         "alert_context_stage": alert,
         "postgres_d2_stage": postgres,

@@ -70,6 +70,8 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--master-authorization-file", required=True)
     parser.add_argument("--master-authorization-signature", required=True)
     parser.add_argument("--master-allowed-signers", required=True)
+    parser.add_argument("--b1-wheel", required=True)
+    parser.add_argument("--b1-wheel-sha256", required=True)
     try:
         return parser.parse_args(list(argv) if argv is not None else None)
     except SystemExit:
@@ -126,6 +128,8 @@ def _command_inputs(
         master_authorization_file=Path(arguments.master_authorization_file),
         master_authorization_signature=Path(arguments.master_authorization_signature),
         master_allowed_signers=Path(arguments.master_allowed_signers),
+        b1_wheel=Path(arguments.b1_wheel),
+        b1_wheel_sha256=arguments.b1_wheel_sha256,
     )
     return context, repositories, external
 

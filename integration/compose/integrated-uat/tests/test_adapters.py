@@ -132,7 +132,7 @@ def _b1_wheel(tmp_path: Path) -> tuple[Path, str]:
     return wheel, hashlib.sha256(wheel.read_bytes()).hexdigest()
 
 
-def _master_artifacts(tmp_path: Path) -> dict[str, Path]:
+def _master_artifacts(tmp_path: Path) -> dict[str, object]:
     artifacts = {
         "authorization_file": tmp_path / "master-authorization.json",
         "authorization_signature": tmp_path / "master-authorization.sig",
@@ -141,7 +141,12 @@ def _master_artifacts(tmp_path: Path) -> dict[str, Path]:
     for name, path in artifacts.items():
         path.write_bytes(name.encode())
         path.chmod(0o600)
-    return artifacts
+    wheel, wheel_sha256 = _b1_wheel(tmp_path)
+    return {
+        **artifacts,
+        "b1_wheel": wheel,
+        "b1_wheel_sha256": wheel_sha256,
+    }
 
 
 def _parse_real_alert_argv(argv: tuple[str, ...]) -> None:
@@ -245,6 +250,10 @@ def test_stage_uses_one_exact_sanitized_command_and_verifies_public_receipt(
             str(kwargs["authorization_signature"]),
             "--master-allowed-signers",
             str(kwargs["allowed_signers_file"]),
+            "--b1-wheel",
+            str(kwargs["b1_wheel"]),
+            "--b1-wheel-sha256",
+            str(kwargs["b1_wheel_sha256"]),
         )
     adapter = adapter_type(
         authorization=auth,

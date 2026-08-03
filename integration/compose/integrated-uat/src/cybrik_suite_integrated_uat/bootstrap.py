@@ -79,6 +79,8 @@ def build_dependencies_from_environment(
                 authorization_file=admitted.authorization_file,
                 authorization_signature=admitted.authorization_signature,
                 allowed_signers_file=admitted.allowed_signers_file,
+                b1_wheel=admitted.b1_wheel,
+                b1_wheel_sha256=admitted.b1_wheel_sha256,
                 script_sha256=admitted.helper_sha256[HELPER_SCRIPTS[0]],
             )
             alert = AlertContextStage(

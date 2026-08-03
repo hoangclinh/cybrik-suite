@@ -388,6 +388,7 @@ def _verify_child_environment(
         "CYBRIK_UAT_D2_JWKS": authorization.runtime_root
         / "pki"
         / "jwt-public-jwk.json",
+        "CYBRIK_UAT_D2_B1_WHEEL": authorization.b1_wheel,
     }
     if any(
         _absolute_env(name, must_exist=True) != expected
@@ -1206,6 +1207,13 @@ def _server_environment(
                 str(authorization.product_roots["tool_fabric"])
                 if authorization is not None
                 else environment.get(_FABRIC_REPO_ENV, "")
+            ),
+            "CYBRIK_UAT_D2_B1_WHEEL": (
+                str(authorization.b1_wheel)
+                if isinstance(
+                    authorization, runtime_authorization.ReservedRuntimeBinding
+                )
+                else environment.get("CYBRIK_UAT_D2_B1_WHEEL", "")
             ),
         }
     )

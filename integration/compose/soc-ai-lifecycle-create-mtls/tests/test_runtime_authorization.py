@@ -1276,6 +1276,8 @@ def test_master_reservation_resolves_signed_roots_without_ambient_pythonpath(
         suite_head="1" * 40,
         suite_admission_base="1" * 40,
         aggregate_sha256="2" * 64,
+        b1_wheel=tmp_path / "b1.whl",
+        b1_wheel_sha256="e" * 64,
         authorization_sha256="3" * 64,
         exact_head_grant_sha256="4" * 64,
         external_roots_sha256="5" * 64,

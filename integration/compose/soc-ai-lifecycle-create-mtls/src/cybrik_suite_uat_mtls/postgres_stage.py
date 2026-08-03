@@ -339,6 +339,8 @@ def _bind_master_reservation(
     authorization_file = getattr(context, "master_authorization_file", None)
     authorization_signature = getattr(context, "master_authorization_signature", None)
     allowed_signers_file = getattr(context, "master_allowed_signers", None)
+    b1_wheel = getattr(context, "b1_wheel", None)
+    b1_wheel_sha256 = getattr(context, "b1_wheel_sha256", None)
     if (
         not isinstance(evidence_root, Path)
         or not evidence_root.is_absolute()
@@ -350,8 +352,11 @@ def _bind_master_reservation(
                 authorization_file,
                 authorization_signature,
                 allowed_signers_file,
+                b1_wheel,
             )
         )
+        or not isinstance(b1_wheel_sha256, str)
+        or _HEX64.fullmatch(b1_wheel_sha256) is None
     ):
         _fail("master_reservation_invalid")
     try:
@@ -418,6 +423,8 @@ def _bind_master_reservation(
         _fail("master_reservation_invalid")
     return runtime_authorization.MasterReservationFacts(
         aggregate_sha256=aggregate,
+        b1_wheel=b1_wheel,
+        b1_wheel_sha256=b1_wheel_sha256,
         authorization_file=authorization_file,
         authorization_sha256=authorization_sha,
         authorization_signature=authorization_signature,
