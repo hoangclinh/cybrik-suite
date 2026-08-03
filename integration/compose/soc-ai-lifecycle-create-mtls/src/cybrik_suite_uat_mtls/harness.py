@@ -8,6 +8,7 @@ commit and external runtime roots. Importing this module is inert.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -56,6 +57,9 @@ _EVIDENCE_DIR_ENV: Final = "CYBRIK_UAT_D2_EVIDENCE_DIR"
 _SOC_REPO_ENV: Final = "CYBRIK_UAT_D2_SOC_REPO"
 _AI_REPO_ENV: Final = "CYBRIK_UAT_D2_AI_REPO"
 _FABRIC_REPO_ENV: Final = "CYBRIK_UAT_D2_FABRIC_REPO"
+_RESERVATION_FRAME_ENV: Final = "CYBRIK_UAT_D2_MASTER_RESERVATION_FRAME"
+_CONTROL_RUN_ID_ENV: Final = "CYBRIK_UAT_D2_CONTROL_RUN_ID"
+_CONTROL_GENERATION_ENV: Final = "CYBRIK_UAT_D2_CONTROL_GENERATION"
 _PASSWORD_FILE: Final = "postgres-password"
 _SERVER_LOG: Final = "ai-server.log"
 _TLS_EVIDENCE: Final = "tls-extension.json"
@@ -323,6 +327,120 @@ def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
         ) from exc
 
 
+def _reservation_frame(
+    authorization: runtime_authorization.ReservedRuntimeBinding,
+    material: process_control.ControlMaterial,
+) -> str:
+    body = {
+        "control_binding": material.binding.as_payload(),
+        "kind": "master_reservation",
+        "reservation": runtime_authorization.master_reservation_payload(authorization),
+    }
+    try:
+        return base64.b64encode(
+            process_control.sign_frame(body, material.capability)
+        ).decode("ascii")
+    except (UnicodeError, process_control.ProcessControlError) as exc:
+        raise RuntimeAuthorizationError(
+            "child reservation proof is unavailable"
+        ) from exc
+
+
+def _child_control_material() -> tuple[
+    process_control.ControlStore, process_control.ControlMaterial
+]:
+    try:
+        binding = process_control.ControlBinding(
+            authorization_sha256=os.environ.get(_AUTHORIZATION_SHA_ENV, ""),
+            run_id=os.environ.get(_CONTROL_RUN_ID_ENV, ""),
+            generation=int(os.environ.get(_CONTROL_GENERATION_ENV, "")),
+            owner_uid=os.geteuid(),
+        )
+        runtime_root = _absolute_env(_RUNTIME_DIR_ENV, must_exist=True)
+        filesystem = process_control.PosixFileSystemAdapter()
+        control_store = process_control.ControlStore(filesystem=filesystem)
+        material = control_store.load(
+            paths=process_control.derive_control_paths(
+                runtime_root, binding.authorization_sha256
+            ),
+            expected_binding=binding,
+        )
+        ready = control_store.read_ready_receipt(material)
+        if not process_control.verify_ready_receipt(ready, material):
+            raise process_control.ProcessControlError("control_receipt_mismatch")
+        return control_store, material
+    except (OSError, ValueError, process_control.ProcessControlError) as exc:
+        raise RuntimeAuthorizationError(
+            "child process-control authority is closed"
+        ) from exc
+
+
+def _verify_child_environment(
+    authorization: runtime_authorization.ReservedRuntimeBinding,
+) -> None:
+    expected_paths = {
+        _RUNTIME_DIR_ENV: authorization.runtime_root,
+        _EVIDENCE_DIR_ENV: authorization.evidence_root,
+        _SOC_REPO_ENV: authorization.product_roots["soc"],
+        _AI_REPO_ENV: authorization.product_roots["cyber_ai"],
+        _FABRIC_REPO_ENV: authorization.product_roots["tool_fabric"],
+        "CYBRIK_UAT_D2_PKI_ROOT": authorization.runtime_root / "pki",
+        "CYBRIK_UAT_D2_JWKS": authorization.runtime_root
+        / "pki"
+        / "jwt-public-jwk.json",
+    }
+    if any(
+        _absolute_env(name, must_exist=True) != expected
+        for name, expected in expected_paths.items()
+    ):
+        raise RuntimeAuthorizationError("child reservation environment is mismatched")
+    expected_runtime = _bound_postgres_runtime(authorization)
+    if (
+        os.environ.get(_AUTHORIZATION_SHA_ENV) != authorization.authorization_sha256
+        or os.environ.get("CYBRIK_UAT_D2_POSTGRES_DSN") != expected_runtime.admin_dsn
+    ):
+        raise RuntimeAuthorizationError("child reservation environment is mismatched")
+
+
+def assert_child_runtime_authorized() -> runtime_authorization.RuntimeBinding:
+    """Admit a child through legacy authority or a supervisor-MAC reservation."""
+
+    encoded = os.environ.get(_RESERVATION_FRAME_ENV, "")
+    if not encoded:
+        return assert_runtime_authorized()
+    _control_store, material = _child_control_material()
+    try:
+        frame = base64.b64decode(encoded.encode("ascii"), validate=True)
+        body = process_control.verify_frame(frame, material.capability)
+        if (
+            set(body) != {"control_binding", "kind", "reservation"}
+            or body["control_binding"] != material.binding.as_payload()
+            or body["kind"] != "master_reservation"
+        ):
+            raise process_control.ProcessControlError("frame_authentication_failed")
+        facts = runtime_authorization.master_reservation_from_payload(
+            body["reservation"]
+        )
+        if facts.authorization_sha256 != material.binding.authorization_sha256:
+            raise process_control.ProcessControlError("frame_authentication_failed")
+        authorization = runtime_authorization.authorize_from_master_reservation(facts)
+        runtime_authorization.verify_master_consumption(facts)
+        _verify_child_environment(authorization)
+        if not all(
+            entry["clean"] for entry in _stage_repository_tuple(authorization).values()
+        ):
+            raise RuntimeAuthorizationError("child repository tuple is dirty")
+        runtime_authorization.verify_loaded_module_origins(authorization)
+        return authorization
+    except (
+        UnicodeError,
+        ValueError,
+        process_control.ProcessControlError,
+        runtime_authorization.RuntimeAuthorizationFailure,
+    ) as exc:
+        raise RuntimeAuthorizationError("child reservation proof is closed") from exc
+
+
 def _isolated_module_argv(
     authorization: runtime_authorization.RuntimeBinding,
     module: str,
@@ -530,6 +648,7 @@ def _start_supervisor(
         authorization.evidence_root,
         strip_tls=False,
         authorization=authorization,
+        control_material=material,
     )
     environment[process_supervisor.SERVER_ARGV_ENV] = json.dumps(
         _isolated_module_argv(authorization, "cybrik_suite_uat_mtls.server"),
@@ -1045,6 +1164,7 @@ def _server_environment(
     *,
     strip_tls: bool,
     authorization: runtime_authorization.RuntimeBinding | None = None,
+    control_material: process_control.ControlMaterial | None = None,
 ) -> dict[str, str]:
     runtime = (
         _bound_postgres_runtime(authorization)
@@ -1053,16 +1173,54 @@ def _server_environment(
     )
     environment = dict(os.environ)
     environment.pop("SSLKEYLOGFILE", None)
+    for name in (
+        _RESERVATION_FRAME_ENV,
+        _CONTROL_RUN_ID_ENV,
+        _CONTROL_GENERATION_ENV,
+    ):
+        environment.pop(name, None)
     environment.update(
         {
+            _AUTHORIZATION_SHA_ENV: (
+                authorization.authorization_sha256
+                if authorization is not None
+                else environment.get(_AUTHORIZATION_SHA_ENV, "")
+            ),
             "CYBRIK_UAT_D2_PKI_ROOT": str(root / "pki"),
             "CYBRIK_UAT_D2_JWKS": str(root / "pki/jwt-public-jwk.json"),
             "CYBRIK_UAT_D2_POSTGRES_DSN": runtime.admin_dsn,
             "CYBRIK_UAT_D2_STRIP_TLS_EXTENSION": "true" if strip_tls else "false",
             _RUNTIME_DIR_ENV: str(root),
             _EVIDENCE_DIR_ENV: str(evidence_root),
+            _SOC_REPO_ENV: (
+                str(authorization.product_roots["soc"])
+                if authorization is not None
+                else environment.get(_SOC_REPO_ENV, "")
+            ),
+            _AI_REPO_ENV: (
+                str(authorization.product_roots["cyber_ai"])
+                if authorization is not None
+                else environment.get(_AI_REPO_ENV, "")
+            ),
+            _FABRIC_REPO_ENV: (
+                str(authorization.product_roots["tool_fabric"])
+                if authorization is not None
+                else environment.get(_FABRIC_REPO_ENV, "")
+            ),
         }
     )
+    if isinstance(authorization, runtime_authorization.ReservedRuntimeBinding):
+        if control_material is None:
+            raise RuntimeAuthorizationError("child reservation proof is unavailable")
+        environment.update(
+            {
+                _RESERVATION_FRAME_ENV: _reservation_frame(
+                    authorization, control_material
+                ),
+                _CONTROL_RUN_ID_ENV: control_material.binding.run_id,
+                _CONTROL_GENERATION_ENV: str(control_material.binding.generation),
+            }
+        )
     return environment
 
 
@@ -1220,10 +1378,20 @@ def _run_case(
     case_id: str,
     root: Path,
     evidence_root: Path,
-    authorization: runtime_authorization.RuntimeAuthorization | None = None,
+    authorization: runtime_authorization.RuntimeBinding | None = None,
+    control_material: process_control.ControlMaterial | None = None,
 ) -> dict[str, object]:
     result_path = evidence_root / f"case-{case_id.casefold()}.json"
-    environment = _server_environment(root, evidence_root, strip_tls=False)
+    if isinstance(authorization, runtime_authorization.ReservedRuntimeBinding):
+        environment = _server_environment(
+            root,
+            evidence_root,
+            strip_tls=False,
+            authorization=authorization,
+            control_material=control_material,
+        )
+    else:
+        environment = _server_environment(root, evidence_root, strip_tls=False)
     environment["CYBRIK_UAT_D2_CASE_ID"] = case_id
     environment["CYBRIK_UAT_D2_CASE_RESULT"] = str(result_path)
     try:
@@ -1704,7 +1872,7 @@ def run_runtime_attempt(
     evidence_root = authorization.evidence_root
     attempt_started_at = datetime.now(UTC)
     attempt_started_monotonic = time.monotonic()
-    _, _, control_client = _load_control(authorization)
+    _, control_material, control_client = _load_control(authorization)
     server_started = False
     results: list[dict[str, object]] = []
     case_durations_ms: list[int] = []
@@ -1712,7 +1880,13 @@ def run_runtime_attempt(
 
     def execute_case(case_id: str) -> dict[str, object]:
         started = time.monotonic()
-        result = _run_case(case_id, root, evidence_root, authorization)
+        result = _run_case(
+            case_id,
+            root,
+            evidence_root,
+            authorization,
+            control_material,
+        )
         case_durations_ms.append(max(0, round((time.monotonic() - started) * 1000)))
         return result
 

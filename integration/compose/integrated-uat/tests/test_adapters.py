@@ -132,6 +132,18 @@ def _b1_wheel(tmp_path: Path) -> tuple[Path, str]:
     return wheel, hashlib.sha256(wheel.read_bytes()).hexdigest()
 
 
+def _master_artifacts(tmp_path: Path) -> dict[str, Path]:
+    artifacts = {
+        "authorization_file": tmp_path / "master-authorization.json",
+        "authorization_signature": tmp_path / "master-authorization.sig",
+        "allowed_signers_file": tmp_path / "allowed-signers",
+    }
+    for name, path in artifacts.items():
+        path.write_bytes(name.encode())
+        path.chmod(0o600)
+    return artifacts
+
+
 def _parse_real_alert_argv(argv: tuple[str, ...]) -> None:
     source = Path(__file__).parents[4] / ALERT_CONTEXT_SCRIPT.parents[1] / "src"
     sys.path.insert(0, str(source))
@@ -223,6 +235,16 @@ def test_stage_uses_one_exact_sanitized_command_and_verifies_public_receipt(
             str(wheel),
             "--pinned-python-sha256",
             python_digest,
+        )
+    else:
+        kwargs = _master_artifacts(tmp_path)
+        stage_extra = (
+            "--master-authorization-file",
+            str(kwargs["authorization_file"]),
+            "--master-authorization-signature",
+            str(kwargs["authorization_signature"]),
+            "--master-allowed-signers",
+            str(kwargs["allowed_signers_file"]),
         )
     adapter = adapter_type(
         authorization=auth,
@@ -360,6 +382,7 @@ def test_stage_rejects_unbound_or_non_public_receipt(
         )
 
     adapter = PostgresD2Stage(
+        **_master_artifacts(tmp_path),
         authorization=auth,
         executor=_Executor(effect),
         python_executable=Path(sys.executable).resolve(),
@@ -609,6 +632,7 @@ def test_adapter_rejects_context_or_script_drift_before_subprocess(
     script, digest = _install_script(suite_root, POSTGRES_D2_SCRIPT)
     executor = _Executor()
     adapter = PostgresD2Stage(
+        **_master_artifacts(tmp_path),
         authorization=auth,
         executor=executor,
         python_executable=Path(sys.executable).resolve(),
@@ -655,6 +679,7 @@ def test_stage_rejects_malformed_or_noncanonical_stdout(tmp_path: Path) -> None:
     suite_root = _suite_root(auth)
     _, digest = _install_script(suite_root, POSTGRES_D2_SCRIPT)
     adapter = PostgresD2Stage(
+        **_master_artifacts(tmp_path),
         authorization=auth,
         executor=_Executor(
             lambda _argv, _kwargs: SimpleNamespace(

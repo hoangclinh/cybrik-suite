@@ -12,6 +12,7 @@ from test_adapters import (
     _Executor,
     _inspection_document,
     _install_script,
+    _master_artifacts,
     _suite_root,
 )
 
@@ -120,6 +121,7 @@ def test_adapter_rejects_unsafe_or_overlapping_external_roots(
 
     with pytest.raises(AdapterFailure, match="^adapter_authorization_invalid$"):
         PostgresD2Stage(
+            **_master_artifacts(tmp_path),
             authorization=invalid,
             executor=_Executor(),
             python_executable=Path(sys.executable).resolve(),

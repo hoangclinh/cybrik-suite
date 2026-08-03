@@ -78,6 +78,7 @@ def _environment(tmp_path: Path) -> tuple[dict[str, str], object]:
         ),
         authorization_file=authorization,
         signature_file=signature,
+        allowed_signers_file=authorization,
         allowed_signer="FOUNDER",
         b1_wheel=b1_wheel.resolve(),
         python=python.resolve(),
@@ -283,6 +284,9 @@ def test_admission_reuses_one_signed_intent_and_maps_exact_master_tuple(
     assert admitted.python_sha256 == hashlib.sha256(b"python").hexdigest()
     assert admitted.b1_wheel == authority.b1_wheel
     assert admitted.b1_wheel_sha256 == hashlib.sha256(b"wheel").hexdigest()
+    assert admitted.authorization_file == authority.authorization_file
+    assert admitted.authorization_signature == authority.signature_file
+    assert admitted.allowed_signers_file == authority.allowed_signers_file
     assert tuple(admitted.helper_sha256) == HELPER_SCRIPTS
 
 

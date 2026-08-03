@@ -435,6 +435,226 @@ def test_server_environment_strips_ambient_ssl_key_log_destination(
     assert "SSLKEYLOGFILE" not in environment
 
 
+def _reserved_child_authority(
+    tmp_path: Path,
+) -> tuple[runtime_auth.ReservedRuntimeBinding, process_control.ControlMaterial]:
+    repositories = tuple(
+        (name, tmp_path / name)
+        for name in (
+            "cybrik-soc-command-center",
+            "cybrik-cyber-ai-platform",
+            "cybrik-security-tool-fabric",
+            "cybrik-suite",
+        )
+    )
+    external = tuple(
+        (name, tmp_path / name)
+        for name in (
+            "postgres_d2_runtime",
+            "postgres_d2_evidence",
+            "alert_context_runtime",
+            "alert_context_evidence",
+            "alert_context_state",
+        )
+    )
+    facts = runtime_auth.MasterReservationFacts(
+        aggregate_sha256="a" * 64,
+        authorization_file=tmp_path / "master-authorization.json",
+        authorization_sha256="b" * 64,
+        authorization_signature=tmp_path / "master-authorization.sig",
+        allowed_signers_file=tmp_path / "allowed-signers",
+        external_roots=external,
+        external_roots_sha256="c" * 64,
+        exact_head_grant_sha256="d" * 64,
+        master_evidence_root=tmp_path / "master-evidence",
+        marker_sha256="e" * 64,
+        postgres_evidence_root=dict(external)["postgres_d2_evidence"],
+        postgres_runtime_root=dict(external)["postgres_d2_runtime"],
+        repository_roots=repositories,
+        repository_roots_sha256="f" * 64,
+        repository_tuple=tuple(
+            (name, "1" * 40, "2" * 40) for name, _root in repositories
+        ),
+        repository_tuple_sha256="3" * 64,
+        run_id="master-run-1",
+    )
+    product_roots = {
+        "soc": dict(repositories)["cybrik-soc-command-center"],
+        "cyber_ai": dict(repositories)["cybrik-cyber-ai-platform"],
+        "tool_fabric": dict(repositories)["cybrik-security-tool-fabric"],
+    }
+    authorization = runtime_auth.ReservedRuntimeBinding(
+        authorization_id=facts.run_id,
+        suite_root=dict(repositories)["cybrik-suite"],
+        suite_head="1" * 40,
+        suite_admission_base="1" * 40,
+        aggregate_sha256=facts.aggregate_sha256,
+        authorization_sha256=facts.authorization_sha256,
+        exact_head_grant_sha256=facts.exact_head_grant_sha256,
+        external_roots_sha256=facts.external_roots_sha256,
+        repository_roots_sha256=facts.repository_roots_sha256,
+        runtime_root=facts.postgres_runtime_root,
+        evidence_root=facts.postgres_evidence_root,
+        product_roots=product_roots,
+        repository_tuple=facts.repository_tuple,
+        master_reservation=facts,
+    )
+    binding = process_control.ControlBinding(
+        authorization_sha256=facts.authorization_sha256,
+        run_id="4" * 32,
+        generation=1,
+        owner_uid=0,
+    )
+    identity = process_control.RootIdentity(1, 2, 0, stat.S_IFDIR | 0o700)
+    paths = process_control.ControlPaths(
+        root=tmp_path / "control",
+        socket=tmp_path / "control/s",
+        capability=tmp_path / "control/capability.bin",
+        binding=tmp_path / "control/binding.json",
+        ready=tmp_path / "control/ready.json",
+        liveness_lock=tmp_path / "control/liveness.lock",
+        shutdown_receipt=tmp_path / "control/shutdown.json",
+    )
+    material = process_control.ControlMaterial(
+        paths=paths,
+        binding=binding,
+        root_identity=identity,
+        capability=b"k" * process_control.CAPABILITY_BYTES,
+        persisted_binding=process_control.PersistedControlBinding(binding, identity),
+    )
+    return authorization, material
+
+
+def test_reserved_child_environment_carries_only_supervisor_mac_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, material = _reserved_child_authority(tmp_path)
+    monkeypatch.setattr(
+        harness,
+        "_bound_postgres_runtime",
+        lambda _: SimpleNamespace(admin_dsn="postgresql://bound"),
+    )
+    monkeypatch.setenv(harness._RESERVATION_FRAME_ENV, "ambient-substitution")
+
+    environment = harness._server_environment(
+        authorization.runtime_root,
+        authorization.evidence_root,
+        strip_tls=False,
+        authorization=authorization,
+        control_material=material,
+    )
+
+    frame = harness.base64.b64decode(
+        environment[harness._RESERVATION_FRAME_ENV].encode("ascii"), validate=True
+    )
+    body = process_control.verify_frame(frame, material.capability)
+    assert body == {
+        "control_binding": material.binding.as_payload(),
+        "kind": "master_reservation",
+        "reservation": runtime_auth.master_reservation_payload(authorization),
+    }
+    assert environment[harness._CONTROL_RUN_ID_ENV] == material.binding.run_id
+    assert (
+        environment[harness._AUTHORIZATION_SHA_ENV]
+        == authorization.authorization_sha256
+    )
+
+
+def test_child_mac_proof_verifies_marker_tuple_environment_and_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, material = _reserved_child_authority(tmp_path)
+    events: list[str] = []
+    encoded = harness._reservation_frame(authorization, material)
+    monkeypatch.setenv(harness._RESERVATION_FRAME_ENV, encoded)
+    monkeypatch.setattr(
+        harness, "_child_control_material", lambda: (object(), material)
+    )
+    monkeypatch.setattr(
+        runtime_auth,
+        "authorize_from_master_reservation",
+        lambda facts: events.append("binding") or authorization,
+    )
+    monkeypatch.setattr(
+        runtime_auth,
+        "verify_master_consumption",
+        lambda facts: events.append("marker"),
+    )
+    monkeypatch.setattr(
+        harness, "_verify_child_environment", lambda _: events.append("environment")
+    )
+    monkeypatch.setattr(
+        harness,
+        "_stage_repository_tuple",
+        lambda _: {"suite": {"clean": True}},
+    )
+    monkeypatch.setattr(
+        runtime_auth,
+        "verify_loaded_module_origins",
+        lambda _: events.append("origins"),
+    )
+
+    assert harness.assert_child_runtime_authorized() == authorization
+    assert events == ["binding", "marker", "environment", "origins"]
+
+
+def test_child_tampered_mac_fails_before_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, material = _reserved_child_authority(tmp_path)
+    frame = bytearray(
+        harness.base64.b64decode(
+            harness._reservation_frame(authorization, material).encode("ascii")
+        )
+    )
+    frame[-2] ^= 1
+    monkeypatch.setenv(
+        harness._RESERVATION_FRAME_ENV,
+        harness.base64.b64encode(frame).decode("ascii"),
+    )
+    monkeypatch.setattr(
+        harness, "_child_control_material", lambda: (object(), material)
+    )
+    monkeypatch.setattr(
+        runtime_auth,
+        "authorize_from_master_reservation",
+        lambda _: (_ for _ in ()).throw(AssertionError("unauthenticated binding used")),
+    )
+
+    with pytest.raises(harness.RuntimeAuthorizationError, match="proof is closed"):
+        harness.assert_child_runtime_authorized()
+
+
+def test_child_valid_mac_with_unsigned_reservation_fails_at_sshsig_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, material = _reserved_child_authority(tmp_path)
+    monkeypatch.setenv(
+        harness._RESERVATION_FRAME_ENV,
+        harness._reservation_frame(authorization, material),
+    )
+    monkeypatch.setattr(
+        harness, "_child_control_material", lambda: (object(), material)
+    )
+
+    with pytest.raises(harness.RuntimeAuthorizationError, match="proof is closed"):
+        harness.assert_child_runtime_authorized()
+
+
+def test_child_without_reservation_proof_keeps_legacy_exact_authorization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel = object()
+    monkeypatch.delenv(harness._RESERVATION_FRAME_ENV, raising=False)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "authorize_from_environment",
+        lambda: sentinel,
+    )
+
+    assert harness.assert_child_runtime_authorized() is sentinel
+
+
 def test_listener_probe_disables_key_logging_on_constructed_tls_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

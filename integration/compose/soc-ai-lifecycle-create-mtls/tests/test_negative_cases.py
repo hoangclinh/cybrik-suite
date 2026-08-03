@@ -348,7 +348,7 @@ def _prepare_network_case(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, outcomes: list[object]
 ) -> tuple[type[Exception], SimpleNamespace]:
     error_type = _install_network_fakes(monkeypatch, outcomes)
-    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: None)
+    monkeypatch.setattr(harness, "assert_child_runtime_authorized", lambda: None)
     monkeypatch.setattr(client, "certificate_thumbprint_sha256", lambda _: "thumbprint")
     monkeypatch.setattr(client, "_PemEs256Signer", lambda _: object())
     tls_context = SimpleNamespace(minimum_version=None, maximum_version=None)
@@ -442,7 +442,7 @@ def test_secret_sweep_is_file_bounded_and_rejects_known_or_classified_secrets(
     evidence_root, runtime_root = _secret_roots(tmp_path)
     artifact = evidence_root / "result.txt"
     real_secret_reason = evidence.secret_reason
-    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: None)
+    monkeypatch.setattr(harness, "assert_child_runtime_authorized", lambda: None)
     monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
     monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
 

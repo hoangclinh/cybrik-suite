@@ -75,7 +75,11 @@ def build_dependencies_from_environment(
                 "suite_root": admitted.suite_root,
             }
             postgres = PostgresD2Stage(
-                **common, script_sha256=admitted.helper_sha256[HELPER_SCRIPTS[0]]
+                **common,
+                authorization_file=admitted.authorization_file,
+                authorization_signature=admitted.authorization_signature,
+                allowed_signers_file=admitted.allowed_signers_file,
+                script_sha256=admitted.helper_sha256[HELPER_SCRIPTS[0]],
             )
             alert = AlertContextStage(
                 **common,

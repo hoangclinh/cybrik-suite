@@ -10,7 +10,9 @@ suitable for synthetic, no-network unit tests.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -37,6 +39,13 @@ MAX_AUTHORIZATION_BYTES: Final = 64 * 1024
 MAX_CANDIDATE_BYTES: Final = 1024 * 1024
 MAX_CONSUMPTION_MARKER_BYTES: Final = 16 * 1024
 MAX_ADMISSION_ARTIFACT_BYTES: Final = 64 * 1024
+MASTER_RESERVATION_SCHEMA: Final = "CYBRIK-D2-MASTER-RESERVATION/v1"
+MASTER_CONSUMPTION_MARKER: Final = ".cybrik-integrated-uat-consumed.json"
+MASTER_AUTHORIZATION_SCHEMA: Final = "CYBRIK-INTEGRATED-UAT-MASTER-AUTH/v1"
+MASTER_AUTHORIZATION_NAMESPACE: Final = "cybrik-uat-soc-ai-fabric-v1"
+MASTER_TRUST_DESCRIPTOR_REL: Final = Path(
+    "integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json"
+)
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
@@ -274,6 +283,7 @@ PINNED_VALUES: Final = MappingProxyType(
 
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
+_MASTER_RUN_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,127}")
 _DIRECTORY_MODE = re.compile(r"0[0-7]{3}")
 _AUTHORIZATION_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
 _EXACT_HEAD_GRANT_NAME = re.compile(
@@ -440,7 +450,10 @@ class MasterReservationFacts:
     """Master-bound facts sufficient to construct a non-consuming D2 stage."""
 
     aggregate_sha256: str
+    authorization_file: Path
     authorization_sha256: str
+    authorization_signature: Path
+    allowed_signers_file: Path
     external_roots: tuple[tuple[str, Path], ...]
     external_roots_sha256: str
     exact_head_grant_sha256: str
@@ -473,9 +486,156 @@ class ReservedRuntimeBinding:
     product_roots: Mapping[str, Path]
     repository_tuple: tuple[tuple[str, str, str], ...]
     prepared_roots: PreparedRoots | None = None
+    master_reservation: MasterReservationFacts | None = None
 
 
 RuntimeBinding = RuntimeAuthorization | ReservedRuntimeBinding
+
+
+def master_reservation_payload(
+    authorization: ReservedRuntimeBinding,
+) -> dict[str, object]:
+    """Serialize only the immutable facts retained from master admission."""
+
+    facts = authorization.master_reservation
+    if facts is None:
+        _fail("master_reservation_frame_invalid")
+    return {
+        "aggregate_sha256": facts.aggregate_sha256,
+        "authorization_file": str(facts.authorization_file),
+        "authorization_sha256": facts.authorization_sha256,
+        "authorization_signature": str(facts.authorization_signature),
+        "allowed_signers_file": str(facts.allowed_signers_file),
+        "external_roots": [
+            {"capability": capability, "root": str(root)}
+            for capability, root in facts.external_roots
+        ],
+        "external_roots_sha256": facts.external_roots_sha256,
+        "exact_head_grant_sha256": facts.exact_head_grant_sha256,
+        "master_evidence_root": str(facts.master_evidence_root),
+        "marker_sha256": facts.marker_sha256,
+        "postgres_evidence_root": str(facts.postgres_evidence_root),
+        "postgres_runtime_root": str(facts.postgres_runtime_root),
+        "repository_roots": [
+            {"repository": repository, "root": str(root)}
+            for repository, root in facts.repository_roots
+        ],
+        "repository_roots_sha256": facts.repository_roots_sha256,
+        "repository_tuple": [
+            {"commit": commit, "repository": repository, "tree": tree}
+            for repository, commit, tree in facts.repository_tuple
+        ],
+        "repository_tuple_sha256": facts.repository_tuple_sha256,
+        "run_id": facts.run_id,
+        "schema": MASTER_RESERVATION_SCHEMA,
+    }
+
+
+def master_reservation_from_payload(payload: object) -> MasterReservationFacts:
+    """Parse a MAC-authenticated master reservation without widening its schema."""
+
+    expected = {
+        "aggregate_sha256",
+        "authorization_file",
+        "authorization_sha256",
+        "authorization_signature",
+        "allowed_signers_file",
+        "external_roots",
+        "external_roots_sha256",
+        "exact_head_grant_sha256",
+        "master_evidence_root",
+        "marker_sha256",
+        "postgres_evidence_root",
+        "postgres_runtime_root",
+        "repository_roots",
+        "repository_roots_sha256",
+        "repository_tuple",
+        "repository_tuple_sha256",
+        "run_id",
+        "schema",
+    }
+    if not isinstance(payload, Mapping) or set(payload) != expected:
+        _fail("master_reservation_frame_invalid")
+    external = payload["external_roots"]
+    repository_roots = payload["repository_roots"]
+    repository_tuple = payload["repository_tuple"]
+    if (
+        payload["schema"] != MASTER_RESERVATION_SCHEMA
+        or not isinstance(external, list)
+        or not isinstance(repository_roots, list)
+        or not isinstance(repository_tuple, list)
+    ):
+        _fail("master_reservation_frame_invalid")
+
+    def path(value: object) -> Path:
+        if not isinstance(value, str) or not value:
+            _fail("master_reservation_frame_invalid")
+        candidate = Path(value)
+        if not candidate.is_absolute() or str(candidate) != value:
+            _fail("master_reservation_frame_invalid")
+        return candidate
+
+    try:
+        external_values = tuple(
+            (item["capability"], path(item["root"]))
+            for item in external
+            if isinstance(item, Mapping)
+            and set(item) == {"capability", "root"}
+            and isinstance(item["capability"], str)
+        )
+        repository_root_values = tuple(
+            (item["repository"], path(item["root"]))
+            for item in repository_roots
+            if isinstance(item, Mapping)
+            and set(item) == {"repository", "root"}
+            and isinstance(item["repository"], str)
+        )
+        repository_tuple_values = tuple(
+            (item["repository"], item["commit"], item["tree"])
+            for item in repository_tuple
+            if isinstance(item, Mapping)
+            and set(item) == {"commit", "repository", "tree"}
+            and all(isinstance(item[name], str) for name in item)
+        )
+    except (KeyError, TypeError, ValueError):
+        _fail("master_reservation_frame_invalid")
+    if (
+        len(external_values) != len(external)
+        or len(repository_root_values) != len(repository_roots)
+        or len(repository_tuple_values) != len(repository_tuple)
+    ):
+        _fail("master_reservation_frame_invalid")
+    scalar_names = (
+        "aggregate_sha256",
+        "authorization_sha256",
+        "external_roots_sha256",
+        "exact_head_grant_sha256",
+        "marker_sha256",
+        "repository_roots_sha256",
+        "repository_tuple_sha256",
+        "run_id",
+    )
+    if any(not isinstance(payload[name], str) for name in scalar_names):
+        _fail("master_reservation_frame_invalid")
+    return MasterReservationFacts(
+        aggregate_sha256=payload["aggregate_sha256"],
+        authorization_file=path(payload["authorization_file"]),
+        authorization_sha256=payload["authorization_sha256"],
+        authorization_signature=path(payload["authorization_signature"]),
+        allowed_signers_file=path(payload["allowed_signers_file"]),
+        external_roots=external_values,
+        external_roots_sha256=payload["external_roots_sha256"],
+        exact_head_grant_sha256=payload["exact_head_grant_sha256"],
+        master_evidence_root=path(payload["master_evidence_root"]),
+        marker_sha256=payload["marker_sha256"],
+        postgres_evidence_root=path(payload["postgres_evidence_root"]),
+        postgres_runtime_root=path(payload["postgres_runtime_root"]),
+        repository_roots=repository_root_values,
+        repository_roots_sha256=payload["repository_roots_sha256"],
+        repository_tuple=repository_tuple_values,
+        repository_tuple_sha256=payload["repository_tuple_sha256"],
+        run_id=payload["run_id"],
+    )
 
 
 def _fail(reason: str) -> Never:
@@ -1114,6 +1274,360 @@ def _read_bound_regular_file(path: Path, *, maximum: int, reason: str) -> bytes:
                 pass
 
 
+def verify_master_consumption(facts: MasterReservationFacts) -> None:
+    """Verify the exact master marker retained by the parent reservation."""
+
+    reason = "master_consumption_marker_invalid"
+    root_descriptor = -1
+    marker_descriptor = -1
+    try:
+        root = facts.master_evidence_root
+        if root.resolve(strict=True) != root:
+            _fail(reason)
+        root_descriptor = _open_directory_without_symlinks(root)
+        root_identity = os.fstat(root_descriptor)
+        marker_identity = os.stat(
+            MASTER_CONSUMPTION_MARKER,
+            dir_fd=root_descriptor,
+            follow_symlinks=False,
+        )
+        if (
+            not stat.S_ISDIR(root_identity.st_mode)
+            or root_identity.st_uid != os.geteuid()
+            or stat.S_IMODE(root_identity.st_mode) != 0o700
+            or not stat.S_ISREG(marker_identity.st_mode)
+            or marker_identity.st_uid != os.geteuid()
+            or stat.S_IMODE(marker_identity.st_mode) != 0o600
+            or marker_identity.st_nlink != 1
+        ):
+            _fail(reason)
+        marker_descriptor = os.open(
+            MASTER_CONSUMPTION_MARKER,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=root_descriptor,
+        )
+        payload = _read_bounded_descriptor(
+            marker_descriptor,
+            marker_identity,
+            maximum=MAX_CONSUMPTION_MARKER_BYTES,
+            reason=reason,
+        )
+    except RuntimeAuthorizationFailure:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail(reason)
+    finally:
+        if marker_descriptor >= 0:
+            os.close(marker_descriptor)
+        if root_descriptor >= 0:
+            os.close(root_descriptor)
+    expected = {
+        "aggregate_sha256": facts.aggregate_sha256,
+        "authorization_sha256": facts.authorization_sha256,
+        "exact_head_grant_sha256": facts.exact_head_grant_sha256,
+        "external_roots_sha256": facts.external_roots_sha256,
+        "one_shot": True,
+        "repository_roots_sha256": facts.repository_roots_sha256,
+        "repository_tuple_sha256": facts.repository_tuple_sha256,
+        "run_id": facts.run_id,
+        "status": "consumed",
+    }
+    expected_payload = _canonical_json(expected) + b"\n"
+    if payload != expected_payload or not hmac.compare_digest(
+        hashlib.sha256(payload).hexdigest(), facts.marker_sha256
+    ):
+        _fail(reason)
+
+
+def _open_master_public_artifact(
+    path: Path, *, maximum: int, reason: str
+) -> tuple[int, bytes]:
+    descriptor = -1
+    try:
+        if not path.is_absolute() or path.resolve(strict=True) != path:
+            _fail(reason)
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+        )
+        identity = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(identity.st_mode)
+            or stat.S_IMODE(identity.st_mode) != 0o600
+            or identity.st_uid != os.geteuid()
+            or identity.st_nlink != 1
+        ):
+            _fail(reason)
+        payload = _read_bounded_descriptor(
+            descriptor, identity, maximum=maximum, reason=reason
+        )
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        return descriptor, payload
+    except RuntimeAuthorizationFailure:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise
+    except (OSError, TypeError, ValueError):
+        if descriptor >= 0:
+            os.close(descriptor)
+        _fail(reason)
+
+
+def _master_trust_descriptor(suite_root: Path) -> Mapping[str, str]:
+    reason = "master_trust_descriptor_invalid"
+    path = suite_root / MASTER_TRUST_DESCRIPTOR_REL
+    payload = _read_bound_regular_file(path, maximum=16 * 1024, reason=reason)
+    try:
+        result = subprocess.run(
+            (
+                "/usr/bin/git",
+                "-C",
+                str(suite_root),
+                "show",
+                f"HEAD:{MASTER_TRUST_DESCRIPTOR_REL.as_posix()}",
+            ),
+            check=True,
+            capture_output=True,
+            timeout=10,
+            env=dict(_GIT_ENV),
+        )
+        document = json.loads(payload)
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ):
+        _fail(reason)
+    expected = {
+        "allowed_signers_sha256",
+        "key_fingerprint",
+        "key_type",
+        "namespace",
+        "python_sha256",
+        "schema",
+        "signer",
+    }
+    canonical = (
+        json.dumps(document, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+    )
+    if (
+        result.stdout != payload
+        or not isinstance(document, dict)
+        or set(document) != expected
+        or canonical != payload
+        or document.get("schema") != "CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1"
+        or document.get("namespace") != MASTER_AUTHORIZATION_NAMESPACE
+        or document.get("signer") != "FOUNDER"
+        or document.get("key_type") != "ssh-ed25519"
+        or _HEX64.fullmatch(str(document.get("allowed_signers_sha256", ""))) is None
+        or _HEX64.fullmatch(str(document.get("python_sha256", ""))) is None
+    ):
+        _fail(reason)
+    return MappingProxyType({str(key): str(value) for key, value in document.items()})
+
+
+def _master_allowed_signer_identity(payload: bytes) -> tuple[str, str, str]:
+    reason = "master_allowed_signers_invalid"
+    try:
+        line = payload.decode("ascii")
+        signer, option, key_type, encoded = line.removesuffix("\n").split(" ")
+        key_blob = base64.b64decode(encoded, validate=True)
+    except (UnicodeDecodeError, ValueError):
+        _fail(reason)
+    if (
+        not line.endswith("\n")
+        or "\n" in line[:-1]
+        or option != f'namespaces="{MASTER_AUTHORIZATION_NAMESPACE}"'
+        or key_type != "ssh-ed25519"
+    ):
+        _fail(reason)
+    fingerprint = "SHA256:" + base64.b64encode(
+        hashlib.sha256(key_blob).digest()
+    ).decode().rstrip("=")
+    return signer, key_type, fingerprint
+
+
+def _master_sshsig_verifier() -> Path:
+    reason = "master_sshsig_verifier_invalid"
+    verifier = EXACT_HEAD_GRANT_VERIFY_BINARY
+    try:
+        metadata = verifier.lstat()
+        resolved = verifier.resolve(strict=True)
+    except OSError:
+        _fail(reason)
+    if (
+        resolved != verifier
+        or verifier.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != 0
+        or stat.S_IMODE(metadata.st_mode) & 0o022
+    ):
+        _fail(reason)
+    return verifier
+
+
+def verify_signed_master_reservation(facts: MasterReservationFacts) -> None:
+    """Anchor transported master facts to the tracked Founder SSHSIG trust root."""
+
+    reason = "signed_master_reservation_invalid"
+    suite_root = Path(__file__).resolve().parents[5]
+    artifact_descriptors: list[int] = []
+    try:
+        authorization_descriptor, payload = _open_master_public_artifact(
+            facts.authorization_file,
+            maximum=MAX_AUTHORIZATION_BYTES,
+            reason=reason,
+        )
+        artifact_descriptors.append(authorization_descriptor)
+        signature_descriptor, signature = _open_master_public_artifact(
+            facts.authorization_signature,
+            maximum=MAX_AUTHORIZATION_BYTES,
+            reason=reason,
+        )
+        artifact_descriptors.append(signature_descriptor)
+        allowed_descriptor, allowed_payload = _open_master_public_artifact(
+            facts.allowed_signers_file,
+            maximum=MAX_ALLOWED_SIGNERS_BYTES,
+            reason=reason,
+        )
+        artifact_descriptors.append(allowed_descriptor)
+        descriptor = _master_trust_descriptor(suite_root)
+        signer, key_type, fingerprint = _master_allowed_signer_identity(allowed_payload)
+        if (
+            hashlib.sha256(payload).hexdigest() != facts.authorization_sha256
+            or hashlib.sha256(signature).hexdigest() != facts.exact_head_grant_sha256
+            or hashlib.sha256(allowed_payload).hexdigest()
+            != descriptor["allowed_signers_sha256"]
+            or signer != descriptor["signer"]
+            or key_type != descriptor["key_type"]
+            or fingerprint != descriptor["key_fingerprint"]
+        ):
+            _fail(reason)
+        verifier = _master_sshsig_verifier()
+        verification = subprocess.run(
+            (
+                str(verifier),
+                "-Y",
+                "verify",
+                "-f",
+                f"/dev/fd/{allowed_descriptor}",
+                "-I",
+                signer,
+                "-n",
+                descriptor["namespace"],
+                "-s",
+                f"/dev/fd/{signature_descriptor}",
+            ),
+            input=payload,
+            capture_output=True,
+            check=False,
+            pass_fds=(allowed_descriptor, signature_descriptor),
+            timeout=10,
+            env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+        )
+        document = json.loads(payload)
+    except RuntimeAuthorizationFailure:
+        raise
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ):
+        _fail(reason)
+    finally:
+        for artifact_descriptor in artifact_descriptors:
+            try:
+                os.close(artifact_descriptor)
+            except OSError:
+                pass
+    expected_fields = {
+        "authorization_id",
+        "authorized_by",
+        "b1_wheel",
+        "decision",
+        "evidence_root",
+        "expires_at",
+        "external_roots",
+        "external_roots_sha256",
+        "helper_scripts",
+        "issued_at",
+        "one_shot",
+        "python",
+        "repository_roots",
+        "repository_roots_sha256",
+        "schema",
+        "tracked_blob_aggregate",
+        "tuple",
+    }
+    canonical = json.dumps(
+        document, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    by_repository = {
+        repository: {"commit": commit, "tree": tree}
+        for repository, commit, tree in facts.repository_tuple
+    }
+    expected_tuple = {
+        "suite": by_repository.get("cybrik-suite"),
+        "soc": by_repository.get("cybrik-soc-command-center"),
+        "cyber_ai": by_repository.get("cybrik-cyber-ai-platform"),
+        "tool_fabric": by_repository.get("cybrik-security-tool-fabric"),
+    }
+    expected_external = [
+        {"capability": capability, "root": str(root)}
+        for capability, root in facts.external_roots
+    ]
+    expected_repositories = [
+        {"repository": repository, "root": str(root)}
+        for repository, root in facts.repository_roots
+    ]
+    aggregate = (
+        document.get("tracked_blob_aggregate") if isinstance(document, dict) else None
+    )
+    try:
+        issued_raw = document.get("issued_at")
+        expires_raw = document.get("expires_at")
+        if not isinstance(issued_raw, str) or not isinstance(expires_raw, str):
+            _fail(reason)
+        issued = datetime.fromisoformat(issued_raw)
+        expires = datetime.fromisoformat(expires_raw)
+        if issued.utcoffset() is None or expires.utcoffset() is None:
+            _fail(reason)
+        issued = issued.astimezone(UTC)
+        expires = expires.astimezone(UTC)
+        now = datetime.now(UTC)
+    except (OverflowError, ValueError):
+        _fail(reason)
+    if (
+        verification.returncode != 0
+        or not isinstance(document, dict)
+        or set(document) != expected_fields
+        or canonical != payload
+        or document.get("schema") != MASTER_AUTHORIZATION_SCHEMA
+        or document.get("authorization_id") != facts.run_id
+        or document.get("authorized_by") != "FOUNDER"
+        or document.get("decision") != "APPROVE"
+        or document.get("one_shot") is not True
+        or issued > now
+        or now >= expires
+        or expires <= issued
+        or expires - issued > timedelta(hours=24)
+        or document.get("evidence_root") != str(facts.master_evidence_root)
+        or document.get("external_roots") != expected_external
+        or document.get("external_roots_sha256") != facts.external_roots_sha256
+        or document.get("repository_roots") != expected_repositories
+        or document.get("repository_roots_sha256") != facts.repository_roots_sha256
+        or document.get("tuple") != expected_tuple
+        or not isinstance(aggregate, dict)
+        or aggregate.get("algorithm") != "cybrik-uat-tracked-blob-sha256-lines/v1"
+        or aggregate.get("sha256") != facts.aggregate_sha256
+        or not isinstance(aggregate.get("file_count"), int)
+        or aggregate["file_count"] <= 0
+    ):
+        _fail(reason)
+
+
 def read_authorization(path: Path) -> bytes:
     """Read the bounded authorization artifact from one stable inode."""
 
@@ -1501,7 +2015,11 @@ def verify_loaded_module_origins(
         parent_name, _separator, _leaf = module_name.rpartition(".")
         parent = inventory.get(parent_name)
         parent_file = getattr(parent, "__file__", None)
-        if module_name == namespace or not isinstance(parent_file, str) or not parent_file:
+        if (
+            module_name == namespace
+            or not isinstance(parent_file, str)
+            or not parent_file
+        ):
             _fail("import_source_root_invalid")
         origins.append((parent_name, Path(parent_file)))
         suffix = module_name.removeprefix(namespace).removeprefix(".")
@@ -2661,6 +3179,11 @@ def authorize_from_master_reservation(
     )
     if any(_HEX64.fullmatch(value) is None for value in text_fields):
         _fail("master_reservation_invalid")
+    if (
+        not isinstance(facts.run_id, str)
+        or _MASTER_RUN_ID.fullmatch(facts.run_id) is None
+    ):
+        _fail("master_reservation_invalid")
     expected_external_capabilities = (
         "postgres_d2_runtime",
         "postgres_d2_evidence",
@@ -2712,6 +3235,7 @@ def authorize_from_master_reservation(
         != facts.repository_tuple_sha256
     ):
         _fail("master_reservation_invalid")
+    verify_signed_master_reservation(facts)
     roots_by_name = dict(facts.repository_roots)
     suite_root = Path(__file__).resolve().parents[5]
     if roots_by_name["cybrik-suite"] != suite_root:
@@ -2794,6 +3318,7 @@ def authorize_from_master_reservation(
         prepared_roots=_existing_master_prepared_roots(
             facts.authorization_sha256, runtime_root, evidence_root
         ),
+        master_reservation=facts,
     )
 
 

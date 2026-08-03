@@ -1167,7 +1167,7 @@ def test_serve_wires_config_middleware_signal_handlers_and_shutdown(
     _install_fake_module(
         monkeypatch,
         "cybrik_suite_uat_mtls.harness",
-        assert_runtime_authorized=lambda: events.setdefault("authorized", True),
+        assert_child_runtime_authorized=lambda: events.setdefault("authorized", True),
     )
     monkeypatch.setattr(runtime_server, "_verify_b1_artifact", lambda: Path("wheel"))
     monkeypatch.setattr(runtime_server, "_application", lambda: {"inner": True})

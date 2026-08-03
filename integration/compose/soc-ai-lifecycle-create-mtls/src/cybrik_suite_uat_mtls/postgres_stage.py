@@ -336,11 +336,22 @@ def _bind_master_reservation(
     run_id = _text(getattr(context, "run_id", None), _RUN_ID)
     evidence_root = getattr(context, "evidence_root", None)
     marker = getattr(context, "consumption_marker", None)
+    authorization_file = getattr(context, "master_authorization_file", None)
+    authorization_signature = getattr(context, "master_authorization_signature", None)
+    allowed_signers_file = getattr(context, "master_allowed_signers", None)
     if (
         not isinstance(evidence_root, Path)
         or not evidence_root.is_absolute()
         or not isinstance(marker, Path)
         or marker != evidence_root / MASTER_MARKER_NAME
+        or any(
+            not isinstance(path, Path) or not path.is_absolute()
+            for path in (
+                authorization_file,
+                authorization_signature,
+                allowed_signers_file,
+            )
+        )
     ):
         _fail("master_reservation_invalid")
     try:
@@ -407,7 +418,10 @@ def _bind_master_reservation(
         _fail("master_reservation_invalid")
     return runtime_authorization.MasterReservationFacts(
         aggregate_sha256=aggregate,
+        authorization_file=authorization_file,
         authorization_sha256=authorization_sha,
+        authorization_signature=authorization_signature,
+        allowed_signers_file=allowed_signers_file,
         external_roots=external_roots,
         external_roots_sha256=external_roots_sha,
         exact_head_grant_sha256=str(document["exact_head_grant_sha256"]),

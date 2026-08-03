@@ -277,9 +277,9 @@ async def _serve() -> None:
 
     from anycorn import Config, serve
 
-    from .harness import assert_runtime_authorized
+    from .harness import assert_child_runtime_authorized
 
-    assert_runtime_authorized()
+    assert_child_runtime_authorized()
     _verify_b1_artifact()
 
     class RuntimeConfig(Config):

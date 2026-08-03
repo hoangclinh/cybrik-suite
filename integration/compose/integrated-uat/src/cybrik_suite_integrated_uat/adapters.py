@@ -579,8 +579,41 @@ class _SubprocessStage(_PinnedCommand):
 class PostgresD2Stage(_SubprocessStage):
     stage = "postgres_d2"
 
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(relative_script=POSTGRES_D2_SCRIPT, **kwargs)
+    def __init__(
+        self,
+        *,
+        authorization_file: Path,
+        authorization_signature: Path,
+        allowed_signers_file: Path,
+        **kwargs: object,
+    ) -> None:
+        artifacts = tuple(
+            _pinned_file(
+                path,
+                digest=None,
+                exact_mode=0o600,
+                reason="adapter_master_trust_artifact_invalid",
+            )[0]
+            for path in (
+                authorization_file,
+                authorization_signature,
+                allowed_signers_file,
+            )
+        )
+        if len(set(artifacts)) != len(artifacts):
+            _fail("adapter_master_trust_artifact_invalid")
+        super().__init__(
+            relative_script=POSTGRES_D2_SCRIPT,
+            extra_argv=(
+                "--master-authorization-file",
+                str(artifacts[0]),
+                "--master-authorization-signature",
+                str(artifacts[1]),
+                "--master-allowed-signers",
+                str(artifacts[2]),
+            ),
+            **kwargs,
+        )
 
 
 class AlertContextStage(_SubprocessStage):

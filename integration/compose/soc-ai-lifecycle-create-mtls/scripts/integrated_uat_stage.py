@@ -67,6 +67,9 @@ def _arguments(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--repository", action="append", default=[])
     parser.add_argument("--repository-identity", action="append", default=[])
     parser.add_argument("--external-root", action="append", default=[])
+    parser.add_argument("--master-authorization-file", required=True)
+    parser.add_argument("--master-authorization-signature", required=True)
+    parser.add_argument("--master-allowed-signers", required=True)
     try:
         return parser.parse_args(list(argv) if argv is not None else None)
     except SystemExit:
@@ -120,6 +123,9 @@ def _command_inputs(
         repository_tuple=tuple(identities),
         repository_tuple_sha256=arguments.repository_tuple_sha256,
         run_id=arguments.run_id,
+        master_authorization_file=Path(arguments.master_authorization_file),
+        master_authorization_signature=Path(arguments.master_authorization_signature),
+        master_allowed_signers=Path(arguments.master_allowed_signers),
     )
     return context, repositories, external
 

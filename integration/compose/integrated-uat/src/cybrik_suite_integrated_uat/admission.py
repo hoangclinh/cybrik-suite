@@ -322,6 +322,9 @@ class MasterEnvironment:
 @dataclass(frozen=True, slots=True)
 class AdmittedMaster:
     authorization: MasterAuthorization
+    authorization_file: Path
+    authorization_signature: Path
+    allowed_signers_file: Path
     b1_wheel: Path
     b1_wheel_sha256: str
     helper_sha256: Mapping[Path, str]
@@ -789,6 +792,9 @@ def admit_master_authorization(
     )
     return AdmittedMaster(
         authorization=authorization,
+        authorization_file=config.authority.authorization_file,
+        authorization_signature=config.authority.signature_file,
+        allowed_signers_file=config.authority.allowed_signers_file,
         b1_wheel=config.authority.b1_wheel,
         b1_wheel_sha256=b1_sha256,
         helper_sha256=MappingProxyType(helper_sha256),

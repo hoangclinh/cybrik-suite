@@ -143,6 +143,17 @@ def _context(tmp_path: Path) -> SimpleNamespace:
     ).encode()
     marker.write_bytes(payload)
     marker.chmod(0o600)
+    master_artifacts = tuple(
+        tmp_path / name
+        for name in (
+            "master-authorization.json",
+            "master-authorization.sig",
+            "allowed-signers",
+        )
+    )
+    for artifact in master_artifacts:
+        artifact.write_bytes(b"fixture")
+        artifact.chmod(0o600)
     return SimpleNamespace(
         aggregate_sha256=HEX["aggregate"],
         authorization_sha256=HEX["authorization"],
@@ -154,6 +165,9 @@ def _context(tmp_path: Path) -> SimpleNamespace:
         repository_tuple_sha256=tuple_sha256,
         repository_roots_sha256=repository_roots_sha256,
         run_id="integrated-uat-0001",
+        master_authorization_file=master_artifacts[0],
+        master_authorization_signature=master_artifacts[1],
+        master_allowed_signers=master_artifacts[2],
         configured_external_roots=external_roots,
         configured_repository_roots=repository_roots,
     )
@@ -506,12 +520,32 @@ def test_adapter_matches_live_master_model_and_digest(
         repository_tuple_sha256=context.repository_tuple_sha256,
         run_id=context.run_id,
     )
+    stage_context = SimpleNamespace(
+        **{
+            field: getattr(live_context, field)
+            for field in (
+                "aggregate_sha256",
+                "authorization_sha256",
+                "consumption_marker",
+                "evidence_root",
+                "external_roots_sha256",
+                "marker_sha256",
+                "repository_roots_sha256",
+                "repository_tuple",
+                "repository_tuple_sha256",
+                "run_id",
+            )
+        },
+        master_authorization_file=context.master_authorization_file,
+        master_authorization_signature=context.master_authorization_signature,
+        master_allowed_signers=context.master_allowed_signers,
+    )
 
     receipt = postgres_stage.PostgresD2StageAdapter(
         _operations([]),
         external_roots=external_roots,
         repository_roots=repository_roots,
-    ).run(live_context)
+    ).run(stage_context)
 
     assert receipt.external_roots_sha256 == models.external_roots_digest(external_roots)
     assert receipt.repository_tuple_sha256 == live_context.repository_tuple_sha256
@@ -567,7 +601,10 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
     ).hexdigest()
     facts = runtime_auth.MasterReservationFacts(
         aggregate_sha256="a" * 64,
+        authorization_file=tmp_path / "master-authorization.json",
         authorization_sha256="b" * 64,
+        authorization_signature=tmp_path / "master-authorization.sig",
+        allowed_signers_file=tmp_path / "allowed-signers",
         exact_head_grant_sha256="c" * 64,
         external_roots=external_roots,
         external_roots_sha256=runtime_auth._master_external_roots_digest(
@@ -590,15 +627,43 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
         repository_tuple_sha256=signed_repository_tuple_sha256,
         run_id="master-reserved",
     )
+    marker_payload = postgres_stage.canonical_receipt_bytes(
+        {
+            "aggregate_sha256": facts.aggregate_sha256,
+            "authorization_sha256": facts.authorization_sha256,
+            "exact_head_grant_sha256": facts.exact_head_grant_sha256,
+            "external_roots_sha256": facts.external_roots_sha256,
+            "one_shot": True,
+            "repository_roots_sha256": facts.repository_roots_sha256,
+            "repository_tuple_sha256": facts.repository_tuple_sha256,
+            "run_id": facts.run_id,
+            "status": "consumed",
+        }
+    )
+    marker = master_evidence / runtime_auth.MASTER_CONSUMPTION_MARKER
+    marker.write_bytes(marker_payload)
+    marker.chmod(0o600)
+    facts = replace(facts, marker_sha256=hashlib.sha256(marker_payload).hexdigest())
     for name in tuple(os.environ):
         if name.startswith("CYBRIK_UAT_D2_"):
             monkeypatch.delenv(name, raising=False)
 
+    monkeypatch.setattr(
+        runtime_auth, "verify_signed_master_reservation", lambda _: None
+    )
     binding = runtime_auth.authorize_from_master_reservation(facts)
     prepared = runtime_auth.prepare_master_stage_roots(binding)
 
     assert isinstance(binding, runtime_auth.ReservedRuntimeBinding)
     assert binding.repository_tuple == facts.repository_tuple
+    assert binding.master_reservation == facts
+    assert (
+        runtime_auth.master_reservation_from_payload(
+            runtime_auth.master_reservation_payload(binding)
+        )
+        == facts
+    )
+    runtime_auth.verify_master_consumption(facts)
     assert prepared.prepared_roots is not None
     assert prepared.runtime_root.is_dir()
     assert (prepared.runtime_root / "pki").is_dir()
@@ -637,6 +702,13 @@ def test_master_reserved_binding_prepares_only_nested_pki_without_cybrik_env(
             replace(facts, repository_tuple_sha256="f" * 64)
         )
 
+    marker.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(
+        runtime_auth.RuntimeAuthorizationFailure,
+        match="master_consumption_marker_invalid",
+    ):
+        runtime_auth.verify_master_consumption(facts)
+
 
 def _direct_stage_argv(context: SimpleNamespace, action: str) -> list[str]:
     arguments = [
@@ -671,6 +743,16 @@ def _direct_stage_argv(context: SimpleNamespace, action: str) -> list[str]:
         )
     for item in context.configured_external_roots:
         arguments.extend(("--external-root", f"{item.capability}={item.root}"))
+    arguments.extend(
+        (
+            "--master-authorization-file",
+            str(context.master_authorization_file),
+            "--master-authorization-signature",
+            str(context.master_authorization_signature),
+            "--master-allowed-signers",
+            str(context.master_allowed_signers),
+        )
+    )
     return arguments
 
 
@@ -816,6 +898,9 @@ def test_live_master_adapter_argv_is_accepted_by_real_postgres_parser(
 
     script_path = suite_root / adapters.POSTGRES_D2_SCRIPT
     adapter = adapters.PostgresD2Stage(
+        authorization_file=base.master_authorization_file,
+        authorization_signature=base.master_authorization_signature,
+        allowed_signers_file=base.master_allowed_signers,
         authorization=authorization,
         executor=executor,
         python_executable=Path(sys.executable).resolve(),

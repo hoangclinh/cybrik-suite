@@ -44,6 +44,9 @@ def test_concrete_builder_passes_alert_runtime_pins_and_uses_composite(
     monkeypatch.setattr(orchestrator, "IntegratedUatOrchestrator", master)
     admitted = SimpleNamespace(
         authorization=object(),
+        authorization_file=Path("/external/master-authorization.json"),
+        authorization_signature=Path("/external/master-authorization.sig"),
+        allowed_signers_file=Path("/external/allowed-signers"),
         b1_wheel=Path("/external/b1.whl"),
         b1_wheel_sha256="b" * 64,
         helper_sha256={
@@ -63,6 +66,12 @@ def test_concrete_builder_passes_alert_runtime_pins_and_uses_composite(
     assert alert_kwargs["python_executable"] == admitted.python_executable
     assert alert_kwargs["python_sha256"] == admitted.python_sha256
     postgres = records["postgres"][1]
+    postgres_kwargs = records["postgres"][0]
+    assert postgres_kwargs["authorization_file"] == admitted.authorization_file
+    assert (
+        postgres_kwargs["authorization_signature"] == admitted.authorization_signature
+    )
+    assert postgres_kwargs["allowed_signers_file"] == admitted.allowed_signers_file
     assert records["composite"] == {
         "alert_context_stage": alert,
         "postgres_d2_stage": postgres,
