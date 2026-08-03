@@ -80,18 +80,26 @@
     {
       "id": "key_lifecycle_trust_bundle_design_accepted",
       "phase": "implementation",
-      "satisfied": false,
-      "evidence_state": "open",
-      "evidence": [],
-      "note": "Signer issuance, rotation, revocation and trust-bundle distribution remain unaccepted runtime design work."
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+        "cybrik-suite:docs/adr/ADR-0014-receipt-trust-and-durability-profile.md",
+        "cybrik-suite:docs/adr/evidence/ADR-0014-EVIDENCE.md"
+      ],
+      "note": "The provider-neutral key lifecycle and public trust-bundle floor is accepted for implementation; Fabric product choices and runtime evidence remain separate gates."
     },
     {
       "id": "durable_receipt_store_design_accepted",
       "phase": "implementation",
-      "satisfied": false,
-      "evidence_state": "open",
-      "evidence": [],
-      "note": "The production durable completed-invocation authority and failure semantics remain unaccepted design work."
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+        "cybrik-suite:docs/adr/ADR-0014-receipt-trust-and-durability-profile.md",
+        "cybrik-suite:docs/adr/evidence/ADR-0014-EVIDENCE.md"
+      ],
+      "note": "The provider-neutral durable ordering and observable failure floor is accepted for implementation; no ledger, database or runtime is selected or proven."
     },
     {
       "id": "product_runtime_producer_implemented_reviewed",
@@ -127,7 +135,7 @@
     }
   ],
   "declared": {
-    "implementation_disposition": "HOLD",
+    "implementation_disposition": "GO",
     "runtime_disposition": "HOLD",
     "runtime_authorized": false
   },

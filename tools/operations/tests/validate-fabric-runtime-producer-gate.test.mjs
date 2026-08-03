@@ -22,27 +22,72 @@ const packetPath = join(
   "04-fabric-runtime-producer-gate.json",
 );
 const packet = JSON.parse(await readFile(packetPath, "utf8"));
+const trustDurabilityPacket = JSON.parse(
+  await readFile(
+    join(
+      repositoryRoot,
+      "contracts",
+      "compatibility",
+      "cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+    ),
+    "utf8",
+  ),
+);
 
 function copyPacket() {
   return structuredClone(packet);
 }
 
-test("committed packet derives HOLD without minting runtime evidence", () => {
-  const result = validateFabricRuntimeProducerGate(copyPacket());
+function validateGate(candidate, designPacket = trustDurabilityPacket) {
+  return validateFabricRuntimeProducerGate(candidate, { trustDurabilityPacket: designPacket });
+}
+
+test("committed packet derives implementation GO and runtime HOLD", () => {
+  const result = validateGate(copyPacket());
 
   assert.deepEqual(result, {
-    implementationDisposition: "HOLD",
+    implementationDisposition: "GO",
     runtimeDisposition: "HOLD",
     runtimeAuthorized: false,
     blockerIds: [
-      "key_lifecycle_trust_bundle_design_accepted",
-      "durable_receipt_store_design_accepted",
       "product_runtime_producer_implemented_reviewed",
       "canonical_tuple_hosted_ci_green",
       "runtime_negative_and_rollback_evidence",
       "coverage_remeasured_current_suite_tree",
     ],
   });
+});
+
+test("design closures are backed by the accepted trust and durability packet", () => {
+  assert.equal(
+    trustDurabilityPacket["x-cybrik-status"],
+    "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  );
+  assert.deepEqual(trustDurabilityPacket.acceptance, {
+    key_lifecycle_design_accepted: true,
+    durable_store_design_accepted: true,
+  });
+  for (const id of [
+    "key_lifecycle_trust_bundle_design_accepted",
+    "durable_receipt_store_design_accepted",
+  ]) {
+    const condition = packet.conditions.find((candidate) => candidate.id === id);
+    assert.equal(condition.satisfied, true);
+    assert.equal(condition.evidence_state, "verified");
+    assert.ok(
+      condition.evidence.includes(
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+      ),
+    );
+  }
+
+  const proposed = structuredClone(trustDurabilityPacket);
+  proposed["x-cybrik-status"] = "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED";
+  proposed["x-cybrik-not-accepted"] = true;
+  proposed.acceptance.key_lifecycle_design_accepted = false;
+  proposed.acceptance.durable_store_design_accepted = false;
+  assert.throws(() => validateGate(copyPacket(), proposed), /accepted not-implemented packet/);
+  assert.throws(() => validateGate(copyPacket(), null), /accepted trust\/durability packet/);
 });
 
 test("condition inventory is exact, ordered, unique and closed", () => {
@@ -62,7 +107,7 @@ test("condition inventory is exact, ordered, unique and closed", () => {
     const candidate = copyPacket();
     mutate(candidate);
     assert.throws(
-      () => validateFabricRuntimeProducerGate(candidate),
+      () => validateGate(candidate),
       /condition inventory/,
     );
   }
@@ -72,14 +117,14 @@ test("satisfied conditions require non-empty repository-qualified evidence", () 
   const candidate = copyPacket();
   candidate.conditions[0].evidence = [];
   assert.throws(
-    () => validateFabricRuntimeProducerGate(candidate),
+    () => validateGate(candidate),
     /satisfied condition.*evidence/,
   );
 
   const unqualified = copyPacket();
   unqualified.conditions[0].evidence = ["relative/path.md"];
   assert.throws(
-    () => validateFabricRuntimeProducerGate(unqualified),
+    () => validateGate(unqualified),
     /repository-qualified/,
   );
 });
@@ -89,7 +134,7 @@ test("open conditions cannot carry pass-like evidence state", () => {
   const open = candidate.conditions.find(({ satisfied }) => !satisfied);
   open.evidence_state = "verified";
   assert.throws(
-    () => validateFabricRuntimeProducerGate(candidate),
+    () => validateGate(candidate),
     /open condition.*evidence_state/,
   );
 });
@@ -102,7 +147,7 @@ test("condition phases cannot be reassigned to weaken implementation HOLD", () =
   openImplementationCondition.phase = "runtime";
 
   assert.throws(
-    () => validateFabricRuntimeProducerGate(candidate),
+    () => validateGate(candidate),
     /condition phase inventory/,
   );
 });
@@ -124,16 +169,16 @@ test("accepted mapping notes authorize implementation without claiming an operat
 
 test("declared dispositions must equal the derived gate result", () => {
   const implementationDrift = copyPacket();
-  implementationDrift.declared.implementation_disposition = "GO";
+  implementationDrift.declared.implementation_disposition = "HOLD";
   assert.throws(
-    () => validateFabricRuntimeProducerGate(implementationDrift),
+    () => validateGate(implementationDrift),
     /implementation disposition/,
   );
 
   const runtimeDrift = copyPacket();
   runtimeDrift.declared.runtime_disposition = "GO";
   assert.throws(
-    () => validateFabricRuntimeProducerGate(runtimeDrift),
+    () => validateGate(runtimeDrift),
     /runtime disposition/,
   );
 });
@@ -142,7 +187,7 @@ test("runtime authorization cannot be asserted while any condition is open", () 
   const candidate = copyPacket();
   candidate.declared.runtime_authorized = true;
   assert.throws(
-    () => validateFabricRuntimeProducerGate(candidate),
+    () => validateGate(candidate),
     /runtime_authorized/,
   );
 });
@@ -156,7 +201,7 @@ test("clean commit pins reject placeholder provenance and malformed identities",
     const candidate = copyPacket();
     candidate.pins.fabric_candidate[field] = value;
     assert.throws(
-      () => validateFabricRuntimeProducerGate(candidate),
+      () => validateGate(candidate),
       /fabric candidate/,
     );
   }
@@ -170,7 +215,7 @@ test("release dates and Founder production control remain immutable", () => {
     const candidate = copyPacket();
     candidate.release_constraints[field] = value;
     assert.throws(
-      () => validateFabricRuntimeProducerGate(candidate),
+      () => validateGate(candidate),
       /release constraints/,
     );
   }
@@ -178,7 +223,7 @@ test("release dates and Founder production control remain immutable", () => {
   const production = copyPacket();
   production.production_authorized = true;
   assert.throws(
-    () => validateFabricRuntimeProducerGate(production),
+    () => validateGate(production),
     /production_authorized/,
   );
 });
@@ -187,7 +232,7 @@ test("non-claims forbid runtime, UAT, release and production promotion", () => {
   const candidate = copyPacket();
   candidate.non_claims.pop();
   assert.throws(
-    () => validateFabricRuntimeProducerGate(candidate),
+    () => validateGate(candidate),
     /non_claims/,
   );
 });

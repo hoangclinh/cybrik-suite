@@ -9,6 +9,7 @@ import {
   evaluateReceiptTrustDurabilityGate,
   isReceiptSignatureAdmissible,
   loadReceiptTrustDurabilitySchemas,
+  validateArtifactLifecycleSet,
   validateCorpusInventory,
   validateValidatorDependencyVersions,
   validateDurabilityStatement,
@@ -43,13 +44,13 @@ async function validate(candidate = copyManifest()) {
   return validateReceiptTrustDurabilityPacket(candidate, { repositoryRoot });
 }
 
-test("proposal packet is complete but keeps both design gates closed", async () => {
+test("accepted packet opens implementation only and keeps runtime closed", async () => {
   const result = await validate();
   assert.deepEqual(result, {
-    lifecycle: "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
-    keyLifecycleDesignAccepted: false,
-    durableStoreDesignAccepted: false,
-    implementationAuthorized: false,
+    lifecycle: "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+    keyLifecycleDesignAccepted: true,
+    durableStoreDesignAccepted: true,
+    implementationAuthorized: true,
     runtimeAuthorized: false,
   });
 });
@@ -152,17 +153,42 @@ test("validator dependency provenance is exact and fail closed", async () => {
   await assert.rejects(() => validate(candidate), /validator dependency declaration/);
 });
 
-test("proposal lifecycle cannot be half-flipped or self-accepted", async () => {
+test("accepted lifecycle cannot be half-flipped or reverted implicitly", async () => {
   for (const [field, value] of [
-    ["x-cybrik-status", "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"],
-    ["x-cybrik-not-accepted", false],
+    ["x-cybrik-status", "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED"],
+    ["x-cybrik-not-accepted", true],
     ["x-cybrik-not-implemented", false],
     ["x-cybrik-is-bundle-tag", true],
   ]) {
     const candidate = copyManifest();
     candidate[field] = value;
-    await assert.rejects(() => validate(candidate), /proposal lifecycle/);
+    await assert.rejects(() => validate(candidate), /lifecycle/);
   }
+
+  for (const mutate of [
+    (candidate) => { candidate.acceptance.key_lifecycle_design_accepted = false; },
+    (candidate) => { candidate.acceptance.durable_store_design_accepted = false; },
+    (candidate) => { delete candidate.acceptance; },
+  ]) {
+    const candidate = copyManifest();
+    mutate(candidate);
+    await assert.rejects(() => validate(candidate), /lifecycle and acceptance flags/);
+  }
+
+  assert.throws(
+    () => validateArtifactLifecycleSet(
+      "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+      ["PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED"],
+    ),
+    /lifecycle must match/,
+  );
+  assert.throws(
+    () => validateArtifactLifecycleSet(
+      "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+      ["INVENTED"],
+    ),
+    /lifecycle is invalid/,
+  );
 });
 
 test("member bytes and declared sha256 digests are bound", async () => {
@@ -398,21 +424,13 @@ test("release dates, non-claims and Founder production control are immutable", a
   }
 });
 
-test("future acceptance derives implementation GO but never runtime or production authority", () => {
-  const candidate = copyManifest();
-  candidate["x-cybrik-status"] = "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED";
-  candidate["x-cybrik-not-accepted"] = false;
-  candidate.acceptance = {
-    key_lifecycle_design_accepted: true,
-    durable_store_design_accepted: true,
-  };
-
-  assert.deepEqual(evaluateReceiptTrustDurabilityGate(candidate), {
+test("accepted design derives implementation GO but never runtime or production authority", () => {
+  assert.deepEqual(evaluateReceiptTrustDurabilityGate(manifest), {
     lifecycle: "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
     keyLifecycleDesignAccepted: true,
     durableStoreDesignAccepted: true,
     implementationAuthorized: true,
     runtimeAuthorized: false,
   });
-  assert.equal(candidate.production_authorized, false);
+  assert.equal(manifest.production_authorized, false);
 });

@@ -11,6 +11,6 @@ Suite-level (cross-product) architecture documents. Product-internal architectur
 - `transport-peer-evidence/` — **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** Gate W2-K
   server-neutral, fail-closed peer-evidence adapter profile. It selects no server and proves no
   runtime, UAT, release, deployment, or production readiness.
-- `receipt-trust-and-durability/` — **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** public
+- `receipt-trust-and-durability/` — **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** public
   receipt-verifier bundle lifecycle and durable completion/failure semantics. Fabric retains all
   signer, distribution, ledger, runtime, and production authority.

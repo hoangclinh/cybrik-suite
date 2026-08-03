@@ -186,9 +186,9 @@ overclaim, or any failed tenant-isolation,
 authorization or secret-boundary check. A green result validates static runtime-admission records
 only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
 
-## Receipt trust and durability proposal
+## Receipt trust and durability
 
-Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Run:
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Run:
 
 ```bash
 npm run validate:f8:receipt-trust-durability

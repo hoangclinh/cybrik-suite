@@ -114,13 +114,12 @@ function invariantError(ruleId, message) {
 }
 
 function validateSchemaLifecycle(schema, label) {
-  if (
-    schema["x-cybrik-status"] !== PROPOSAL_STATUS ||
-    schema["x-cybrik-not-accepted"] !== true ||
-    schema["x-cybrik-not-implemented"] !== true
-  ) {
-    throw new Error(`${label} lifecycle must match the proposal`);
-  }
+  return validateLifecycleFields(
+    schema["x-cybrik-status"],
+    schema["x-cybrik-not-accepted"],
+    schema["x-cybrik-not-implemented"],
+    `${label} lifecycle`,
+  );
 }
 
 export async function loadReceiptTrustDurabilitySchemas({ repositoryRoot }) {
@@ -141,10 +140,12 @@ export async function loadReceiptTrustDurabilitySchemas({ repositoryRoot }) {
   const schemaRoot = join(repositoryRoot, "contracts", "json-schema");
   const trustSchema = (await readJsonStrict(join(schemaRoot, "cybrik.receipt-trust-bundle.v1.schema.json"))).value;
   const durabilitySchema = (await readJsonStrict(join(schemaRoot, "cybrik.receipt-durability-statement.v1.schema.json"))).value;
-  validateSchemaLifecycle(trustSchema, "trust-bundle schema");
-  validateSchemaLifecycle(durabilitySchema, "durability schema");
+  const trustLifecycle = validateSchemaLifecycle(trustSchema, "trust-bundle schema");
+  const durabilityLifecycle = validateSchemaLifecycle(durabilitySchema, "durability schema");
+  validateArtifactLifecycleSet(trustLifecycle, [durabilityLifecycle]);
   return {
     dependencyVersions,
+    lifecycle: trustLifecycle,
     trustBundle: ajv.compile(trustSchema),
     durability: ajv.compile(durabilitySchema),
   };
@@ -172,15 +173,46 @@ export function validateCorpusInventory(paths) {
   }
 }
 
-function validateLifecycle(packet) {
-  if (
-    packet["x-cybrik-status"] !== PROPOSAL_STATUS ||
-    packet["x-cybrik-not-accepted"] !== true ||
-    packet["x-cybrik-not-implemented"] !== true ||
-    packet["x-cybrik-is-bundle-tag"] !== false
-  ) {
-    throw new Error("proposal lifecycle must remain exact and not self-accept");
+export function validateArtifactLifecycleSet(expectedLifecycle, artifactLifecycles) {
+  if (![PROPOSAL_STATUS, ACCEPTED_STATUS].includes(expectedLifecycle)) {
+    throw new Error("artifact lifecycle is invalid");
   }
+  if (
+    !Array.isArray(artifactLifecycles) ||
+    artifactLifecycles.some((status) => ![PROPOSAL_STATUS, ACCEPTED_STATUS].includes(status))
+  ) {
+    throw new Error("artifact lifecycle is invalid");
+  }
+  if (artifactLifecycles.some((status) => status !== expectedLifecycle)) {
+    throw new Error("packet, schema and example lifecycle must match");
+  }
+}
+
+function validateLifecycleFields(status, notAccepted, notImplemented, label) {
+  const proposed = status === PROPOSAL_STATUS;
+  const accepted = status === ACCEPTED_STATUS;
+  if ((!proposed && !accepted) || notAccepted !== proposed || notImplemented !== true) {
+    throw new Error(`${label} must be one coherent not-implemented state`);
+  }
+  return status;
+}
+
+function validateLifecycle(packet) {
+  const status = validateLifecycleFields(
+    packet["x-cybrik-status"],
+    packet["x-cybrik-not-accepted"],
+    packet["x-cybrik-not-implemented"],
+    "packet lifecycle",
+  );
+  const accepted = status === ACCEPTED_STATUS;
+  if (
+    packet["x-cybrik-is-bundle-tag"] !== false ||
+    packet.acceptance?.key_lifecycle_design_accepted !== accepted ||
+    packet.acceptance?.durable_store_design_accepted !== accepted
+  ) {
+    throw new Error("packet lifecycle and acceptance flags must remain coherent");
+  }
+  return status;
 }
 
 function validateInventory(packet) {
@@ -342,7 +374,7 @@ async function readExamplesManifest(repositoryRoot) {
   validateCorpusInventory(await listCorpusFiles(root));
   const path = join(root, "examples-manifest.json");
   const manifest = (await readJsonStrict(path)).value;
-  if (manifest.status !== PROPOSAL_STATUS) throw new Error("examples manifest lifecycle must match proposal");
+  validateArtifactLifecycleSet(manifest.status, []);
   const paths = manifest.cases?.map(({ file }) => file) ?? [];
   if (
     paths.length !== EXPECTED_CASE_PATHS.length ||
@@ -391,8 +423,9 @@ function runSemanticValidator(schemaName, value) {
   throw new Error(`unknown example schema: ${schemaName}`);
 }
 
-async function validateCorpus(repositoryRoot, examplesManifest) {
+async function validateCorpus(repositoryRoot, examplesManifest, expectedLifecycle) {
   const schemas = await loadReceiptTrustDurabilitySchemas({ repositoryRoot });
+  validateArtifactLifecycleSet(expectedLifecycle, [schemas.lifecycle, examplesManifest.status]);
   const root = join(repositoryRoot, "contracts", "examples", "receipt-trust-durability");
   const positiveTrustBundles = [];
   for (const example of examplesManifest.cases) {
@@ -512,14 +545,14 @@ export async function validateReceiptTrustDurabilityPacket(packet, { repositoryR
   if (candidate.schema_version !== "cybrik.receipt-trust-durability-proposal.v1") {
     throw new Error("packet identity mismatch");
   }
-  validateLifecycle(candidate);
+  const lifecycle = validateLifecycle(candidate);
   validateInventory(candidate);
   await validateMemberDigests(candidate, repositoryRoot);
   await validateReusePins(candidate, repositoryRoot);
   validateInvariants(candidate);
   const examplesManifest = await readExamplesManifest(repositoryRoot);
   await validateFixtureExpectations(candidate, examplesManifest);
-  await validateCorpus(repositoryRoot, examplesManifest);
+  await validateCorpus(repositoryRoot, examplesManifest, lifecycle);
   validateBoundaries(candidate);
   validateConstraints(candidate);
   return evaluateReceiptTrustDurabilityGate(candidate);

@@ -47,6 +47,9 @@ const EXPECTED_NON_CLAIMS = Object.freeze([
 const SHA40 = /^[0-9a-f]{40}$/;
 const REPOSITORY_QUALIFIED_EVIDENCE = /^[a-z0-9][a-z0-9._-]*:[^/].+/;
 const PLACEHOLDER_AUTHOR = /(?:your name|your@email\.com)/i;
+const ACCEPTED_DESIGN_STATUS = "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED";
+const TRUST_DURABILITY_EVIDENCE_PATH =
+  "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json";
 
 function requireRecord(value, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -106,6 +109,34 @@ function validateConditions(conditions) {
   }
 }
 
+function validateAcceptedDesignClosure(conditions, trustDurabilityPacket) {
+  const design = requireRecord(trustDurabilityPacket, "accepted trust/durability packet");
+  if (
+    design.schema_version !== "cybrik.receipt-trust-durability-proposal.v1" ||
+    design["x-cybrik-status"] !== ACCEPTED_DESIGN_STATUS ||
+    design["x-cybrik-not-accepted"] !== false ||
+    design["x-cybrik-not-implemented"] !== true ||
+    design.acceptance?.key_lifecycle_design_accepted !== true ||
+    design.acceptance?.durable_store_design_accepted !== true ||
+    design.production_authorized !== false
+  ) {
+    throw new Error("runtime producer design closure requires the accepted not-implemented packet");
+  }
+  for (const id of [
+    "key_lifecycle_trust_bundle_design_accepted",
+    "durable_receipt_store_design_accepted",
+  ]) {
+    const condition = conditions.find((candidate) => candidate.id === id);
+    if (
+      condition?.satisfied !== true ||
+      condition.evidence_state !== "verified" ||
+      !condition.evidence.includes(TRUST_DURABILITY_EVIDENCE_PATH)
+    ) {
+      throw new Error(`runtime producer design closure condition is not bound: ${id}`);
+    }
+  }
+}
+
 export function evaluateFabricRuntimeProducerGate(packet) {
   const conditions = packet.conditions;
   const implementationOpen = conditions.some(
@@ -122,7 +153,7 @@ export function evaluateFabricRuntimeProducerGate(packet) {
   };
 }
 
-export function validateFabricRuntimeProducerGate(packet) {
+export function validateFabricRuntimeProducerGate(packet, { trustDurabilityPacket } = {}) {
   const candidate = requireRecord(packet, "packet");
   if (
     candidate.schema_version !== "cybrik.fabric-runtime-producer-gate.v1" ||
@@ -149,6 +180,7 @@ export function validateFabricRuntimeProducerGate(packet) {
   }
 
   validateConditions(candidate.conditions);
+  validateAcceptedDesignClosure(candidate.conditions, trustDurabilityPacket);
   const evaluated = evaluateFabricRuntimeProducerGate(candidate);
   const declared = requireRecord(candidate.declared, "declared dispositions");
   if (declared.implementation_disposition !== evaluated.implementationDisposition) {
@@ -189,7 +221,20 @@ async function main() {
       "04-fabric-runtime-producer-gate.json",
     );
   const packet = JSON.parse(await readFile(packetPath, "utf8"));
-  process.stdout.write(`${JSON.stringify(validateFabricRuntimeProducerGate(packet), null, 2)}\n`);
+  const trustDurabilityPacket = JSON.parse(
+    await readFile(
+      join(
+        repositoryRoot,
+        "contracts",
+        "compatibility",
+        "cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+      ),
+      "utf8",
+    ),
+  );
+  process.stdout.write(
+    `${JSON.stringify(validateFabricRuntimeProducerGate(packet, { trustDurabilityPacket }), null, 2)}\n`,
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

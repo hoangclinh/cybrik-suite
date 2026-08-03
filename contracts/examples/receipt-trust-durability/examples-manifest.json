@@ -1,6 +1,6 @@
 {
   "schema_version": "cybrik.receipt-trust-durability-examples.v1",
-  "status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
   "cases": [
     { "file": "positive/trust-bundle.generation-1.json", "schema": "trust_bundle", "kind": "positive", "expected_rule": null },
     { "file": "positive/trust-bundle.generation-2.json", "schema": "trust_bundle", "kind": "positive", "expected_rule": null },

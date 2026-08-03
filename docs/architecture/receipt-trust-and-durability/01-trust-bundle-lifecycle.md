@@ -1,6 +1,6 @@
 # Trust-bundle lifecycle
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 
 ## Boundary
 

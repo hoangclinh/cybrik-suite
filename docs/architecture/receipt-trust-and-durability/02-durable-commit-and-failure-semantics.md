@@ -1,6 +1,6 @@
 # Durable commit and failure semantics
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 
 ## Required ordering
 
@@ -45,4 +45,4 @@ not executed again merely because the caller retried.
 
 Fabric selects the database or ledger engine, schema, FORCE RLS or equivalent tenant isolation,
 replication, backup, restore, RPO, RTO, encryption, and retention policy. Those choices require
-product-level implementation and runtime evidence; this Suite proposal supplies neither.
+product-level implementation and runtime evidence; this accepted Suite design supplies neither.

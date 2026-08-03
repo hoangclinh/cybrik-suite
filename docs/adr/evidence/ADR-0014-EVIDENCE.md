@@ -1,6 +1,6 @@
 # ADR-0014 evidence — receipt trust and durability
 
-Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 
 ## Confirmed inputs
 
@@ -19,10 +19,10 @@ The packet pins the exact bytes of these three contract sources. It changes none
 
 ## Executable evidence
 
-The proposal adds a Node validator and mutation suite that check:
+The accepted packet adds a Node validator and mutation suite that check:
 
 - exact packet membership and SHA-256 values;
-- exact proposal lifecycle and non-claims;
+- coherent proposed/accepted not-implemented lifecycle and exact non-claims;
 - accepted-source reuse pins;
 - public-only Ed25519 bundles and RFC 7638 `kid` reproduction;
 - monotone generation and key states, predecessor key retention, and single-active signing;
@@ -33,6 +33,29 @@ The proposal adds a Node validator and mutation suite that check:
 
 Green static evidence is not a runtime claim. The test fixtures use public deterministic values
 only and contain no private signing key, credential, customer data, or production configuration.
+
+## Independent proposal review and acceptance measurement
+
+- Proposal commit: `fb93534810618e93c5b5e95e06b482030824b558`.
+- Proposal tree: `38cd2780ea82ba8d37c7cc295c45b389fd0e8f8e`.
+- Reviewed 32-path aggregate SHA-256: `6b0bcc5c87f3fa05236094791bd75d1344aaf1acd2554e3e0cb3e320dae50aca`.
+- Proposal-diff internal independent review: GO with no open P0, P1, or P2.
+- Proposal-diff Claude Opus independent review: GO with no open P0, P1, or P2.
+- Acceptance reconciliation measurement on Node.js 26.0.0:
+  `node --experimental-test-coverage --test tools/contract-validation/tests/validate-receipt-trust-durability.test.mjs`
+  produced 22/22 tests and 95.99% line, at least 89.03% branch, and 96.15% function coverage.
+  The coordinator reproduced 89.03% branch in three consecutive runs with the declared dependency
+  root; the independent Opus review observed 89.41% with a separate byte-identical locked
+  dependency tree. The acceptance decision records the conservative lower observed value and the
+  only gated conclusion: branch coverage remains above the 80% floor in both environments.
+- Runtime-producer gate measurement on Node.js 26.0.0:
+  `node --experimental-test-coverage --test tools/operations/tests/validate-fabric-runtime-producer-gate.test.mjs`
+  produced 13/13 tests and 80.82% line, 89.74% branch, and 87.50% function coverage.
+- Tree checks: JSON parse, syntax, diff integrity, and current-tree gitleaks all green.
+
+The delegated acceptance closes only the two design prerequisites. The machine gate remains
+runtime `HOLD` on product implementation/review, canonical hosted CI, runtime negative/rollback
+evidence, and current-Suite-tree coverage.
 
 ## Alternatives considered
 
@@ -45,8 +68,8 @@ only and contain no private signing key, credential, customer data, or productio
 
 ## Evidence limitations
 
-- No product runtime implements this proposal.
+- No product runtime implements this accepted design.
 - No live key generation, distribution, rotation, revocation, signing, or verification was run.
 - No database, migration, failover, backup, restore, or rollback exercise was run.
 - JSON Schema proves shape only; the Node validator supplies the cross-document semantic checks.
-- Independent review and any acceptance decision remain pending.
+- Clean-clone `npm ci`, aggregate 25-step validation, hosted CI, and product runtime remain pending.

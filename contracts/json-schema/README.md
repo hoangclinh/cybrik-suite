@@ -182,7 +182,7 @@ deployment, or production surface.
 
 Both schemas select no server and prove no runtime, UAT, release, deployment, or production state.
 
-## Receipt trust and durability (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+## Receipt trust and durability (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`)
 
 - `cybrik.receipt-trust-bundle.v1` — public OKP/Ed25519 verifier keys plus monotone generation,
   state, expiry, staleness, and revocation metadata; private key material is inexpressible.

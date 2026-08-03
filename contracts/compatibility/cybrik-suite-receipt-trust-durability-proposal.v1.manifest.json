@@ -1,16 +1,16 @@
 {
   "schema_version": "cybrik.receipt-trust-durability-proposal.v1",
   "title": "CYBRIK receipt trust-bundle and durability design packet",
-  "description": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. This packet proposes public receipt-verification trust-bundle lifecycle semantics and cross-product observable durable-commit ordering. It selects no signer, key store, distribution system, ledger, database, server, deployment or production configuration.",
-  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
-  "x-cybrik-not-accepted": true,
+  "description": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED. This packet fixes public receipt-verification trust-bundle lifecycle semantics and cross-product observable durable-commit ordering as an implementation floor. It selects no signer, key store, distribution system, ledger, database, server, deployment or production configuration.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-not-implemented": true,
   "x-cybrik-is-bundle-tag": false,
   "x-cybrik-packet-version": "0.1.0",
   "members": [
-    { "file": "json-schema/cybrik.receipt-trust-bundle.v1.schema.json", "sha256": "6a2834c24bea0d5cfae3667c0ff17e54e7e3109aea8fbcde8a49739da742855a" },
-    { "file": "json-schema/cybrik.receipt-durability-statement.v1.schema.json", "sha256": "f88afec139360b022b47a6f0d9249c6d52dae1330f95a8659744905f1ac86233" },
-    { "file": "examples/receipt-trust-durability/examples-manifest.json", "sha256": "cfa17e289ec2c882a633a90c674ee9aa0e919393d8722cf3bcbc937853bb4d89" },
+    { "file": "json-schema/cybrik.receipt-trust-bundle.v1.schema.json", "sha256": "3645b9a98f7e92ccb9904d3ffb04ae2d5bb50a4a529b5843b38a4d4daa4fe8b0" },
+    { "file": "json-schema/cybrik.receipt-durability-statement.v1.schema.json", "sha256": "04cba872c9f6ddb94dff6e95b6beb2b25ed2a50a9b60afff926b6689245b6b1c" },
+    { "file": "examples/receipt-trust-durability/examples-manifest.json", "sha256": "52354c7ced94e80c6d8d473c452b9b8b05df6c68e20994333a871549773305ef" },
     { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-1.json", "sha256": "7dde19b9c0890a05415bda27ad8b33dcfb787455a36a1b118d91591301b0a404" },
     { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-2.json", "sha256": "017054b3046062c9c2711f6f46206a364be32af3acf79c5e1122a75bf5a130eb" },
     { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-3-revoked.json", "sha256": "0c852596d6e23e43cb95bd7bfa87fa2a3144192441dde287df805a54aab95e7b" },
@@ -108,8 +108,8 @@
     "scope": "Static packet integrity and named fixture semantics only; no runtime, signer, distribution or ledger behavior is proven."
   },
   "acceptance": {
-    "key_lifecycle_design_accepted": false,
-    "durable_store_design_accepted": false
+    "key_lifecycle_design_accepted": true,
+    "durable_store_design_accepted": true
   },
   "release_constraints": {
     "stable_v1_founder_go_no_go": "2026-12-20",

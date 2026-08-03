@@ -1,8 +1,8 @@
 # ADR-0014 — Receipt signer trust and durability profile
 
-- Status: `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`
+- Status: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`
 - Date raised: 2026-08-03
-- Decider: Codex Governor after independent review
+- Decider: Codex Governor under Founder-delegated authority after independent review
 - Scope: Suite contract for Fabric-owned receipt trust and durable completion semantics
 - Evidence: [ADR-0014 evidence](evidence/ADR-0014-EVIDENCE.md)
 
@@ -14,7 +14,7 @@ placement, and ledger durability open. The accepted W2-B `createInvocation` and 
 mapping notes already authorize contract-first route-profile implementation, and the accepted C1
 binding reuses them byte-unchanged. This ADR therefore does not duplicate or reopen the route.
 
-The current UAT admission gate remains `HOLD` on two implementation-phase decisions:
+Before this decision, the UAT admission gate remained `HOLD` on two implementation-phase decisions:
 
 - key lifecycle and trust-bundle design;
 - durable receipt-store design and observable failure semantics.
@@ -22,11 +22,11 @@ The current UAT admission gate remains `HOLD` on two implementation-phase decisi
 These decisions are coupled: retaining a receipt longer than its verification keys produces a
 durable but unverifiable security record.
 
-## Proposed decision
+## Decision
 
-Adopt the proposed `cybrik.receipt-trust-bundle.v1` and
-`cybrik.receipt-durability-statement.v1` contracts as a provider-neutral design floor. Acceptance
-would authorize Fabric to implement against the profile. It would not authorize runtime, UAT,
+Adopt `cybrik.receipt-trust-bundle.v1` and `cybrik.receipt-durability-statement.v1` as a
+provider-neutral design floor. This acceptance authorizes Fabric to implement against the profile.
+It does not authorize runtime, UAT,
 deployment, release, or production.
 
 ### Trust-bundle lifecycle
@@ -80,8 +80,8 @@ Acceptance requires all of the following in one bounded review:
 6. independent review reports no open P0, P1, or P2;
 7. release dates remain unchanged and production remains Founder-controlled.
 
-Acceptance of this ADR and packet would close design only. A separate bounded gate update would
-record that closure. Product implementation, hosted CI, current-tree coverage, runtime negatives,
+Acceptance of this ADR and packet closes design only. The bounded gate record in the same reviewed
+change records that closure. Product implementation, hosted CI, current-tree coverage, runtime negatives,
 rollback evidence, and integrated UAT would remain separate gates.
 
 ## Open product decisions
@@ -97,9 +97,9 @@ These choices may strengthen the profile but may not weaken its fail-closed floo
 
 ## Non-claims and rollback
 
-This proposal creates no signer, key, ledger, endpoint, deployment, runtime, UAT, release, GA, or
+This acceptance creates no signer, key, ledger, endpoint, deployment, runtime, UAT, release, GA, or
 production authority. Static green validates packet integrity and named fixtures only.
 
-Before product implementation, rollback is a bounded revert of this proposal packet, validator,
+Before product implementation, rollback is a bounded revert of this accepted packet, validator,
 tests, catalogs, and docs. After durable receipts exist, rollback must never delete or mutate them;
 the profile must be superseded through an explicit versioned decision.

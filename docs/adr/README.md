@@ -64,7 +64,7 @@ or production evidence.
 | [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |
 | [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
-| [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`; design packet only, runtime and production remain unauthorized |
+| [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; design floor only, runtime and production remain unauthorized |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
 specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains
