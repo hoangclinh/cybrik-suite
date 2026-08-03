@@ -147,3 +147,39 @@ def canonical_master_payload(inputs: MasterBindingInputs) -> bytes:
         separators=(",", ":"),
         ensure_ascii=False,
     ).encode("utf-8")
+
+
+def canonical_master_record(payload: bytes) -> dict[str, object]:
+    """Parse only the exact canonical byte representation of the master packet."""
+
+    try:
+        record = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise AuthorizationPacketError("json_invalid") from exc
+    if (
+        not isinstance(record, dict)
+        or frozenset(record) != MASTER_AUTHORIZATION_FIELDS
+        or json.dumps(
+            record,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        != payload
+    ):
+        raise AuthorizationPacketError("not_canonical")
+    return record
+
+
+def aware_utc_timestamp(value: object) -> datetime:
+    """Parse an ISO-8601 value and require a timezone-aware instant."""
+
+    if not isinstance(value, str):
+        raise AuthorizationPacketError("timestamp_invalid")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise AuthorizationPacketError("timestamp_invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise AuthorizationPacketError("timestamp_invalid")
+    return parsed.astimezone(UTC)

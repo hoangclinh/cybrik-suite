@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib
-import json
 import os
 import re
 import stat
@@ -21,7 +20,10 @@ from typing import Final
 from .authorization_packet import (
     MASTER_AUTHORIZATION_FIELDS,
     MASTER_AUTHORIZATION_SCHEMA,
+    AuthorizationPacketError,
     MasterBindingInputs,
+    aware_utc_timestamp,
+    canonical_master_record,
     master_document,
 )
 from .models import (
@@ -64,7 +66,6 @@ HELPER_SCRIPTS: Final = (
     Path("integration/compose/integrated-uat/scripts/inspect_environment.py"),
     Path("integration/compose/integrated-uat/scripts/common_teardown.py"),
 )
-
 _D2_MODULES = (
     "__init__",
     "callable_fabric_rehearsal",
@@ -116,7 +117,6 @@ _MASTER_MODULES = tuple(
     "__init__ adapters admission authorization_packet bootstrap cleanup errors models "
     "orchestrator preparation protocols storage".split()
 )
-
 _SOC_PATHS = (
     "services/api/src/cybrik_soc/__init__.py",
     "services/api/src/cybrik_soc/config.py",
@@ -289,7 +289,6 @@ _SUITE_PATHS = (
         for name in _MASTER_MODULES
     ),
 )
-
 MASTER_TRACKED_ALLOWLIST: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
     {
         "suite": tuple(sorted(set(_SUITE_PATHS))),
@@ -598,37 +597,21 @@ def _repository_bindings(authority: object) -> tuple[RepositoryRoot, ...]:
 
 
 def _timestamp(value: object) -> datetime:
-    if not isinstance(value, str):
-        _fail("master_authorization_timestamp_invalid")
     try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError as exc:
+        return aware_utc_timestamp(value)
+    except AuthorizationPacketError as exc:
         raise IntegratedAdmissionError(
             "master_authorization_timestamp_invalid"
         ) from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        _fail("master_authorization_timestamp_invalid")
-    return parsed.astimezone(UTC)
 
 
 def _master_record(payload: bytes) -> dict[str, object]:
     try:
-        record = json.loads(payload)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise IntegratedAdmissionError("master_authorization_json_invalid") from exc
-    if (
-        not isinstance(record, dict)
-        or frozenset(record) != MASTER_AUTHORIZATION_FIELDS
-        or json.dumps(
-            record,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-        != payload
-    ):
-        _fail("master_authorization_not_canonical")
-    return record
+        return canonical_master_record(payload)
+    except AuthorizationPacketError as exc:
+        if str(exc) == "json_invalid":
+            raise IntegratedAdmissionError("master_authorization_json_invalid") from exc
+        raise IntegratedAdmissionError("master_authorization_not_canonical") from exc
 
 
 def _validate_master_record(
