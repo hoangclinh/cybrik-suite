@@ -109,6 +109,10 @@ const LIFECYCLE_INDEX_MARKERS = Object.freeze({
   'contracts/compatibility/README.md':
     '`cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`',
 });
+const LINE_SCOPED_LIFECYCLE_INDEX_PATHS = new Set([
+  'contracts/examples/README.md',
+  'docs/architecture/README.md',
+]);
 // R3: lifecycle agreement covers metadata-bearing schemas, manifests, docs and
 // indexes. It deliberately excludes 17 wire-instance fixtures and the non-wire
 // truth-table fixture; none carries a governance lifecycle marker (section 17).
@@ -135,10 +139,12 @@ const lifecycleMismatches = (overrides = new Map()) => {
     if (!marker) return !text.includes(expectedStatus);
     const markerIndex = text.indexOf(marker);
     if (markerIndex < 0) return true;
-    const paragraphEnd = text.indexOf('\n\n', markerIndex);
+    const sectionBoundary = LINE_SCOPED_LIFECYCLE_INDEX_PATHS.has(relativePath)
+      ? text.indexOf('\n', markerIndex)
+      : text.indexOf('\n\n', markerIndex);
     const section = text.slice(
       markerIndex,
-      paragraphEnd < 0 ? text.length : paragraphEnd,
+      sectionBoundary < 0 ? text.length : sectionBoundary,
     );
     return !section.includes(expectedStatus);
   });
@@ -277,8 +283,10 @@ test('each W2-K index section fails closed without borrowing an adjacent gate st
     const text = read(relativePath);
     const markerIndex = text.indexOf(LIFECYCLE_INDEX_MARKERS[relativePath]);
     assert.ok(markerIndex >= 0, `${relativePath}: W2-K marker must exist`);
-    const paragraphEnd = text.indexOf('\n\n', markerIndex);
-    const end = paragraphEnd < 0 ? text.length : paragraphEnd;
+    const sectionBoundary = LINE_SCOPED_LIFECYCLE_INDEX_PATHS.has(relativePath)
+      ? text.indexOf('\n', markerIndex)
+      : text.indexOf('\n\n', markerIndex);
+    const end = sectionBoundary < 0 ? text.length : sectionBoundary;
     const section = text.slice(markerIndex, end);
     assert.ok(section.includes(accepted), `${relativePath}: W2-K status must be local`);
     const mutated = `${text.slice(0, markerIndex)}${section.replace(accepted, staleProposal)}${text.slice(end)}`;

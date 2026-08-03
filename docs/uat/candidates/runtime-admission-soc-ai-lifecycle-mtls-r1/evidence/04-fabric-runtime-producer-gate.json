@@ -14,9 +14,9 @@
       "author": "Cybrik Codex Worker <codex-worker@local.invalid>"
     },
     "fabric_candidate": {
-      "commit": "e06b19c528c90a375898f8cce6d22ed0124c96da",
-      "tree": "84a2378c187891b53458e1a20053dd6b94e0d410",
-      "parent": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "commit": "7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+      "tree": "0cd08e52a636ff03586aa30223a623e1f08a836b",
+      "parent": "e06b19c528c90a375898f8cce6d22ed0124c96da",
       "author": "Cybrik Codex Worker <codex-worker@local.invalid>",
       "pushed": false,
       "merged": false
@@ -104,10 +104,20 @@
     {
       "id": "product_runtime_producer_implemented_reviewed",
       "phase": "runtime",
-      "satisfied": false,
-      "evidence_state": "missing",
-      "evidence": [],
-      "note": "No Fabric-owned HTTP or equivalent runtime producer is implemented and independently reviewed."
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-security-tool-fabric:commit/7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+        "cybrik-security-tool-fabric:tree/0cd08e52a636ff03586aa30223a623e1f08a836b",
+        "cybrik-security-tool-fabric:docs/adr/ADR-0005-receipt-trust-durability-runtime-producer-reference.md",
+        "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/05-fabric-runtime-producer-review.md"
+      ],
+      "verification": {
+        "exact_path_count": 51,
+        "prospective_patch_sha256": "4e52491718b67128f306bf4ab122cb02d962377242bb3c200cd0a87ecd508d1e",
+        "content_aggregate_sha256": "9a54f288348715f0c156437bd974acb6cad62655d6994a96c4ead8a6e75f2f6d"
+      },
+      "note": "The Fabric-owned injection-only runtime producer reference passed 797 tests executed by the coordinator and 91% branch coverage; two independent reviews returned P0-P2 clear, including one bounded static-only pass disclosed in the review packet. This is not hosted CI or runtime evidence."
     },
     {
       "id": "canonical_tuple_hosted_ci_green",

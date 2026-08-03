@@ -50,6 +50,25 @@ const PLACEHOLDER_AUTHOR = /(?:your name|your@email\.com)/i;
 const ACCEPTED_DESIGN_STATUS = "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED";
 const TRUST_DURABILITY_EVIDENCE_PATH =
   "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json";
+const EXPECTED_FABRIC_RUNTIME_PRODUCER = Object.freeze({
+  commit: "7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+  tree: "0cd08e52a636ff03586aa30223a623e1f08a836b",
+  parent: "e06b19c528c90a375898f8cce6d22ed0124c96da",
+  author: "Cybrik Codex Worker <codex-worker@local.invalid>",
+});
+const EXPECTED_RUNTIME_PRODUCER_EVIDENCE = Object.freeze([
+  "cybrik-security-tool-fabric:commit/7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+  "cybrik-security-tool-fabric:tree/0cd08e52a636ff03586aa30223a623e1f08a836b",
+  "cybrik-security-tool-fabric:docs/adr/ADR-0005-receipt-trust-durability-runtime-producer-reference.md",
+  "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/05-fabric-runtime-producer-review.md",
+]);
+const EXPECTED_RUNTIME_PRODUCER_VERIFICATION = Object.freeze({
+  exact_path_count: 51,
+  prospective_patch_sha256:
+    "4e52491718b67128f306bf4ab122cb02d962377242bb3c200cd0a87ecd508d1e",
+  content_aggregate_sha256:
+    "9a54f288348715f0c156437bd974acb6cad62655d6994a96c4ead8a6e75f2f6d",
+});
 
 function requireRecord(value, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -137,6 +156,46 @@ function validateAcceptedDesignClosure(conditions, trustDurabilityPacket) {
   }
 }
 
+function validateRuntimeProducerClosure(conditions, fabricPin) {
+  if (
+    fabricPin.commit !== EXPECTED_FABRIC_RUNTIME_PRODUCER.commit ||
+    fabricPin.tree !== EXPECTED_FABRIC_RUNTIME_PRODUCER.tree ||
+    fabricPin.parent !== EXPECTED_FABRIC_RUNTIME_PRODUCER.parent ||
+    fabricPin.author !== EXPECTED_FABRIC_RUNTIME_PRODUCER.author
+  ) {
+    throw new Error("runtime producer closure must retain the reviewed Fabric commit provenance");
+  }
+
+  const condition = conditions.find(
+    ({ id }) => id === "product_runtime_producer_implemented_reviewed",
+  );
+  const verification = requireRecord(
+    condition?.verification,
+    "runtime producer closure verification",
+  );
+  if (
+    condition?.satisfied !== true ||
+    condition.evidence_state !== "verified" ||
+    condition.evidence.length !== EXPECTED_RUNTIME_PRODUCER_EVIDENCE.length ||
+    condition.evidence.some(
+      (entry, index) => entry !== EXPECTED_RUNTIME_PRODUCER_EVIDENCE[index],
+    ) ||
+    verification.exact_path_count !== EXPECTED_RUNTIME_PRODUCER_VERIFICATION.exact_path_count ||
+    verification.prospective_patch_sha256 !==
+      EXPECTED_RUNTIME_PRODUCER_VERIFICATION.prospective_patch_sha256 ||
+    verification.content_aggregate_sha256 !==
+      EXPECTED_RUNTIME_PRODUCER_VERIFICATION.content_aggregate_sha256 ||
+    Object.keys(verification).length !==
+      Object.keys(EXPECTED_RUNTIME_PRODUCER_VERIFICATION).length ||
+    !/797 tests/i.test(condition.note) ||
+    !/91% branch coverage/i.test(condition.note) ||
+    !/P0-P2 clear/i.test(condition.note) ||
+    !/not hosted CI or runtime evidence/i.test(condition.note)
+  ) {
+    throw new Error("runtime producer closure must retain exact implementation and review evidence");
+  }
+}
+
 export function evaluateFabricRuntimeProducerGate(packet) {
   const conditions = packet.conditions;
   const implementationOpen = conditions.some(
@@ -181,6 +240,7 @@ export function validateFabricRuntimeProducerGate(packet, { trustDurabilityPacke
 
   validateConditions(candidate.conditions);
   validateAcceptedDesignClosure(candidate.conditions, trustDurabilityPacket);
+  validateRuntimeProducerClosure(candidate.conditions, fabricPin);
   const evaluated = evaluateFabricRuntimeProducerGate(candidate);
   const declared = requireRecord(candidate.declared, "declared dispositions");
   if (declared.implementation_disposition !== evaluated.implementationDisposition) {
