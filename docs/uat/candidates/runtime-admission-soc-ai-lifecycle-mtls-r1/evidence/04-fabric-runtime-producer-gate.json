@@ -18,9 +18,60 @@
       "tree": "0cd08e52a636ff03586aa30223a623e1f08a836b",
       "parent": "e06b19c528c90a375898f8cce6d22ed0124c96da",
       "author": "Cybrik Codex Worker <codex-worker@local.invalid>",
-      "pushed": false,
+      "pushed": true,
       "merged": false
     }
+  },
+  "fabric_publication": {
+    "repository": "cybrik-security-tool-fabric",
+    "provider": "github_actions",
+    "draft_pull_request": 5,
+    "draft_pull_request_url": "https://github.com/hoangclinh/cybrik-security-tool-fabric/pull/5",
+    "observed_at": "2026-08-03T09:04:35Z",
+    "state_is_snapshot": true,
+    "draft_pull_request_state_observed": "OPEN",
+    "draft_pull_request_mergeable_state_observed": "CLEAN",
+    "run_id": 30797481044,
+    "run_url": "https://github.com/hoangclinh/cybrik-security-tool-fabric/actions/runs/30797481044",
+    "run_conclusion": "success",
+    "head_commit": "50aff1df146d6e98b33d9f82617781595bcf1512",
+    "head_tree": "2b4d516eef0a3b0ae05b44a225515efef749f25b",
+    "jobs": [
+      {
+        "name": "scaffold-integrity",
+        "conclusion": "success"
+      },
+      {
+        "name": "secret-scan",
+        "conclusion": "success"
+      },
+      {
+        "name": "detect",
+        "conclusion": "success"
+      },
+      {
+        "name": "control-plane",
+        "conclusion": "success"
+      },
+      {
+        "name": "executor",
+        "conclusion": "success"
+      },
+      {
+        "name": "admission-gate",
+        "conclusion": "success"
+      }
+    ],
+    "candidate_reachable_from_head": true,
+    "candidate_tree_equals_head_tree": false,
+    "post_candidate_delta_paths": [
+      ".github/workflows/ci.yml",
+      ".gitleaks.toml",
+      "tests/control-plane/test_ci_admission.py"
+    ],
+    "runtime_implementation_modified": false,
+    "coverage_scope": "single_repository",
+    "closes_conditions": []
   },
   "conditions": [
     {
@@ -123,9 +174,14 @@
       "id": "canonical_tuple_hosted_ci_green",
       "phase": "runtime",
       "satisfied": false,
-      "evidence_state": "missing",
-      "evidence": [],
-      "note": "The current canonical SOC, Cyber AI, Fabric and Suite tuple has no hosted green CI packet."
+      "evidence_state": "open",
+      "evidence": [
+        "cybrik-security-tool-fabric:actions/runs/30797481044",
+        "cybrik-security-tool-fabric:commit/50aff1df146d6e98b33d9f82617781595bcf1512",
+        "cybrik-security-tool-fabric:tree/2b4d516eef0a3b0ae05b44a225515efef749f25b",
+        "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/05-fabric-runtime-producer-review.md"
+      ],
+      "note": "Hosted GitHub Actions run 30797481044 succeeded on the single Fabric repository and is qualified partial evidence only; it is not canonical four-repository CI across SOC, Cyber AI, Fabric and Suite, so this condition remains open and unsatisfied."
     },
     {
       "id": "runtime_negative_and_rollback_evidence",
@@ -154,6 +210,7 @@
     "no_runtime_started",
     "no_uat_pass",
     "no_demo_or_release_promotion",
-    "no_production_authority"
+    "no_production_authority",
+    "no_canonical_tuple_ci_claim"
   ]
 }
