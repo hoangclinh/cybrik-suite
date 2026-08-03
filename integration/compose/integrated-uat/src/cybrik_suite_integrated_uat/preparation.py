@@ -38,6 +38,8 @@ _ENVIRONMENT_NAMES: Final = frozenset(
         "CYBRIK_UAT_STATE_ROOT",
         "CYBRIK_UAT_B1_WHEEL",
         "CYBRIK_UAT_PYTHON",
+        "CYBRIK_UAT_AUTHORIZATION_ALLOWED_SIGNERS",
+        "CYBRIK_UAT_ALLOWED_SIGNER",
     }
 )
 _REPOSITORY_ENVIRONMENT: Final = (
@@ -489,6 +491,65 @@ def _observe_exact_tuple(
     return tuple(observations)
 
 
+def _validate_runtime_trust(
+    environment: Mapping[str, str],
+    suite_root: Path,
+    b1_wheel: Path,
+    b1_sha256: str,
+    python: Path,
+    python_sha256: str,
+    authorized_by: str,
+    *,
+    authority_wiring: object,
+    b1_runtime: object,
+) -> str:
+    """Bind only the tracked public trust anchor and exact runtime pins."""
+
+    try:
+        descriptor = authority_wiring._trust_descriptor(
+            suite_root / authority_wiring.TRUST_DESCRIPTOR_RELATIVE,
+            suite_root,
+        )
+        allowed_signers = authority_wiring._file(
+            _required(environment, "CYBRIK_UAT_AUTHORIZATION_ALLOWED_SIGNERS"),
+            mode=0o600,
+        )
+        allowed_payload = authority_wiring.read_external_bytes(allowed_signers)
+        observed_signer, key_type, fingerprint = (
+            authority_wiring._allowed_signers_identity(allowed_payload)
+        )
+        environment_signer = _required(environment, "CYBRIK_UAT_ALLOWED_SIGNER")
+        namespace = descriptor["namespace"]
+        valid = (
+            b1_wheel == Path(_required(environment, "CYBRIK_UAT_B1_WHEEL"))
+            and b1_wheel.name == b1_runtime.B1_WHEEL_FILENAME
+            and b1_sha256 == b1_runtime.B1_WHEEL_SHA256
+            and python == Path(_required(environment, "CYBRIK_UAT_PYTHON"))
+            and python_sha256 == descriptor["python_sha256"]
+            and authorized_by
+            == environment_signer
+            == descriptor["signer"]
+            == observed_signer
+            == "FOUNDER"
+            and namespace == authority_wiring.AUTHORIZATION_NAMESPACE
+            and hashlib.sha256(allowed_payload).hexdigest()
+            == descriptor["allowed_signers_sha256"]
+            and key_type == descriptor["key_type"] == "ssh-ed25519"
+            and fingerprint == descriptor["key_fingerprint"]
+        )
+    except PreparationError:
+        raise
+    except Exception as exc:
+        raise PreparationError("runtime_inputs_invalid") from exc
+    if (
+        not valid
+        or not isinstance(namespace, str)
+        or _NAMESPACE.fullmatch(namespace) is None
+    ):
+        _fail("runtime_inputs_invalid")
+    return namespace
+
+
 def _default_dependencies(suite_root: Path) -> PreparationDependencies:
     selected = admission._default_dependencies(suite_root)
     source_root = (
@@ -502,7 +563,7 @@ def _default_dependencies(suite_root: Path) -> PreparationDependencies:
     admission._module_origin(b1_runtime, source_root)
 
     def validate_runtime_inputs(
-        _environment: Mapping[str, str],
+        environment: Mapping[str, str],
         observed_suite_root: Path,
         b1_wheel: Path,
         b1_sha256: str,
@@ -510,30 +571,19 @@ def _default_dependencies(suite_root: Path) -> PreparationDependencies:
         python_sha256: str,
         authorized_by: str,
     ) -> str:
-        try:
-            descriptor = authority_wiring._trust_descriptor(
-                observed_suite_root / authority_wiring.TRUST_DESCRIPTOR_RELATIVE,
-                observed_suite_root,
-            )
-            namespace = descriptor["namespace"]
-            valid = (
-                observed_suite_root == suite_root
-                and b1_wheel == Path(_required(_environment, "CYBRIK_UAT_B1_WHEEL"))
-                and b1_wheel.name == b1_runtime.B1_WHEEL_FILENAME
-                and b1_sha256 == b1_runtime.B1_WHEEL_SHA256
-                and python == Path(_required(_environment, "CYBRIK_UAT_PYTHON"))
-                and python_sha256 == descriptor["python_sha256"]
-                and authorized_by == descriptor["signer"] == "FOUNDER"
-                and namespace == authority_wiring.AUTHORIZATION_NAMESPACE
-                and descriptor["allowed_signers_sha256"]
-                and descriptor["key_fingerprint"]
-                and descriptor["key_type"] == "ssh-ed25519"
-            )
-        except (AttributeError, KeyError, TypeError) as exc:
-            raise PreparationError("runtime_inputs_invalid") from exc
-        if not valid:
+        if observed_suite_root != suite_root:
             _fail("runtime_inputs_invalid")
-        return namespace
+        return _validate_runtime_trust(
+            environment,
+            observed_suite_root,
+            b1_wheel,
+            b1_sha256,
+            python,
+            python_sha256,
+            authorized_by,
+            authority_wiring=authority_wiring,
+            b1_runtime=b1_runtime,
+        )
 
     return PreparationDependencies(
         helper_sha256=selected.helper_sha256,
