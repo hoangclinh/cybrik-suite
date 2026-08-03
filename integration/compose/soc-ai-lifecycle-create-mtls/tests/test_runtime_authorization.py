@@ -1255,6 +1255,58 @@ def test_resolve_import_source_roots_returns_roots_inside_the_pinned_roots(
     assert list(authorization.resolve_import_source_roots(validated)) == expected
 
 
+def test_master_reservation_resolves_signed_roots_without_ambient_pythonpath(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    suite_root = tmp_path / "suite"
+    product_roots = {
+        "soc": tmp_path / "soc",
+        "cyber_ai": tmp_path / "ai",
+        "tool_fabric": tmp_path / "fabric",
+    }
+    expected = tuple(
+        (suite_root if role == "suite" else product_roots[role]) / relative
+        for role, relative in authorization.IMPORT_SOURCE_ROOTS
+    )
+    for root in expected:
+        root.mkdir(parents=True, exist_ok=True)
+    reserved = authorization.ReservedRuntimeBinding(
+        authorization_id="master-import-roots",
+        suite_root=suite_root,
+        suite_head="1" * 40,
+        suite_admission_base="1" * 40,
+        aggregate_sha256="2" * 64,
+        authorization_sha256="3" * 64,
+        exact_head_grant_sha256="4" * 64,
+        external_roots_sha256="5" * 64,
+        repository_roots_sha256="6" * 64,
+        runtime_root=tmp_path / "runtime",
+        evidence_root=tmp_path / "evidence",
+        product_roots=product_roots,
+        repository_tuple=(
+            ("cybrik-soc-command-center", "7" * 40, "8" * 40),
+            ("cybrik-cyber-ai-platform", "9" * 40, "a" * 40),
+            ("cybrik-security-tool-fabric", "b" * 40, "c" * 40),
+            ("cybrik-suite", "1" * 40, "d" * 40),
+        ),
+    )
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "ambient-shadow"))
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.resolve_import_source_roots(reserved)
+    assert caught.value.reason == "import_path_not_pinned"
+
+    monkeypatch.delenv("PYTHONPATH")
+    assert authorization.resolve_import_source_roots(reserved) == expected
+
+    malformed = dataclasses.replace(
+        reserved,
+        product_roots={"soc": product_roots["soc"]},
+    )
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.resolve_import_source_roots(malformed)
+    assert caught.value.reason == "import_source_root_invalid"
+
+
 def test_resolve_import_source_roots_rejects_an_unpinned_pythonpath(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1409,6 +1461,23 @@ def test_verify_module_origins_rejects_unknown_namespaces(tmp_path: Path) -> Non
     assert caught.value.reason == "import_source_root_invalid"
 
 
+def test_verify_module_origins_rejects_missing_product_role_with_stable_reason(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    malformed = dataclasses.replace(
+        validated,
+        product_roots={"soc": validated.product_roots["soc"]},
+    )
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_module_origins(
+            malformed,
+            (("cybrik_ai_core.delegation", tmp_path / "unreachable.py"),),
+        )
+    assert caught.value.reason == "import_source_root_invalid"
+
+
 @pytest.mark.parametrize(
     "bad_module",
     (
@@ -1446,6 +1515,100 @@ def test_verify_loaded_module_origins_checks_every_loaded_namespace_entry(
 
     authorization.verify_loaded_module_origins(validated, modules)
     assert set(modules).isdisjoint(sys.modules)
+
+
+def test_verify_loaded_module_origins_accepts_exact_namespace_package_path(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    namespace_path = (
+        validated.product_roots["soc"]
+        / "services/api/src/cybrik_soc/modules"
+    )
+    namespace_path.mkdir(parents=True, exist_ok=True)
+    parent_file = namespace_path.parent / "__init__.py"
+    parent_file.write_text("", encoding="utf-8")
+    namespace_package = SimpleNamespace(
+        __file__=None,
+        __path__=[str(namespace_path)],
+    )
+
+    authorization.verify_loaded_module_origins(
+        validated,
+        {
+            "cybrik_soc": SimpleNamespace(__file__=str(parent_file)),
+            "cybrik_soc.modules": namespace_package,
+        },
+    )
+
+
+def test_verify_loaded_namespace_package_requires_verified_regular_parent(
+    tmp_path: Path,
+) -> None:
+    validated = _validated(tmp_path)
+    namespace_path = (
+        validated.product_roots["soc"]
+        / "services/api/src/cybrik_soc/modules"
+    )
+    namespace_path.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_loaded_module_origins(
+            validated,
+            {
+                "cybrik_soc.modules": SimpleNamespace(
+                    __file__=None,
+                    __path__=[str(namespace_path)],
+                )
+            },
+        )
+    assert caught.value.reason == "import_source_root_invalid"
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ("shadow", "wrong", "non_string", "string", "non_iterable", "symlink"),
+)
+def test_verify_loaded_namespace_package_rejects_unpinned_paths(
+    tmp_path: Path, defect: str
+) -> None:
+    validated = _validated(tmp_path)
+    package_root = (
+        validated.product_roots["soc"] / "services/api/src/cybrik_soc"
+    )
+    namespace_path = package_root / "modules"
+    namespace_path.mkdir(parents=True, exist_ok=True)
+    parent_file = package_root / "__init__.py"
+    parent_file.write_text("", encoding="utf-8")
+    wrong = package_root / "wrong"
+    wrong.mkdir()
+    if defect == "shadow":
+        module_path: object = [str(namespace_path), str(wrong)]
+    elif defect == "wrong":
+        module_path = [str(wrong)]
+    elif defect == "non_string":
+        module_path = [namespace_path]
+    elif defect == "string":
+        module_path = str(namespace_path)
+    elif defect == "non_iterable":
+        module_path = object()
+    else:
+        namespace_path.rmdir()
+        namespace_path.symlink_to(wrong, target_is_directory=True)
+        module_path = [str(namespace_path)]
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.verify_loaded_module_origins(
+            validated,
+            {
+                "cybrik_soc": SimpleNamespace(__file__=str(parent_file)),
+                "cybrik_soc.modules": SimpleNamespace(
+                    __file__=None,
+                    __path__=module_path,
+                ),
+            },
+        )
+    assert caught.value.reason == "import_source_root_invalid"
 
 
 # --------------------------------------------------------------------------

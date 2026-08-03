@@ -20,7 +20,8 @@ import subprocess
 import sys
 import sysconfig
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -224,10 +225,40 @@ def _bounded_external_roots(*, repositories_must_exist: bool) -> tuple[Path, Pat
     return runtime_root, evidence_root
 
 
+@contextmanager
+def _signed_product_import_scope(
+    authorization: runtime_authorization.RuntimeBinding,
+) -> Iterator[None]:
+    if not isinstance(authorization, runtime_authorization.ReservedRuntimeBinding):
+        yield
+        return
+    try:
+        source_roots = runtime_authorization.resolve_import_source_roots(authorization)
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
+        raise RuntimeAuthorizationError(
+            f"pinned product API import roots are refused: {exc.reason}"
+        ) from exc
+    original = tuple(sys.path)
+    signed = tuple(str(root) for root in source_roots)
+    sys.path[:] = [*signed, *(item for item in original if item not in signed)]
+    try:
+        yield
+    finally:
+        sys.path[:] = original
+
+
 def assert_product_api_compatibility(
-    authorization: runtime_authorization.RuntimeAuthorization,
+    authorization: runtime_authorization.RuntimeBinding,
 ) -> None:
-    """Import the exact pinned SOC/AI symbols before creating any resource."""
+    """Import exact pinned SOC/AI symbols before creating any resource."""
+
+    with _signed_product_import_scope(authorization):
+        _assert_product_api_compatibility_loaded(authorization)
+
+
+def _assert_product_api_compatibility_loaded(
+    authorization: runtime_authorization.RuntimeBinding,
+) -> None:
 
     try:
         from cybrik_ai_api.runtime_composition import (
@@ -293,7 +324,7 @@ def assert_runtime_authorized() -> runtime_authorization.RuntimeAuthorization:
 
 
 def _isolated_module_argv(
-    authorization: runtime_authorization.RuntimeAuthorization,
+    authorization: runtime_authorization.RuntimeBinding,
     module: str,
 ) -> tuple[str, ...]:
     """Build the same isolated, exact-source bootstrap used by the runner."""

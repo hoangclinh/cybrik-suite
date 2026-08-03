@@ -1377,17 +1377,20 @@ def _admitted_post_commit_binding(
 
 
 def resolve_import_source_roots(
-    authorization: RuntimeAuthorization,
+    authorization: RuntimeBinding,
 ) -> tuple[Path, ...]:
     """Admit only the exact import roots beneath the pinned repositories."""
 
     expected: list[Path] = []
     for role, relative in IMPORT_SOURCE_ROOTS:
-        owner = (
-            authorization.suite_root
-            if role == "suite"
-            else authorization.product_roots[role]
-        )
+        try:
+            owner = (
+                authorization.suite_root
+                if role == "suite"
+                else authorization.product_roots[role]
+            )
+        except KeyError:
+            _fail("import_source_root_invalid")
         path = owner / relative
         try:
             resolved_owner = owner.resolve(strict=True)
@@ -1401,6 +1404,10 @@ def resolve_import_source_roots(
         if resolved != path:
             _fail("import_source_root_invalid")
         expected.append(path)
+    if isinstance(authorization, ReservedRuntimeBinding):
+        if os.environ.get("PYTHONPATH", ""):
+            _fail("import_path_not_pinned")
+        return tuple(expected)
     actual = tuple(
         Path(item)
         for item in os.environ.get("PYTHONPATH", "").split(os.pathsep)
@@ -1411,37 +1418,47 @@ def resolve_import_source_roots(
     return tuple(expected)
 
 
-def verify_module_origins(
-    authorization: RuntimeAuthorization,
-    module_origins: Sequence[tuple[str, Path]],
-) -> None:
-    """Bind each imported namespace to its single pinned package root."""
-
-    for module_name, path in module_origins:
-        namespace = next(
-            (
-                prefix
-                for prefix in MODULE_ORIGIN_ROOTS
-                if module_name == prefix or module_name.startswith(f"{prefix}.")
-            ),
-            None,
-        )
-        if namespace is None:
-            _fail("import_source_root_invalid")
-        role, relative = MODULE_ORIGIN_ROOTS[namespace]
+def _module_origin_root(
+    authorization: RuntimeBinding, module_name: str
+) -> tuple[str, Path]:
+    namespace = next(
+        (
+            prefix
+            for prefix in MODULE_ORIGIN_ROOTS
+            if module_name == prefix or module_name.startswith(f"{prefix}.")
+        ),
+        None,
+    )
+    if namespace is None:
+        _fail("import_source_root_invalid")
+    role, relative = MODULE_ORIGIN_ROOTS[namespace]
+    try:
         owner = (
             authorization.suite_root
             if role == "suite"
             else authorization.product_roots[role]
         )
-        lexical_root = owner / relative
-        try:
-            resolved_owner = owner.resolve(strict=True)
-            root = lexical_root.resolve(strict=True)
-        except OSError:
-            _fail("import_source_root_invalid")
-        if root != lexical_root or not root.is_relative_to(resolved_owner):
-            _fail("import_source_root_invalid")
+    except KeyError:
+        _fail("import_source_root_invalid")
+    lexical_root = owner / relative
+    try:
+        resolved_owner = owner.resolve(strict=True)
+        root = lexical_root.resolve(strict=True)
+    except OSError:
+        _fail("import_source_root_invalid")
+    if root != lexical_root or not root.is_relative_to(resolved_owner):
+        _fail("import_source_root_invalid")
+    return namespace, root
+
+
+def verify_module_origins(
+    authorization: RuntimeBinding,
+    module_origins: Sequence[tuple[str, Path]],
+) -> None:
+    """Bind each imported namespace to its single pinned package root."""
+
+    for module_name, path in module_origins:
+        _namespace, root = _module_origin_root(authorization, module_name)
         candidate = Path(path)
         try:
             resolved = candidate.resolve(strict=True)
@@ -1456,7 +1473,7 @@ def verify_module_origins(
 
 
 def verify_loaded_module_origins(
-    authorization: RuntimeAuthorization,
+    authorization: RuntimeBinding,
     modules: Mapping[str, object] | None = None,
 ) -> None:
     """Verify every currently loaded module in each admitted Cybrik namespace."""
@@ -1470,9 +1487,41 @@ def verify_loaded_module_origins(
         ):
             continue
         module_file = getattr(module, "__file__", None)
-        if not isinstance(module_file, str) or not module_file:
+        if isinstance(module_file, str) and module_file:
+            origins.append((module_name, Path(module_file)))
+            continue
+        module_path = getattr(module, "__path__", None)
+        if isinstance(module_path, (str, bytes)) or module_path is None:
             _fail("import_source_root_invalid")
-        origins.append((module_name, Path(module_file)))
+        try:
+            namespace_paths = tuple(module_path)
+        except (OSError, TypeError, ValueError):
+            _fail("import_source_root_invalid")
+        namespace, root = _module_origin_root(authorization, module_name)
+        parent_name, _separator, _leaf = module_name.rpartition(".")
+        parent = inventory.get(parent_name)
+        parent_file = getattr(parent, "__file__", None)
+        if module_name == namespace or not isinstance(parent_file, str) or not parent_file:
+            _fail("import_source_root_invalid")
+        origins.append((parent_name, Path(parent_file)))
+        suffix = module_name.removeprefix(namespace).removeprefix(".")
+        expected = root.joinpath(*suffix.split(".")) if suffix else root
+        if (
+            len(namespace_paths) != 1
+            or not isinstance(namespace_paths[0], str)
+            or Path(namespace_paths[0]) != expected
+        ):
+            _fail("import_source_root_invalid")
+        try:
+            resolved = expected.resolve(strict=True)
+        except OSError:
+            _fail("import_source_root_invalid")
+        if (
+            resolved != expected
+            or not resolved.is_dir()
+            or not resolved.is_relative_to(root)
+        ):
+            _fail("import_source_root_invalid")
     verify_module_origins(authorization, origins)
 
 

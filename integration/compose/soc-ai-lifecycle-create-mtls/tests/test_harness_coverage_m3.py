@@ -7,6 +7,7 @@ product and control-plane collaborators are replaced with in-memory fakes.
 
 from __future__ import annotations
 
+import builtins
 import os
 import stat
 import sys
@@ -144,6 +145,115 @@ def test_product_api_compatibility_accepts_callable_pinned_origins(
     assert observed[1] is authorization
 
 
+def test_master_product_api_imports_use_only_signed_source_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization = harness.runtime_authorization.ReservedRuntimeBinding(
+        authorization_id="master-import-scope",
+        suite_root=tmp_path / "suite",
+        suite_head="1" * 40,
+        suite_admission_base="1" * 40,
+        aggregate_sha256="2" * 64,
+        authorization_sha256="3" * 64,
+        exact_head_grant_sha256="4" * 64,
+        external_roots_sha256="5" * 64,
+        repository_roots_sha256="6" * 64,
+        runtime_root=tmp_path / "runtime",
+        evidence_root=tmp_path / "evidence",
+        product_roots={
+            "soc": tmp_path / "soc",
+            "cyber_ai": tmp_path / "ai",
+            "tool_fabric": tmp_path / "fabric",
+        },
+        repository_tuple=(
+            ("cybrik-soc-command-center", "7" * 40, "8" * 40),
+            ("cybrik-cyber-ai-platform", "9" * 40, "a" * 40),
+            ("cybrik-security-tool-fabric", "b" * 40, "c" * 40),
+            ("cybrik-suite", "1" * 40, "d" * 40),
+        ),
+    )
+    signed_source = tmp_path / "signed-source"
+    signed_source.mkdir()
+    _install_product_api_modules(monkeypatch)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "resolve_import_source_roots",
+        lambda actual: (signed_source,),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization, "verify_module_origins", lambda *args: None
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "verify_loaded_module_origins",
+        lambda *args: None,
+    )
+    original_import = builtins.__import__
+    observed: list[bool] = []
+
+    def inspect_import(name: str, *args: object, **kwargs: object) -> object:
+        if name.startswith(("cybrik_ai_", "cybrik_soc")):
+            observed.append(sys.path[0] == str(signed_source))
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", inspect_import)
+    original_path = tuple(sys.path)
+
+    harness.assert_product_api_compatibility(authorization)
+
+    assert observed and all(observed)
+    assert tuple(sys.path) == original_path
+
+
+def test_master_product_api_import_scope_restores_path_after_import_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization = harness.runtime_authorization.ReservedRuntimeBinding(
+        authorization_id="master-import-restore",
+        suite_root=tmp_path / "suite",
+        suite_head="1" * 40,
+        suite_admission_base="1" * 40,
+        aggregate_sha256="2" * 64,
+        authorization_sha256="3" * 64,
+        exact_head_grant_sha256="4" * 64,
+        external_roots_sha256="5" * 64,
+        repository_roots_sha256="6" * 64,
+        runtime_root=tmp_path / "runtime",
+        evidence_root=tmp_path / "evidence",
+        product_roots={
+            "soc": tmp_path / "soc",
+            "cyber_ai": tmp_path / "ai",
+            "tool_fabric": tmp_path / "fabric",
+        },
+        repository_tuple=(
+            ("cybrik-soc-command-center", "7" * 40, "8" * 40),
+            ("cybrik-cyber-ai-platform", "9" * 40, "a" * 40),
+            ("cybrik-security-tool-fabric", "b" * 40, "c" * 40),
+            ("cybrik-suite", "1" * 40, "d" * 40),
+        ),
+    )
+    signed_source = tmp_path / "signed-source"
+    signed_source.mkdir()
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "resolve_import_source_roots",
+        lambda actual: (signed_source,),
+    )
+    original_import = builtins.__import__
+    original_path = tuple(sys.path)
+
+    def fail_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "cybrik_ai_api.runtime_composition":
+            raise ImportError("synthetic")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_import)
+
+    with pytest.raises(harness.RuntimeAuthorizationError, match="unavailable"):
+        harness.assert_product_api_compatibility(authorization)
+    assert tuple(sys.path) == original_path
+
+
 @pytest.mark.parametrize("defect", ("not_callable", "module_name", "module_file"))
 def test_product_api_compatibility_refuses_malformed_symbols(
     tmp_path: Path,
@@ -213,6 +323,64 @@ def test_isolated_argv_accepts_confined_roots_and_rejects_bad_module(
 
     with pytest.raises(harness.RuntimeAuthorizationError, match="roots are invalid"):
         harness._isolated_module_argv(authorization, "foreign.client")  # type: ignore[arg-type]
+
+
+def test_isolated_argv_accepts_master_reserved_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization = harness.runtime_authorization.ReservedRuntimeBinding(
+        authorization_id="master-isolated-child",
+        suite_root=tmp_path / "suite",
+        suite_head="1" * 40,
+        suite_admission_base="1" * 40,
+        aggregate_sha256="2" * 64,
+        authorization_sha256="3" * 64,
+        exact_head_grant_sha256="4" * 64,
+        external_roots_sha256="5" * 64,
+        repository_roots_sha256="6" * 64,
+        runtime_root=tmp_path / "runtime",
+        evidence_root=tmp_path / "evidence",
+        product_roots={
+            "soc": tmp_path / "soc",
+            "cyber_ai": tmp_path / "ai",
+            "tool_fabric": tmp_path / "fabric",
+        },
+        repository_tuple=(
+            ("cybrik-soc-command-center", "7" * 40, "8" * 40),
+            ("cybrik-cyber-ai-platform", "9" * 40, "a" * 40),
+            ("cybrik-security-tool-fabric", "b" * 40, "c" * 40),
+            ("cybrik-suite", "1" * 40, "d" * 40),
+        ),
+    )
+    source = tmp_path / "source"
+    purelib = tmp_path / "purelib"
+    platlib = tmp_path / "platlib"
+    for root in (
+        authorization.suite_root,
+        *authorization.product_roots.values(),
+        source,
+        purelib,
+        platlib,
+    ):
+        root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "resolve_import_source_roots",
+        lambda actual: (source,),
+    )
+    monkeypatch.setattr(
+        harness.sysconfig,
+        "get_path",
+        lambda name: str({"purelib": purelib, "platlib": platlib}[name]),
+    )
+
+    argv = harness._isolated_module_argv(
+        authorization,
+        "cybrik_suite_uat_mtls.server",
+    )
+
+    assert argv[-1] == "cybrik_suite_uat_mtls.server"
+    assert str(source) in argv[-3]
 
 
 def test_isolated_argv_rejects_dependency_inside_repository(
