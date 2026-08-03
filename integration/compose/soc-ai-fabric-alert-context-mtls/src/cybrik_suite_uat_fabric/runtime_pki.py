@@ -8,6 +8,7 @@ identity and client identity, making cross-channel trust fail closed.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import os
 import secrets
 import stat
@@ -32,6 +33,7 @@ _CHANNEL_SERVER_NAMES: Final = {
     "cyber_ai_to_tool_fabric": "tool-fabric.uat.cybrik.invalid",
     "tool_fabric_to_soc": "soc.uat.cybrik.invalid",
 }
+_LOOPBACK_ADDRESS: Final = ipaddress.ip_address("127.0.0.1")
 _PUBLIC_LEAVES: Final = ("ca-cert.pem", "server-cert.pem", "client-cert.pem")
 _PRIVATE_LEAVES: Final = ("server-key.pem", "client-key.pem")
 _ALL_LEAVES: Final = frozenset((*_PUBLIC_LEAVES, *_PRIVATE_LEAVES))
@@ -307,7 +309,10 @@ def _issue_channel(root: Path, root_descriptor: int, role: str) -> ChannelPkiMat
             if server:
                 builder = builder.add_extension(
                     x509.SubjectAlternativeName(
-                        [x509.DNSName(_CHANNEL_SERVER_NAMES[role])]
+                        [
+                            x509.DNSName(_CHANNEL_SERVER_NAMES[role]),
+                            x509.IPAddress(_LOOPBACK_ADDRESS),
+                        ]
                     ),
                     critical=False,
                 )
@@ -567,8 +572,12 @@ def _validate_channel_certificates(
             if certificate_name == "server-cert.pem":
                 sans = certificate.extensions.get_extension_for_class(
                     x509.SubjectAlternativeName
-                ).value.get_values_for_type(x509.DNSName)
-                if sans != [channel.server_name]:
+                ).value
+                if (
+                    sans.get_values_for_type(x509.DNSName) != [channel.server_name]
+                    or sans.get_values_for_type(x509.IPAddress)
+                    != [_LOOPBACK_ADDRESS]
+                ):
                     raise ValueError
         except (
             InvalidSignature,
