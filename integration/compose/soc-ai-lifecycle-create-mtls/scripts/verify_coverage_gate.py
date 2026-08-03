@@ -470,6 +470,206 @@ def _source_files(package_root: Path) -> dict[Path, int]:
     return files
 
 
+def _bound_alias_name(node: ast.alias) -> str:
+    return node.asname or node.name.split(".", maxsplit=1)[0]
+
+
+def _canonical_typing_import_line(
+    tree: ast.Module, *, binding: str, symbol: str | None
+) -> int | None:
+    """Return an unshadowed top-level ``typing`` import line, if unique."""
+
+    canonical_aliases: list[ast.alias] = []
+    for statement in tree.body:
+        if symbol is None and isinstance(statement, ast.Import):
+            canonical_aliases.extend(
+                alias
+                for alias in statement.names
+                if alias.name == "typing" and alias.asname is None
+            )
+        elif (
+            symbol is not None
+            and isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and statement.module == "typing"
+        ):
+            canonical_aliases.extend(
+                alias
+                for alias in statement.names
+                if alias.name == symbol and alias.asname is None
+            )
+    if len(canonical_aliases) != 1:
+        return None
+
+    canonical_id = id(canonical_aliases[0])
+    for node in ast.walk(tree):
+        if isinstance(node, ast.alias):
+            if _bound_alias_name(node) == binding and id(node) != canonical_id:
+                return None
+        elif isinstance(node, ast.Name):
+            if node.id == binding and isinstance(node.ctx, (ast.Store, ast.Del)):
+                return None
+        elif isinstance(node, ast.arg) and node.arg == binding:
+            return None
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == binding:
+                return None
+        elif (
+            isinstance(node, ast.ExceptHandler)
+            and node.name == binding
+            or isinstance(node, (ast.Global, ast.Nonlocal))
+            and binding in node.names
+            or isinstance(node, (ast.MatchAs, ast.MatchStar))
+            and node.name == binding
+        ):
+            return None
+    return canonical_aliases[0].lineno
+
+
+def _safe_type_expression(node: ast.expr) -> bool:
+    """Admit declarative type syntax without calls, comprehensions, or effects."""
+
+    if isinstance(node, (ast.Name, ast.Constant)):
+        return True
+    if isinstance(node, ast.Attribute):
+        return _safe_type_expression(node.value)
+    if isinstance(node, ast.Subscript):
+        return _safe_type_expression(node.value) and _safe_type_expression(node.slice)
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return all(_safe_type_expression(element) for element in node.elts)
+    if isinstance(node, ast.Starred):
+        return _safe_type_expression(node.value)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _safe_type_expression(node.left) and _safe_type_expression(node.right)
+    if isinstance(node, ast.Slice):
+        return all(
+            item is None or _safe_type_expression(item)
+            for item in (node.lower, node.upper, node.step)
+        )
+    return False
+
+
+def _safe_type_checking_body(node: ast.If) -> bool:
+    if node.orelse:
+        return False
+    type_alias = getattr(ast, "TypeAlias", ())
+    for statement in node.body:
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            continue
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.value is None
+            and _safe_type_expression(statement.annotation)
+        ):
+            continue
+        if (
+            type_alias
+            and isinstance(statement, type_alias)
+            and isinstance(statement.name, ast.Name)
+            and _safe_type_expression(statement.value)
+        ):
+            continue
+        return False
+    return bool(node.body)
+
+
+def _typing_only_exclusion_lines(path: Path) -> frozenset[int]:
+    """Return only fail-closed lines excluded for canonical typing syntax."""
+
+    try:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (OSError, UnicodeError, SyntaxError):
+        _fail("package_source_unreadable")
+
+    lines = source.splitlines()
+    allowed: set[int] = set()
+    type_checking_line = _canonical_typing_import_line(
+        tree, binding="TYPE_CHECKING", symbol="TYPE_CHECKING"
+    )
+    typing_line = _canonical_typing_import_line(tree, binding="typing", symbol=None)
+    protocol_line = _canonical_typing_import_line(
+        tree, binding="Protocol", symbol="Protocol"
+    )
+    for node in tree.body:
+        is_direct_type_checking = (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Name)
+            and node.test.id == "TYPE_CHECKING"
+            and type_checking_line is not None
+            and type_checking_line < node.lineno
+        )
+        is_qualified_type_checking = (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Attribute)
+            and isinstance(node.test.value, ast.Name)
+            and node.test.value.id == "typing"
+            and node.test.attr == "TYPE_CHECKING"
+            and typing_line is not None
+            and typing_line < node.lineno
+        )
+        if (
+            isinstance(node, ast.If)
+            and (is_direct_type_checking or is_qualified_type_checking)
+            and _safe_type_checking_body(node)
+        ):
+            if node.end_lineno is None:
+                _fail("package_source_syntax_invalid")
+            allowed.update(range(node.lineno, node.end_lineno + 1))
+            continue
+        if not isinstance(node, ast.ClassDef):
+            continue
+        is_protocol = any(
+            (
+                isinstance(base, ast.Name)
+                and base.id == "Protocol"
+                and protocol_line is not None
+                and protocol_line < node.lineno
+            )
+            or (
+                isinstance(base, ast.Attribute)
+                and isinstance(base.value, ast.Name)
+                and base.value.id == "typing"
+                and base.attr == "Protocol"
+                and typing_line is not None
+                and typing_line < node.lineno
+            )
+            for base in node.bases
+        )
+        if not is_protocol:
+            continue
+        if node.end_lineno is None:
+            _fail("package_source_syntax_invalid")
+        for line_number in range(node.lineno, node.end_lineno + 1):
+            if not lines[line_number - 1].strip():
+                allowed.add(line_number)
+        line_number = node.end_lineno + 1
+        while line_number <= len(lines) and not lines[line_number - 1].strip():
+            allowed.add(line_number)
+            line_number += 1
+        for member in node.body:
+            if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if (
+                member.end_lineno is None
+                or len(member.body) != 1
+                or not isinstance(member.body[0], ast.Expr)
+                or not isinstance(member.body[0].value, ast.Constant)
+                or member.body[0].value.value is not Ellipsis
+            ):
+                continue
+            allowed.update(range(member.lineno, member.end_lineno + 1))
+
+    if any(
+        EXCLUSION_MARKER.search(lines[line - 1]) is not None
+        for line in allowed
+        if 1 <= line <= len(lines)
+    ):
+        _fail("package_source_excluded")
+    return frozenset(allowed)
+
+
 def _file_coverage(
     files_value: object, *, suite_root: Path, package_root: Path
 ) -> dict[Path, FileCoverage]:
@@ -585,6 +785,60 @@ def _assert_critical_symbol(file: FileCoverage, *, function: str) -> None:
     region_facts = _facts(region, max_line=max(len(source.splitlines()), 1))
     _check_summary(region.get("summary"), region_facts)
 
+    nested_facts: list[CoverageFacts] = []
+    for nested_node in sorted(
+        (
+            child
+            for child in ast.walk(node)
+            if child is not node
+            and isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ),
+        key=lambda child: child.lineno,
+    ):
+        candidates: list[dict[str, object]] = []
+        for qualified_name, raw_nested_region in file.functions.items():
+            if not qualified_name.startswith(f"{function}."):
+                continue
+            nested_region = _mapping(raw_nested_region, "critical_region_missing")
+            if (
+                _integer(
+                    nested_region.get("start_line"),
+                    "critical_region_invalid",
+                    minimum=1,
+                )
+                == nested_node.lineno
+            ):
+                candidates.append(nested_region)
+        if len(candidates) != 1:
+            _fail("critical_region_missing")
+        facts = _facts(candidates[0], max_line=max(len(source.splitlines()), 1))
+        _check_summary(candidates[0].get("summary"), facts)
+        nested_facts.append(facts)
+
+    if nested_facts:
+        region_facts = CoverageFacts(
+            executed_lines=frozenset().union(
+                region_facts.executed_lines,
+                *(facts.executed_lines for facts in nested_facts),
+            ),
+            missing_lines=frozenset().union(
+                region_facts.missing_lines,
+                *(facts.missing_lines for facts in nested_facts),
+            ),
+            excluded_lines=frozenset().union(
+                region_facts.excluded_lines,
+                *(facts.excluded_lines for facts in nested_facts),
+            ),
+            executed_branches=frozenset().union(
+                region_facts.executed_branches,
+                *(facts.executed_branches for facts in nested_facts),
+            ),
+            missing_branches=frozenset().union(
+                region_facts.missing_branches,
+                *(facts.missing_branches for facts in nested_facts),
+            ),
+        )
+
     file_range = CoverageFacts(
         executed_lines=frozenset(
             line
@@ -670,8 +924,9 @@ def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
         if file is None:
             _fail("critical_module_missing")
         _assert_critical_symbol(file, function=function)
-    if aggregate.excluded_lines:
-        _fail("package_source_excluded")
+    for file in files.values():
+        if file.facts.excluded_lines - _typing_only_exclusion_lines(file.path):
+            _fail("package_source_excluded")
 
     # Only the two admission-compatible ratio objects are published: the pinned
     # version and format, every critical symbol and both floors were enforced
