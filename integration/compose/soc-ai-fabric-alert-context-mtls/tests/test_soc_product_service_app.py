@@ -54,7 +54,7 @@ def _body(**overrides: Any) -> dict[str, Any]:
             "digest": UAT_ALERT_DIGEST,
         },
         "request_id": "req-uat-positive-0001",
-        "idempotency_key": "idem-uat-positive-0001",
+        "idempotency_key": "idem-uat-positive-0001",  # gitleaks:allow
         "purpose": UAT_PURPOSE,
         "requested_at": "2026-08-03T12:00:00Z",
         "binding_digest": "sha256:" + "b" * 64,

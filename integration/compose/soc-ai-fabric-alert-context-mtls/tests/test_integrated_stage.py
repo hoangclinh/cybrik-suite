@@ -181,7 +181,9 @@ def _adapters(events: list[str], observations, aggregate, journal: Path):
             ]
         ),
         positive_request={"request_id": "positive"},
-        f1_request={"idempotency_key": "idem-f1-actor-mismatch-0001"},
+        f1_request={
+            "idempotency_key": "idem-f1-actor-mismatch-0001"  # gitleaks:allow
+        },
         journal_root=journal,
         scratch_root=journal.parent / "scratch",
         authoritative_receipt_probe=lambda: {

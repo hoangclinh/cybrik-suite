@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from cybrik_suite_uat_fabric import runtime_wiring_admission as subject
 
-_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIKcZW7OQB8DF7rHy8r/PMKwLJeTnoM74+xjk+drNvFGx"
+_KEY = "AAAAC3NzaC1lZDI1NTE5AAAAIKcZW7OQB8DF7rHy8r/PMKwLJeTnoM74+xjk+drNvFGx"  # gitleaks:allow
 
 
 def _directory(path: Path) -> Path:

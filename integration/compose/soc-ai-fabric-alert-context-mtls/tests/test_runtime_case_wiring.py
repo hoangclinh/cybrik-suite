@@ -68,7 +68,7 @@ def test_case_adapter_uses_exact_routes_and_proves_positive_f1_f2(
         ai_metrics_client=ai_metrics,
         positive_request={"request_id": "sum-uat-0001"},
         f1_request={
-            "idempotency_key": "idem-f1-actor-mismatch-0001",
+            "idempotency_key": "idem-f1-actor-mismatch-0001",  # gitleaks:allow
             "actor": {"id": "body-selected-actor"},
         },
         journal_root=journal,
@@ -91,7 +91,7 @@ def test_case_adapter_uses_exact_routes_and_proves_positive_f1_f2(
     assert [call[:2] for call in positive.calls] == [("POST", "/uat/v1/summarizations")]
     assert [call[:2] for call in f1.calls] == [("POST", "/api/v1/invocations")]
     assert f1.calls[0][2]["headers"] == {
-        "Idempotency-Key": "idem-f1-actor-mismatch-0001"
+        "Idempotency-Key": "idem-f1-actor-mismatch-0001"  # gitleaks:allow
     }
     assert all(call[:2] == ("GET", "/uat/v1/metrics") for call in soc_metrics.calls)
     assert all(call[:2] == ("GET", "/uat/v1/metrics") for call in ai_metrics.calls)
@@ -145,7 +145,9 @@ def test_case_wiring_rejects_unknown_metric_and_existing_scratch_root(
         soc_metrics_client=_Client([]),
         ai_metrics_client=_Client([]),
         positive_request={},
-        f1_request={"idempotency_key": "idem-f1-actor-mismatch-0001"},
+        f1_request={
+            "idempotency_key": "idem-f1-actor-mismatch-0001"  # gitleaks:allow
+        },
         journal_root=journal.resolve(),
         scratch_root=scratch.resolve(),
         authoritative_receipt_probe=dict,

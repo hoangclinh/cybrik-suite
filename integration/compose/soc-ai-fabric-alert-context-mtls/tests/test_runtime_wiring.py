@@ -189,7 +189,9 @@ def test_bootstrap_wiring_adapts_exact_admission_session_cases_and_consumption(
             [_Response(200, {"model_calls": 1}), _Response(200, {"model_calls": 1})]
         ),
         positive_request={"request_id": "sum-1"},
-        f1_request={"idempotency_key": "idem-f1-actor-mismatch-0001"},
+        f1_request={
+            "idempotency_key": "idem-f1-actor-mismatch-0001"  # gitleaks:allow
+        },
         journal_root=journal,
         scratch_root=tmp_path / "scratch",
         authoritative_receipt_probe=lambda: {

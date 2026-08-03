@@ -231,7 +231,7 @@ class _RecordingPositiveClient:
 def _f1_request() -> dict[str, object]:
     return {
         "action_id": "act-alert-context-f1-0001",
-        "idempotency_key": "idem-f1-actor-mismatch-0001",
+        "idempotency_key": "idem-f1-actor-mismatch-0001",  # gitleaks:allow
         "tenant_id": "tenant-acme",
         "actor": {
             "type": "agent",
