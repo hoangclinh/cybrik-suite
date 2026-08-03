@@ -309,6 +309,11 @@ def test_b1_wheel_requires_exact_reviewed_filename(tmp_path: Path) -> None:
 def test_runtime_trust_preflight_binds_namespace_and_exact_pins(tmp_path: Path) -> None:
     module = _implementation()
     environment, repositories, _private_roots = _environment(tmp_path)
+    allowed_signers = tmp_path / "allowed_signers"
+    allowed_signers.write_bytes(b"reviewed allowed signer\n")
+    allowed_signers.chmod(0o600)
+    environment["CYBRIK_UAT_AUTHORIZATION_ALLOWED_SIGNERS"] = str(allowed_signers)
+    environment["CYBRIK_UAT_ALLOWED_SIGNER"] = "FOUNDER"
     base, calls = _dependencies(repositories)
     observed: list[tuple[object, ...]] = []
 
@@ -344,6 +349,94 @@ def test_runtime_trust_preflight_binds_namespace_and_exact_pins(tmp_path: Path) 
         in json.loads(prepared.receipt)["signing_argv_template"]
     )
     assert calls["observe"] == 2
+
+
+def _runtime_trust_fixture(tmp_path: Path) -> tuple[dict[str, str], object, object]:
+    module = _implementation()
+    allowed_signers = tmp_path / "allowed_signers"
+    allowed_payload = b'FOUNDER namespaces="reviewed-namespace" ssh-ed25519 AAAA\n'
+    allowed_signers.write_bytes(allowed_payload)
+    allowed_signers.chmod(0o600)
+    fingerprint = "SHA256:" + ("A" * 43)
+    descriptor = {
+        "allowed_signers_sha256": hashlib.sha256(allowed_payload).hexdigest(),
+        "key_fingerprint": fingerprint,
+        "key_type": "ssh-ed25519",
+        "namespace": "reviewed-namespace",
+        "python_sha256": "9" * 64,
+        "signer": "FOUNDER",
+    }
+    wiring = SimpleNamespace(
+        AUTHORIZATION_NAMESPACE="reviewed-namespace",
+        TRUST_DESCRIPTOR_RELATIVE="tracked-trust.json",
+        _trust_descriptor=lambda _path, _suite: descriptor,
+        _file=lambda value, mode: Path(value),
+        read_external_bytes=lambda path: path.read_bytes(),
+        _allowed_signers_identity=lambda _payload: (
+            "FOUNDER",
+            "ssh-ed25519",
+            fingerprint,
+        ),
+    )
+    b1_runtime = SimpleNamespace(
+        B1_WHEEL_FILENAME="anycorn-0.20.0+cybrik.1-py3-none-any.whl",
+        B1_WHEEL_SHA256="8" * 64,
+    )
+    environment = {
+        "CYBRIK_UAT_AUTHORIZATION_ALLOWED_SIGNERS": str(allowed_signers),
+        "CYBRIK_UAT_ALLOWED_SIGNER": "FOUNDER",
+        "CYBRIK_UAT_B1_WHEEL": str(
+            tmp_path / "anycorn-0.20.0+cybrik.1-py3-none-any.whl"
+        ),
+        "CYBRIK_UAT_PYTHON": str(tmp_path / "python"),
+    }
+    assert module is not None
+    return environment, wiring, b1_runtime
+
+
+def test_default_runtime_trust_validator_binds_allowed_signers_bytes(
+    tmp_path: Path,
+) -> None:
+    module = _implementation()
+    environment, wiring, b1_runtime = _runtime_trust_fixture(tmp_path)
+
+    namespace = module._validate_runtime_trust(
+        environment,
+        tmp_path,
+        Path(environment["CYBRIK_UAT_B1_WHEEL"]),
+        "8" * 64,
+        Path(environment["CYBRIK_UAT_PYTHON"]),
+        "9" * 64,
+        "FOUNDER",
+        authority_wiring=wiring,
+        b1_runtime=b1_runtime,
+    )
+
+    assert namespace == "reviewed-namespace"
+
+
+def test_default_runtime_trust_validator_rejects_allowed_signers_digest_drift(
+    tmp_path: Path,
+) -> None:
+    module = _implementation()
+    environment, wiring, b1_runtime = _runtime_trust_fixture(tmp_path)
+    wiring._trust_descriptor = lambda _path, _suite: {
+        **wiring._trust_descriptor(None, None),
+        "allowed_signers_sha256": "0" * 64,
+    }
+
+    with pytest.raises(module.PreparationError, match="runtime_inputs_invalid"):
+        module._validate_runtime_trust(
+            environment,
+            tmp_path,
+            Path(environment["CYBRIK_UAT_B1_WHEEL"]),
+            "8" * 64,
+            Path(environment["CYBRIK_UAT_PYTHON"]),
+            "9" * 64,
+            "FOUNDER",
+            authority_wiring=wiring,
+            b1_runtime=b1_runtime,
+        )
 
 
 def test_dirty_repository_observation_fails_before_packet_emission(
