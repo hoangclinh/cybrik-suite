@@ -101,6 +101,35 @@ def test_product_module_origin_validation_is_exact_and_recursive(
         validate_product_module_origins(roots, modules)
 
 
+def test_product_module_origin_accepts_only_root_bound_namespace_packages(
+    tmp_path: Path,
+) -> None:
+    roots = _roots(tmp_path)
+    namespace_root = roots.soc / "cybrik_soc/modules"
+    namespace_root.mkdir(parents=True)
+    namespace = ModuleType("cybrik_soc.modules")
+    namespace.__file__ = None
+    namespace.__path__ = [str(namespace_root)]
+
+    validate_product_module_origins(
+        roots, {"cybrik_soc.modules": namespace}
+    )
+
+    foreign = tmp_path / "foreign/cybrik_soc/modules"
+    foreign.mkdir(parents=True)
+    namespace.__path__ = [str(namespace_root), str(foreign)]
+    with pytest.raises(RuntimeProcessError, match="product_module_origin_mismatch"):
+        validate_product_module_origins(
+            roots, {"cybrik_soc.modules": namespace}
+        )
+
+    namespace.__path__ = []
+    with pytest.raises(RuntimeProcessError, match="product_module_origin_mismatch"):
+        validate_product_module_origins(
+            roots, {"cybrik_soc.modules": namespace}
+        )
+
+
 @pytest.mark.asyncio
 async def test_run_role_strips_proxy_and_keylog_then_serves_once_with_injected_runtime(
     tmp_path: Path,
