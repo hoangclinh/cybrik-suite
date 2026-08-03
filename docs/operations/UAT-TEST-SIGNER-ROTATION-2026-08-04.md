@@ -26,7 +26,11 @@ production or customer environments.
 - key type: `ssh-ed25519`;
 - public fingerprint: `SHA256:kzGy03jJRT74lJ0I1UuN+pIF9wDQ0/ofrUDZNH5TB44`;
 - exact allowed-signers SHA-256:
-  `0a6a4a6ce0196780e76329dbd4369ca703b3e2b0af5db5a52fb897cc7c1ffe4b`.
+  `8c0e4e00607c0cbac759f798b0a0c2f2981f93b50b6f72e854d5b40ff52958e7`.
+
+The external allowed-signers line binds the principal to the exact SSHSIG option
+`namespaces="cybrik-uat-soc-ai-fabric-v1"`; the real admission parser accepted those bytes and
+derived the same signer, key type and fingerprint before this digest was committed.
 
 The two values were independently recomputed from the external public material before commit with
 `shasum -a 256` and `ssh-keygen -lf`. No private bytes, signature bytes, or key path are recorded
