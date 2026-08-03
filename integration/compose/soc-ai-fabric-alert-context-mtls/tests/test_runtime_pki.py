@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import stat
 from dataclasses import replace
@@ -75,6 +76,26 @@ def test_create_three_independent_channels_and_wrong_channel_trust_is_distinct(
 
     runtime_pki.destroy_runtime_pki(material)
     assert runtime_pki.verify_absent(material) is True
+    runtime_pki.destroy_runtime_pki(material)
+
+
+def test_server_leaf_binds_dns_identity_and_exact_loopback_transport(
+    tmp_path: Path,
+) -> None:
+    material = _create(tmp_path)
+
+    for channel in material.channels:
+        certificate = x509.load_pem_x509_certificate(
+            channel.server_certificate.read_bytes()
+        )
+        names = certificate.extensions.get_extension_for_class(
+            x509.SubjectAlternativeName
+        ).value
+        assert names.get_values_for_type(x509.DNSName) == [channel.server_name]
+        assert names.get_values_for_type(x509.IPAddress) == [
+            ipaddress.ip_address("127.0.0.1")
+        ]
+
     runtime_pki.destroy_runtime_pki(material)
 
 
