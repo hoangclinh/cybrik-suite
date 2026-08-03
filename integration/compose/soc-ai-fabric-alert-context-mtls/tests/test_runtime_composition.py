@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import ssl
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -213,33 +214,25 @@ def test_default_httpx_factories_pin_no_proxy_no_retry_and_exact_urls(
 
     assert isinstance(sync, _Httpx.Client)
     assert isinstance(asynchronous, _Httpx.AsyncClient)
-    assert sync_calls[0] == {
-        "transport": {
-            "cert": (
-                str(settings.fabric_to_soc.certificate),
-                str(settings.fabric_to_soc.private_key),
-            ),
-            "retries": 0,
-            "trust_env": False,
-            "verify": str(settings.fabric_to_soc.ca_certificate),
-        }
-    }
+    sync_transport = sync_calls[0]["transport"]
+    assert set(sync_transport) == {"retries", "trust_env", "verify"}
+    assert sync_transport["retries"] == 0
+    assert sync_transport["trust_env"] is False
+    assert isinstance(sync_transport["verify"], ssl.SSLContext)
+    assert sync_transport["verify"].minimum_version is ssl.TLSVersion.TLSv1_3
+    assert sync_transport["verify"].maximum_version is ssl.TLSVersion.TLSv1_3
     assert sync_calls[1]["base_url"] == SOC_BASE_URL
     assert "cert" not in sync_calls[1]
     assert sync_calls[1]["timeout"] == HTTP_TIMEOUT_SECONDS
     assert sync_calls[1]["trust_env"] is False
     assert isinstance(sync_calls[1]["transport"], _Httpx.HTTPTransport)
-    assert async_calls[0] == {
-        "transport": {
-            "cert": (
-                str(settings.ai_to_fabric.certificate),
-                str(settings.ai_to_fabric.private_key),
-            ),
-            "retries": 0,
-            "trust_env": False,
-            "verify": str(settings.ai_to_fabric.ca_certificate),
-        }
-    }
+    async_transport = async_calls[0]["transport"]
+    assert set(async_transport) == {"retries", "trust_env", "verify"}
+    assert async_transport["retries"] == 0
+    assert async_transport["trust_env"] is False
+    assert isinstance(async_transport["verify"], ssl.SSLContext)
+    assert async_transport["verify"].minimum_version is ssl.TLSVersion.TLSv1_3
+    assert async_transport["verify"].maximum_version is ssl.TLSVersion.TLSv1_3
     assert async_calls[1]["base_url"] == FABRIC_BASE_URL
     assert async_calls[1]["trust_env"] is False
     assert async_calls[1]["timeout"] == HTTP_TIMEOUT_SECONDS
