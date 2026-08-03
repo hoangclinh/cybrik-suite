@@ -1,0 +1,137 @@
+{
+  "schema_version": "cybrik.fabric-runtime-producer-gate.v1",
+  "status": "DRAFT",
+  "candidate_id": "runtime-admission-soc-ai-lifecycle-mtls-r1",
+  "evaluated_at": "2026-08-03T00:00:00+07:00",
+  "release_constraints": {
+    "stable_v1_founder_go_no_go": "2026-12-20",
+    "release_window": "2026-12-21/2026-12-31"
+  },
+  "pins": {
+    "suite_base": {
+      "commit": "ba830494ebc4b2d7ff215cf068f6736205c55075",
+      "tree": "22c540b3d480c2910dd43c76c0271f70e89ec9b7",
+      "author": "Cybrik Codex Worker <codex-worker@local.invalid>"
+    },
+    "fabric_candidate": {
+      "commit": "e06b19c528c90a375898f8cce6d22ed0124c96da",
+      "tree": "84a2378c187891b53458e1a20053dd6b94e0d410",
+      "parent": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "author": "Cybrik Codex Worker <codex-worker@local.invalid>",
+      "pushed": false,
+      "merged": false
+    }
+  },
+  "conditions": [
+    {
+      "id": "business_contract_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json"
+      ],
+      "note": "The alert-context business packet is accepted for implementation."
+    },
+    {
+      "id": "transport_binding_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json"
+      ],
+      "note": "The transport binding is accepted for implementation but defines no endpoint or runtime operation."
+    },
+    {
+      "id": "receipt_integrity_profile_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json"
+      ],
+      "note": "The receipt integrity profile is accepted for implementation and remains explicitly not implemented."
+    },
+    {
+      "id": "fabric_in_process_boundary_reviewed",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-security-tool-fabric:src/control-plane/cybrik_fabric_control/invocation/service.py",
+        "cybrik-security-tool-fabric:tests/control-plane/test_signed_receipt_service_integration.py",
+        "cybrik-security-tool-fabric:commit/e06b19c528c90a375898f8cce6d22ed0124c96da"
+      ],
+      "note": "The Fabric-owned in-process boundary and signed receipt lane passed bounded review and 638 tests; this is not runtime evidence."
+    },
+    {
+      "id": "runtime_endpoint_contract_accepted",
+      "phase": "implementation",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "No accepted contract defines the Fabric runtime endpoint, path or operation."
+    },
+    {
+      "id": "key_lifecycle_trust_bundle_design_accepted",
+      "phase": "implementation",
+      "satisfied": false,
+      "evidence_state": "open",
+      "evidence": [],
+      "note": "Signer issuance, rotation, revocation and trust-bundle distribution remain unaccepted runtime design work."
+    },
+    {
+      "id": "durable_receipt_store_design_accepted",
+      "phase": "implementation",
+      "satisfied": false,
+      "evidence_state": "open",
+      "evidence": [],
+      "note": "The production durable completed-invocation authority and failure semantics remain unaccepted design work."
+    },
+    {
+      "id": "product_runtime_producer_implemented_reviewed",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "No Fabric-owned HTTP or equivalent runtime producer is implemented and independently reviewed."
+    },
+    {
+      "id": "canonical_tuple_hosted_ci_green",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "The current canonical SOC, Cyber AI, Fabric and Suite tuple has no hosted green CI packet."
+    },
+    {
+      "id": "runtime_negative_and_rollback_evidence",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "Runtime negative cases, bounded stop, reset and no-residual rollback evidence have not been captured."
+    },
+    {
+      "id": "coverage_remeasured_current_suite_tree",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "Historical M2 coverage does not measure the current Suite candidate tree."
+    }
+  ],
+  "declared": {
+    "implementation_disposition": "HOLD",
+    "runtime_disposition": "HOLD",
+    "runtime_authorized": false
+  },
+  "production_authorized": false,
+  "non_claims": [
+    "no_runtime_started",
+    "no_uat_pass",
+    "no_demo_or_release_promotion",
+    "no_production_authority"
+  ]
+}

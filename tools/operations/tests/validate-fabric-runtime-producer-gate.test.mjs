@@ -95,6 +95,19 @@ test("open conditions cannot carry pass-like evidence state", () => {
   );
 });
 
+test("condition phases cannot be reassigned to weaken implementation HOLD", () => {
+  const candidate = copyPacket();
+  const openImplementationCondition = candidate.conditions.find(
+    ({ id }) => id === "runtime_endpoint_contract_accepted",
+  );
+  openImplementationCondition.phase = "runtime";
+
+  assert.throws(
+    () => validateFabricRuntimeProducerGate(candidate),
+    /condition phase inventory/,
+  );
+});
+
 test("declared dispositions must equal the derived gate result", () => {
   const implementationDrift = copyPacket();
   implementationDrift.declared.implementation_disposition = "GO";
