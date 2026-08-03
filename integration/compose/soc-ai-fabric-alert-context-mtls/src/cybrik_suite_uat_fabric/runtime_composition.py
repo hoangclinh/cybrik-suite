@@ -8,6 +8,7 @@ HTTP clients are created only by :func:`build_role_composition`.
 from __future__ import annotations
 
 import inspect
+import ssl
 import sys
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -239,6 +240,23 @@ def _certificate_sha256(path: Path) -> str:
         raise RuntimeCompositionError("certificate_invalid") from exc
 
 
+def _client_ssl_context(spec: HttpClientSpec) -> ssl.SSLContext:
+    try:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
+        context.maximum_version = ssl.TLSVersion.TLSv1_3
+        context.check_hostname = True
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.load_verify_locations(cafile=str(spec.verify))
+        context.load_cert_chain(
+            certfile=str(spec.certificate), keyfile=str(spec.private_key)
+        )
+        context.set_alpn_protocols(["http/1.1"])
+    except (OSError, ssl.SSLError) as exc:
+        raise RuntimeCompositionError("client_tls_invalid") from exc
+    return context
+
+
 def create_sync_httpx_client(
     spec: HttpClientSpec, *, httpx_module: object | None = None
 ) -> object:
@@ -249,10 +267,9 @@ def create_sync_httpx_client(
     if httpx_module is None:
         import httpx as httpx_module
     transport = httpx_module.HTTPTransport(  # type: ignore[attr-defined]
-        cert=(str(spec.certificate), str(spec.private_key)),
         retries=0,
         trust_env=False,
-        verify=str(spec.verify),
+        verify=_client_ssl_context(spec),
     )
     return httpx_module.Client(  # type: ignore[attr-defined]
         base_url=spec.base_url,
@@ -272,10 +289,9 @@ def create_async_httpx_client(
     if httpx_module is None:
         import httpx as httpx_module
     transport = httpx_module.AsyncHTTPTransport(  # type: ignore[attr-defined]
-        cert=(str(spec.certificate), str(spec.private_key)),
         retries=0,
         trust_env=False,
-        verify=str(spec.verify),
+        verify=_client_ssl_context(spec),
     )
     return httpx_module.AsyncClient(  # type: ignore[attr-defined]
         base_url=spec.base_url,
