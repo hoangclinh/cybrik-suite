@@ -33,6 +33,7 @@ def _private_root(path: Path) -> Path:
 def _environment(
     tmp_path: Path,
 ) -> tuple[dict[str, str], tuple[Path, ...], tuple[Path, ...]]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     repositories = tuple(
         _private_root(tmp_path / name) for name in ("suite", "soc", "ai", "fabric")
     )

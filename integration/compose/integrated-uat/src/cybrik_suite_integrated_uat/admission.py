@@ -18,6 +18,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Final
 
+from .authorization_packet import (
+    MASTER_AUTHORIZATION_FIELDS,
+    MASTER_AUTHORIZATION_SCHEMA,
+    MasterBindingInputs,
+    master_document,
+)
 from .models import (
     EXPECTED_EXTERNAL_CAPABILITIES,
     EXPECTED_REPOSITORIES,
@@ -48,12 +54,6 @@ _HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 _RUN_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,127}\Z")
 _D2_ROOT_SUFFIX: Final = r"[a-z0-9][a-z0-9._-]{0,63}"
 _TRACKED_BLOB_ALGORITHM: Final = "cybrik-uat-tracked-blob-sha256-lines/v1"
-MASTER_AUTHORIZATION_SCHEMA: Final = "CYBRIK-INTEGRATED-UAT-MASTER-AUTH/v1"
-_MASTER_AUTHORIZATION_FIELDS: Final = frozenset(
-    "authorization_id authorized_by b1_wheel decision evidence_root expires_at "
-    "external_roots external_roots_sha256 helper_scripts issued_at one_shot python "
-    "repository_roots repository_roots_sha256 schema tracked_blob_aggregate tuple".split()
-)
 HELPER_SCRIPTS: Final = (
     Path(
         "integration/compose/soc-ai-lifecycle-create-mtls/scripts/integrated_uat_stage.py"
@@ -113,7 +113,8 @@ _ALERT_MODULES = (
     "tls_process",
 )
 _MASTER_MODULES = tuple(
-    "__init__ adapters admission bootstrap cleanup errors models orchestrator protocols storage".split()
+    "__init__ adapters admission authorization_packet bootstrap cleanup errors models "
+    "orchestrator preparation protocols storage".split()
 )
 
 _SOC_PATHS = (
@@ -280,6 +281,7 @@ _SUITE_PATHS = (
     ),
     "integration/compose/integrated-uat/pyproject.toml",
     "integration/compose/integrated-uat/scripts/common_teardown.py",
+    "integration/compose/integrated-uat/scripts/generate_master_authorization.py",
     "integration/compose/integrated-uat/scripts/inspect_environment.py",
     "integration/compose/integrated-uat/scripts/run_integrated_uat.py",
     *(
@@ -616,8 +618,14 @@ def _master_record(payload: bytes) -> dict[str, object]:
         raise IntegratedAdmissionError("master_authorization_json_invalid") from exc
     if (
         not isinstance(record, dict)
-        or frozenset(record) != _MASTER_AUTHORIZATION_FIELDS
-        or json.dumps(record, sort_keys=True, separators=(",", ":")).encode() != payload
+        or frozenset(record) != MASTER_AUTHORIZATION_FIELDS
+        or json.dumps(
+            record,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        != payload
     ):
         _fail("master_authorization_not_canonical")
     return record
@@ -657,35 +665,49 @@ def _validate_master_record(
         or expires - issued > timedelta(hours=24)
     ):
         _fail("master_authorization_not_current")
-    expected = {
-        "tuple": {
-            item.role: {"commit": item.commit, "tree": item.tree}
-            for item in observations
-        },
-        "tracked_blob_aggregate": {
-            "algorithm": aggregate.algorithm,
-            "file_count": aggregate.file_count,
-            "sha256": aggregate.sha256,
-        },
-        "repository_roots": [item.to_dict() for item in repository_roots],
-        "repository_roots_sha256": repository_roots_digest(repository_roots),
-        "evidence_root": str(config.evidence_root),
-        "external_roots": [item.to_dict() for item in config.external_roots],
-        "external_roots_sha256": external_roots_digest(config.external_roots),
-        "helper_scripts": [
-            {"path": path.as_posix(), "sha256": helper_sha256[path]}
-            for path in HELPER_SCRIPTS
-        ],
-        "b1_wheel": {
-            "path": str(config.authority.b1_wheel),
-            "sha256": b1_sha256,
-        },
-        "python": {
-            "path": str(config.authority.python),
-            "sha256": python_sha256,
-        },
+    expected = master_document(
+        MasterBindingInputs(
+            authorization_id=authorization_id,
+            authorized_by=record["authorized_by"],
+            issued_at=issued,
+            expires_at=expires,
+            b1_wheel={
+                "path": str(config.authority.b1_wheel),
+                "sha256": b1_sha256,
+            },
+            evidence_root=str(config.evidence_root),
+            external_roots=tuple(item.to_dict() for item in config.external_roots),
+            external_roots_sha256=external_roots_digest(config.external_roots),
+            helper_scripts=tuple(
+                {"path": path.as_posix(), "sha256": helper_sha256[path]}
+                for path in HELPER_SCRIPTS
+            ),
+            python={
+                "path": str(config.authority.python),
+                "sha256": python_sha256,
+            },
+            repository_roots=tuple(item.to_dict() for item in repository_roots),
+            repository_roots_sha256=repository_roots_digest(repository_roots),
+            repository_tuple=tuple(
+                (item.role, item.commit, item.tree) for item in observations
+            ),
+            tracked_blob_aggregate={
+                "algorithm": aggregate.algorithm,
+                "file_count": aggregate.file_count,
+                "sha256": aggregate.sha256,
+            },
+        )
+    )
+    binding_fields = MASTER_AUTHORIZATION_FIELDS - {
+        "authorization_id",
+        "authorized_by",
+        "decision",
+        "expires_at",
+        "issued_at",
+        "one_shot",
+        "schema",
     }
-    if any(record[field] != value for field, value in expected.items()):
+    if any(record[field] != expected[field] for field in binding_fields):
         _fail("master_authorization_binding_mismatch")
     return authorization_id, hashlib.sha256(intent.payload).hexdigest()
 
