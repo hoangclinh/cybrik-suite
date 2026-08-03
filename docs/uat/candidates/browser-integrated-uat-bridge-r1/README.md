@@ -33,8 +33,9 @@ Every statement in this packet has one of these meanings:
 - **`NOT RUN`** — source or an admission record may exist, but the corresponding runtime/UAT has
   not executed.
 
-The present state is `BACKEND_PENDING`. It is not `BACKEND_PROVED`, `UI_SOURCE_READY`,
-`UI_AUTHORIZED`, `UAT_RUNNING` or `PASS`.
+The present parallel state is `BACKEND_PENDING + UI_DESIGN_PENDING`. It is not
+`BACKEND_PROVED`, `UI_TDD_OPEN`, `UI_SOURCE_COMPLETE`, `UI_SOURCE_READY`, `UI_AUTHORIZED`,
+`UAT_RUNNING` or `PASS`.
 
 ---
 
@@ -149,10 +150,12 @@ SOC API / BFF (public application boundary)
                                                                                 `-- receipt
 ```
 
-Only the SOC origin is browser-reachable. The browser MUST NOT call Cyber AI or Tool Fabric
-directly, receive service-delegation tokens, hold Fabric grants, choose a tenant/org authority
-binding or see unredacted internal receipts. SOC derives the authoritative tenant, actor, org
-scope and clearance from its authenticated session and returns a purpose-built, marked projection.
+Only the SOC origin is an approved browser application origin. Synthetic Cyber AI/Fabric services
+may listen on host loopback for the internal mTLS harness, so TCP reachability or CORS is not the
+security boundary. A browser MUST NOT obtain a protected AI/Fabric application response, receive
+service-delegation tokens, hold Fabric grants, choose a tenant/org authority binding or see
+unredacted internal receipts. SOC derives the authoritative tenant, actor, org scope and clearance
+from its authenticated session and returns a purpose-built, marked projection.
 
 ### 4.2 Repository ownership
 
@@ -235,8 +238,20 @@ BACKEND_PENDING
       | G-B0..G-B3 all pass
       v
 BACKEND_PROVED
+
+UI_DESIGN_PENDING
       |
-      | G-U0..G-U6 all pass
+      | G-U0 contract freeze passes
+      v
+UI_TDD_OPEN
+      |
+      | G-U1..G-U6 all pass
+      v
+UI_SOURCE_COMPLETE
+
+BACKEND_PROVED + UI_SOURCE_COMPLETE
+      |
+      | convergence requires exact backend terminal result path + SHA-256
       v
 UI_SOURCE_READY
       |
@@ -260,8 +275,10 @@ Rules:
   alias.
 - `BACKEND_PROVED` requires a passed terminal backend result, not merely Phase A authorization.
 - A failed backend attempt remains terminal in its backend series. UI work cannot reinterpret it.
-- `UI_SOURCE_READY` means exact source and static/hosted evidence are ready; it means no listener,
-  URL, account or UAT has run.
+- `UI_SOURCE_READY` means exact source and static/hosted evidence are ready; it means no admitted
+  local-UAT listener, operator URL, synthetic account issuance or signed UAT run has occurred.
+  Transient hosted/source-test infrastructure is not a G-U7 admission and cannot satisfy runtime
+  persona evidence.
 - UI authorization is externally signed, exact-bit, bounded, expiring and one-shot. Consumption
   occurs before any child process/listener starts.
 - Any isolation, authorization, marking, secret-boundary or teardown failure produces
@@ -286,14 +303,14 @@ Rules:
 
 | Gate | Required evidence | Transition effect | Current status |
 |---|---|---|---|
-| **G-U0 — scope and contract freeze** | Browser use cases, SOC-only public boundary, sanitized BFF view, P1–P6 matrix, state/error vocabulary, exact paths/allowlist and backend-result digest reviewed; no authority supplied by request body | Opens bounded TDD work only | `PROPOSED` |
+| **G-U0 — scope and contract freeze** | Browser use cases, SOC-only public boundary, authoritative alert owner + marking/residency + tenant/org FORCE-RLS prerequisite, sanitized BFF view, P1–P6 matrix, state/error vocabulary and exact design paths/allowlist reviewed; no authority supplied by request body | `UI_DESIGN_PENDING → UI_TDD_OPEN`; missing implementation/tests/backend result remain later-gate work and do not recursively fail this design-only gate | `PROPOSED` |
 | **G-U1 — RED contract/security tests** | Failing tests first for positive flows and every negative boundary: cross-tenant, sibling/parent/descendant raw read, marking, A05 internal access, direct AI/Fabric access, token/receipt leakage and replay | Proves the tests can detect absent/wrong behavior | `NOT IMPLEMENTED` |
-| **G-U2 — SOC BFF GREEN** | Minimal SOC-owned projection; server-derived identity/scope; internal client timeouts/budgets; uniform non-disclosing errors; audit references; unit/integration coverage at least 80% for the changed scope | Establishes the only public application boundary | `NOT IMPLEMENTED` |
+| **G-U2 — SOC data boundary + BFF GREEN** | Additive alert attribution/marking schema, deterministic backfill, tenant+org FORCE RLS across every alert surface, then the minimal SOC-owned projection; server-derived identity/scope; internal client timeouts/budgets; uniform non-disclosing errors; audit references; unit/integration coverage at least 80% for the changed scope | Establishes the authoritative data boundary and the only public application boundary | `NOT IMPLEMENTED` |
 | **G-U3 — SOC portal GREEN** | Alert-to-investigation journey, governed status/checkpoints/receipt projection, explicit marking/scope, loading/error/three empty states, VI/EN and no hidden authorization in UI state | Establishes source-complete browser behavior | `NOT IMPLEMENTED` |
-| **G-U4 — deterministic integrated harness** | Real SOC UI/BFF + internal AI/Fabric boundaries with canonical deterministic model adapter; fixed synthetic clock/IDs/fixtures; no Internet/Ollama dependency; repeat runs produce matching normalized evidence digest | Establishes a stable UAT oracle | `NOT IMPLEMENTED` |
-| **G-U5 — P1–P6 UAT matrix** | Every mandatory cell passes, including negative isolation and A05 negative-only rows; functional flows, failure states and teardown are evidenced without customer data | Establishes persona/security behavior | `NOT RUN` |
-| **G-U6 — quality and source closure** | Keyboard/SR + automated accessibility, WCAG 2.1 AA, desktop/ops-wall/constrained viewports, VI/EN, screenshot/video/log index, exact source tuple, green hosted checks, secret/supply-chain scans, coverage and independent P0=P1=P2=0 review | `BACKEND_PROVED → UI_SOURCE_READY` | `NOT RUN` |
-| **G-U7 — signed browser-UAT run** | Separate exact signed one-shot UI admission; private loopback-only services; documented URL and synthetic accounts disclosed only after start; authorization atomically consumed; full evidence and terminal absence proof | `UI_SOURCE_READY → UI_AUTHORIZED → UAT_RUNNING → PASS|FAIL_TERMINAL` | `NOT AUTHORIZED` |
+| **G-U4 — deterministic integrated harness** | Source-complete real SOC UI/BFF + internal AI/Fabric boundary harness with canonical deterministic model adapter; fixed synthetic clock/IDs/fixtures; no Internet/Ollama dependency; repeated in-process/source-test runs produce matching normalized oracle digests without claiming signed local UAT | Establishes a stable UAT oracle and exact later-run harness inputs | `NOT IMPLEMENTED` |
+| **G-U5 — P1–P6 matrix readiness** | Every mandatory positive/negative cell has an exact synthetic fixture, browser test, expected oracle and failure assertion; P4 remains negative-only; no customer data and no claim that the signed persona run has executed | Establishes complete executable persona/security source coverage for G-U7 | `NOT IMPLEMENTED` |
+| **G-U6 — quality and source closure** | Keyboard/SR + automated accessibility source/hosted evidence, WCAG 2.1 AA, desktop/ops-wall/constrained viewports, VI/EN, evidence-capture schema/index template, exact source tuple, green hosted checks, secret/supply-chain scans, coverage and independent P0=P1=P2=0 review; convergence also binds the exact `BACKEND_PROVED` terminal-result path and SHA-256 | `UI_SOURCE_COMPLETE + BACKEND_PROVED → UI_SOURCE_READY` | `NOT RUN` |
+| **G-U7 — signed browser-UAT run** | Separate exact signed one-shot UI admission; private loopback-only services; documented URL and synthetic accounts disclosed only after start; authorization atomically consumed; execute every G-U5 P1–P6 cell; capture functional/failure/accessibility/responsive/localization evidence; full terminal absence proof | `UI_SOURCE_READY → UI_AUTHORIZED → UAT_RUNNING → PASS|FAIL_TERMINAL` | `NOT AUTHORIZED` |
 
 No gate is satisfied by prose, a scaffold, an unexecuted test, a screenshot without a reproducible
 attempt, a static test standing in for a real boundary, or an Ollama-only happy path.
@@ -307,8 +324,8 @@ production-derived or customer data is allowed. Each row is tested in VI and EN 
 
 | Persona | Mandatory positive path | Mandatory negative path | Key evidence |
 |---|---|---|---|
-| **P1 Central/top-tier coordinator** | View allowed aggregate, start an authorized synthetic investigation, observe governed result | Cannot read descendant raw alerts by default; aggregate URL/result cannot reveal raw object refs | Browser video, API log, absent raw identifiers, audit ref |
-| **P2 Mid-tier coordinator** | Own node + permitted subtree aggregate; escalation/tasking behavior only where contracted | Cannot escape subtree, read sibling branch or widen `include_descendants` from browser input | Attempt/denial pair and scoped query evidence |
+| **P1 Central/top-tier coordinator** | View allowed aggregate; separately use own-node or exact object-granted scope to start an authorized synthetic investigation and observe governed result | Cannot read descendant raw alerts by default; aggregate scope cannot start a raw investigation; aggregate URL/result cannot reveal raw object refs | Browser video, API log, absent raw identifiers, audit ref |
+| **P2 Mid-tier coordinator** | Own node + permitted subtree aggregate; escalation/tasking behavior only where contracted | Cannot escape subtree, read sibling branch or widen scope through URL, query, body, stale membership or revoked grant; no public `include_descendants` control exists in R1 | Attempt/denial pair and scoped query evidence |
 | **P3 Local operator** | Work own-node alert and escalate through the allowed workflow | Cannot read sibling, parent or unrelated-tenant data; cannot request aggregate authority | Attempt/denial pair with non-disclosing response |
 | **P4 A05/external liaison** | **N/A in this wave — no positive A05 exchange surface is implemented** | Negative-only: cannot enter internal SOC UI, appear in org tree, read tenant data, call AI/Fabric, administer or auto-execute inbound tasking | Login/route/API denial and org-tree absence evidence |
 | **P5 Tenant admin** | Manage the synthetic tenant within accepted SOC administration scope | Cannot cross tenant or self-grant raw descendant access without the separately audited grant path | Cross-tenant attempt, denial, audit evidence |
@@ -377,8 +394,8 @@ This browser bridge may be recommended `PASS` only if all conditions below are p
 
 1. G-B0 through G-B3 pass on the immutable backend tuple, producing `BACKEND_PROVED`.
 2. G-U0 through G-U7 pass on a separately pinned exact UI tuple.
-3. The browser has one public trust boundary: SOC. Direct browser access to AI/Fabric is absent
-   and tested.
+3. The browser has one public trust boundary: SOC. Protected direct browser application access to
+   AI/Fabric is denied and tested without relying on CORS or loopback port absence.
 4. SOC derives identity, tenant, org scope and clearance server-side. Advisory browser fields
    cannot widen authority.
 5. Cyber AI remains the owner of orchestration/model semantics; Tool Fabric remains the owner of
@@ -403,20 +420,21 @@ Each stays `HOLD` until its applicable gate passes. Production remains Founder-o
 
 ## 10. Open decisions
 
-These decisions must be closed at G-U0; this document deliberately does not invent accepted bytes:
+Each decision has one explicit closure gate. G-U0 freezes the public authority/contract boundary;
+later runtime/harness details do not recursively fail that design gate:
 
-| ID | Decision | Required disposition |
-|---|---|---|
-| **OD-UI-1** | Exact SOC BFF resource names, methods and schema | Contract review; no request-body authority fields |
-| **OD-UI-2** | Which existing SOC alert/AI-panel surface hosts the primary journey | UX review against existing information architecture |
-| **OD-UI-3** | Browser-safe projection of AI checkpoints and Fabric receipts | Explicit allowlist; marking and provenance visible; credentials/grants excluded |
-| **OD-UI-4** | Synthetic persona credential mechanism and expiry | Local-only, generated, non-production, no hardcoded secret in Git |
-| **OD-UI-5** | Exact Suite browser harness path, ports and external evidence roots | Disjoint loopback-only admission with terminal absence proof |
-| **OD-UI-6** | Deterministic model fixture/version/digest and canonicalization rule | Repeatability proof and failure-injection catalog |
-| **OD-UI-7** | Optional Ollama model identity and hardware/resource envelope | Supplemental only; separately admitted; never core-pass prerequisite |
-| **OD-UI-8** | Evidence retention duration and artifact size ceiling | Data-handling and cleanup review before execution |
-| **OD-UI-9** | Whether any AI/Fabric product change is truly necessary | Default `NO`; require a demonstrated contract gap and new tuple |
-| **OD-UI-10** | UAT URL, synthetic accounts and operator handoff | Generated only after G-U7 authorizes and starts the stack |
+| ID | Decision | Required disposition | Closure gate |
+|---|---|---|---|
+| **OD-UI-1** | Exact SOC BFF resource names, methods and schema | Contract review; no request-body authority fields | G-U0 |
+| **OD-UI-2** | Which existing SOC alert/AI-panel surface hosts the primary journey | UX review against existing information architecture | G-U0 |
+| **OD-UI-3** | Browser-safe projection of AI checkpoints and Fabric receipts | Explicit allowlist; marking and provenance visible; credentials/grants excluded | G-U0 |
+| **OD-UI-4** | Synthetic persona credential mechanism and expiry | Local-only, generated, non-production, no hardcoded secret in Git | G-U4 |
+| **OD-UI-5** | Exact Suite browser harness path, ports and external evidence roots | Disjoint loopback-only admission; browser receives no service credential and direct AI/Fabric application access fails closed; terminal absence proof | G-U4 |
+| **OD-UI-6** | Deterministic model fixture/version/digest and canonicalization rule | Repeatability proof and failure-injection catalog | G-U4 |
+| **OD-UI-7** | Optional Ollama model identity and hardware/resource envelope | Supplemental only; separately admitted; never core-pass prerequisite | G-U4 or later optional lane |
+| **OD-UI-8** | Evidence retention duration and artifact size ceiling | Data-handling and cleanup review before execution | G-U4 |
+| **OD-UI-9** | Whether any AI/Fabric product change is truly necessary | Default `NO`; require a demonstrated contract gap and new tuple | G-U0 |
+| **OD-UI-10** | UAT URL, synthetic accounts and operator handoff | Generated only after G-U7 authorizes and starts the stack | G-U7 |
 
 ---
 
@@ -446,7 +464,7 @@ Review mode:
 
 Exact inputs reviewed:
   - backend candidate record path + SHA-256:
-  - backend terminal result path + SHA-256:
+  - backend terminal result path + SHA-256 (required for G-B3 and G-U6/G-U7; N/A for G-U0-only review):
   - backend tuple digest:
   - UI source tuple digest:
   - contract/threat-model paths + SHA-256:
@@ -494,6 +512,7 @@ Residual risks and required follow-up:
   -
 ```
 
-A reviewer must return `NO-GO` if an exact input is missing, a claimed pass relies on indirect
-evidence, the backend tuple was mutated, AI/Fabric became browser-reachable, P4 gained internal
-authority, or a failed/consumed attempt is being presented as retryable.
+A reviewer must return `NO-GO` if an exact input required by the gate under review is missing, a
+claimed pass relies on indirect evidence, the backend tuple was mutated, a browser obtained
+protected AI/Fabric application access, P4 gained internal authority, or a failed/consumed attempt
+is being presented as retryable.
