@@ -1,13 +1,14 @@
 {
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
-  "x-cybrik-contract-version": "0.1.0",
-  "description": "Conformance fixtures for the F8 receipt-integrity signature profile. The positive pair must be accepted by the profile's rejection engine; every negative fixture must be rejected by exactly the rule set it declares in rejected_by. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA) — NOT IMPLEMENTED. Nothing here settles the ADR-0004 F8 deferral, authorizes a signer, or creates a runtime.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-contract-version": "0.2.0",
+  "description": "Conformance fixtures for the accepted F8 receipt-integrity signature contract profile. The positive pair must be accepted by the profile's rejection engine; every negative fixture must be rejected by exactly the rule set it declares in rejected_by. Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED (v0.2.0; not stable v1/GA). Contract acceptance authorizes no signer, key lifecycle, runtime, UAT, release, deployment or production action.",
   "trust_bundle": {
     "bundle_uri": "cybrik-trust://receipt-signers/v1",
     "keys": [
       {
-        "kid": "cybrik-receipt-signer:v1:7ad2111bd1c7c57194312a9980384307b82e04040ad6efd853d233f2265fa795",
+        "kid": "cybrik-receipt-signer:v1:etIRG9HHxXGUMSqZgDhDB7guBAQK1u_YU9Iz8iZfp5U",
         "jwk": {
           "crv": "Ed25519",
           "kty": "OKP",
@@ -16,9 +17,9 @@
       }
     ]
   },
-  "trust_bundle_digest": "sha256:fb76aad65cb11c1ce3a181e8e1cda5d2be0903b5ce02cd9fe27d5109d750f043",
-  "trust_bundle_note": "This stands in for the pinned EXTERNAL trust bundle a verifier would resolve kid against. In the proposed profile the bundle is an operationally distributed artifact, never something a verifier fetches because a message told it to. Only the public JWK appears here; no private component exists anywhere in this repository.",
-  "test_only_key_disclosure": "TEST-ONLY, NOT A SIGNER IDENTITY. The Ed25519 key pair behind this public JWK is derived at test runtime from SHA-256(\"CYBRIK-F8-TEST-ONLY-ED25519-SEED/v1\"), so the private key is trivially recomputable by anyone and is worthless as a credential. That is deliberate: it makes the frozen vector byte-exactly reproducible without any PEM, PKCS#8 file, or secret in the tree. This kid must never appear in a real trust bundle. Production issuer, signer and key lifecycle are open prerequisites, not part of this proposal.",
+  "trust_bundle_digest": "sha256:7ac74550ba2c513655240da0258726989aeb7f6ae1a0d5b06b96ec0d3e3d2e9e",
+  "trust_bundle_note": "This stands in for the pinned EXTERNAL trust bundle a verifier would resolve kid against. In the accepted profile the bundle is an operationally distributed artifact, never something a verifier fetches because a message told it to. Only the public JWK appears here; no private component exists anywhere in this repository.",
+  "test_only_key_disclosure": "TEST-ONLY, NOT A SIGNER IDENTITY. The Ed25519 key pair behind this public JWK is derived at test runtime from SHA-256(\"CYBRIK-F8-TEST-ONLY-ED25519-SEED/v1\"), so the private key is trivially recomputable by anyone and is worthless as a credential. That is deliberate: it makes the frozen vector byte-exactly reproducible without any PEM, PKCS#8 file, or secret in the tree. This kid must never appear in a real trust bundle. Production issuer, signer and key lifecycle are open prerequisites, not part of this contract-only acceptance.",
   "test_vector": {
     "note": "One frozen receipt. It deliberately OMITS output_artifacts and input_artifact_digests, both of which carry `default: []` in the accepted cybrik.execution-receipt.v1 schema. The profile forbids materializing those defaults before hashing, and digest_evidence below is the proof that absence and an explicitly empty array are two distinguishable receipts.",
     "receipt": {
@@ -40,14 +41,18 @@
       "resolved_arguments_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
       "started_at": "2026-07-31T00:00:00Z",
       "finished_at": "2026-07-31T00:00:01Z",
-      "side_effect": { "performed": false },
+      "side_effect": {
+        "performed": false
+      },
       "receipt_digest": "sha256:39ded94c4b25a4323c1dffcc90e01ca45ae461807b4991185480141a1ce8871e",
-      "signature": "cybrik-ledger://receipt-signatures/sha256/60a74f802b7836ab955b6dc99db5df48593c7b8a8dfd342faa29dde2808ae25e"
+      "signature": "cybrik-ledger://receipt-signatures/sha256/d6ec10ba2e29f93a141a00023f1af25b5680572efbaa0bf4989b9c20aa85268f"
     },
     "digest_evidence": {
       "output_artifacts_absent": "sha256:39ded94c4b25a4323c1dffcc90e01ca45ae461807b4991185480141a1ce8871e",
       "output_artifacts_empty_array": "sha256:7d60a76a6156ea8265dac15ba62f51e01fc5be437ddf342e3bf1f16224517211",
-      "note": "Two different digests for two different receipts. If the profile injected the schema default, a control plane that observed no output artifacts and one that observed an empty list would sign indistinguishable statements, and a verifier could not tell a receipt apart from a defaults-normalized rewrite of it. The absent digest is the one bound by the frozen envelope."
+      "accepted_prose_recipe": "sha256:ad7f737384246abe85ec2fc7b52eda9a1ab842f780c811235fd9b29d2815ab9b",
+      "note": "Two different digests for two different receipts. If the profile injected the schema default, a control plane that observed no output artifacts and one that observed an empty list would sign indistinguishable statements, and a verifier could not tell a receipt apart from a defaults-normalized rewrite of it. The absent digest is the one bound by the frozen envelope.",
+      "accepted_prose_recipe_note": "The accepted cybrik.execution-receipt.v1 prose says receipt_digest covers 'all fields except signature'. This is that recipe executed literally — one excluded key instead of two — and it is a different value. It is recorded so the divergence declared in the packet manifest is comparable in bytes rather than asserted in prose. Nothing signs or accepts this digest."
     }
   },
   "examples": [
@@ -55,7 +60,7 @@
       "file": "positive/receipt-signature-statement.json",
       "schema": "cybrik.receipt-signature-statement.v1.schema.json",
       "kind": "positive",
-      "invariant": "The signed statement binds profile, profile_version, receipt contract id and version, canonicalization, receipt_id, receipt_digest, kid and signed_at — and nothing else."
+      "invariant": "The signed statement binds profile, profile_version, receipt contract id and version, canonicalization, receipt_id, receipt_digest, kid, signed_at and the signing-time trust_bundle_ref — and nothing else."
     },
     {
       "file": "positive/receipt-signature-envelope.json",
@@ -68,7 +73,9 @@
       "schema": "cybrik.receipt-signature-envelope.v1.schema.json",
       "kind": "negative",
       "category": "canonicalization",
-      "rejected_by": ["RI-1"],
+      "rejected_by": [
+        "RI-1"
+      ],
       "invariant": "The digest was produced by a bare JSON.stringify with no profile binding and the envelope declares that renderer. A non-JCS rendering, and any digest not reproducible under CYBRIK-RECEIPT-JCS/v1, must be rejected."
     },
     {
@@ -76,7 +83,11 @@
       "schema": "cybrik.receipt-signature-envelope.v1.schema.json",
       "kind": "negative",
       "category": "algorithm",
-      "rejected_by": ["RI-3", "RI-4", "RI-7"],
+      "rejected_by": [
+        "RI-3",
+        "RI-4",
+        "RI-7"
+      ],
       "invariant": "The classic alg=none downgrade with a stripped signature segment. Rejected as an algorithm violation, as a malformed compact serialization, and as an unverifiable signature."
     },
     {
@@ -84,7 +95,11 @@
       "schema": "cybrik.receipt-signature-envelope.v1.schema.json",
       "kind": "negative",
       "category": "embedded-or-remote-key",
-      "rejected_by": ["RI-3", "RI-5", "RI-7"],
+      "rejected_by": [
+        "RI-3",
+        "RI-5",
+        "RI-7"
+      ],
       "invariant": "The protected header carries the signing jwk, inviting a verifier to trust the message's own key. Rejected as a forbidden key-sourcing parameter, as a header key-set violation, and as an unverifiable signature."
     },
     {
@@ -92,7 +107,10 @@
       "schema": "cybrik.receipt-signature-envelope.v1.schema.json",
       "kind": "negative",
       "category": "payload-tampering",
-      "rejected_by": ["RI-6", "RI-7"],
+      "rejected_by": [
+        "RI-6",
+        "RI-7"
+      ],
       "invariant": "The signed payload was re-bound to a different receipt_digest while the original signature and a correctly recomputed locator were kept, so only the cryptographic and payload-binding checks catch it."
     }
   ]

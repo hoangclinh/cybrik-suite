@@ -42,4 +42,4 @@ targetRules = ["jwt"]
 condition = "AND"
 regexTarget = "line"
 paths = ['''^contracts/examples/receipt-integrity/positive/receipt-signature-envelope\.json$''']
-regexes = ['''^\s*"jws_compact": "[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.IB9ZgpRgf0WNvMHwPnLc3nQJskAWiTG2LKmijLyrsunEzS3rDFUxsM6TalcFGlc9qoEyNdPpalnfwwo_lQ49DA",$''']
+regexes = ['''^\s*"jws_compact": "[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.xZ4jzJGGmKJLMTUJUXwmlrBw7HVVogA1xKixTtmH0wbtPKAsDUkJJOxNKjBwN94Nbd1-bDP6G13Bbx9GASZ8BA",$''']

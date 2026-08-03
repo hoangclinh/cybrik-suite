@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json",
-  "title": "CYBRIK F8 receipt integrity signature profile proposal v1",
-  "description": "A candidate answer to the receipt-signing envelope that ADR-0004 F8 deferred, offered contract-first so the choice can be reviewed against real bytes instead of a paragraph. The packet adds two schemas — a signed statement and a transport envelope — plus a frozen, cryptographically reproducible Ed25519 test vector and a rejection inventory. It reuses the accepted cybrik.execution-receipt.v1 and cybrik.common-defs.v1 by $ref and changes no byte of either. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA) — NOT IMPLEMENTED. This packet records no ADR decision, closes no ADR-0004 deferral, authorizes no issuer, signer, key lifecycle, ledger or runtime, and grants no release authority.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
-  "x-cybrik-packet-version": "0.1.0",
+  "title": "CYBRIK F8 receipt integrity signature profile v1",
+  "description": "The accepted contract-only answer to the receipt-signing envelope that ADR-0004 F8 deferred. The packet adds two schemas — a signed statement and a transport envelope — plus a frozen, cryptographically reproducible Ed25519 test vector and a rejection inventory. It reuses the accepted cybrik.execution-receipt.v1 and cybrik.common-defs.v1 by $ref and changes no byte of either; the accepted F8 profile is authoritative for signed-v1 digest semantics and excludes both receipt_digest and signature without silently repairing the divergent prose in the accepted receipt schema. Version 0.2.0 admits packet members as raw JSON bytes under strict duplicate-key, trailing-content, byte-order-mark and UTF-8 well-formedness rules; follows RFC 7638 unpadded base64url for kid; binds trust_bundle_ref inside the signed statement as signing-time provenance; and verifies a historical receipt across a rotation that retains its key. Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED (v0.2.0; not stable v1/GA). This acceptance authorizes contract-guided implementation only: it creates no issuer, signer, key lifecycle, ledger or runtime and grants no UAT, release, deployment or production authority.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-packet-version": "0.2.0",
   "x-cybrik-is-bundle-tag": false,
   "format_pins": {
     "jsonSchema": "2020-12"
@@ -38,68 +39,68 @@
     "fabric": "Sole owner of the receipt-signing decision, the signing key, and the receipt ledger. The Tool Fabric control plane signs; an executor attests evidence INTO a receipt and never holds a receipt-signing key (ADR-0004 F6; ADR-0006 E5). A receipt is therefore a control-plane observation of an execution, not an executor's self-report about it.",
     "cyber_ai": "May read and verify a receipt. It cannot mint, sign, countersign, or amend one, and a model may never be an input to a signing decision.",
     "soc": "May read and verify a receipt under SOC-owned tenant and analyst truth. It cannot mint or sign one.",
-    "suite": "Owns this proposed cross-product contract packet and its static conformance evidence only. It gains no product-runtime, signing, key-management, or release authority."
+    "suite": "Owns this accepted-for-implementation cross-product contract packet and its static conformance evidence only. It gains no product-runtime, signing, key-management, UAT, release, deployment, or production authority."
   },
   "members": [
     {
       "file": "json-schema/cybrik.receipt-signature-statement.v1.schema.json",
       "format": "json-schema",
       "kind": "signed-statement",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "json-schema/cybrik.receipt-signature-envelope.v1.schema.json",
       "format": "json-schema",
       "kind": "signature-envelope",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json",
       "format": "compatibility-manifest",
       "kind": "packet-inventory",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/examples-manifest.json",
       "format": "examples-manifest",
       "kind": "fixture-inventory",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/positive/receipt-signature-statement.json",
       "format": "fixture",
       "kind": "positive",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/positive/receipt-signature-envelope.json",
       "format": "fixture",
       "kind": "positive",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/negative/envelope.wrong-canonicalization.json",
       "format": "fixture",
       "kind": "negative",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/negative/envelope.alg-none.json",
       "format": "fixture",
       "kind": "negative",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/negative/envelope.embedded-jwk.json",
       "format": "fixture",
       "kind": "negative",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     },
     {
       "file": "examples/receipt-integrity/negative/envelope.tampered-payload.json",
       "format": "fixture",
       "kind": "negative",
-      "status": "PROPOSED"
+      "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED"
     }
   ],
   "reuses_unmodified": [
@@ -108,24 +109,35 @@
   ],
   "digest_profile": {
     "id": "CYBRIK-RECEIPT-JCS/v1",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "canonicalization": "RFC8785-JCS",
-    "excluded_keys": ["receipt_digest", "signature"],
+    "excluded_keys": [
+      "receipt_digest",
+      "signature"
+    ],
     "recipe": "Take the exact transmitted receipt. Remove exactly the two top-level keys receipt_digest and signature, and nothing else. Inject no schema default. Canonicalize the remainder with RFC 8785 JCS. The hash input is UTF-8('CYBRIK-RECEIPT-JCS/v1') then one 0x00 byte then the JCS bytes; receipt_digest is 'sha256:' plus the lowercase hex SHA-256 of that input.",
     "profile_binding_rationale": "The profile id sits inside the hash input, separated by a NUL that cannot occur in the JCS bytes. A verifier therefore cannot be tricked into accepting a digest computed under a weaker or different recipe by being handed a different profile label alongside the same bytes.",
-    "no_default_injection_rationale": "cybrik.execution-receipt.v1 declares `default: []` on input_artifact_digests and output_artifacts. Materializing either before hashing would make 'the control plane observed no output artifacts' and 'the control plane observed an empty list of output artifacts' sign to the same digest, so a defaults-normalized rewrite of a receipt would verify against the original signature. The frozen test vector omits output_artifacts and the examples manifest pins both digests to keep that distinction provable rather than asserted."
+    "no_default_injection_rationale": "cybrik.execution-receipt.v1 declares `default: []` on input_artifact_digests and output_artifacts. Materializing either before hashing would make 'the control plane observed no output artifacts' and 'the control plane observed an empty list of output artifacts' sign to the same digest, so a defaults-normalized rewrite of a receipt would verify against the original signature. The frozen test vector omits output_artifacts and the examples manifest pins both digests to keep that distinction provable rather than asserted.",
+    "version_note": "The digest RECIPE is byte-identical to the one this packet froze at 0.1.0 and the profile id therefore stayed at CYBRIK-RECEIPT-JCS/v1. Only the packet version moved. The frozen receipt still digests to the value pinned at 0.1.0, and the test suite asserts that literal.",
+    "accepted_contract_divergence": "This recipe removes TWO top-level keys; the accepted cybrik.execution-receipt.v1 prose for receipt_digest names one. The difference is enumerated in accepted_contract_divergences and pinned as a second, comparable value in the examples manifest under digest_evidence.accepted_prose_recipe."
   },
   "signature_profile": {
-    "id": "CYBRIK-RECEIPT-JWS/v1",
-    "version": "0.1.0",
+    "id": "CYBRIK-RECEIPT-JWS/v2",
+    "version": "0.2.0",
     "serialization": "Ordinary JWS compact serialization with an INCLUDED payload: three non-empty unpadded base64url segments. Detached payloads and RFC 7797 b64=false are rejected, so the bytes a verifier hashes are always the bytes it was given.",
     "algorithm": "EdDSA over Ed25519 only. alg=none and every other algorithm are rejected.",
-    "protected_header_key_set": ["alg", "kid", "typ"],
+    "protected_header_key_set": [
+      "alg",
+      "kid",
+      "typ"
+    ],
     "typ": "application/cybrik-receipt-signature-statement+json",
     "payload": "The RFC 8785 JCS rendering of cybrik.receipt-signature-statement.v1. Canonical rendering of both the header and the payload is what makes the frozen vector byte-reproducible from the statement alone.",
-    "key_resolution": "kid resolves ONLY against a pinned external trust bundle. jwk, jku, x5u, x5c, x5t, x5t#S256 and epk are forbidden in the protected header — the exact-key-set rule already excludes them, and they are enumerated so a violation names the specific attack. bundle_uri is a pinned identifier, never a fetch instruction; a verifier that cannot match bundle_digest against a bundle it already trusts fails closed.",
-    "kid_grammar": "cybrik-receipt-signer:v1:<64 lowercase hex>, where the hex is the SHA-256 over the RFC 7638 thumbprint input for an OKP key — the JCS rendering of exactly {crv, kty, x}. RFC 7638 renders that digest as base64url; rendering it as hex is this profile's only deliberate divergence, taken so the kid grammar stays a single character class.",
-    "signature_locator": "cybrik-ledger://receipt-signatures/sha256/<64 lowercase hex>, where the hex is the SHA-256 of the exact compact JWS bytes. It is a content address, and it is exactly the string the receipt's own `signature` field carries."
+    "key_resolution": "kid resolves ONLY against a trust bundle the verifier already holds. b64, crit, epk, jku, jwk, x5c, x5t, x5t#S256 and x5u are forbidden in the protected header — the exact-key-set rule already excludes them, they are enumerated so a violation names the specific attack, and every enumerated parameter has its own executable rejection probe. trust_bundle_ref is bound INSIDE the signed statement; the unsigned envelope copy must reproduce it exactly. bundle_uri is a pinned identifier, never a fetch instruction, and bundle_digest is a provenance record of the generation current at signing time rather than a precondition the verifier's own bundle must equal.",
+    "kid_grammar": "cybrik-receipt-signer:v1:<43 unpadded base64url characters>, using the RFC 7638 rendering of the SHA-256 over the OKP thumbprint input — the JCS rendering of exactly {crv, kty, x}. The accepted profile follows the standard rendering so ordinary JOSE tooling needs no private re-encoding rule.",
+    "signature_locator": "cybrik-ledger://receipt-signatures/sha256/<64 lowercase hex>, where the hex is the SHA-256 of the exact compact JWS bytes. It is a content address, and it is exactly the string the receipt's own `signature` field carries.",
+    "version_note": "/v2 because the signed statement gained a required member (trust_bundle_ref) at 0.2.0, so the signed bytes changed. A profile id that stayed at /v1 would let a 0.1.0 statement and a 0.2.0 statement claim the same envelope profile.",
+    "wire_admission": "Packet members are admitted as raw JSON bytes: no UTF-8 byte order mark, well-formed UTF-8, no duplicate member name anywhere in the document (compared after unescaping), and no content after the top-level value except whitespace. JSON.parse keeps the last of a set of duplicate names and a lossy utf8 read replaces an ill-formed byte with U+FFFD, so neither is trusted before admission and every member digest is taken over the exact on-disk bytes."
   },
   "rejection_inventory": [
     {
@@ -151,7 +163,7 @@
     {
       "id": "RI-5",
       "category": "embedded-or-remote-key",
-      "rule": "No embedded or remote key may appear anywhere: jwk, jku, x5u, x5c, x5t, x5t#S256 and epk are forbidden in the header, no key material may appear in the envelope, and kid resolves only against the pinned external trust bundle."
+      "rule": "No embedded or remote key may appear anywhere: b64, crit, epk, jku, jwk, x5c, x5t, x5t#S256 and x5u are forbidden in the header, no key material may appear in the envelope, the unsigned envelope trust_bundle_ref must be exactly the reference bound inside the signed statement, and kid must resolve to a key in the trust bundle the verifier already holds. The bound bundle_digest is a provenance record of the generation current at signing time, not a precondition the verifier bundle must equal, so a rotation that retains the signing key does not invalidate a historical receipt."
     },
     {
       "id": "RI-6",
@@ -162,6 +174,15 @@
       "id": "RI-7",
       "category": "signature-tampering",
       "rule": "The signature segment must be exactly 64 bytes and must verify as Ed25519 over the ASCII bytes of \"<protected>.<payload>\" under the trust-bundle public key selected by kid."
+    }
+  ],
+  "accepted_contract_divergences": [
+    {
+      "id": "receipt-digest-exclusion-set",
+      "subject": "cybrik.execution-receipt.v1 properties.receipt_digest.description",
+      "accepted_text": "Digest over the canonical receipt content (all fields except signature).",
+      "profile_text": "CYBRIK-RECEIPT-JCS/v1 removes exactly two top-level keys before canonicalization — receipt_digest AND signature — and prefixes the hash input with UTF-8('CYBRIK-RECEIPT-JCS/v1') then one 0x00 byte.",
+      "consequence": "The accepted prose names one excluded field; this profile excludes two and binds a profile id into the hash input. A Fabric implementation that read the accepted schema and nothing else would compute a different digest for the same receipt, and every statement it signed would be rejected under RI-1. digest_evidence.accepted_prose_recipe in the examples manifest pins that second value so the difference is provable in bytes rather than asserted in prose."
     }
   ],
   "runtime_invariants": [
@@ -196,34 +217,44 @@
     {
       "id": "key-lifecycle",
       "state": "OPEN",
-      "statement": "Key generation, rotation, revocation, trust-bundle distribution and freshness, cross-rotation verification of historical receipts, and compromise recovery are entirely undesigned. This is the largest single gap: the profile pins how a signature is shaped, and says nothing about how the key behind it is governed over time."
+      "statement": "Key generation, operational rotation, revocation, trust-bundle distribution and freshness, retention of historical bundle generations, and compromise recovery are entirely undesigned. The static profile proves only that a retained signing key can verify against a later bundle generation; it does not define how operators preserve generations or decide when a key ceases to be trusted. This remains the largest single gap."
     }
   ],
-  "open_decisions": [
+  "decisions": [
     {
       "id": "OD-F8-1",
       "question": "Adopt a JWS-shaped receipt-signing envelope at all, rather than COSE or an in-toto-style statement?",
-      "current": "OPEN — this packet argues one side by making it concrete. Under the active delegated-governor authority, the comparison and technical choice remain the Codex Governor's; no alternative was prototyped here."
+      "current": "DECIDED — adopt compact JWS with the RFC 8785 JCS profile. A COSE or in-toto comparison packet is not a prerequisite because the accepted corpus is JSON-native and the chosen profile adds no wire-format dependency; the absence of an alternative implementation remains a documented evidence limitation."
     },
     {
       "id": "OD-F8-2",
       "question": "Accept RFC 8785 JCS as the canonicalization, given that it fixes number and string rendering to the JSON grammar and cannot express a non-JSON receipt?",
-      "current": "OPEN — JCS is chosen here because the corpus already renders canonical JSON this way; no other canonicalization was measured."
+      "current": "DECIDED — accept RFC 8785 JCS as the canonicalization for this JSON-native receipt profile. Independent RFC 8785 conformance coverage remains a nonblocking implementation-evidence gap."
     },
     {
       "id": "OD-F8-3",
-      "question": "Accept a hex-rendered RFC 7638 thumbprint as the kid, diverging from the base64url rendering the RFC specifies?",
-      "current": "OPEN — the divergence buys a single-character-class grammar and costs a small interoperability surprise for off-the-shelf JOSE tooling."
+      "question": "Accept the RFC 7638 unpadded base64url thumbprint rendering as kid, with no private hex divergence?",
+      "current": "DECIDED — accept the RFC 7638 unpadded base64url thumbprint rendering. The earlier private hexadecimal rendering is rejected."
     },
     {
       "id": "OD-F8-4",
       "question": "Accept Ed25519-only, with no negotiated algorithm agility and therefore no in-band path to a post-quantum or FIPS-track signature?",
-      "current": "OPEN — agility is deliberately refused here because a negotiable alg is the root of the downgrade attacks RI-4 exists to block. A future profile version, not a runtime negotiation, would be the migration path."
+      "current": "DECIDED — accept Ed25519-only with no in-band algorithm negotiation. Any future algorithm migration requires a new profile version and its own acceptance gate."
     },
     {
       "id": "OD-F8-5",
       "question": "Open a design gate for the key lifecycle and trust-bundle distribution named in future_prerequisites before, not after, any implementation of this profile?",
-      "current": "OPEN — proposed sequencing only; no gate is opened by this packet."
+      "current": "DECIDED — key lifecycle and trust-bundle design is a mandatory gate before runtime implementation. Contract acceptance does not close or implement that gate."
+    },
+    {
+      "id": "OD-F8-6",
+      "question": "Accept a receipt_digest recipe that excludes receipt_digest as well as signature, when the accepted cybrik.execution-receipt.v1 prose says the digest covers all fields except signature — or repair the accepted wording instead?",
+      "current": "DECIDED — the F8 profile is authoritative for signed-v1 receipt digest semantics and excludes both receipt_digest and signature. The accepted cybrik.execution-receipt.v1 schema bytes remain unchanged; its divergent prose is retained and explicitly documented rather than silently rewritten."
+    },
+    {
+      "id": "OD-F8-7",
+      "question": "Accept trust_bundle_ref as a required member of the signed statement, with the bound bundle_digest treated as signing-time provenance rather than a match the verifier’s own trust bundle must satisfy?",
+      "current": "DECIDED — accept signed trust_bundle_ref as signing-time provenance. Retention, revocation, freshness, distribution and compromise recovery remain open mandatory key-lifecycle work before runtime."
     }
   ],
   "verification_commands": {
@@ -241,24 +272,55 @@
     "self_digest_rule": "This manifest's own member digest is deliberately NOT taken over its on-disk bytes. It is the lowercase hex SHA-256 of the UTF-8 encoding of JSON.stringify(this manifest parsed as JSON with the top-level 'x-cybrik-packet-integrity' key removed). Because the hashed input excludes the integrity block, no digest input ever contains a digest, which is what makes the self entry and the aggregate below non-circular and independently reproducible. Consequence, stated deliberately: for this one member the digest pins the JSON value, not the on-disk byte formatting.",
     "aggregate_algorithm": "Sort all 10 member entries ascending by 'file' using JavaScript default string comparison, render each entry as the line '<sha256>  <file>' (two spaces), join the lines with a single '\\n' and no trailing newline, then take the lowercase hex SHA-256 of the UTF-8 encoding of that string. The aggregate consumes only the 10 member digests, so it never depends on its own value.",
     "member_digests": [
-      { "file": "json-schema/cybrik.receipt-signature-statement.v1.schema.json", "sha256": "56de4d824dfcf811fb8c434763b0948b8ffef1a06a5a9a472cba93ea6fcb8533" },
-      { "file": "json-schema/cybrik.receipt-signature-envelope.v1.schema.json", "sha256": "f743ecf4de90f86d7be63e7771ef8aedb0e5f54c7614ddfd044bfbd3d5203422" },
-      { "file": "compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json", "sha256": "ffc315a09a45714ddd6aa96688ec88565bc3e6146677e9e87e44835652614bbb" },
-      { "file": "examples/receipt-integrity/examples-manifest.json", "sha256": "4a0deff1ba97027d40eee0cfb126fda71743ad346e6584acfdde8fdcb52a8740" },
-      { "file": "examples/receipt-integrity/positive/receipt-signature-statement.json", "sha256": "72305774d78f0279d96e4101992dc8215c85d851e7219b2a7094d605acefbac9" },
-      { "file": "examples/receipt-integrity/positive/receipt-signature-envelope.json", "sha256": "5f735841ff187363b7f219755c41b4a4dbfaee108c91b1fed27e0717a16afdb5" },
-      { "file": "examples/receipt-integrity/negative/envelope.wrong-canonicalization.json", "sha256": "7cced96abada723a69d63782ce66a5c814dc742eaaa9f953603aa0674d013526" },
-      { "file": "examples/receipt-integrity/negative/envelope.alg-none.json", "sha256": "9d8d7ca74d0a5d437a08b01131724b61ae6f066c66c5b274cd511c4963b9ba3a" },
-      { "file": "examples/receipt-integrity/negative/envelope.embedded-jwk.json", "sha256": "1452ad348580d2354f704049f6520c6ef824c06e04ad1df807e3e72589c7d438" },
-      { "file": "examples/receipt-integrity/negative/envelope.tampered-payload.json", "sha256": "d1fb6e54ea7abdbabbc51d1109c73d539658d821a0660980a010b491ea561b71" }
+      {
+        "file": "json-schema/cybrik.receipt-signature-statement.v1.schema.json",
+        "sha256": "17aaa74653da0252500085bdc5aef8ffa79139ac5c3f5a243aa4a2356a928fcf"
+      },
+      {
+        "file": "json-schema/cybrik.receipt-signature-envelope.v1.schema.json",
+        "sha256": "99d101c97caa63a7fc672cdda2abd2ab2cc14526f84dc272eaeb3c2a09e70771"
+      },
+      {
+        "file": "compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json",
+        "sha256": "66f891d809ab69e177117934b99abb15e9a36f14a2af39b7df5a9ee7e402a527"
+      },
+      {
+        "file": "examples/receipt-integrity/examples-manifest.json",
+        "sha256": "acd622c47f7ac14f5cc1dd239c650f513783524277060b1eee27327929a6dcb4"
+      },
+      {
+        "file": "examples/receipt-integrity/positive/receipt-signature-statement.json",
+        "sha256": "8086fd0f2a22fbe5b866bbff448e222eeec7ff1a8d2075556c102f2890339164"
+      },
+      {
+        "file": "examples/receipt-integrity/positive/receipt-signature-envelope.json",
+        "sha256": "83ef37c34609583c99a86b3ceb13089fad2dda68af68efdaa077e875669dc59e"
+      },
+      {
+        "file": "examples/receipt-integrity/negative/envelope.wrong-canonicalization.json",
+        "sha256": "4d3a3de61f7f640c71d67951d7d59ec659bf3fc1b1115637b0d8ed677351a69b"
+      },
+      {
+        "file": "examples/receipt-integrity/negative/envelope.alg-none.json",
+        "sha256": "877783bcc5e20d6b9f6f2126bf1affbb2160bc06d459b36557b88d5df3dca8bf"
+      },
+      {
+        "file": "examples/receipt-integrity/negative/envelope.embedded-jwk.json",
+        "sha256": "6f06181ee8f6d2497606e97d7e8b8d17ae7ed2c26a9df66f7935823bec2a84c6"
+      },
+      {
+        "file": "examples/receipt-integrity/negative/envelope.tampered-payload.json",
+        "sha256": "9f426bcc49f5927e458f9314db9173cd77e7cb9872d0e4602f938a9f3685ed08"
+      }
     ],
-    "aggregate_sha256": "3a0ae6b01a6eac167c0057d34efbf13a36e3869a1c7df4ef1f7cd45bdf5b6842"
+    "aggregate_sha256": "5559030075cbf7589f29feed51a082e9f4116b1852bcab6da5d2d9e5719e61b9"
   },
   "gate": {
     "id": "F8-RECEIPT-INTEGRITY-PROFILE",
-    "status": "OPEN — NOT DECIDED",
-    "decision_authority": "Codex Governor under docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md. A separately recorded technical decision is still required to select a receipt-signing envelope; this packet is input to that decision and is not a substitute for it. Production remains Founder-controlled.",
-    "what_green_validation_proves": "That the proposed profile is internally consistent, that its frozen vector verifies as Ed25519, and that its declared rejection inventory really rejects. Static conformance only.",
-    "what_green_validation_does_not_prove": "That this is the right envelope, that any alternative is worse, that a signer exists, that a key can be rotated, that a receipt is durably recorded, or that an executor behaved as a receipt says. None of the four future_prerequisites is addressed by any check in this packet; receipt-ledger durability remains a separate open runtime obligation."
+    "status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+    "decision_effective_at": "2026-08-03T06:48:44+07:00",
+    "decision_authority": "Codex Governor under docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md, recorded in docs/adr/DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md. This previously delegated authority is the accepted exception for the F8 contract-only decision to the generic Founder lifecycle prose; it grants no runtime, UAT, release, deployment, or production authority. Production remains Founder-controlled.",
+    "what_green_validation_proves": "That the accepted contract profile is internally consistent under strict raw-JSON admission of its own bytes, that its frozen vector verifies as Ed25519, that every enumerated forbidden JOSE header parameter has an executable probe that rejects it, that the declared divergence from the accepted receipt contract is real and comparable, and that a historical receipt still verifies across a trust-bundle rotation that retains the signing key. Static conformance only.",
+    "what_green_validation_does_not_prove": "That a signer exists, that key lifecycle or trust-bundle distribution is designed, that a receipt is durably recorded, that any product implementation or runtime exists, or that an executor behaved as a receipt says. None of the four future_prerequisites is addressed by any check in this packet; runtime, product, UAT, release, deployment and production gates remain open."
   }
 }

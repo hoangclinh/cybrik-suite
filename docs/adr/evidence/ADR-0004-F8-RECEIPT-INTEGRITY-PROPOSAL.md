@@ -1,8 +1,11 @@
 # ADR-0004 F8 supplement — receipt-integrity signature profile
 
-- Status: `PROPOSED` — **NOT ACCEPTED**. This is a supplementary evidence document, not a decision
-  and not an ADR amendment. It informs the still-open ADR-0004 F8 deferral; it does not close it.
-  Nothing in the suite is implemented, and no signer, issuer, key store, or ledger exists.
+- Status: historical proposal evidence, subsequently dispositioned
+  `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` by
+  [the delegated-Governor F8 decision](../DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md).
+  This file remains the dated evidence and alternatives record; the linked decision is authoritative.
+  No signer, issuer, key store, ledger, runtime, UAT, release, deployment, or production action
+  follows from contract acceptance.
 - Date: 2026-07-31
 - Backs: the **F8** deferral in [ADR-0004](../ADR-0004-tool-fabric-control-plane-executor-split.md)
   ("Defer the workload-identity issuer, executor transport, **receipt signing envelope**,
@@ -74,12 +77,24 @@ below is where this proposal closes it.
 self-referential top-level keys `receipt_digest` and `signature`, and nothing else. Inject no schema
 default. Canonicalize with RFC 8785 JCS. Hash `UTF-8("CYBRIK-RECEIPT-JCS/v1") || 0x00 || JCS-bytes`.
 
-**Envelope — `CYBRIK-RECEIPT-JWS/v1`.** An ordinary compact JWS with an **included** payload, whose
+**Envelope — `CYBRIK-RECEIPT-JWS/v2`.** An ordinary compact JWS with an **included** payload, whose
 payload is the JCS rendering of a signed statement binding profile + version, the reused receipt
-contract `$id` + version, the canonicalization id, `receipt_id`, `receipt_digest`, `kid` and
-`signed_at`. EdDSA over Ed25519 only. Protected-header key set exactly `{alg, kid, typ}`.
+contract `$id` + version, the canonicalization id, `receipt_id`, `receipt_digest`, `kid`,
+`signed_at`, and the signing-time `trust_bundle_ref`. EdDSA over Ed25519 only. Protected-header key
+set exactly `{alg, kid, typ}`.
 `signature_locator` is the SHA-256 of the exact compact JWS bytes, and it is the string the
 receipt's own `signature` field carries.
+
+Packet version `0.2.0` changes the signed statement and therefore versions the envelope from
+`JWS/v1` to `JWS/v2`. It does not change the receipt-digest recipe, so the digest profile remains
+`CYBRIK-RECEIPT-JCS/v1`. This sentence records the proposal state on 2026-07-31; the linked
+2026-08-03 delegated-Governor decision subsequently accepted both profiles for implementation only.
+
+**Wire admission.** Before parsing any packet JSON, the validator admits the raw bytes only when
+they are well-formed UTF-8 without a BOM, contain no duplicate member name at any nesting depth,
+and have no trailing content after the top-level JSON value except whitespace. Member digests are
+over the exact admitted bytes. This makes the parser assumptions explicit instead of relying on
+`JSON.parse` last-key-wins or lossy UTF-8 replacement behaviour.
 
 ### 3.1 Why the profile id is inside the hash input
 
@@ -168,6 +183,24 @@ the frozen receipt is checked against the real accepted bytes rather than a copy
 accepted schema is out of scope and would change accepted bytes. This is the same class of finding
 recorded for the Investigation Bundle under W1-REC-3/4.
 
+### 5.5 The accepted receipt prose and proposed digest recipe diverge
+
+`FACT` (reproduced locally): the accepted `cybrik.execution-receipt.v1` description says
+`receipt_digest` covers all fields except `signature`. Executing that sentence literally produces
+`sha256:ad7f7373...`; the proposal's non-circular recipe removes both `receipt_digest` and
+`signature` and produces `sha256:39ded94c...` for the same frozen receipt. The packet now records
+both values and treats the mismatch as open decision **OD-F8-6**. It does not silently repair or
+reinterpret the accepted contract.
+
+### 5.6 Trust-bundle provenance is signed
+
+`FACT` (reproduced locally): `trust_bundle_ref` is now required inside the signed statement, and the
+unsigned envelope copy must match it exactly. The focused tests reject substitution and verify a
+historical receipt after a simulated bundle rotation that retains the signing key. The bound digest
+records the bundle generation current at signing time; it is provenance, not a requirement that a
+verifier's later bundle have identical bytes. Retention, revocation, freshness, distribution and
+compromise recovery remain open under **OD-F8-7** and §7.
+
 ## 6. What a valid signature does NOT prove
 
 `PROPOSAL`, and the section this document most wants read. R-C7.
@@ -202,10 +235,10 @@ the profile, not follow-ups to it.
    posture, or signing-authorization policy is selected. The only key in this packet is the TEST-ONLY
    value of §5.1.
 4. **Key lifecycle** — generation, rotation, revocation, trust-bundle distribution and freshness,
-   verification of historical receipts across a rotation, and compromise recovery are **entirely
-   undesigned**. This is the largest single gap: the profile pins how a signature is *shaped* and
-   says nothing about how the key behind it is *governed over time*. A profile decision taken
-   without a lifecycle plan buys less than it appears to.
+   retention of historical bundle generations, and compromise recovery remain **undesigned**. The
+   packet now binds signing-time bundle provenance and demonstrates verification across a rotation
+   that retains the key; it does not define how operators preserve generations or decide when a
+   key ceases to be trusted. This remains the largest single gap.
 ## 8. RECOMMENDATION
 
 `PROPOSAL`. Take this packet as **one concrete candidate** for the F8 envelope, and read the green
@@ -215,26 +248,27 @@ candidate, the honest next step is a COSE packet of the same shape — same froz
 rejection inventory — so two implemented options can be compared instead of one implemented option
 against two descriptions.
 
-Consequences of following this recommendation: the suite gains a reviewable, reproducible envelope
-candidate and a resolved answer to the default-injection gap in §5.2; it does **not** gain a
-decision, a signer, a key lifecycle, or any implementation. Prerequisite #4 in particular should be
-designed **before**, not after, any implementation of whatever envelope is chosen.
+The delegated Governor followed this recommendation on 2026-08-03 and accepted the packet for
+implementation only. The suite gained an authoritative contract profile and a resolved answer to
+the default-injection gap in §5.2; it did **not** gain a signer, key lifecycle, runtime, or product
+implementation. Prerequisite #4 remains mandatory before runtime implementation.
 
-## 9. Delegated technical decisions still required
+## 9. Delegated technical decisions recorded
 
 These decisions belong to the Codex Governor under
-`docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`. This proposal takes none of them.
-Production remains Founder-controlled.
+`docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md` and are recorded authoritatively in
+`docs/adr/DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md`. Production remains
+Founder-controlled.
 
-1. **F8-Q1** — Adopt a JWS-shaped envelope, or require a COSE / in-toto packet of equal depth before
-   choosing? (A: JWS as proposed / B: require comparison packets first / C: neither)
-2. **F8-Q2** — Accept RFC 8785 JCS as the canonicalization? (yes/no)
-3. **F8-Q3** — Accept a hex-rendered RFC 7638 thumbprint as `kid`, diverging from the base64url
-   rendering the RFC specifies, in exchange for a single-character-class grammar? (yes/no)
-4. **F8-Q4** — Accept Ed25519-only with **no** in-band algorithm agility, so migration is a profile
-   version rather than a runtime negotiation? (yes/no)
-5. **F8-Q5** — Open a design gate for key lifecycle and trust-bundle distribution (§7 items 3 and 4)
-   **before** any implementation of the chosen envelope? (yes/no)
+1. **F8-Q1 / OD-F8-1:** compact JWS + JCS accepted; no alternative prototype prerequisite.
+2. **F8-Q2 / OD-F8-2:** RFC 8785 JCS accepted.
+3. **F8-Q3 / OD-F8-3:** RFC 7638 unpadded base64url `kid` accepted; private hex rejected.
+4. **F8-Q4 / OD-F8-4:** Ed25519-only accepted; migration requires a new profile version.
+5. **F8-Q5 / OD-F8-5:** key lifecycle/trust-bundle design remains mandatory before runtime.
+6. **F8-Q6 / OD-F8-6:** F8 is authoritative for signed-v1 digest semantics excluding both
+   `receipt_digest` and `signature`; accepted v1 schema bytes remain unchanged.
+7. **F8-Q7 / OD-F8-7:** signed `trust_bundle_ref` accepted as signing-time provenance; retention,
+   revocation, freshness, distribution, and compromise recovery remain open lifecycle work.
 
 ## 10. Evidence limitations
 
@@ -242,9 +276,9 @@ Production remains Founder-controlled.
    implemented option. This is the strongest bias in the document.
 2. **No external URL was accessed on 2026-07-31.** Standards claims are carried from the
    ADR-0004-EVIDENCE source register (accessed 2026-07-24) and are labelled `RESEARCH`, never `FACT`.
-3. **No interoperability test.** The frozen vector was produced and verified by `node:crypto` only.
-   It has not been checked against an independent JOSE library, and the hex-rendered `kid` (§9 F8-Q3)
-   is exactly the kind of divergence an interoperability test would surface.
+3. **No independent JOSE interoperability test.** The frozen vector was produced and verified by
+   `node:crypto` only. The `kid` now follows RFC 7638 unpadded base64url, but the complete compact
+   JWS has not yet been verified by a second JOSE implementation.
 4. **JCS is not independently validated.** Canonicalization reuses the corpus' existing JCS renderer;
    it was not tested against an RFC 8785 conformance suite, and its number-formatting behaviour in
    particular rests on the host `JSON.stringify`.
@@ -252,7 +286,9 @@ Production remains Founder-controlled.
    assembled from known JOSE failure modes. It is not the output of a systematic threat-modelling
    exercise, and absence from the inventory is not evidence that an attack was considered.
 6. **Nothing was measured.** No signing throughput, no verification latency, no receipt-size impact.
-7. **The four §7 prerequisites are untouched.** A green validator says nothing about any of them.
+7. **The four §7 prerequisites remain open.** A green validator says nothing about their runtime
+   implementation. The static rotation example proves only the narrow historical-verification rule
+   in §5.6.
 8. **Receipt-ledger durability remains an open runtime obligation.** The ledger behind
    `cybrik-ledger://` is a name, not a system. Durability, append-only guarantees, retention, and the
    strategy 05 §11.8 rule that receipt/audit write failure must block R2/R3 side effects are

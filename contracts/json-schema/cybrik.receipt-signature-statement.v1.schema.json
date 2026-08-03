@@ -2,10 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.receipt-signature-statement.v1.schema.json",
   "title": "CYBRIK receipt signature statement v1",
-  "description": "The exact object that is signed when a Tool Fabric control plane signs an execution receipt. ADR-0004 F8 deferred the receipt-signing envelope (COSE vs. JWS vs. in-toto-style); this schema is one candidate profile offered for that deferred choice and nothing more. The statement never carries the receipt itself, only a digest binding: profile + profile_version fix the digest recipe, canonicalization fixes the byte rendering, receipt_contract_id + receipt_contract_version fix which receipt contract those bytes were produced under, and receipt_id + receipt_digest identify the exact receipt. kid names the signer and resolves only against a pinned external trust bundle. Because the profile id is inside the hash input of receipt_digest, a receipt canonicalized under one profile can never be replayed as if it had been signed under another. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No ADR decision, no runtime, no signer and no key lifecycle follow from this file.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
-  "x-cybrik-contract-version": "0.1.0",
+  "description": "The exact object that is signed when a Tool Fabric control plane signs an execution receipt. The delegated Governor accepted this compact-JWS + RFC-8785-JCS contract profile for implementation only. The statement never carries the receipt itself, only a digest binding: profile + profile_version fix the digest recipe, canonicalization fixes the byte rendering, receipt_contract_id + receipt_contract_version fix which receipt contract those bytes were produced under, and receipt_id + receipt_digest identify the exact receipt. kid names the signer and resolves only against a pinned external trust bundle. Because the profile id is inside the hash input of receipt_digest, a receipt canonicalized under one profile can never be replayed as if it had been signed under another. Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED (v0.2.0; not stable v1/GA). No runtime, signer, key lifecycle, UAT, release, deployment or production authority follows from this file.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-contract-version": "0.2.0",
   "x-cybrik-profile": "CYBRIK-RECEIPT-JCS/v1",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +19,8 @@
     "receipt_id",
     "receipt_digest",
     "kid",
-    "signed_at"
+    "signed_at",
+    "trust_bundle_ref"
   ],
   "properties": {
     "profile": {
@@ -26,11 +28,11 @@
       "const": "CYBRIK-RECEIPT-JCS/v1"
     },
     "profile_version": {
-      "description": "Version of the profile document, distinct from the profile id itself.",
-      "const": "0.1.0"
+      "description": "Version of the profile document, distinct from the profile id itself. 0.2.0 added the required trust_bundle_ref member below, which changes the signed bytes; the receipt digest recipe did not move.",
+      "const": "0.2.0"
     },
     "receipt_contract_id": {
-      "description": "$id of the receipt contract the canonical bytes were produced under. Reused unmodified; this proposal changes no byte of it.",
+      "description": "$id of the receipt contract the canonical bytes were produced under. Reused unmodified; this F8 packet changes no byte of it.",
       "const": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt.v1.schema.json"
     },
     "receipt_contract_version": {
@@ -43,9 +45,8 @@
     },
     "receipt_id": {
       "type": "string",
-      "description": "receipt_id of the receipt this statement binds.",
-      "minLength": 1,
-      "maxLength": 128
+      "description": "receipt_id of the receipt this statement binds. Deliberately no wider and no narrower than the accepted cybrik.execution-receipt.v1 receipt_id: a narrower F8 schema would make receipts the accepted contract permits unsignable under this profile.",
+      "minLength": 1
     },
     "receipt_digest": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
@@ -53,12 +54,25 @@
     },
     "kid": {
       "type": "string",
-      "description": "Signer key id. Lowercase hex SHA-256 over the RFC 7638 thumbprint input for an OKP key — the JCS rendering of exactly {crv, kty, x}. RFC 7638 renders that digest as base64url; this profile deliberately renders it as hex so the kid grammar stays a single character class. A verifier resolves this id ONLY against a pinned external trust bundle, never against key material carried in the message.",
-      "pattern": "^cybrik-receipt-signer:v1:[0-9a-f]{64}$"
+      "description": "Signer key id. RFC 7638 base64url rendering, without padding, of the SHA-256 over the OKP thumbprint input — the JCS rendering of exactly {crv, kty, x}. A verifier resolves this id ONLY against a pinned external trust bundle, never against key material carried in the message.",
+      "pattern": "^cybrik-receipt-signer:v1:[A-Za-z0-9_-]{43}$"
     },
     "signed_at": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
       "description": "When the control plane signed. Advisory for ordering only; it is not a validity window and confers no freshness guarantee."
+    },
+    "trust_bundle_ref": {
+      "type": "object",
+      "description": "The trust-bundle generation the signer bound at signing time, INSIDE the signed bytes. Binding it here rather than only in the transport envelope is what stops an unsigned reference from being swapped for one a verifier already trusts. It is a provenance record, not a precondition: a verifier resolves kid against the bundle it already holds, so a later rotation that retains the signing key does not invalidate this receipt, while a generation that no longer carries the kid fails closed. bundle_uri is a pinned identifier and never a fetch instruction. See OD-F8-7.",
+      "additionalProperties": false,
+      "required": ["bundle_uri", "bundle_digest"],
+      "properties": {
+        "bundle_uri": { "const": "cybrik-trust://receipt-signers/v1" },
+        "bundle_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 over the JCS rendering of the trust bundle document as it stood when this statement was signed."
+        }
+      }
     }
   }
 }

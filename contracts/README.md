@@ -69,23 +69,28 @@ MCP/tool authority**, and keeps the A05 boundary distinct. The SOC migration/API
 owned + separately gated by `cybrik-soc-command-center` and are `NOT IMPLEMENTED`. See
 `compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`.
 
-The **F8 receipt-integrity signature profile packet** (all `PROPOSED` — **NOT ACCEPTED**, v0.1.0, not
-stable v1/GA) is **additive to, and disjoint from,** every packet above. ADR-0004 F8 deferred the
-receipt-signing envelope (COSE vs. JWS vs. in-toto-style); this packet offers **one candidate** for
-that deferred choice contract-first, so the option can be reviewed against real bytes rather than a
-paragraph. It introduces `cybrik.receipt-signature-statement.v1` and
+The **F8 receipt-integrity signature profile packet** is
+`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.2.0, not stable v1/GA) and remains
+**additive to, and disjoint from,** every packet above. The delegated Governor accepts compact JWS,
+RFC 8785 JCS, RFC 7638 unpadded base64url `kid`, and Ed25519-only signatures as the contract answer
+to the envelope ADR-0004 F8 deferred. It introduces `cybrik.receipt-signature-statement.v1` and
 `cybrik.receipt-signature-envelope.v1` under `json-schema/`, its own compatibility manifest under
 `compatibility/`, and fixtures under `examples/receipt-integrity/` — including a frozen, byte-exactly
 reproducible Ed25519 test vector. It **reuses `cybrik.execution-receipt.v1` and
 `cybrik.common-defs.v1` by `$ref` without modifying them**. The profile digests the *exact
 transmitted* receipt (removing only `receipt_digest` and `signature`, injecting no schema default),
 signs an ordinary compact JWS with an included payload under EdDSA/Ed25519 only, and rejects
-`alg=none` together with every embedded or remote key parameter. **This packet records no ADR
-decision, does not settle the ADR-0004 F8 deferral, and authorizes no issuer, signer, key lifecycle,
-ledger, or runtime.** Credential lease, workload attestation, a production issuer/signer, and the
-whole key lifecycle remain open prerequisites listed in the manifest's `future_prerequisites`. See
+`alg=none` together with every embedded or remote key parameter. Version 0.2.0 adds strict raw-JSON
+admission, removes the earlier `receipt_id` narrowing, binds signing-time `trust_bundle_ref` inside
+the signed statement, and gives each forbidden JOSE header parameter an executable probe. It also
+records the accepted F8 profile as authoritative for signed-v1 digest semantics—excluding both
+`receipt_digest` and `signature`—without changing the accepted receipt-schema bytes whose prose
+remains divergent. **Contract acceptance authorizes implementation against this profile only; it
+creates no issuer, signer, key lifecycle, ledger, runtime, UAT, release, deployment, or production
+authority.** Credential lease, workload attestation, a production issuer/signer, and the whole key
+lifecycle remain open prerequisites listed in the manifest's `future_prerequisites`. See
 `compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json` and
-`../docs/adr/evidence/ADR-0004-F8-RECEIPT-INTEGRITY-PROPOSAL.md`.
+`../docs/adr/DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md`.
 
 | Directory | Will contain |
 |---|---|
@@ -102,6 +107,11 @@ whole key lifecycle remain open prerequisites listed in the manifest's `future_p
 Every contract file must carry a status header: `PROPOSED` → `ACCEPTED` → `DEPRECATED`.
 Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold
 placeholder OpenAPI/schema files as if they were accepted contracts.
+
+The previously delegated Governor authority recorded in
+`../docs/operations/DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md` is the accepted exception for the
+F8 contract-only decision; it does not replace this generic rule for other proposals. Runtime,
+UAT, release, and deployment remain separately gated, and production remains Founder-controlled.
 
 ## W2-H resource-bounds packet (`ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`)
 
