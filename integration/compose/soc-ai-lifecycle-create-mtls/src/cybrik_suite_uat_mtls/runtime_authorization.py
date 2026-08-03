@@ -28,16 +28,44 @@ from typing import Final, Never
 from . import policy
 
 BINDING_VERSION: Final = "CYBRIK-D2-RUNTIME-AUTH/v1"
-EXACT_HEAD_GRANT_VERSION: Final = "CYBRIK-D2-EXACT-HEAD-GRANT/v1"
+EXACT_HEAD_GRANT_VERSION: Final = "CYBRIK-D2-EXACT-HEAD-GRANT/v2"
 EXACT_HEAD_GRANT_SIGNER_IDENTITY: Final = "cybrik-codex-governor"
 EXACT_HEAD_GRANT_NAMESPACE: Final = "cybrik-d2-exact-head-grant"
 EXACT_HEAD_GRANT_VERIFY_BINARY: Final = Path("/usr/bin/ssh-keygen")
 MAX_ALLOWED_SIGNERS_BYTES: Final = 16 * 1024
 MAX_AUTHORIZATION_BYTES: Final = 64 * 1024
 MAX_CANDIDATE_BYTES: Final = 1024 * 1024
+MAX_CONSUMPTION_MARKER_BYTES: Final = 16 * 1024
+MAX_ADMISSION_ARTIFACT_BYTES: Final = 64 * 1024
 AGGREGATE_ALGORITHM: Final = "cybrik-runtime-code-sha256-lines/v1"
 CONSUMPTION_MARKER: Final = ".cybrik-d2-runtime-consumed.json"
 ROLLBACK_POLICY: Final = "verify-marker-if-present-then-teardown-and-verify-absent"
+
+COVERAGE_RECEIPT_POLICY_ID: Final = "cybrik-d2-coverage-receipt/v2"
+COVERAGE_MEASUREMENT_RECEIPT_SCHEMA: Final = "2.0.0"
+COVERAGE_PRODUCER_IDENTITY: Final = "cybrik-d2-coverage-wrapper"
+COVERAGE_ADMISSIBLE_STATUS: Final = "PASS"
+ROOT_PREPARATION_SCHEMA_VERSION: Final = "CYBRIK-D2-ROOT-PREPARATION/v1"
+PREPARED_ROOT_MODE: Final = "0700"
+PREPARED_ROOT_ROLES: Final = ("evidence", "pki", "runtime")
+PREPARED_PKI_LEAF: Final = "pki"
+PREPARED_ROOT_INITIAL_INVENTORY: Final = MappingProxyType(
+    {
+        "evidence": (),
+        "pki": (),
+        "runtime": (PREPARED_PKI_LEAF,),
+    }
+)
+ADMISSION_BINDING_MISMATCH: Final = "admission_artifact_binding_mismatch"
+PREPARED_RUNTIME_ROOT_MISMATCH: Final = "prepared_runtime_root_mismatch"
+ADMISSION_ARTIFACT_ENVIRONMENT: Final = MappingProxyType(
+    {
+        "coverage_authorization_bytes": "CYBRIK_UAT_D2_COVERAGE_AUTHORIZATION",
+        "measurement_receipt_bytes": "CYBRIK_UAT_D2_COVERAGE_MEASUREMENT_RECEIPT",
+        "coverage_pass_result_bytes": "CYBRIK_UAT_D2_COVERAGE_GATE_RESULT",
+        "root_preparation_receipt_bytes": ("CYBRIK_UAT_D2_ROOT_PREPARATION_RECEIPT"),
+    }
+)
 
 AUTHORIZATION_REL: Final = Path(
     "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/"
@@ -68,6 +96,8 @@ RUNTIME_CODE_PATHS: Final = tuple(
             f"{_PACKAGE}/pki.py",
             f"{_PACKAGE}/policy.py",
             f"{_PACKAGE}/procedure.py",
+            f"{_PACKAGE}/process_control.py",
+            f"{_PACKAGE}/process_supervisor.py",
             f"{_PACKAGE}/runtime_authorization.py",
             f"{_PACKAGE}/runtime_evidence.py",
             f"{_PACKAGE}/secret_inventory.py",
@@ -173,7 +203,20 @@ EXACT_HEAD_GRANT_FIELDS: Final = (
     "GRANT_VERSION",
     "AUTHORIZATION_SHA256",
     "SUITE_HEAD",
+    "SUITE_TREE",
     "RUNTIME_CODE_AGGREGATE_SHA256",
+    "COVERAGE_AUTHORIZATION_SHA256",
+    "COVERAGE_MEASUREMENT_RECEIPT_SHA256",
+    "COVERAGE_GATE_RESULT_SHA256",
+    "ROOT_PREPARATION_RECEIPT_SHA256",
+)
+EXACT_HEAD_GRANT_DIGEST_FIELDS: Final = (
+    "AUTHORIZATION_SHA256",
+    "RUNTIME_CODE_AGGREGATE_SHA256",
+    "COVERAGE_AUTHORIZATION_SHA256",
+    "COVERAGE_MEASUREMENT_RECEIPT_SHA256",
+    "COVERAGE_GATE_RESULT_SHA256",
+    "ROOT_PREPARATION_RECEIPT_SHA256",
 )
 EXACT_HEAD_GRANT_PINNED_VALUES: Final = MappingProxyType(
     {
@@ -221,6 +264,7 @@ PINNED_VALUES: Final = MappingProxyType(
 
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
+_DIRECTORY_MODE = re.compile(r"0[0-7]{3}")
 _AUTHORIZATION_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
 _EXACT_HEAD_GRANT_NAME = re.compile(
     r"cybrik-uat-d2-exact-head-grant-[a-z0-9][a-z0-9._-]{0,63}\.txt"
@@ -269,10 +313,78 @@ class ObservedProduct:
 
 
 @dataclass(frozen=True)
+class DirectoryIdentity:
+    """The signed, immutable identity of one prepared runtime directory."""
+
+    mode: str
+    st_dev: int
+    st_ino: int
+    uid: int
+
+
+@dataclass(frozen=True)
+class RootBinding:
+    """One prepared root: its declared path, signed identity and inventory."""
+
+    role: str
+    path: Path
+    identity: DirectoryIdentity
+    inventory: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CoverageAdmission:
+    """The exact coverage tuple the signed grant made runtime-admissible."""
+
+    authorization_id: str
+    authorization_sha256: str
+    measurement_receipt_sha256: str
+    result_sha256: str
+    run_id: str
+    source_commit: str
+    source_tree: str
+
+
+@dataclass(frozen=True)
+class PreparedRoots:
+    """The signed root-preparation receipt reduced to its three roots."""
+
+    receipt_sha256: str
+    evidence: RootBinding
+    pki: RootBinding
+    runtime: RootBinding
+
+
+@dataclass(frozen=True)
+class AdmissionBinding:
+    """The single admitted tuple produced by the post-commit artifact chain."""
+
+    grant_version: str
+    suite_commit: str
+    suite_tree: str
+    authorization_id: str
+    authorization_sha256: str
+    runtime_code_aggregate_sha256: str
+    coverage: CoverageAdmission
+    prepared_roots: PreparedRoots
+
+
+@dataclass(frozen=True)
+class AdmissionArtifacts:
+    """The exact post-commit artifact bytes observed for one attempt."""
+
+    coverage_authorization_bytes: bytes
+    measurement_receipt_bytes: bytes
+    coverage_pass_result_bytes: bytes
+    root_preparation_receipt_bytes: bytes
+
+
+@dataclass(frozen=True)
 class ObservedRuntimeState:
     now: datetime
     suite_root: Path
     suite_head: str
+    suite_tree: str
     suite_status: str
     admission_base_is_ancestor_of_head: bool
     admission_base_descends_d1_base: bool
@@ -291,6 +403,7 @@ class ObservedRuntimeState:
     candidate: CandidateState
     products: tuple[ObservedProduct, ...]
     host_temp_root: Path
+    admission_artifacts: AdmissionArtifacts | None = None
 
 
 @dataclass(frozen=True)
@@ -308,6 +421,8 @@ class RuntimeAuthorization:
     runtime_root: Path
     evidence_root: Path
     product_roots: Mapping[str, Path]
+    coverage: CoverageAdmission | None = None
+    prepared_roots: PreparedRoots | None = None
 
 
 def _fail(reason: str) -> Never:
@@ -431,6 +546,459 @@ def parse_exact_head_grant(text: str) -> dict[str, str]:
             _fail("exact_head_grant_invalid")
         fields[expected] = value
     return fields
+
+
+# --------------------------------------------------------------------------
+# Pure post-commit admission-artifact binding
+#
+# Everything below this banner and above the next one is a total function of
+# its arguments: no filesystem, subprocess, environment or clock access.  The
+# signature-verified exact-head grant is the only authority; the coverage and
+# root-preparation artifacts are claims that must repeat it exactly.
+# --------------------------------------------------------------------------
+
+_COVERAGE_AUTHORIZATION_KEYS: Final = (
+    "authorization_id",
+    "measurement_command_sha256",
+    "measurement_wrapper_sha256",
+    "pinned_python_sha256",
+    "receipt_policy_id",
+    "suite_commit",
+    "suite_tree",
+)
+_MEASUREMENT_RECEIPT_KEYS: Final = (
+    "artifacts",
+    "authorization",
+    "execution_boundary",
+    "producer",
+    "receipt_id",
+    "run",
+    "schema_version",
+    "source",
+)
+_MEASUREMENT_ARTIFACT_KEYS: Final = ("coverage_data_sha256", "coverage_json_sha256")
+_MEASUREMENT_AUTHORIZATION_KEYS: Final = ("id", "sha256")
+_EXECUTION_BOUNDARY_KEYS: Final = ("network_calls", "runtime_executed")
+_PRODUCER_KEYS: Final = ("executable_sha256", "identity", "wrapper_sha256")
+_RUN_KEYS: Final = ("command_sha256", "id", "nonce")
+_SOURCE_KEYS: Final = ("suite_commit", "suite_tree")
+_COVERAGE_RESULT_KEYS: Final = ("binding", "branch", "line", "status")
+_COVERAGE_RESULT_BINDING_KEYS: Final = (
+    "coverage_authorization_sha256",
+    "measurement_receipt_sha256",
+    "suite_commit",
+    "suite_tree",
+)
+_COVERAGE_RATIO_KEYS: Final = ("covered", "ratio", "total")
+_ROOT_PREPARATION_KEYS: Final = (
+    "authorization_id",
+    "authorization_sha256",
+    "roots",
+    "schema_version",
+    "source",
+)
+_ROOT_KEYS: Final = ("identity", "inventory", "path")
+_DIRECTORY_IDENTITY_KEYS: Final = ("mode", "st_dev", "st_ino", "uid")
+
+
+def _refuse_admission() -> Never:
+    """Refuse with the single stable admission reason."""
+
+    _fail(ADMISSION_BINDING_MISMATCH)
+
+
+def _admitted_digest(payload: object) -> str:
+    if not isinstance(payload, bytes):
+        _refuse_admission()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _admitted_canonical_object(payload: bytes) -> Mapping[str, object]:
+    """Decode one canonical JSON object, refusing any other encoding of it."""
+
+    try:
+        record = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+        _refuse_admission()
+    if not isinstance(record, dict) or _canonical_json(record) != payload:
+        _refuse_admission()
+    return record
+
+
+def _admitted_mapping(value: object, keys: tuple[str, ...]) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or set(value) != set(keys):
+        _refuse_admission()
+    return value
+
+
+def _admitted_text(value: object, pattern: re.Pattern[str] | None = None) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        _refuse_admission()
+    if pattern is not None and pattern.fullmatch(value) is None:
+        _refuse_admission()
+    return value
+
+
+def _admitted_count(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        _refuse_admission()
+    return value
+
+
+def _admitted_source(value: object, *, suite_commit: str, suite_tree: str) -> None:
+    source = _admitted_mapping(value, _SOURCE_KEYS)
+    if source["suite_commit"] != suite_commit or source["suite_tree"] != suite_tree:
+        _refuse_admission()
+
+
+def _admitted_grant(exact_head_grant: object) -> Mapping[str, str]:
+    """Accept only a complete, well-formed v2 grant field set.
+
+    Field *order* is the document parser's contract; a parsed mapping is
+    order-independent, so this pure layer pins the exact key set instead.
+    """
+
+    grant = _admitted_mapping(exact_head_grant, EXACT_HEAD_GRANT_FIELDS)
+    for key, expected in EXACT_HEAD_GRANT_PINNED_VALUES.items():
+        if grant[key] != expected:
+            _refuse_admission()
+    for key in EXACT_HEAD_GRANT_DIGEST_FIELDS:
+        _admitted_text(grant[key], _HEX64)
+    for key in ("SUITE_HEAD", "SUITE_TREE"):
+        _admitted_text(grant[key], _HEX40)
+    return {key: _admitted_text(grant[key]) for key in EXACT_HEAD_GRANT_FIELDS}
+
+
+def _admitted_coverage_authorization(
+    payload: bytes, *, suite_commit: str, suite_tree: str
+) -> Mapping[str, object]:
+    """Admit the coverage authorization from its exact canonical bytes only.
+
+    The caller supplies bytes, never a decoded mapping and never a digest: the
+    digest this record is bound by is derived here from the same bytes the
+    signed grant pinned, so no caller-selected value can stand in for it.
+    """
+
+    record = _admitted_mapping(
+        _admitted_canonical_object(payload), _COVERAGE_AUTHORIZATION_KEYS
+    )
+    if record["receipt_policy_id"] != COVERAGE_RECEIPT_POLICY_ID:
+        _refuse_admission()
+    _admitted_text(record["authorization_id"], _AUTHORIZATION_ID)
+    for key in (
+        "measurement_command_sha256",
+        "measurement_wrapper_sha256",
+        "pinned_python_sha256",
+    ):
+        _admitted_text(record[key], _HEX64)
+    if record["suite_commit"] != suite_commit or record["suite_tree"] != suite_tree:
+        _refuse_admission()
+    return record
+
+
+def _admitted_measurement_receipt(
+    payload: bytes,
+    *,
+    coverage_authorization: Mapping[str, object],
+    coverage_authorization_sha256: str,
+    suite_commit: str,
+    suite_tree: str,
+) -> str:
+    """Bind the receipt to its authorization, producer, run and source tuple."""
+
+    receipt = _admitted_mapping(
+        _admitted_canonical_object(payload), _MEASUREMENT_RECEIPT_KEYS
+    )
+    if receipt["schema_version"] != COVERAGE_MEASUREMENT_RECEIPT_SCHEMA:
+        _refuse_admission()
+    _admitted_text(receipt["receipt_id"])
+    artifacts = _admitted_mapping(receipt["artifacts"], _MEASUREMENT_ARTIFACT_KEYS)
+    for key in _MEASUREMENT_ARTIFACT_KEYS:
+        _admitted_text(artifacts[key], _HEX64)
+    claimed = _admitted_mapping(
+        receipt["authorization"], _MEASUREMENT_AUTHORIZATION_KEYS
+    )
+    if (
+        claimed["id"] != coverage_authorization["authorization_id"]
+        or claimed["sha256"] != coverage_authorization_sha256
+    ):
+        _refuse_admission()
+    boundary = _admitted_mapping(
+        receipt["execution_boundary"], _EXECUTION_BOUNDARY_KEYS
+    )
+    if boundary["runtime_executed"] is not False or boundary["network_calls"] != []:
+        _refuse_admission()
+    producer = _admitted_mapping(receipt["producer"], _PRODUCER_KEYS)
+    if (
+        producer["identity"] != COVERAGE_PRODUCER_IDENTITY
+        or producer["executable_sha256"]
+        != coverage_authorization["pinned_python_sha256"]
+        or producer["wrapper_sha256"]
+        != coverage_authorization["measurement_wrapper_sha256"]
+    ):
+        _refuse_admission()
+    run = _admitted_mapping(receipt["run"], _RUN_KEYS)
+    if run["command_sha256"] != coverage_authorization["measurement_command_sha256"]:
+        _refuse_admission()
+    _admitted_text(run["nonce"], _HEX64)
+    _admitted_source(
+        receipt["source"], suite_commit=suite_commit, suite_tree=suite_tree
+    )
+    return _admitted_text(run["id"])
+
+
+def _admitted_ratio(value: object) -> None:
+    ratio = _admitted_mapping(value, _COVERAGE_RATIO_KEYS)
+    covered = _admitted_count(ratio["covered"])
+    total = _admitted_count(ratio["total"])
+    measured = ratio["ratio"]
+    if (
+        covered > total
+        or isinstance(measured, bool)
+        or not isinstance(measured, int | float)
+        or not 0.0 <= float(measured) <= 1.0
+    ):
+        _refuse_admission()
+
+
+def _admitted_coverage_result(
+    payload: bytes,
+    *,
+    coverage_authorization_sha256: str,
+    measurement_receipt_sha256: str,
+    suite_commit: str,
+    suite_tree: str,
+) -> None:
+    """Admit only a PASS that repeats the exact receipt and source tuple."""
+
+    result = _admitted_mapping(
+        _admitted_canonical_object(payload), _COVERAGE_RESULT_KEYS
+    )
+    if result["status"] != COVERAGE_ADMISSIBLE_STATUS:
+        _refuse_admission()
+    binding = _admitted_mapping(result["binding"], _COVERAGE_RESULT_BINDING_KEYS)
+    if (
+        binding["coverage_authorization_sha256"] != coverage_authorization_sha256
+        or binding["measurement_receipt_sha256"] != measurement_receipt_sha256
+        or binding["suite_commit"] != suite_commit
+        or binding["suite_tree"] != suite_tree
+    ):
+        _refuse_admission()
+    for key in ("branch", "line"):
+        _admitted_ratio(result[key])
+
+
+def _admitted_directory_path(value: object) -> Path:
+    text = _admitted_text(value)
+    path = Path(text)
+    if (
+        not path.is_absolute()
+        or text != os.path.normpath(text)
+        or path == Path(path.anchor)
+    ):
+        _refuse_admission()
+    return path
+
+
+def _admitted_inventory(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        _refuse_admission()
+    entries = tuple(_admitted_text(item) for item in value)
+    if list(entries) != sorted(set(entries)):
+        _refuse_admission()
+    for entry in entries:
+        relative = Path(entry)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative.as_posix() != entry
+        ):
+            _refuse_admission()
+    return entries
+
+
+def _admitted_root_binding(role: str, value: object) -> RootBinding:
+    entry = _admitted_mapping(value, _ROOT_KEYS)
+    declared = _admitted_mapping(entry["identity"], _DIRECTORY_IDENTITY_KEYS)
+    mode = _admitted_text(declared["mode"], _DIRECTORY_MODE)
+    inventory = _admitted_inventory(entry["inventory"])
+    if mode != PREPARED_ROOT_MODE or inventory != PREPARED_ROOT_INITIAL_INVENTORY.get(
+        role
+    ):
+        # A receipt that declares a used, understated or overstated root
+        # describes something other than the one-shot initial state, so it is
+        # never admissible.
+        _refuse_admission()
+    return RootBinding(
+        role=role,
+        path=_admitted_directory_path(entry["path"]),
+        identity=DirectoryIdentity(
+            mode=mode,
+            st_dev=_admitted_count(declared["st_dev"]),
+            st_ino=_admitted_count(declared["st_ino"]),
+            uid=_admitted_count(declared["uid"]),
+        ),
+        inventory=inventory,
+    )
+
+
+def _assert_prepared_roots_are_distinct(roots: Mapping[str, RootBinding]) -> None:
+    bindings = tuple(roots[role] for role in PREPARED_ROOT_ROLES)
+    paths = tuple(binding.path for binding in bindings)
+    identities = tuple(
+        (binding.identity.st_dev, binding.identity.st_ino) for binding in bindings
+    )
+    if (
+        len(set(paths)) != len(paths)
+        or len(set(identities)) != len(identities)
+        or len({binding.identity.uid for binding in bindings}) != 1
+    ):
+        _refuse_admission()
+    evidence, pki, runtime = roots["evidence"], roots["pki"], roots["runtime"]
+    if pki.path != runtime.path / PREPARED_PKI_LEAF or _overlap(
+        evidence.path, runtime.path
+    ):
+        # Only the exact ``<runtime>/pki`` child can carry the signed PKI
+        # identity: any other descendant is a different directory.
+        _refuse_admission()
+
+
+def _admitted_prepared_roots(
+    payload: bytes,
+    *,
+    receipt_sha256: str,
+    authorization_id: str,
+    authorization_sha256: str,
+    suite_commit: str,
+    suite_tree: str,
+) -> PreparedRoots:
+    """Reduce the signed root-preparation receipt to three bound identities."""
+
+    record = _admitted_mapping(
+        _admitted_canonical_object(payload), _ROOT_PREPARATION_KEYS
+    )
+    if (
+        record["schema_version"] != ROOT_PREPARATION_SCHEMA_VERSION
+        or record["authorization_id"] != authorization_id
+        or record["authorization_sha256"] != authorization_sha256
+    ):
+        _refuse_admission()
+    _admitted_source(record["source"], suite_commit=suite_commit, suite_tree=suite_tree)
+    declared = _admitted_mapping(record["roots"], PREPARED_ROOT_ROLES)
+    roots = {
+        role: _admitted_root_binding(role, declared[role])
+        for role in PREPARED_ROOT_ROLES
+    }
+    _assert_prepared_roots_are_distinct(roots)
+    return PreparedRoots(
+        receipt_sha256=receipt_sha256,
+        evidence=roots["evidence"],
+        pki=roots["pki"],
+        runtime=roots["runtime"],
+    )
+
+
+def validate_admission_artifacts(
+    *,
+    exact_head_grant: Mapping[str, str],
+    runtime_authorization_id: str,
+    runtime_authorization_sha256: str,
+    observed_suite_commit: str,
+    observed_suite_tree: str,
+    coverage_authorization_bytes: bytes,
+    measurement_receipt_bytes: bytes,
+    coverage_pass_result_bytes: bytes,
+    root_preparation_receipt_bytes: bytes,
+) -> AdmissionBinding:
+    """Admit one runtime tuple only when every signed digest binding holds.
+
+    This runs *after* the exact-head grant signature has been verified.  The
+    coverage authorization, its measurement receipt, the coverage PASS and the
+    root-preparation receipt are caller-supplied bytes: none of them can widen
+    admission, because every digest is derived here from those exact bytes,
+    each must equal the digest the signed grant already pinned, and each record
+    must repeat the same authorization, run and source tuple.  No caller-
+    supplied digest is trusted.  Every refusal uses one stable, non-reflecting
+    reason.
+    """
+
+    grant = _admitted_grant(exact_head_grant)
+    if (
+        _HEX40.fullmatch(observed_suite_commit) is None
+        or _HEX40.fullmatch(observed_suite_tree) is None
+        or _AUTHORIZATION_ID.fullmatch(runtime_authorization_id) is None
+        or _HEX64.fullmatch(runtime_authorization_sha256) is None
+    ):
+        _refuse_admission()
+    if (
+        grant["SUITE_HEAD"] != observed_suite_commit
+        or grant["SUITE_TREE"] != observed_suite_tree
+        or grant["AUTHORIZATION_SHA256"] != runtime_authorization_sha256
+    ):
+        _refuse_admission()
+
+    coverage_authorization_sha256 = _admitted_digest(coverage_authorization_bytes)
+    receipt_sha256 = _admitted_digest(measurement_receipt_bytes)
+    result_sha256 = _admitted_digest(coverage_pass_result_bytes)
+    preparation_sha256 = _admitted_digest(root_preparation_receipt_bytes)
+    if (
+        coverage_authorization_sha256 != grant["COVERAGE_AUTHORIZATION_SHA256"]
+        or receipt_sha256 != grant["COVERAGE_MEASUREMENT_RECEIPT_SHA256"]
+        or result_sha256 != grant["COVERAGE_GATE_RESULT_SHA256"]
+        or preparation_sha256 != grant["ROOT_PREPARATION_RECEIPT_SHA256"]
+    ):
+        _refuse_admission()
+
+    authorization_record = _admitted_coverage_authorization(
+        coverage_authorization_bytes,
+        suite_commit=observed_suite_commit,
+        suite_tree=observed_suite_tree,
+    )
+    run_id = _admitted_measurement_receipt(
+        measurement_receipt_bytes,
+        coverage_authorization=authorization_record,
+        coverage_authorization_sha256=coverage_authorization_sha256,
+        suite_commit=observed_suite_commit,
+        suite_tree=observed_suite_tree,
+    )
+    _admitted_coverage_result(
+        coverage_pass_result_bytes,
+        coverage_authorization_sha256=coverage_authorization_sha256,
+        measurement_receipt_sha256=receipt_sha256,
+        suite_commit=observed_suite_commit,
+        suite_tree=observed_suite_tree,
+    )
+    prepared_roots = _admitted_prepared_roots(
+        root_preparation_receipt_bytes,
+        receipt_sha256=preparation_sha256,
+        authorization_id=runtime_authorization_id,
+        authorization_sha256=runtime_authorization_sha256,
+        suite_commit=observed_suite_commit,
+        suite_tree=observed_suite_tree,
+    )
+    return AdmissionBinding(
+        grant_version=EXACT_HEAD_GRANT_VERSION,
+        suite_commit=observed_suite_commit,
+        suite_tree=observed_suite_tree,
+        authorization_id=runtime_authorization_id,
+        authorization_sha256=runtime_authorization_sha256,
+        runtime_code_aggregate_sha256=grant["RUNTIME_CODE_AGGREGATE_SHA256"],
+        coverage=CoverageAdmission(
+            authorization_id=str(authorization_record["authorization_id"]),
+            authorization_sha256=coverage_authorization_sha256,
+            measurement_receipt_sha256=receipt_sha256,
+            result_sha256=result_sha256,
+            run_id=run_id,
+            source_commit=observed_suite_commit,
+            source_tree=observed_suite_tree,
+        ),
+        prepared_roots=prepared_roots,
+    )
+
+
+# --------------------------------------------------------------------------
+# Live observation and enforcement
+# --------------------------------------------------------------------------
 
 
 def _read_bound_regular_file(path: Path, *, maximum: int, reason: str) -> bytes:
@@ -560,6 +1128,7 @@ def validate_authorization(
     if (
         suite_root != observed.suite_root
         or _HEX40.fullmatch(observed.suite_head) is None
+        or _HEX40.fullmatch(observed.suite_tree) is None
     ):
         _fail("suite_state_mismatch")
     canonical_authorization = suite_root / AUTHORIZATION_REL
@@ -585,14 +1154,18 @@ def validate_authorization(
         != fields["EXACT_HEAD_GRANT_ALLOWED_SIGNERS_SHA256"]
     ):
         _fail("exact_head_grant_signer_mismatch")
-    if _HEX40.fullmatch(grant["SUITE_HEAD"]) is None or any(
-        _HEX64.fullmatch(grant[key]) is None
-        for key in ("AUTHORIZATION_SHA256", "RUNTIME_CODE_AGGREGATE_SHA256")
+    if any(
+        _HEX40.fullmatch(grant[key]) is None for key in ("SUITE_HEAD", "SUITE_TREE")
+    ) or any(
+        _HEX64.fullmatch(grant[key]) is None for key in EXACT_HEAD_GRANT_DIGEST_FIELDS
     ):
         _fail("exact_head_grant_invalid")
     if grant["AUTHORIZATION_SHA256"] != observed.authorization_sha256:
         _fail("exact_head_grant_authorization_mismatch")
-    if grant["SUITE_HEAD"] != observed.suite_head:
+    if (
+        grant["SUITE_HEAD"] != observed.suite_head
+        or grant["SUITE_TREE"] != observed.suite_tree
+    ):
         _fail("suite_exact_head_mismatch")
     if grant["RUNTIME_CODE_AGGREGATE_SHA256"] != observed.runtime_code_aggregate:
         _fail("exact_head_grant_aggregate_mismatch")
@@ -691,6 +1264,9 @@ def validate_authorization(
     ):
         _fail("external_root_overlap")
 
+    admitted = _admitted_post_commit_binding(
+        fields, observed, runtime_root, evidence_root
+    )
     return RuntimeAuthorization(
         authorization_id=fields["AUTHORIZATION_ID"],
         authorized_at=authorized_at,
@@ -705,7 +1281,46 @@ def validate_authorization(
         runtime_root=runtime_root,
         evidence_root=evidence_root,
         product_roots=MappingProxyType(roots_by_role),
+        coverage=None if admitted is None else admitted.coverage,
+        prepared_roots=None if admitted is None else admitted.prepared_roots,
     )
+
+
+def _admitted_post_commit_binding(
+    fields: Mapping[str, str],
+    observed: ObservedRuntimeState,
+    runtime_root: Path,
+    evidence_root: Path,
+) -> AdmissionBinding | None:
+    """Bind the observed post-commit artifacts, when this attempt carries them.
+
+    An attempt observed without artifacts carries no coverage or prepared-root
+    binding at all; it can never present one, so no later step can mistake an
+    absent binding for a verified one.
+    """
+
+    artifacts = observed.admission_artifacts
+    if artifacts is None:
+        return None
+    admitted = validate_admission_artifacts(
+        exact_head_grant=observed.exact_head_grant,
+        runtime_authorization_id=fields["AUTHORIZATION_ID"],
+        runtime_authorization_sha256=observed.authorization_sha256,
+        observed_suite_commit=observed.suite_head,
+        observed_suite_tree=observed.suite_tree,
+        coverage_authorization_bytes=artifacts.coverage_authorization_bytes,
+        measurement_receipt_bytes=artifacts.measurement_receipt_bytes,
+        coverage_pass_result_bytes=artifacts.coverage_pass_result_bytes,
+        root_preparation_receipt_bytes=artifacts.root_preparation_receipt_bytes,
+    )
+    if (
+        admitted.prepared_roots.evidence.path != evidence_root
+        or admitted.prepared_roots.runtime.path != runtime_root
+        or admitted.runtime_code_aggregate_sha256
+        != fields["RUNTIME_CODE_AGGREGATE_SHA256"]
+    ):
+        _refuse_admission()
+    return admitted
 
 
 def resolve_import_source_roots(
@@ -808,8 +1423,8 @@ def verify_loaded_module_origins(
     verify_module_origins(authorization, origins)
 
 
-def _marker_record(
-    authorization: RuntimeAuthorization, identity: os.stat_result
+def _marker_record_for_identity(
+    authorization: RuntimeAuthorization, *, st_dev: int, st_ino: int
 ) -> dict[str, object]:
     return {
         "authorization_id": authorization.authorization_id,
@@ -818,8 +1433,8 @@ def _marker_record(
         "consumed_at": authorization.now.isoformat(),
         "evidence_root": str(authorization.evidence_root),
         "evidence_root_identity": {
-            "st_dev": identity.st_dev,
-            "st_ino": identity.st_ino,
+            "st_dev": st_dev,
+            "st_ino": st_ino,
         },
         "one_shot": True,
         "runtime_code_aggregate_sha256": authorization.aggregate_sha256,
@@ -828,6 +1443,83 @@ def _marker_record(
         "suite_admission_base": authorization.suite_admission_base,
         "suite_head": authorization.suite_head,
     }
+
+
+def _marker_record(
+    authorization: RuntimeAuthorization, identity: os.stat_result
+) -> dict[str, object]:
+    return _marker_record_for_identity(
+        authorization, st_dev=identity.st_dev, st_ino=identity.st_ino
+    )
+
+
+def _canonical_json(record: Mapping[str, object]) -> bytes:
+    return json.dumps(dict(record), sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+
+
+def _signed_prepared_roots(authorization: RuntimeAuthorization) -> PreparedRoots:
+    """Return the three prepared roots this authorization is bound to.
+
+    The identity comes from the root-preparation receipt that the verified
+    exact-head grant already pinned by digest, so no step in the runtime can
+    mint, replace or widen it the way a self-created adjacent ledger could.
+    An attempt observed without that binding can never present one, so it is
+    refused here rather than allowed to consume or verify anything.  All three
+    prepared roles are re-checked together, so a receipt that understates the
+    one-shot initial inventory, or that points the PKI role at anything other
+    than the exact ``<runtime>/pki`` child, is refused before any consumption.
+    """
+
+    prepared = authorization.prepared_roots
+    if prepared is None:
+        _fail("authorization_consumption_mismatch")
+    bound = {role: getattr(prepared, role) for role in PREPARED_ROOT_ROLES}
+    if (
+        prepared.evidence.path != authorization.evidence_root
+        or prepared.runtime.path != authorization.runtime_root
+        or prepared.pki.path != prepared.runtime.path / PREPARED_PKI_LEAF
+        or _overlap(prepared.evidence.path, prepared.runtime.path)
+        or any(
+            binding.role != role
+            or binding.inventory != PREPARED_ROOT_INITIAL_INVENTORY[role]
+            for role, binding in bound.items()
+        )
+    ):
+        _fail("authorization_consumption_mismatch")
+    return prepared
+
+
+def _signed_evidence_root(authorization: RuntimeAuthorization) -> RootBinding:
+    """Return the signed evidence root the one-shot marker belongs in."""
+
+    return _signed_prepared_roots(authorization).evidence
+
+
+def signed_pki_root(authorization: RuntimeAuthorization) -> RootBinding:
+    """Return the signed ``<runtime>/pki`` root seeding is bound to.
+
+    Seeding never creates or infers this directory: it is prepared, signed and
+    already verified, so the caller can only open the exact inode the receipt
+    pinned.
+    """
+
+    return _signed_prepared_roots(authorization).pki
+
+
+def _assert_signed_directory_identity(
+    identity: os.stat_result, signed: DirectoryIdentity, *, reason: str
+) -> None:
+    if (
+        not stat.S_ISDIR(identity.st_mode)
+        or identity.st_dev != signed.st_dev
+        or identity.st_ino != signed.st_ino
+        or identity.st_uid != signed.uid
+        or identity.st_uid != os.geteuid()
+        or f"{stat.S_IMODE(identity.st_mode):04o}" != signed.mode
+    ):
+        _fail(reason)
 
 
 def _open_directory_without_symlinks(path: Path) -> int:
@@ -851,85 +1543,135 @@ def _open_directory_without_symlinks(path: Path) -> int:
         raise
 
 
-def _cleanup_failed_consumption(
-    *,
-    parent_descriptor: int,
-    directory_descriptor: int,
-    root_name: str,
-    created_identity: os.stat_result | None,
-    marker_created: bool,
-) -> None:
-    """Remove only this call's partial marker and still-empty fresh directory."""
+def _open_signed_root(
+    signed: RootBinding, *, absent_reason: str, invalid_reason: str
+) -> tuple[int, os.stat_result]:
+    """Open one prepared root and bind it to its signed identity."""
 
-    if directory_descriptor >= 0 and marker_created:
+    try:
+        descriptor = _open_directory_without_symlinks(signed.path)
+    except FileNotFoundError:
+        _fail(absent_reason)
+    except OSError:
+        _fail(invalid_reason)
+    try:
+        identity = os.fstat(descriptor)
+        _assert_signed_directory_identity(
+            identity, signed.identity, reason=invalid_reason
+        )
+    except BaseException:
+        os.close(descriptor)
+        raise
+    return descriptor, identity
+
+
+def _assert_signed_initial_inventory(
+    directory_descriptor: int,
+    signed: RootBinding,
+    *,
+    consumed_reason: str,
+    mismatch_reason: str,
+) -> None:
+    """Bind an opened prepared root to its exact signed initial inventory.
+
+    The receipt only claims what the root held when it was prepared; this
+    reads the live leaves of the already identity-bound inode and refuses any
+    root that carries unsigned material.  A root that already holds the
+    one-shot marker is no longer initial, so the caller can keep that state's
+    precise reason instead of reporting it as inventory drift.
+    """
+
+    try:
+        observed = tuple(sorted(os.listdir(directory_descriptor)))
+    except OSError:
+        _fail(mismatch_reason)
+    if CONSUMPTION_MARKER in observed:
+        _fail(consumed_reason)
+    if observed != tuple(sorted(signed.inventory)):
+        _fail(mismatch_reason)
+
+
+def verify_prepared_runtime_roots(
+    authorization: RuntimeAuthorization,
+) -> PreparedRoots:
+    """Verify the signed runtime and PKI roots before any leaf is created.
+
+    Both roots were prepared and signed before this attempt started, so the
+    runtime never creates, replaces or re-identifies either of them.  Each is
+    opened without following a single symlink hop, bound to the exact signed
+    device, inode, owner and mode, and required to still hold exactly its
+    signed initial inventory: the runtime root holds only ``pki`` and the PKI
+    root is empty.  Any drift refuses before the first authorized leaf.
+    """
+
+    prepared = _signed_prepared_roots(authorization)
+    for signed in (prepared.runtime, prepared.pki):
+        descriptor, _identity = _open_signed_root(
+            signed,
+            absent_reason=PREPARED_RUNTIME_ROOT_MISMATCH,
+            invalid_reason=PREPARED_RUNTIME_ROOT_MISMATCH,
+        )
         try:
-            os.unlink(CONSUMPTION_MARKER, dir_fd=directory_descriptor)
-            os.fsync(directory_descriptor)
-        except OSError:
-            return
-    if parent_descriptor < 0 or created_identity is None:
+            _assert_signed_initial_inventory(
+                descriptor,
+                signed,
+                consumed_reason=PREPARED_RUNTIME_ROOT_MISMATCH,
+                mismatch_reason=PREPARED_RUNTIME_ROOT_MISMATCH,
+            )
+        finally:
+            os.close(descriptor)
+    return prepared
+
+
+def _remove_partial_marker(directory_descriptor: int, *, marker_created: bool) -> None:
+    """Remove only this call's partial marker from the prepared root.
+
+    The prepared evidence root is signed material this boundary never created,
+    so a failed consumption never deletes it.
+    """
+
+    if not marker_created:
         return
     try:
-        current = os.stat(root_name, dir_fd=parent_descriptor, follow_symlinks=False)
-        if (
-            not stat.S_ISDIR(current.st_mode)
-            or current.st_dev != created_identity.st_dev
-            or current.st_ino != created_identity.st_ino
-        ):
-            return
-        os.rmdir(root_name, dir_fd=parent_descriptor)
-        os.fsync(parent_descriptor)
+        os.unlink(CONSUMPTION_MARKER, dir_fd=directory_descriptor)
+        os.fsync(directory_descriptor)
     except OSError:
-        # A concurrent addition or rename makes deletion unsafe.  Leave the
-        # burned root in place rather than deleting material we did not create.
         return
 
 
 def consume_once(authorization: RuntimeAuthorization) -> dict[str, object]:
-    """Atomically consume authorization by creating a fresh root and marker."""
+    """Consume authorization once inside the signed, prepared evidence root."""
 
-    root = authorization.evidence_root
-    parent_descriptor = -1
-    directory_descriptor = -1
+    signed = _signed_evidence_root(authorization)
+    directory_descriptor, identity = _open_signed_root(
+        signed,
+        absent_reason="authorization_consumption_mismatch",
+        invalid_reason="authorization_consumption_mismatch",
+    )
     marker_descriptor = -1
-    created_identity: os.stat_result | None = None
     marker_created = False
     try:
-        parent_descriptor = _open_directory_without_symlinks(root.parent)
-        os.mkdir(root.name, 0o700, dir_fd=parent_descriptor)
-        created_identity = os.stat(
-            root.name, dir_fd=parent_descriptor, follow_symlinks=False
+        _assert_signed_initial_inventory(
+            directory_descriptor,
+            signed,
+            consumed_reason="authorization_already_consumed",
+            mismatch_reason="authorization_consumption_mismatch",
         )
-        directory_descriptor = os.open(
-            root.name,
-            os.O_RDONLY
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-            | getattr(os, "O_CLOEXEC", 0),
-            dir_fd=parent_descriptor,
-        )
-        identity = os.fstat(directory_descriptor)
-        if (
-            not stat.S_ISDIR(identity.st_mode)
-            or identity.st_dev != created_identity.st_dev
-            or identity.st_ino != created_identity.st_ino
-        ):
-            _fail("authorization_already_consumed")
-        os.fchmod(directory_descriptor, 0o700)
         record = _marker_record(authorization, identity)
-        payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
-        marker_descriptor = os.open(
-            CONSUMPTION_MARKER,
-            os.O_WRONLY
-            | os.O_CREAT
-            | os.O_EXCL
-            | getattr(os, "O_NOFOLLOW", 0)
-            | getattr(os, "O_CLOEXEC", 0),
-            0o600,
-            dir_fd=directory_descriptor,
-        )
+        payload = _canonical_json(record)
+        try:
+            marker_descriptor = os.open(
+                CONSUMPTION_MARKER,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+                dir_fd=directory_descriptor,
+            )
+        except FileExistsError:
+            _fail("authorization_already_consumed")
         marker_created = True
         try:
             offset = 0
@@ -946,32 +1688,51 @@ def consume_once(authorization: RuntimeAuthorization) -> dict[str, object]:
         os.fsync(directory_descriptor)
         return record
     except RuntimeAuthorizationFailure:
-        _cleanup_failed_consumption(
-            parent_descriptor=parent_descriptor,
-            directory_descriptor=directory_descriptor,
-            root_name=root.name,
-            created_identity=created_identity,
-            marker_created=marker_created,
-        )
+        _remove_partial_marker(directory_descriptor, marker_created=marker_created)
         raise
     except OSError:
-        _cleanup_failed_consumption(
-            parent_descriptor=parent_descriptor,
-            directory_descriptor=directory_descriptor,
-            root_name=root.name,
-            created_identity=created_identity,
-            marker_created=marker_created,
-        )
-        if created_identity is None:
-            _fail("authorization_already_consumed")
+        _remove_partial_marker(directory_descriptor, marker_created=marker_created)
         _fail("authorization_consumption_failed")
     finally:
         if marker_descriptor >= 0:
             os.close(marker_descriptor)
-        if directory_descriptor >= 0:
-            os.close(directory_descriptor)
-        if parent_descriptor >= 0:
-            os.close(parent_descriptor)
+        os.close(directory_descriptor)
+
+
+def _read_bounded_descriptor(
+    descriptor: int,
+    locator_metadata: os.stat_result,
+    *,
+    maximum: int,
+    reason: str,
+) -> bytes:
+    before = os.fstat(descriptor)
+    before_identity = _file_identity(before)
+    if (
+        before_identity != _file_identity(locator_metadata)
+        or not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+        or before.st_size < 0
+        or before.st_size > maximum
+    ):
+        _fail(reason)
+    chunks: list[bytes] = []
+    remaining = maximum + 1
+    while remaining > 0:
+        chunk = os.read(descriptor, min(64 * 1024, remaining))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    payload = b"".join(chunks)
+    after = os.fstat(descriptor)
+    if (
+        _file_identity(after) != before_identity
+        or len(payload) != before.st_size
+        or len(payload) > maximum
+    ):
+        _fail(reason)
+    return payload
 
 
 def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result]:
@@ -1011,11 +1772,12 @@ def _read_marker(evidence_root: Path) -> tuple[dict[str, object], os.stat_result
             dir_fd=directory_descriptor,
         )
         try:
-            marker_metadata = os.fstat(marker_descriptor)
-            if not stat.S_ISREG(marker_metadata.st_mode):
-                _fail("authorization_consumption_mismatch")
-            with os.fdopen(marker_descriptor, "rb", closefd=False) as stream:
-                payload = stream.read()
+            payload = _read_bounded_descriptor(
+                marker_descriptor,
+                marker_lstat,
+                maximum=MAX_CONSUMPTION_MARKER_BYTES,
+                reason="authorization_consumption_mismatch",
+            )
         finally:
             os.close(marker_descriptor)
     except OSError:
@@ -1050,6 +1812,7 @@ def verify_consumption_marker(
     expected_authorization_sha256: str | None = None,
     expected_exact_head_grant_sha256: str | None = None,
     expected_runtime_root: Path | None = None,
+    expected_evidence_identity: Mapping[str, int] | None = None,
 ) -> dict[str, object] | None:
     """Read a marker for rollback without ever consuming authorization."""
 
@@ -1063,6 +1826,10 @@ def verify_consumption_marker(
         or record.get("one_shot") is not True
         or record.get("evidence_root") != str(evidence_root)
         or record.get("evidence_root_identity") != expected_identity
+        or (
+            expected_evidence_identity is not None
+            and expected_identity != dict(expected_evidence_identity)
+        )
         or (
             expected_authorization_sha256 is not None
             and record.get("authorization_sha256") != expected_authorization_sha256
@@ -1084,17 +1851,30 @@ def verify_consumption_marker(
 def verify_consumed(authorization: RuntimeAuthorization) -> dict[str, object]:
     """Verify the exact first-start marker for every later mutating step."""
 
+    signed = _signed_evidence_root(authorization)
+    descriptor, _identity = _open_signed_root(
+        signed,
+        absent_reason="authorization_not_consumed",
+        invalid_reason="authorization_consumption_mismatch",
+    )
+    os.close(descriptor)
+    trusted_identity = {
+        "st_dev": signed.identity.st_dev,
+        "st_ino": signed.identity.st_ino,
+    }
     record = verify_consumption_marker(
         authorization.evidence_root,
         expected_authorization_sha256=authorization.authorization_sha256,
         expected_exact_head_grant_sha256=authorization.exact_head_grant_sha256,
         expected_runtime_root=authorization.runtime_root,
+        expected_evidence_identity=trusted_identity,
     )
     if record is None:
         _fail("authorization_not_consumed")
-    expected = _marker_record(
+    expected = _marker_record_for_identity(
         authorization,
-        os.stat(authorization.evidence_root, follow_symlinks=False),
+        st_dev=trusted_identity["st_dev"],
+        st_ino=trusted_identity["st_ino"],
     )
     consumed_at = _consumed_at(record)
     if (
@@ -1222,6 +2002,47 @@ def _required_absolute_env(name: str, *, existing: bool) -> Path:
     except OSError:
         _fail("runtime_environment_invalid")
     return parent / path.name
+
+
+def _admission_artifact_from_environment(environment_name: str) -> bytes:
+    """Read one operator-supplied artifact without following its pathname.
+
+    Environment values are locators only.  Authority remains in the signed
+    exact-head grant: the returned bytes are subsequently hashed and compared
+    with its v2 digest fields by ``validate_admission_artifacts``.
+    """
+
+    raw = os.environ.get(environment_name, "")
+    try:
+        path = _path(raw, "admission_artifact_invalid")
+        metadata = path.lstat()
+        resolved = path.resolve(strict=True)
+    except RuntimeAuthorizationFailure:
+        raise
+    except (OSError, TypeError, ValueError):
+        _fail("admission_artifact_invalid")
+    if (
+        resolved != path
+        or path.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+    ):
+        _fail("admission_artifact_invalid")
+    return _read_bound_regular_file(
+        path,
+        maximum=MAX_ADMISSION_ARTIFACT_BYTES,
+        reason="admission_artifact_invalid",
+    )
+
+
+def _admission_artifacts_from_environment() -> AdmissionArtifacts:
+    """Load the complete four-artifact admission tuple or refuse it all."""
+
+    payloads = {
+        field_name: _admission_artifact_from_environment(environment_name)
+        for field_name, environment_name in ADMISSION_ARTIFACT_ENVIRONMENT.items()
+    }
+    return AdmissionArtifacts(**payloads)
 
 
 def _external_grant_artifact(
@@ -1468,10 +2289,16 @@ def _admission_base_for_git(fields: Mapping[str, str]) -> str:
     return admission_base
 
 
-def _observe_suite(root: Path, admission_base: str) -> tuple[str, str, bool]:
-    """Resolve Suite HEAD once and reuse that immutable value for ancestry."""
+def _observe_suite(root: Path, admission_base: str) -> tuple[str, str, str, bool]:
+    """Resolve Suite HEAD once and reuse that immutable value everywhere.
+
+    The Suite tree is derived from the already-resolved commit rather than from
+    ``HEAD`` again, so the observed commit and tree can never straddle a
+    concurrent reference move.
+    """
 
     suite_head = _git(root, "rev-parse", "HEAD")
+    suite_tree = _git(root, "rev-parse", f"{suite_head}^{{tree}}")
     suite_status = _git(
         root,
         "status",
@@ -1481,6 +2308,7 @@ def _observe_suite(root: Path, admission_base: str) -> tuple[str, str, bool]:
     )
     return (
         suite_head,
+        suite_tree,
         suite_status,
         _is_git_ancestor(root, admission_base, suite_head),
     )
@@ -1553,13 +2381,14 @@ def authorize_from_environment() -> RuntimeAuthorization:
             )
         )
     admission_base = _admission_base_for_git(fields)
-    suite_head, suite_status, admission_base_is_ancestor = _observe_suite(
+    suite_head, suite_tree, suite_status, admission_base_is_ancestor = _observe_suite(
         suite_root, admission_base
     )
     observed = ObservedRuntimeState(
         now=datetime.now(UTC),
         suite_root=suite_root,
         suite_head=suite_head,
+        suite_tree=suite_tree,
         suite_status=suite_status,
         admission_base_is_ancestor_of_head=admission_base_is_ancestor,
         admission_base_descends_d1_base=_is_git_ancestor(
@@ -1580,6 +2409,7 @@ def authorize_from_environment() -> RuntimeAuthorization:
         candidate=_candidate(suite_root / CANDIDATE_REL),
         products=tuple(products),
         host_temp_root=Path(tempfile.gettempdir()).resolve(),
+        admission_artifacts=_admission_artifacts_from_environment(),
     )
     authorized = validate_authorization(fields, observed)
     resolve_import_source_roots(authorized)

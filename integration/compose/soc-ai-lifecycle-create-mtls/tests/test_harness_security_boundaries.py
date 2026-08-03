@@ -2,87 +2,234 @@
 
 These tests are deliberately synthetic.  They do not inspect or signal a real
 process, open a TLS socket, execute Git, or start any Suite runtime component.
+Process authority is the authenticated control binding alone: no numeric
+process identifier, ``ps`` inspection, or directly owned ``Popen`` handle may
+ever stand in for it.
 """
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from cybrik_suite_uat_mtls import harness
+from cybrik_suite_uat_mtls import harness, process_control
 from cybrik_suite_uat_mtls import runtime_authorization as runtime_auth
 
+_AUTHORIZATION_SHA256 = "a" * 64
+_AUTHORIZATION_ID = "d2-runtime-auth-boundaries"
+_RUNTIME_ROOT = Path("/opt/cybrik-uat-d2-runtime-boundaries")
+_CAPABILITY = b"k" * process_control.CAPABILITY_BYTES
 
-def test_recorded_process_inspection_uses_fixed_executable_and_sanitized_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Recovery inspection must not resolve ``ps`` or config from ambient state."""
 
-    pid_path = tmp_path / "ai-server.pid"
-    pid_path.write_text("4321", encoding="ascii")
-    observed: dict[str, object] = {}
-    monkeypatch.setenv("PATH", str(tmp_path / "untrusted-bin"))
-    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "untrusted-python"))
-    monkeypatch.setenv("LD_PRELOAD", str(tmp_path / "untrusted-loader"))
-
-    def inspect(argv: tuple[str, ...], **kwargs: object) -> SimpleNamespace:
-        observed["argv"] = argv
-        observed["env"] = kwargs.get("env")
-        return SimpleNamespace(returncode=1, stdout="")
-
-    monkeypatch.setattr(harness.subprocess, "run", inspect)
-
-    harness._stop_recorded_process(
-        tmp_path,
-        pid_filename=pid_path.name,
-        identity="cybrik_suite_uat_mtls.server",
+def _authorization() -> SimpleNamespace:
+    return SimpleNamespace(
+        authorization_id=_AUTHORIZATION_ID,
+        authorization_sha256=_AUTHORIZATION_SHA256,
+        runtime_root=_RUNTIME_ROOT,
+        evidence_root=Path("/opt/cybrik-uat-d2-evidence-boundaries"),
     )
 
-    argv = observed["argv"]
-    assert isinstance(argv, tuple)
-    assert argv[0] == "/bin/ps"
-    environment = observed["env"]
-    assert isinstance(environment, dict)
-    assert environment["PATH"] == "/usr/bin:/bin"
-    assert environment["LC_ALL"] == "C"
-    assert set(environment) <= {"LANG", "LC_ALL", "PATH"}
-    assert {"PYTHONPATH", "LD_PRELOAD"}.isdisjoint(environment)
+
+class _StableRead:
+    def __init__(self, data: bytes, identity: process_control.RootIdentity) -> None:
+        self.data = data
+        self.before = identity
+        self.after = identity
 
 
-def test_numeric_pid_record_alone_never_authorizes_destructive_signal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+class _FakeControlFileSystem:
+    """In-memory control root: no descriptor, socket, or pathname is opened."""
+
+    def __init__(
+        self,
+        *,
+        binding: process_control.ControlBinding,
+        capability: bytes = _CAPABILITY,
+        signed_root_identity: process_control.RootIdentity | None = None,
+    ) -> None:
+        self.root_handle = object()
+        self.opened: list[tuple[Path, bool]] = []
+        self.reads: list[str] = []
+        self.root_identity = process_control.RootIdentity(
+            device=7,
+            inode=11,
+            owner_uid=binding.owner_uid,
+            mode=stat.S_IFDIR | 0o700,
+        )
+        self.leaf_identity = process_control.RootIdentity(
+            device=7,
+            inode=21,
+            owner_uid=binding.owner_uid,
+            mode=stat.S_IFREG | 0o600,
+        )
+        persisted = process_control.PersistedControlBinding(
+            binding, signed_root_identity or self.root_identity
+        )
+        self.entries = {
+            "capability.bin": capability,
+            "binding.json": process_control.sign_frame(
+                persisted.as_payload(), capability
+            ),
+        }
+
+    def open_directory(self, path: Path, *, nofollow: bool) -> object:
+        self.opened.append((path, nofollow))
+        return self.root_handle
+
+    def stat_handle(self, handle: object) -> process_control.RootIdentity:
+        assert handle is self.root_handle
+        return self.root_identity
+
+    def stat_directory(
+        self, path: Path, *, nofollow: bool
+    ) -> process_control.RootIdentity:
+        del path, nofollow
+        return self.root_identity
+
+    def read_at_stable(
+        self,
+        handle: object,
+        name: str,
+        *,
+        max_bytes: int,
+        mode: int,
+        owner_uid: int,
+        nofollow: bool,
+    ) -> _StableRead:
+        assert handle is self.root_handle
+        assert (mode, owner_uid, nofollow) == (
+            0o600,
+            self.root_identity.owner_uid,
+            True,
+        )
+        self.reads.append(name)
+        return _StableRead(self.entries[name][: max_bytes + 1], self.leaf_identity)
+
+
+def test_control_material_binds_the_exact_authorization_digest_and_root_identity(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A reusable PID plus matching command text is not a stable process handle."""
+    """``_load_control`` admits only an HMAC-bound store, material, and client."""
 
-    pid_path = tmp_path / "ai-server.pid"
-    pid_path.write_text("4321", encoding="ascii")
-    signals: list[tuple[int, int]] = []
+    authorization = _authorization()
+    binding = harness._control_binding(authorization)  # type: ignore[arg-type]
+    filesystem = _FakeControlFileSystem(binding=binding)
     monkeypatch.setattr(
-        harness.subprocess,
-        "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=0,
-            stdout="python -m cybrik_suite_uat_mtls.server\n",
+        harness.process_control,
+        "PosixFileSystemAdapter",
+        lambda: filesystem,
+    )
+
+    control_store, material, client = harness._load_control(
+        authorization  # type: ignore[arg-type]
+    )
+
+    assert isinstance(control_store, process_control.ControlStore)
+    assert isinstance(client, process_control.ControlClient)
+    assert binding.authorization_sha256 == _AUTHORIZATION_SHA256
+    assert material.binding == binding
+    assert material.capability == _CAPABILITY
+    assert material.root_identity == filesystem.root_identity
+    assert material.persisted_binding.root_identity == filesystem.root_identity
+    assert material.paths.root.name == f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    assert filesystem.opened == [(material.paths.root, True)]
+    assert filesystem.reads == ["capability.bin", "binding.json"]
+
+
+def test_control_material_is_refused_when_the_signed_root_identity_drifts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A record signed for another control root never admits a client."""
+
+    authorization = _authorization()
+    binding = harness._control_binding(authorization)  # type: ignore[arg-type]
+    filesystem = _FakeControlFileSystem(
+        binding=binding,
+        signed_root_identity=process_control.RootIdentity(
+            device=7,
+            inode=99,
+            owner_uid=binding.owner_uid,
+            mode=stat.S_IFDIR | 0o700,
         ),
     )
+    monkeypatch.setattr(
+        harness.process_control,
+        "PosixFileSystemAdapter",
+        lambda: filesystem,
+    )
 
-    def record_signal(pid: int, value: int) -> None:
-        signals.append((pid, value))
-        if value == 0:
-            raise ProcessLookupError
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="stable process authority is unavailable: control_binding_mismatch",
+    ):
+        harness._load_control(authorization)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(harness.os, "kill", record_signal)
 
-    with pytest.raises(harness.RuntimeAuthorizationError):
-        harness._stop_recorded_process(
-            tmp_path,
-            pid_filename=pid_path.name,
-            identity="cybrik_suite_uat_mtls.server",
+def test_stray_numeric_pid_record_never_authorizes_a_destructive_signal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stopping is an authenticated control request, never a PID plus ``ps``."""
+
+    (tmp_path / "ai-server.pid").write_text("4321", encoding="ascii")
+    requests: list[str] = []
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError("numeric process authority was exercised")
+
+    monkeypatch.setattr(harness.os, "kill", forbidden)
+    monkeypatch.setattr(harness.subprocess, "run", forbidden)
+    monkeypatch.setattr(harness.subprocess, "Popen", forbidden)
+    monkeypatch.setattr(harness, "assert_runtime_authorized", _authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness.runtime_authorization, "verify_consumed", lambda _: None
+    )
+    monkeypatch.setattr(
+        harness,
+        "_load_control",
+        lambda _: (
+            object(),
+            object(),
+            SimpleNamespace(stop_all=lambda *, request_id: requests.append(request_id)),
+        ),
+    )
+    monkeypatch.setattr(harness.store, "stop", lambda: requests.append("stop_store"))
+
+    harness.stop()
+
+    assert requests == ["lifecycle-stop-all", "stop_store"]
+    assert (tmp_path / "ai-server.pid").read_text(encoding="ascii") == "4321"
+
+
+def test_stop_refuses_the_store_when_control_authority_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without an authenticated client no later step may touch the store."""
+
+    stopped: list[str] = []
+
+    def refuse(_authorization: object) -> object:
+        raise harness.RuntimeAuthorizationError(
+            "stable process authority is unavailable: control_leaf_invalid"
         )
 
-    assert signals == []
-    assert pid_path.is_file()
+    monkeypatch.setattr(harness, "assert_runtime_authorized", _authorization)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness.runtime_authorization, "verify_consumed", lambda _: None
+    )
+    monkeypatch.setattr(harness, "_load_control", refuse)
+    monkeypatch.setattr(harness.store, "stop", lambda: stopped.append("stop_store"))
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="stable process authority is unavailable",
+    ):
+        harness.stop()
+
+    assert stopped == []
 
 
 @pytest.mark.parametrize(

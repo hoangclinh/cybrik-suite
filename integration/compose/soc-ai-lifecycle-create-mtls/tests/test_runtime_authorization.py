@@ -21,7 +21,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from cybrik_suite_uat_mtls import policy
 from cybrik_suite_uat_mtls import runtime_authorization as authorization
 
@@ -44,8 +43,14 @@ _PRODUCT_IDENTITY = {
 }
 _ADMISSION_BASE = "b" * 40
 _SUITE_HEAD = "c" * 40
+_SUITE_TREE = "f" * 40
+_AUTHORIZATION_ID = "d2-runtime-r1-20260802t1200z"
 _AUTHORIZATION_SHA = "a" * 64
 _EXACT_HEAD_GRANT_SHA = "e" * 64
+_COVERAGE_AUTHORIZATION_ID = "d2-coverage-r1-20260802t1200z"
+_COVERAGE_COMMAND_SHA = "1" * 64
+_COVERAGE_WRAPPER_SHA = "2" * 64
+_COVERAGE_PYTHON_SHA = "3" * 64
 _ALLOWED_SIGNERS = (
     "cybrik-codex-governor ssh-ed25519 "
     "AAAAC3NzaC1lZDI1NTE5AAAAIEsyntheticValidationOnlyKey000000000000000\n"
@@ -97,6 +102,153 @@ def _external_roots(tmp_path: Path) -> tuple[Path, Path]:
     )
 
 
+def _canonical(record: dict[str, object]) -> bytes:
+    return json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _digest(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+_ADMISSION_ARTIFACT_ENVIRONMENT = {
+    "coverage_authorization_bytes": "CYBRIK_UAT_D2_COVERAGE_AUTHORIZATION",
+    "measurement_receipt_bytes": "CYBRIK_UAT_D2_COVERAGE_MEASUREMENT_RECEIPT",
+    "coverage_pass_result_bytes": "CYBRIK_UAT_D2_COVERAGE_GATE_RESULT",
+    "root_preparation_receipt_bytes": "CYBRIK_UAT_D2_ROOT_PREPARATION_RECEIPT",
+}
+
+
+def _install_admission_artifact_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    artifacts: authorization.AdmissionArtifacts,
+) -> dict[str, Path]:
+    artifact_root = tmp_path / "admission-artifacts"
+    artifact_root.mkdir()
+    paths: dict[str, Path] = {}
+    for field_name, environment_name in _ADMISSION_ARTIFACT_ENVIRONMENT.items():
+        path = artifact_root / f"{field_name}.json"
+        path.write_bytes(getattr(artifacts, field_name))
+        monkeypatch.setenv(environment_name, str(path))
+        paths[field_name] = path
+    return paths
+
+
+def _prepared_directory(
+    path: Path, inventory: tuple[str, ...] = ()
+) -> dict[str, object]:
+    """Prepare one runtime directory and record its exact live identity.
+
+    The root-preparation receipt is signed material in production; a synthetic
+    receipt is only admissible here when it repeats the identity and the exact
+    initial inventory the prepared directory actually has.
+    """
+
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.chmod(0o700)
+    identity = path.stat()
+    return {
+        "identity": {
+            "mode": authorization.PREPARED_ROOT_MODE,
+            "st_dev": identity.st_dev,
+            "st_ino": identity.st_ino,
+            "uid": identity.st_uid,
+        },
+        "inventory": list(inventory),
+        "path": str(path),
+    }
+
+
+def _admission_artifacts(
+    runtime_root: Path, evidence_root: Path
+) -> tuple[authorization.AdmissionArtifacts, dict[str, str]]:
+    """Build the exact post-commit artifact bytes and the digests pinning them."""
+
+    coverage_authorization: dict[str, object] = {
+        "authorization_id": _COVERAGE_AUTHORIZATION_ID,
+        "measurement_command_sha256": _COVERAGE_COMMAND_SHA,
+        "measurement_wrapper_sha256": _COVERAGE_WRAPPER_SHA,
+        "pinned_python_sha256": _COVERAGE_PYTHON_SHA,
+        "receipt_policy_id": authorization.COVERAGE_RECEIPT_POLICY_ID,
+        "suite_commit": _SUITE_HEAD,
+        "suite_tree": _SUITE_TREE,
+    }
+    coverage_authorization_bytes = _canonical(coverage_authorization)
+    coverage_authorization_sha = _digest(coverage_authorization_bytes)
+    receipt_bytes = _canonical(
+        {
+            "artifacts": {
+                "coverage_data_sha256": "4" * 64,
+                "coverage_json_sha256": "5" * 64,
+            },
+            "authorization": {
+                "id": _COVERAGE_AUTHORIZATION_ID,
+                "sha256": coverage_authorization_sha,
+            },
+            "execution_boundary": {"network_calls": [], "runtime_executed": False},
+            "producer": {
+                "executable_sha256": _COVERAGE_PYTHON_SHA,
+                "identity": authorization.COVERAGE_PRODUCER_IDENTITY,
+                "wrapper_sha256": _COVERAGE_WRAPPER_SHA,
+            },
+            "receipt_id": "d2-coverage-unit-receipt",
+            "run": {
+                "command_sha256": _COVERAGE_COMMAND_SHA,
+                "id": "d2-coverage-unit-run",
+                "nonce": "6" * 64,
+            },
+            "schema_version": authorization.COVERAGE_MEASUREMENT_RECEIPT_SCHEMA,
+            "source": {"suite_commit": _SUITE_HEAD, "suite_tree": _SUITE_TREE},
+        }
+    )
+    pass_result_bytes = _canonical(
+        {
+            "binding": {
+                "coverage_authorization_sha256": coverage_authorization_sha,
+                "measurement_receipt_sha256": _digest(receipt_bytes),
+                "suite_commit": _SUITE_HEAD,
+                "suite_tree": _SUITE_TREE,
+            },
+            "branch": {"covered": 12, "ratio": 1.0, "total": 12},
+            "line": {"covered": 68, "ratio": 1.0, "total": 68},
+            "status": authorization.COVERAGE_ADMISSIBLE_STATUS,
+        }
+    )
+    # The PKI leaf is prepared first so the runtime root really does hold the
+    # single signed leaf its declared initial inventory names.
+    prepared_pki = _prepared_directory(runtime_root / authorization.PREPARED_PKI_LEAF)
+    prepared_runtime = _prepared_directory(
+        runtime_root, (authorization.PREPARED_PKI_LEAF,)
+    )
+    preparation_bytes = _canonical(
+        {
+            "authorization_id": _AUTHORIZATION_ID,
+            "authorization_sha256": _AUTHORIZATION_SHA,
+            "roots": {
+                "runtime": prepared_runtime,
+                "pki": prepared_pki,
+                "evidence": _prepared_directory(evidence_root),
+            },
+            "schema_version": authorization.ROOT_PREPARATION_SCHEMA_VERSION,
+            "source": {"suite_commit": _SUITE_HEAD, "suite_tree": _SUITE_TREE},
+        }
+    )
+    return (
+        authorization.AdmissionArtifacts(
+            coverage_authorization_bytes=coverage_authorization_bytes,
+            measurement_receipt_bytes=receipt_bytes,
+            coverage_pass_result_bytes=pass_result_bytes,
+            root_preparation_receipt_bytes=preparation_bytes,
+        ),
+        {
+            "COVERAGE_AUTHORIZATION_SHA256": coverage_authorization_sha,
+            "COVERAGE_MEASUREMENT_RECEIPT_SHA256": _digest(receipt_bytes),
+            "COVERAGE_GATE_RESULT_SHA256": _digest(pass_result_bytes),
+            "ROOT_PREPARATION_RECEIPT_SHA256": _digest(preparation_bytes),
+        },
+    )
+
+
 def _fields(
     *,
     suite: Path,
@@ -107,7 +259,7 @@ def _fields(
 ) -> dict[str, str]:
     return {
         "D2_RUNTIME_AUTHORIZATION": "APPROVE",
-        "AUTHORIZATION_ID": "d2-runtime-r1-20260802t1200z",
+        "AUTHORIZATION_ID": _AUTHORIZATION_ID,
         "AUTHORIZED_BY": "FOUNDER",
         "AUTHORIZED_AT": "2026-08-02T11:00:00+00:00",
         "AUTHORIZATION_EXPIRES_AT": "2026-08-02T15:00:00+00:00",
@@ -142,7 +294,10 @@ def _observed(
     products: dict[str, Path],
     aggregate: str,
     host_temp: Path,
+    runtime_root: Path,
+    evidence_root: Path,
 ) -> authorization.ObservedRuntimeState:
+    artifacts, grant_digests = _admission_artifacts(runtime_root, evidence_root)
     exact_head_grant_path = (
         suite.parent / "grant-holder/cybrik-uat-d2-exact-head-grant-unit.txt"
     )
@@ -157,6 +312,7 @@ def _observed(
         now=_NOW,
         suite_root=suite,
         suite_head=_SUITE_HEAD,
+        suite_tree=_SUITE_TREE,
         suite_status="",
         admission_base_is_ancestor_of_head=True,
         admission_base_descends_d1_base=True,
@@ -176,7 +332,9 @@ def _observed(
             "GRANT_VERSION": authorization.EXACT_HEAD_GRANT_VERSION,
             "AUTHORIZATION_SHA256": _AUTHORIZATION_SHA,
             "SUITE_HEAD": _SUITE_HEAD,
+            "SUITE_TREE": _SUITE_TREE,
             "RUNTIME_CODE_AGGREGATE_SHA256": aggregate,
+            **grant_digests,
         },
         b1_wheel_sha256=policy.PINNED_B1_WHEEL_SHA256,
         candidate=authorization.CandidateState(
@@ -199,6 +357,7 @@ def _observed(
             for role in ("soc", "cyber_ai", "tool_fabric")
         ),
         host_temp_root=host_temp,
+        admission_artifacts=artifacts,
     )
 
 
@@ -234,7 +393,12 @@ def _fixture(tmp_path: Path) -> _Fixture:
             aggregate=aggregate,
         ),
         observed=_observed(
-            suite=suite, products=products, aggregate=aggregate, host_temp=host_temp
+            suite=suite,
+            products=products,
+            aggregate=aggregate,
+            host_temp=host_temp,
+            runtime_root=runtime_root,
+            evidence_root=evidence_root,
         ),
     )
 
@@ -1289,15 +1453,19 @@ def test_verify_loaded_module_origins_checks_every_loaded_namespace_entry(
 # --------------------------------------------------------------------------
 
 
-def test_consume_once_creates_the_bounded_evidence_root_and_marker(
+def test_consume_once_writes_the_marker_in_the_bound_prepared_evidence_root(
     tmp_path: Path,
 ) -> None:
     validated = _validated(tmp_path)
+    prepared_identity = validated.evidence_root.stat()
+    marker = validated.evidence_root / authorization.CONSUMPTION_MARKER
+    assert not marker.exists()
 
     record = authorization.consume_once(validated)
 
-    marker = validated.evidence_root / authorization.CONSUMPTION_MARKER
     assert stat.S_IMODE(validated.evidence_root.stat().st_mode) == 0o700
+    assert validated.evidence_root.stat().st_dev == prepared_identity.st_dev
+    assert validated.evidence_root.stat().st_ino == prepared_identity.st_ino
     assert stat.S_IMODE(marker.stat().st_mode) == 0o600
     assert json.loads(marker.read_text(encoding="utf-8")) == record
     assert record["status"] == "consumed"
@@ -1333,24 +1501,32 @@ def test_consume_once_refuses_a_second_consumption_and_preserves_evidence(
     )
 
 
-def test_consume_once_refuses_a_pre_existing_evidence_root(tmp_path: Path) -> None:
+def test_consume_once_refuses_a_replaced_prepared_evidence_root(tmp_path: Path) -> None:
     validated = _validated(tmp_path)
+    original = tmp_path / "original-evidence-root"
+    validated.evidence_root.rename(original)
     validated.evidence_root.mkdir(mode=0o700)
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.consume_once(validated)
-    assert caught.value.reason == "authorization_already_consumed"
+    assert caught.value.reason == "authorization_consumption_mismatch"
+    assert original.is_dir()
+    assert validated.evidence_root.is_dir()
 
 
 def test_consume_once_refuses_a_symlinked_evidence_root(tmp_path: Path) -> None:
     validated = _validated(tmp_path)
     target = tmp_path / "evidence-target"
     target.mkdir()
+    original = tmp_path / "original-evidence-root"
+    validated.evidence_root.rename(original)
     validated.evidence_root.symlink_to(target, target_is_directory=True)
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.consume_once(validated)
-    assert caught.value.reason == "authorization_already_consumed"
+    assert caught.value.reason == "authorization_consumption_mismatch"
+    assert original.is_dir()
+    assert target.is_dir()
 
 
 def test_verify_consumed_accepts_the_marker_written_by_the_first_start(
@@ -1380,11 +1556,6 @@ def test_verify_consumed_fails_closed_when_the_attempt_was_never_consumed(
 ) -> None:
     validated = _validated(tmp_path)
 
-    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
-        authorization.verify_consumed(validated)
-    assert caught.value.reason == "authorization_not_consumed"
-
-    validated.evidence_root.mkdir(mode=0o700)
     with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
         authorization.verify_consumed(validated)
     assert caught.value.reason == "authorization_not_consumed"
@@ -1440,10 +1611,11 @@ def test_verify_consumed_rejects_a_timestamp_outside_the_authorized_window(
     assert caught.value.reason == "authorization_consumption_mismatch"
 
 
-def test_consume_once_cleans_its_fresh_root_when_marker_creation_fails(
+def test_consume_once_preserves_prepared_root_when_marker_creation_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     validated = _validated(tmp_path)
+    prepared_identity = validated.evidence_root.stat()
     real_open = authorization.os.open
 
     def refuse_marker(path: object, *args: object, **kwargs: object) -> int:
@@ -1455,13 +1627,17 @@ def test_consume_once_cleans_its_fresh_root_when_marker_creation_fails(
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure):
         authorization.consume_once(validated)
-    assert not validated.evidence_root.exists()
+    assert validated.evidence_root.is_dir()
+    assert validated.evidence_root.stat().st_dev == prepared_identity.st_dev
+    assert validated.evidence_root.stat().st_ino == prepared_identity.st_ino
+    assert not (validated.evidence_root / authorization.CONSUMPTION_MARKER).exists()
 
 
 def test_consume_once_cleans_partial_marker_when_descriptor_write_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     validated = _validated(tmp_path)
+    prepared_identity = validated.evidence_root.stat()
 
     def refuse_write(descriptor: int, payload: bytes) -> int:
         raise OSError("synthetic marker write failure")
@@ -1470,7 +1646,10 @@ def test_consume_once_cleans_partial_marker_when_descriptor_write_fails(
 
     with pytest.raises(authorization.RuntimeAuthorizationFailure):
         authorization.consume_once(validated)
-    assert not validated.evidence_root.exists()
+    assert validated.evidence_root.is_dir()
+    assert validated.evidence_root.stat().st_dev == prepared_identity.st_dev
+    assert validated.evidence_root.stat().st_ino == prepared_identity.st_ino
+    assert not (validated.evidence_root / authorization.CONSUMPTION_MARKER).exists()
 
 
 def test_verify_consumed_rejects_a_relocated_evidence_root(tmp_path: Path) -> None:
@@ -1617,6 +1796,147 @@ def test_rollback_marker_check_rejects_a_foreign_runtime_root(
 # --------------------------------------------------------------------------
 # Static environment observation and check-only entrypoint
 # --------------------------------------------------------------------------
+
+
+def test_environment_artifact_loader_populates_the_exact_admission_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    expected = fixture.observed.admission_artifacts
+    assert expected is not None
+    _install_admission_artifact_environment(tmp_path, monkeypatch, expected)
+
+    loaded = authorization._admission_artifacts_from_environment()
+
+    assert loaded == expected
+    validated = authorization.validate_authorization(
+        fixture.fields,
+        dataclasses.replace(fixture.observed, admission_artifacts=loaded),
+    )
+    assert validated.coverage is not None
+    assert validated.prepared_roots is not None
+
+
+def test_authorize_from_environment_passes_loaded_artifacts_to_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    expected = fixture.observed.admission_artifacts
+    assert expected is not None
+    _install_admission_artifact_environment(tmp_path, monkeypatch, expected)
+    authorization_path = tmp_path / "authorization.md"
+    authorization_path.write_bytes(b"synthetic authorization")
+    wheel = tmp_path / "wheel.whl"
+    wheel.write_bytes(b"synthetic wheel")
+    environment_paths = {
+        "CYBRIK_UAT_D2_AUTHORIZATION_PATH": authorization_path,
+        "CYBRIK_UAT_D2_B1_WHEEL": wheel,
+        "CYBRIK_UAT_D2_RUNTIME_DIR": fixture.runtime_root,
+        "CYBRIK_UAT_D2_EVIDENCE_DIR": fixture.evidence_root,
+        "CYBRIK_UAT_D2_SOC_REPO": fixture.products["soc"],
+        "CYBRIK_UAT_D2_AI_REPO": fixture.products["cyber_ai"],
+        "CYBRIK_UAT_D2_FABRIC_REPO": fixture.products["tool_fabric"],
+    }
+    monkeypatch.setenv("CYBRIK_UAT_D2_EXECUTION_AUTHORIZED", "true")
+    monkeypatch.setenv("CYBRIK_UAT_D2_AUTHORIZATION_SHA256", _AUTHORIZATION_SHA)
+    for name, path in environment_paths.items():
+        monkeypatch.setenv(name, str(path))
+
+    monkeypatch.setattr(authorization, "read_authorization", lambda _: b"authorization")
+    monkeypatch.setattr(authorization, "parse_authorization", lambda _: fixture.fields)
+    monkeypatch.setattr(
+        authorization,
+        "_exact_head_grant_from_environment",
+        lambda _: (
+            fixture.observed.exact_head_grant_path,
+            fixture.observed.exact_head_grant,
+            fixture.observed.exact_head_grant_sha256,
+            fixture.observed.exact_head_grant_signature_path,
+            fixture.observed.exact_head_grant_allowed_signers_path,
+            fixture.observed.exact_head_grant_allowed_signers_sha256,
+            True,
+        ),
+    )
+    monkeypatch.setattr(
+        authorization, "_sha256", lambda _: policy.PINNED_B1_WHEEL_SHA256
+    )
+    monkeypatch.setattr(authorization, "_git", lambda *_args, **_kwargs: "")
+    monkeypatch.setattr(
+        authorization,
+        "_observe_suite",
+        lambda *_args: (_SUITE_HEAD, _SUITE_TREE, "", True),
+    )
+    monkeypatch.setattr(authorization, "_is_git_ancestor", lambda *_args: True)
+    monkeypatch.setattr(
+        authorization, "runtime_code_aggregate", lambda _: fixture.aggregate
+    )
+    monkeypatch.setattr(
+        authorization, "_candidate", lambda _: fixture.observed.candidate
+    )
+    observed_states: list[authorization.ObservedRuntimeState] = []
+    sentinel = SimpleNamespace()
+
+    def validate(
+        _fields: object, observed: authorization.ObservedRuntimeState
+    ) -> object:
+        observed_states.append(observed)
+        return sentinel
+
+    monkeypatch.setattr(authorization, "validate_authorization", validate)
+    monkeypatch.setattr(authorization, "resolve_import_source_roots", lambda _: ())
+
+    assert authorization.authorize_from_environment() is sentinel
+    assert len(observed_states) == 1
+    assert observed_states[0].admission_artifacts == expected
+
+
+@pytest.mark.parametrize("field_name", tuple(_ADMISSION_ARTIFACT_ENVIRONMENT))
+@pytest.mark.parametrize("failure", ("missing", "symlink", "oversize"))
+def test_environment_artifact_loader_refuses_unsafe_or_missing_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field_name: str,
+    failure: str,
+) -> None:
+    fixture = _fixture(tmp_path)
+    artifacts = fixture.observed.admission_artifacts
+    assert artifacts is not None
+    paths = _install_admission_artifact_environment(tmp_path, monkeypatch, artifacts)
+    environment_name = _ADMISSION_ARTIFACT_ENVIRONMENT[field_name]
+    path = paths[field_name]
+    if failure == "missing":
+        monkeypatch.delenv(environment_name)
+    elif failure == "symlink":
+        target = path.with_name(f"{path.name}.target")
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+    else:
+        path.write_bytes(b"x" * (64 * 1024 + 1))
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization._admission_artifacts_from_environment()
+    assert caught.value.reason == "admission_artifact_invalid"
+
+
+def test_environment_artifact_tamper_is_refused_by_the_signed_digest_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path)
+    artifacts = fixture.observed.admission_artifacts
+    assert artifacts is not None
+    paths = _install_admission_artifact_environment(tmp_path, monkeypatch, artifacts)
+    paths["coverage_authorization_bytes"].write_bytes(
+        artifacts.coverage_authorization_bytes + b"\n"
+    )
+    loaded = authorization._admission_artifacts_from_environment()
+
+    with pytest.raises(authorization.RuntimeAuthorizationFailure) as caught:
+        authorization.validate_authorization(
+            fixture.fields,
+            dataclasses.replace(fixture.observed, admission_artifacts=loaded),
+        )
+    assert caught.value.reason == authorization.ADMISSION_BINDING_MISMATCH
 
 
 def test_candidate_observation_reads_the_exact_current_attempt_digest(
@@ -1950,12 +2270,15 @@ def test_suite_observer_reuses_the_resolved_head_for_ancestry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     resolved_head = "c" * 40
+    resolved_tree = "d" * 40
     descendants: list[str] = []
 
     def observe_git(_root: Path, *args: str, allow_status: bool = False) -> str:
         del allow_status
         if args == ("rev-parse", "HEAD"):
             return resolved_head
+        if args == ("rev-parse", f"{resolved_head}^{{tree}}"):
+            return resolved_tree
         if args[0] == "status":
             return ""
         raise AssertionError(args)
@@ -1969,6 +2292,7 @@ def test_suite_observer_reuses_the_resolved_head_for_ancestry(
 
     assert authorization._observe_suite(tmp_path, "b" * 40) == (
         resolved_head,
+        resolved_tree,
         "",
         True,
     )

@@ -7,9 +7,12 @@ invoke the D2 runtime harness.
 
 from __future__ import annotations
 
+import errno
 import os
+import stat
 import sys
 import types
+from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Self
 
@@ -145,14 +148,36 @@ def _install_harmless_crypto_standins(monkeypatch: pytest.MonkeyPatch) -> None:
     _module(monkeypatch, "cryptography", x509=x509, hazmat=hazmat)
 
 
+def _authorized_fixture_root(
+    tmp_path: Path,
+) -> AbstractContextManager[runtime_pki.AuthorizedPkiRoot]:
+    """Pre-create the authorized 0700 root and open its live capability.
+
+    Root preparation belongs to the caller, never to ``create_ephemeral_pki``.
+    """
+
+    root = tmp_path / "ephemeral-pki"
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    os.chmod(root, runtime_pki.PKI_DIRECTORY_MODE)
+    prepared = os.lstat(root)
+    return runtime_pki.authorized_pki_root(
+        root,
+        expected_device=prepared.st_dev,
+        expected_inode=prepared.st_ino,
+        expected_uid=prepared.st_uid,
+        expected_mode=stat.S_IMODE(prepared.st_mode),
+    )
+
+
 def _create_fixture_pki(tmp_path: Path) -> runtime_pki.PkiMaterial:
     repository_root = tmp_path / "repository"
     repository_root.mkdir()
-    return runtime_pki.create_ephemeral_pki(
-        tmp_path / "ephemeral-pki",
-        repository_roots=(repository_root,),
-        jwt_kid="fixture-kid",
-    )
+    with _authorized_fixture_root(tmp_path) as capability:
+        return runtime_pki.create_ephemeral_pki(
+            capability,
+            repository_roots=(repository_root,),
+            jwt_kid="fixture-kid",
+        )
 
 
 def test_pki_creation_rejects_root_replacement_between_sequential_writes(
@@ -310,6 +335,214 @@ def test_pki_creation_cannot_self_bind_a_replacement_before_the_initial_open(
     assert (visible_root / replacement_marker).is_file()
     assert [path.name for path in visible_root.iterdir()] == [replacement_marker]
     assert list(displaced_root.iterdir()) == []
+
+
+def test_pki_creation_rejects_same_inode_mode_drift_between_leaf_writes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A chmod drift on the pinned root must fail even when inode/device stay equal."""
+
+    _install_harmless_crypto_standins(monkeypatch)
+    visible_root = tmp_path / "ephemeral-pki"
+    original_open = os.open
+    leaf_opens = 0
+
+    def chmod_after_first_leaf_open(
+        path: os.PathLike[str] | str | bytes,
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal leaf_opens
+        descriptor = (
+            original_open(path, flags, mode)
+            if dir_fd is None
+            else original_open(path, flags, mode, dir_fd=dir_fd)
+        )
+        if flags & os.O_CREAT:
+            leaf_opens += 1
+            if leaf_opens == 1:
+                os.chmod(visible_root, 0o755)
+        return descriptor
+
+    monkeypatch.setattr(runtime_pki.os, "open", chmod_after_first_leaf_open)
+
+    with pytest.raises(
+        runtime_pki.PkiBoundaryError, match="descriptor identity does not match"
+    ):
+        _create_fixture_pki(tmp_path)
+
+    assert leaf_opens >= 1
+    assert stat.S_IMODE(os.lstat(visible_root).st_mode) == 0o755
+    assert list(visible_root.iterdir()) == []
+
+
+def test_live_authorized_root_rejects_same_inode_uid_drift_on_revalidation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Descriptor revalidation must compare uid in addition to inode/device."""
+
+    repository_root = tmp_path / "repository"
+    repository_root.mkdir()
+    with _authorized_fixture_root(tmp_path) as capability:
+        original_fstat = os.fstat
+
+        def drifted_uid_stat(descriptor: int) -> os.stat_result:
+            observed = original_fstat(descriptor)
+            if descriptor != capability.descriptor:
+                return observed
+            mutated = list(observed)
+            mutated[4] = observed.st_uid + 1
+            return os.stat_result(mutated)
+
+        monkeypatch.setattr(runtime_pki.os, "fstat", drifted_uid_stat)
+        with pytest.raises(
+            runtime_pki.PkiBoundaryError, match="descriptor identity does not match"
+        ):
+            runtime_pki.create_ephemeral_pki(
+                capability,
+                repository_roots=(repository_root,),
+                jwt_kid="fixture-kid",
+            )
+
+
+def test_pki_destruction_refuses_to_self_bind_an_existing_root(
+    tmp_path: Path,
+) -> None:
+    """A current lstat is observation, never destructive authorization."""
+
+    root = tmp_path / "ephemeral-pki"
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    marker = root / "preserve.txt"
+    marker.write_text("preserve", encoding="ascii")
+    unbound = runtime_pki.PkiMaterial(
+        root=root,
+        ca_certificate=root / "ca-cert.pem",
+        server_certificate=root / "server-cert.pem",
+        server_private_key=root / "server-key.pem",
+        client_certificate=root / "client-cert.pem",
+        client_private_key=root / "client-key.pem",
+        alternate_client_certificate=root / "alternate-client-cert.pem",
+        alternate_client_private_key=root / "alternate-client-key.pem",
+        jwt_private_key=root / "jwt-signing-key.pem",
+        jwt_public_jwk=root / "jwt-public-jwk.json",
+    )
+
+    with pytest.raises(
+        runtime_pki.PkiBoundaryError,
+        match="authorized PKI teardown identity is absent",
+    ):
+        runtime_pki.destroy_ephemeral_pki(unbound)
+
+    assert marker.read_text(encoding="ascii") == "preserve"
+
+
+def test_pki_destruction_refuses_and_preserves_a_preexisting_replacement(
+    tmp_path: Path,
+) -> None:
+    """Only the externally supplied original identity may authorize deletion."""
+
+    root = tmp_path / "ephemeral-pki"
+    displaced = tmp_path / "ephemeral-pki-authorized"
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    os.chmod(root, runtime_pki.PKI_DIRECTORY_MODE)
+    observed = os.lstat(root)
+    material = runtime_pki.PkiMaterial(
+        root=root,
+        ca_certificate=root / "ca-cert.pem",
+        server_certificate=root / "server-cert.pem",
+        server_private_key=root / "server-key.pem",
+        client_certificate=root / "client-cert.pem",
+        client_private_key=root / "client-key.pem",
+        alternate_client_certificate=root / "alternate-client-cert.pem",
+        alternate_client_private_key=root / "alternate-client-key.pem",
+        jwt_private_key=root / "jwt-signing-key.pem",
+        jwt_public_jwk=root / "jwt-public-jwk.json",
+        root_identity=runtime_pki.PkiRootIdentity(
+            device=observed.st_dev,
+            inode=observed.st_ino,
+            uid=observed.st_uid,
+            mode=stat.S_IMODE(observed.st_mode),
+        ),
+    )
+    root.rename(displaced)
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    replacement_marker = root / "replacement-owned.txt"
+    replacement_marker.write_text("preserve replacement", encoding="ascii")
+
+    with pytest.raises(
+        runtime_pki.PkiBoundaryError,
+        match="identity changed before destruction",
+    ):
+        runtime_pki.destroy_ephemeral_pki(material)
+
+    assert replacement_marker.read_text(encoding="ascii") == "preserve replacement"
+    assert displaced.is_dir()
+
+
+def test_destroy_pinned_tree_accepts_darwin_eperm_only_for_a_real_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Darwin reports EPERM, not EISDIR, when unlink targets a directory."""
+
+    root = tmp_path / "ephemeral-pki"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    (nested / "fixture.txt").write_text("fixture", encoding="ascii")
+    original_unlink = os.unlink
+
+    def darwin_unlink(
+        path: os.PathLike[str] | str | bytes, *, dir_fd: int | None = None
+    ) -> None:
+        if path == "nested":
+            raise PermissionError(errno.EPERM, "operation not permitted", path)
+        if dir_fd is None:
+            original_unlink(path)
+        else:
+            original_unlink(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runtime_pki.os, "unlink", darwin_unlink)
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        runtime_pki._destroy_pinned_tree(descriptor)
+    finally:
+        os.close(descriptor)
+
+    assert list(root.iterdir()) == []
+
+
+def test_destroy_pinned_tree_preserves_a_file_on_genuine_eperm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A permission denial for a non-directory must remain a hard failure."""
+
+    root = tmp_path / "ephemeral-pki"
+    root.mkdir()
+    protected = root / "protected.txt"
+    protected.write_text("preserve", encoding="ascii")
+    original_unlink = os.unlink
+
+    def denied_unlink(
+        path: os.PathLike[str] | str | bytes, *, dir_fd: int | None = None
+    ) -> None:
+        if path == "protected.txt":
+            raise PermissionError(errno.EPERM, "operation not permitted", path)
+        if dir_fd is None:
+            original_unlink(path)
+        else:
+            original_unlink(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(runtime_pki.os, "unlink", denied_unlink)
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        with pytest.raises(PermissionError) as caught:
+            runtime_pki._destroy_pinned_tree(descriptor)
+    finally:
+        os.close(descriptor)
+
+    assert caught.value.errno == errno.EPERM
+    assert protected.read_text(encoding="ascii") == "preserve"
 
 
 def test_create_ephemeral_pki_refuses_a_bare_path_without_an_authorized_capability(

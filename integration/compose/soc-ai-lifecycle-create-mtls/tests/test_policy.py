@@ -36,6 +36,8 @@ _RUNTIME_SOURCE_FILES = (
     "client.py",
     "harness.py",
     "pki.py",
+    "process_control.py",
+    "process_supervisor.py",
     "runtime_authorization.py",
     "runtime_evidence.py",
     "secret_inventory.py",

@@ -17,11 +17,10 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Final
 
 import pytest
-
 from cybrik_suite_uat_mtls import harness
 
 _CONTROL_MODULE: Final = "cybrik_suite_uat_mtls.process_control"
@@ -199,6 +198,54 @@ def test_two_authenticated_invocations_control_one_supervisor_owned_child() -> N
     ]
 
 
+def test_failed_readiness_reaps_the_launched_supervisor_handle() -> None:
+    _, supervisor = _load_modules()
+    process = _FakeOwnedProcess()
+
+    supervisor.reap_launched_supervisor(process)
+
+    assert process.actions == ["poll", "terminate", ("wait", 15)]
+
+
+def test_harness_readiness_failure_invokes_supervisor_reaper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control, _ = _load_modules()
+    process = object()
+    reaped: list[object] = []
+    authorization = SimpleNamespace(
+        runtime_root=Path("/private/tmp/cybrik-uat-test/runtime"),
+        evidence_root=Path("/private/tmp/cybrik-uat-test/evidence"),
+    )
+    material = SimpleNamespace(binding=_binding(control))
+    monkeypatch.setattr(harness, "_server_environment", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        harness, "_isolated_module_argv", lambda *args: ("/usr/bin/python3",)
+    )
+    monkeypatch.setattr(
+        harness.process_supervisor,
+        "launch_supervisor",
+        lambda **kwargs: process,
+    )
+    monkeypatch.setattr(
+        harness,
+        "_wait_control_ready",
+        lambda *args: (_ for _ in ()).throw(
+            harness.RuntimeAuthorizationError("synthetic readiness timeout")
+        ),
+    )
+    monkeypatch.setattr(
+        harness.process_supervisor,
+        "reap_launched_supervisor",
+        lambda actual: reaped.append(actual),
+    )
+
+    with pytest.raises(harness.RuntimeAuthorizationError):
+        harness._start_supervisor(authorization, object(), material)  # type: ignore[arg-type]
+
+    assert reaped == [process]
+
+
 def test_identical_request_id_is_idempotent_and_payload_drift_is_refused() -> None:
     control, supervisor = _load_modules()
     _, client, factory, _ = _core_and_client(control, supervisor)
@@ -354,3 +401,160 @@ def test_verify_absent_requires_control_root_absence(tmp_path: Path) -> None:
     harness_source = Path(harness.__file__).read_text(encoding="utf-8")
     assert '"control_root_absent"' in harness_source
     assert "process_control.control_root_absent" in harness_source
+
+
+class _HarnessControlClient:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    def stop_all(self, *, request_id: str) -> None:
+        assert request_id
+        self.events.append("stop_all")
+
+    def shutdown(self, *, request_id: str) -> None:
+        assert request_id
+        self.events.append("shutdown")
+
+
+class _HarnessControlStore:
+    def __init__(self, events: list[str], receipt: bytes | None) -> None:
+        self.events = events
+        self.receipt = receipt
+
+    def read_shutdown_receipt(self, _material: object) -> bytes:
+        self.events.append("read_receipt")
+        if self.receipt is None:
+            raise harness.process_control.ProcessControlError("receipt_absent")
+        return self.receipt
+
+    def liveness_released(self, _material: object) -> bool:
+        self.events.append("liveness_released")
+        return True
+
+    def remove_control_root(self, _material: object) -> None:
+        self.events.append("remove_control_root")
+
+
+def test_harness_stop_uses_authenticated_control_before_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    authorization = object()
+    client = _HarnessControlClient(events)
+    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: authorization)
+    monkeypatch.setattr(
+        harness, "assert_product_api_compatibility", lambda actual: None
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization, "verify_consumed", lambda actual: None
+    )
+    monkeypatch.setattr(
+        harness, "_load_control", lambda actual: (object(), object(), client)
+    )
+    monkeypatch.setattr(harness.store, "stop", lambda: events.append("stop_store"))
+
+    harness.stop()
+
+    assert events == ["stop_all", "stop_store"]
+
+
+def test_harness_teardown_deletes_only_after_receipt_and_released_liveness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    runtime_root = tmp_path / "runtime"
+    control_root = tmp_path / "control"
+    runtime_root.mkdir()
+    control_root.mkdir()
+    authorization = object()
+    material = object()
+    receipt = b"signed-shutdown-receipt"
+    control_store = _HarnessControlStore(events, receipt)
+    client = _HarnessControlClient(events)
+    monkeypatch.setattr(
+        harness,
+        "_bounded_external_roots",
+        lambda *, repositories_must_exist: (runtime_root, tmp_path / "evidence"),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda actual: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_load_control",
+        lambda actual: (control_store, material, client),
+    )
+    monkeypatch.setattr(
+        harness.process_control,
+        "verify_shutdown_receipt",
+        lambda actual, expected: (
+            events.append("validate_receipt"),
+            actual is receipt and expected is material,
+        )[1],
+    )
+    monkeypatch.setattr(harness.store, "stop", lambda: events.append("stop_store"))
+    monkeypatch.setattr(
+        harness,
+        "_destroy_runtime_root",
+        lambda actual: events.append("destroy_runtime"),
+    )
+
+    harness.teardown(authorization)  # type: ignore[arg-type]
+
+    assert events == [
+        "stop_all",
+        "shutdown",
+        "read_receipt",
+        "validate_receipt",
+        "liveness_released",
+        "stop_store",
+        "destroy_runtime",
+        "remove_control_root",
+    ]
+
+
+def test_harness_teardown_refuses_deletion_without_shutdown_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    runtime_root = tmp_path / "runtime"
+    control_root = tmp_path / "control"
+    runtime_root.mkdir()
+    control_root.mkdir()
+    control_store = _HarnessControlStore(events, None)
+    monkeypatch.setattr(
+        harness,
+        "_bounded_external_roots",
+        lambda *, repositories_must_exist: (runtime_root, tmp_path / "evidence"),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda actual: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_load_control",
+        lambda actual: (
+            control_store,
+            object(),
+            _HarnessControlClient(events),
+        ),
+    )
+    monkeypatch.setattr(harness.store, "stop", lambda: events.append("stop_store"))
+    monkeypatch.setattr(
+        harness,
+        "_destroy_runtime_root",
+        lambda actual: events.append("destroy_runtime"),
+    )
+
+    with pytest.raises(harness.RuntimeAuthorizationError):
+        harness.teardown(object())  # type: ignore[arg-type]
+
+    assert "stop_store" not in events
+    assert "destroy_runtime" not in events
+    assert "remove_control_root" not in events

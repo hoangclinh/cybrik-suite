@@ -25,9 +25,7 @@ def test_password_bearing_docker_command_uses_one_absolute_executable_across_pat
 
     observed_argv: list[tuple[str, ...]] = []
 
-    def capture_run(
-        argv: tuple[str, ...], **_kwargs: object
-    ) -> SimpleNamespace:
+    def capture_run(argv: tuple[str, ...], **_kwargs: object) -> SimpleNamespace:
         observed_argv.append(argv)
         return SimpleNamespace(returncode=0, stdout="")
 

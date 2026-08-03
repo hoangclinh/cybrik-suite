@@ -27,6 +27,12 @@ POSTGRES_DATABASE: Final = "cybrik_uat_mtls_d2"
 POSTGRES_USER: Final = "postgres"
 RUNTIME_ROLE: Final = "cybrik_ai_api_app"
 RLS_TABLE_COUNT: Final = 5
+DOCKER_EXECUTABLE: Final = (
+    "/Applications/Docker.app/Contents/Resources/bin/docker"
+    if sys.platform == "darwin"
+    else "/usr/bin/docker"
+)
+_DOCKER_CHILD_PATH: Final = os.pathsep.join(("/usr/bin", "/bin"))
 _TENANT_RE: Final = re.compile(r"^[0-9a-f-]{36}$")
 
 
@@ -82,17 +88,25 @@ def _run(
 def _docker_environment(password: str) -> dict[str, str]:
     if len(password) < 32:
         raise PostgresBoundaryError("ephemeral PostgreSQL credential is invalid")
-    environment = dict(os.environ)
-    environment["POSTGRES_PASSWORD"] = password
-    environment["PGPASSWORD"] = password
-    environment["POSTGRES_DB"] = POSTGRES_DATABASE
-    return environment
+    return {
+        "PATH": _DOCKER_CHILD_PATH,
+        "POSTGRES_PASSWORD": password,
+        "PGPASSWORD": password,
+        "POSTGRES_DB": POSTGRES_DATABASE,
+    }
+
+
+def _docker_argv(*arguments: str) -> tuple[str, ...]:
+    executable = Path(DOCKER_EXECUTABLE)
+    if not executable.is_absolute():
+        raise PostgresBoundaryError("Docker executable selection is not authorized")
+    return (str(executable), *arguments)
 
 
 def container_exists() -> bool:
     # `docker container inspect` is deliberately the existence authority.
     result = _run(
-        ("docker", "container", "inspect", CONTAINER_NAME),
+        _docker_argv("container", "inspect", CONTAINER_NAME),
         check=False,
         timeout=15,
     )
@@ -103,7 +117,9 @@ def assert_preflight() -> None:
     if container_exists():
         raise PostgresBoundaryError("bounded PostgreSQL container already exists")
     image = _run(
-        ("docker", "image", "inspect", POSTGRES_IMAGE), check=False, timeout=15
+        _docker_argv("image", "inspect", POSTGRES_IMAGE),
+        check=False,
+        timeout=15,
     )
     if image.returncode != 0:
         raise PostgresBoundaryError("digest-pinned PostgreSQL image is absent")
@@ -115,8 +131,7 @@ def assert_preflight() -> None:
 
 def start(runtime: PostgresRuntime) -> None:
     assert_preflight()
-    argv = (
-        "docker",
+    argv = _docker_argv(
         "run",
         "--pull=never",
         "--name",
@@ -145,8 +160,7 @@ def wait_ready(runtime: PostgresRuntime, *, attempts: int = 60) -> None:
     environment = _docker_environment(runtime.password)
     for _ in range(attempts):
         ready = _run(
-            (
-                "docker",
+            _docker_argv(
                 "exec",
                 "-e",
                 "PGPASSWORD",
@@ -193,8 +207,7 @@ def migrate(runtime: PostgresRuntime, revision: str = "head") -> None:
 
 def _psql(runtime: PostgresRuntime, sql: str, *, timeout: float = 30.0) -> str:
     completed = _run(
-        (
-            "docker",
+        _docker_argv(
             "exec",
             "-e",
             "PGPASSWORD",
@@ -283,7 +296,7 @@ def replay_row_count(runtime: PostgresRuntime, *, tenant_id: str) -> int:
 def stop() -> None:
     if not container_exists():
         return
-    _run(("docker", "rm", "-f", CONTAINER_NAME), check=False, timeout=60)
+    _run(_docker_argv("rm", "-f", CONTAINER_NAME), check=False, timeout=60)
 
 
 def verify_absent() -> bool:

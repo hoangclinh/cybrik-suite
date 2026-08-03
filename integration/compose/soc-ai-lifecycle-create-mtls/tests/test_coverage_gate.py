@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import importlib.util
 import json
 import shutil
 import stat
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,20 @@ CRITICAL = {
     "harness.py": ("_assert_ssl_context_evidence", "teardown", "verify_absent"),
 }
 ARC_FREE_CRITICAL = {"validate_evidence", "verify_absent"}
+CRITICAL_SYMBOLS = tuple(
+    (filename, name) for filename, names in CRITICAL.items() for name in names
+)
+
+# The exact v2 coverage-authorization tuple the runtime admission layer admits.
+SUITE_COMMIT = "c" * 40
+SUITE_TREE = "d" * 40
+COVERAGE_AUTHORIZATION_ID = "d2-coverage-gate-authorization"
+PINNED_PYTHON_SHA256 = "1" * 64
+MEASUREMENT_WRAPPER_SHA256 = "f" * 64
+MEASUREMENT_COMMAND_SHA256 = "3" * 64
+PRODUCER_IDENTITY = "cybrik-d2-coverage-wrapper"
+RECEIPT_POLICY_ID = "cybrik-d2-coverage-receipt/v2"
+RECEIPT_SCHEMA_VERSION = "2.0.0"
 
 
 def _source(function_names: tuple[str, ...]) -> str:
@@ -250,18 +266,128 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
     return suite_root, report_path, report
 
 
-def _run(suite_root: Path, report_path: Path) -> subprocess.CompletedProcess[str]:
+def canonical_bytes(value: Mapping[str, object]) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def sha256_hex(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def coverage_authorization() -> dict[str, object]:
+    """The canonical coverage authorization the signed grant would pin."""
+
+    return {
+        "authorization_id": COVERAGE_AUTHORIZATION_ID,
+        "measurement_command_sha256": MEASUREMENT_COMMAND_SHA256,
+        "measurement_wrapper_sha256": MEASUREMENT_WRAPPER_SHA256,
+        "pinned_python_sha256": PINNED_PYTHON_SHA256,
+        "receipt_policy_id": RECEIPT_POLICY_ID,
+        "suite_commit": SUITE_COMMIT,
+        "suite_tree": SUITE_TREE,
+    }
+
+
+def measurement_receipt(
+    report_path: Path, authorization_sha256: str
+) -> dict[str, object]:
+    """The exact schema 2.0.0 receipt key set the admission layer accepts."""
+
+    return {
+        "artifacts": {
+            "coverage_data_sha256": "6" * 64,
+            "coverage_json_sha256": sha256_hex(report_path.read_bytes()),
+        },
+        "authorization": {
+            "id": COVERAGE_AUTHORIZATION_ID,
+            "sha256": authorization_sha256,
+        },
+        "execution_boundary": {"network_calls": [], "runtime_executed": False},
+        "producer": {
+            "executable_sha256": PINNED_PYTHON_SHA256,
+            "identity": PRODUCER_IDENTITY,
+            "wrapper_sha256": MEASUREMENT_WRAPPER_SHA256,
+        },
+        "receipt_id": "d2-coverage-receipt-test-0001",
+        "run": {
+            "command_sha256": MEASUREMENT_COMMAND_SHA256,
+            "id": "d2-coverage-test-run-0001",
+            "nonce": "2" * 64,
+        },
+        "schema_version": RECEIPT_SCHEMA_VERSION,
+        "source": {"suite_commit": SUITE_COMMIT, "suite_tree": SUITE_TREE},
+    }
+
+
+def write_artifact(path: Path, record: Mapping[str, object]) -> str:
+    payload = canonical_bytes(record)
+    path.write_bytes(payload)
+    return sha256_hex(payload)
+
+
+def write_coverage_authorization(
+    report_path: Path, record: Mapping[str, object] | None = None
+) -> tuple[Path, str]:
+    path = report_path.with_name("coverage-authorization.json")
+    return path, write_artifact(
+        path, coverage_authorization() if record is None else record
+    )
+
+
+def write_measurement_receipt(
+    report_path: Path,
+    authorization_sha256: str,
+    record: Mapping[str, object] | None = None,
+) -> tuple[Path, str]:
+    path = report_path.with_name("measurement-receipt.json")
+    return path, write_artifact(
+        path,
+        measurement_receipt(report_path, authorization_sha256)
+        if record is None
+        else record,
+    )
+
+
+def gate_command(
+    suite_root: Path,
+    report_path: Path,
+    *,
+    authorization_path: Path | None,
+    authorization_sha256: str | None,
+    receipt_path: Path | None,
+    receipt_sha256: str | None,
+) -> tuple[str, ...]:
+    """Build the verifier argv, omitting any binding the caller withholds."""
+
+    argv = [
+        sys.executable,
+        str(VERIFY),
+        "--suite-root",
+        str(suite_root),
+        "--coverage-json",
+        str(report_path),
+    ]
+    if authorization_path is not None and authorization_sha256 is not None:
+        argv += [
+            "--coverage-authorization",
+            str(authorization_path),
+            "--coverage-authorization-sha256",
+            authorization_sha256,
+        ]
+    if receipt_path is not None and receipt_sha256 is not None:
+        argv += [
+            "--measurement-receipt",
+            str(receipt_path),
+            "--measurement-receipt-sha256",
+            receipt_sha256,
+        ]
+    argv += ["--result-json", str(report_path.with_name("coverage-gate.json"))]
+    return tuple(argv)
+
+
+def invoke_gate(argv: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        (
-            sys.executable,
-            str(VERIFY),
-            "--suite-root",
-            str(suite_root),
-            "--coverage-json",
-            str(report_path),
-            "--result-json",
-            str(report_path.with_name("coverage-gate.json")),
-        ),
+        argv,
         check=False,
         capture_output=True,
         text=True,
@@ -270,12 +396,29 @@ def _run(suite_root: Path, report_path: Path) -> subprocess.CompletedProcess[str
     )
 
 
+def _run(suite_root: Path, report_path: Path) -> subprocess.CompletedProcess[str]:
+    authorization_path, authorization_sha256 = write_coverage_authorization(report_path)
+    receipt_path, receipt_sha256 = write_measurement_receipt(
+        report_path, authorization_sha256
+    )
+    return invoke_gate(
+        gate_command(
+            suite_root,
+            report_path,
+            authorization_path=authorization_path,
+            authorization_sha256=authorization_sha256,
+            receipt_path=receipt_path,
+            receipt_sha256=receipt_sha256,
+        )
+    )
+
+
 def _rewrite(report_path: Path, report: dict[str, object]) -> None:
     _sync_report(report)
     report_path.write_text(json.dumps(report), encoding="utf-8")
 
 
-def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
+def test_exact_format_three_report_passes_with_admission_compatible_result_keys(
     tmp_path: Path,
 ) -> None:
     suite_root, report_path, _ = _fixture(tmp_path)
@@ -287,38 +430,54 @@ def test_exact_format_three_report_passes_with_separate_line_and_branch_results(
     result_path = report_path.with_name("coverage-gate.json")
     assert json.loads(result_path.read_text(encoding="utf-8")) == result
     assert stat.S_IMODE(result_path.stat().st_mode) == 0o600
+    assert set(result) == {"binding", "branch", "line", "status"}
     assert result["status"] == "PASS"
     assert result["line"] == {"covered": 68, "ratio": 1.0, "total": 68}
     assert result["branch"] == {"covered": 12, "ratio": 1.0, "total": 12}
-    assert [row["symbol"] for row in result["critical"]] == [
-        "server.build_patched_ssl_context",
-        "policy.parse_loopback_bind",
-        "policy.validate_proposed_bind",
-        "evidence.secret_reason",
-        "evidence.validate_evidence",
-        "harness._assert_ssl_context_evidence",
-        "harness.teardown",
-        "harness.verify_absent",
-    ]
-    assert all(row["line_ratio"] == 1.0 for row in result["critical"])
-    critical = {row["symbol"]: row for row in result["critical"]}
-    assert critical["evidence.validate_evidence"]["branch"] == {
-        "covered": 0,
-        "requirement": "not-applicable-no-static-branch",
-        "ratio": None,
-        "total": 0,
-    }
-    assert critical["harness.verify_absent"]["branch"] == {
-        "covered": 0,
-        "requirement": "not-applicable-no-static-branch",
-        "ratio": None,
-        "total": 0,
-    }
-    assert all(
-        row["branch"]["ratio"] == 1.0
-        for symbol, row in critical.items()
-        if symbol not in {"evidence.validate_evidence", "harness.verify_absent"}
+    authorization_sha256 = sha256_hex(canonical_bytes(coverage_authorization()))
+    receipt_sha256 = sha256_hex(
+        canonical_bytes(measurement_receipt(report_path, authorization_sha256))
     )
+    assert result["binding"] == {
+        "coverage_authorization_sha256": authorization_sha256,
+        "measurement_receipt_sha256": receipt_sha256,
+        "suite_commit": SUITE_COMMIT,
+        "suite_tree": SUITE_TREE,
+    }
+
+
+def test_published_result_bytes_are_canonical_and_free_of_local_paths(
+    tmp_path: Path,
+) -> None:
+    suite_root, report_path, _ = _fixture(tmp_path)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 0, completed.stderr
+    published = report_path.with_name("coverage-gate.json").read_bytes()
+    assert published == canonical_bytes(json.loads(published.decode("utf-8")))
+    assert str(tmp_path).encode("utf-8") not in published
+
+
+@pytest.mark.parametrize(("filename", "symbol"), CRITICAL_SYMBOLS)
+def test_every_critical_symbol_region_is_still_required(
+    tmp_path: Path, filename: str, symbol: str
+) -> None:
+    """The result no longer enumerates the symbols, so each must still be enforced."""
+
+    suite_root, report_path, report = _fixture(tmp_path)
+    key = (PACKAGE_REL / filename).as_posix()
+    file_report = report["files"][key]
+    assert isinstance(file_report, dict)
+    functions = file_report["functions"]
+    assert isinstance(functions, dict)
+    functions.pop(symbol)
+    _rewrite(report_path, report)
+
+    completed = _run(suite_root, report_path)
+
+    assert completed.returncode == 2
+    assert completed.stderr.strip() == "critical_region_missing"
 
 
 @pytest.mark.parametrize(

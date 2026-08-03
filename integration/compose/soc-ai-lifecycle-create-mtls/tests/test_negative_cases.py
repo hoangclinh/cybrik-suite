@@ -16,7 +16,6 @@ from types import SimpleNamespace
 from typing import Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import client, evidence, harness, procedure, store
 
 _CLIENT = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls/client.py"
@@ -780,7 +779,11 @@ def test_postgres_start_uses_digest_pinned_argv_and_rolls_back_readiness_failure
     )
     monkeypatch.setattr(store, "wait_ready", lambda _: None)
     store.start(runtime)
-    assert calls[0][0][0:3] == ("docker", "run", "--pull=never")
+    assert calls[0][0][0:3] == (
+        store.DOCKER_EXECUTABLE,
+        "run",
+        "--pull=never",
+    )
     assert calls[0][0][-1] == store.POSTGRES_IMAGE
     assert runtime.password not in calls[0][0]
 
@@ -952,7 +955,12 @@ def test_stop_and_verify_absent_are_fully_stubbed(
 
     monkeypatch.setattr(store, "container_exists", lambda: True)
     store.stop()
-    assert calls[0][0][0] == ("docker", "rm", "-f", store.CONTAINER_NAME)
+    assert calls[0][0][0] == (
+        store.DOCKER_EXECUTABLE,
+        "rm",
+        "-f",
+        store.CONTAINER_NAME,
+    )
     assert store.verify_absent() is False
 
     monkeypatch.setattr(store, "container_exists", lambda: False)

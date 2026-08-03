@@ -89,6 +89,10 @@ class _FakeFileSystem:
         self.events.append(("stat_handle", handle))
         return self.root_identity
 
+    def stat_directory(self, path: Path, *, nofollow: bool) -> _Identity:
+        self.events.append(("stat_directory", path, nofollow))
+        return self.root_identity
+
     def create_at(
         self,
         handle: object,
@@ -163,6 +167,15 @@ class _FakeFileSystem:
     def chmod_socket(self, path: Path, mode: int) -> None:
         self.events.append(("chmod_socket", path, mode))
 
+    def unlink_socket(
+        self,
+        path: Path,
+        *,
+        owner_uid: int,
+        expected_identity: _Identity,
+    ) -> None:
+        self.events.append(("unlink_socket", path, owner_uid, expected_identity))
+
 
 class _FakeConnectedSocket:
     def __init__(self, incoming: bytes = b"") -> None:
@@ -185,6 +198,7 @@ class _FakeListener:
     def __init__(self, connection: _FakeConnectedSocket) -> None:
         self.connection = connection
         self.bound_to: str | None = None
+        self.closed = False
 
     def bind(self, path: str) -> None:
         self.bound_to = path
@@ -194,6 +208,9 @@ class _FakeListener:
 
     def accept(self) -> tuple[_FakeConnectedSocket, str]:
         return self.connection, ""
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class _SocketFactory:
@@ -260,9 +277,9 @@ def test_transport_modules_import_without_runtime_io(
     _modules()
 
 
-def test_control_paths_are_deterministic_bounded_and_disjoint(tmp_path: Path) -> None:
+def test_control_paths_are_deterministic_bounded_and_disjoint() -> None:
     control, _ = _modules()
-    runtime_root = tmp_path / "cybrik-uat-d2-runtime-transport"
+    runtime_root = Path("/private/tmp/cybrik-uat-test/cybrik-uat-d2-runtime")
 
     first = control.derive_control_paths(runtime_root, _AUTHORIZATION_SHA256)
     second = control.derive_control_paths(runtime_root, _AUTHORIZATION_SHA256)
@@ -299,7 +316,6 @@ def test_socket_path_overflow_fails_before_any_filesystem_mutation() -> None:
     ),
 )
 def test_control_root_identity_is_descriptor_bound_before_leaf_creation(
-    tmp_path: Path,
     owner_uid: int,
     root_mode: int,
     reason: str,
@@ -307,7 +323,7 @@ def test_control_root_identity_is_descriptor_bound_before_leaf_creation(
     control, _ = _modules()
     filesystem = _FakeFileSystem(owner_uid=owner_uid, root_mode=root_mode)
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-root-check", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/root-check"), _AUTHORIZATION_SHA256
     )
 
     with pytest.raises(control.ProcessControlError) as caught:
@@ -325,11 +341,11 @@ def test_control_root_identity_is_descriptor_bound_before_leaf_creation(
     assert filesystem.events[0][2:] == (0o700, True, True)
 
 
-def test_capability_is_exact_exclusive_and_stably_read(tmp_path: Path) -> None:
+def test_capability_is_exact_exclusive_and_stably_read() -> None:
     control, _ = _modules()
     filesystem = _FakeFileSystem()
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-capability", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/capability"), _AUTHORIZATION_SHA256
     )
     counts: list[int] = []
 
@@ -364,13 +380,11 @@ def test_capability_is_exact_exclusive_and_stably_read(tmp_path: Path) -> None:
     assert replaced.value.reason == "control_leaf_replaced"
 
 
-def test_persisted_binding_is_canonical_hmac_and_root_identity_bound(
-    tmp_path: Path,
-) -> None:
+def test_persisted_binding_is_canonical_hmac_and_root_identity_bound() -> None:
     control, _ = _modules()
     filesystem = _FakeFileSystem()
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-binding", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/binding"), _AUTHORIZATION_SHA256
     )
     binding = _binding(control)
     store = control.ControlStore(filesystem=filesystem)
@@ -391,6 +405,8 @@ def test_persisted_binding_is_canonical_hmac_and_root_identity_bound(
         "owner_uid": _OWNER_UID,
         "root_device": filesystem.root_identity.device,
         "root_inode": filesystem.root_identity.inode,
+        "root_mode": filesystem.root_identity.mode,
+        "root_owner_uid": filesystem.root_identity.owner_uid,
         "run_id": _RUN_ID,
         "version": control.BINDING_RECORD_VERSION,
     }
@@ -412,13 +428,11 @@ def test_persisted_binding_is_canonical_hmac_and_root_identity_bound(
         )
 
 
-def test_unix_transport_verifies_peer_binding_and_response_hmac(
-    tmp_path: Path,
-) -> None:
+def test_unix_transport_verifies_peer_binding_and_response_hmac() -> None:
     control, _ = _modules()
     binding = _binding(control)
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-transport", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/transport"), _AUTHORIZATION_SHA256
     )
     request = control.encode_request(
         binding=binding,
@@ -442,12 +456,14 @@ def test_unix_transport_verifies_peer_binding_and_response_hmac(
         binding=binding,
         capability=_CAPABILITY,
         filesystem=filesystem,
+        expected_root_identity=filesystem.root_identity,
         socket_factory=factory,
         peer_euid_reader=lambda _socket: _OWNER_UID,
     )
 
     assert transport.exchange(request) == response
     assert connection.sent == control.encode_wire_frame(request)
+    assert [event[0] for event in filesystem.events].count("stat_directory") == 2
 
     bad_peer = control.UnixControlTransport(
         paths=paths,
@@ -476,13 +492,11 @@ def test_unix_transport_verifies_peer_binding_and_response_hmac(
     assert hmac_error.value.reason == "frame_authentication_failed"
 
 
-def test_socket_path_swap_is_rejected_even_with_a_parseable_response(
-    tmp_path: Path,
-) -> None:
+def test_socket_path_swap_is_rejected_even_with_a_parseable_response() -> None:
     control, _ = _modules()
     binding = _binding(control)
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-swap", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/swap"), _AUTHORIZATION_SHA256
     )
     response = control.encode_response(
         binding=binding,
@@ -519,13 +533,62 @@ def test_socket_path_swap_is_rejected_even_with_a_parseable_response(
     assert caught.value.reason == "control_socket_replaced"
 
 
-def test_supervisor_daemon_uses_only_bounded_mode_0600_unix_transport(
-    tmp_path: Path,
-) -> None:
+def test_control_root_swap_is_rejected_across_socket_connect() -> None:
+    control, _ = _modules()
+    binding = _binding(control)
+    paths = control.derive_control_paths(
+        Path("/private/tmp/cybrik-uat-test/root-swap"), _AUTHORIZATION_SHA256
+    )
+    response = control.encode_response(
+        binding=binding,
+        capability=_CAPABILITY,
+        request_id="root-swap-1",
+        action="stop_all",
+        result={},
+    )
+
+    class SwappedRootFileSystem(_FakeFileSystem):
+        def __init__(self) -> None:
+            super().__init__()
+            self.observed_roots = [
+                self.root_identity,
+                _Identity(7, 99, _OWNER_UID, stat.S_IFDIR | 0o700),
+            ]
+
+        def stat_directory(self, path: Path, *, nofollow: bool) -> _Identity:
+            self.events.append(("stat_directory", path, nofollow))
+            return self.observed_roots.pop(0)
+
+    filesystem = SwappedRootFileSystem()
+    transport = control.UnixControlTransport(
+        paths=paths,
+        binding=binding,
+        capability=_CAPABILITY,
+        filesystem=filesystem,
+        expected_root_identity=filesystem.root_identity,
+        socket_factory=_SocketFactory(
+            _FakeConnectedSocket(control.encode_wire_frame(response))
+        ),
+        peer_euid_reader=lambda _socket: _OWNER_UID,
+    )
+    request = control.encode_request(
+        binding=binding,
+        capability=_CAPABILITY,
+        request_id="root-swap-1",
+        action="stop_all",
+        parameters={},
+    )
+
+    with pytest.raises(control.ProcessControlError) as caught:
+        transport.exchange(request)
+    assert caught.value.reason == "control_root_replaced"
+
+
+def test_supervisor_daemon_uses_only_bounded_mode_0600_unix_transport() -> None:
     control, supervisor = _modules()
     binding = _binding(control)
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-daemon", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/daemon"), _AUTHORIZATION_SHA256
     )
     request = control.encode_request(
         binding=binding,
@@ -585,13 +648,52 @@ def test_supervisor_daemon_uses_only_bounded_mode_0600_unix_transport(
     assert bounded_core.calls == []
 
 
-def test_ready_and_shutdown_receipts_are_hmac_bound_and_durable(
-    tmp_path: Path,
-) -> None:
+def test_ready_receipt_failure_closes_and_unlinks_bound_socket() -> None:
+    control, supervisor = _modules()
+    binding = _binding(control)
+    paths = control.derive_control_paths(
+        Path("/private/tmp/cybrik-uat-test/ready-failure"),
+        _AUTHORIZATION_SHA256,
+    )
+    listener = _FakeListener(_FakeConnectedSocket(b""))
+    filesystem = _FakeFileSystem()
+    daemon = supervisor.SupervisorDaemon(
+        core=_FakeCore(b"unused"),
+        binding=binding,
+        capability=_CAPABILITY,
+        paths=paths,
+        filesystem=filesystem,
+        socket_factory=_SocketFactory(listener),
+        peer_euid_reader=lambda _socket: _OWNER_UID,
+        ready_writer=lambda _record: (_ for _ in ()).throw(
+            control.ProcessControlError("synthetic_ready_failure")
+        ),
+    )
+
+    with pytest.raises(control.ProcessControlError) as caught:
+        daemon.bind_and_mark_ready()
+
+    assert caught.value.reason == "synthetic_ready_failure"
+    assert listener.closed is True
+    socket_identity = filesystem.socket_identities[0]
+    assert (
+        "unlink_socket",
+        paths.socket,
+        _OWNER_UID,
+        control.RootIdentity(
+            device=socket_identity.device,
+            inode=socket_identity.inode,
+            owner_uid=socket_identity.owner_uid,
+            mode=socket_identity.mode,
+        ),
+    ) in filesystem.events
+
+
+def test_ready_and_shutdown_receipts_are_hmac_bound_and_durable() -> None:
     control, _ = _modules()
     filesystem = _FakeFileSystem()
     paths = control.derive_control_paths(
-        tmp_path / "cybrik-uat-d2-runtime-receipts", _AUTHORIZATION_SHA256
+        Path("/private/tmp/cybrik-uat-test/receipts"), _AUTHORIZATION_SHA256
     )
     store = control.ControlStore(filesystem=filesystem)
     material = store.create(
@@ -616,6 +718,36 @@ def test_ready_and_shutdown_receipts_are_hmac_bound_and_durable(
     ]
     assert len(durable_writes) == 2 and all(
         event[4:] == (True, True, True) for event in durable_writes
+    )
+
+
+def test_receipt_write_revalidates_full_control_root_identity() -> None:
+    control, _ = _modules()
+    filesystem = _FakeFileSystem()
+    paths = control.derive_control_paths(
+        Path("/private/tmp/cybrik-uat-test/receipt-root-drift"),
+        _AUTHORIZATION_SHA256,
+    )
+    store = control.ControlStore(filesystem=filesystem)
+    material = store.create(
+        paths=paths,
+        binding=_binding(control),
+        random_bytes=lambda _count: _CAPABILITY,
+    )
+    filesystem.root_identity = _Identity(
+        material.root_identity.device,
+        material.root_identity.inode,
+        material.root_identity.owner_uid,
+        stat.S_IFDIR | 0o750,
+    )
+
+    with pytest.raises(control.ProcessControlError) as caught:
+        store.write_ready_receipt(material)
+
+    assert caught.value.reason == "control_root_mode_mismatch"
+    assert not any(
+        event[:2] == ("write_atomic_at", paths.ready.name)
+        for event in filesystem.events
     )
 
 

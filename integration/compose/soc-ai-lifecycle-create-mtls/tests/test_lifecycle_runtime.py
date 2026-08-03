@@ -12,6 +12,7 @@ import json
 import os
 import re
 import ssl
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -156,7 +157,8 @@ def test_runtime_children_use_the_same_isolated_confined_bootstrap() -> None:
         assert flag in bootstrap
 
     for child, module in (
-        ("_spawn_server", "cybrik_suite_uat_mtls.server"),
+        ("_supervisor_argv", "cybrik_suite_uat_mtls.process_supervisor"),
+        ("_start_supervisor", "cybrik_suite_uat_mtls.server"),
         ("_run_case", "cybrik_suite_uat_mtls.client"),
     ):
         body = ast.unparse(functions[child])
@@ -177,6 +179,8 @@ def test_successful_runtime_attempt_freezes_file_backed_terminal_handoff_last() 
     assert (
         "consumed_marker = runtime_authorization.verify_consumed(authorization)" in body
     )
+    assert "_load_control(authorization)" in body
+    assert "control_client.start_server(" in body
     assert "terminal_integration.prepare_terminal_handoff(" in body
     assert "secret_inventory=" in body
     assert "public_pki_paths=" in body
@@ -185,7 +189,7 @@ def test_successful_runtime_attempt_freezes_file_backed_terminal_handoff_last() 
         "terminal_integration.prepare_terminal_handoff("
     )
     prepare_index = body.index("terminal_integration.prepare_terminal_handoff(")
-    assert body.rfind("_stop_process(", 0, prepare_index) > 0
+    assert body.rfind("control_client.stop_server(", 0, prepare_index) > 0
 
 
 def test_terminal_postgresql_claims_come_from_exact_live_queries(
@@ -686,10 +690,86 @@ def test_assert_runtime_authorized_wraps_a_stable_fail_closed_reason(
         harness.assert_runtime_authorized()
 
 
+_AUTHORIZATION_SHA256 = "a" * 64
+
+
+def _signed_identity(path: Path) -> runtime_auth.DirectoryIdentity:
+    observed = path.stat(follow_symlinks=False)
+    return runtime_auth.DirectoryIdentity(
+        mode=f"{stat.S_IMODE(observed.st_mode):04o}",
+        st_dev=observed.st_dev,
+        st_ino=observed.st_ino,
+        uid=observed.st_uid,
+    )
+
+
+def _signed_binding(
+    role: str, path: Path, inventory: tuple[str, ...] = ()
+) -> runtime_auth.RootBinding:
+    return runtime_auth.RootBinding(
+        role=role,
+        path=path,
+        identity=_signed_identity(path),
+        inventory=inventory,
+    )
+
+
+def _prepare_signed_roots(
+    runtime_root: Path, evidence_root: Path
+) -> runtime_auth.PreparedRoots:
+    """Prepare the three signed roots exactly as the receipt declares them.
+
+    This is what the signed preparation step leaves behind before any harness
+    step runs: three real mode-0700 directories where the runtime root holds
+    only ``pki`` and both the PKI and evidence roots are empty.
+    """
+
+    pki_root = runtime_root / runtime_auth.PREPARED_PKI_LEAF
+    pki_root.mkdir(mode=0o700, parents=True)
+    runtime_root.chmod(0o700)
+    evidence_root.mkdir(mode=0o700)
+    return runtime_auth.PreparedRoots(
+        receipt_sha256="7" * 64,
+        evidence=_signed_binding("evidence", evidence_root),
+        pki=_signed_binding("pki", pki_root),
+        runtime=_signed_binding(
+            "runtime", runtime_root, (runtime_auth.PREPARED_PKI_LEAF,)
+        ),
+    )
+
+
 def _stub_authorization(tmp_path: Path) -> SimpleNamespace:
     runtime_root = tmp_path / "cybrik-uat-d2-runtime-step"
     evidence_root = tmp_path / "cybrik-uat-d2-evidence-step"
-    return SimpleNamespace(runtime_root=runtime_root, evidence_root=evidence_root)
+    return SimpleNamespace(
+        authorization_id="d2-runtime-auth-step",
+        authorization_sha256=_AUTHORIZATION_SHA256,
+        runtime_root=runtime_root,
+        evidence_root=evidence_root,
+        prepared_roots=_prepare_signed_roots(runtime_root, evidence_root),
+    )
+
+
+class _RecordingControlStore:
+    """Records control-material creation without touching the filesystem."""
+
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+        self.created: list[dict[str, object]] = []
+        self.material = object()
+
+    def create(
+        self,
+        *,
+        paths: object,
+        binding: object,
+        random_bytes: object,
+    ) -> object:
+        self.events.append("create_control_material")
+        self.created.append(
+            {"paths": paths, "binding": binding, "random_bytes": random_bytes}
+        )
+        return self.material
 
 
 def _bind_step_environment(
@@ -702,29 +782,720 @@ def _bind_step_environment(
     return stub
 
 
-def test_start_consumes_the_one_shot_authorization_before_creating_runtime_state(
+def test_control_paths_bind_the_exact_authorization_digest_under_the_runtime_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Path derivation is pure and pinned to the admitted digest, not a PID."""
+
+    authorization = SimpleNamespace(
+        authorization_id="d2-runtime-auth-paths",
+        authorization_sha256=_AUTHORIZATION_SHA256,
+        runtime_root=Path("/opt/cybrik-uat-d2-runtime-paths"),
+    )
+
+    paths = harness._control_paths(authorization)  # type: ignore[arg-type]
+
+    assert paths.root == Path(f"/opt/cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}")
+    assert paths.socket == paths.root / "s"
+    for leaf in (
+        paths.capability,
+        paths.binding,
+        paths.ready,
+        paths.liveness_lock,
+        paths.shutdown_receipt,
+    ):
+        assert leaf.parent == paths.root
+
+    binding = harness._control_binding(authorization)  # type: ignore[arg-type]
+    assert binding.authorization_sha256 == _AUTHORIZATION_SHA256
+    assert binding.generation == 1
+    assert binding.owner_uid == os.geteuid()
+    assert re.fullmatch(r"[0-9a-f]{32}", binding.run_id)
+
+
+def test_start_consumes_the_one_shot_authorization_only_after_supervisor_readiness(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     stub = _bind_step_environment(tmp_path, monkeypatch)
+    events: list[str] = []
     consumed: list[object] = []
+    control_root = tmp_path / f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    control_store = _RecordingControlStore(events)
+    supervised: list[tuple[object, object, object]] = []
     monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda authorization: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness.process_control, "PosixFileSystemAdapter", lambda: object()
+    )
+    monkeypatch.setattr(
+        harness.process_control,
+        "ControlStore",
+        lambda *, filesystem: control_store,
+    )
     monkeypatch.setattr(
         harness.runtime_authorization,
         "consume_once",
         lambda authorization: (
+            events.append("consume_once"),
             consumed.append(authorization),
-            authorization.evidence_root.mkdir(mode=0o700),
             {"status": "consumed"},
         )[-1],
     )
-    monkeypatch.setattr(harness.store, "start", lambda runtime: None)
+    monkeypatch.setattr(
+        harness.store, "start", lambda runtime: events.append("store_start")
+    )
     monkeypatch.setattr(harness, "_postgres_runtime", lambda root: object())
+    monkeypatch.setattr(
+        harness,
+        "_start_supervisor",
+        lambda authorization, store, material: (
+            events.append("start_supervisor"),
+            supervised.append((authorization, store, material)),
+        )[0],
+    )
 
     harness.start()
 
     assert consumed == [stub]
+    assert events == [
+        "create_control_material",
+        "store_start",
+        "start_supervisor",
+        "consume_once",
+    ]
     assert (stub.runtime_root / "postgres-password").is_file()
     assert stub.evidence_root.is_dir()
+    created = control_store.created[0]
+    assert created["paths"].root == control_root  # type: ignore[union-attr]
+    assert created["binding"] == harness._control_binding(stub)  # type: ignore[arg-type]
+    assert created["random_bytes"] is harness.secrets.token_bytes
+    assert supervised == [(stub, control_store, control_store.material)]
+
+
+def test_start_supervisor_preserves_signed_evidence_inventory_until_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real launcher open must not create evidence before one-shot consume."""
+
+    authorization = _bind_step_environment(tmp_path, monkeypatch)
+    events: list[str] = []
+    control_root = tmp_path / f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    control_store = _RecordingControlStore(events)
+    control_store.material = SimpleNamespace(binding=object())
+    launched: list[dict[str, object]] = []
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda actual: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness.process_control, "PosixFileSystemAdapter", lambda: object()
+    )
+    monkeypatch.setattr(
+        harness.process_control,
+        "ControlStore",
+        lambda *, filesystem: control_store,
+    )
+    monkeypatch.setattr(harness.store, "start", lambda runtime: events.append("store"))
+    monkeypatch.setattr(harness, "_postgres_runtime", lambda root: object())
+    monkeypatch.setattr(harness, "_server_environment", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        harness,
+        "_isolated_module_argv",
+        lambda *args: ("/synthetic/python", "-m", "synthetic.server"),
+    )
+    monkeypatch.setattr(
+        harness, "_supervisor_argv", lambda *args: ("/synthetic/supervisor",)
+    )
+    monkeypatch.setattr(harness, "_wait_control_ready", lambda *args: None)
+
+    def launch_supervisor(**kwargs: object) -> object:
+        launched.append(dict(kwargs))
+        Path(kwargs["log_path"]).open("a", encoding="utf-8").close()  # type: ignore[arg-type]
+        return SimpleNamespace(poll=lambda: None)
+
+    monkeypatch.setattr(
+        harness.process_supervisor, "launch_supervisor", launch_supervisor
+    )
+    monkeypatch.setattr(
+        runtime_auth,
+        "_marker_record",
+        lambda actual, identity: {
+            "authorization_id": actual.authorization_id,
+            "status": "consumed",
+        },
+    )
+
+    harness.start()
+
+    assert len(launched) == 1
+    launch = launched[0]
+    assert launch["log_path"] == Path(os.devnull)
+    environment = launch["environment"]
+    assert isinstance(environment, dict)
+    assert environment[harness.process_supervisor.SERVER_LOG_ENV] == str(
+        authorization.evidence_root / "ai-server.log"
+    )
+    assert tuple(path.name for path in authorization.evidence_root.iterdir()) == (
+        runtime_auth.CONSUMPTION_MARKER,
+    )
+
+
+class _BootstrapControlStore(_RecordingControlStore):
+    """Filesystem-backed synthetic control material for bootstrap cleanup tests."""
+
+    def __init__(self, events: list[str], control_root: Path) -> None:
+        super().__init__(events)
+        self.control_root = control_root
+        self.receipt = b"synthetic-shutdown-receipt"
+
+    def create(
+        self,
+        *,
+        paths: object,
+        binding: object,
+        random_bytes: object,
+    ) -> object:
+        material = super().create(
+            paths=paths,
+            binding=binding,
+            random_bytes=random_bytes,
+        )
+        self.control_root.mkdir(mode=0o700)
+        (self.control_root / "binding.json").write_text("synthetic", encoding="ascii")
+        return material
+
+    def read_shutdown_receipt(self, material: object) -> bytes:
+        assert material is self.material
+        self.events.append("read_shutdown_receipt")
+        return self.receipt
+
+    def liveness_released(self, material: object) -> bool:
+        assert material is self.material
+        self.events.append("liveness_released")
+        return True
+
+    def remove_control_root(self, material: object) -> None:
+        assert material is self.material
+        self.events.append("remove_control_root")
+        for leaf in self.control_root.iterdir():
+            leaf.unlink()
+        self.control_root.rmdir()
+
+
+class _BootstrapControlClient:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    def stop_all(self, *, request_id: str) -> None:
+        assert request_id == harness.process_control.TEARDOWN_STOP_ALL_REQUEST_ID
+        self.events.append("stop_all")
+
+    def shutdown(self, *, request_id: str) -> None:
+        assert request_id == harness.process_control.TEARDOWN_SHUTDOWN_REQUEST_ID
+        self.events.append("shutdown")
+
+
+def _bind_bootstrap_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[SimpleNamespace, Path, _BootstrapControlStore, list[str]]:
+    authorization = _bind_step_environment(tmp_path, monkeypatch)
+    events: list[str] = []
+    control_root = tmp_path / f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    control_store = _BootstrapControlStore(events, control_root)
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda actual: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization, "consume_once", lambda actual: None
+    )
+    monkeypatch.setattr(
+        harness.process_control, "PosixFileSystemAdapter", lambda: object()
+    )
+    monkeypatch.setattr(
+        harness.process_control,
+        "ControlStore",
+        lambda *, filesystem: control_store,
+    )
+    monkeypatch.setattr(harness, "_postgres_runtime", lambda root: object())
+    return authorization, control_root, control_store, events
+
+
+def test_start_failure_before_readiness_restores_signed_prepared_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pre-ready failure consumes nothing and removes only this bootstrap's leaves."""
+
+    authorization, control_root, control_store, events = _bind_bootstrap_store(
+        tmp_path, monkeypatch
+    )
+    outside_sentinel = tmp_path / "preserve-sibling.txt"
+    outside_sentinel.write_text("preserve", encoding="ascii")
+    consumed: list[object] = []
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "consume_once",
+        lambda actual: consumed.append(actual),
+    )
+    monkeypatch.setattr(
+        harness.store,
+        "start",
+        lambda runtime: events.append("store_start"),
+    )
+    monkeypatch.setattr(
+        harness.store,
+        "stop",
+        lambda: events.append("store_stop"),
+    )
+
+    def refuse_readiness(*args: object) -> None:
+        events.append("start_supervisor")
+        raise harness.RuntimeAuthorizationError("synthetic readiness refusal")
+
+    monkeypatch.setattr(harness, "_start_supervisor", refuse_readiness)
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError, match="synthetic readiness refusal"
+    ):
+        harness.start()
+
+    assert consumed == []
+    assert events == [
+        "create_control_material",
+        "store_start",
+        "start_supervisor",
+        "store_stop",
+        "remove_control_root",
+    ]
+    assert not control_root.exists()
+    assert tuple(path.name for path in authorization.runtime_root.iterdir()) == (
+        runtime_auth.PREPARED_PKI_LEAF,
+    )
+    assert tuple(authorization.evidence_root.iterdir()) == ()
+    assert outside_sentinel.read_text(encoding="ascii") == "preserve"
+    assert control_store.material is not None
+
+
+def test_start_failure_before_store_start_does_not_stop_the_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, control_root, control_store, events = _bind_bootstrap_store(
+        tmp_path, monkeypatch
+    )
+    del authorization
+    monkeypatch.setattr(
+        harness.store,
+        "start",
+        lambda runtime: (_ for _ in ()).throw(
+            harness.RuntimeAuthorizationError("synthetic store refusal")
+        ),
+    )
+    monkeypatch.setattr(
+        harness.store,
+        "stop",
+        lambda: events.append("store_stop"),
+    )
+    consumed: list[object] = []
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "consume_once",
+        lambda actual: consumed.append(actual),
+    )
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError, match="synthetic store refusal"
+    ):
+        harness.start()
+
+    assert "store_stop" not in events
+    assert consumed == []
+    assert not control_root.exists()
+    assert control_store.material is not None
+
+
+def test_unready_cleanup_preserves_control_authority_when_password_removal_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A credential cleanup refusal keeps control material for safe recovery."""
+
+    authorization, control_root, control_store, events = _bind_bootstrap_store(
+        tmp_path, monkeypatch
+    )
+    control_root.mkdir(mode=0o700)
+    password = harness._create_password(authorization.runtime_root)
+    monkeypatch.setattr(
+        harness,
+        "_remove_created_password",
+        lambda created: (_ for _ in ()).throw(
+            harness.RuntimeAuthorizationError("synthetic password cleanup refusal")
+        ),
+    )
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="D2 bootstrap cleanup did not restore the prepared roots",
+    ) as caught:
+        harness._cleanup_unready_bootstrap(
+            authorization,
+            control_store=control_store,  # type: ignore[arg-type]
+            material=control_store.material,  # type: ignore[arg-type]
+            password=password,
+            store_started=False,
+        )
+
+    assert isinstance(caught.value.__cause__, harness.RuntimeAuthorizationError)
+    assert "synthetic password cleanup refusal" in str(caught.value.__cause__)
+    assert "remove_control_root" not in events
+    assert control_root.is_dir()
+    assert password.path.is_file()
+
+
+def test_start_wraps_password_open_failure_in_a_stable_boundary_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization = _bind_step_environment(tmp_path, monkeypatch)
+    control_root = tmp_path / f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    password_path = authorization.runtime_root / "postgres-password"
+    original_open = harness.os.open
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda actual: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "consume_once",
+        lambda actual: None,
+    )
+
+    def refuse_password_open(
+        path: object, flags: int, mode: int = 0o777, **kwargs: object
+    ) -> int:
+        if Path(path) == password_path:
+            raise PermissionError("synthetic path detail must not escape")
+        return original_open(path, flags, mode, **kwargs)
+
+    monkeypatch.setattr(harness.os, "open", refuse_password_open)
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="ephemeral PostgreSQL credential creation failed",
+    ) as caught:
+        harness.start()
+
+    assert isinstance(caught.value.__cause__, PermissionError)
+    assert not password_path.exists()
+    assert tuple(authorization.evidence_root.iterdir()) == ()
+
+
+def test_password_exclusive_open_failure_preserves_a_racing_foreign_leaf(
+    tmp_path: Path,
+) -> None:
+    password_path = tmp_path / "postgres-password"
+    password_path.write_text("foreign-preserve", encoding="ascii")
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="ephemeral PostgreSQL credential creation failed",
+    ):
+        harness._create_password(tmp_path)
+
+    assert password_path.read_text(encoding="ascii") == "foreign-preserve"
+
+
+def test_password_cleanup_preserves_replacement_raced_before_quarantine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = harness._create_password(tmp_path)
+    displaced = tmp_path / "original-password-displaced"
+    original_rename = harness.os.rename
+    raced = False
+
+    def replace_before_quarantine(
+        source: object,
+        destination: object,
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+    ) -> None:
+        nonlocal raced
+        if not raced and Path(source).name == "postgres-password":
+            raced = True
+            original_rename(created.path, displaced)
+            created.path.write_text("foreign-preserve", encoding="ascii")
+        original_rename(
+            source,
+            destination,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+        )
+
+    monkeypatch.setattr(harness.os, "rename", replace_before_quarantine)
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="credential cleanup authority changed",
+    ):
+        harness._remove_created_password(created)
+
+    assert raced is True
+    assert created.path.read_text(encoding="ascii") == "foreign-preserve"
+    assert displaced.is_file()
+
+
+def test_password_cleanup_does_not_unlink_replacement_created_at_original_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A race at the destructive unlink can affect only the quarantined inode."""
+
+    created = harness._create_password(tmp_path)
+    original_unlink = harness.os.unlink
+    replacement_created = False
+
+    def replace_original_before_quarantine_unlink(
+        path: object,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        nonlocal replacement_created
+        if not replacement_created and Path(path).name.startswith(
+            ".postgres-password.cleanup-"
+        ):
+            replacement_created = True
+            created.path.write_text("foreign-preserve", encoding="ascii")
+        original_unlink(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(harness.os, "unlink", replace_original_before_quarantine_unlink)
+
+    harness._remove_created_password(created)
+
+    assert replacement_created is True
+    assert created.path.read_text(encoding="ascii") == "foreign-preserve"
+
+
+def test_consumption_failure_after_readiness_uses_stable_supervisor_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, control_root, control_store, events = _bind_bootstrap_store(
+        tmp_path, monkeypatch
+    )
+    client = _BootstrapControlClient(events)
+    monkeypatch.setattr(
+        harness.store,
+        "start",
+        lambda runtime: events.append("store_start"),
+    )
+    monkeypatch.setattr(
+        harness.store,
+        "stop",
+        lambda: events.append("store_stop"),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_start_supervisor",
+        lambda *args: events.append("supervisor_ready"),
+    )
+    monkeypatch.setattr(
+        harness,
+        "_load_control",
+        lambda actual: (control_store, control_store.material, client),
+    )
+    monkeypatch.setattr(
+        harness.process_control,
+        "verify_shutdown_receipt",
+        lambda record, material: (
+            record is control_store.receipt and material is control_store.material
+        ),
+    )
+
+    def refuse_consumption(actual: object) -> object:
+        assert actual is authorization
+        events.append("consume_once")
+        raise runtime_auth.RuntimeAuthorizationFailure("synthetic_consumption_failure")
+
+    monkeypatch.setattr(
+        harness.runtime_authorization, "consume_once", refuse_consumption
+    )
+
+    with pytest.raises(
+        runtime_auth.RuntimeAuthorizationFailure,
+        match="synthetic_consumption_failure",
+    ):
+        harness.start()
+
+    assert events == [
+        "create_control_material",
+        "store_start",
+        "supervisor_ready",
+        "consume_once",
+        "stop_all",
+        "shutdown",
+        "read_shutdown_receipt",
+        "liveness_released",
+        "store_stop",
+        "remove_control_root",
+    ]
+    assert not control_root.exists()
+    assert tuple(path.name for path in authorization.runtime_root.iterdir()) == (
+        runtime_auth.PREPARED_PKI_LEAF,
+    )
+    assert tuple(authorization.evidence_root.iterdir()) == ()
+
+
+def test_start_refuses_a_control_root_that_is_not_fresh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pre-existing control root closes ``start`` before any consumption."""
+
+    stub = _bind_step_environment(tmp_path, monkeypatch)
+    runtime_identity = _signed_identity(stub.runtime_root)
+    evidence_identity = _signed_identity(stub.evidence_root)
+    control_root = tmp_path / f"cybrik-d2-ctl-{_AUTHORIZATION_SHA256[:20]}"
+    control_root.mkdir()
+    consumed: list[object] = []
+    monkeypatch.setattr(harness, "assert_product_api_compatibility", lambda _: None)
+    monkeypatch.setattr(
+        harness,
+        "_control_paths",
+        lambda authorization: SimpleNamespace(root=control_root),
+    )
+    monkeypatch.setattr(
+        harness.runtime_authorization,
+        "consume_once",
+        lambda authorization: consumed.append(authorization),
+    )
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError, match="D2 external roots must be fresh"
+    ):
+        harness.start()
+
+    assert consumed == []
+    assert _signed_identity(stub.runtime_root) == runtime_identity
+    assert _signed_identity(stub.evidence_root) == evidence_identity
+    assert tuple(path.name for path in stub.runtime_root.iterdir()) == (
+        runtime_auth.PREPARED_PKI_LEAF,
+    )
+    assert tuple(stub.evidence_root.iterdir()) == ()
+
+
+class _ReadyControlStore:
+    def __init__(self, records: list[object]) -> None:
+        self._records = list(records)
+        self.reads = 0
+
+    def read_ready_receipt(self, material: object) -> object:
+        del material
+        self.reads += 1
+        record = self._records.pop(0) if self._records else None
+        if record is None:
+            raise harness.process_control.ProcessControlError(
+                "control_leaf_read_failed"
+            )
+        return record
+
+
+def test_start_waits_for_a_durable_verified_ready_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Readiness is a stored, HMAC-verified receipt, never a listener guess."""
+
+    record = b"signed-ready-receipt"
+    control_store = _ReadyControlStore([None, record])
+    material = object()
+    verified: list[tuple[object, object]] = []
+    monkeypatch.setattr(harness.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        harness.process_control,
+        "verify_ready_receipt",
+        lambda actual, expected: (verified.append((actual, expected)), True)[1],
+    )
+
+    harness._wait_control_ready(
+        control_store,  # type: ignore[arg-type]
+        material,  # type: ignore[arg-type]
+        SimpleNamespace(poll=lambda: None),
+    )
+
+    assert control_store.reads == 2
+    assert verified == [(record, material)]
+
+
+def test_start_fails_closed_when_the_supervisor_exits_before_a_ready_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    control_store = _ReadyControlStore([])
+    monkeypatch.setattr(harness.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError,
+        match="stable process supervisor exited before readiness",
+    ):
+        harness._wait_control_ready(
+            control_store,  # type: ignore[arg-type]
+            object(),  # type: ignore[arg-type]
+            SimpleNamespace(poll=lambda: 1),
+        )
+
+    assert control_store.reads == 1
+
+
+def test_start_supervisor_preserves_readiness_cause_when_reap_also_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization = SimpleNamespace(
+        runtime_root=tmp_path / "runtime",
+        evidence_root=tmp_path / "evidence",
+    )
+    authorization.evidence_root.mkdir()
+    launched = object()
+    monkeypatch.setattr(
+        harness,
+        "_server_environment",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(harness, "_isolated_module_argv", lambda *args: ("python",))
+    monkeypatch.setattr(harness, "_supervisor_argv", lambda *args: ("supervisor",))
+    monkeypatch.setattr(
+        harness.process_supervisor,
+        "launch_supervisor",
+        lambda **kwargs: launched,
+    )
+    monkeypatch.setattr(
+        harness,
+        "_wait_control_ready",
+        lambda *args: (_ for _ in ()).throw(
+            harness.RuntimeAuthorizationError("primary readiness refusal")
+        ),
+    )
+    monkeypatch.setattr(
+        harness.process_supervisor,
+        "reap_launched_supervisor",
+        lambda actual: (_ for _ in ()).throw(
+            harness.process_control.ProcessControlError("synthetic_reap_failure")
+        ),
+    )
+
+    with pytest.raises(
+        harness.RuntimeAuthorizationError, match="primary readiness refusal"
+    ) as caught:
+        harness._start_supervisor(
+            authorization,  # type: ignore[arg-type]
+            object(),  # type: ignore[arg-type]
+            SimpleNamespace(binding=object()),  # type: ignore[arg-type]
+        )
+
+    assert any("ProcessControlError" in note for note in caught.value.__notes__)
 
 
 @pytest.mark.parametrize("step", ("seed", "reset", "stop"))
@@ -732,9 +1503,16 @@ def test_later_steps_verify_the_marker_and_never_reconsume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, step: str
 ) -> None:
     stub = _bind_step_environment(tmp_path, monkeypatch)
-    stub.runtime_root.mkdir()
-    stub.evidence_root.mkdir()
     verified: list[object] = []
+    control_requests: list[str] = []
+    control_client = SimpleNamespace(
+        stop_all=lambda *, request_id: control_requests.append(request_id)
+    )
+    monkeypatch.setattr(
+        harness,
+        "_load_control",
+        lambda authorization: (object(), object(), control_client),
+    )
 
     def refuse_consumption(authorization: object) -> object:
         raise AssertionError("a later step must never consume the authorization")
@@ -769,6 +1547,7 @@ def test_later_steps_verify_the_marker_and_never_reconsume(
     getattr(harness, step)()
 
     assert verified == [stub]
+    assert control_requests == (["lifecycle-stop-all"] if step == "stop" else [])
 
 
 def _bind_rollback_roots(
@@ -786,8 +1565,8 @@ def test_rollback_is_a_noop_only_when_both_roots_are_absent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     checked: list[object] = []
-    teardown_calls: list[str] = []
-    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    teardown_calls: list[object] = []
+    monkeypatch.setattr(harness, "teardown", teardown_calls.append)
     runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     authorization = SimpleNamespace(
         runtime_root=runtime_root, evidence_root=evidence_root
@@ -812,7 +1591,7 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
     runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     runtime_root.mkdir(mode=0o700)
     (runtime_root / "foreign.txt").write_text("preserve", encoding="utf-8")
-    teardown_calls: list[str] = []
+    teardown_calls: list[object] = []
     authorization = SimpleNamespace(
         runtime_root=runtime_root, evidence_root=evidence_root
     )
@@ -825,7 +1604,7 @@ def test_rollback_refuses_foreign_runtime_material_without_a_marker(
             runtime_auth.RuntimeAuthorizationFailure("authorization_not_consumed")
         ),
     )
-    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    monkeypatch.setattr(harness, "teardown", teardown_calls.append)
 
     with pytest.raises(
         harness.RuntimeAuthorizationError,
@@ -843,7 +1622,7 @@ def test_rollback_refuses_partial_evidence_root_without_a_marker(
     runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     evidence_root.mkdir(mode=0o700)
     (evidence_root / "foreign.json").write_text("{}", encoding="utf-8")
-    teardown_calls: list[str] = []
+    teardown_calls: list[object] = []
     authorization = SimpleNamespace(
         runtime_root=runtime_root, evidence_root=evidence_root
     )
@@ -856,7 +1635,7 @@ def test_rollback_refuses_partial_evidence_root_without_a_marker(
             runtime_auth.RuntimeAuthorizationFailure("authorization_not_consumed")
         ),
     )
-    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    monkeypatch.setattr(harness, "teardown", teardown_calls.append)
 
     with pytest.raises(
         harness.RuntimeAuthorizationError,
@@ -874,7 +1653,7 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
     runtime_root, evidence_root = _bind_rollback_roots(tmp_path, monkeypatch)
     runtime_root.mkdir(mode=0o700)
     evidence_root.mkdir(mode=0o700)
-    teardown_calls: list[str] = []
+    teardown_calls: list[object] = []
     authorization = SimpleNamespace(
         runtime_root=runtime_root, evidence_root=evidence_root
     )
@@ -888,7 +1667,7 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
         "verify_consumed",
         lambda actual: (marker_checks.append(actual), marker)[1],
     )
-    monkeypatch.setattr(harness, "teardown", lambda: teardown_calls.append("called"))
+    monkeypatch.setattr(harness, "teardown", teardown_calls.append)
     monkeypatch.setattr(
         harness.terminal_integration,
         "finalize_terminal_handoff",
@@ -897,7 +1676,7 @@ def test_rollback_tears_down_only_after_a_valid_consumed_marker(
 
     harness.rollback()
 
-    assert teardown_calls == ["called"]
+    assert teardown_calls == [authorization]
     assert marker_checks == [authorization]
 
 
@@ -945,10 +1724,22 @@ def test_server_environment_pins_runtime_paths_and_strip_flag(
     assert environment[harness._EVIDENCE_DIR_ENV] == str(tmp_path / "evidence")
 
 
-def test_record_pid_writes_decimal_pid(tmp_path: Path) -> None:
-    destination = tmp_path / "ai-server.pid"
-    harness._record_pid(destination, 4321)
-    assert destination.read_text(encoding="ascii") == "4321"
+def test_harness_persists_no_numeric_pid_record_and_owns_no_child_handle() -> None:
+    """Only the supervisor owns children; the harness keeps no PID authority."""
+
+    for removed in (
+        "_record_pid",
+        "_stop_process",
+        "_stop_recorded_process",
+        "_spawn_server",
+    ):
+        assert not hasattr(harness, removed), removed
+
+    source = _HARNESS.read_text(encoding="utf-8")
+    for forbidden in (".pid", "os.kill", "/bin/ps", "subprocess.Popen"):
+        assert forbidden not in source, forbidden
+    assert "process_control.ControlClient" in source
+    assert "process_supervisor.launch_supervisor(" in source
 
 
 class _FakeTlsSocket:

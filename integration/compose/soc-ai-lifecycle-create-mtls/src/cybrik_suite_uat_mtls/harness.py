@@ -13,14 +13,14 @@ import json
 import os
 import re
 import secrets
-import shutil
-import signal
 import socket
 import ssl
+import stat
 import subprocess
 import sys
 import sysconfig
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Final
@@ -29,6 +29,8 @@ from . import (
     evidence,
     pki,
     procedure,
+    process_control,
+    process_supervisor,
     runtime_authorization,
     runtime_evidence,
     secret_inventory,
@@ -54,14 +56,24 @@ _AI_REPO_ENV: Final = "CYBRIK_UAT_D2_AI_REPO"
 _FABRIC_REPO_ENV: Final = "CYBRIK_UAT_D2_FABRIC_REPO"
 _PASSWORD_FILE: Final = "postgres-password"
 _SERVER_LOG: Final = "ai-server.log"
-_SERVER_PID: Final = "ai-server.pid"
-_CLIENT_PID: Final = "soc-client.pid"
 _TLS_EVIDENCE: Final = "tls-extension.json"
 _SSL_CONTEXT_EVIDENCE: Final = "ssl-context.json"
 _POSTGRES_SECURITY_EVIDENCE: Final = "postgres-security.json"
 _AUTHORITY_BINDING_EVIDENCE: Final = "authority-binding.json"
 _B1_BINDING_EVIDENCE: Final = "b1-binding.json"
 _SECRET_SWEEP_EVIDENCE: Final = "secret-sweep.json"
+_CONTROL_GENERATION: Final = 1
+_CONTROL_READY_ATTEMPTS: Final = 80
+_CONTROL_RELEASE_ATTEMPTS: Final = 80
+_PGREP_EXECUTABLE: Final = "/usr/bin/pgrep"
+_PROCESS_OBSERVATION_TIMEOUT_SECONDS: Final = 5
+_AI_PROCESS_PATTERNS: Final = (
+    r"(^|[[:space:]])cybrik_suite_uat_mtls[.]server([[:space:]]|$)",
+    r"(^|[[:space:]])cybrik_suite_uat_mtls[.]process_supervisor([[:space:]]|$)",
+)
+_SOC_PROCESS_PATTERNS: Final = (
+    r"(^|[[:space:]])cybrik_suite_uat_mtls[.]client([[:space:]]|$)",
+)
 _B1_PROVENANCE_SHA256: Final = (
     "ae8cfa7a0b15483377a4344eca37d2b5aefbb2b4030cf70cad9e6ca0175540de"
 )
@@ -136,6 +148,17 @@ _JWT_LIKE = re.compile(
 
 class RuntimeAuthorizationError(RuntimeError):
     """The one exact D2 attempt is closed or its evidence is inconsistent."""
+
+
+@dataclass(frozen=True, slots=True)
+class _CreatedPassword:
+    """Identity of the one password leaf created by this bootstrap call."""
+
+    path: Path
+    device: int
+    inode: int
+    uid: int
+    mode: int
 
 
 def _repo_root() -> Path:
@@ -351,31 +374,443 @@ def _postgres_runtime(root: Path) -> store.PostgresRuntime:
     )
 
 
+def _control_binding(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> process_control.ControlBinding:
+    seed = (
+        f"{authorization.authorization_id}\0{authorization.authorization_sha256}"
+    ).encode()
+    return process_control.ControlBinding(
+        authorization_sha256=authorization.authorization_sha256,
+        run_id=hashlib.sha256(seed).hexdigest()[:32],
+        generation=_CONTROL_GENERATION,
+        owner_uid=os.geteuid(),
+    )
+
+
+def _control_paths(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> process_control.ControlPaths:
+    try:
+        return process_control.derive_control_paths(
+            authorization.runtime_root,
+            authorization.authorization_sha256,
+        )
+    except process_control.ProcessControlError as exc:
+        raise RuntimeAuthorizationError(
+            f"stable process-control path is refused: {exc.reason}"
+        ) from exc
+
+
+def _load_control(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> tuple[
+    process_control.ControlStore,
+    process_control.ControlMaterial,
+    process_control.ControlClient,
+]:
+    try:
+        filesystem = process_control.PosixFileSystemAdapter()
+        control_store = process_control.ControlStore(filesystem=filesystem)
+        material = control_store.load(
+            paths=_control_paths(authorization),
+            expected_binding=_control_binding(authorization),
+        )
+        transport = process_control.UnixControlTransport(
+            paths=material.paths,
+            binding=material.binding,
+            capability=material.capability,
+            filesystem=filesystem,
+            expected_root_identity=material.root_identity,
+        )
+        client = process_control.ControlClient(
+            binding=material.binding,
+            capability=material.capability,
+            transport=transport,
+        )
+        return control_store, material, client
+    except process_control.ProcessControlError as exc:
+        raise RuntimeAuthorizationError(
+            f"stable process authority is unavailable: {exc.reason}"
+        ) from exc
+
+
+def _supervisor_argv(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    binding: process_control.ControlBinding,
+) -> tuple[str, ...]:
+    return (
+        *_isolated_module_argv(
+            authorization, "cybrik_suite_uat_mtls.process_supervisor"
+        ),
+        "--runtime-root",
+        str(authorization.runtime_root),
+        "--authorization-sha256",
+        binding.authorization_sha256,
+        "--run-id",
+        binding.run_id,
+        "--generation",
+        str(binding.generation),
+        "--owner-uid",
+        str(binding.owner_uid),
+    )
+
+
+def _wait_control_ready(
+    control_store: process_control.ControlStore,
+    material: process_control.ControlMaterial,
+    supervisor_process: object,
+) -> None:
+    for _ in range(_CONTROL_READY_ATTEMPTS):
+        try:
+            record = control_store.read_ready_receipt(material)
+            if process_control.verify_ready_receipt(record, material):
+                return
+        except process_control.ProcessControlError:
+            poll = getattr(supervisor_process, "poll", None)
+            if callable(poll) and poll() is not None:
+                raise RuntimeAuthorizationError(
+                    "stable process supervisor exited before readiness"
+                )
+            time.sleep(0.25)
+    raise RuntimeAuthorizationError("stable process supervisor readiness timed out")
+
+
+def _start_supervisor(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    control_store: process_control.ControlStore,
+    material: process_control.ControlMaterial,
+) -> None:
+    environment = _server_environment(
+        authorization.runtime_root,
+        authorization.evidence_root,
+        strip_tls=False,
+    )
+    environment[process_supervisor.SERVER_ARGV_ENV] = json.dumps(
+        _isolated_module_argv(authorization, "cybrik_suite_uat_mtls.server"),
+        separators=(",", ":"),
+    )
+    environment[process_supervisor.SERVER_LOG_ENV] = str(
+        authorization.evidence_root / _SERVER_LOG
+    )
+    supervisor_process = process_supervisor.launch_supervisor(
+        argv=_supervisor_argv(authorization, material.binding),
+        environment=environment,
+        # ``launch_supervisor`` opens this path before it can publish the
+        # authenticated ready receipt.  The signed evidence root must retain
+        # its exact empty inventory until ``consume_once`` succeeds, while the
+        # later server child may create its evidence log only after that gate.
+        log_path=Path(os.devnull),
+    )
+    try:
+        _wait_control_ready(control_store, material, supervisor_process)
+    except BaseException as primary:
+        try:
+            process_supervisor.reap_launched_supervisor(supervisor_process)
+        except Exception as cleanup_error:  # noqa: BLE001 - preserve readiness cause
+            add_note = getattr(primary, "add_note", None)
+            if callable(add_note):
+                add_note(f"supervisor reap also failed: {type(cleanup_error).__name__}")
+        raise
+
+
+def _verify_prepared_runtime_roots(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> None:
+    """Bind the already prepared runtime and PKI roots before any leaf.
+
+    Both roots are signed material this harness never created, so ``start``
+    neither requires them absent nor makes, chmods or replaces them.  It only
+    proves that the exact signed inodes are still there and still hold their
+    signed initial inventory.
+    """
+
+    try:
+        runtime_authorization.verify_prepared_runtime_roots(authorization)
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
+        raise RuntimeAuthorizationError(
+            f"prepared D2 runtime roots are refused: {exc.reason}"
+        ) from exc
+
+
+def _signed_pki_root(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> runtime_authorization.RootBinding:
+    """Return the signed ``<runtime>/pki`` binding, never an inferred one."""
+
+    try:
+        return runtime_authorization.signed_pki_root(authorization)
+    except runtime_authorization.RuntimeAuthorizationFailure as exc:
+        raise RuntimeAuthorizationError(
+            f"signed D2 PKI root is refused: {exc.reason}"
+        ) from exc
+
+
+def _create_password(root: Path) -> _CreatedPassword:
+    """Create the one credential leaf exclusively and retain deletion authority."""
+
+    path = root / _PASSWORD_FILE
+    descriptor = -1
+    created: _CreatedPassword | None = None
+    try:
+        descriptor = os.open(
+            path,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            0o600,
+        )
+        identity = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(identity.st_mode)
+            or identity.st_uid != os.geteuid()
+            or stat.S_IMODE(identity.st_mode) != 0o600
+            or identity.st_nlink != 1
+        ):
+            raise OSError("created password leaf identity is invalid")
+        created = _CreatedPassword(
+            path=path,
+            device=identity.st_dev,
+            inode=identity.st_ino,
+            uid=identity.st_uid,
+            mode=stat.S_IMODE(identity.st_mode),
+        )
+        with os.fdopen(descriptor, "w", encoding="ascii") as stream:
+            descriptor = -1
+            stream.write(secrets.token_hex(32))
+            stream.flush()
+            os.fsync(stream.fileno())
+        return created
+    except OSError as exc:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            _remove_created_password(created)
+        except RuntimeAuthorizationError as cleanup_error:
+            add_note = getattr(exc, "add_note", None)
+            if callable(add_note):
+                add_note(
+                    f"credential cleanup also failed: {type(cleanup_error).__name__}"
+                )
+        raise RuntimeAuthorizationError(
+            "ephemeral PostgreSQL credential creation failed"
+        ) from exc
+
+
+def _remove_created_password(created: _CreatedPassword | None) -> None:
+    """Quarantine then remove only the exact password inode this call created."""
+
+    if created is None:
+        return
+    directory_descriptor = -1
+    password_descriptor = -1
+    quarantine = f".{_PASSWORD_FILE}.cleanup-{secrets.token_hex(16)}"
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    try:
+        directory_descriptor = os.open(
+            created.path.parent,
+            flags | getattr(os, "O_DIRECTORY", 0),
+        )
+        os.rename(
+            created.path.name,
+            quarantine,
+            src_dir_fd=directory_descriptor,
+            dst_dir_fd=directory_descriptor,
+        )
+    except FileNotFoundError:
+        if directory_descriptor >= 0:
+            os.close(directory_descriptor)
+        return
+    except OSError as exc:
+        if directory_descriptor >= 0:
+            os.close(directory_descriptor)
+        raise RuntimeAuthorizationError(
+            "ephemeral PostgreSQL credential cleanup failed"
+        ) from exc
+    try:
+        password_descriptor = os.open(
+            quarantine,
+            flags,
+            dir_fd=directory_descriptor,
+        )
+        observed = os.fstat(password_descriptor)
+        matching = (
+            stat.S_ISREG(observed.st_mode)
+            and observed.st_dev == created.device
+            and observed.st_ino == created.inode
+            and observed.st_uid == created.uid
+            and stat.S_IMODE(observed.st_mode) == created.mode
+        )
+        if not matching:
+            try:
+                os.stat(
+                    created.path.name,
+                    dir_fd=directory_descriptor,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                os.rename(
+                    quarantine,
+                    created.path.name,
+                    src_dir_fd=directory_descriptor,
+                    dst_dir_fd=directory_descriptor,
+                )
+            raise RuntimeAuthorizationError(
+                "ephemeral PostgreSQL credential cleanup authority changed"
+            )
+        path_observed = os.stat(
+            quarantine,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+        if (
+            path_observed.st_dev != observed.st_dev
+            or path_observed.st_ino != observed.st_ino
+        ):
+            raise RuntimeAuthorizationError(
+                "ephemeral PostgreSQL credential cleanup authority changed"
+            )
+        os.unlink(quarantine, dir_fd=directory_descriptor)
+        if os.fstat(password_descriptor).st_nlink != 0:
+            raise RuntimeAuthorizationError(
+                "ephemeral PostgreSQL credential cleanup authority changed"
+            )
+        os.fsync(directory_descriptor)
+    except OSError as exc:
+        raise RuntimeAuthorizationError(
+            "ephemeral PostgreSQL credential cleanup failed"
+        ) from exc
+    finally:
+        if password_descriptor >= 0:
+            os.close(password_descriptor)
+        if directory_descriptor >= 0:
+            os.close(directory_descriptor)
+
+
+def _cleanup_unready_bootstrap(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    control_store: process_control.ControlStore | None,
+    material: process_control.ControlMaterial | None,
+    password: _CreatedPassword | None,
+    store_started: bool,
+) -> None:
+    """Restore prepared roots, retaining recovery authority on refusal.
+
+    Each destructive step depends on the preceding step having completed.  In
+    particular, control material remains available when the credential leaf
+    cannot be removed, instead of erasing the only bounded recovery surface.
+    """
+
+    failure: BaseException | None = None
+    callbacks = (
+        *((store.stop,) if store_started else ()),
+        (lambda: _remove_created_password(password)),
+        *(
+            (lambda: control_store.remove_control_root(material),)
+            if control_store is not None and material is not None
+            else ()
+        ),
+        (lambda: _verify_prepared_runtime_roots(authorization)),
+    )
+    for callback in callbacks:
+        try:
+            callback()
+        except Exception as exc:  # noqa: BLE001 - preserve exact recovery state
+            failure = exc
+            break
+    if failure is not None:
+        raise RuntimeAuthorizationError(
+            "D2 bootstrap cleanup did not restore the prepared roots"
+        ) from failure
+
+
+def _cleanup_ready_bootstrap(
+    authorization: runtime_authorization.RuntimeAuthorization,
+    *,
+    password: _CreatedPassword,
+    store_started: bool,
+) -> None:
+    """Use only stable supervisor authority after readiness was verified."""
+
+    control_store, material, client = _load_control(authorization)
+
+    def load_receipt() -> object:
+        try:
+            return control_store.read_shutdown_receipt(material)
+        except process_control.ProcessControlError:
+            return None
+
+    process_control.coordinated_teardown(
+        client=client,
+        load_shutdown_receipt=load_receipt,
+        validate_shutdown_receipt=lambda record: (
+            isinstance(record, bytes)
+            and process_control.verify_shutdown_receipt(record, material)
+        ),
+        liveness_lock_released=lambda: _wait_liveness_released(control_store, material),
+        stop_store=store.stop if store_started else lambda: None,
+        destroy_runtime=lambda: _remove_created_password(password),
+        remove_control_root=lambda: control_store.remove_control_root(material),
+    )
+    _verify_prepared_runtime_roots(authorization)
+
+
 def start() -> None:
     authorization = assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
     root = authorization.runtime_root
-    evidence_root = authorization.evidence_root
-    if (
-        root.exists()
-        or root.is_symlink()
-        or evidence_root.exists()
-        or evidence_root.is_symlink()
-    ):
+    control_root = _control_paths(authorization).root
+    if control_root.exists() or control_root.is_symlink():
         raise RuntimeAuthorizationError("D2 external roots must be fresh")
-    runtime_authorization.consume_once(authorization)
-    root.mkdir(mode=0o700)
-    os.chmod(root, 0o700)
-    password_path = root / _PASSWORD_FILE
-    descriptor = os.open(password_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    _verify_prepared_runtime_roots(authorization)
+    password: _CreatedPassword | None = None
+    control_store: process_control.ControlStore | None = None
+    material: process_control.ControlMaterial | None = None
+    store_started = False
+    supervisor_ready = False
     try:
-        with os.fdopen(descriptor, "w", encoding="ascii") as stream:
-            stream.write(secrets.token_hex(32))
-            stream.flush()
-            os.fsync(stream.fileno())
+        password = _create_password(root)
+        filesystem = process_control.PosixFileSystemAdapter()
+        control_store = process_control.ControlStore(filesystem=filesystem)
+        material = control_store.create(
+            paths=_control_paths(authorization),
+            binding=_control_binding(authorization),
+            random_bytes=secrets.token_bytes,
+        )
         store.start(_postgres_runtime(root))
-    except BaseException:
-        teardown()
+        store_started = True
+        _start_supervisor(authorization, control_store, material)
+        supervisor_ready = True
+        runtime_authorization.consume_once(authorization)
+    except BaseException as primary:
+        try:
+            if supervisor_ready:
+                if password is None:
+                    raise RuntimeAuthorizationError(
+                        "D2 bootstrap password authority is unavailable"
+                    )
+                _cleanup_ready_bootstrap(
+                    authorization,
+                    password=password,
+                    store_started=store_started,
+                )
+            else:
+                _cleanup_unready_bootstrap(
+                    authorization,
+                    control_store=control_store,
+                    material=material,
+                    password=password,
+                    store_started=store_started,
+                )
+        except Exception as cleanup_error:  # noqa: BLE001 - preserve primary cause
+            add_note = getattr(primary, "add_note", None)
+            if callable(add_note):
+                add_note(
+                    f"D2 bootstrap cleanup also failed: {type(cleanup_error).__name__}"
+                )
         raise
 
 
@@ -383,18 +818,26 @@ def seed() -> None:
     authorization = assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
-    root = authorization.runtime_root
-    material_root = root / "pki"
-    pki.create_ephemeral_pki(
-        material_root,
-        repository_roots=(
-            _repo_root(),
-            _absolute_env(_SOC_REPO_ENV, must_exist=True),
-            _absolute_env(_AI_REPO_ENV, must_exist=True),
-            _absolute_env(_FABRIC_REPO_ENV, must_exist=True),
-        ),
-        jwt_kid="soc-lifecycle-d2-ephemeral",
-    )
+    signed = _signed_pki_root(authorization)
+    # The PKI root is prepared, signed and already admitted: seeding opens the
+    # exact pinned inode and never creates one or infers a fresh identity.
+    with pki.authorized_pki_root(
+        signed.path,
+        expected_device=signed.identity.st_dev,
+        expected_inode=signed.identity.st_ino,
+        expected_uid=signed.identity.uid,
+        expected_mode=int(signed.identity.mode, 8),
+    ) as authorized_root:
+        pki.create_ephemeral_pki(
+            authorized_root,
+            repository_roots=(
+                _repo_root(),
+                _absolute_env(_SOC_REPO_ENV, must_exist=True),
+                _absolute_env(_AI_REPO_ENV, must_exist=True),
+                _absolute_env(_FABRIC_REPO_ENV, must_exist=True),
+            ),
+            jwt_kid="soc-lifecycle-d2-ephemeral",
+        )
 
 
 def reset() -> None:
@@ -412,6 +855,8 @@ def stop() -> None:
     authorization = assert_runtime_authorized()
     assert_product_api_compatibility(authorization)
     runtime_authorization.verify_consumed(authorization)
+    _, _, client = _load_control(authorization)
+    client.stop_all(request_id="lifecycle-stop-all")
     store.stop()
 
 
@@ -428,6 +873,40 @@ def _pki_material(root: Path) -> pki.PkiMaterial:
         alternate_client_private_key=material_root / "alternate-client-key.pem",
         jwt_private_key=material_root / "jwt-signing-key.pem",
         jwt_public_jwk=material_root / "jwt-public-jwk.json",
+    )
+
+
+def _signed_pki_material(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> pki.PkiMaterial:
+    """Build destructive PKI capability only from the signed preparation receipt."""
+
+    signed = _signed_pki_root(authorization)
+    if (
+        signed.path
+        != authorization.runtime_root / runtime_authorization.PREPARED_PKI_LEAF
+    ):
+        raise RuntimeAuthorizationError(
+            "signed D2 PKI root does not match runtime root"
+        )
+    unsigned = _pki_material(authorization.runtime_root)
+    return pki.PkiMaterial(
+        root=unsigned.root,
+        ca_certificate=unsigned.ca_certificate,
+        server_certificate=unsigned.server_certificate,
+        server_private_key=unsigned.server_private_key,
+        client_certificate=unsigned.client_certificate,
+        client_private_key=unsigned.client_private_key,
+        alternate_client_certificate=unsigned.alternate_client_certificate,
+        alternate_client_private_key=unsigned.alternate_client_private_key,
+        jwt_private_key=unsigned.jwt_private_key,
+        jwt_public_jwk=unsigned.jwt_public_jwk,
+        root_identity=pki.PkiRootIdentity(
+            device=signed.identity.st_dev,
+            inode=signed.identity.st_ino,
+            uid=signed.identity.uid,
+            mode=int(signed.identity.mode, 8),
+        ),
     )
 
 
@@ -449,7 +928,7 @@ def rollback() -> None:
         raise RuntimeAuthorizationError(
             f"consumed authorization marker is invalid: {exc.reason}"
         ) from exc
-    teardown()
+    teardown(authorization)
     try:
         terminal_integration.finalize_terminal_handoff(
             authorization=authorization,
@@ -467,6 +946,7 @@ def _server_environment(
 ) -> dict[str, str]:
     runtime = _postgres_runtime(root)
     environment = dict(os.environ)
+    environment.pop("SSLKEYLOGFILE", None)
     environment.update(
         {
             "CYBRIK_UAT_D2_PKI_ROOT": str(root / "pki"),
@@ -480,53 +960,24 @@ def _server_environment(
     return environment
 
 
-def _spawn_server(
-    root: Path,
-    evidence_root: Path,
-    authorization: runtime_authorization.RuntimeAuthorization,
-    *,
-    strip_tls: bool,
-) -> tuple[subprocess.Popen[str], object]:
-    pid_path = root / _SERVER_PID
-    if pid_path.exists() or pid_path.is_symlink():
-        raise RuntimeAuthorizationError("AI server process record already exists")
-    log = (evidence_root / _SERVER_LOG).open("a", encoding="utf-8")
-    try:
-        process = subprocess.Popen(
-            _isolated_module_argv(authorization, "cybrik_suite_uat_mtls.server"),
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=_server_environment(root, evidence_root, strip_tls=strip_tls),
-            shell=False,
-        )
-        _record_pid(pid_path, process.pid)
-    except BaseException:
-        if "process" in locals() and process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
-        log.close()
-        raise
-    return process, log
-
-
-def _record_pid(path: Path, pid: int) -> None:
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w", encoding="ascii") as stream:
-        stream.write(str(pid))
-        stream.flush()
-        os.fsync(stream.fileno())
-
-
-def _wait_ai_listener(root: Path, process: subprocess.Popen[str]) -> None:
+def _wait_ai_listener(root: Path, process: object | None = None) -> None:
     context = ssl.create_default_context(cafile=str(root / "pki/ca-cert.pem"))
+    try:
+        context.keylog_filename = None
+    except (AttributeError, OSError, TypeError, ValueError) as exc:
+        raise RuntimeAuthorizationError(
+            "TLS key logging could not be disabled"
+        ) from exc
+    if context.keylog_filename is not None:
+        raise RuntimeAuthorizationError("TLS key logging remained enabled")
     context.minimum_version = ssl.TLSVersion.TLSv1_3
     context.maximum_version = ssl.TLSVersion.TLSv1_3
     context.load_cert_chain(
         str(root / "pki/client-cert.pem"), str(root / "pki/client-key.pem")
     )
     for _ in range(80):
-        if process.poll() is not None:
+        poll = getattr(process, "poll", None)
+        if callable(poll) and poll() is not None:
             raise RuntimeAuthorizationError("AI server exited before readiness")
         try:
             with (
@@ -538,80 +989,6 @@ def _wait_ai_listener(root: Path, process: subprocess.Popen[str]) -> None:
         except OSError:
             time.sleep(0.25)
     raise RuntimeAuthorizationError("AI mTLS listener readiness timed out")
-
-
-def _stop_process(process: subprocess.Popen[str] | None, root: Path) -> None:
-    if process is None:
-        return
-    try:
-        if process.poll() is None:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
-    finally:
-        if process.poll() is not None:
-            (root / _SERVER_PID).unlink(missing_ok=True)
-
-
-def _stop_recorded_process(root: Path, *, pid_filename: str, identity: str) -> None:
-    pid_path = root / pid_filename
-    if not pid_path.exists():
-        return
-    if pid_path.is_symlink() or not pid_path.is_file():
-        raise RuntimeAuthorizationError("AI server process record is unsafe")
-    raw_pid = pid_path.read_text(encoding="ascii")
-    if not raw_pid.isdecimal() or int(raw_pid) <= 1:
-        raise RuntimeAuthorizationError("AI server process record is invalid")
-    pid = int(raw_pid)
-    inspection = subprocess.run(
-        ("ps", "-p", str(pid), "-o", "command="),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        shell=False,
-    )
-    if inspection.returncode == 0:
-        command = inspection.stdout.strip()
-        if identity not in command:
-            raise RuntimeAuthorizationError("D2 process identity is inconsistent")
-        os.kill(pid, signal.SIGTERM)
-        for _ in range(50):
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                break
-            time.sleep(0.1)
-        else:
-            os.kill(pid, signal.SIGKILL)
-            for _ in range(50):
-                try:
-                    os.kill(pid, 0)
-                except ProcessLookupError:
-                    break
-                time.sleep(0.1)
-            else:
-                raise RuntimeAuthorizationError("D2 process could not be reaped")
-    pid_path.unlink(missing_ok=True)
-
-
-def _stop_recorded_server(root: Path) -> None:
-    _stop_recorded_process(
-        root,
-        pid_filename=_SERVER_PID,
-        identity="cybrik_suite_uat_mtls.server",
-    )
-
-
-def _stop_recorded_client(root: Path) -> None:
-    _stop_recorded_process(
-        root,
-        pid_filename=_CLIENT_PID,
-        identity="cybrik_suite_uat_mtls.client",
-    )
 
 
 def _assert_mtls_evidence(evidence_root: Path) -> dict[str, object]:
@@ -743,38 +1120,27 @@ def _run_case(
     environment = _server_environment(root, evidence_root, strip_tls=False)
     environment["CYBRIK_UAT_D2_CASE_ID"] = case_id
     environment["CYBRIK_UAT_D2_CASE_RESULT"] = str(result_path)
-    pid_path = root / _CLIENT_PID
-    if pid_path.exists() or pid_path.is_symlink():
-        raise RuntimeAuthorizationError("SOC client process record already exists")
-    process = subprocess.Popen(
-        _isolated_module_argv(
-            assert_runtime_authorized() if authorization is None else authorization,
-            "cybrik_suite_uat_mtls.client",
-        ),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=environment,
-        shell=False,
-    )
     try:
-        _record_pid(pid_path, process.pid)
-        try:
-            stdout, stderr = process.communicate(timeout=30)
-        except subprocess.TimeoutExpired as exc:
-            process.kill()
-            process.communicate(timeout=5)
-            raise RuntimeAuthorizationError("D2 client case timed out") from exc
-    except BaseException:
-        if process.poll() is None:
-            process.kill()
-            process.communicate(timeout=5)
-        raise
-    finally:
-        if process.poll() is not None:
-            pid_path.unlink(missing_ok=True)
-    _assert_secret_free_process_output(root, stdout, stderr)
-    if process.returncode != 0 or not result_path.is_file() or result_path.is_symlink():
+        completed = subprocess.run(
+            _isolated_module_argv(
+                assert_runtime_authorized() if authorization is None else authorization,
+                "cybrik_suite_uat_mtls.client",
+            ),
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+            timeout=30,
+            shell=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeAuthorizationError("D2 client case timed out") from exc
+    _assert_secret_free_process_output(root, completed.stdout, completed.stderr)
+    if (
+        completed.returncode != 0
+        or not result_path.is_file()
+        or result_path.is_symlink()
+    ):
         raise RuntimeAuthorizationError("D2 client case failed")
     result = json.loads(result_path.read_text(encoding="utf-8"))
     if result.get("passed") is not True:
@@ -847,12 +1213,28 @@ def _repository_tuple(
         "ai": authorization.product_roots["cyber_ai"],
         "fabric": authorization.product_roots["tool_fabric"],
     }
+    expected_product_identities = {
+        "soc": (
+            runtime_authorization.PINNED_VALUES["SOC_COMMIT"],
+            runtime_authorization.PINNED_VALUES["SOC_TREE"],
+        ),
+        "ai": (
+            runtime_authorization.PINNED_VALUES["CYBER_AI_COMMIT"],
+            runtime_authorization.PINNED_VALUES["CYBER_AI_TREE"],
+        ),
+        "fabric": (
+            runtime_authorization.PINNED_VALUES["TOOL_FABRIC_COMMIT"],
+            runtime_authorization.PINNED_VALUES["TOOL_FABRIC_TREE"],
+        ),
+    }
     result: dict[str, dict[str, str]] = {}
     for name, root in roots.items():
         commit = _git_value(root, "HEAD")
         tree = _git_value(root, "HEAD^{tree}")
         if name == "suite" and commit != authorization.suite_head:
             raise RuntimeAuthorizationError("terminal Suite tuple changed")
+        if name != "suite" and (commit, tree) != expected_product_identities[name]:
+            raise RuntimeAuthorizationError(f"terminal {name} repository tuple changed")
         result[name] = {"commit_sha": commit, "tree_sha": tree}
     return result
 
@@ -1100,6 +1482,7 @@ def _terminal_candidate(
                 "postgres_listener_absent",
                 "runtime_root_absent",
                 "pki_absent",
+                "control_root_absent",
             )
         },
         "pki_public": {
@@ -1123,8 +1506,8 @@ def run_runtime_attempt() -> dict[str, object]:
     evidence_root = authorization.evidence_root
     attempt_started_at = datetime.now(UTC)
     attempt_started_monotonic = time.monotonic()
-    process: subprocess.Popen[str] | None = None
-    log: object | None = None
+    _, _, control_client = _load_control(authorization)
+    server_started = False
     results: list[dict[str, object]] = []
     case_durations_ms: list[int] = []
     inventory: secret_inventory.SecretInventory | None = None
@@ -1136,21 +1519,24 @@ def run_runtime_attempt() -> dict[str, object]:
         return result
 
     try:
-        process, log = _spawn_server(root, evidence_root, authorization, strip_tls=True)
-        _wait_ai_listener(root, process)
+        control_client.start_server(
+            strip_tls=True,
+            request_id="runtime-red-start-server",
+        )
+        server_started = True
+        _wait_ai_listener(root)
         results.append(execute_case("N8"))
         if (evidence_root / _TLS_EVIDENCE).exists():
             raise RuntimeAuthorizationError("N8 unexpectedly retained a TLS extension")
-        _stop_process(process, root)
-        process = None
-        if hasattr(log, "close"):
-            log.close()  # type: ignore[union-attr]
-        log = None
+        control_client.stop_server(request_id="runtime-red-stop-server")
+        server_started = False
 
-        process, log = _spawn_server(
-            root, evidence_root, authorization, strip_tls=False
+        control_client.start_server(
+            strip_tls=False,
+            request_id="runtime-green-start-server",
         )
-        _wait_ai_listener(root, process)
+        server_started = True
+        _wait_ai_listener(root)
         runtime = _postgres_runtime(root)
         postgres_replay_row_count = 0
         for case_id in ("N1", "N2", "N3", "N4", "N5", "N6", "N7"):
@@ -1171,11 +1557,8 @@ def run_runtime_attempt() -> dict[str, object]:
             raise RuntimeAuthorizationError("N9 PostgreSQL outage was not established")
         results.append(execute_case("N9"))
         mtls_summary = _assert_mtls_evidence(evidence_root)
-        _stop_process(process, root)
-        process = None
-        if hasattr(log, "close"):
-            log.close()  # type: ignore[union-attr]
-        log = None
+        control_client.stop_server(request_id="runtime-green-stop-server")
+        server_started = False
         results.append(execute_case("N10"))
         relying_party_refusal_count = sum(
             1
@@ -1234,30 +1617,93 @@ def run_runtime_attempt() -> dict[str, object]:
         inventory = None
         return validated_summary
     finally:
-        _stop_process(process, root)
-        if hasattr(log, "close"):
-            log.close()  # type: ignore[union-attr]
+        if server_started:
+            control_client.stop_server(request_id="runtime-finally-stop-server")
         if inventory is not None:
             inventory.clear()
 
 
-def teardown() -> None:
-    """Idempotently reap every D2-created resource in a fixed order."""
+def _wait_liveness_released(
+    control_store: process_control.ControlStore,
+    material: process_control.ControlMaterial,
+) -> bool:
+    for _ in range(_CONTROL_RELEASE_ATTEMPTS):
+        if control_store.liveness_released(material):
+            return True
+        time.sleep(0.25)
+    return False
 
-    root, _ = _bounded_external_roots(repositories_must_exist=False)
+
+def _destroy_runtime_root(
+    authorization: runtime_authorization.RuntimeAuthorization,
+) -> None:
+    root = authorization.runtime_root
     if root.is_symlink():
         raise RuntimeAuthorizationError("refusing a symlinked runtime teardown root")
-    _stop_recorded_client(root)
-    _stop_recorded_server(root)
+    if not root.exists():
+        return
+    pki.destroy_ephemeral_pki(_signed_pki_material(authorization))
+    (root / _PASSWORD_FILE).unlink(missing_ok=True)
     try:
-        store.stop()
-    finally:
-        if root.exists() and not root.is_symlink():
-            material = _pki_material(root)
-            pki.destroy_ephemeral_pki(material)
-            password = root / _PASSWORD_FILE
-            password.unlink(missing_ok=True)
-            shutil.rmtree(root)
+        root.rmdir()
+    except OSError as exc:
+        raise RuntimeAuthorizationError(
+            "runtime root contains unverified material"
+        ) from exc
+
+
+def teardown(
+    authorization: runtime_authorization.RuntimeAuthorization | None = None,
+) -> None:
+    """Reap through stable authority before any destructive cleanup."""
+
+    admitted = assert_runtime_authorized() if authorization is None else authorization
+    environment_root, environment_evidence = _bounded_external_roots(
+        repositories_must_exist=False
+    )
+    admitted_root = getattr(admitted, "runtime_root", environment_root)
+    admitted_evidence = getattr(admitted, "evidence_root", environment_evidence)
+    if environment_root != admitted_root:
+        raise RuntimeAuthorizationError(
+            "authorized runtime root does not match the bounded environment root"
+        )
+    if environment_evidence != admitted_evidence:
+        raise RuntimeAuthorizationError(
+            "authorized evidence root does not match the bounded environment root"
+        )
+    root = admitted_root
+    control_root = _control_paths(admitted).root
+    if root.is_symlink() or control_root.is_symlink():
+        raise RuntimeAuthorizationError("refusing a symlinked runtime teardown root")
+    if not root.exists() and not control_root.exists():
+        return
+    control_store, material, client = _load_control(admitted)
+
+    def load_receipt() -> object:
+        try:
+            return control_store.read_shutdown_receipt(material)
+        except process_control.ProcessControlError:
+            return None
+
+    try:
+        process_control.coordinated_teardown(
+            client=client,
+            load_shutdown_receipt=load_receipt,
+            validate_shutdown_receipt=lambda record: (
+                isinstance(record, bytes)
+                and process_control.verify_shutdown_receipt(record, material)
+            ),
+            liveness_lock_released=lambda: _wait_liveness_released(
+                control_store, material
+            ),
+            stop_store=store.stop,
+            destroy_runtime=lambda: _destroy_runtime_root(admitted),
+            remove_control_root=lambda: control_store.remove_control_root(material),
+        )
+    except process_control.ProcessControlError as exc:
+        raise RuntimeAuthorizationError(
+            f"stable process-control teardown is refused: {exc.reason}"
+        ) from exc
 
 
 def _listener_absent(port: int) -> bool:
@@ -1266,21 +1712,66 @@ def _listener_absent(port: int) -> bool:
         return probe.connect_ex(("127.0.0.1", port)) != 0
 
 
+def _module_process_absent(pattern: str) -> bool:
+    """Observe one exact D2 module without reading or retaining process details."""
+
+    try:
+        completed = subprocess.run(
+            (_PGREP_EXECUTABLE, "-q", "-f", pattern),
+            check=False,
+            env={"LC_ALL": "C"},
+            shell=False,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            text=True,
+            timeout=_PROCESS_OBSERVATION_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeAuthorizationError(
+            "bounded process absence observation is unavailable"
+        ) from exc
+    if completed.returncode == 1:
+        return True
+    if completed.returncode == 0:
+        return False
+    raise RuntimeAuthorizationError(
+        "bounded process absence observation is unavailable"
+    )
+
+
+def _process_absence_state() -> dict[str, bool]:
+    """Independently observe the bounded AI and SOC child command signatures."""
+
+    ai_process_absent = all(
+        _module_process_absent(pattern) for pattern in _AI_PROCESS_PATTERNS
+    )
+    soc_process_absent = all(
+        _module_process_absent(pattern) for pattern in _SOC_PROCESS_PATTERNS
+    )
+    return {
+        "ai_process_absent": ai_process_absent,
+        "soc_process_absent": soc_process_absent,
+    }
+
+
 def _live_absence_state() -> dict[str, bool]:
     """Observe each bounded resource separately after teardown."""
 
     root, _ = _bounded_external_roots(repositories_must_exist=False)
     material = _pki_material(root)
+    authorization = assert_runtime_authorized()
+    process_absence = _process_absence_state()
+    control_absent = process_control.control_root_absent(
+        _control_paths(authorization).root
+    )
     observed = {
-        "ai_process_absent": not (root / _SERVER_PID).exists()
-        and not (root / _SERVER_PID).is_symlink(),
-        "soc_process_absent": not (root / _CLIENT_PID).exists()
-        and not (root / _CLIENT_PID).is_symlink(),
+        **process_absence,
         "postgres_container_absent": not store.container_exists(),
         "ai_listener_absent": _listener_absent(58443),
         "postgres_listener_absent": _listener_absent(store.POSTGRES_PORT),
         "runtime_root_absent": not root.exists() and not root.is_symlink(),
         "pki_absent": pki.verify_absent(material),
+        "control_root_absent": control_absent,
     }
     return {"completed": all(observed.values()), **observed}
 
