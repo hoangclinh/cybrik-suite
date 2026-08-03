@@ -238,8 +238,7 @@ def load_settings_from_environment(
     )
 
 
-def _module_origin(module: ModuleType, root: Path) -> bool:
-    location = getattr(module, "__file__", None)
+def _origin_within_root(location: object, root: Path) -> bool:
     if not isinstance(location, str):
         return False
     try:
@@ -247,6 +246,22 @@ def _module_origin(module: ModuleType, root: Path) -> bool:
     except (OSError, ValueError):
         return False
     return True
+
+
+def _module_origin(module: ModuleType, root: Path) -> bool:
+    location = getattr(module, "__file__", None)
+    if isinstance(location, str):
+        return _origin_within_root(location, root)
+    if location is not None:
+        return False
+    search_path = getattr(module, "__path__", None)
+    try:
+        entries = tuple(search_path)
+    except TypeError:
+        return False
+    return bool(entries) and all(
+        _origin_within_root(entry, root) for entry in entries
+    )
 
 
 def validate_product_module_origins(
