@@ -90,6 +90,7 @@ RUNTIME_CODE_PATHS: Final = tuple(
     sorted(
         (
             f"{_PACKAGE}/__init__.py",
+            f"{_PACKAGE}/callable_fabric_rehearsal.py",
             f"{_PACKAGE}/client.py",
             f"{_PACKAGE}/evidence.py",
             f"{_PACKAGE}/harness.py",
