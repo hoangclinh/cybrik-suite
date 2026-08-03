@@ -123,6 +123,54 @@ def test_environment_binds_external_allowed_signers_to_tracked_descriptor(
     )
 
 
+def test_trust_descriptor_git_read_ignores_ambient_git_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    environment = _environment(tmp_path)
+    suite = Path(environment["CYBRIK_UAT_SUITE_ROOT"])
+    descriptor = suite / subject.TRUST_DESCRIPTOR_RELATIVE
+    real_run = subprocess.run
+    observed_environments: list[dict[str, str]] = []
+
+    def observe_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        observed_environments.append(dict(kwargs["env"]))
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(subject.subprocess, "run", observe_run)
+
+    subject._trust_descriptor(descriptor, suite)
+
+    assert observed_environments == [
+        {
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "LC_ALL": "C",
+            "PATH": "/usr/bin:/bin",
+        }
+    ]
+
+
+def test_tracked_uat_anchor_is_not_the_public_test_fixture_identity() -> None:
+    descriptor = json.loads(
+        (Path(__file__).parents[1] / "authorization-trust.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fixture_blob = base64.b64decode(_KEY)
+    fixture_fingerprint = "SHA256:" + base64.b64encode(
+        hashlib.sha256(fixture_blob).digest()
+    ).decode().rstrip("=")
+    fixture_allowed_signers = (
+        f'FOUNDER namespaces="{subject.AUTHORIZATION_NAMESPACE}" '
+        f"ssh-ed25519 {_KEY}\n"
+    ).encode()
+
+    assert descriptor["key_fingerprint"] != fixture_fingerprint
+    assert descriptor["allowed_signers_sha256"] != hashlib.sha256(
+        fixture_allowed_signers
+    ).hexdigest()
+
+
 def test_attacker_replacement_key_auth_and_signature_is_rejected_by_tracked_anchor(
     tmp_path: Path,
 ) -> None:
