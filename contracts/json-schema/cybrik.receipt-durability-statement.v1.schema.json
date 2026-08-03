@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.receipt-durability-statement.v1.schema.json",
+  "title": "CYBRIK receipt durability design statement",
+  "description": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. Cross-product observable ordering and failure semantics; no storage engine is selected.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-not-implemented": true,
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "intent_committed_before_dispatch", "receipt_committed_before_result", "completion_without_durable_receipt_status", "performed_unrecorded_handling", "unresolved_intent_terminalization", "receipt_read_visibility", "append_only", "replay_resigns", "durability_class", "receipt_retention_days", "trust_bundle_retention_days"],
+  "properties": {
+    "schema": { "const": "cybrik.receipt-durability-statement@0.1.0" },
+    "intent_committed_before_dispatch": { "const": true },
+    "receipt_committed_before_result": { "const": true },
+    "completion_without_durable_receipt_status": { "enum": ["failed", "denied", "unavailable"] },
+    "performed_unrecorded_handling": { "const": "alarm_grade_reconciliation_never_completed" },
+    "unresolved_intent_terminalization": { "const": "failed_or_timed_out_receipt" },
+    "receipt_read_visibility": { "const": "durable_only_unavailable_without_existence_detail" },
+    "append_only": { "const": true },
+    "replay_resigns": { "const": false },
+    "durability_class": { "enum": ["process_local_fsync", "replicated_quorum", "external_wal"] },
+    "receipt_retention_days": { "type": "integer", "minimum": 1 },
+    "trust_bundle_retention_days": { "type": "integer", "minimum": 1 }
+  }
+}

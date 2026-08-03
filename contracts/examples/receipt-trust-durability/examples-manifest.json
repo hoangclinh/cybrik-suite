@@ -1,0 +1,18 @@
+{
+  "schema_version": "cybrik.receipt-trust-durability-examples.v1",
+  "status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "cases": [
+    { "file": "positive/trust-bundle.generation-1.json", "schema": "trust_bundle", "kind": "positive", "expected_rule": null },
+    { "file": "positive/trust-bundle.generation-2.json", "schema": "trust_bundle", "kind": "positive", "expected_rule": null },
+    { "file": "positive/trust-bundle.generation-3-revoked.json", "schema": "trust_bundle", "kind": "positive", "expected_rule": null },
+    { "file": "positive/durability-statement.json", "schema": "durability", "kind": "positive", "expected_rule": null },
+    { "file": "negative-schema/trust-bundle.private-key-material.json", "schema": "trust_bundle", "kind": "negative-schema", "expected_rule": "KL-7-PUBLIC-MATERIAL-AND-RFC7638-KID" },
+    { "file": "negative-schema/trust-bundle.revoked-missing-facts.json", "schema": "trust_bundle", "kind": "negative-schema", "expected_rule": "KL-4-POSITIVE-REVOCATION-FACT" },
+    { "file": "negative-schema/trust-bundle.active-with-revocation-facts.json", "schema": "trust_bundle", "kind": "negative-schema", "expected_rule": "KL-4-POSITIVE-REVOCATION-FACT" },
+    { "file": "negative-schema/trust-bundle.invalid-state.json", "schema": "trust_bundle", "kind": "negative-schema", "expected_rule": "KL-3-MONOTONE-KEY-STATE" },
+    { "file": "negative-schema/durability-statement.completed-without-durable-receipt.json", "schema": "durability", "kind": "negative-schema", "expected_rule": "LD-3-NO-COMPLETED-WITHOUT-DURABLE-RECEIPT" },
+    { "file": "negative-semantic/trust-bundle.kid-thumbprint-mismatch.json", "schema": "trust_bundle", "kind": "negative-semantic", "expected_rule": "KL-7-PUBLIC-MATERIAL-AND-RFC7638-KID" },
+    { "file": "negative-semantic/trust-bundle.generation-regression.json", "schema": "trust_bundle", "kind": "negative-semantic", "expected_rule": "KL-1-MONOTONE-GENERATION" },
+    { "file": "negative-semantic/durability-statement.retention-exceeds-bundle.json", "schema": "durability", "kind": "negative-semantic", "expected_rule": "LD-7-RETENTION-COUPLING" }
+  ]
+}

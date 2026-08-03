@@ -80,6 +80,21 @@ Individual layers: `npm run validate:schemas` · `npm run validate:inference` ·
 Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins the Node.js 24 LTS
 security release `24.18.1`.
 
+The standalone F8 trust/durability validator uses the same lockfile-pinned toolchain. Its default
+resolution is this directory after `npm ci`. A clean worktree may instead reuse an already
+provisioned, byte-identical Suite validator toolchain without copying or linking `node_modules`:
+
+```bash
+CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=/absolute/path/to/cybrik-suite/tools/contract-validation \
+  npm run validate:f8:receipt-trust-durability
+```
+
+The override is version-gated: the validator reads the resolved package metadata and fails closed
+unless `ajv` is exactly 8.20.0 and `ajv-formats` is exactly 3.0.1, matching
+this directory's `package.json` and `package-lock.json`. The override provisions validation tooling
+only; it is not product runtime evidence and grants no implementation, UAT, release, or production
+authority.
+
 The repository-root command `node tools/operations/validate-w1-control.mjs` also loads the pinned
 `yaml@2.9.0` from this toolchain. On a fresh clone, run `npm ci` in
 `tools/contract-validation` before invoking that standalone control-validator command.
@@ -170,3 +185,17 @@ promotion or byte reuse, canonical-path escape through symlinked parents, strong
 overclaim, or any failed tenant-isolation,
 authorization or secret-boundary check. A green result validates static runtime-admission records
 only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
+
+## Receipt trust and durability proposal
+
+Status: **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. Run:
+
+```bash
+npm run validate:f8:receipt-trust-durability
+npm run test:f8:receipt-trust-durability
+```
+
+The validator checks packet/reuse hashes, public-only RFC 7638 Ed25519 keys, monotone rotation,
+durable ordering, fail-closed completion, append-only/no-resign semantics, and retention coupling.
+Green is static evidence only and grants no runtime, UAT, release, deployment, or production
+authority.

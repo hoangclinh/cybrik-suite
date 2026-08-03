@@ -148,3 +148,11 @@ UAT/release gate remain HOLD or NO-GO.
 The validator and fixtures are static-only. Separate processes, loopback TLS, development PKI,
 PostgreSQL durability, UAT, release, deployment, and production remain out of scope. Inventory:
 `compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json`.
+
+## Receipt trust and durability proposal
+
+`cybrik.receipt-trust-bundle.v1` and `cybrik.receipt-durability-statement.v1` are
+**PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED**. They propose public-key lifecycle, offline
+verification, durable ordering, fail-closed completion, append-only replay, and retention
+coupling without selecting a signer, key store, ledger, endpoint, deployment, or production
+configuration. See `compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json`.

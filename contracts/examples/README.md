@@ -82,3 +82,7 @@ validation notes). Nothing here is executable product code.
   three-way thumbprint equality, a complete no-degrade truth table, denial-class exhaustiveness,
   absence/hold behavior, and structural exclusion of raw material and authority. No fixture opens a
   socket or proves runtime, UAT, release, deployment, or production readiness.
+- `receipt-trust-durability/` — **PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED** fixtures for
+  retained public keys, RFC 7638 identity, monotone rotation, durable commit ordering,
+  fail-closed completion and receipt/trust retention coupling. They use public deterministic
+  values only and prove no live signer, key distribution, ledger, runtime, or UAT behavior.

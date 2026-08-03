@@ -181,3 +181,12 @@ deployment, or production surface.
   and degraded false.
 
 Both schemas select no server and prove no runtime, UAT, release, deployment, or production state.
+
+## Receipt trust and durability (`PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED`)
+
+- `cybrik.receipt-trust-bundle.v1` — public OKP/Ed25519 verifier keys plus monotone generation,
+  state, expiry, staleness, and revocation metadata; private key material is inexpressible.
+- `cybrik.receipt-durability-statement.v1` — provider-neutral durable ordering, failure mapping,
+  append-only, replay, durability-class declaration, and retention coupling.
+
+These schemas are design evidence only. Fabric owns all runtime implementation and operations.

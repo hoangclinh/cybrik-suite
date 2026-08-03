@@ -1,0 +1,128 @@
+{
+  "schema_version": "cybrik.receipt-trust-durability-proposal.v1",
+  "title": "CYBRIK receipt trust-bundle and durability design packet",
+  "description": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED. This packet proposes public receipt-verification trust-bundle lifecycle semantics and cross-product observable durable-commit ordering. It selects no signer, key store, distribution system, ledger, database, server, deployment or production configuration.",
+  "x-cybrik-status": "PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-is-bundle-tag": false,
+  "x-cybrik-packet-version": "0.1.0",
+  "members": [
+    { "file": "json-schema/cybrik.receipt-trust-bundle.v1.schema.json", "sha256": "6a2834c24bea0d5cfae3667c0ff17e54e7e3109aea8fbcde8a49739da742855a" },
+    { "file": "json-schema/cybrik.receipt-durability-statement.v1.schema.json", "sha256": "f88afec139360b022b47a6f0d9249c6d52dae1330f95a8659744905f1ac86233" },
+    { "file": "examples/receipt-trust-durability/examples-manifest.json", "sha256": "cfa17e289ec2c882a633a90c674ee9aa0e919393d8722cf3bcbc937853bb4d89" },
+    { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-1.json", "sha256": "7dde19b9c0890a05415bda27ad8b33dcfb787455a36a1b118d91591301b0a404" },
+    { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-2.json", "sha256": "017054b3046062c9c2711f6f46206a364be32af3acf79c5e1122a75bf5a130eb" },
+    { "file": "examples/receipt-trust-durability/positive/trust-bundle.generation-3-revoked.json", "sha256": "0c852596d6e23e43cb95bd7bfa87fa2a3144192441dde287df805a54aab95e7b" },
+    { "file": "examples/receipt-trust-durability/positive/durability-statement.json", "sha256": "f44605bc00bdbdcab545ed13ba7193c5efbe65c31b3db5b2d5a7d851274c104e" },
+    { "file": "examples/receipt-trust-durability/negative-schema/trust-bundle.private-key-material.json", "sha256": "a4ab048dff546a2e7956eb22392ac6fc22caa9c481e239d5882cf01b626a805b" },
+    { "file": "examples/receipt-trust-durability/negative-schema/trust-bundle.revoked-missing-facts.json", "sha256": "ff32ee14ad2920eb460ad3abf0d40fe3f03656bd1e5cad67a845e20c4cd7fec6" },
+    { "file": "examples/receipt-trust-durability/negative-schema/trust-bundle.active-with-revocation-facts.json", "sha256": "71c795ddd7090d89134e2c660160a2b4ab12861d2ce068c76f73aca198acbda6" },
+    { "file": "examples/receipt-trust-durability/negative-schema/trust-bundle.invalid-state.json", "sha256": "ec414e0da16876dad40f7167dc039d546c17a4ce55f9251aa0c6c7d6b299d377" },
+    { "file": "examples/receipt-trust-durability/negative-schema/durability-statement.completed-without-durable-receipt.json", "sha256": "526aec3bca05d10f9adebe34cdeb9d7a78050fe7ed4d5b4d0a24fc09fd41561b" },
+    { "file": "examples/receipt-trust-durability/negative-semantic/trust-bundle.kid-thumbprint-mismatch.json", "sha256": "7de2b7b45a4553b3877d6497231e013cbf362ae3503840acf4e29461edc9a9bd" },
+    { "file": "examples/receipt-trust-durability/negative-semantic/trust-bundle.generation-regression.json", "sha256": "ba29c6ccc48ca800dc7f3faa233f748f94d4b3f9be8d1d9dd4b1e5bf94acd71d" },
+    { "file": "examples/receipt-trust-durability/negative-semantic/durability-statement.retention-exceeds-bundle.json", "sha256": "f821b3d7cb8354096f337f94aee2b64e19786db50a6ddd60acd4d3d39989d752" }
+  ],
+  "reuse_pins": [
+    {
+      "file": "compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json",
+      "sha256": "3c5db417bdb6db887048f36f74d65cd5cf95b244eaa17a207253f87bd462aff9",
+      "treatment": "reused-byte-unchanged"
+    },
+    {
+      "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+      "sha256": "fdaecfa3aa2c7fe2ccdf1d89069bc5250d0d9cc95adbcfa295f327d2c42e130c",
+      "treatment": "reused-byte-unchanged"
+    },
+    {
+      "file": "compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json",
+      "sha256": "35e767513267bb5ee88a933ab6faf4526162b34dff13460cd3c5a14e6825fbf0",
+      "treatment": "reused-byte-unchanged"
+    }
+  ],
+  "design_invariants": [
+    { "id": "KL-1-MONOTONE-GENERATION", "rule": "Trust-bundle generation increases monotonically and names its immediate predecessor when present." },
+    { "id": "KL-2-PREDECESSOR-KEY-RETENTION", "rule": "Every successor retains every predecessor kid; keys leave signing service by state change, never deletion." },
+    { "id": "KL-3-MONOTONE-KEY-STATE", "rule": "State moves active to retiring to retired, or any state to revoked, and never backwards." },
+    { "id": "KL-4-POSITIVE-REVOCATION-FACT", "rule": "Revocation is retained as a positive fact with time, reason and prospective or retroactive verifier effect." },
+    { "id": "KL-5-SINGLE-ACTIVE-SIGNER", "rule": "At most one key is active for the receipt-signer role in one generation." },
+    { "id": "KL-6-OFFLINE-FAIL-CLOSED-FRESHNESS", "rule": "A verifier uses only locally distributed public bundles and fails closed when missing or stale; bundle_uri is never fetched." },
+    { "id": "KL-7-PUBLIC-MATERIAL-AND-RFC7638-KID", "rule": "Bundles contain public OKP Ed25519 material only and kid equals the RFC 7638 unpadded base64url thumbprint." },
+    { "id": "LD-1-INTENT-BEFORE-DISPATCH", "rule": "An authoritative invocation intent is durably committed before dispatch." },
+    { "id": "LD-2-RECEIPT-BEFORE-RESULT", "rule": "The signed completion receipt is durably committed and read-after-write verified before a result is released." },
+    { "id": "LD-3-NO-COMPLETED-WITHOUT-DURABLE-RECEIPT", "rule": "Failure to durably commit a required receipt never maps to completed and exposes no receipt_id or business output." },
+    { "id": "LD-4-UNRESOLVED-EXECUTION-RECONCILIATION", "rule": "Unresolved intents terminalize to failed or timed-out receipts, and performed-unrecorded outcomes are alarm-grade reconciliation states that never map to completed." },
+    { "id": "LD-5-APPEND-ONLY", "rule": "Application runtime cannot update or delete a committed receipt; correction requires a future versioned supersession design." },
+    { "id": "LD-6-DURABLE-ONLY-READ-VISIBILITY", "rule": "Only durable receipts are readable; unavailable does not distinguish never-created from not-yet-durable." },
+    { "id": "LD-7-RETENTION-COUPLING", "rule": "Receipt retention never exceeds retention of trust-bundle generations needed to verify it." },
+    { "id": "LD-8-REPLAY-NEVER-RESIGNS", "rule": "An idempotent replay returns the exact stored receipt and never signs again." }
+  ],
+  "authority_boundaries": {
+    "trust_bundle_fetch": "offline local bundle only; bundle_uri is never a fetch instruction",
+    "signing": "Fabric control plane only; never executor, SOC, Cyber AI, model or agent",
+    "distribution": "Fabric-owned product and operations decision constrained by this public-bundle contract"
+  },
+  "durable_receipt_semantics": [
+    "commit authoritative intent before dispatch",
+    "commit and read-after-write verify signed receipt before releasing completed result",
+    "return stored receipt bytes on replay",
+    "preserve failed uncertain commits for reconciliation without repeating execution"
+  ],
+  "retention_coupling": {
+    "receipt_retention_days": 365,
+    "trust_bundle_retention_days": 730,
+    "note": "Values are bounded non-production design fixtures, not production retention policy."
+  },
+  "ownership": {
+    "suite": "cross-product contracts and static evidence only",
+    "fabric": "signer, trust distribution, durable ledger and runtime authority",
+    "soc": "alert, case, analyst and tenant truth only",
+    "cyber_ai": "model and orchestration semantics only"
+  },
+  "open_product_decisions": [
+    "Fabric selects the production HSM or KMS, signing authorization policy and key ceremony.",
+    "Fabric selects bundle distribution mechanism, freshness operating value and compromise runbook.",
+    "Fabric selects ledger engine, replication, backup, RPO, RTO and retention policy.",
+    "A separately versioned contract is required before receipt correction or supersession."
+  ],
+  "verification": {
+    "validator_dependencies": {
+      "resolution_order": "repository-local first; explicit CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT override second",
+      "external_root_policy": "allowed only when exact package versions match the lockfile-pinned validator toolchain",
+      "packages": {
+        "ajv": "8.20.0",
+        "ajv-formats": "3.0.1"
+      }
+    },
+    "fixture_expectations": {
+      "negative-schema/trust-bundle.private-key-material.json": "KL-7-PUBLIC-MATERIAL-AND-RFC7638-KID",
+      "negative-schema/trust-bundle.revoked-missing-facts.json": "KL-4-POSITIVE-REVOCATION-FACT",
+      "negative-schema/trust-bundle.active-with-revocation-facts.json": "KL-4-POSITIVE-REVOCATION-FACT",
+      "negative-schema/trust-bundle.invalid-state.json": "KL-3-MONOTONE-KEY-STATE",
+      "negative-schema/durability-statement.completed-without-durable-receipt.json": "LD-3-NO-COMPLETED-WITHOUT-DURABLE-RECEIPT",
+      "negative-semantic/trust-bundle.kid-thumbprint-mismatch.json": "KL-7-PUBLIC-MATERIAL-AND-RFC7638-KID",
+      "negative-semantic/trust-bundle.generation-regression.json": "KL-1-MONOTONE-GENERATION",
+      "negative-semantic/durability-statement.retention-exceeds-bundle.json": "LD-7-RETENTION-COUPLING"
+    },
+    "scope": "Static packet integrity and named fixture semantics only; no runtime, signer, distribution or ledger behavior is proven."
+  },
+  "acceptance": {
+    "key_lifecycle_design_accepted": false,
+    "durable_store_design_accepted": false
+  },
+  "release_constraints": {
+    "stable_v1_founder_go_no_go": "2026-12-20",
+    "release_window": "2026-12-21/2026-12-31"
+  },
+  "production_authorized": false,
+  "non_claims": [
+    "no_runtime_or_product_implementation",
+    "no_operational_endpoint_or_deployment",
+    "no_signer_key_store_or_ledger_created",
+    "no_key_generated_distributed_rotated_or_revoked",
+    "no_ci_uat_demo_release_or_ga_claim",
+    "no_production_authority",
+    "static_validation_is_not_runtime_evidence"
+  ]
+}

@@ -22,6 +22,8 @@
     "validate:w1:investigation-lifecycle": "node validate-investigation-lifecycle-proposal.mjs",
     "validate:f8:receipt-integrity": "node validate-receipt-integrity.mjs",
     "test:f8:receipt-integrity": "node --test tests/validate-receipt-integrity.test.mjs",
+    "validate:f8:receipt-trust-durability": "node validate-receipt-trust-durability.mjs",
+    "test:f8:receipt-trust-durability": "node --test tests/validate-receipt-trust-durability.test.mjs",
     "validate:w2i:transport": "node validate-transport.mjs",
     "test:w2i:transport": "node --test tests/validate-transport.test.mjs",
     "validate:w2h:resource-bounds": "node validate-resource-bounds.mjs",

@@ -51,7 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
-// These 23 validators cover the accepted corpus and additive proposal checks.
+// These 25 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -88,6 +88,10 @@ const steps = [
   // deployment or production authority.
   'validate-transport-peer.mjs',
   'tests/validate-transport-peer.test.mjs',
+  // Receipt trust-bundle and durability design — PROPOSED, NOT ACCEPTED and
+  // NOT IMPLEMENTED. Static packet and semantic-fixture evidence only.
+  'validate-receipt-trust-durability.mjs',
+  'tests/validate-receipt-trust-durability.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;
@@ -97,4 +101,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, and validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, and receipt trust/durability as PROPOSED / NOT ACCEPTED / NOT IMPLEMENTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');

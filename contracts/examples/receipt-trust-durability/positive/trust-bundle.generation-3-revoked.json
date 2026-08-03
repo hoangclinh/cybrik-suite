@@ -1,0 +1,41 @@
+{
+  "schema": "cybrik.receipt-trust-bundle@0.1.0",
+  "bundle_uri": "cybrik-trust://receipt-signers/v1",
+  "generation": 3,
+  "predecessor_generation": 2,
+  "generated_at": "2026-12-01T00:00:00Z",
+  "not_after": "2027-12-01T00:00:00Z",
+  "max_staleness_seconds": 3600,
+  "keys": [
+    {
+      "kid": "XuI-6D6f0p-6TvmXQ3ipfVJS4EX-Tmiqs0mkImDky9A",
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYdk9J6qk9iwRvlZnw1kQmM8F7iC7pA5R7W7Y4M",
+      "state": "retired",
+      "not_before": "2026-08-03T00:00:00Z",
+      "not_after": "2027-08-03T00:00:00Z"
+    },
+    {
+      "kid": "ogRZbCR5KTrPFCAfuYmCMwj0w7Yuk3Lr6YWQWfpkbf0",
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "state": "revoked",
+      "not_before": "2026-11-01T00:00:00Z",
+      "not_after": "2027-11-01T00:00:00Z",
+      "revoked_at": "2026-12-01T00:00:00Z",
+      "revocation_reason": "key_compromise",
+      "revocation_effective": "retroactive_all"
+    },
+    {
+      "kid": "_9sEdkpM-VSozh9DaEbUdK72XWmZ3Zg2bvTDzBeuHDM",
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "state": "active",
+      "not_before": "2026-12-01T00:00:00Z",
+      "not_after": "2027-12-01T00:00:00Z"
+    }
+  ]
+}
