@@ -259,9 +259,7 @@ def _module_origin(module: ModuleType, root: Path) -> bool:
         entries = tuple(search_path)
     except TypeError:
         return False
-    return bool(entries) and all(
-        _origin_within_root(entry, root) for entry in entries
-    )
+    return bool(entries) and all(_origin_within_root(entry, root) for entry in entries)
 
 
 def validate_product_module_origins(

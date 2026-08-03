@@ -573,11 +573,9 @@ def _validate_channel_certificates(
                 sans = certificate.extensions.get_extension_for_class(
                     x509.SubjectAlternativeName
                 ).value
-                if (
-                    sans.get_values_for_type(x509.DNSName) != [channel.server_name]
-                    or sans.get_values_for_type(x509.IPAddress)
-                    != [_LOOPBACK_ADDRESS]
-                ):
+                if sans.get_values_for_type(x509.DNSName) != [
+                    channel.server_name
+                ] or sans.get_values_for_type(x509.IPAddress) != [_LOOPBACK_ADDRESS]:
                     raise ValueError
         except (
             InvalidSignature,

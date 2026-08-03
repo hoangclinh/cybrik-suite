@@ -111,23 +111,17 @@ def test_product_module_origin_accepts_only_root_bound_namespace_packages(
     namespace.__file__ = None
     namespace.__path__ = [str(namespace_root)]
 
-    validate_product_module_origins(
-        roots, {"cybrik_soc.modules": namespace}
-    )
+    validate_product_module_origins(roots, {"cybrik_soc.modules": namespace})
 
     foreign = tmp_path / "foreign/cybrik_soc/modules"
     foreign.mkdir(parents=True)
     namespace.__path__ = [str(namespace_root), str(foreign)]
     with pytest.raises(RuntimeProcessError, match="product_module_origin_mismatch"):
-        validate_product_module_origins(
-            roots, {"cybrik_soc.modules": namespace}
-        )
+        validate_product_module_origins(roots, {"cybrik_soc.modules": namespace})
 
     namespace.__path__ = []
     with pytest.raises(RuntimeProcessError, match="product_module_origin_mismatch"):
-        validate_product_module_origins(
-            roots, {"cybrik_soc.modules": namespace}
-        )
+        validate_product_module_origins(roots, {"cybrik_soc.modules": namespace})
 
 
 @pytest.mark.asyncio
