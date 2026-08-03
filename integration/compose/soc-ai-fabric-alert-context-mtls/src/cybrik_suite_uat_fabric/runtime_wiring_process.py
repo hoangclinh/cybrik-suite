@@ -389,6 +389,18 @@ def _existing_source(path: Path) -> Path:
     return path
 
 
+def _existing_file(path: object, *, reason: str) -> Path:
+    if not isinstance(path, Path) or not path.is_absolute() or path.is_symlink():
+        raise RuntimeWiringProcessError(reason)
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeWiringProcessError(reason) from exc
+    if resolved != path or not path.is_file():
+        raise RuntimeWiringProcessError(reason)
+    return path
+
+
 def build_child_environment(config: object, config_path: Path) -> dict[str, str]:
     """Build the exact allowlisted child environment, including the D2 B1 source."""
 
@@ -408,7 +420,18 @@ def build_child_environment(config: object, config_path: Path) -> dict[str, str]
         _existing_source(getattr(repositories, "cyber_ai_core_source", Path())),
         _existing_source(getattr(repositories, "tool_fabric_source", Path())),
     )
+    b1_wheel = _existing_file(
+        getattr(config, "b1_wheel", None), reason="child_environment_invalid"
+    )
+    external = getattr(config, "external", None)
+    evidence_root = _exact_directory(
+        getattr(external, "evidence_root", Path()),
+        mode=0o700,
+        reason="child_environment_invalid",
+    )
     return {
+        "CYBRIK_UAT_D2_B1_WHEEL": str(b1_wheel),
+        "CYBRIK_UAT_D2_EVIDENCE_DIR": str(evidence_root),
         "CYBRIK_UAT_RUNTIME_CONFIG": str(config_path),
         "LC_ALL": "C",
         "PATH": "/usr/bin:/bin",
