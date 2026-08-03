@@ -1226,7 +1226,7 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve terminal NO-GO results and the new HOLD candidate', async () => {
+test('committed runtime-admission assets preserve terminal results and one authorized candidate', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
@@ -1242,7 +1242,7 @@ test('committed runtime-admission assets preserve terminal NO-GO results and the
   assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
   assert.equal(
     byId.get('runtime-admission-soc-ai-lifecycle-mtls-r1'),
-    'HOLD',
+    'RUNTIME_AUTHORIZED',
   );
 
   const r2 = JSON.parse(read(
@@ -1804,12 +1804,15 @@ test('open Critical or High findings before execution truthfully derive HOLD', a
   });
 });
 
-test('A0 records non-circular sequencing and pins the committed mTLS attempt as unauthorized', async () => {
+test('A0 preserves non-circular sequencing and pins exact Phase A authorization', async () => {
   const holdStatus = read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
   );
   const architecture = read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+  );
+  const phaseAuthorization = read(
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
   );
   const committed = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
@@ -1819,25 +1822,122 @@ test('A0 records non-circular sequencing and pins the committed mTLS attempt as 
   assert.match(holdStatus, /Phase B — bounded execution and evidence closure/);
   assert.match(architecture, /A1–A7 are evidence-closure criteria, not preauthorization criteria/);
   assert.ok(committed.contracts.feature_flags.some((entry) =>
-    entry.name === 'suite_soc_ai_lifecycle_mtls_two_phase_admission'
-      && entry.state === 'accepted_sequence_not_authorized'));
+    entry.name === 'suite_integrated_master_uat_one_shot'
+      && entry.state === 'enabled_only_by_exact_signed_external_authorization'));
   assert.deepEqual(committed.attempt_accounting.current_attempt, {
     status: 'not_run',
-    execution_authorized: false,
+    execution_authorized: true,
     executed_checks: 0,
     passed_checks: 0,
     failed_checks: 0,
     evidence_path:
-      'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
-    evidence_sha256: committed.evidence.artifacts[0].sha256,
+      'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
+    evidence_sha256:
+      '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
   });
   assert.equal(committed.open_findings.critical, 0);
-  assert.equal(committed.open_findings.high, 1);
+  assert.equal(committed.open_findings.high, 0);
   const smokeRows = Object.values(committed.negative_smoke).flat();
-  assert.equal(smokeRows.length, 10);
-  assert.ok(smokeRows.every((row) => row.status === 'hold'));
-  assert.equal(committed.evidence.final_profile_verdict, 'HOLD');
-  assert.equal(committed.disposition.profile, 'HOLD');
+  assert.equal(smokeRows.length, 3);
+  assert.ok(smokeRows.every((row) => row.status === 'pass'));
+  assert.equal(committed.evidence.final_profile_verdict, 'RUNTIME_AUTHORIZED');
+  assert.equal(committed.disposition.profile, 'RUNTIME_AUTHORIZED');
+  assert.deepEqual(committed.commit_tree, {
+    suite: {
+      commit: '8e6f05f823b237b8c1b93e630182d570062b239e',
+      tree: '1cfc07c2c5c2ddc7789533297f7ac8661ba2aa3a',
+    },
+    soc: {
+      commit: 'abfdfde96afc6daa2868694de993c623daa8862e',
+      tree: '241ef24a33246918ff5cf133e7d8d004823fdf06',
+    },
+    cyber_ai: {
+      commit: '51377267c6adbd7860270253cb212681001c7b1e',
+      tree: '831a24ffd3033f966f35a9daab9f5d8af81e8b64',
+    },
+    tool_fabric: {
+      commit: '50aff1df146d6e98b33d9f82617781595bcf1512',
+      tree: '2b4d516eef0a3b0ae05b44a225515efef749f25b',
+    },
+  });
+  const checkNames = Object.fromEntries(
+    ['suite', 'soc', 'cyber_ai', 'tool_fabric'].map((repo) => [
+      repo,
+      committed.hosted_ci.required_checks
+        .filter((check) => check.repo === repo)
+        .map((check) => check.name),
+    ]),
+  );
+  assert.deepEqual(checkNames, {
+    suite: ['contract standards validation', 'secret-scan'],
+    soc: [
+      'api',
+      'backup-tool',
+      'dependency-scan',
+      'e2e',
+      'sbom',
+      'secret-scan',
+      'web',
+      'pf-workers',
+    ],
+    cyber_ai: [
+      'scaffold-integrity',
+      'lockfile-integrity',
+      'lint',
+      'type',
+      'test',
+      'build-offline',
+      'secret-scan',
+      'security-supply-chain',
+    ],
+    tool_fabric: ['scaffold-integrity', 'secret-scan', 'admission-gate'],
+  });
+  assert.deepEqual(
+    committed.network_exposure.surfaces.map((surface) => surface.bind),
+    [
+      '127.0.0.1:55432',
+      '127.0.0.1:58442',
+      '127.0.0.1:58443',
+      '127.0.0.1:58444',
+    ],
+  );
+  assert.deepEqual(committed.production_exclusion, {
+    no_production_credentials: true,
+    no_production_configuration: true,
+    no_production_data: true,
+    no_production_traffic: true,
+  });
+  assert.equal(
+    committed.attempt_accounting.current_attempt.evidence_sha256,
+    '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
+  );
+  assert.deepEqual(
+    committed.evidence.artifacts.map(({ path, sha256 }) => [path, sha256]),
+    [
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
+        '84d8266bb3c6de1cca312ae4b9cca0a12247313b9483ca495450a2bab7724dc6',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+        '465dd3955c92f1eec543964c9da7663203c3b1f9f84b8c722bfbe73e245c5be7',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
+        '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/07-independent-phase-a-review.md',
+        '67ac930e0672d5313c236be542206e35fa68316c8f93cb6b8989ff0169d3058a',
+      ],
+    ],
+  );
+  assert.match(phaseAuthorization, /signed externally by `FOUNDER` with SSHSIG/);
+  assert.match(phaseAuthorization, /cybrik-uat-soc-ai-fabric-v1/);
+  assert.match(phaseAuthorization, /invoked\s+once/);
+  assert.match(phaseAuthorization, /Release dates are\s+unchanged/);
+  assert.match(phaseAuthorization, /production remains Founder-controlled/);
+  assert.match(phaseAuthorization, /clean detached Suite worktree/);
 
   const admittedPreflight = baseCandidate({
     executionAuthorized: true,
