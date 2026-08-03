@@ -30,8 +30,14 @@ def _config(tmp_path: Path) -> object:
         path.mkdir(parents=True)
     python = tmp_path / "python"
     python.write_bytes(b"python")
+    b1_wheel = tmp_path / "anycorn-0.20.0+cybrik.1-py3-none-any.whl"
+    b1_wheel.write_bytes(b"wheel")
+    evidence_root = tmp_path / "alert-evidence"
+    evidence_root.mkdir(mode=0o700)
     return SimpleNamespace(
         python=python,
+        b1_wheel=b1_wheel,
+        external=SimpleNamespace(evidence_root=evidence_root),
         repositories=SimpleNamespace(
             suite=suite,
             soc_source=soc,
@@ -58,6 +64,8 @@ def test_child_startup_is_safe_exact_and_includes_lifecycle_b1_source(
         "fabric",
     )
     assert environment == {
+        "CYBRIK_UAT_D2_B1_WHEEL": str(config.b1_wheel),
+        "CYBRIK_UAT_D2_EVIDENCE_DIR": str(config.external.evidence_root),
         "CYBRIK_UAT_RUNTIME_CONFIG": str(runtime_config),
         "LC_ALL": "C",
         "PATH": "/usr/bin:/bin",
