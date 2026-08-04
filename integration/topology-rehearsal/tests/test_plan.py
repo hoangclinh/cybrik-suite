@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 
-import pytest
-
 import fakes
+import pytest
 from conftest import MissingC8Module, load_c8, require_c8_attr
 
 

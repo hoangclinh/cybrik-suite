@@ -1,26 +1,14 @@
-"""Every real effect is implemented by one adapter bound to a named plan command.
+"""Adapters bound to named plan commands or bounded local file capabilities.
 
 Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`.
 
-`EFFECT_BINDINGS` is the complete table of which named plan command each injected method may
-reach, and `ExactCommandAdapter` is the single place in the package where an argv is handed
-to a runner. No adapter here builds, edits or re-derives an argv: a method validates its
-high-level arguments against the reviewed plan, looks its effect up by name and runs the
-plan's own tuple. That is why no executable path, subcommand or flag is typed in this module
-at all — a literal here would be a second, unreviewed spelling of a reviewed command. That
-validation precedes the lookup, so an argument that has drifted from the plan is refused
-without any command running: a refusal that still executed would already have had its effect.
-
-The resource adapters own a file or a clock rather than a planned command, and never reach
-for a process. `CredentialFileAdapter` and `AtomicFileAttemptLedger` create with
-`O_CREAT | O_EXCL | O_NOFOLLOW` at `0o600` into a directory this user alone can write, and
-`fsync` first, so material cannot be pre-created, followed, read by another user or
-reported durable from a buffer.
+`EFFECT_BINDINGS` is the complete method-to-command map and `ExactCommandAdapter` is the
+only argv handoff. File adapters use exclusive no-follow creation and durable replacement.
+Importing this module performs no I/O and grants no runtime authority.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import secrets
 import stat
@@ -35,7 +23,6 @@ from .constants import (
     CONTAINER_CREDENTIAL_PATH,
     CONTROL_REPOSITORIES,
     DOCKER_EXECUTABLE_PATH,
-    PORT_PROTOCOL,
     PROBE_REACHABLE,
     PULL_POLICY,
     RUNTIME_LIMIT_SECONDS,
@@ -46,6 +33,7 @@ from .plan import (
     TopologyPlan,
 )
 from .protocols import (
+    SUCCESS_RETURNCODE,
     AttemptLedger,
     Clock,
     CommandResult,
@@ -56,6 +44,13 @@ from .protocols import (
     HostObservationSource,
     ProbePort,
     SignatureVerifier,
+    decoded,
+    decoded_listener,
+    lines,
+    require_exact,
+    require_port,
+    residual_names,
+    succeeded,
 )
 
 __all__ = [  # noqa: RUF022 - repository contract requires Python lexical order
@@ -78,9 +73,7 @@ CONTROL_EFFECTS = tuple(
     for observation in CONTROL_OBSERVATIONS
 )
 
-# The complete map from an injected method to the named plan commands it may reach. Every
-# planned command appears exactly once: an unbound effect would be unreachable, and one
-# reached from two methods could not be attributed to a single reviewed capability.
+# Complete method-to-command map; every planned effect has one owner.
 EFFECT_BINDINGS = MappingProxyType(
     {
         "observe_controls": CONTROL_EFFECTS,
@@ -102,7 +95,11 @@ EFFECT_BINDINGS = MappingProxyType(
         "remove:container": ("docker:remove_container",),
         "remove:network": ("docker:remove_network",),
         "remove:volume": ("docker:remove_volume",),
-        "observe_residual": ("docker:residual",),
+        "observe_residual": (
+            "docker:residual_container",
+            "docker:residual_network",
+            "docker:residual_volume",
+        ),
         "observe_digest": ("probe:digest",),
         "probe": ("probe:host",),
         "verify_signature": ("signature:verify",),
@@ -114,30 +111,23 @@ EFFECT_TIMEOUT_SECONDS = RUNTIME_LIMIT_SECONDS
 PENDING_SUFFIX = ".pending"
 SECRET_BYTES = 32
 ENCODING = "utf-8"
-SUCCESS_RETURNCODE = 0
 
-# The environment the reviewed container argv actually carries: the *path* to the mounted
-# credential file and nothing else. The password itself never becomes an environment value.
+# The argv carries only the mounted credential path, never the credential value.
 CREDENTIAL_ENVIRONMENT = MappingProxyType(
     {CREDENTIAL_ENVIRONMENT_KEY: CONTAINER_CREDENTIAL_PATH}
 )
 
-# `lsof -Fpn` emits one field per line, each prefixed by its field character. `n` carries the
-# listening address; every other field is ignored rather than guessed at.
+# In `lsof -Fpn`, `n` carries the listener address; other fields are ignored.
 LISTENER_ADDRESS_FIELD = "n"
-# `lsof` exits 1 when it matched nothing: an observed absence, not a failed observation. An
-# absence is what a clean host looks like, while a failure must stay unresolved.
+# A silent lsof status 1 is an observed absence; any output keeps it unresolved.
 LISTENER_ABSENT_RETURNCODE = 1
-LISTENER_WILDCARD = "*"
-# The address `lsof` renders as `*`, preserved rather than normalised to loopback because a
-# wildcard binding is exactly the failure being watched for.
-WILDCARD_ADDRESS = "0.0.0.0"
-ADDRESS_SEPARATOR = ":"
-IPV6_OPEN = "["
-IPV6_CLOSE = "]"
+# Exactly two readings describe the reviewed ephemeral range.
+EPHEMERAL_RANGE_BOUNDS = 2
 
-# `nc -z` exits 1 when the connect was refused or timed out. Any other non-zero status is a
-# probe that did not run as reviewed, which is unresolved rather than a negative result.
+# Detached signatures over this bound are refused whole, never truncated.
+SIGNATURE_MAX_BYTES = 8192
+
+# Only nc status 1 is a reviewed refusal; every other nonzero status is unresolved.
 PROBE_REFUSED = "refused"
 PROBE_REFUSED_RETURNCODE = 1
 
@@ -168,22 +158,28 @@ def control_effects(repository: str) -> tuple[str, ...]:
     )
 
 
-def require_exact(label: str, observed: object, expected: object) -> None:
-    """Refuse a high-level argument that has drifted from the reviewed plan."""
-    if observed != expected:
-        raise ValueError(f"{label}: {observed!r} is not the reviewed {expected!r}")
+def write_whole(handle: int, payload: bytes) -> None:
+    """Complete interrupted or short writes; refuse zero progress."""
+    written = 0
+    while written < len(payload):
+        try:
+            count = os.write(handle, payload[written:])
+        except InterruptedError:
+            continue
+        if count <= 0:
+            raise ValueError(
+                f"the write stalled after {written} of {len(payload)} bytes and the "
+                "record is incomplete"
+            )
+        written += count
 
 
-def require_port(label: str, injected: object, port: type) -> None:
-    """Refuse an injected capability that does not implement its declared protocol.
-
-    Checked in the constructor, never part-way through an attempt where the refusal would
-    land after the effect it was meant to prevent.
-    """
-    if not isinstance(injected, port):
-        raise TypeError(
-            f"{label}: {type(injected).__name__} does not implement {port.__name__}"
-        )
+def close_quietly(handle: int) -> None:
+    """Do not let cleanup replace an error that is already unwinding."""
+    try:
+        os.close(handle)
+    except OSError:
+        pass
 
 
 def fsync_directory(path: str) -> None:
@@ -199,44 +195,26 @@ def fsync_directory(path: str) -> None:
         os.close(handle)
 
 
-def decoded_listener(field: str) -> dict[str, Any] | None:
-    """One `lsof` address field as an address, port and protocol, or `None`.
-
-    Only `lsof`'s two encodings are undone: `*` for a wildcard bind and brackets around an
-    IPv6 literal. Loopback normalisation would hide the very listener that must fail closed.
-    """
-    address, separator, port = field.rpartition(ADDRESS_SEPARATOR)
-    if not separator or not port.isdigit():
-        return None
-    if address.startswith(IPV6_OPEN) and address.endswith(IPV6_CLOSE):
-        address = address[len(IPV6_OPEN):-len(IPV6_CLOSE)]
-    if not address:
-        return None
-    return {
-        "address": WILDCARD_ADDRESS if address == LISTENER_WILDCARD else address,
-        "port": int(port),
-        "protocol": PORT_PROTOCOL,
-    }
-
-
-def decoded(result: CommandResult) -> Any:
-    """The projected object, or `None` when the observation did not resolve."""
-    if result.returncode != SUCCESS_RETURNCODE:
-        return None
-    text = result.stdout.strip()
-    if not text:
-        return None
+def bounded_file_bytes(path: str, limit: int) -> bytes | None:
+    """Read one bounded regular file without following links or blocking on a FIFO."""
     try:
-        return json.loads(text)
-    except ValueError:
+        handle = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
         return None
-
-
-def lines(result: CommandResult) -> tuple[str, ...] | None:
-    """Non-empty output lines, or `None` when the observation did not resolve."""
-    if result.returncode != SUCCESS_RETURNCODE:
+    material = bytearray()
+    try:
+        if not stat.S_ISREG(os.fstat(handle).st_mode):
+            return None
+        while len(material) <= limit:
+            chunk = os.read(handle, limit + 1 - len(material))
+            if not chunk:
+                break
+            material.extend(chunk)
+    except OSError:
         return None
-    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+    finally:
+        close_quietly(handle)
+    return bytes(material) if len(material) <= limit else None
 
 
 class ExactCommandAdapter:
@@ -313,14 +291,15 @@ class HostCommandAdapter(HostObservationSource):
         return projected if isinstance(projected, Mapping) else None
 
     def observe_ephemeral_range(self) -> tuple[int, int] | None:
+        """Return exactly two increasing host ephemeral bounds, else unresolved."""
         observed = lines(self._run(bound_effect("observe_ephemeral_range")))
-        if not observed:
+        if observed is None or len(observed) != EPHEMERAL_RANGE_BOUNDS:
             return None
         try:
-            bounds = tuple(int(value.split()[-1]) for value in observed)
+            first, last = (int(value.split()[-1]) for value in observed)
         except ValueError:
             return None
-        return (bounds[0], bounds[-1])
+        return (first, last) if first < last else None
 
     def observe_listeners(self, *, port: int) -> Sequence[Any] | None:
         """Every listener on the reviewed port, an empty tuple, or `None`.
@@ -379,11 +358,11 @@ class DockerCommandAdapter(DockerPort):
     def create_network(self, *, name: str, internal: bool) -> str:
         require_exact("name", name, self._plan.network_name)
         require_exact("internal", internal, True)
-        return self._run(bound_effect("create_network")).stdout.strip()
+        return self._mutate(bound_effect("create_network"))
 
     def create_volume(self, *, name: str) -> str:
         require_exact("name", name, self._plan.volume_name)
-        return self._run(bound_effect("create_volume")).stdout.strip()
+        return self._mutate(bound_effect("create_volume"))
 
     def create_container(
         self,
@@ -406,11 +385,11 @@ class DockerCommandAdapter(DockerPort):
         # credential mount. A password passed as an argument or as its own environment value
         # is readable in the process table by every other process on the host.
         require_exact("environment", dict(environment), dict(CREDENTIAL_ENVIRONMENT))
-        return self._run(bound_effect("create_container")).stdout.strip()
+        return self._mutate(bound_effect("create_container"))
 
     def start_container(self, *, name: str) -> None:
         require_exact("name", name, self._plan.container_name)
-        self._run(bound_effect("start_container"))
+        self._mutate(bound_effect("start_container"))
 
     def observe_health(self, *, container: str, deadline: float) -> str | None:
         """One health projection, bounded by whichever deadline expires first.
@@ -466,10 +445,19 @@ class DockerCommandAdapter(DockerPort):
         if kind not in expected:
             raise ValueError(f"kind: {kind!r} is not a Docker resource of this plan")
         require_exact("name", name, expected[kind])
-        self._run(bound_effect(f"remove:{kind}"))
+        self._mutate(bound_effect(f"remove:{kind}"))
 
     def observe_residual(self) -> Sequence[str] | None:
-        return lines(self._run(bound_effect("observe_residual")))
+        inventory: list[str] = []
+        for effect in EFFECT_BINDINGS["observe_residual"]:
+            observed = residual_names(self._run(effect))
+            if observed is None:
+                return None
+            inventory.extend(observed)
+        return tuple(inventory)
+
+    def _mutate(self, effect: str) -> str:
+        return succeeded(effect, self._run(effect))
 
     def _run(self, effect: str) -> CommandResult:
         return self._executor.run_effect(
@@ -514,6 +502,7 @@ class SshSignatureCommandAdapter(SignatureVerifier):
     """Detached signature verification of the externally signed grant."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner) -> None:
+        self._plan = plan
         self._executor = ExactCommandAdapter(plan, runner)
 
     def verify(
@@ -528,11 +517,17 @@ class SshSignatureCommandAdapter(SignatureVerifier):
         require_exact("namespace", namespace, AUTHORIZATION_NAMESPACE)
         if not grant_bytes or not signature_bytes:
             return None
+        before = bounded_file_bytes(self._plan.signature_path, SIGNATURE_MAX_BYTES)
+        if before != signature_bytes:
+            return None
         result = self._executor.run_effect(
             bound_effect("verify_signature"),
             timeout_seconds=EFFECT_TIMEOUT_SECONDS,
             stdin=grant_bytes,
         )
+        after = bounded_file_bytes(self._plan.signature_path, SIGNATURE_MAX_BYTES)
+        if after != before:
+            return None
         return result.returncode == SUCCESS_RETURNCODE
 
 
@@ -558,9 +553,12 @@ class CredentialFileAdapter(CredentialPort):
         self._require_trusted_parent(path)
         handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
         try:
-            os.write(handle, secrets.token_urlsafe(SECRET_BYTES).encode(ENCODING))
+            write_whole(handle, secrets.token_urlsafe(SECRET_BYTES).encode(ENCODING))
             os.fsync(handle)
-        finally:
+        except BaseException:
+            close_quietly(handle)
+            raise
+        else:
             os.close(handle)
         # The bytes are durable but the name reaching them is not until the directory entry
         # is flushed too. A credential that survives a crash as an unreachable inode is
@@ -661,12 +659,15 @@ class AtomicFileAttemptLedger(AttemptLedger):
         handle = self._acquire(pending)
         replaced = False
         try:
+            self._require_unconsumed(record_id)
+            entries = (*self._entries(), f"{record_id} {attempt_ordinal}")
             try:
-                self._require_unconsumed(record_id)
-                entries = (*self._entries(), f"{record_id} {attempt_ordinal}")
-                os.write(handle, ("\n".join(entries) + "\n").encode(ENCODING))
+                write_whole(handle, ("\n".join(entries) + "\n").encode(ENCODING))
                 os.fsync(handle)
-            finally:
+            except BaseException:
+                close_quietly(handle)
+                raise
+            else:
                 os.close(handle)
             os.replace(pending, self._path)
             replaced = True
@@ -777,13 +778,13 @@ class AtomicFileAttemptLedger(AttemptLedger):
                 )
             stream = os.fdopen(handle, encoding=ENCODING)
         except OSError as error:
-            os.close(handle)
+            close_quietly(handle)
             raise ValueError(
                 f"{self._path}: the attempt ledger is unreadable and its refusal is never "
                 f"an empty budget: {error}"
             ) from error
         except BaseException:
-            os.close(handle)
+            close_quietly(handle)
             raise
         with stream:
             return tuple(line.strip() for line in stream if line.strip())

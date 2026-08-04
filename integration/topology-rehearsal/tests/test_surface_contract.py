@@ -16,11 +16,11 @@ import re
 from pathlib import Path
 
 import pytest
-
 from conftest import (
     C8_MODULES,
     C8_SCRIPT_NAMES,
     PACKAGE,
+    ROOT,
     SCRIPTS,
     SRC,
     load_c8,
@@ -54,6 +54,10 @@ FORBIDDEN_LIBRARY_IMPORTS = frozenset(
 # The one status an authored C8 library module may declare. It is reviewed source and
 # nothing more: no module here has ever been run against Docker, a listener or a database.
 LIBRARY_STATUS = "Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`."
+PROJECT_STATUS = (
+    "Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — "
+    "NO RUNTIME AUTHORITY."
+)
 # Standings this specification cannot evidence. A module that claimed one would present
 # unexecuted source as a tested, piloted or released capability.
 UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b"
@@ -99,6 +103,17 @@ def test_the_c8_source_root_and_package_exist() -> None:
     require_c8_path(SRC)
     require_c8_path(SRC / PACKAGE)
     require_c8_path(SRC / PACKAGE / "__init__.py")
+
+
+def test_project_and_harness_headers_state_the_mixed_c8a_lifecycle_truthfully() -> None:
+    """The project may not keep claiming all source is absent after C8-A lands."""
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    harness = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    assert f"# {PROJECT_STATUS}" in pyproject
+    assert PROJECT_STATUS in harness
+    stale = "RED — TESTS ONLY — RUNNER NOT IMPLEMENTED"
+    assert stale not in pyproject
+    assert stale not in harness
 
 
 def test_the_package_imports_and_names_itself() -> None:

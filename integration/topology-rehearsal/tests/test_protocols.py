@@ -5,11 +5,9 @@ from __future__ import annotations
 import inspect
 from dataclasses import FrozenInstanceError
 
-import pytest
-
 import fakes
+import pytest
 from conftest import load_c8, require_c8_attr
-
 
 PORTS = {
     "Clock": "clock",

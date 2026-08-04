@@ -1,12 +1,11 @@
-"""Shared RED harness for the topology-only rehearsal runner specification.
+"""Shared mixed-lifecycle harness for the topology-only rehearsal runner specification.
 
-Status: `RED — TESTS ONLY — RUNNER NOT IMPLEMENTED`.
+Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
 
-Every test in this project states the final behaviour of the C8 runner and starts with a
-missing-C8 guard: `load_c8` / `require_c8_path` fail the test with an exact, non-skipping
-reason while the implementation is absent, and become transparent once it exists. Nothing
-here imports a real adapter, opens a socket, spawns a process or touches Docker; the
-autouse `forbid_real_io` tripwire turns any such attempt into a test failure.
+Every test states final C8 behaviour. `load_c8` / `require_c8_path` transparently load the
+present C8-A core and fail later absent modules with an exact, non-skipping reason. Tests may
+import the injection-only adapters but never open a socket, spawn a process or touch Docker;
+the autouse `forbid_real_io` tripwire turns any such attempt into a test failure.
 """
 
 from __future__ import annotations

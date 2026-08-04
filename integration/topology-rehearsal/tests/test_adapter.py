@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 import ast
-import json
 import inspect
+import json
 import os
 import stat
-import threading
 import textwrap
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import load_c8, require_c8_attr
-
 
 COMMAND_ADAPTERS = {
     "ControlIdentityCommandAdapter": "ControlIdentitySource",
@@ -996,7 +994,7 @@ def test_attempt_ledger_serializes_two_consumers_and_persists_one_entry(
         try:
             ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
             return None
-        except BaseException as error:
+        except ValueError as error:
             return error
         finally:
             if label == "first":

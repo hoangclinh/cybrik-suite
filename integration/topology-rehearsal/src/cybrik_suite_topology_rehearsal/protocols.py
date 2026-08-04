@@ -18,10 +18,13 @@ swap a port out from under a later phase.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Protocol, runtime_checkable
+
+from .constants import PORT_PROTOCOL
 
 __all__ = [
     "Adapters",
@@ -42,6 +45,10 @@ __all__ = [
 # a default-constructed result must read as an unresolved observation, never as a command
 # that succeeded without ever running.
 UNRESOLVED_RETURNCODE = -1
+SUCCESS_RETURNCODE = 0
+ADDRESS_SEPARATOR = ":"
+IPV6_OPEN = "["
+IPV6_CLOSE = "]"
 
 
 @dataclass(frozen=True)
@@ -51,6 +58,94 @@ class CommandResult:
     returncode: int = UNRESOLVED_RETURNCODE
     stdout: str = ""
     stderr: str = ""
+
+
+def require_port(label: str, injected: object, port: type) -> None:
+    """Refuse an injected capability that does not implement its declared protocol.
+
+    An annotation is only a comment at runtime, so every seam is checked structurally where
+    it is accepted — in a constructor or in the bundle below, never part-way through an
+    attempt where the refusal would land after the effect it was meant to prevent. It lives
+    beside the protocols themselves so that one reviewed refusal serves every holder of one.
+    """
+    if not isinstance(injected, port):
+        raise TypeError(
+            f"{label}: {type(injected).__name__} does not implement {port.__name__}"
+        )
+
+
+def require_exact(label: str, observed: object, expected: object) -> None:
+    """Refuse a high-level argument that drifted from the reviewed plan."""
+    if observed != expected:
+        raise ValueError(f"{label}: {observed!r} is not the reviewed {expected!r}")
+
+
+def succeeded(effect: str, result: object) -> str:
+    """Return stdout only for a structurally valid zero-status command result."""
+    returncode = getattr(result, "returncode", None)
+    stdout = getattr(result, "stdout", None)
+    stderr = getattr(result, "stderr", None)
+    if (
+        type(returncode) is not int
+        or not isinstance(stdout, str)
+        or not isinstance(stderr, str)
+    ):
+        raise ValueError(f"{effect}: the command result is malformed: {result!r}")
+    if returncode == UNRESOLVED_RETURNCODE:
+        raise ValueError(f"{effect}: the command is unresolved — it never ran")
+    if returncode < 0:
+        raise ValueError(f"{effect}: the command was killed by signal {-returncode}")
+    if returncode != SUCCESS_RETURNCODE:
+        raise ValueError(
+            f"{effect}: the command failed with status {returncode}: {stderr.strip()}"
+        )
+    return stdout.strip()
+
+
+def decoded(result: CommandResult) -> Any:
+    """Return one JSON projection, or `None` when it did not resolve."""
+    if result.returncode != SUCCESS_RETURNCODE or not result.stdout.strip():
+        return None
+    try:
+        return json.loads(result.stdout.strip())
+    except ValueError:
+        return None
+
+
+def lines(result: CommandResult) -> tuple[str, ...] | None:
+    """Return non-empty lines, or `None` when the command did not resolve."""
+    if result.returncode != SUCCESS_RETURNCODE:
+        return None
+    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+
+
+def residual_names(result: CommandResult) -> tuple[str, ...] | None:
+    """Decode one residual projection as JSON strings, failing closed."""
+    observed = lines(result)
+    if observed is None:
+        return None
+    names: list[str] = []
+    for line in observed:
+        try:
+            name = json.loads(line)
+        except ValueError:
+            return None
+        if not isinstance(name, str) or not name:
+            return None
+        names.append(name)
+    return tuple(names)
+
+
+def decoded_listener(field: str) -> dict[str, Any] | None:
+    """Decode one lsof address field without normalising a wildcard to loopback."""
+    address, separator, port = field.rpartition(ADDRESS_SEPARATOR)
+    if not separator or not port.isdigit():
+        return None
+    if address.startswith(IPV6_OPEN) and address.endswith(IPV6_CLOSE):
+        address = address[len(IPV6_OPEN):-len(IPV6_CLOSE)]
+    if not address:
+        return None
+    return {"address": address, "port": int(port), "protocol": PORT_PROTOCOL}
 
 
 @runtime_checkable
@@ -219,9 +314,4 @@ class Adapters:
 
     def __post_init__(self) -> None:
         for field_name, port in PORT_TYPES.items():
-            injected = getattr(self, field_name)
-            if not isinstance(injected, port):
-                raise TypeError(
-                    f"{field_name}: {type(injected).__name__} does not implement "
-                    f"{port.__name__}"
-                )
+            require_port(field_name, getattr(self, field_name), port)

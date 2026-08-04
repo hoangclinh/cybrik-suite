@@ -70,7 +70,11 @@ ATTEMPT_LABEL_KEY = "cybrik.attempt_id"
 # parsing dialect, and every projection is a whole-object dump or one named field.
 JSON_PROJECTION = "{{json .}}"
 HEALTH_PROJECTION = "{{json .State.Health.Status}}"
+# `docker ps` renders a container's names as `.Names`; `network ls` and `volume ls` render a
+# single `.Name`. Both are projected as JSON strings so a residual inventory is machine-
+# readable without a second parsing dialect.
 NAME_PROJECTION = "{{json .Names}}"
+SINGLE_NAME_PROJECTION = "{{json .Name}}"
 
 # The daemon's own publication claim for the one reviewed container port. Dumping the whole
 # attribute map would make the publication view depend on which other attributes the daemon
@@ -133,6 +137,11 @@ class TopologyPlan:
     container_port_key: str
     publish_spec: str
     probe_executable_path: str
+    # The detached signature file the reviewed `signature:verify` argv hands to `ssh-keygen`.
+    # It is a plan field rather than a spelling an adapter re-derives: an adapter that had to
+    # rebuild this path to read the bytes it is asked about could name a different file than
+    # the one actually verified, which is the drift a single reviewed expression removes.
+    signature_path: str
     commands: Mapping[str, tuple[str, ...]]
     create_commands: tuple[tuple[str, ...], ...]
     observe_commands: tuple[tuple[str, ...], ...]
@@ -201,7 +210,7 @@ def control_commands(
 
 
 def precondition_commands(
-    *, image_reference: str, suite_root: str
+    *, image_reference: str, suite_root: str, signature_path: str
 ) -> dict[str, tuple[str, ...]]:
     """The item 1-3 observations taken before anything is created."""
     return {
@@ -254,7 +263,7 @@ def precondition_commands(
             "-n",
             AUTHORIZATION_NAMESPACE,
             "-s",
-            f"{suite_root}/{SIGNATURE_PATH}",
+            signature_path,
         ),
     }
 
@@ -379,7 +388,13 @@ def observation_commands(
 def teardown_command_table(
     *, container_name: str, network_name: str, volume_name: str
 ) -> dict[str, tuple[str, ...]]:
-    """Removal in the mandatory order, plus the residual re-observation."""
+    """Removal in the mandatory order, plus one residual re-observation per created kind.
+
+    Every kind the plan creates has its own residual projection. A teardown proof that could
+    only see containers would report a leaked network or volume as a clean host, and each of
+    the three is exactly as much residue as the others. Each projection is filtered to this
+    attempt's own derived name, so no observation can ever describe another attempt.
+    """
     return {
         "docker:remove_container": (
             DOCKER_EXECUTABLE,
@@ -389,7 +404,7 @@ def teardown_command_table(
         ),
         "docker:remove_network": (DOCKER_EXECUTABLE, "network", "rm", network_name),
         "docker:remove_volume": (DOCKER_EXECUTABLE, "volume", "rm", volume_name),
-        "docker:residual": (
+        "docker:residual_container": (
             DOCKER_EXECUTABLE,
             "ps",
             "--all",
@@ -397,6 +412,24 @@ def teardown_command_table(
             f"name={container_name}",
             "--format",
             NAME_PROJECTION,
+        ),
+        "docker:residual_network": (
+            DOCKER_EXECUTABLE,
+            "network",
+            "ls",
+            "--filter",
+            f"name={network_name}",
+            "--format",
+            SINGLE_NAME_PROJECTION,
+        ),
+        "docker:residual_volume": (
+            DOCKER_EXECUTABLE,
+            "volume",
+            "ls",
+            "--filter",
+            f"name={volume_name}",
+            "--format",
+            SINGLE_NAME_PROJECTION,
         ),
     }
 
@@ -429,11 +462,14 @@ def build_plan(
     )
 
     host_probe = (PROBE_EXECUTABLE_PATH, *PROBE_ARGV)
+    suite_root = repository_roots[SUITE_REPOSITORY]
+    signature_path = f"{suite_root}/{SIGNATURE_PATH}"
     commands: dict[str, tuple[str, ...]] = {
         **control_commands(repository_roots),
         **precondition_commands(
             image_reference=image,
-            suite_root=repository_roots[SUITE_REPOSITORY],
+            suite_root=suite_root,
+            signature_path=signature_path,
         ),
         "probe:host": host_probe,
         **creation_commands(
@@ -471,6 +507,7 @@ def build_plan(
         container_port_key=CONTAINER_PORT_KEY,
         publish_spec=PUBLISH_SPEC,
         probe_executable_path=PROBE_EXECUTABLE_PATH,
+        signature_path=signature_path,
         commands=MappingProxyType(dict(commands)),
         create_commands=(
             commands["docker:create_network"],

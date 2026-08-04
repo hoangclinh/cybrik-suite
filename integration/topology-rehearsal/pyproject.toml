@@ -1,16 +1,17 @@
-# Status: RED — TESTS ONLY — RUNNER NOT IMPLEMENTED.
+# Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
 #
-# This project holds the executable specification (C7) of the topology-only rehearsal
-# runner described by
+# This project holds the executable specification and bounded C8-A library core of the
+# topology-only rehearsal runner described by
 # docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md
-# sections 7 and 8. The runner itself (C8) is not implemented, so every test here fails
-# closed on a missing-C8 guard. Nothing in this project authorizes a Docker effect, a
-# listener, a PostgreSQL RED attempt, UAT, demo, merge, release or production action.
+# sections 7 and 8. Constants, errors, protocols, plan and adapters are present; observation,
+# preparation, grant, admission, runner and scripts remain intentionally RED and absent.
+# Nothing here authorizes a Docker effect, a listener, a PostgreSQL RED attempt, UAT, demo,
+# merge, release or production action.
 
 [project]
 name = "cybrik-suite-topology-rehearsal"
 version = "0.0.0"
-description = "Injection-only specification of the bounded topology-only rehearsal runner. Tests only; the runner is not implemented."
+description = "Injection-only C8-A library core and RED specification for the remaining bounded topology rehearsal runner."
 requires-python = ">=3.12"
 dependencies = []
 
