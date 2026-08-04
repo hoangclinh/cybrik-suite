@@ -1293,6 +1293,46 @@ test('an execution-authorized candidate carrying only the sealed predecessor sti
   });
 });
 
+// The door the two fail-closed controls above guard must actually open: a
+// successor that earns runtime authority by carrying both prerequisites, with
+// nothing else about it changed, must validate clean and keep its declared
+// RUNTIME_AUTHORIZED disposition. Without this test the prerequisite rule could
+// be satisfied by a validator that rejects every authorized candidate.
+test('an execution-authorized successor carrying both runtime prerequisites validates clean', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-authorized-with-prerequisites';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topology.prerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
+    const successor = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 1),
+    );
+    assert.equal(successor.declaredDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(successor.derivedDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(successor.effectiveDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
 test('the grandfathered exemption never extends to another candidate of the same mTLS series', async () => {
   const seriesId = GRANDFATHERED_MTLS_SERIES;
   const r1Content = '{"attempt":1,"result":"failed"}\n';
@@ -1493,6 +1533,96 @@ test('a non-string topology_prerequisite result_path is reported, not thrown', a
       report,
       `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/objective_lineage/topology_prerequisite/result_path must be string`,
     );
+  });
+});
+
+// Robustness: the record binding proves only that the cited bytes are the bytes
+// the successor pinned. It proves nothing about their shape, so every field read
+// out of them afterwards is reading untrusted structure. A malformed sealed
+// rehearsal record must therefore fail closed as this reported finding, never as
+// a propagated TypeError.
+const TOPOLOGY_CLOSED_RECORD_FINDING =
+  'topology_prerequisite must resolve to a closed non-authorizing TOPOLOGY_PASS record';
+
+const reportWithoutThrowing = async (tempRoot, context) => {
+  try {
+    return await validateRuntimeAdmission({ root: tempRoot });
+  } catch (error) {
+    assert.fail(`${context} must be reported, not thrown: ${error?.stack ?? error}`);
+  }
+};
+
+test('a sealed topology record whose bytes parse as JSON null is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-record';
+  // Well-formed JSON, no object to read fields from. The successor pins these
+  // exact bytes, so the binding holds and parsed-field validation is reached.
+  const nullRecordBytes = 'null\n';
+  assert.equal(JSON.parse(nullRecordBytes), null);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_sha256: sha256(nullRecordBytes),
+    },
+  });
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath
+      ? {
+        kind: 'text',
+        dir: topology.directory,
+        path: topology.recordPath,
+        value: nullRecordBytes,
+      }
+      : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(tempRoot, 'a null topology rehearsal record');
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_CLOSED_RECORD_FINDING}`,
+    );
+    assertNoFinding(report, 'topology_prerequisite record_sha256 must match');
+  });
+});
+
+test('a sealed topology record with non-array evidence artifacts is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-nonarray-artifacts';
+  // Exactly one field of the otherwise closed, internally consistent rehearsal
+  // record is retyped from array to string; the successor pins the resulting
+  // exact bytes, so only the artifact-list shape is malformed.
+  const malformedRecord = {
+    ...topology.record,
+    evidence: {
+      ...topology.record.evidence,
+      artifacts: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+    },
+  };
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_sha256: sha256(stableJson(malformedRecord)),
+    },
+  });
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath ? { ...write, value: malformedRecord } : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a topology rehearsal record with non-array evidence artifacts',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_CLOSED_RECORD_FINDING}`,
+    );
+    assertNoFinding(report, 'topology_prerequisite record_sha256 must match');
   });
 });
 
