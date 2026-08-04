@@ -537,6 +537,34 @@ const historicalPrerequisite = (candidate) => ({
   evidence_use: 'historical_prerequisite',
 });
 
+const sealedBrowserPredecessor = () => ({
+  candidate_id: 'browser-integrated-uat-bridge-r1',
+  record_path:
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+  record_sha256: 'b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578',
+  evidence_path:
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md',
+  evidence_sha256: '24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe',
+  evidence_use: 'sealed_predecessor',
+});
+
+const topologyPrerequisite = ({
+  resultSha256 = '1'.repeat(64),
+  manifestSha256 = '2'.repeat(64),
+  evidenceUse = 'non_authorizing_preflight',
+} = {}) => ({
+  record_id: 'postgres-loopback-internal-v1-r1',
+  capability_id: 'cybrik.suite.runtime-topology',
+  objective_id: 'postgres-loopback-internal-v1',
+  result_path:
+    'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/result.md',
+  result_sha256: resultSha256,
+  evidence_manifest_path:
+    'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/evidence-manifest.json',
+  evidence_manifest_sha256: manifestSha256,
+  evidence_use: evidenceUse,
+});
+
 const runtimeAuthorizationWithdrawal = (
   candidate,
   {
@@ -668,15 +696,20 @@ test('exports include attempt_accounting in the candidate field contract', () =>
 
 test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 records', () => {
   const policy = JSON.parse(read(LINEAGE_POLICY_PATH));
-  assert.equal(policy.schema_version, '1.0.0');
+  assert.equal(policy.schema_version, '1.1.0');
   assert.deepEqual(policy.allowed_objectives, [
     {
       capability_id: 'cybrik.ai.durable-postgres',
       objective_id: 'bounded-postgres-runtime-v1',
+      allowed_series_ids: ['runtime-admission-ai-pg'],
     },
     {
       capability_id: 'cybrik.suite.golden-workflow',
       objective_id: 'golden-uat-v1',
+      allowed_series_ids: [
+        'browser-integrated-uat-bridge',
+        'runtime-admission-soc-ai-lifecycle-mtls',
+      ],
     },
   ]);
   assert.deepEqual(
@@ -694,6 +727,148 @@ test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 re
     assert.equal(entry.recorded_disposition, 'NO-GO');
     assert.equal(sha256(read(entry.record_path)), entry.record_sha256);
   }
+  assert.deepEqual(policy.sealed_predecessors, [{
+    candidate_id: 'browser-integrated-uat-bridge-r1',
+    series_id: 'browser-integrated-uat-bridge',
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    record_path:
+      'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+    record_sha256: 'b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578',
+    recorded_disposition: 'HOLD',
+    recorded_current_attempt_status: 'not_run',
+  }]);
+});
+
+test('an allowed objective still rejects every unlisted runtime-admission series', async () => {
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-golden-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: committedLineagePolicy(),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'objective_lineage series_id must be explicitly allowlisted for its capability/objective',
+    )));
+  });
+});
+
+test('sealed predecessor references must match the immutable HOLD not-run policy pin', async () => {
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-sealed-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      record_sha256: '0'.repeat(64),
+    },
+  };
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'sealed_predecessor record path and digest must match the immutable lineage policy',
+    )));
+  });
+});
+
+test('topology prerequisite identity, result and manifest digests fail closed on drift', async () => {
+  const resultContent = 'topology pass result\n';
+  const manifestContent = '{"external_evidence":"locally-reviewed"}\n';
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-topology-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topologyPrerequisite({
+      resultSha256: '0'.repeat(64),
+      manifestSha256: sha256(manifestContent),
+    }),
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.result_path,
+        value: resultContent,
+      },
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.evidence_manifest_path,
+        value: manifestContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'topology_prerequisite result SHA-256 must match committed result bytes',
+    )));
+  });
+});
+
+test('topology prerequisite bytes cannot be promoted into runtime execution evidence', async () => {
+  const resultContent = 'topology pass result reused as execution evidence\n';
+  const resultSha256 = sha256(resultContent);
+  const manifestContent = '{"external_evidence":"locally-reviewed"}\n';
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-topology-reuse',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    evidenceContent: resultContent,
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topologyPrerequisite({
+      resultSha256,
+      manifestSha256: sha256(manifestContent),
+    }),
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.result_path,
+        value: resultContent,
+      },
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.evidence_manifest_path,
+        value: manifestContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'topology_prerequisite bytes must never be reused as runtime execution evidence',
+    )));
+  });
 });
 
 test('standalone validator rejects any attempt to grandfather a fourth legacy candidate', async () => {
