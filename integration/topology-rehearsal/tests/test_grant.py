@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import sys
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 
@@ -279,7 +280,15 @@ def test_canonical_bytes_are_the_documents_own_two_space_json_rendering(grant) -
 
 @pytest.mark.parametrize(
     "unrenderable",
-    ((), "grant", 1, None, {"schema": {"a", "b"}}, {"schema": float("nan")}),
+    (
+        (),
+        "grant",
+        1,
+        None,
+        {"schema": {"a", "b"}},
+        {"schema": float("nan")},
+        {"schema": {1: "a non-string nested key"}},
+    ),
 )
 def test_canonical_bytes_refuse_anything_that_is_not_a_renderable_grant(
     grant, unrenderable
@@ -287,6 +296,24 @@ def test_canonical_bytes_refuse_anything_that_is_not_a_renderable_grant(
     """A document that cannot render exactly has no canonical bytes to sign."""
     with pytest.raises(ValueError):
         require_c8_attr(grant, "canonical_grant_bytes")(unrenderable)
+
+
+def test_canonical_bytes_normalize_recursion_to_the_single_value_error(grant) -> None:
+    recursive: dict[str, object] = {}
+    recursive["self"] = recursive
+    with pytest.raises(ValueError):
+        require_c8_attr(grant, "canonical_grant_bytes")(recursive)
+
+
+def test_canonical_bytes_normalize_excessive_depth_to_the_single_value_error(grant) -> None:
+    deeply_nested: dict[str, object] = {}
+    cursor = deeply_nested
+    for _ in range(sys.getrecursionlimit() + 10):
+        child: dict[str, object] = {}
+        cursor["child"] = child
+        cursor = child
+    with pytest.raises(ValueError):
+        require_c8_attr(grant, "canonical_grant_bytes")(deeply_nested)
 
 
 def test_a_grant_past_the_reviewed_byte_bound_is_refused_not_rendered(grant) -> None:
@@ -342,6 +369,88 @@ def test_the_record_and_runner_bindings_must_equal_the_observed_facts(
     )
     assert verdict.satisfied is False
     assert any(named in finding.lower() for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    ("section", "path", "bad"),
+    [
+        ("topology", ("host_port",), fakes.HOST_PORT + 1),
+        ("selected_image_identity", ("manifest_digest",), "sha256:" + "0" * 64),
+        ("observed_image_identity", ("manifest_digest",), "sha256:" + "0" * 64),
+        ("repositories", ("cybrik-suite", "clean"), False),
+        ("tools", ("docker", "sha256"), "0" * 64),
+    ],
+)
+def test_each_runner_observation_must_bind_in_its_failing_direction(
+    grant, section: str, path: tuple[str, ...], bad
+) -> None:
+    document = documents.grant_document()
+    observed = deepcopy(document[section])
+    cursor = observed
+    for key in path[:-1]:
+        cursor = cursor[key]
+    cursor[path[-1]] = bad
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document, facts(grant, **{section: observed})
+    )
+    assert verdict.satisfied is False
+    assert any(section in finding for finding in verdict.findings)
+
+
+def test_a_grant_signed_before_the_attempt_binds_a_fresh_host_observation(grant) -> None:
+    """The runtime timestamp is fresh evidence, not a value copied out of signed bytes."""
+    document = documents.grant_document()
+    observed = deepcopy(document["observed_image_identity"])
+    observed["observed_at"] = documents.NOW_INSIDE_WINDOW
+    verify = require_c8_attr(grant, "verify_bindings")
+    assert verify(
+        document, facts(grant, observed_image_identity=observed)
+    ).satisfied is True
+
+    observed["manifest_digest"] = "sha256:" + "0" * 64
+    refused = verify(document, facts(grant, observed_image_identity=observed))
+    assert refused.satisfied is False
+    assert any("observed_image_identity" in finding for finding in refused.findings)
+
+
+@pytest.mark.parametrize(
+    "observed_at",
+    (documents.NOW_BEFORE_NOT_BEFORE, documents.NOW_AFTER_EXPIRES_AT),
+)
+def test_a_host_image_observed_outside_the_authorized_window_is_refused(
+    grant, observed_at: str
+) -> None:
+    document = documents.grant_document()
+    observed = deepcopy(document["observed_image_identity"])
+    observed["observed_at"] = observed_at
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document, facts(grant, observed_image_identity=observed)
+    )
+    assert verdict.satisfied is False
+    assert any("window" in finding for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("local_image_id", 0),
+        ("local_image_id", "sha256:not-a-digest"),
+        ("platform", "linux/arm64"),
+        ("platform", {"os": "linux", "architecture": 64, "variant": None}),
+    ],
+)
+def test_runtime_image_observation_has_exact_reviewed_shapes(
+    grant, field: str, bad
+) -> None:
+    document = documents.with_nested(
+        documents.grant_document(), "observed_image_identity", {field: bad}
+    )
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document,
+        facts(grant, observed_image_identity=document["observed_image_identity"]),
+    )
+    assert verdict.satisfied is False
+    assert any("observed_image_identity" in finding for finding in verdict.findings)
 
 
 @pytest.mark.parametrize(
@@ -414,6 +523,29 @@ def test_an_unreadable_now_is_a_window_refusal_rather_than_a_pass(grant) -> None
 
 
 @pytest.mark.parametrize(
+    "inexact",
+    ("2026-8-05T00:01:00Z", "2026-08-5T00:01:00Z", "2026-08-05T 0:01:00Z"),
+)
+def test_an_inexact_but_parseable_instant_spelling_is_refused(grant, inexact: str) -> None:
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        documents.grant_document(), facts(grant, now=inexact)
+    )
+    assert verdict.satisfied is False
+    assert any("window" in finding.lower() for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    ("document", "current"),
+    [(None, facts), ({}, object())],
+)
+def test_outer_grant_and_facts_guards_fail_closed(grant, document, current) -> None:
+    observed = current(grant) if callable(current) else current
+    verdict = require_c8_attr(grant, "verify_bindings")(document, observed)
+    assert verdict.satisfied is False
+    assert verdict.findings
+
+
+@pytest.mark.parametrize(
     "arguments",
     [
         {"satisfied": True, "findings": ("drift",)},
@@ -440,13 +572,21 @@ def test_the_binding_module_reaches_for_no_effect_and_never_authorizes_itself() 
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     roots: set[str] = set()
     from_constants: set[str] = set()
+    relative_modules: set[str] = set()
+    unqualified_relative = False
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             if node.level == 0 and node.module:
                 roots.add(node.module.split(".")[0])
-            elif node.module == "constants":
+            elif node.level > 0 and node.module:
+                relative_modules.add(node.module.split(".")[0])
+            elif node.level > 0:
+                unqualified_relative = True
+            if node.level > 0 and node.module == "constants":
                 from_constants.update(alias.name for alias in node.names)
     assert sorted(roots - GRANT_IMPORT_ROOTS) == []
+    assert relative_modules == {"constants"}
+    assert unqualified_relative is False
     assert sorted(from_constants.intersection(SELF_AUTHORIZING_CONSTANTS)) == []
