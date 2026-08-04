@@ -11,6 +11,7 @@ import threading
 import textwrap
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -448,6 +449,49 @@ def test_attempt_ledger_refuses_to_follow_the_durable_path_symlink(tmp_path: Pat
         ledger.is_consumed(record_id=fakes.RECORD_ID)
 
 
+def test_attempt_ledger_refuses_a_fifo_without_blocking(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    os.mkfifo(ledger_path, 0o600)
+    real_open = adapter.os.open
+
+    def nonblocking_open(path: str, flags: int, *args) -> int:
+        if path == str(ledger_path):
+            assert flags & adapter.os.O_NONBLOCK
+        return real_open(path, flags, *args)
+
+    monkeypatch.setattr(adapter.os, "open", nonblocking_open)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(ValueError, match="non-regular|regular file"):
+        ledger.is_consumed(record_id=fakes.RECORD_ID)
+
+
+def test_attempt_ledger_closes_a_nonregular_durable_path_descriptor(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    ledger_path.mkdir()
+    real_open = adapter.os.open
+    opened: list[int] = []
+
+    def recording_open(path: str, flags: int, *args) -> int:
+        descriptor = real_open(path, flags, *args)
+        if path == str(ledger_path):
+            opened.append(descriptor)
+        return descriptor
+
+    monkeypatch.setattr(adapter.os, "open", recording_open)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(ValueError, match="non-regular|regular file"):
+        ledger.is_consumed(record_id=fakes.RECORD_ID)
+    assert len(opened) == 1
+    with pytest.raises(OSError):
+        adapter.os.fstat(opened[0])
+
+
 def test_attempt_ledger_recovers_a_regular_stale_pending_file_under_lock(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -532,6 +576,27 @@ def test_ledger_fsyncs_the_file_and_containing_directory(
     assert events.index("replace") < events.index("fsync:directory")
 
 
+def test_post_replace_fsync_failure_does_not_delete_another_consumers_pending(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    pending = tmp_path / "attempt-ledger.pending"
+
+    def fail_after_replacement(_directory: str) -> None:
+        pending.write_text("new consumer owns this pending file\n", encoding="utf-8")
+        raise OSError("directory fsync failed")
+
+    monkeypatch.setattr(adapter, "fsync_directory", fail_after_replacement)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(OSError, match="directory fsync failed"):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert ledger_path.read_text(encoding="utf-8") == f"{fakes.RECORD_ID} 1\n"
+    assert pending.read_text(encoding="utf-8") == (
+        "new consumer owns this pending file\n"
+    )
+
+
 def test_credential_adapter_is_plan_bound_and_fsyncs_its_directory(monkeypatch) -> None:
     adapter = load_c8("adapter")
     plan = built_plan()
@@ -545,6 +610,12 @@ def test_credential_adapter_is_plan_bound_and_fsyncs_its_directory(monkeypatch) 
         opened.append((path, flags, mode))
         return 10 if path == plan.credential_path else 11
 
+    monkeypatch.setattr(adapter.os, "getuid", lambda: 1234)
+    monkeypatch.setattr(
+        adapter.os,
+        "lstat",
+        lambda _path: SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=1234),
+    )
     monkeypatch.setattr(adapter.os, "open", fake_open)
     monkeypatch.setattr(adapter.os, "write", lambda descriptor, data: len(data))
     monkeypatch.setattr(adapter.os, "fsync", fsynced.append)
@@ -561,6 +632,55 @@ def test_credential_adapter_is_plan_bound_and_fsyncs_its_directory(monkeypatch) 
         credential.remove(name="wrong-credential")
     with pytest.raises(ValueError):
         credential.observe_residual(name="wrong-credential")
+
+
+@pytest.mark.parametrize(
+    ("mode", "owner", "reason"),
+    (
+        (stat.S_IFLNK | 0o700, 1234, "directory"),
+        (stat.S_IFREG | 0o600, 1234, "directory"),
+        (stat.S_IFDIR | 0o700, 4321, "owner"),
+        (stat.S_IFDIR | 0o720, 1234, "writable"),
+        (stat.S_IFDIR | 0o702, 1234, "writable"),
+    ),
+)
+def test_credential_adapter_refuses_an_untrusted_parent_before_write(
+    monkeypatch, mode: int, owner: int, reason: str
+) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    monkeypatch.setattr(adapter.os, "getuid", lambda: 1234)
+    monkeypatch.setattr(
+        adapter.os,
+        "lstat",
+        lambda _path: SimpleNamespace(st_mode=mode, st_uid=owner),
+    )
+    monkeypatch.setattr(
+        adapter.os,
+        "open",
+        lambda *_args, **_kwargs: pytest.fail("untrusted parent reached os.open"),
+    )
+    credential = require_c8_attr(adapter, "CredentialFileAdapter")(plan)
+    with pytest.raises(ValueError, match=reason):
+        credential.create(name=plan.credential_name)
+
+
+def test_credential_adapter_refuses_a_missing_parent_before_write(monkeypatch) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+
+    def missing_parent(_path: str):
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr(adapter.os, "lstat", missing_parent)
+    monkeypatch.setattr(
+        adapter.os,
+        "open",
+        lambda *_args, **_kwargs: pytest.fail("missing parent reached os.open"),
+    )
+    credential = require_c8_attr(adapter, "CredentialFileAdapter")(plan)
+    with pytest.raises(ValueError, match="directory|missing"):
+        credential.create(name=plan.credential_name)
 
 
 def test_adapter_source_contains_one_runner_call_and_no_inline_effect_argv() -> None:
