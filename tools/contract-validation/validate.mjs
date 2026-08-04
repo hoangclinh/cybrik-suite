@@ -83,7 +83,8 @@ const steps = [
   'validate-runtime-admission.mjs',
   'tests/validate-runtime-admission.test.mjs',
   // Topology-only rehearsal registry — static singleton and evidence controls.
-  // No record is currently prepared or authorized; green opens no runtime gate.
+  // The registry holds one proposed HOLD record, unauthorized and not_run;
+  // green opens no runtime gate.
   'validate-topology-rehearsal.mjs',
   'tests/validate-topology-rehearsal.test.mjs',
   // W2-K transport peer-evidence profile — ACCEPTED FOR IMPLEMENTATION but
@@ -109,4 +110,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, receipt trust/durability as ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, the static topology-rehearsal singleton controls with zero prepared records, and the Fabric runtime-producer implementation gate while runtime remains HOLD. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, receipt trust/durability as ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, the static topology-rehearsal singleton controls over one proposed HOLD record that stays unauthorized and not_run, and the Fabric runtime-producer implementation gate while runtime remains HOLD. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');

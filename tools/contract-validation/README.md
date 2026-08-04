@@ -180,7 +180,8 @@ policy-and-code-pinned record identity, fixed loopback/internal-network envelope
 cycle with no extension, exact bounded host probe, phase/outcome truth table, contained artifact
 digests with distinct role/path/bytes, policy-and-code-pinned current/prior state, detached Founder
 SSHSIG authorization, locally reviewed external-manifest limitation and zero residual resources for
-every closed record. Zero prepared records is the current valid state. A green result is static
+every closed record. The current valid state is one proposed HOLD record,
+`postgres-loopback-internal-v1-r1`, which is unauthorized, unconsumed and `not_run`. A green result is static
 control evidence only and grants no Docker effect, runtime, UAT, demo, release or production
 authority.
 

@@ -44,7 +44,14 @@ export const PINNED_TOPOLOGY_RECORDS = Object.freeze([
   }),
 ]);
 export const PINNED_TOPOLOGY_STATE = Object.freeze({
-  current_state: null,
+  current_state: Object.freeze({
+    record_id: 'postgres-loopback-internal-v1-r1',
+    record_sha256: 'd81252c21cd0bbc0c3fd8355da8ca8c63457b9fd76203b137c4b06fbe142eed9',
+    phase: 'proposed',
+    attempt_consumed: false,
+    outcome: 'not_run',
+    grant_sha256: null,
+  }),
   state_history: Object.freeze([]),
 });
 
