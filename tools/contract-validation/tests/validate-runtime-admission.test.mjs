@@ -1126,6 +1126,17 @@ const assertNoFinding = (report, unexpected) => {
   );
 };
 
+// A reported finding is only half a fail-closed control: the candidate it was
+// reported against must also carry no runtime authority in the report the
+// callers of this validator read.
+const assertHeldNotRuntimeAuthorized = (report, recordPath) => {
+  const candidateReport = report.candidates.find((entry) => entry.path === recordPath);
+  assert.ok(candidateReport, `no candidate report for ${recordPath}`);
+  assert.notEqual(candidateReport.derivedDisposition, 'RUNTIME_AUTHORIZED');
+  assert.equal(candidateReport.derivedDisposition, 'HOLD');
+  assert.equal(candidateReport.effectiveDisposition, 'HOLD');
+};
+
 // Same otherwise-valid successor as the clean path above, mutated at exactly one
 // point: the cited predecessor evidence digest. The sealed record itself is
 // untouched, so only the successor's claim about the sealed HOLD/not_run
@@ -1665,6 +1676,9 @@ test('a null candidate evidence artifact entry is reported, not thrown', async (
       report,
       `${candidateRecordPath(seriesId, 1)}: schema /evidence/artifacts/1 must be object`,
     );
+    // Reporting instead of throwing is only half the control: the malformed
+    // candidate must also stay held and win no runtime authority.
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
   });
 });
 
@@ -1700,6 +1714,235 @@ test('a null attempt_accounting failure_history entry is reported, not thrown', 
       report,
       `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/failure_history/0 must be object`,
     );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+// The two null-entry tests above prove the guarded array callbacks no longer
+// throw on unproven items. They cannot prove the guards still detect reuse,
+// because a guard that returned false for every item would satisfy them too.
+// Each of the four tests below therefore places the reused digest in exactly
+// one guarded array branch — never in current_attempt.evidence_sha256 and never
+// in the other array — so only that branch can raise the asserted finding.
+const SEALED_BYTE_REUSE_FINDING =
+  'sealed_predecessor bytes must never be reused as runtime execution evidence';
+const TOPOLOGY_BYTE_REUSE_FINDING =
+  'topology_prerequisite bytes must never be reused as runtime execution evidence';
+const SEALED_PREDECESSOR_EVIDENCE_PATH = sealedBrowserPredecessor().evidence_path;
+
+const topologyArtifactContent = (topology, artifactPath) => {
+  const write = topology.extraWrites.find((entry) => entry.path === artifactPath);
+  assert.ok(write, `no committed topology rehearsal bytes for ${artifactPath}`);
+  return write.value;
+};
+
+// A two-attempt series whose R1 truthfully failed on `reusedContent`, so R2 can
+// carry that digest in failure_history and nowhere else: R2's own current
+// attempt keeps distinct fresh bytes and its artifact list stays its own. R2
+// carries both runtime prerequisites, so no prerequisite-shape finding can stand
+// in for the byte-reuse finding under test.
+const historyByteReuseSeries = ({ seriesId, reusedContent, prerequisite }) => {
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 3,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+    evidenceContent: reusedContent,
+  });
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 4,
+        passed_checks: 3,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256(reusedContent),
+      },
+    ],
+  });
+  for (const candidate of [r1, r2]) {
+    candidate.attempt_accounting.objective_lineage = {
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+      historical_prerequisites: [],
+    };
+  }
+  r2.attempt_accounting.objective_lineage.sealed_predecessor = sealedBrowserPredecessor();
+  r2.attempt_accounting.objective_lineage.topology_prerequisite = prerequisite;
+  assert.notEqual(
+    r2.attempt_accounting.current_attempt.evidence_sha256,
+    sha256(reusedContent),
+  );
+  assert.ok(r2.evidence.artifacts.every(
+    (artifact) => artifact.sha256 !== sha256(reusedContent),
+  ));
+  return { r1, r2 };
+};
+
+test('sealed predecessor bytes copied only into candidate evidence artifacts are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-sealed-artifact-byte-reuse';
+  const sealedEvidenceContent = read(SEALED_PREDECESSOR_EVIDENCE_PATH);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // The successor copied the sealed HOLD/not_run predecessor result into its own
+  // evidence directory and registered it: a real artifact, present on disk and
+  // matching its recorded digest, so nothing short-circuits before the gate.
+  const copiedPath = `${evidenceDir(seriesId, 1)}/06-copied-sealed-predecessor-result.md`;
+  candidate.evidence.artifacts = [
+    ...candidate.evidence.artifacts,
+    { path: copiedPath, sha256: sha256(sealedEvidenceContent) },
+  ];
+  assert.notEqual(
+    candidate.attempt_accounting.current_attempt.evidence_sha256,
+    sealedBrowserPredecessor().evidence_sha256,
+  );
+  assert.deepEqual(candidate.attempt_accounting.failure_history, []);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      ...topology.extraWrites,
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: copiedPath,
+        value: sealedEvidenceContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, TOPOLOGY_BYTE_REUSE_FINDING);
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+test('sealed predecessor bytes carried only by failure_history are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-sealed-history-byte-reuse';
+  const sealedEvidenceContent = read(SEALED_PREDECESSOR_EVIDENCE_PATH);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const { r1, r2 } = historyByteReuseSeries({
+    seriesId,
+    reusedContent: sealedEvidenceContent,
+    prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [r1, r2],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, TOPOLOGY_BYTE_REUSE_FINDING);
+    // R1 carries the same digest but cites no sealed predecessor, so the gate
+    // must fire against the citing successor only.
+    assertNoFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 2));
+  });
+});
+
+test('topology rehearsal result bytes copied only into candidate evidence artifacts are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-topology-artifact-byte-reuse';
+  const resultContent = topologyArtifactContent(
+    topology,
+    topology.prerequisite.result_path,
+  );
+  assert.equal(sha256(resultContent), topology.prerequisite.result_sha256);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  const copiedPath = `${evidenceDir(seriesId, 1)}/06-copied-topology-result.md`;
+  candidate.evidence.artifacts = [
+    ...candidate.evidence.artifacts,
+    { path: copiedPath, sha256: sha256(resultContent) },
+  ];
+  assert.notEqual(
+    candidate.attempt_accounting.current_attempt.evidence_sha256,
+    topology.prerequisite.result_sha256,
+  );
+  assert.deepEqual(candidate.attempt_accounting.failure_history, []);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      ...topology.extraWrites,
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: copiedPath,
+        value: resultContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, SEALED_BYTE_REUSE_FINDING);
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+test('topology rehearsal manifest bytes carried only by failure_history are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-topology-history-byte-reuse';
+  // The second digest of the prerequisite pair, so the history branch is proven
+  // against the whole pinned topology digest set and not only the result bytes.
+  const manifestContent = topologyArtifactContent(
+    topology,
+    topology.prerequisite.evidence_manifest_path,
+  );
+  assert.equal(sha256(manifestContent), topology.prerequisite.evidence_manifest_sha256);
+  const { r1, r2 } = historyByteReuseSeries({
+    seriesId,
+    reusedContent: manifestContent,
+    prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [r1, r2],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, SEALED_BYTE_REUSE_FINDING);
+    assertNoFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 2));
   });
 });
 
