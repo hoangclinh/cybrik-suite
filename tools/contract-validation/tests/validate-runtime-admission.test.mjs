@@ -581,19 +581,25 @@ const sealedBrowserPredecessor = () => ({
   evidence_use: 'sealed_predecessor',
 });
 
+// The one topology rehearsal the sealed topology policy admits. Any other
+// record_id is an unsealed rehearsal and must never satisfy the prerequisite.
+const SEALED_TOPOLOGY_RECORD_ID = 'postgres-loopback-internal-v1-r1';
+const topologyRehearsalDir = (recordId) => `docs/uat/topology-rehearsals/${recordId}`;
+const topologyRehearsalRecordPath = (recordId) =>
+  `${topologyRehearsalDir(recordId)}/topology-rehearsal.json`;
+
 const topologyPrerequisite = ({
+  recordId = SEALED_TOPOLOGY_RECORD_ID,
   resultSha256 = '1'.repeat(64),
   manifestSha256 = '2'.repeat(64),
   evidenceUse = 'non_authorizing_preflight',
 } = {}) => ({
-  record_id: 'postgres-loopback-internal-v1-r1',
+  record_id: recordId,
   capability_id: 'cybrik.suite.runtime-topology',
   objective_id: 'postgres-loopback-internal-v1',
-  result_path:
-    'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/result.md',
+  result_path: `${topologyRehearsalDir(recordId)}/result.md`,
   result_sha256: resultSha256,
-  evidence_manifest_path:
-    'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/evidence-manifest.json',
+  evidence_manifest_path: `${topologyRehearsalDir(recordId)}/evidence-manifest.json`,
   evidence_manifest_sha256: manifestSha256,
   evidence_use: evidenceUse,
 });
@@ -601,7 +607,11 @@ const topologyPrerequisite = ({
 // Builds the single closed TOPOLOGY_PASS rehearsal record the dedicated policy
 // permits, in the exact shape docs/uat/topology-rehearsal.schema.json requires,
 // plus the artifact bytes its digests are taken over.
-const closedTopologyRehearsal = () => {
+const closedTopologyRehearsal = ({
+  recordId = SEALED_TOPOLOGY_RECORD_ID,
+} = {}) => {
+  const directory = topologyRehearsalDir(recordId);
+  const recordPath = topologyRehearsalRecordPath(recordId);
   const diagnosisContent = '# bounded loopback topology diagnosis\n';
   const reviewContent = '# independent review of the bounded topology plan\n';
   const grantContent = '# founder grant for one bounded topology rehearsal\n';
@@ -612,18 +622,18 @@ const closedTopologyRehearsal = () => {
   const resultReviewContent = '# local review of the closed topology result\n';
   const manifestValue = {
     schema_version: '1.0.0',
-    record_id: 'postgres-loopback-internal-v1-r1',
+    record_id: recordId,
     external_bytes_ci_verified: false,
     locally_verified: true,
     result_sha256: sha256(resultContent),
   };
   const manifestContent = stableJson(manifestValue);
 
-  const prerequisite = topologyPrerequisite({
+  const citedArtifacts = topologyPrerequisite({
+    recordId,
     resultSha256: sha256(resultContent),
     manifestSha256: sha256(manifestContent),
   });
-  const directory = dirname(prerequisite.result_path);
   const artifactFiles = [
     { kind: 'diagnosis', path: `${directory}/01-diagnosis.md`, content: diagnosisContent },
     {
@@ -637,10 +647,10 @@ const closedTopologyRehearsal = () => {
       path: `${directory}/03-grant.md.sig`,
       content: signatureContent,
     },
-    { kind: 'result', path: prerequisite.result_path, content: resultContent },
+    { kind: 'result', path: citedArtifacts.result_path, content: resultContent },
     {
       kind: 'evidence_manifest',
-      path: prerequisite.evidence_manifest_path,
+      path: citedArtifacts.evidence_manifest_path,
       content: manifestContent,
     },
     {
@@ -661,11 +671,11 @@ const closedTopologyRehearsal = () => {
 
   const record = {
     schema_version: '1.0.0',
-    record_id: prerequisite.record_id,
+    record_id: citedArtifacts.record_id,
     recorded_at: '2026-08-03T00:00:00Z',
     identity: {
-      capability_id: prerequisite.capability_id,
-      objective_id: prerequisite.objective_id,
+      capability_id: citedArtifacts.capability_id,
+      objective_id: citedArtifacts.objective_id,
     },
     attempt: {
       series_id: 'postgres-loopback-internal-v1',
@@ -723,9 +733,25 @@ const closedTopologyRehearsal = () => {
     },
   };
 
+  // Future schema/validator surface: a successor must pin the exact rehearsal
+  // record bytes, not only the result and manifest bytes it cites. Until that
+  // lands these two fields are unknown to the schema, so every test that builds
+  // a valid topology prerequisite stays RED by design.
+  const prerequisite = {
+    ...citedArtifacts,
+    record_path: recordPath,
+    record_sha256: sha256(stableJson(record)),
+  };
+
   return {
     prerequisite,
+    // The same prerequisite in the shape today's schema accepts: result and
+    // manifest pins only. Tests that target a control unrelated to the record
+    // binding cite this one, so an unimplemented pin cannot mask them.
+    citedPrerequisite: citedArtifacts,
     record,
+    recordPath,
+    directory,
     extraWrites: [
       ...artifactFiles.map((artifact) => ({
         kind: 'text',
@@ -736,7 +762,7 @@ const closedTopologyRehearsal = () => {
       {
         kind: 'json',
         dir: directory,
-        path: `${directory}/topology-rehearsal.json`,
+        path: recordPath,
         value: record,
       },
     ],
@@ -1080,6 +1106,567 @@ test('a future successor citing the sealed predecessor and a closed topology reh
     );
     assert.equal(successor.declaredDisposition, 'HOLD');
     assert.equal(successor.derivedDisposition, 'HOLD');
+  });
+});
+
+// Every negative test below states the one message it is about, and fails with
+// the observed error list when that message is absent, so no assertion can be
+// satisfied — or hidden — by an unrelated schema or lineage error.
+const assertFinding = (report, expected) => {
+  assert.ok(
+    report.errors.some((error) => error.includes(expected)),
+    `expected finding ${JSON.stringify(expected)}; observed errors:\n${report.errors.join('\n') || '(none)'}`,
+  );
+};
+
+const assertNoFinding = (report, unexpected) => {
+  assert.ok(
+    !report.errors.some((error) => error.includes(unexpected)),
+    `unexpected finding ${JSON.stringify(unexpected)}; observed errors:\n${report.errors.join('\n')}`,
+  );
+};
+
+// Same otherwise-valid successor as the clean path above, mutated at exactly one
+// point: the cited predecessor evidence digest. The sealed record itself is
+// untouched, so only the successor's claim about the sealed HOLD/not_run
+// evidence drifts, and that alone must fail closed. This control is about the
+// predecessor, not the topology record binding, so it cites the prerequisite in
+// the shape today's schema accepts.
+test('a successor citing drifted sealed predecessor evidence fails closed', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-drifted-predecessor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      evidence_sha256: '0'.repeat(64),
+    },
+    topology_prerequisite: topology.citedPrerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor must preserve the exact HOLD/not_run predecessor evidence`,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RED checkpoint: independent-review findings.
+//
+// The findings below are not implemented yet. Each intended control has exactly
+// one message string, declared once here and asserted verbatim by exactly one
+// negative test, so no test can pass on an unrelated schema or lineage error.
+// ---------------------------------------------------------------------------
+
+// Finding 1: execution authority must be earned by both prerequisites, and the
+// one already-committed authorized record may survive only as an exact-byte
+// exemption keyed to its immutable candidate bytes.
+const AUTHORIZED_PREREQUISITES_FINDING =
+  'runtime execution authorization requires both sealed_predecessor and topology_prerequisite';
+const GRANDFATHERED_BYTES_FINDING =
+  'grandfathered runtime authorization applies only to the exact immutable candidate bytes';
+// Finding 2: the topology prerequisite must bind the sealed rehearsal record
+// itself, not merely the result and manifest bytes it cites.
+const TOPOLOGY_RECORD_ID_FINDING =
+  `topology_prerequisite record_id must equal the sealed ${SEALED_TOPOLOGY_RECORD_ID} rehearsal`;
+const TOPOLOGY_RECORD_PATH_FINDING =
+  'topology_prerequisite record_path must equal the committed topology rehearsal record path';
+const TOPOLOGY_RECORD_BYTES_FINDING =
+  'topology_prerequisite record_sha256 must match committed topology record bytes';
+// Finding 3: caller-supplied pins must never be able to relax the validator's
+// own immutable lineage seal, in either direction.
+const SEALED_PIN_FINDING =
+  'sealed_predecessors must exactly match the validator-immutable sealed set regardless of supplied pins';
+const OBJECTIVE_PIN_FINDING =
+  'lineage policy pins must preserve every validator-immutable allowed objective series';
+
+const GRANDFATHERED_MTLS_SERIES = 'runtime-admission-soc-ai-lifecycle-mtls';
+const GRANDFATHERED_MTLS_RECORD_PATH = candidateRecordPath(GRANDFATHERED_MTLS_SERIES, 1);
+const GRANDFATHERED_MTLS_RECORD_SHA256 =
+  'a59acf23125b4ffd912f59459faa4498c7441d00ca8f21b2c148b5d0b7780ba4';
+
+// Builds an otherwise-clean unauthorized successor that cites the sealed
+// predecessor and the single closed topology rehearsal.
+const topologySuccessor = (seriesId, lineageOverrides = {}) => {
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    ...lineageOverrides,
+  };
+  return candidate;
+};
+
+test('the committed grandfathered mTLS R1 record is pinned by exact bytes and stays valid at the default root', async () => {
+  assert.equal(
+    sha256(read(GRANDFATHERED_MTLS_RECORD_PATH)),
+    GRANDFATHERED_MTLS_RECORD_SHA256,
+  );
+  const committed = JSON.parse(read(GRANDFATHERED_MTLS_RECORD_PATH));
+  // The exemption exists only because this record is authorized while carrying
+  // neither future prerequisite; nothing else in the registry may do that.
+  assert.equal(committed.attempt_accounting.current_attempt.execution_authorized, true);
+  assert.equal(committed.attempt_accounting.objective_lineage.sealed_predecessor, undefined);
+  assert.equal(committed.attempt_accounting.objective_lineage.topology_prerequisite, undefined);
+
+  const report = await validateRuntimeAdmissionRaw({ root: ROOT });
+  assert.deepEqual(report.errors, []);
+  const committedReport = report.candidates.find(
+    (candidateReport) => candidateReport.path === GRANDFATHERED_MTLS_RECORD_PATH,
+  );
+  assert.equal(committedReport.declaredDisposition, 'RUNTIME_AUTHORIZED');
+});
+
+test('an execution-authorized candidate without both runtime prerequisites fails closed', async () => {
+  const seriesId = 'aaa-test-authorized-without-prerequisites';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+test('an execution-authorized candidate carrying only the sealed predecessor still fails closed', async () => {
+  const seriesId = 'aaa-test-authorized-sealed-only';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+test('the grandfathered exemption never extends to another candidate of the same mTLS series', async () => {
+  const seriesId = GRANDFATHERED_MTLS_SERIES;
+  const r1Content = '{"attempt":1,"result":"failed"}\n';
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+    evidenceContent: r1Content,
+  });
+  r1.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256(r1Content),
+      },
+    ],
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  r2.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+
+  await withTempRepo({ candidates: [r1, r2] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    // The exemption is keyed to one exact record, so the successor attempt in
+    // the very same sealed series inherits no authority from it.
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+test('the grandfathered mTLS R1 exemption is void once its immutable bytes drift', async () => {
+  const seriesId = GRANDFATHERED_MTLS_SERIES;
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  // Same candidate_id and same record path as the exempt record, different
+  // bytes: an exemption granted by series or by identifier would admit this.
+  assert.equal(candidate.candidate_id, `${GRANDFATHERED_MTLS_SERIES}-r1`);
+  assert.notEqual(sha256(stableJson(candidate)), GRANDFATHERED_MTLS_RECORD_SHA256);
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${GRANDFATHERED_MTLS_RECORD_PATH}: ${GRANDFATHERED_BYTES_FINDING}`,
+    );
+  });
+});
+
+test('topology_prerequisite must cite the sealed rehearsal record_id and no other', async () => {
+  const topology = closedTopologyRehearsal({
+    recordId: 'postgres-loopback-internal-v1-r2',
+  });
+  const seriesId = 'aaa-test-golden-unsealed-topology-record';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    // Everything about this rehearsal is internally consistent and closed; only
+    // its identity is unsealed, and that alone must fail closed.
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_ID_FINDING}`);
+  });
+});
+
+test('topology_prerequisite must pin the committed topology rehearsal record path', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-record-path';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_path: topology.prerequisite.result_path,
+    },
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_PATH_FINDING}`);
+  });
+});
+
+test('topology_prerequisite fails closed on topology record drift even when result and manifest bytes hold', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-record-drift';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Only the rehearsal record bytes move; every artifact it cites, and every
+  // digest recorded inside it, stays byte-identical.
+  const driftedRecord = { ...topology.record, recorded_at: '2026-08-03T00:00:01Z' };
+  assert.notEqual(sha256(stableJson(driftedRecord)), topology.prerequisite.record_sha256);
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath ? { ...write, value: driftedRecord } : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_BYTES_FINDING}`);
+    assertNoFinding(report, 'topology_prerequisite result SHA-256 must match');
+    assertNoFinding(report, 'topology_prerequisite evidence manifest SHA-256 must match');
+  });
+});
+
+test('topology_prerequisite without the record pins is rejected by the runtime-admission schema', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-unpinned-record';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: Object.fromEntries(
+      Object.entries(topology.prerequisite).filter(
+        ([key]) => key !== 'record_path' && key !== 'record_sha256',
+      ),
+    ),
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    const schemaPointer =
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/objective_lineage/topology_prerequisite`;
+    assertFinding(report, `${schemaPointer} must have required property 'record_path'`);
+    assertFinding(report, `${schemaPointer} must have required property 'record_sha256'`);
+  });
+});
+
+test('default-root validation ignores caller-supplied lineage policy pins', async () => {
+  // Empty pins would void the entire seal if the caller could reach it; at the
+  // default root the validator must use only its own compiled-in pins.
+  const report = await validateRuntimeAdmissionRaw({
+    root: ROOT,
+    pinnedLineagePolicy: { allowed_objectives: [], sealed_predecessors: [] },
+  });
+  assert.deepEqual(report.errors, []);
+});
+
+test('a non-default root without independently supplied pins fails closed', async () => {
+  await withTempRepo({ candidates: [baseCandidate()] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({ root: tempRoot });
+    assertFinding(
+      report,
+      'non-default root requires independently supplied lineage policy pins',
+    );
+  });
+});
+
+test('a drifted policy cannot self-pin an additional sealed predecessor', async () => {
+  const seriesId = 'aaa-test-self-pinned-sealed-enrollment';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  // A brand-new HOLD/not_run record enrolled as a sealed predecessor. Every
+  // per-entry check it faces succeeds, so only the immutable pin can stop it.
+  const driftedPolicy = lineagePolicyFor([candidate], {
+    capabilityId: 'cybrik.suite.golden-workflow',
+    objectiveId: 'golden-uat-v1',
+  });
+  driftedPolicy.sealed_predecessors = [
+    ...driftedPolicy.sealed_predecessors,
+    {
+      candidate_id: candidate.candidate_id,
+      series_id: seriesId,
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+      record_path: candidateRecordPath(seriesId, 1),
+      record_sha256: sha256(stableJson(candidate)),
+      recorded_disposition: 'HOLD',
+      recorded_current_attempt_status: 'not_run',
+    },
+  ];
+
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: driftedPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({
+      root: tempRoot,
+      pinnedLineagePolicy: {
+        allowed_objectives: driftedPolicy.allowed_objectives,
+        sealed_predecessors: driftedPolicy.sealed_predecessors,
+      },
+    });
+    assertFinding(report, SEALED_PIN_FINDING);
+  });
+});
+
+test('a drifted policy cannot self-pin away an immutable allowed objective series', async () => {
+  const seriesId = 'aaa-test-self-pinned-objective-removal';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const driftedPolicy = lineagePolicyFor([candidate], {
+    capabilityId: 'cybrik.suite.golden-workflow',
+    objectiveId: 'golden-uat-v1',
+  });
+  driftedPolicy.allowed_objectives = driftedPolicy.allowed_objectives.map((entry) => ({
+    ...entry,
+    allowed_series_ids: entry.allowed_series_ids.filter(
+      (allowedSeriesId) => allowedSeriesId !== 'browser-integrated-uat-bridge',
+    ),
+  }));
+
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: driftedPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({
+      root: tempRoot,
+      pinnedLineagePolicy: {
+        allowed_objectives: driftedPolicy.allowed_objectives,
+        sealed_predecessors: driftedPolicy.sealed_predecessors,
+      },
+    });
+    assertFinding(report, OBJECTIVE_PIN_FINDING);
+  });
+});
+
+test('a sealed_predecessor that resolves to no sealed record fails closed', async () => {
+  const seriesId = 'aaa-test-unresolvable-sealed-predecessor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      candidate_id: 'aaa-test-unsealed-predecessor-r1',
+    },
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor must resolve to an immutable sealed predecessor`,
+    );
+    // A lineage carrying only one half of the pair is incomplete regardless.
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor and topology_prerequisite must be carried together`,
+    );
+  });
+});
+
+test('a sealed_predecessor cannot be cited to reopen its own sealed series', async () => {
+  const seriesId = 'browser-integrated-uat-bridge';
+  // Ordinal 2 of the sealed series: the accounting rules of a HOLD/not_run R1
+  // make such a successor unbuildable anyway, but the reopen control must fire
+  // on the sealed series identity by itself.
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: sealed_predecessor cannot reopen its sealed series_id`,
+    );
+  });
+});
+
+test('sealed predecessor bytes cannot be replayed as a successor execution evidence', async () => {
+  const sealedEvidencePath =
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md';
+  const sealedEvidenceContent = read(sealedEvidencePath);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const seriesId = 'aaa-test-sealed-predecessor-byte-reuse';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    evidenceContent: sealedEvidenceContent,
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor bytes must never be reused as runtime execution evidence`,
+    );
   });
 });
 
