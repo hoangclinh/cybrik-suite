@@ -1,10 +1,12 @@
 # G-U2B PostgreSQL RED runtime grant R1
 
-Status: `ACTIVE R1.3 — STRUCTURED ADMISSION GO — ONE POSTGRESQL RED SELECTOR AUTHORIZED`.
+Status: `CONSUMED R1.4 — STOP BEFORE MIGRATION/PYTEST — NO VALID RED — NO RETRY`.
 
 Prepared: `2026-08-04T13:44:19+07:00`.
 
 Activated: `2026-08-04T15:03:12+07:00` by the delegated technical Governor.
+
+Consumed: `2026-08-04T15:29:56+07:00` by the single bounded attempt recorded in section 9.
 
 Release dates: unchanged. Runtime demo and UAT: `HOLD`. Production: Founder only.
 
@@ -218,7 +220,52 @@ This grant does not authorize:
 | First independent review | `NO-GO`, P1 = missing structured admission |
 | R1.2 structured-admission review | `GO`, P0/P1/P2/P3 = `0/0/0/0` |
 | Delegated Governor decision | `GO — prior singleton authority is validly withdrawn and every R1.3 pre-start gate is satisfied` |
-| Runtime authorization | `RUNTIME_AUTHORIZED — exactly one Section 3 attempt and the single Section 2 selector` |
-| Execution | `NOT RUN` |
+| Runtime authorization | `CONSUMED — no further execution or retry is authorized by this record` |
+| Execution | `STOP before role bootstrap, migration, role preflight, collection or pytest` |
 | PostgreSQL RED | `NOT PROVEN` |
 | GREEN implementation | `HOLD` |
+
+## 9. Consumed attempt result
+
+Attempt `20260804T082945Z-22343` started at `2026-08-04T08:29:45Z` and stopped after 11
+seconds. Immutable Suite/SOC identities, the exact test blob/byte/SHA-256 tuple, the pinned Python
+`3.12.13` runtime and the already-present `postgres:16-alpine` image all matched this grant. The
+reviewed runner had SHA-256
+`d5de55931bf8d875c180cdcb10b3a11e27a0192c8d081d699d5d8c01bc6a2a28` and independent verdict
+`GO`, P0/P1/P2/P3 = `0/0/0/0`.
+
+The exact grant bytes consumed by the runner had SHA-256
+`eaf6216dc9641c213dd43adbcb3ffc06bc09bdf372a107e79a29bf8361023cb8`. The executing Suite
+control worktree was commit `efd766f8d8ca811c3d7d57800eb4c2d7fdbaa596`, tree
+`2337ff4f4ee6d913244e72c1f309b01667c3035e`; commit `4937542fcdd3f871607df6fd3b2625082cc06be1`
+remained the decision-source predecessor pinned in section 2. Push run `30891016023` and
+pull-request run `30891022025` both completed successfully on the executing Suite commit, with
+rendered `contract standards validation` and `secret-scan` jobs successful.
+
+The disposable PostgreSQL container reached its health check, but Docker reported:
+
+```text
+no public port '5432/tcp' published for cybrik-g-u2b-red-20260804T082945Z22343
+```
+
+The runner therefore fail-closed before role bootstrap, committed migrations, application-role
+preflight, pytest collection or test execution. This is `STOP`, not an environmental RED, test RED,
+test failure or runtime pass. Counts remain exactly zero and the accepted G-U2B schema absence is
+still unproven at real PostgreSQL runtime.
+
+Teardown removed and then proved the absence of the exact container, internal network and volume.
+The attempt-local credential material and temporary root were removed. A post-attempt scan found no
+credential-bearing URL or password pattern in evidence. The preserved external evidence root is:
+
+```text
+/Users/hoanglinh/.local/state/cybrik-g-u2b-db-red-5e13e50f/20260804T082945Z-22343
+```
+
+Its canonical six-file manifest SHA-256 is
+`7a194d0a834798a5607b48bb140e67de520ebf91787e085c02065b40c52dcbbb`. The individual immutable
+file digests are recorded in `G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md`.
+
+This one-shot grant is consumed. No retry, migration/adapter change, UAT, demo, merge, release or
+production action is authorized by this result. A future attempt requires a new, independently
+reviewed runtime-admission series that first resolves and proves the Docker Desktop
+internal-network plus loopback-publish topology; it must not reinterpret this STOP as RED credit.

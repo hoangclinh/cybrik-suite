@@ -1,18 +1,18 @@
 {
   "candidate_id": "browser-integrated-uat-bridge-r1",
-  "recorded_at": "2026-08-04T08:06:05Z",
+  "recorded_at": "2026-08-04T08:31:00Z",
   "attempt_accounting": {
     "series_id": "browser-integrated-uat-bridge",
     "attempt_ordinal": 1,
     "max_attempts": 1,
     "current_attempt": {
       "status": "not_run",
-      "execution_authorized": true,
+      "execution_authorized": false,
       "executed_checks": 0,
       "passed_checks": 0,
       "failed_checks": 0,
-      "evidence_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-      "evidence_sha256": "eaf6216dc9641c213dd43adbcb3ffc06bc09bdf372a107e79a29bf8361023cb8"
+      "evidence_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md",
+      "evidence_sha256": "24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -23,8 +23,8 @@
   },
   "commit_tree": {
     "suite": {
-      "commit": "4937542fcdd3f871607df6fd3b2625082cc06be1",
-      "tree": "4be22a9b55598121bc93a7cbf2857379c09f856b"
+      "commit": "efd766f8d8ca811c3d7d57800eb4c2d7fdbaa596",
+      "tree": "2337ff4f4ee6d913244e72c1f309b01667c3035e"
     },
     "soc": {
       "commit": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
@@ -43,13 +43,13 @@
     "required_checks": [
       {
         "repo": "suite",
-        "sha": "4937542fcdd3f871607df6fd3b2625082cc06be1",
+        "sha": "efd766f8d8ca811c3d7d57800eb4c2d7fdbaa596",
         "name": "contract standards validation",
         "status": "success"
       },
       {
         "repo": "suite",
-        "sha": "4937542fcdd3f871607df6fd3b2625082cc06be1",
+        "sha": "efd766f8d8ca811c3d7d57800eb4c2d7fdbaa596",
         "name": "secret-scan",
         "status": "success"
       },
@@ -211,7 +211,7 @@
       },
       {
         "name": "g_u2b_postgres_red_runtime",
-        "state": "enabled_one_shot_exact_selector_only"
+        "state": "consumed_stop_no_retry"
       },
       {
         "name": "browser_integrated_uat_demo",
@@ -225,7 +225,7 @@
       },
       {
         "capability": "g_u2b_postgres_red_observation",
-        "state": "runtime_authorized_not_run"
+        "state": "runtime_attempt_consumed_stop_not_proven"
       },
       {
         "capability": "browser_integrated_uat",
@@ -292,7 +292,8 @@
       "Final independent review of the complete three-path R1.2 packet returned GO with P0/P1/P2/P3 equal to zero; all rendered required hosted checks are green on the exact four-repository tuple.",
       "The prior P1 on missing live application-role posture proof is closed by the exact fail-closed pre-test catalog preflight added in R1.2.",
       "The former runtime-admission-soc-ai-lifecycle-mtls-r1 authority is append-only withdrawn by the Founder-signed sidecar at Suite commit 4937542fcdd3f871607df6fd3b2625082cc06be1; its historical record remains immutable and contributes no runtime credit.",
-      "Cyber AI and Tool Fabric are pinned tuple context only and are not loaded, started or invoked by this exact single-database observation."
+      "Cyber AI and Tool Fabric are pinned tuple context only and were not loaded, started or invoked by this exact single-database observation.",
+      "The one-shot PostgreSQL attempt 20260804T082945Z-22343 stopped after container health because Docker exposed no published 5432/tcp binding; role bootstrap, migration, application-role preflight, collection and pytest were not executed, so no valid RED exists."
     ]
   },
   "evidence": {
@@ -300,17 +301,22 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-        "sha256": "eaf6216dc9641c213dd43adbcb3ffc06bc09bdf372a107e79a29bf8361023cb8"
+        "sha256": "a5a27a63f2495e7011bc794b6068de4e8260c65d225960fb6be73cf6d9ab0037"
+      },
+      {
+        "path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md",
+        "sha256": "24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe"
       }
     ],
     "limitations": [
-      "This pre-start record contains no PostgreSQL runtime result and authorizes only one execution of the exact selector under the bounded R1.3 attempt.",
+      "The sole R1.3 authority is consumed by a STOP after container health and before role bootstrap; this record authorizes no retry or further execution.",
       "Hosted API success covers the non-G-U2B suite because the accepted temporary g_u2b_red items are intentionally quarantined until GREEN.",
       "Hosted e2e success covers only the non-G-U1 browser suite because exactly 32 accepted G-U1 RED tests in six files are temporarily quarantined until G-U3 GREEN.",
-      "The sole runtime objective is one attributable schema-absence RED; it provides no service, HTTP, UI, persona, accessibility, demo or integrated-UAT evidence.",
+      "Migration, application-role preflight, pytest collection and pytest execution did not occur; the accepted schema-absence RED and every GREEN claim remain unproven.",
+      "The stopped runtime provides no service, HTTP, UI, persona, accessibility, demo or integrated-UAT evidence.",
       "Rendered hosted facts were refreshed with read-only GitHub API access. SOC e2e ran 272 non-G-U1 tests on the exact SHA: 271 passed and one pre-existing environment-conditional test skipped; the 32 accepted G-U1 RED tests remained positively discoverable but quarantined."
     ],
-    "final_profile_verdict": "RUNTIME_AUTHORIZED"
+    "final_profile_verdict": "HOLD"
   },
   "network_exposure": {
     "mode": "local_only",
@@ -320,10 +326,10 @@
         "purpose": "one disposable PostgreSQL 16 listener for the exact selected RED test"
       }
     ],
-    "notes": "Docker network must be internal; no public bind, other Cybrik service, browser, Ollama, Internet egress or production traffic is admitted."
+    "notes": "The intended Docker network was internal, but no loopback listener was successfully published or used before STOP. No other Cybrik service, browser, Ollama, Internet egress or production traffic was admitted."
   },
   "disposition": {
-    "profile": "RUNTIME_AUTHORIZED",
-    "rationale": "The former singleton authority is validly withdrawn; exact-head hosted checks, exercised-path negative-smoke admissions and final packet review are green. This authorizes exactly one bounded PostgreSQL RED selector and remains neither UAT nor release evidence."
+    "profile": "HOLD",
+    "rationale": "The single bounded runtime authority was consumed by a fail-closed STOP before role bootstrap, migration, application-role preflight, collection or pytest. No valid PostgreSQL RED was produced, no retry remains authorized and this is neither UAT nor release evidence."
   }
 }

@@ -1347,7 +1347,7 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve history and exactly one effective authorized candidate', async () => {
+test('committed runtime-admission assets preserve history and no consumed authority remains effective', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
@@ -1358,7 +1358,7 @@ test('committed runtime-admission assets preserve history and exactly one effect
     ]),
   );
   const expectedDerivedById = new Map([
-    ['browser-integrated-uat-bridge-r1', 'RUNTIME_AUTHORIZED'],
+    ['browser-integrated-uat-bridge-r1', 'HOLD'],
     ['runtime-admission-ai-pg-r1', 'NO-GO'],
     ['runtime-admission-ai-pg-r2', 'NO-GO'],
     ['runtime-admission-ai-pg-r3', 'NO-GO'],
@@ -1371,7 +1371,7 @@ test('committed runtime-admission assets preserve history and exactly one effect
     ]),
   );
   const expectedEffectiveById = new Map([
-    ['browser-integrated-uat-bridge-r1', 'RUNTIME_AUTHORIZED'],
+    ['browser-integrated-uat-bridge-r1', 'HOLD'],
     ['runtime-admission-ai-pg-r1', 'NO-GO'],
     ['runtime-admission-ai-pg-r2', 'NO-GO'],
     ['runtime-admission-ai-pg-r3', 'NO-GO'],
@@ -1384,13 +1384,13 @@ test('committed runtime-admission assets preserve history and exactly one effect
     [...derivedById.values()].filter(
       (disposition) => disposition === 'RUNTIME_AUTHORIZED',
     ).length,
-    2,
+    1,
   );
   assert.equal(
     [...effectiveById.values()].filter(
       (disposition) => disposition === 'RUNTIME_AUTHORIZED',
     ).length,
-    1,
+    0,
   );
   assert.equal(
     report.candidates.find((candidate) =>
@@ -1398,6 +1398,21 @@ test('committed runtime-admission assets preserve history and exactly one effect
       .effectiveAuthorizationState,
     'withdrawn',
   );
+
+  const browser = JSON.parse(read(
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+  ));
+  assert.deepEqual(browser.attempt_accounting.current_attempt, {
+    status: 'not_run',
+    execution_authorized: false,
+    executed_checks: 0,
+    passed_checks: 0,
+    failed_checks: 0,
+    evidence_path:
+      'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md',
+    evidence_sha256:
+      '24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe',
+  });
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',

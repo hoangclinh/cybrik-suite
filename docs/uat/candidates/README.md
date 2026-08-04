@@ -8,10 +8,16 @@ Rules:
 
 - Candidate discovery validates only `docs/uat/candidates/*/runtime-admission.json`.
 - This `README.md` is documentation, not a candidate.
-- Planning packet: [Browser Integrated UAT Bridge R1](browser-integrated-uat-bridge-r1/README.md)
-  is `PROPOSED — NOT IMPLEMENTED — NOT RUN`. It defines the backend-to-browser state machine,
-  SOC-only UI/BFF boundary and G-B0..G-U7 evidence plan; it contains no
-  `runtime-admission.json`, grants no execution authority and is not discovered as a candidate.
+- [Browser Integrated UAT Bridge R1](browser-integrated-uat-bridge-r1/README.md) remains the
+  byte-preserved historical design packet whose status line is
+  `PROPOSED — NOT IMPLEMENTED — NOT RUN`; its scope was accepted separately by
+  `G-U0-ACCEPTANCE.md` and `G-U1-RED-ACCEPTANCE.md`, and its historical runtime-status prose is
+  not a current authority source. The adjacent
+  `runtime-admission.json` is the current machine record and is `HOLD` with
+  `execution_authorized=false` and zero test counts. The versioned G-U2B grant/result artifacts
+  record that the single PostgreSQL attempt stopped before migration or pytest and supersede the
+  frozen packet only for current runtime status. The planning README itself grants no execution
+  authority.
 - `docs/uat/templates/runtime-admission.hold.json` is a template, not a candidate.
 - The parent directory must equal `candidate_id`; each candidate ID and
   `(attempt_accounting.series_id, attempt_ordinal)` pair is unique.
@@ -53,14 +59,14 @@ Rules:
   incorrectly required literal `13 passed`. The mismatch is recorded without retry or broader
   authority.
 - Current series status: `runtime-admission-soc-ai-lifecycle-mtls` is a distinct objective
-  (`cybrik.suite.golden-workflow` / `golden-uat-v1`) and is `RUNTIME_AUTHORIZED` at attempt `1` of
-  `2`, with `not_run` status, `execution_authorized` `true` and zero executed, passed and failed
-  checks. No admitted runtime result exists yet. The exact four-repository tuple, hosted checks,
-  one-shot signed admission, loopback boundary and lifecycle procedures are recorded in the
-  candidate. Current static evidence is integrated master `164 passed`, D2 bounded
+  (`cybrik.suite.golden-workflow` / `golden-uat-v1`) whose historically `RUNTIME_AUTHORIZED`
+  zero-count attempt is now effectively `HOLD`. A Founder-signed append-only withdrawal closed the
+  unused authority without rewriting the original record and without creating runtime credit. The
+  exact four-repository tuple, hosted checks, former one-shot admission, withdrawal and lifecycle
+  procedures remain preserved. Current static evidence is integrated master `164 passed`, D2 bounded
   `1692 passed, 2 skipped`, Alert bounded `250 passed`, and Cyber AI `1044 passed, 17 skipped` at
-  `93.04%` branch coverage. No listener, PostgreSQL runtime or runtime-result artifact has
-  executed. This is backend runtime permission only; it is not a UAT or demo pass. The
+  `93.04%` branch coverage. No admitted backend runtime result exists. This is historical design
+  evidence only; it is not current backend permission, a UAT result or a demo pass. The
   carried-forward dependency substate remains `D1_ARTIFACT_COMPLETE_RUNTIME_AUTHORED_NOT_RUN`.
   `D1` pins the isolated B1 dependency preflight: wheel
   `d1237a5d42a8d0cc63c50dcf7836a09f566667129b689bbbff73b3045b0ef71c`, patch
@@ -68,10 +74,16 @@ Rules:
   `e05c5e281e230b2089e356d716212a6d2c2e4320a3a30dc8dfd126216faa3add`, and no-socket probe
   `91ddea52e76a1334724b187d5ea0a90e8fdf7a84bd3108b8057689de9092dc45`. The raw Anycorn High
   is excluded from the exact exercised path; B1 stays `in_triage` pending D2 runtime proof. The
-  four bounded loopback binds are authorized but no listener is opened by the current record. The
+  four formerly bounded loopback binds are no longer authorized. The
   candidate pins `runtime-admission-ai-pg-r3` only as
   a non-authorizing `historical_prerequisite`, which grants no execution authority and does not
   reopen the terminal R1/R2/R3 results.
+- Current series status: `browser-integrated-uat-bridge` attempt `1` is `HOLD` with
+  `execution_authorized=false` and zero executed/passed/failed test checks. Its sole one-shot
+  PostgreSQL authority was consumed by attempt `20260804T082945Z-22343`, which reached container
+  health but stopped because no loopback host port was published. Role bootstrap, migration,
+  application-role preflight and pytest did not run. Teardown was verified and a valid G-U2B RED
+  remains unproven; no retry is authorized by that record.
 - Any recovery must preserve every prior result. A later, genuinely distinct objective does so
   through the immutable lineage policy and a separately reviewed admission boundary; it cannot
   reinterpret R3 or create another PostgreSQL retry.
