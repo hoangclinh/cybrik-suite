@@ -1226,23 +1226,28 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve terminal results and one authorized candidate', async () => {
+test('committed runtime-admission assets preserve terminal results, held successors, and one authorized candidate', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.counts.candidateFiles, 4);
   const byId = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
       candidateReport.derivedDisposition,
     ]),
   );
-  assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
+  const expectedDispositionById = new Map([
+    ['browser-integrated-uat-bridge-r1', 'HOLD'],
+    ['runtime-admission-ai-pg-r1', 'NO-GO'],
+    ['runtime-admission-ai-pg-r2', 'NO-GO'],
+    ['runtime-admission-ai-pg-r3', 'NO-GO'],
+    ['runtime-admission-soc-ai-lifecycle-mtls-r1', 'RUNTIME_AUTHORIZED'],
+  ]);
+  assert.equal(report.counts.candidateFiles, expectedDispositionById.size);
+  assert.deepEqual(byId, expectedDispositionById);
   assert.equal(
-    byId.get('runtime-admission-soc-ai-lifecycle-mtls-r1'),
-    'RUNTIME_AUTHORIZED',
+    [...byId.values()].filter((disposition) => disposition === 'RUNTIME_AUTHORIZED').length,
+    1,
   );
 
   const r2 = JSON.parse(read(
