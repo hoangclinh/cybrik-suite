@@ -22,6 +22,10 @@ import {
   PINNED_TOPOLOGY_STATE,
   validateTopologyRehearsals as validateTopologyRehearsalsRaw,
 } from '../validate-topology-rehearsal.mjs';
+// Namespace import for the not-yet-implemented C4 cross-byte helper: a named import of
+// a missing export is an ESM link-time error that would abort the whole module, so the
+// C3 RED gate reads the export off the namespace and fails as a plain assertion instead.
+import * as topologyRehearsal from '../validate-topology-rehearsal.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/topology-rehearsal.schema.json';
@@ -106,6 +110,15 @@ const BINDING_FORBIDDEN_FINDING =
   'proposed topology record cannot carry a record review binding';
 const BINDING_MISMATCH_FINDING =
   'record review binding must bind the listed record_review artifact path and digest';
+// C4 cross-byte record-review binding findings. The self-attestation finding closes the
+// cryptographic fixed point: a binding digest cannot name the bytes that carry it, since
+// writing the field changes those bytes. The pinned-proposed finding requires the binding
+// to name the prior-state proposed record digest pinned in the policy state history.
+const RECORD_REVIEW_SELF_ATTESTATION_FINDING =
+  'record review cannot attest the record bytes that contain it';
+const RECORD_REVIEW_PINNED_PROPOSED_FINDING =
+  'record review must attest the pinned proposed record bytes';
+const HISTORY_LENGTH_FINDING = 'state history must pin every prior phase exactly once';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -368,7 +381,10 @@ const stateHistoryFor = (record) => {
   ];
 };
 
-const writeRecord = (root, record) => {
+// stateHistory overrides the derived prior-state pins so a test can install a controlled
+// policy state (for example a missing proposed pin) without mutating the record source or
+// rewriting the policy after the fact. Omitting it preserves the derived default exactly.
+const writeRecord = (root, record, { stateHistory } = {}) => {
   const path = `${TOPOLOGY_ROOT}/${record.record_id}/topology-rehearsal.json`;
   stableWriteJson(resolve(root, path), record);
   const policy = JSON.parse(readFileSync(resolve(root, POLICY_PATH), 'utf8'));
@@ -381,7 +397,7 @@ const writeRecord = (root, record) => {
       outcome: record.attempt?.outcome,
       grant_sha256: record.authorization?.grant_sha256 ?? null,
     };
-    policy.state_history = stateHistoryFor(record);
+    policy.state_history = stateHistory ?? stateHistoryFor(record);
     stableWriteJson(resolve(root, POLICY_PATH), policy);
   }
   return path;
@@ -1208,4 +1224,156 @@ test('T11 no topology truth surface retains the standalone independent_review te
       `${path}: retired ${RETIRED_ARTIFACT_KIND} term must be replaced by the split review kinds`,
     );
   }
+});
+
+// C3 RED gate for the future C4 cross-byte record-review binding control.
+//
+// The control cannot be proven black-box through committed record bytes alone: a binding
+// whose reviewed_record_sha256 equals the SHA-256 of the record containing it is a
+// cryptographic fixed point, because writing the field changes the very bytes being
+// hashed. So the control is expected as a pure, side-effect-free helper exported from the
+// validator, exercised directly here and through the record path integration surface.
+//
+// Expected C4 contract:
+//   validateRecordReviewByteBinding({
+//     path,                        // record path used to prefix every finding
+//     phase,                       // 'proposed' | 'authorized' | 'closed'
+//     reviewedRecordSha256,        // evidence.record_review_binding.reviewed_record_sha256
+//     pinnedProposedRecordSha256,  // proposed prior-state digest pinned in state_history
+//     currentRecordSha256,         // SHA-256 of the current record bytes
+//   }) => string[]                 // path-prefixed findings, empty when the binding holds
+const recordReviewByteBindingInput = ({
+  path = RECORD_PATH,
+  phase = 'authorized',
+  reviewedRecordSha256 = null,
+  pinnedProposedRecordSha256 = null,
+  currentRecordSha256 = null,
+}) => ({
+  path,
+  phase,
+  reviewedRecordSha256,
+  pinnedProposedRecordSha256,
+  currentRecordSha256,
+});
+
+// Reads the helper off the namespace so a missing C4 export fails as a diagnostic
+// assertion rather than aborting module linking for the whole suite.
+const recordReviewByteBindingFindings = (input) => {
+  const validate = topologyRehearsal.validateRecordReviewByteBinding;
+  assert.equal(
+    typeof validate,
+    'function',
+    `${VALIDATOR_PATH}: must export a pure validateRecordReviewByteBinding helper`,
+  );
+  const findings = validate(input);
+  assert.ok(
+    Array.isArray(findings),
+    `${VALIDATOR_PATH}: validateRecordReviewByteBinding must return an array of findings`,
+  );
+  for (const finding of findings) {
+    assert.equal(typeof finding, 'string', `${VALIDATOR_PATH}: findings must be strings`);
+    assert.ok(
+      finding.startsWith(`${input.path}: `),
+      `${finding}: record review byte findings must be path-prefixed`,
+    );
+  }
+  return findings;
+};
+
+test('T12 a record review binding naming its own current record bytes fails the fixed-point check', () => {
+  const currentRecordSha256 = sha256('t12-current-record-bytes\n');
+  const findings = recordReviewByteBindingFindings(recordReviewByteBindingInput({
+    phase: 'authorized',
+    reviewedRecordSha256: currentRecordSha256,
+    pinnedProposedRecordSha256: sha256('t12-pinned-proposed-record-bytes\n'),
+    currentRecordSha256,
+  }));
+  assert.ok(
+    findings.includes(`${RECORD_PATH}: ${RECORD_REVIEW_SELF_ATTESTATION_FINDING}`),
+    'a binding digest equal to the current record digest must fail closed',
+  );
+});
+
+test('T13 a record review binding attesting neither the pinned proposed nor the current bytes fails closed', () => {
+  const findings = recordReviewByteBindingFindings(recordReviewByteBindingInput({
+    phase: 'authorized',
+    reviewedRecordSha256: sha256('t13-unrelated-record-bytes\n'),
+    pinnedProposedRecordSha256: sha256('t13-pinned-proposed-record-bytes\n'),
+    currentRecordSha256: sha256('t13-current-record-bytes\n'),
+  }));
+  assert.ok(
+    findings.includes(`${RECORD_PATH}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`),
+    'a binding that names no pinned proposed digest must fail closed',
+  );
+  assert.ok(
+    !findings.includes(`${RECORD_PATH}: ${RECORD_REVIEW_SELF_ATTESTATION_FINDING}`),
+    'a binding differing from the current record digest must not raise the fixed-point finding',
+  );
+});
+
+test('T13B a binding on the pinned proposed digest differing from the current bytes returns no findings', () => {
+  const pinnedProposedRecordSha256 = sha256('t13b-pinned-proposed-record-bytes\n');
+  assert.deepEqual(
+    recordReviewByteBindingFindings(recordReviewByteBindingInput({
+      phase: 'authorized',
+      reviewedRecordSha256: pinnedProposedRecordSha256,
+      pinnedProposedRecordSha256,
+      currentRecordSha256: sha256('t13b-current-record-bytes\n'),
+    })),
+    [],
+    'attesting the pinned proposed bytes from later bytes is the only valid binding',
+  );
+  assert.deepEqual(
+    recordReviewByteBindingFindings(recordReviewByteBindingInput({
+      phase: 'proposed',
+      reviewedRecordSha256: null,
+      pinnedProposedRecordSha256: null,
+      currentRecordSha256: sha256('t13b-proposed-record-bytes\n'),
+    })),
+    [],
+    'a proposed record owes no record review binding, so it owes no byte findings',
+  );
+});
+
+test('T14 an authorized record with no pinned proposed prior state fails the record review byte binding', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    writeRecord(root, record, { stateHistory: [] });
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) => error.includes(HISTORY_LENGTH_FINDING)),
+      'the existing history-length control must still fire',
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`),
+      'a record review binding with no pinned proposed digest to attest must fail closed',
+    );
+  });
+});
+
+test('T15 a closed record review binding on the authorized prior-state digest fails closed', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'TOPOLOGY_PASS',
+      attemptConsumed: true,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    record.evidence.record_review_binding.reviewed_record_sha256 =
+      sha256(`${record.record_id}:authorized\n`);
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      !report.errors.some((error) => error.includes(HISTORY_LENGTH_FINDING)),
+      'the pinned prior-state history itself must remain well formed',
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`),
+      'attesting the authorized prior-state digest is not attesting the proposed bytes',
+    );
+  });
 });
