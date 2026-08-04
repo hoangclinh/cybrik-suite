@@ -1,17 +1,17 @@
-# Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
+# Status: BOUNDED C8 LIBRARY CORE PARTIALLY PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
 #
-# This project holds the executable specification and bounded C8-A library core of the
-# topology-only rehearsal runner described by
+# This project holds the executable specification and part of the bounded C8 library core of
+# the topology-only rehearsal runner described by
 # docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md
-# sections 7 and 8. Constants, errors, protocols, plan and adapters are present; observation,
-# preparation, grant, admission, runner and scripts remain intentionally RED and absent.
+# sections 7 and 8. Constants, errors, protocols, plan, adapters and observation are present;
+# grant, preparation, admission, runner and scripts remain intentionally RED and absent.
 # Nothing here authorizes a Docker effect, a listener, a PostgreSQL RED attempt, UAT, demo,
 # merge, release or production action.
 
 [project]
 name = "cybrik-suite-topology-rehearsal"
 version = "0.0.0"
-description = "Injection-only C8-A library core and RED specification for the remaining bounded topology rehearsal runner."
+description = "Injection-only partial C8 library core and RED specification for the remaining bounded topology rehearsal runner."
 requires-python = ">=3.12"
 dependencies = []
 
