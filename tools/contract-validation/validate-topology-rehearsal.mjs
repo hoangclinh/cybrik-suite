@@ -95,6 +95,51 @@ const RECORD_REVIEW_SELF_ATTESTATION_FINDING =
   'record review cannot attest the record bytes that contain it';
 const RECORD_REVIEW_PINNED_PROPOSED_FINDING =
   'record review must attest the pinned proposed record bytes';
+const ARTIFACT_OBJECT_ENTRY_FINDING = 'artifact entries must be objects';
+
+// Record-review attestation contract. The reviewed bytes are machine-checked as a bounded
+// canonical JSON attestation so that "an independent record review exists" stops being an
+// unverified claim about arbitrary bytes. Approval is only an added failure condition; it
+// grants no execution, runtime, UAT, demo, release or production authority.
+const RECORD_REVIEW_ATTESTATION_SCHEMA = 'CYBRIK-TOPOLOGY-RECORD-REVIEW/v1';
+const RECORD_REVIEW_ATTESTATION_KEYS = Object.freeze([
+  'schema',
+  'record_path',
+  'reviewed_phase',
+  'reviewed_record_sha256',
+  'reviewer_identity',
+  'reviewer_independent_of_record_author',
+  'reviewer_mode',
+  'decision',
+  'findings',
+  'grants_execution_authority',
+]);
+const RECORD_REVIEW_FINDING_KEYS = Object.freeze(['id', 'severity', 'summary']);
+const RECORD_REVIEW_MAX_BYTES = 65536;
+const RECORD_REVIEW_MAX_FINDINGS = 32;
+const RECORD_REVIEW_MAX_REVIEWER_IDENTITY = 200;
+const RECORD_REVIEW_MAX_SUMMARY = 500;
+const RECORD_REVIEW_DECISION_APPROVED = 'RECORD_BYTES_APPROVED';
+const RECORD_REVIEW_DECISION_REJECTED = 'RECORD_BYTES_REJECTED';
+const RECORD_REVIEW_FINDING_ID_PATTERN = /^[A-Z][A-Z0-9-]{1,31}$/u;
+const RECORD_REVIEW_FINDING_SEVERITIES = new Set(['P0', 'P1', 'P2', 'P3']);
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
+const ATTESTATION_SUFFIX_FINDING =
+  'record review artifact must be a .json attestation file';
+const ATTESTATION_CANONICAL_FINDING =
+  'record review artifact must be bounded canonical JSON bytes';
+const ATTESTATION_KEY_INVENTORY_FINDING =
+  'record review attestation must use the exact ordered attestation key inventory';
+const ATTESTATION_SUBJECT_FINDING =
+  'record review attestation must name this record path, schema and the proposed phase';
+const ATTESTATION_DIGEST_FINDING =
+  'record review attestation digest must equal the record review binding digest';
+const ATTESTATION_REVIEWER_FINDING =
+  'record review attestation must name an independent read-only reviewer claiming no execution authority';
+const ATTESTATION_DECISION_FINDING =
+  'record review attestation decision and findings must be exact and consistent';
+const ATTESTATION_APPROVAL_FINDING =
+  'authorized or closed topology record requires an approved record review of the proposed bytes';
 
 const dependencyRequire = () => {
   const localRequire = createRequire(join(HERE, 'package.json'));
@@ -118,6 +163,15 @@ const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+// Totality helper: every projection over caller-supplied JSON must prove the shape it reads
+// before reading it, so a malformed entry produces a finding instead of a TypeError.
+const isPlainObject = (value) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const hasExactOrderedKeys = (value, keys) => {
+  if (!isPlainObject(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key, index) => actual[index] === key);
+};
 const isOutside = (base, target) => {
   const delta = relative(base, target);
   return delta === '..' || delta.startsWith(`..${sep}`) || isAbsolute(delta);
@@ -208,9 +262,9 @@ const validateSchema = (validator, path, value, errors) => {
 };
 
 const requireArtifactKinds = (path, artifacts, expectedKinds, errors) => {
-  const kinds = artifacts.map((entry) => entry.kind);
-  const paths = artifacts.map((entry) => entry.path);
-  const digests = artifacts.map((entry) => entry.sha256);
+  const kinds = artifacts.map((entry) => entry?.kind);
+  const paths = artifacts.map((entry) => entry?.path);
+  const digests = artifacts.map((entry) => entry?.sha256);
   for (const kind of expectedKinds) {
     if (!kinds.includes(kind)) errors.push(`${path}: required ${kind} artifact is missing`);
   }
@@ -229,7 +283,7 @@ const requireArtifactKinds = (path, artifacts, expectedKinds, errors) => {
 // inventory as a multiset, so a surplus in-enum kind or a duplicate fails closed with
 // exactly one finding.
 const requireExactArtifactInventory = (path, phase, artifacts, expectedKinds, errors) => {
-  const kinds = artifacts.map((entry) => entry.kind);
+  const kinds = artifacts.map((entry) => entry?.kind);
   if (
     kinds.length !== expectedKinds.length
     || JSON.stringify([...kinds].sort()) !== JSON.stringify([...expectedKinds].sort())
@@ -296,6 +350,131 @@ export const validateRecordReviewByteBinding = ({
     return [`${path}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`];
   }
   return [];
+};
+
+const attestationBuffer = (value) => {
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  return null;
+};
+
+// Canonical bytes are exactly `JSON.stringify(value, null, 2)` plus one LF, UTF-8, no BOM.
+// Round-tripping the parsed value back to bytes rejects a BOM, CRLF endings, compact or
+// re-indented serializations, duplicate keys, reordered keys and any trailing bytes.
+const isCanonicalAttestationBytes = (bytes, parsed) =>
+  bytes.equals(Buffer.from(`${JSON.stringify(parsed, null, 2)}\n`, 'utf8'));
+
+const isBoundedText = (value, maxLength) =>
+  typeof value === 'string'
+  && value.trim().length > 0
+  && value.length <= maxLength
+  && !CONTROL_CHARACTER_PATTERN.test(value);
+
+const isReviewerClaimExact = (attestation) =>
+  isBoundedText(attestation.reviewer_identity, RECORD_REVIEW_MAX_REVIEWER_IDENTITY)
+  && attestation.reviewer_independent_of_record_author === true
+  && attestation.reviewer_mode === 'read_only'
+  && attestation.grants_execution_authority === false;
+
+const isAttestationFindingExact = (entry) =>
+  hasExactOrderedKeys(entry, RECORD_REVIEW_FINDING_KEYS)
+  && typeof entry.id === 'string'
+  && RECORD_REVIEW_FINDING_ID_PATTERN.test(entry.id)
+  && RECORD_REVIEW_FINDING_SEVERITIES.has(entry.severity)
+  && isBoundedText(entry.summary, RECORD_REVIEW_MAX_SUMMARY);
+
+// One decision-shape verdict covers every sub-violation, so a malformed findings list
+// reports its exact cause once rather than fanning out derivative findings.
+const isDecisionExact = (attestation) => {
+  const { decision, findings } = attestation;
+  if (
+    decision !== RECORD_REVIEW_DECISION_APPROVED
+    && decision !== RECORD_REVIEW_DECISION_REJECTED
+  ) return false;
+  if (!Array.isArray(findings) || findings.length > RECORD_REVIEW_MAX_FINDINGS) return false;
+  if (!findings.every(isAttestationFindingExact)) return false;
+  const ids = findings.map((entry) => entry.id);
+  if (new Set(ids).size !== ids.length) return false;
+  return decision === (findings.length === 0
+    ? RECORD_REVIEW_DECISION_APPROVED
+    : RECORD_REVIEW_DECISION_REJECTED);
+};
+
+// The record_review artifact bytes themselves, machine-checked as a bounded canonical JSON
+// attestation. Pure and side-effect free: every input is caller-supplied, so the control is
+// provable directly rather than only through committed record bytes.
+//
+// Reporting discipline, so every failure names its exact cause: a proposed record owes no
+// review; a missing review path is owed to the existing missing-artifact finding; the
+// canonical-bytes and key-inventory gates are terminal because nothing downstream of them
+// can be trusted; and the digest and approval findings are derivative of the record review
+// binding, so an absent binding suppresses both and leaves the binding control to report.
+//
+// An approved review is only an added failure condition. It grants no execution, runtime,
+// UAT, demo, release or production authority.
+export const validateRecordReviewAttestation = ({
+  path,
+  phase,
+  recordPath = null,
+  reviewPath = null,
+  reviewBytes = null,
+  bindingReviewedRecordSha256 = null,
+} = {}) => {
+  if (phase === 'proposed') return [];
+  if (typeof reviewPath !== 'string') return [];
+  const findings = [];
+  const report = (text) => findings.push(`${path}: ${text}`);
+  if (!reviewPath.endsWith('.json')) report(ATTESTATION_SUFFIX_FINDING);
+  const contentStart = findings.length;
+
+  const bytes = attestationBuffer(reviewBytes);
+  if (bytes === null || bytes.length > RECORD_REVIEW_MAX_BYTES) {
+    report(ATTESTATION_CANONICAL_FINDING);
+    return findings;
+  }
+  let attestation;
+  try {
+    attestation = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    report(ATTESTATION_CANONICAL_FINDING);
+    return findings;
+  }
+  if (!isPlainObject(attestation) || !isCanonicalAttestationBytes(bytes, attestation)) {
+    report(ATTESTATION_CANONICAL_FINDING);
+    return findings;
+  }
+  if (!hasExactOrderedKeys(attestation, RECORD_REVIEW_ATTESTATION_KEYS)) {
+    report(ATTESTATION_KEY_INVENTORY_FINDING);
+    return findings;
+  }
+
+  if (
+    attestation.schema !== RECORD_REVIEW_ATTESTATION_SCHEMA
+    || attestation.record_path !== recordPath
+    || attestation.reviewed_phase !== 'proposed'
+  ) report(ATTESTATION_SUBJECT_FINDING);
+
+  const boundDigest =
+    typeof bindingReviewedRecordSha256 === 'string' ? bindingReviewedRecordSha256 : null;
+  if (
+    boundDigest !== null
+    && (
+      typeof attestation.reviewed_record_sha256 !== 'string'
+      || !RECORD_DIGEST_PATTERN.test(attestation.reviewed_record_sha256)
+      || attestation.reviewed_record_sha256 !== boundDigest
+    )
+  ) report(ATTESTATION_DIGEST_FINDING);
+
+  if (!isReviewerClaimExact(attestation)) report(ATTESTATION_REVIEWER_FINDING);
+  if (!isDecisionExact(attestation)) report(ATTESTATION_DECISION_FINDING);
+
+  if (
+    findings.length === contentStart
+    && boundDigest !== null
+    && attestation.decision === RECORD_REVIEW_DECISION_REJECTED
+  ) report(ATTESTATION_APPROVAL_FINDING);
+
+  return findings;
 };
 
 const validateArtifact = (root, recordPath, recordDirectory, artifact, errors) => {
@@ -385,9 +564,9 @@ const verifyFounderAuthorization = (root, recordPath, record, trustContext, erro
   if (!authorization || typeof authorization !== 'object') {
     invalidate();
   } else {
-    const grant = record.evidence.artifacts.find((entry) => entry.kind === 'grant');
+    const grant = record.evidence.artifacts.find((entry) => entry?.kind === 'grant');
     const signature = record.evidence.artifacts.find(
-      (entry) => entry.kind === 'authorization_signature',
+      (entry) => entry?.kind === 'authorization_signature',
     );
     if (
       authorization.signer !== 'FOUNDER'
@@ -461,7 +640,7 @@ const validateFixedTopology = (path, topology, errors) => {
 
 const validateAttemptSemantics = (path, record, errors) => {
   const attempt = record.attempt;
-  const kinds = record.evidence.artifacts.map((entry) => entry.kind);
+  const kinds = record.evidence.artifacts.map((entry) => entry?.kind);
   if (attempt.phase === 'proposed') {
     if (
       attempt.execution_authorized !== false
@@ -617,11 +796,27 @@ const validateStateBinding = ({ records, recordBytes, statePolicy, errors }) => 
     const entry = history[index];
     if (!isPriorStatePin(entry, expectedPhases[index])) {
       errors.push(`${TOPOLOGY_POLICY_PATH}: state history contains an invalid prior-state pin`);
+      // An unvalidated slot carries no provable digest: dereferencing it would crash on a
+      // malformed pin, and admitting its absent digest would let two malformed slots collide
+      // into a forged uniqueness finding. Only a validated pin may be dereferenced.
+      continue;
     }
     if (seenDigests.has(entry.record_sha256)) {
       errors.push(`${TOPOLOGY_POLICY_PATH}: prior-state record digests must be unique`);
     }
     seenDigests.add(entry.record_sha256);
+  }
+};
+
+// Bounded, read-only projection of the already-declared record_review artifact path. The
+// size cap is applied before the read, so an oversize review is never loaded into memory.
+const readRecordReviewBytes = (root, reviewPath) => {
+  try {
+    const resolved = containedRegularFile(root, reviewPath);
+    if (statSync(resolved).size > RECORD_REVIEW_MAX_BYTES) return null;
+    return readFileSync(resolved);
+  } catch {
+    return null;
   }
 };
 
@@ -662,6 +857,12 @@ const validateRecord = ({
     || !Array.isArray(record.evidence.artifacts)
   ) return;
 
+  // Exactly one finding per record, however many entries are malformed: the cause is that
+  // the listed inventory is not a list of artifact objects, and every downstream projection
+  // reads it defensively so the remaining phase and inventory findings still fire.
+  if (record.evidence.artifacts.some((entry) => !isPlainObject(entry))) {
+    errors.push(`${path}: ${ARTIFACT_OBJECT_ENTRY_FINDING}`);
+  }
   if (record.evidence?.directory !== pinned.directory) {
     errors.push(`${path}: evidence directory must equal the pinned singleton directory`);
   }
@@ -684,6 +885,19 @@ const validateRecord = ({
         record.evidence.record_review_binding?.reviewed_record_sha256 ?? null,
       pinnedProposedRecordSha256,
       currentRecordSha256: recordSha256,
+    }));
+    // Conjunctive and additive: the reviewed bytes are judged only when the record already
+    // declares a record_review path, so a missing artifact keeps its own exact cause.
+    const review = record.evidence.artifacts.find((entry) => entry?.kind === 'record_review');
+    const reviewPath = typeof review?.path === 'string' ? review.path : null;
+    errors.push(...validateRecordReviewAttestation({
+      path,
+      phase: record.attempt.phase,
+      recordPath: path,
+      reviewPath,
+      reviewBytes: reviewPath === null ? null : readRecordReviewBytes(root, reviewPath),
+      bindingReviewedRecordSha256:
+        record.evidence.record_review_binding?.reviewed_record_sha256 ?? null,
     }));
     verifyFounderAuthorization(root, path, record, trustContext, errors);
   }
