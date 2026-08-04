@@ -1626,6 +1626,83 @@ test('a sealed topology record with non-array evidence artifacts is reported, no
   });
 });
 
+// Robustness: the runtime lineage gates deliberately run over every parsed
+// record, including records the schema rejected, so the sealed and topology
+// byte-reuse checks read candidate arrays whose items were never proven to be
+// objects. An array item that is JSON null must therefore fail closed as the
+// reported Ajv item finding, never as a TypeError propagated out of an
+// unguarded artifact.sha256 or historyRow.evidence_sha256 callback.
+test('a null candidate evidence artifact entry is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-artifact-entry';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Both lineage prerequisites stay present and correct and the one real
+  // artifact stays valid, so nothing short-circuits before the byte-reuse
+  // checks and exactly one unproven array item reaches them.
+  candidate.evidence.artifacts = [...candidate.evidence.artifacts, null];
+  assert.equal(
+    candidate.attempt_accounting.objective_lineage.sealed_predecessor.candidate_id,
+    sealedBrowserPredecessor().candidate_id,
+  );
+  assert.deepEqual(
+    candidate.attempt_accounting.objective_lineage.topology_prerequisite,
+    topology.prerequisite,
+  );
+  assert.equal(candidate.evidence.artifacts.length, 2);
+  assert.equal(candidate.evidence.artifacts[1], null);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a null candidate evidence artifact entry',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /evidence/artifacts/1 must be object`,
+    );
+  });
+});
+
+test('a null attempt_accounting failure_history entry is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-history-entry';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Same construction as above on the other unguarded array: the sealed and
+  // topology prerequisites remain intact, and the current attempt and evidence
+  // artifacts stay valid, so the only unproven structure is this history row.
+  candidate.attempt_accounting.failure_history = [null];
+  assert.equal(
+    candidate.attempt_accounting.objective_lineage.sealed_predecessor.candidate_id,
+    sealedBrowserPredecessor().candidate_id,
+  );
+  assert.deepEqual(
+    candidate.attempt_accounting.objective_lineage.topology_prerequisite,
+    topology.prerequisite,
+  );
+  assert.equal(candidate.attempt_accounting.failure_history[0], null);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a null attempt_accounting failure_history entry',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/failure_history/0 must be object`,
+    );
+  });
+});
+
 test('default-root validation ignores caller-supplied lineage policy pins', async () => {
   // Empty pins would void the entire seal if the caller could reach it; at the
   // default root the validator must use only its own compiled-in pins.
