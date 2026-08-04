@@ -310,7 +310,13 @@ def platform_findings(value: object, label: str) -> tuple[str, ...]:
     return tuple(findings)
 
 
-def keyed(value: object, expected: Sequence[str], label: str) -> tuple[str, ...]:
+def keyed(
+    value: object,
+    expected: Sequence[str],
+    label: str,
+    *,
+    ordered: bool = True,
+) -> tuple[str, ...]:
     """Refuse anything but a mapping carrying exactly the reviewed ordered key inventory.
 
     The whole inventory is read rather than only the keys a later check happens to want. An
@@ -320,7 +326,8 @@ def keyed(value: object, expected: Sequence[str], label: str) -> tuple[str, ...]
     if not isinstance(value, Mapping):
         return (f"{label}: {value!r} is not an object carrying the reviewed keys",)
     inventory = tuple(value)
-    if inventory == tuple(expected):
+    matches = inventory == tuple(expected) if ordered else set(inventory) == set(expected)
+    if matches:
         return ()
     drift = (
         f"{label}: keys {inventory} are not the reviewed ordered inventory "
@@ -466,11 +473,13 @@ def observed_identity_findings(
             observed,
             OBSERVED_IDENTITY_KEYS,
             "observed_image_identity runtime observation",
+            ordered=False,
         ),
     )
     if refusals:
         return refusals
     findings: list[str] = []
+    selected = document["selected_image_identity"]
     for label, identity in (
         ("observed_image_identity", section),
         ("observed_image_identity runtime observation", observed),
@@ -493,7 +502,6 @@ def observed_identity_findings(
             findings.append(
                 f"{label}: local_image_id {local!r} is not a sha256 image id"
             )
-        selected = document["selected_image_identity"]
         compared_digests = (
             *(identity[key] for key in REGISTRY_DIGEST_KEYS),
             *(
@@ -518,6 +526,20 @@ def observed_identity_findings(
         findings.append(
             "observed_image_identity: the stable signed identity does not equal the fresh "
             f"runtime observation: signed={signed_binding!r}, observed={runtime_binding!r}"
+        )
+    registry_identity_keys = (
+        "repository",
+        "tag",
+        "platform",
+        "index_digest",
+        "manifest_digest",
+    )
+    selected_binding = {key: selected[key] for key in registry_identity_keys}
+    observed_binding = {key: section[key] for key in registry_identity_keys}
+    if selected_binding != observed_binding:
+        findings.append(
+            "observed_image_identity: the observed registry identity does not equal the "
+            f"selected identity: selected={selected_binding!r}, observed={observed_binding!r}"
         )
     return tuple(findings)
 
@@ -663,13 +685,13 @@ def window_findings(document: Mapping[str, Any], facts: GrantFacts) -> tuple[str
         ),
         (
             "runtime image observation",
-            facts.observed_image_identity.get("observed_at")
-            if isinstance(facts.observed_image_identity, Mapping)
-            else None,
+            facts.observed_image_identity.get("observed_at"),
         ),
     )
+    observation_times: dict[str, datetime | None] = {}
     for label, value in observations:
         observed_at = instant(value)
+        observation_times[label] = observed_at
         if observed_at is None:
             findings.append(
                 f"window: the {label} timestamp {value!r} is not an exact UTC instant"
@@ -679,6 +701,18 @@ def window_findings(document: Mapping[str, Any], facts: GrantFacts) -> tuple[str
                 f"window: the {label} timestamp {value!r} is outside the authorized "
                 f"window [{section['not_before']!r}, {section['expires_at']!r})"
             )
+    signed_at = observation_times["signed image observation"]
+    runtime_at = observation_times["runtime image observation"]
+    if (
+        signed_at is not None
+        and runtime_at is not None
+        and now is not None
+        and not signed_at <= runtime_at <= now
+    ):
+        findings.append(
+            "window: image observation chronology must be signed observation <= runtime "
+            f"observation <= now, got {signed_at!s}, {runtime_at!s}, {now!s}"
+        )
     return tuple(findings)
 
 
