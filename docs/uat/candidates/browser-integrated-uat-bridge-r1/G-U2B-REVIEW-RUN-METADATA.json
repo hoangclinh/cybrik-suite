@@ -1,0 +1,77 @@
+{
+  "schema": "cybrik.g_u2b.review_run_metadata.v1",
+  "recorded_at": "2026-08-04T10:14:25+07:00",
+  "pool": "work",
+  "target": "claude",
+  "model": "opus",
+  "category": "review",
+  "content_capture_note": "1DevTool retained metadata but not output transcripts; verdict summaries are preserved in G-U2B-CONTRACT-ACCEPTANCE.md and final exact-byte reviews were repeated independently.",
+  "runs": [
+    {
+      "run_id": "26e0ded8-cc71-4559-97d6-a063852c990c",
+      "duration_seconds": 437,
+      "verdict": "NO-GO",
+      "counts_p0_p1_p2_p3": [1, 5, 10, 5],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 13115,
+      "content_captured": false,
+      "local_meta_sha256": "a8faa888d6e00b63e0c73d863a9bdcf5134ed8072272ef0fa2bbd91f57409350"
+    },
+    {
+      "run_id": "b7c4484a-a632-4574-999d-481ad8a70c8e",
+      "duration_seconds": 446,
+      "verdict": "NO-GO",
+      "counts_p0_p1_p2_p3": [0, 2, 6, 6],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 12490,
+      "content_captured": false,
+      "local_meta_sha256": "fa3e7d1ccf42c0f6fe82f0c836c4ffbc508ece2ed0f5ba36a0162fddee2b5df3"
+    },
+    {
+      "run_id": "ea12f0c0-bcb6-4882-a046-9e07f4d13d41",
+      "duration_seconds": 575,
+      "verdict": "NO-GO",
+      "counts_p0_p1_p2_p3": [0, 2, 4, 3],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 3590,
+      "content_captured": false,
+      "local_meta_sha256": "4f06d70e7520d303911a2c76278a41cbd30201408f259ceebc04cc60b8dab0cb"
+    },
+    {
+      "run_id": "ad5061b5-1d34-41e2-8944-2fcc73981ddd",
+      "duration_seconds": 529,
+      "verdict": "NO-GO",
+      "counts_p0_p1_p2_p3": [0, 1, 5, 6],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 10646,
+      "content_captured": false,
+      "local_meta_sha256": "729080cc124e7f954914d8a06cce877c7cb294305f7340f5f3a462ccaa39868f"
+    },
+    {
+      "run_id": "121d881a-65fb-4a5c-b928-972410e7b717",
+      "duration_seconds": 477,
+      "verdict": "GO",
+      "counts_p0_p1_p2_p3": [0, 0, 0, 3],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 6707,
+      "content_captured": false,
+      "local_meta_sha256": "de5d19f5aabb7ef374b10f616553ddda0a3e4b17438ee6d24f405c857356757a"
+    },
+    {
+      "run_id": "d11334d3-fbc2-486b-977e-d0404dbbd23a",
+      "duration_seconds": 164,
+      "verdict": "GO_FOCUSED",
+      "counts_p0_p1_p2_p3": [0, 0, 0, 0],
+      "status": "done",
+      "exit_code": 0,
+      "output_chars": 2592,
+      "content_captured": false,
+      "local_meta_sha256": "e5e6956b60ef5be86552782a6386d481ae34cdcbd5f3bd3d63d96437fcd61cbb"
+    }
+  ]
+}
