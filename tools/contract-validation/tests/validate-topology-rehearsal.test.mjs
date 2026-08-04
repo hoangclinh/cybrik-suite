@@ -29,6 +29,7 @@ const MASTER_TRUST_PATH =
   'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
 const AUTHORIZATION_NAMESPACE = 'cybrik-uat-topology-rehearsal-v1';
 const TOPOLOGY_ROOT = 'docs/uat/topology-rehearsals';
+const VALIDATOR_PATH = 'tools/contract-validation/validate-topology-rehearsal.mjs';
 const RECORD_ID = 'postgres-loopback-internal-v1-r1';
 const SERIES_ID = 'postgres-loopback-internal-v1';
 const RECORD_DIR = `${TOPOLOGY_ROOT}/${RECORD_ID}`;
@@ -634,4 +635,92 @@ test('terminal state checks cover unauthorized closure and unconsumed PRECHECK_A
       error.includes('closed topology record must be unauthorized with a terminal outcome')));
     assert.ok(report.errors.some((error) => error.includes('PRECHECK_ABORT must remain unconsumed')));
   });
+});
+
+test('PRECHECK_ABORT history retains both proposed and authorized phase pins', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'PRECHECK_ABORT',
+      attemptConsumed: false,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    writeRecord(root, record);
+    const policy = JSON.parse(readFileSync(resolve(root, POLICY_PATH), 'utf8'));
+    policy.state_history = [
+      {
+        phase: 'proposed',
+        attempt_consumed: false,
+        outcome: 'not_run',
+        record_sha256: sha256(`${record.record_id}:proposed\n`),
+      },
+      {
+        phase: 'authorized',
+        attempt_consumed: false,
+        outcome: 'not_run',
+        record_sha256: sha256(`${record.record_id}:authorized\n`),
+      },
+    ];
+    stableWriteJson(resolve(root, POLICY_PATH), policy);
+    const report = validateTopologyRehearsals({
+      root,
+      pinnedState: {
+        current_state: policy.current_state,
+        state_history: policy.state_history,
+      },
+    });
+    assert.deepEqual(report.errors, []);
+  });
+});
+
+test('a non-default root cannot derive its own mutable state pin', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('non-default root requires an explicit independently supplied pinned state')));
+  });
+});
+
+test('topology policy requires the exact four keys, not only a four-key count', async () => {
+  await withRoot((root) => {
+    const policy = JSON.parse(readFileSync(resolve(root, POLICY_PATH), 'utf8'));
+    delete policy.current_state;
+    policy.unexpected = null;
+    stableWriteJson(resolve(root, POLICY_PATH), policy);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('policy must exactly match the validator-pinned singleton')));
+  });
+});
+
+test('the topology registry root itself cannot be a symlink', async () => {
+  await withRoot((root) => {
+    const externalRoot = resolve(root, 'external-topology-registry');
+    mkdirSync(externalRoot, { recursive: true });
+    rmSync(resolve(root, TOPOLOGY_ROOT), { recursive: true, force: true });
+    symlinkSync(externalRoot, resolve(root, TOPOLOGY_ROOT));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('topology registry root must be a contained non-symlink directory')));
+  });
+});
+
+test('zero-record validation still verifies the committed Founder trust triple', async () => {
+  await withRoot((root) => {
+    const trust = JSON.parse(readFileSync(resolve(root, TRUST_PATH), 'utf8'));
+    trust.allowed_signers_sha256 = '0'.repeat(64);
+    stableWriteJson(resolve(root, TRUST_PATH), trust);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('allowed-signers SHA-256 must match the topology trust descriptor')));
+  });
+});
+
+test('dependency fallback pins the system Git executable instead of trusting PATH', () => {
+  const source = readFileSync(resolve(ROOT, VALIDATOR_PATH), 'utf8');
+  assert.match(source, /execFileSync\(\s*'\/usr\/bin\/git'/u);
+  assert.doesNotMatch(source, /execFileSync\(\s*'git'/u);
 });
