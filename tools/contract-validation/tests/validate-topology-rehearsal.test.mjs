@@ -410,3 +410,112 @@ test('invalid policy and schema render deterministic failures and main-module ch
     true,
   );
 });
+
+test('artifact roles require distinct paths and distinct byte digests', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root);
+    record.evidence.artifacts[1].path = record.evidence.artifacts[0].path;
+    record.evidence.artifacts[1].sha256 = record.evidence.artifacts[0].sha256;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('artifact paths must be unique')));
+    assert.ok(report.errors.some((error) => error.includes('artifact digests must be unique')));
+  });
+});
+
+test('a prepared record must match a code-and-policy-pinned current state', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root);
+    writeRecord(root, record);
+    const recordBytes = readFileSync(resolve(root, RECORD_PATH));
+    const currentState = {
+      record_id: RECORD_ID,
+      record_sha256: sha256(recordBytes),
+      phase: 'proposed',
+      attempt_consumed: false,
+      outcome: 'not_run',
+      grant_sha256: null,
+    };
+    const policy = JSON.parse(readFileSync(resolve(root, POLICY_PATH), 'utf8'));
+    policy.current_state = currentState;
+    policy.state_history = [];
+    stableWriteJson(resolve(root, POLICY_PATH), policy);
+    const report = validateTopologyRehearsals({
+      root,
+      pinnedState: { current_state: currentState, state_history: [] },
+    });
+    assert.deepEqual(report.errors, []);
+
+    policy.current_state = { ...currentState, attempt_consumed: true };
+    stableWriteJson(resolve(root, POLICY_PATH), policy);
+    const drifted = validateTopologyRehearsals({
+      root,
+      pinnedState: { current_state: currentState, state_history: [] },
+    });
+    assert.ok(drifted.errors.some((error) =>
+      error.includes('state policy must exactly match the validator-pinned state')));
+  });
+});
+
+test('an arbitrary grant cannot self-authorize a topology record', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+    });
+    writeFileSync(resolve(root, `${RECORD_DIR}/grant.txt`), 'I authorize myself.\n', 'utf8');
+    record.evidence.artifacts.find((entry) => entry.kind === 'grant').sha256 =
+      sha256('I authorize myself.\n');
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('authorized or closed topology record requires a verified Founder SSHSIG')));
+  });
+});
+
+test('null records and symlinked or record-named directories fail with findings, never invisibly pass', async () => {
+  await withRoot((root) => {
+    mkdirSync(resolve(root, RECORD_DIR), { recursive: true });
+    writeFileSync(resolve(root, RECORD_PATH), 'null\n', 'utf8');
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    });
+    assert.ok(report.errors.some((error) => error.includes('topology record must be an object')));
+  });
+
+  await withRoot((root) => {
+    const outside = resolve(root, 'outside-record-directory');
+    mkdirSync(outside, { recursive: true });
+    stableWriteJson(join(outside, 'topology-rehearsal.json'), buildRecord(root));
+    symlinkSync(outside, resolve(root, RECORD_DIR));
+    let report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('symlink entries are forbidden')));
+
+    rmSync(resolve(root, RECORD_DIR), { force: true });
+    mkdirSync(resolve(root, RECORD_DIR), { recursive: true });
+    mkdirSync(resolve(root, RECORD_PATH), { recursive: true });
+    report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('topology-rehearsal.json must be a regular file, not a directory')));
+  });
+});
+
+test('terminal state checks cover unauthorized closure and unconsumed PRECHECK_ABORT', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'PRECHECK_ABORT',
+      attemptConsumed: true,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    record.attempt.execution_authorized = true;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('closed topology record must be unauthorized with a terminal outcome')));
+    assert.ok(report.errors.some((error) => error.includes('PRECHECK_ABORT must remain unconsumed')));
+  });
+});
