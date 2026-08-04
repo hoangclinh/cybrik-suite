@@ -15,6 +15,7 @@ import test from 'node:test';
 
 import {
   formatTopologyRehearsalReport,
+  isMainModule,
   validateTopologyRehearsals,
 } from '../validate-topology-rehearsal.mjs';
 
@@ -314,4 +315,98 @@ test('unknown authority and production fields are rejected by the schema', async
     assert.ok(report.errors.some((error) => error.includes('schema / must NOT have additional properties')));
     assert.ok(report.errors.some((error) => error.includes('schema /disposition/profile must be equal to constant')));
   });
+});
+
+test('schema-invalid records return fail-closed findings instead of crashing', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root);
+    delete record.attempt;
+    delete record.evidence;
+    writeRecord(root, record);
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    });
+    assert.ok(report.errors.some((error) => error.includes("schema / must have required property 'attempt'")));
+    assert.ok(report.errors.some((error) => error.includes("schema / must have required property 'evidence'")));
+  });
+});
+
+test('proposed and authorized phase contradictions fail closed', async () => {
+  await withRoot((root) => {
+    const proposed = buildRecord(root);
+    proposed.attempt.execution_authorized = true;
+    proposed.evidence.result_controls = {
+      teardown_verified: true,
+      residual_resources: 0,
+      external_manifest_locally_verified: true,
+    };
+    proposed.evidence.artifacts.push(artifact(root, RECORD_DIR, 'grant'));
+    writeRecord(root, proposed);
+    let report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('proposed topology record must be not_run and unauthorized')));
+    assert.ok(report.errors.some((error) => error.includes('proposed topology record cannot carry result controls')));
+    assert.ok(report.errors.some((error) => error.includes('proposed topology record cannot carry grant or result artifacts')));
+
+    const authorized = buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+    });
+    authorized.evidence.artifacts = authorized.evidence.artifacts.filter(
+      (entry) => entry.kind !== 'grant',
+    );
+    authorized.evidence.artifacts.push(artifact(root, RECORD_DIR, 'result'));
+    authorized.evidence.result_controls = {
+      teardown_verified: true,
+      residual_resources: 0,
+      external_manifest_locally_verified: true,
+    };
+    writeRecord(root, authorized);
+    report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('authorized topology record cannot carry result controls')));
+    assert.ok(report.errors.some((error) => error.includes('required grant artifact is missing')));
+    assert.ok(report.errors.some((error) => error.includes('authorized topology record cannot carry result artifacts')));
+  });
+});
+
+test('artifact inventory and remaining fixed controls reject drift', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root);
+    record.evidence.artifacts.pop();
+    record.evidence.artifacts.push({ ...record.evidence.artifacts[0] });
+    record.evidence.artifacts.push({
+      kind: 'independent_review',
+      path: `${RECORD_DIR}/missing-review.txt`,
+      sha256: '0'.repeat(64),
+    });
+    record.topology.container_port = 15432;
+    record.topology.probe.executable_path = '/tmp/nc';
+    record.production_exclusion.no_production_traffic = false;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('artifact kind values must be unique')));
+    assert.ok(report.errors.some((error) => error.includes('artifact path must be a contained regular file')));
+    assert.ok(report.errors.some((error) => error.includes('container_port must remain PostgreSQL 5432')));
+    assert.ok(report.errors.some((error) => error.includes('probe executable must remain /usr/bin/nc')));
+    assert.ok(report.errors.some((error) => error.includes('every production exclusion must remain true')));
+  });
+});
+
+test('invalid policy and schema render deterministic failures and main-module checks fail closed', async () => {
+  await withRoot((root) => {
+    writeFileSync(resolve(root, POLICY_PATH), '{', 'utf8');
+    stableWriteJson(resolve(root, SCHEMA_PATH), { type: 'not-a-json-schema-type' });
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes('cannot read valid contained JSON')));
+    assert.ok(report.errors.some((error) => error.includes('schema compile failed')));
+    const rendered = formatTopologyRehearsalReport(report);
+    assert.equal(rendered.exitCode, 1);
+    assert.match(rendered.stdout, /TOPOLOGY REHEARSAL: FAIL/);
+  });
+  assert.equal(isMainModule(undefined), false);
+  assert.equal(isMainModule('/definitely/missing/validator.mjs'), false);
+  assert.equal(
+    isMainModule(resolve(ROOT, 'tools/contract-validation/validate-topology-rehearsal.mjs')),
+    true,
+  );
 });

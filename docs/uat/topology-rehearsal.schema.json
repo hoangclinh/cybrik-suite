@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/docs/uat/topology-rehearsal.schema.json",
+  "title": "CYBRIK topology-only rehearsal record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "recorded_at",
+    "identity",
+    "attempt",
+    "topology",
+    "production_exclusion",
+    "evidence",
+    "disposition"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "record_id": { "const": "postgres-loopback-internal-v1-r1" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_id", "objective_id"],
+      "properties": {
+        "capability_id": { "const": "cybrik.suite.runtime-topology" },
+        "objective_id": { "const": "postgres-loopback-internal-v1" }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_id",
+        "attempt_ordinal",
+        "max_attempts",
+        "phase",
+        "execution_authorized",
+        "attempt_consumed",
+        "outcome"
+      ],
+      "properties": {
+        "series_id": { "const": "postgres-loopback-internal-v1" },
+        "attempt_ordinal": { "const": 1 },
+        "max_attempts": { "const": 1 },
+        "phase": { "enum": ["proposed", "authorized", "closed"] },
+        "execution_authorized": { "type": "boolean" },
+        "attempt_consumed": { "type": "boolean" },
+        "outcome": {
+          "enum": [
+            "not_run",
+            "PRECHECK_ABORT",
+            "TOPOLOGY_PASS",
+            "FAIL_PUBLICATION",
+            "FAIL_INTERNAL_INGRESS",
+            "STOP_CONTROL"
+          ]
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_ip",
+        "host_port",
+        "container_port",
+        "internal_network",
+        "runtime_limit_seconds",
+        "extension_cycles",
+        "probe"
+      ],
+      "properties": {
+        "host_ip": { "const": "127.0.0.1" },
+        "host_port": { "const": 15433 },
+        "container_port": { "const": 5432 },
+        "internal_network": { "const": true },
+        "runtime_limit_seconds": { "const": 180 },
+        "extension_cycles": { "const": 0 },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["executable_path", "executable_sha256", "argv"],
+          "properties": {
+            "executable_path": { "const": "/usr/bin/nc" },
+            "executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "argv": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "-z" },
+                { "const": "-w" },
+                { "const": "5" },
+                { "const": "127.0.0.1" },
+                { "const": "15433" }
+              ],
+              "items": false,
+              "minItems": 5,
+              "maxItems": 5
+            }
+          }
+        }
+      }
+    },
+    "production_exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_production_credentials",
+        "no_production_configuration",
+        "no_production_data",
+        "no_production_traffic"
+      ],
+      "properties": {
+        "no_production_credentials": { "const": true },
+        "no_production_configuration": { "const": true },
+        "no_production_data": { "const": true },
+        "no_production_traffic": { "const": true }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "external_bytes_ci_verified",
+        "artifacts",
+        "result_controls"
+      ],
+      "properties": {
+        "directory": { "type": "string", "minLength": 1 },
+        "external_bytes_ci_verified": { "const": false },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" },
+          "minItems": 2,
+          "maxItems": 6
+        },
+        "result_controls": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/resultControls" }
+          ]
+        }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "rationale"],
+      "properties": {
+        "profile": { "const": "HOLD" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "diagnosis",
+            "independent_review",
+            "grant",
+            "result",
+            "evidence_manifest",
+            "result_review"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "resultControls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "teardown_verified",
+        "residual_resources",
+        "external_manifest_locally_verified"
+      ],
+      "properties": {
+        "teardown_verified": { "type": "boolean" },
+        "residual_resources": { "type": "integer", "minimum": 0 },
+        "external_manifest_locally_verified": { "type": "boolean" }
+      }
+    }
+  }
+}

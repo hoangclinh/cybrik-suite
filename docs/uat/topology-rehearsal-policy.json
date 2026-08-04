@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "allowed_records": [
+    {
+      "record_id": "postgres-loopback-internal-v1-r1",
+      "series_id": "postgres-loopback-internal-v1",
+      "capability_id": "cybrik.suite.runtime-topology",
+      "objective_id": "postgres-loopback-internal-v1",
+      "directory": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1",
+      "record_path": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/topology-rehearsal.json",
+      "max_records": 1,
+      "max_attempts": 1
+    }
+  ]
+}

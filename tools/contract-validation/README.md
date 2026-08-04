@@ -156,7 +156,7 @@ absence of raw certificate or authorization material. It opens no socket and sel
 
 Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
 `validate.mjs`; W2-K entered when the orchestrator had 23 steps, while the `validate.mjs` header now
-truthfully states the present-day count. These 27 validators include the separately registered
+truthfully states the present-day count. These 29 validators include the separately registered
 Fabric runtime-producer gate and its regression suite. The orchestrator's `ALL GREEN`
 banner names W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. The W2-I P2-3 additive-byte pin now also carries the exact,
 additive W2-K paragraph, ADR-0013 catalog row and Governor-decision row applied to
@@ -165,6 +165,22 @@ unchanged outside the exact W2-K lifecycle addition. The W2-H entries moved sepa
 under the W2-H/R5 acceptance, which is disjoint from this packet. R4 acceptance authorizes contract-first
 implementation only and grants no runtime, UAT, release, deployment, or production authority.
 Standalone green (via the scripts above) remains static conformance only.
+
+## Topology-only rehearsal records
+
+The topology-rehearsal validator is a separate, non-product preflight control:
+
+```bash
+npm run validate:topology-rehearsal
+npm run test:topology-rehearsal
+```
+
+It discovers only `docs/uat/topology-rehearsals/*/topology-rehearsal.json`, enforces the one exact
+policy-and-code-pinned record identity, fixed loopback/internal-network envelope, one 180-second
+cycle with no extension, exact bounded host probe, phase/outcome truth table, contained artifact
+digests, locally reviewed external-manifest limitation and zero residual resources for every closed
+record. Zero prepared records is the current valid state. A green result is static control evidence
+only and grants no Docker effect, runtime, UAT, demo, release or production authority.
 
 ## Runtime-admission records
 
