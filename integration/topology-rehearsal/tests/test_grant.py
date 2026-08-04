@@ -413,6 +413,105 @@ def test_a_grant_signed_before_the_attempt_binds_a_fresh_host_observation(grant)
     assert any("observed_image_identity" in finding for finding in refused.findings)
 
 
+def test_selected_and_observed_registry_identities_must_agree(grant) -> None:
+    document = documents.with_nested(
+        documents.grant_document(),
+        "observed_image_identity",
+        {"manifest_digest": "sha256:" + "0" * 64},
+    )
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document,
+        facts(grant, observed_image_identity=document["observed_image_identity"]),
+    )
+    assert verdict.satisfied is False
+    assert any("selected" in finding for finding in verdict.findings)
+
+
+def test_runtime_observation_key_order_is_not_a_signed_semantic(grant) -> None:
+    document = documents.grant_document()
+    observed = dict(reversed(tuple(document["observed_image_identity"].items())))
+    observed["observed_at"] = documents.NOW_INSIDE_WINDOW
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document, facts(grant, observed_image_identity=observed)
+    )
+    assert verdict.satisfied is True
+
+
+@pytest.mark.parametrize(
+    ("side", "observed_at", "satisfied"),
+    [
+        ("signed", documents.NOW_AT_NOT_BEFORE, True),
+        ("signed", documents.NOW_AT_EXPIRES_AT, False),
+        ("runtime", documents.NOW_AT_NOT_BEFORE, True),
+        ("runtime", documents.NOW_AT_EXPIRES_AT, False),
+    ],
+)
+def test_both_observation_timestamps_use_the_closed_open_window_boundaries(
+    grant, side: str, observed_at: str, satisfied: bool
+) -> None:
+    document = documents.grant_document()
+    runtime_observation = deepcopy(document["observed_image_identity"])
+    if side == "signed":
+        document = documents.with_nested(
+            document, "observed_image_identity", {"observed_at": observed_at}
+        )
+    else:
+        runtime_observation["observed_at"] = observed_at
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document,
+        facts(grant, observed_image_identity=runtime_observation),
+    )
+    assert verdict.satisfied is satisfied
+    if not satisfied:
+        assert any("window" in finding for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    "signed_at",
+    (documents.NOW_BEFORE_NOT_BEFORE, documents.NOW_AFTER_EXPIRES_AT),
+)
+def test_a_signed_image_observation_outside_the_window_is_refused(
+    grant, signed_at: str
+) -> None:
+    document = documents.with_nested(
+        documents.grant_document(),
+        "observed_image_identity",
+        {"observed_at": signed_at},
+    )
+    verdict = require_c8_attr(grant, "verify_bindings")(document, facts(grant))
+    assert verdict.satisfied is False
+    assert any("window" in finding for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    ("signed_at", "runtime_at", "now"),
+    [
+        (documents.NOW_INSIDE_WINDOW, documents.NOW_AT_NOT_BEFORE, documents.NOW_INSIDE_WINDOW),
+        (documents.NOW_AT_NOT_BEFORE, "2026-08-05T00:02:00Z", documents.NOW_INSIDE_WINDOW),
+    ],
+)
+def test_observation_chronology_must_be_signed_then_runtime_then_now(
+    grant, signed_at: str, runtime_at: str, now: str
+) -> None:
+    document = documents.with_nested(
+        documents.grant_document(),
+        "observed_image_identity",
+        {"observed_at": signed_at},
+    )
+    runtime_observation = deepcopy(document["observed_image_identity"])
+    runtime_observation["observed_at"] = runtime_at
+    verdict = require_c8_attr(grant, "verify_bindings")(
+        document,
+        facts(
+            grant,
+            now=now,
+            observed_image_identity=runtime_observation,
+        ),
+    )
+    assert verdict.satisfied is False
+    assert any("chronology" in finding for finding in verdict.findings)
+
+
 @pytest.mark.parametrize(
     "observed_at",
     (documents.NOW_BEFORE_NOT_BEFORE, documents.NOW_AFTER_EXPIRES_AT),
@@ -572,21 +671,17 @@ def test_the_binding_module_reaches_for_no_effect_and_never_authorizes_itself() 
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     roots: set[str] = set()
     from_constants: set[str] = set()
-    relative_modules: set[str] = set()
-    unqualified_relative = False
+    relative_imports: set[tuple[int, str | None]] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             if node.level == 0 and node.module:
                 roots.add(node.module.split(".")[0])
-            elif node.level > 0 and node.module:
-                relative_modules.add(node.module.split(".")[0])
             elif node.level > 0:
-                unqualified_relative = True
+                relative_imports.add((node.level, node.module))
             if node.level > 0 and node.module == "constants":
                 from_constants.update(alias.name for alias in node.names)
     assert sorted(roots - GRANT_IMPORT_ROOTS) == []
-    assert relative_modules == {"constants"}
-    assert unqualified_relative is False
+    assert relative_imports == {(1, "constants")}
     assert sorted(from_constants.intersection(SELF_AUTHORIZING_CONSTANTS)) == []
