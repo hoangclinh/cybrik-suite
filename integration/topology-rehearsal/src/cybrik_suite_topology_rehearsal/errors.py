@@ -85,7 +85,12 @@ class AdmissionRefused(PrecheckAbort):
 
 
 class StopControl(TopologyRehearsalError):
-    """A stop control fired after consumption; it overrides every diagnostic class."""
+    """A stop control fired after consumption; it overrides every diagnostic class.
+
+    Section 8 names the control invariants it covers: a non-internal or multiple network
+    attachment, an image pull or install prompt, any role, migration, product query, pytest
+    or unrelated service effect, a timeout and an incomplete teardown.
+    """
 
     outcome: ClassVar[str | None] = STOP_CONTROL
 
@@ -97,7 +102,12 @@ class PublicationFailure(TopologyRehearsalError):
 
 
 class InternalIngressFailure(TopologyRehearsalError):
-    """The internal network attachment or the bounded host probe failed."""
+    """The publication agreed, but the healthy container was not reached through it.
+
+    Section 8 reserves this class for exactly that reading: the container's own readiness
+    and the bounded host TCP probe. A network that is not internal, or that holds anything
+    other than the one attachment, is a control invariant and belongs to `StopControl`.
+    """
 
     outcome: ClassVar[str | None] = FAIL_INTERNAL_INGRESS
 

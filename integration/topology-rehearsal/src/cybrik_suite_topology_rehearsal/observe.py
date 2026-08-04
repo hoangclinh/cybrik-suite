@@ -17,8 +17,12 @@ blocklist of spellings that a new spelling could slip past.
 
 A verdict is coherent by construction: it cannot be satisfied while carrying findings, it
 cannot refuse without a reason, and every refusal names the exact terminal class it belongs
-to. No caller has to re-decide whether a refusal aborts the precheck or classifies a
-publication or an internal-ingress failure.
+to. No caller has to re-decide whether a refusal aborts the precheck, fires a stop control,
+or classifies a publication or an internal-ingress failure. Those classes are the ones
+diagnosis section 8 assigns, read reduction by reduction: an unread pre-consumption identity
+is `PRECHECK_ABORT`, a network that is not internal or does not hold exactly the one
+attachment is `STOP_CONTROL`, disagreeing publication projections are `FAIL_PUBLICATION`,
+and the container readiness and bounded host probe are `FAIL_INTERNAL_INGRESS`.
 """
 
 from __future__ import annotations
@@ -40,9 +44,15 @@ from .constants import (
     PROBE_REACHABLE,
     PUBLICATION_VIEWS,
     SELECTED_IDENTITY_KEYS,
+    STOP_CONTROL,
 )
 from .errors import TERMINAL_ERRORS
-from .protocols import ADDRESS_SEPARATOR
+from .protocols import (
+    ADDRESS_SEPARATOR,
+    LISTENER_ADDRESS_KEY,
+    LISTENER_PORT_KEY,
+    LISTENER_PROTOCOL_KEY,
+)
 
 __all__ = [
     "ObservationVerdict",
@@ -66,20 +76,29 @@ OBSERVED_IDENTITY_KEYS = tuple(
     key for key in SELECTED_IDENTITY_KEYS if key not in SELECTION_ONLY_KEYS
 )
 
-# The exact keys of the two container projections carrying a publication view.
+# The exact keys of the two container projections carrying a publication view. The listener
+# record's own keys are not re-typed here: they are the shape `protocols.decoded_listener`
+# produces, so both sides derive them from that one boundary declaration.
 HOST_CONFIG_BINDING_PATH = ("HostConfig", "PortBindings")
 NETWORK_SETTINGS_PORT_PATH = ("NetworkSettings", "Ports")
 BINDING_ADDRESS_KEY = "HostIp"
 BINDING_PORT_KEY = "HostPort"
-LISTENER_ADDRESS_KEY = "address"
-LISTENER_PORT_KEY = "port"
-LISTENER_PROTOCOL_KEY = "protocol"
 NETWORK_INTERNAL_KEY = "Internal"
 NETWORK_ATTACHMENT_KEY = "Containers"
 
+# The complete key inventory a publication projection may carry. Section 7 item 6 requires
+# the projection to contain *only* the reviewed mapping, so an inventory that also publishes
+# another port is refused even where the reviewed key itself agrees.
+REVIEWED_BINDING_KEYS = frozenset({CONTAINER_PORT_KEY})
+
 # Exactly one claim per view. Two claims for one reviewed port is an ambiguity, not a
 # doubled agreement: a reader could not say which of them the publication actually is.
-EXPECTED_CLAIM_COUNT = 1
+EXPECTED_VIEW_CLAIM_COUNT = 1
+
+# Exactly one container attached to the reviewed internal network. It is stated separately
+# from the claim count above, and stays separate while both are one: a single shared name
+# would make a later change to either invariant silently change the other as well.
+EXPECTED_NETWORK_ATTACHMENT_COUNT = 1
 
 
 @dataclass(frozen=True)
@@ -175,7 +194,7 @@ def entry_sequence(value: object) -> Sequence[Any] | None:
 def single_claim(value: object) -> Any:
     """The one claim a view may carry, or `None` when it carries none or several."""
     entries = entry_sequence(value)
-    if entries is None or len(entries) != EXPECTED_CLAIM_COUNT:
+    if entries is None or len(entries) != EXPECTED_VIEW_CLAIM_COUNT:
         return None
     return entries[0]
 
@@ -190,11 +209,18 @@ def reported_publication(value: object) -> str | None:
 def binding_publication(bindings: object) -> str | None:
     """The single host binding a container projection claims for the reviewed port.
 
+    The whole key inventory is checked, not just the reviewed key. A projection that also
+    publishes another port is not the reviewed single mapping, so reading past the extra key
+    would accept a container with a second, unreviewed publication as a satisfied control —
+    and the reviewed key agreeing is exactly the case where that would go unnoticed.
+
     The host port is required to be the daemon's own string spelling. An integer here would
     mean the projection was rebuilt by something other than the daemon, and a rebuilt view
     is not an independent view.
     """
     if not isinstance(bindings, Mapping):
+        return None
+    if set(bindings) != REVIEWED_BINDING_KEYS:
         return None
     entry = single_claim(bindings.get(CONTAINER_PORT_KEY))
     if not isinstance(entry, Mapping):
@@ -272,6 +298,14 @@ def validate_publication(
 def validate_internal_network(projection: object) -> ObservationVerdict:
     """Refuse anything but an internal network holding exactly the one attachment.
 
+    Section 8 maps a non-internal or multiple network attachment to `STOP_CONTROL`, and this
+    reduction classifies its refusals there. An unresolved projection is the same refusal
+    read one step earlier: a network nobody could read is not a network anybody proved
+    internal, so it is the same control invariant failing rather than a weaker diagnostic
+    reading. Classifying any of the three as an ingress failure would report a failed control
+    as a failed reachability probe, and would rank the refusal below a publication failure
+    that section 8 says it overrides.
+
     `Internal` must be exactly `True`. A merely truthy flag is not isolation: it is a value
     whose meaning the reviewer never read, and reading it as isolation would report a
     network with a route off the host as a network without one.
@@ -280,7 +314,7 @@ def validate_internal_network(projection: object) -> ObservationVerdict:
         unreadable = (
             f"internal_network: unresolved — {projection!r} is not a network projection"
         )
-        return verdict_for((unreadable,), FAIL_INTERNAL_INGRESS)
+        return verdict_for((unreadable,), STOP_CONTROL)
     findings: list[str] = []
     internal = projection.get(NETWORK_INTERNAL_KEY)
     if internal is not True:
@@ -293,16 +327,20 @@ def validate_internal_network(projection: object) -> ObservationVerdict:
             f"network_attachment: unresolved — {attachments!r} is not an attachment "
             "mapping"
         )
-    elif len(attachments) != EXPECTED_CLAIM_COUNT:
+    elif len(attachments) != EXPECTED_NETWORK_ATTACHMENT_COUNT:
         findings.append(
             f"network_attachment: {len(attachments)} attachments observed, not exactly "
-            f"{EXPECTED_CLAIM_COUNT}"
+            f"{EXPECTED_NETWORK_ATTACHMENT_COUNT}"
         )
-    return verdict_for(findings, FAIL_INTERNAL_INGRESS)
+    return verdict_for(findings, STOP_CONTROL)
 
 
 def validate_internal_ingress(health: object, probe: object) -> ObservationVerdict:
     """Both the container's own readiness and the bounded host probe must be exact.
+
+    This is the one reduction section 8 leaves under `FAIL_INTERNAL_INGRESS`: an agreed
+    publication whose healthy container the bounded host TCP probe could not reach. The
+    network attachment is not read here; it is a control invariant and is classified above.
 
     Neither reading has a partial credit state. A container that is still starting has not
     reported readiness, and a probe that did not answer has not reported reachability.

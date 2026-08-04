@@ -57,6 +57,15 @@ ADDRESS_SEPARATOR = ":"
 IPV6_OPEN = "["
 IPV6_CLOSE = "]"
 
+# The keys of the one decoded host listener record. `decoded_listener` below builds the
+# record from them and the observation reduction reads it back through the same names, so
+# the shape is declared once at the boundary that produces it. Two independently typed
+# spellings could drift apart without either side failing: the reduction would simply read
+# `None` from a record the adapter believed it had filled.
+LISTENER_ADDRESS_KEY = "address"
+LISTENER_PORT_KEY = "port"
+LISTENER_PROTOCOL_KEY = "protocol"
+
 
 @dataclass(frozen=True)
 class CommandResult:
@@ -197,7 +206,11 @@ def decoded_listener(field: str) -> dict[str, Any] | None:
         address = address[len(IPV6_OPEN):-len(IPV6_CLOSE)]
     if not address:
         return None
-    return {"address": address, "port": int(port), "protocol": PORT_PROTOCOL}
+    return {
+        LISTENER_ADDRESS_KEY: address,
+        LISTENER_PORT_KEY: int(port),
+        LISTENER_PROTOCOL_KEY: PORT_PROTOCOL,
+    }
 
 
 @runtime_checkable
