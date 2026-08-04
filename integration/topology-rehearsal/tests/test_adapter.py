@@ -59,7 +59,11 @@ EFFECT_BINDINGS = {
     "remove:container": ("docker:remove_container",),
     "remove:network": ("docker:remove_network",),
     "remove:volume": ("docker:remove_volume",),
-    "observe_residual": ("docker:residual",),
+    "observe_residual": (
+        "docker:residual_container",
+        "docker:residual_network",
+        "docker:residual_volume",
+    ),
     "observe_digest": ("probe:digest",),
     "probe": ("probe:host",),
     "verify_signature": ("signature:verify",),
@@ -155,10 +159,15 @@ def test_docker_create_observe_and_teardown_all_use_named_plan_entries() -> None
         "docker:remove_container",
         "docker:remove_network",
         "docker:remove_volume",
-        "docker:residual",
+        "docker:residual_container",
+        "docker:residual_network",
+        "docker:residual_volume",
     )
     responses = {
-        plan.commands[name]: fakes.FakeCommandResult(stdout="{}\n") for name in selected
+        plan.commands[name]: fakes.FakeCommandResult(
+            stdout="" if name.startswith("docker:residual") else "{}\n"
+        )
+        for name in selected
     }
     log = fakes.CallLog()
     docker = require_c8_attr(adapter, "DockerCommandAdapter")(
@@ -300,7 +309,11 @@ def test_listener_absence_is_resolved_empty_but_command_errors_are_unresolved() 
 @pytest.mark.parametrize(
     ("rendered", "address"),
     [
-        ("n*:15433\n", "0.0.0.0"),
+        # `lsof` renders a wildcard bind as `*`. It is carried through exactly as observed
+        # rather than re-spelled as an equivalent dotted-quad: the decoder's job is to
+        # report what was seen, and inventing an address literal the tool never emitted
+        # would put a non-loopback spelling into authored source for no observational gain.
+        ("n*:15433\n", "*"),
         ("n0.0.0.0:15433\n", "0.0.0.0"),
         ("n[::]:15433\n", "::"),
         ("n[::1]:15433\n", "::1"),
@@ -319,6 +332,46 @@ def test_listener_decoder_preserves_wildcard_and_ipv6_for_fail_closed_classifica
     assert host.observe_listeners(port=fakes.HOST_PORT) == (
         {"address": address, "port": fakes.HOST_PORT, "protocol": "tcp"},
     )
+
+
+@pytest.mark.parametrize("rendered", ("n*:15433\n", "n0.0.0.0:15433\n", "n[::]:15433\n"))
+def test_no_wildcard_listener_is_ever_decoded_as_the_reviewed_loopback(
+    rendered: str,
+) -> None:
+    """A wildcard bind must stay distinguishable from the one reviewed binding.
+
+    Whatever spelling the decoder carries through, it may never equal `127.0.0.1`: a
+    wildcard listener that compared equal to the reviewed loopback would be admitted as
+    the very publication the rehearsal exists to refuse.
+    """
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    runner = fakes.FakeCommandRunner(
+        fakes.CallLog(),
+        {plan.commands["host:listeners"]: fakes.FakeCommandResult(stdout=rendered)},
+    )
+    host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+    observed = host.observe_listeners(port=fakes.HOST_PORT)
+    assert observed is not None
+    assert [listener["address"] for listener in observed] != [fakes.HOST_IP]
+
+
+def test_no_authored_adapter_byte_spells_a_non_loopback_address_literal() -> None:
+    """The wildcard decoding may not be bought with a forbidden literal in source.
+
+    `test_surface_contract` states this tree-wide; it is restated here against the exact
+    module that has to describe a wildcard bind, so the regression is attributed to the
+    decoder rather than to a distant scan.
+    """
+    adapter = load_c8("adapter")
+    path_text = inspect.getsourcefile(require_c8_attr(adapter, "ExactCommandAdapter"))
+    assert path_text is not None
+    text = Path(path_text).read_text(encoding="utf-8")
+    assert [
+        literal
+        for literal in ("0.0.0.0", "::1", "[::]", "localhost")
+        if literal in text
+    ] == []
 
 
 def test_an_undecodable_listener_field_is_unresolved_not_false_absence() -> None:
@@ -361,6 +414,547 @@ def test_failed_probe_returns_a_diagnostic_refusal_not_a_false_reachable() -> No
     assert probe.run(
         executable=fakes.PROBE_EXECUTABLE_PATH, argv=fakes.PROBE_ARGV
     ) == "refused"
+
+
+SIGNATURE = b"-----BEGIN SSH SIGNATURE-----\nsynthetic-detached-signature\n"
+OTHER_SIGNATURE = b"-----BEGIN SSH SIGNATURE-----\na-different-signature\n"
+
+
+def signature_plan(suite_root: Path):
+    """A plan whose Suite control root is a real directory this test owns."""
+    plan = load_c8("plan")
+    roots = {
+        **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+        fakes.SUITE_CONTROL: str(suite_root),
+    }
+    return require_c8_attr(plan, "build_plan")(
+        attempt_id=fakes.SYNTHETIC_ATTEMPT_ID,
+        image_reference=f"postgres@{fakes.SYNTHETIC_MANIFEST_DIGEST}",
+        repository_roots=roots,
+    )
+
+
+def write_signature(plan, payload: bytes) -> Path:
+    path = Path(plan.signature_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return path
+
+
+def signature_verifier(plan, returncode: int = 0):
+    adapter = load_c8("adapter")
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(
+        log,
+        {
+            plan.commands["signature:verify"]: fakes.FakeCommandResult(
+                returncode=returncode
+            )
+        },
+    )
+    verifier = require_c8_attr(adapter, "SshSignatureCommandAdapter")(plan, runner)
+    return verifier, log
+
+
+def verify(verifier, signature_bytes: bytes = SIGNATURE):
+    return verifier.verify(
+        grant_bytes=b"{}",
+        signature_bytes=signature_bytes,
+        signer=fakes.SIGNER,
+        namespace=fakes.AUTHORIZATION_NAMESPACE,
+    )
+
+
+@pytest.mark.parametrize(("returncode", "expected"), ((0, True), (1, False)))
+def test_signature_verification_accepts_only_the_exact_bytes_it_was_asked_about(
+    tmp_path: Path, returncode: int, expected: bool
+) -> None:
+    """The verdict belongs to `signature_bytes`, not to whatever was on disk at run time.
+
+    The reviewed argv names the signature by path, so `ssh-keygen` reads the file itself.
+    A verdict returned for the caller's argument while a different file was verified would
+    attribute an external signature to bytes nobody checked.
+    """
+    plan = signature_plan(tmp_path)
+    write_signature(plan, SIGNATURE)
+    verifier, log = signature_verifier(plan, returncode=returncode)
+    assert verify(verifier) is expected
+    assert log.count("command.run") == 1
+
+
+def test_signature_verification_refuses_bytes_that_are_not_the_file_it_verifies(
+    tmp_path: Path,
+) -> None:
+    plan = signature_plan(tmp_path)
+    write_signature(plan, OTHER_SIGNATURE)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier) is None
+    # Refused before the command: a verification that ran would already have produced a
+    # verdict about the wrong bytes.
+    assert log.count("command.run") == 0
+
+
+def test_signature_verification_refuses_a_signature_swapped_around_the_run(
+    tmp_path: Path,
+) -> None:
+    """The bind is re-checked after the run, so the read-to-verify window fails closed.
+
+    Between the pre-run read and `ssh-keygen`'s own read the file could be replaced. The
+    bytes are therefore re-read afterwards and a change makes the verdict unresolved
+    rather than an accepted signature the caller never saw.
+    """
+    plan = signature_plan(tmp_path)
+    path = write_signature(plan, SIGNATURE)
+    adapter = load_c8("adapter")
+    log = fakes.CallLog()
+
+    class SwappingRunner(fakes.FakeCommandRunner):
+        def run(self, argv, *, timeout_seconds, stdin=None):
+            path.write_bytes(OTHER_SIGNATURE)
+            return super().run(argv, timeout_seconds=timeout_seconds, stdin=stdin)
+
+    runner = SwappingRunner(
+        log, {plan.commands["signature:verify"]: fakes.FakeCommandResult(returncode=0)}
+    )
+    verifier = require_c8_attr(adapter, "SshSignatureCommandAdapter")(plan, runner)
+    assert verify(verifier) is None
+    assert log.count("command.run") == 1
+
+
+def test_signature_verification_refuses_an_absent_or_unreadable_signature(
+    tmp_path: Path,
+) -> None:
+    plan = signature_plan(tmp_path)
+    Path(plan.signature_path).parent.mkdir(parents=True, exist_ok=True)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier) is None
+    assert log.count("command.run") == 0
+
+
+def test_signature_verification_follows_no_symlink_at_the_signature_path(
+    tmp_path: Path,
+) -> None:
+    """A signature reached through a link is somebody else's file, not this grant's."""
+    plan = signature_plan(tmp_path)
+    path = Path(plan.signature_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    target = tmp_path / "elsewhere.sig"
+    target.write_bytes(SIGNATURE)
+    path.symlink_to(target)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier) is None
+    assert log.count("command.run") == 0
+
+
+def test_signature_verification_refuses_a_non_regular_signature_path(
+    tmp_path: Path,
+) -> None:
+    plan = signature_plan(tmp_path)
+    Path(plan.signature_path).mkdir(parents=True, exist_ok=True)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier) is None
+    assert log.count("command.run") == 0
+
+
+def test_signature_verification_refuses_a_signature_larger_than_the_reviewed_bound(
+    tmp_path: Path,
+) -> None:
+    """An oversized file is refused whole rather than compared on a truncated prefix."""
+    adapter = load_c8("adapter")
+    limit = require_c8_attr(adapter, "SIGNATURE_MAX_BYTES")
+    plan = signature_plan(tmp_path)
+    oversized = b"s" * (limit + 1)
+    write_signature(plan, oversized)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier, signature_bytes=oversized) is None
+    assert log.count("command.run") == 0
+
+
+def test_signature_verification_refuses_empty_material_before_reading_anything(
+    tmp_path: Path,
+) -> None:
+    plan = signature_plan(tmp_path)
+    write_signature(plan, SIGNATURE)
+    verifier, log = signature_verifier(plan)
+    assert verify(verifier, signature_bytes=b"") is None
+    assert verifier.verify(
+        grant_bytes=b"",
+        signature_bytes=SIGNATURE,
+        signer=fakes.SIGNER,
+        namespace=fakes.AUTHORIZATION_NAMESPACE,
+    ) is None
+    assert log.count("command.run") == 0
+
+
+class ShortWriter:
+    """A deterministic `os.write` that writes at most `chunk` bytes per call.
+
+    It also replays a scripted sequence of interruptions and stalls, so the completion
+    loop is stated against exact behaviour rather than against whatever the host kernel
+    happens to do with a short buffer.
+    """
+
+    def __init__(self, chunk: int = 3, failures: tuple = ()) -> None:
+        self.chunk = chunk
+        self.failures = list(failures)
+        self.written = bytearray()
+        self.calls = 0
+
+    def __call__(self, descriptor: int, payload) -> int:
+        self.calls += 1
+        if self.failures:
+            failure = self.failures.pop(0)
+            if isinstance(failure, BaseException):
+                raise failure
+            if failure == 0:
+                return 0
+        data = bytes(payload)[: self.chunk]
+        self.written.extend(data)
+        return len(data)
+
+
+def test_a_short_or_interrupted_credential_write_is_completed_before_it_is_flushed(
+    monkeypatch,
+) -> None:
+    """A credential is written whole, retrying an interruption, or it is not written.
+
+    `os.write` may write only part of its buffer and may be interrupted, and both are
+    silent in its return value. A credential truncated to its first few bytes would still
+    be reported durable and would still be mounted into the container.
+    """
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    writer = ShortWriter(chunk=5, failures=(InterruptedError(4, "interrupted"),))
+    fsynced: list[int] = []
+    monkeypatch.setattr(adapter.os, "getuid", lambda: 1234)
+    monkeypatch.setattr(
+        adapter.os,
+        "lstat",
+        lambda _path: SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=1234),
+    )
+    monkeypatch.setattr(adapter.os, "open", lambda *_args, **_kwargs: 10)
+    monkeypatch.setattr(adapter.os, "write", writer)
+    monkeypatch.setattr(adapter.os, "fsync", fsynced.append)
+    monkeypatch.setattr(adapter.os, "close", lambda _descriptor: None)
+    credential = require_c8_attr(adapter, "CredentialFileAdapter")(plan)
+    assert credential.create(name=plan.credential_name) == plan.credential_path
+    secret = bytes(writer.written)
+    assert len(secret) > writer.chunk, "the write loop must not stop at one short write"
+    assert writer.calls > 2, "an interruption must be retried, not counted as progress"
+    assert fsynced, "the completed bytes are flushed only after the whole record"
+
+
+def test_a_stalled_credential_write_refuses_rather_than_reporting_partial_material(
+    monkeypatch,
+) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    writer = ShortWriter(chunk=5, failures=(0,))
+    closed: list[int] = []
+    monkeypatch.setattr(adapter.os, "getuid", lambda: 1234)
+    monkeypatch.setattr(
+        adapter.os,
+        "lstat",
+        lambda _path: SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=1234),
+    )
+    monkeypatch.setattr(adapter.os, "open", lambda *_args, **_kwargs: 10)
+    monkeypatch.setattr(adapter.os, "write", writer)
+    monkeypatch.setattr(
+        adapter.os,
+        "fsync",
+        lambda _descriptor: pytest.fail("a stalled write must never reach fsync"),
+    )
+    monkeypatch.setattr(adapter.os, "close", closed.append)
+    credential = require_c8_attr(adapter, "CredentialFileAdapter")(plan)
+    with pytest.raises(ValueError, match="stalled|incomplete"):
+        credential.create(name=plan.credential_name)
+    assert closed == [10], "the descriptor is released even on the refusing path"
+
+
+@pytest.mark.parametrize(
+    ("failures", "reason"),
+    (((0,), "stalled|incomplete"), ((OSError(28, "no space left"),), "no space left")),
+)
+def test_an_incomplete_ledger_write_never_replaces_a_good_durable_ledger(
+    tmp_path: Path, monkeypatch, failures: tuple, reason: str
+) -> None:
+    """A partly written budget may not become the durable one-attempt ledger.
+
+    The pending file is written whole before it is renamed over the ledger. If the write
+    cannot complete, the refusal must land *before* the replace: a truncated ledger is
+    read by the next attempt as an unused budget.
+    """
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    ledger_path.write_text("other-record 1\n", encoding="utf-8")
+    monkeypatch.setattr(adapter.os, "write", ShortWriter(chunk=4, failures=failures))
+    monkeypatch.setattr(
+        adapter.os,
+        "replace",
+        lambda *_args: pytest.fail("an incomplete write must never be replaced in"),
+    )
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises((OSError, ValueError), match=reason):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert ledger_path.read_text(encoding="utf-8") == "other-record 1\n"
+    assert not (tmp_path / "attempt-ledger.pending").exists()
+
+
+def test_a_short_ledger_write_still_persists_the_whole_budget(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    real_write = adapter.os.write
+
+    def short_write(descriptor: int, payload) -> int:
+        return real_write(descriptor, bytes(payload)[:3])
+
+    monkeypatch.setattr(adapter.os, "write", short_write)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    monkeypatch.setattr(adapter.os, "write", real_write)
+    assert ledger_path.read_text(encoding="utf-8") == f"{fakes.RECORD_ID} 1\n"
+
+
+def test_a_failing_close_never_masks_the_error_that_is_already_unwinding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The original cause must survive cleanup, or the refusal reads as a stray EBADF.
+
+    A descriptor closed a second time raises `EBADF`. Raised from a cleanup path it would
+    replace the real reason the attempt refused, and a ledger failure reported as a bad
+    file descriptor is not evidence of anything.
+    """
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+
+    def failing_close(_descriptor: int) -> None:
+        raise OSError(9, "bad file descriptor")
+
+    monkeypatch.setattr(
+        adapter.os,
+        "write",
+        lambda _descriptor, _payload: (_ for _ in ()).throw(
+            OSError(28, "no space left on device")
+        ),
+    )
+    monkeypatch.setattr(adapter.os, "close", failing_close)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(OSError, match="no space left on device"):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+
+
+RESIDUAL_EFFECTS = (
+    "docker:residual_container",
+    "docker:residual_network",
+    "docker:residual_volume",
+)
+
+
+def residual_docker(responses):
+    """A Docker adapter whose only scripted commands are the residual projections."""
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(
+        log, {plan.commands[effect]: responses[effect] for effect in RESIDUAL_EFFECTS}
+    )
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, runner, fakes.FakeClock(log)
+    )
+    return docker, plan, log
+
+
+def test_residual_observation_reports_container_network_and_volume_leftovers() -> None:
+    """Teardown proof needs every created kind, not only the one `docker ps` can see.
+
+    A network or a volume that survived teardown is exactly as much residue as a surviving
+    container, and a residual inventory blind to two of the three kinds would report a
+    leaked network as a clean host.
+    """
+    plan = built_plan()
+    docker, _plan, log = residual_docker(
+        {
+            "docker:residual_container": fakes.FakeCommandResult(
+                stdout=json.dumps(fakes.CONTAINER_NAME) + "\n"
+            ),
+            "docker:residual_network": fakes.FakeCommandResult(
+                stdout=json.dumps(fakes.NETWORK_NAME) + "\n"
+            ),
+            "docker:residual_volume": fakes.FakeCommandResult(
+                stdout=json.dumps(fakes.VOLUME_NAME) + "\n"
+            ),
+        }
+    )
+    assert docker.observe_residual() == (
+        fakes.CONTAINER_NAME,
+        fakes.NETWORK_NAME,
+        fakes.VOLUME_NAME,
+    )
+    assert tuple(call["argv"] for call in log.calls("command.run")) == tuple(
+        plan.commands[effect] for effect in RESIDUAL_EFFECTS
+    )
+
+
+def test_a_clean_teardown_reports_an_empty_residual_inventory() -> None:
+    docker, _plan, _log = residual_docker(
+        {effect: fakes.FakeCommandResult(stdout="") for effect in RESIDUAL_EFFECTS}
+    )
+    assert docker.observe_residual() == ()
+
+
+@pytest.mark.parametrize("failing", RESIDUAL_EFFECTS)
+@pytest.mark.parametrize(
+    "result",
+    (
+        fakes.FakeCommandResult(returncode=1, stderr="cannot connect to the daemon\n"),
+        fakes.FakeCommandResult(returncode=-9),
+        fakes.FakeCommandResult(stdout="not-json\n"),
+        fakes.FakeCommandResult(stdout="{}\n"),
+        fakes.FakeCommandResult(stdout="123\n"),
+        fakes.FakeCommandResult(stdout='""\n'),
+    ),
+)
+def test_a_failed_or_malformed_residual_projection_is_unresolved_not_clean(
+    failing: str, result
+) -> None:
+    """An unresolved residual observation must never read as an empty inventory.
+
+    Each kind is broken in turn, because a check that only ever inspected the first
+    projection would pass while a later one was silently failing.
+    """
+    docker, _plan, _log = residual_docker(
+        {
+            effect: (
+                result
+                if effect == failing
+                else fakes.FakeCommandResult(stdout=json.dumps("leftover") + "\n")
+            )
+            for effect in RESIDUAL_EFFECTS
+        }
+    )
+    assert docker.observe_residual() is None
+
+
+MUTATIONS = {
+    "docker:create_network": lambda docker, plan: docker.create_network(
+        name=plan.network_name, internal=True
+    ),
+    "docker:create_volume": lambda docker, plan: docker.create_volume(
+        name=plan.volume_name
+    ),
+    "docker:create_container": lambda docker, plan: docker.create_container(
+        name=plan.container_name,
+        image=plan.image_reference,
+        network=plan.network_name,
+        volume=plan.volume_name,
+        publish=fakes.PUBLISH_SPEC,
+        pull=fakes.PULL_POLICY,
+        environment={"POSTGRES_PASSWORD_FILE": fakes.CONTAINER_CREDENTIAL_PATH},
+    ),
+    "docker:start_container": lambda docker, plan: docker.start_container(
+        name=plan.container_name
+    ),
+    "docker:remove_container": lambda docker, plan: docker.remove(
+        kind="container", name=plan.container_name
+    ),
+    "docker:remove_network": lambda docker, plan: docker.remove(
+        kind="network", name=plan.network_name
+    ),
+    "docker:remove_volume": lambda docker, plan: docker.remove(
+        kind="volume", name=plan.volume_name
+    ),
+}
+
+
+@pytest.mark.parametrize("effect", sorted(MUTATIONS))
+@pytest.mark.parametrize(
+    ("result", "reason"),
+    (
+        (fakes.FakeCommandResult(returncode=1, stderr="conflict\n"), "status 1"),
+        (fakes.FakeCommandResult(returncode=125), "status 125"),
+        # A negative status is the signal that killed the command: it did not run as
+        # reviewed at all, which is not the same as running and failing cleanly.
+        (fakes.FakeCommandResult(returncode=-9), "signal 9"),
+        (fakes.FakeCommandResult(returncode=-15), "signal 15"),
+        # The unresolved sentinel: a default-constructed result never executed at all.
+        (fakes.FakeCommandResult(returncode=-1), "unresolved"),
+        (SimpleNamespace(returncode=None, stdout="", stderr=""), "malformed"),
+        (SimpleNamespace(returncode="0", stdout="", stderr=""), "malformed"),
+        (SimpleNamespace(returncode=True, stdout="", stderr=""), "malformed"),
+        (SimpleNamespace(returncode=0, stdout=None, stderr=""), "malformed"),
+        (SimpleNamespace(stdout="", stderr=""), "malformed"),
+    ),
+)
+def test_every_mutating_docker_command_refuses_a_result_that_is_not_a_clean_success(
+    effect: str, result, reason: str
+) -> None:
+    """A mutating command that did not succeed may never be reported as if it had.
+
+    Silently ignoring the status of a create, start or remove would let the rehearsal
+    proceed against resources that do not exist, and would let a teardown that never
+    removed anything be recorded as a completed teardown.
+    """
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(log, {plan.commands[effect]: result})
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, runner, fakes.FakeClock(log)
+    )
+    with pytest.raises(ValueError, match=reason):
+        MUTATIONS[effect](docker, plan)
+
+
+@pytest.mark.parametrize("effect", sorted(MUTATIONS))
+def test_a_clean_mutating_result_still_returns_the_daemons_own_identifier(
+    effect: str,
+) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(
+        log, {plan.commands[effect]: fakes.FakeCommandResult(stdout="created-id\n")}
+    )
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, runner, fakes.FakeClock(log)
+    )
+    returned = MUTATIONS[effect](docker, plan)
+    assert returned in ("created-id", None)
+    assert log.count("command.run") == 1
+
+
+@pytest.mark.parametrize(
+    ("observed", "expected"),
+    (
+        (("net.inet.ip.portrange.first: 49152", "net.inet.ip.portrange.last: 65535"),
+         (49152, 65535)),
+        # A single reported bound is a partial reading, not a one-port range.
+        (("net.inet.ip.portrange.first: 49152",), None),
+        # A first bound at or above the last is degenerate: no reservation check can be
+        # evaluated against it, so it is unresolved rather than a very small range.
+        (("first: 49152", "last: 49152"), None),
+        (("first: 65535", "last: 49152"), None),
+        (("first: 1", "last: 2", "last: 3"), None),
+        (("first: not-a-number", "last: 65535"), None),
+    ),
+)
+def test_a_degenerate_or_partial_ephemeral_range_is_unresolved(
+    observed: tuple[str, ...], expected
+) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    runner = fakes.FakeCommandRunner(
+        fakes.CallLog(),
+        {
+            plan.commands["host:ephemeral_range"]: fakes.FakeCommandResult(
+                stdout="".join(f"{line}\n" for line in observed)
+            )
+        },
+    )
+    host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+    assert host.observe_ephemeral_range() == expected
 
 
 def test_attempt_ledger_serializes_two_consumers_and_persists_one_entry(

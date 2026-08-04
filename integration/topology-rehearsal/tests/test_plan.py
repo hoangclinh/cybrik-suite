@@ -174,10 +174,60 @@ def test_every_external_effect_has_one_named_command_in_the_plan(built) -> None:
         "docker:remove_container",
         "docker:remove_network",
         "docker:remove_volume",
-        "docker:residual",
+        "docker:residual_container",
+        "docker:residual_network",
+        "docker:residual_volume",
     }
     assert set(built.commands) == repository_keys | fixed_keys
     assert len(set(built.commands.values())) == len(built.commands)
+
+
+def test_residual_observation_covers_every_created_docker_resource_kind(built) -> None:
+    """A teardown proof that can only see containers cannot report a leaked network.
+
+    Every kind the plan creates has its own residual projection, each filtered to this
+    attempt's own derived name and each rendering that name as a JSON string so a residual
+    inventory is machine-readable without a second parsing dialect.
+    """
+    assert built.commands["docker:residual_container"] == (
+        fakes.DOCKER_EXECUTABLE_PATH,
+        "ps",
+        "--all",
+        "--filter",
+        f"name={fakes.CONTAINER_NAME}",
+        "--format",
+        "{{json .Names}}",
+    )
+    assert built.commands["docker:residual_network"] == (
+        fakes.DOCKER_EXECUTABLE_PATH,
+        "network",
+        "ls",
+        "--filter",
+        f"name={fakes.NETWORK_NAME}",
+        "--format",
+        "{{json .Name}}",
+    )
+    assert built.commands["docker:residual_volume"] == (
+        fakes.DOCKER_EXECUTABLE_PATH,
+        "volume",
+        "ls",
+        "--filter",
+        f"name={fakes.VOLUME_NAME}",
+        "--format",
+        "{{json .Name}}",
+    )
+
+
+def test_the_plan_names_the_signature_file_its_own_argv_verifies(built) -> None:
+    """The verified path is a plan field, not a spelling an adapter re-derives.
+
+    An adapter that has to rebuild this path to read the bytes it is asked about could
+    name a different file than the one `ssh-keygen` is handed, which is exactly the drift
+    a single reviewed expression removes.
+    """
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    assert built.signature_path == f"{suite_root}/{fakes.GRANT_PATH}.sig"
+    assert built.commands["signature:verify"][-1] == built.signature_path
 
 
 def test_listener_and_event_observations_pin_machine_readable_projections(built) -> None:

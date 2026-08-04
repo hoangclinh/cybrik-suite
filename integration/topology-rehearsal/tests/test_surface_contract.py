@@ -51,6 +51,13 @@ FORBIDDEN_LIBRARY_IMPORTS = frozenset(
     }
 )
 
+# The one status an authored C8 library module may declare. It is reviewed source and
+# nothing more: no module here has ever been run against Docker, a listener or a database.
+LIBRARY_STATUS = "Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`."
+# Standings this specification cannot evidence. A module that claimed one would present
+# unexecuted source as a tested, piloted or released capability.
+UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b"
+
 # Literals that would name something other than the single reviewed loopback publication.
 # `127.0.0.1` is the only address any authored byte may contain.
 FORBIDDEN_ADDRESS_LITERALS = (
@@ -144,6 +151,21 @@ def test_every_module_carries_a_docstring(module: str) -> None:
 
 
 @pytest.mark.parametrize("module", C8_MODULES)
+def test_every_module_declares_the_truthful_bounded_library_status(module: str) -> None:
+    """Each authored module states exactly what it is: source with no runtime authority.
+
+    A reader reaching for one of these modules must be told, in the module itself, that
+    nothing here has been run against Docker, a listener or a database. The status is
+    therefore an exact line rather than free prose, and the words that would claim a
+    standing this specification cannot evidence are refused outright.
+    """
+    docstring = require_c8_attr(load_c8(module), "__doc__")
+    declared = [line.strip() for line in docstring.splitlines() if line.strip()]
+    assert LIBRARY_STATUS in declared
+    assert re.findall(UNEVIDENCED_STATUS_CLAIMS, docstring) == []
+
+
+@pytest.mark.parametrize("module", C8_MODULES)
 def test_every_module_declares_a_resolvable_all(module: str) -> None:
     loaded = load_c8(module)
     exported = require_c8_attr(loaded, "__all__")
@@ -170,22 +192,33 @@ def test_entrypoint_imports_expose_only_the_one_reviewed_process_seam(name: str)
 
 
 def test_every_authored_file_obeys_the_tree_wide_effect_import_policy() -> None:
+    """Only the one reviewed entrypoint may name `subprocess`; no other authored file may.
+
+    The expectation is derived from the files that exist, so the same invariant is enforced
+    on the tree authored today and, unchanged, on the tree once the entrypoints land.
+    """
+    authored = authored_sources()
+    runner_script = SCRIPTS / "run_topology_rehearsal.py"
     reached = {
         str(path.relative_to(SCRIPTS.parent)): imported_roots(parsed(path))
         & FORBIDDEN_LIBRARY_IMPORTS
-        for path in authored_sources()
+        for path in authored
     }
     assert reached == {
-        **{
-            str(path.relative_to(SCRIPTS.parent)): set()
-            for path in authored_sources()
-            if path != SCRIPTS / "run_topology_rehearsal.py"
-        },
-        "scripts/run_topology_rehearsal.py": {"subprocess"},
+        str(path.relative_to(SCRIPTS.parent)): (
+            {"subprocess"} if path == runner_script else set()
+        )
+        for path in authored
     }
 
 
 def test_the_complete_authored_tree_contains_exactly_one_process_spawn_site() -> None:
+    """The whole authored tree spawns a process from exactly one reviewed site.
+
+    While the entrypoints are absent the authored tree must spawn from *no* site at all;
+    the exact one-site invariant is retained verbatim and re-asserted the moment the one
+    reviewed entrypoint exists.
+    """
     spawn_names = {
         "Popen",
         "call",
@@ -249,7 +282,12 @@ def test_the_complete_authored_tree_contains_exactly_one_process_spawn_site() ->
                 sites.append(
                     (str(path.relative_to(SCRIPTS.parent)), direct_aliases[node.func.id])
                 )
-    assert sites == [("scripts/run_topology_rehearsal.py", "subprocess.run")]
+    runner_script = SCRIPTS / "run_topology_rehearsal.py"
+    assert sites == (
+        [("scripts/run_topology_rehearsal.py", "subprocess.run")]
+        if runner_script.exists()
+        else []
+    )
 
 
 @pytest.mark.parametrize("name", C8_SCRIPT_NAMES)
@@ -278,13 +316,17 @@ def test_both_entrypoints_import_and_carry_a_docstring(name: str) -> None:
 
 
 def authored_sources() -> tuple[Path, ...]:
-    """Every authored C8 file, or a RED failure while none exist.
+    """Every authored C8 file that exists today, or a RED failure while none do.
 
-    An empty source tree must never satisfy a source-scan control: a vacuous "no offending
-    literal found" would silently report the absent implementation as compliant.
+    The tree-wide controls must judge the code that is actually authored. Demanding the
+    whole future tree here would abort each of them on the first absent root, so a module
+    that *is* written would never be read at all and its violations would hide behind an
+    unrelated RED. The absent roots stay RED in the inventory tests above, where their
+    absence is the fact under test rather than an accident of traversal order.
+
+    An empty tree is still refused: a vacuous "no offending literal found" would silently
+    report the absent implementation as compliant.
     """
-    require_c8_path(SRC)
-    require_c8_path(SCRIPTS)
     paths = source_paths()
     if not paths:
         pytest.fail(
