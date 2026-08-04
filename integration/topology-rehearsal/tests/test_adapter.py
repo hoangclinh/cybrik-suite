@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import ast
+import json
 import inspect
+import threading
 import textwrap
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -39,10 +42,12 @@ EFFECT_BINDINGS = {
     "observe_ephemeral_range": ("host:ephemeral_range",),
     "observe_listeners": ("host:listeners",),
     "observe_platform": ("docker:platform",),
+    "observe_executable_digest": ("docker:digest",),
     "observe_publications": ("docker:publications",),
     "create_network": ("docker:create_network",),
     "create_volume": ("docker:create_volume",),
     "create_container": ("docker:create_container",),
+    "start_container": ("docker:start_container",),
     "observe_health": ("docker:health",),
     "observe_container": ("docker:container",),
     "observe_daemon_event": ("docker:event",),
@@ -128,9 +133,11 @@ def test_docker_create_observe_and_teardown_all_use_named_plan_entries() -> None
     adapter = load_c8("adapter")
     plan = built_plan()
     selected = (
+        "docker:digest",
         "docker:create_network",
         "docker:create_volume",
         "docker:create_container",
+        "docker:start_container",
         "docker:container",
         "docker:remove_container",
         "docker:remove_network",
@@ -144,6 +151,7 @@ def test_docker_create_observe_and_teardown_all_use_named_plan_entries() -> None
     docker = require_c8_attr(adapter, "DockerCommandAdapter")(
         plan, fakes.FakeCommandRunner(log, responses)
     )
+    assert docker.observe_executable_digest(path=fakes.DOCKER_EXECUTABLE_PATH) == "{}"
     docker.create_network(name=plan.network_name, internal=True)
     docker.create_volume(name=plan.volume_name)
     docker.create_container(
@@ -153,8 +161,9 @@ def test_docker_create_observe_and_teardown_all_use_named_plan_entries() -> None
         volume=plan.volume_name,
         publish=fakes.PUBLISH_SPEC,
         pull=fakes.PULL_POLICY,
-        environment={},
+        environment={"POSTGRES_PASSWORD_FILE": fakes.CONTAINER_CREDENTIAL_PATH},
     )
+    docker.start_container(name=plan.container_name)
     docker.observe_container(container=plan.container_name)
     for kind, name in (
         ("container", plan.container_name),
@@ -178,6 +187,183 @@ def test_high_level_argument_drift_is_rejected_before_any_command() -> None:
     with pytest.raises(ValueError):
         docker.create_network(name="wrong", internal=True)
     assert log.entries == ()
+
+
+def test_realistic_adapter_outputs_decode_to_the_reviewed_semantics(monkeypatch) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    responses = {
+        plan.commands["docker:digest"]: fakes.FakeCommandResult(
+            stdout=f"{fakes.SYNTHETIC_DOCKER_SHA256}  {fakes.DOCKER_EXECUTABLE_PATH}\n"
+        ),
+        plan.commands["host:listeners"]: fakes.FakeCommandResult(
+            stdout=f"p123\nn{fakes.HOST_IP}:{fakes.HOST_PORT}\n"
+        ),
+        plan.commands["docker:event"]: fakes.FakeCommandResult(
+            stdout=json.dumps(fakes.OBSERVED_PUBLICATION) + "\n"
+        ),
+        plan.commands["docker:health"]: fakes.FakeCommandResult(stdout='"healthy"\n'),
+        plan.commands["probe:host"]: fakes.FakeCommandResult(returncode=0),
+    }
+    runner = fakes.FakeCommandRunner(fakes.CallLog(), responses)
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(plan, runner)
+    host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+    probe = require_c8_attr(adapter, "ProbeCommandAdapter")(plan, runner)
+    monkeypatch.setattr(adapter.time, "monotonic", lambda: 10.0)
+    assert docker.observe_executable_digest(path=fakes.DOCKER_EXECUTABLE_PATH) == (
+        fakes.SYNTHETIC_DOCKER_SHA256
+    )
+    assert host.observe_listeners(port=fakes.HOST_PORT) == (
+        {"address": fakes.HOST_IP, "port": fakes.HOST_PORT, "protocol": "tcp"},
+    )
+    assert docker.observe_daemon_event(container=plan.container_name) == (
+        fakes.OBSERVED_PUBLICATION
+    )
+    assert docker.observe_health(container=plan.container_name, deadline=20.0) == "healthy"
+    assert probe.run(
+        executable=fakes.PROBE_EXECUTABLE_PATH, argv=fakes.PROBE_ARGV
+    ) == "reachable"
+
+
+def test_listener_absence_is_resolved_empty_but_command_errors_are_unresolved() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    for result, expected in (
+        (fakes.FakeCommandResult(returncode=1), ()),
+        (fakes.FakeCommandResult(returncode=2, stderr="lsof error\n"), None),
+    ):
+        runner = fakes.FakeCommandRunner(
+            fakes.CallLog(), {plan.commands["host:listeners"]: result}
+        )
+        host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+        assert host.observe_listeners(port=fakes.HOST_PORT) == expected
+
+
+@pytest.mark.parametrize(
+    ("rendered", "address"),
+    [
+        ("n*:15433\n", "0.0.0.0"),
+        ("n0.0.0.0:15433\n", "0.0.0.0"),
+        ("n[::]:15433\n", "::"),
+        ("n[::1]:15433\n", "::1"),
+    ],
+)
+def test_listener_decoder_preserves_wildcard_and_ipv6_for_fail_closed_classification(
+    rendered: str, address: str
+) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    runner = fakes.FakeCommandRunner(
+        fakes.CallLog(),
+        {plan.commands["host:listeners"]: fakes.FakeCommandResult(stdout=rendered)},
+    )
+    host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+    assert host.observe_listeners(port=fakes.HOST_PORT) == (
+        {"address": address, "port": fakes.HOST_PORT, "protocol": "tcp"},
+    )
+
+
+def test_an_undecodable_listener_field_is_unresolved_not_false_absence() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    runner = fakes.FakeCommandRunner(
+        fakes.CallLog(),
+        {
+            plan.commands["host:listeners"]: fakes.FakeCommandResult(
+                stdout="nnot-a-listener-address\n"
+            )
+        },
+    )
+    host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
+    assert host.observe_listeners(port=fakes.HOST_PORT) is None
+
+
+def test_failed_probe_returns_a_diagnostic_refusal_not_a_false_reachable() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    runner = fakes.FakeCommandRunner(
+        fakes.CallLog(),
+        {plan.commands["probe:host"]: fakes.FakeCommandResult(returncode=1)},
+    )
+    probe = require_c8_attr(adapter, "ProbeCommandAdapter")(plan, runner)
+    assert probe.run(
+        executable=fakes.PROBE_EXECUTABLE_PATH, argv=fakes.PROBE_ARGV
+    ) == "refused"
+
+
+def test_attempt_ledger_serializes_two_consumers_and_persists_one_entry(
+    tmp_path: Path,
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_type = require_c8_attr(adapter, "AtomicFileAttemptLedger")
+    ledger_path = tmp_path / "attempt-ledger"
+    rendezvous = threading.Barrier(2)
+    first_done = threading.Event()
+    local = threading.local()
+
+    class InterleavedLedger(ledger_type):
+        """Coordinates through the public consumed-state seam, never private storage.
+
+        An implementation that serializes before consulting `is_consumed` reaches the
+        barrier from only one thread; the bounded broken-barrier path then lets it proceed.
+        An implementation that does not consult this public method is unaffected.
+        """
+
+        def is_consumed(self, *, record_id: str) -> bool:
+            calls = getattr(local, "calls", 0) + 1
+            local.calls = calls
+            snapshot = super().is_consumed(record_id=record_id)
+            if calls == 1:
+                try:
+                    rendezvous.wait(timeout=0.25)
+                except threading.BrokenBarrierError:
+                    return snapshot
+                if local.label == "second":
+                    assert first_done.wait(timeout=5)
+            return snapshot
+
+    first = InterleavedLedger(str(ledger_path))
+    second = InterleavedLedger(str(ledger_path))
+
+    def consume(label: str, ledger):
+        local.label = label
+        try:
+            ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+            return None
+        except BaseException as error:
+            return error
+        finally:
+            if label == "first":
+                first_done.set()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = tuple(
+            pool.map(
+                lambda item: consume(*item),
+                (("first", first), ("second", second)),
+            )
+        )
+    assert sum(result is None for result in results) == 1
+    failures = tuple(result for result in results if result is not None)
+    assert len(failures) == 1 and isinstance(failures[0], ValueError)
+    assert "already consumed" in str(failures[0])
+    assert ledger_path.read_text(encoding="utf-8").splitlines() == [
+        f"{fakes.RECORD_ID} 1"
+    ]
+    assert not (tmp_path / "attempt-ledger.pending").exists()
+
+
+@pytest.mark.parametrize("attempt_ordinal", (0, 2))
+def test_attempt_ledger_refuses_any_ordinal_other_than_one_before_write(
+    tmp_path: Path, attempt_ordinal: int
+) -> None:
+    adapter = load_c8("adapter")
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(
+        str(tmp_path / "attempt-ledger")
+    )
+    with pytest.raises(ValueError):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=attempt_ordinal)
+    assert tuple(tmp_path.iterdir()) == ()
 
 
 def test_adapter_source_contains_one_runner_call_and_no_inline_effect_argv() -> None:

@@ -13,6 +13,7 @@ MUTATIONS = (
     "docker.create_network",
     "docker.create_volume",
     "docker.create_container",
+    "docker.start_container",
     "ledger.consume",
 )
 
@@ -40,6 +41,7 @@ def test_preparation_observes_controls_host_platform_image_port_and_probe(prepar
         "host.observe_ephemeral_range",
         "host.observe_listeners",
         "docker.observe_platform",
+        "docker.observe_executable_digest",
         "docker.observe_publications",
         "probe.observe_digest",
     ):
@@ -59,6 +61,8 @@ def test_preparation_observes_controls_host_platform_image_port_and_probe(prepar
         lambda: fakes.passing_adapters(ephemeral_range=(10000, 20000)),
         lambda: fakes.passing_adapters(listeners=((fakes.LOOPBACK_LISTENER,),)),
         lambda: fakes.passing_adapters(platform=None),
+        lambda: fakes.passing_adapters(docker_digest=None),
+        lambda: fakes.passing_adapters(docker_digest="0" * 64),
         lambda: fakes.passing_adapters(probe_digest=None),
         lambda: fakes.passing_adapters(probe_digest="0" * 64),
         lambda: fakes.passing_adapters(publications=("127.0.0.1:15433",)),

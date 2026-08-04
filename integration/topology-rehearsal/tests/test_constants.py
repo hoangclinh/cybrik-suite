@@ -42,6 +42,9 @@ EXACT_VALUES = {
     "EXPECTED_PUBLICATION": fakes.OBSERVED_PUBLICATION,
     "IMAGE_REFERENCE": fakes.IMAGE_REFERENCE,
     "PULL_POLICY": fakes.PULL_POLICY,
+    "DOCKER_EXECUTABLE_PATH": fakes.DOCKER_EXECUTABLE_PATH,
+    "CREDENTIAL_DIRECTORY": fakes.CREDENTIAL_DIRECTORY,
+    "CONTAINER_CREDENTIAL_PATH": fakes.CONTAINER_CREDENTIAL_PATH,
     # The record's `topology.image` is a resolution-stated observation of the selection, so
     # both its key inventory and its two resolution states are reviewed values.
     "SELECTED_IDENTITY_KEYS": documents.SELECTED_IDENTITY_KEYS,
@@ -226,9 +229,16 @@ def test_the_single_attempt_budget_is_exactly_one(constants) -> None:
 def test_the_d2_observation_never_leaks_into_runner_source() -> None:
     """Historical host evidence belongs to the record, never executable constants."""
     require_c8_path(SRC)
+    paths = source_paths()
+    if not paths:
+        pytest.fail(
+            "missing C8 implementation — no authored source file exists, so this "
+            "historical-evidence leak control cannot be satisfied vacuously",
+            pytrace=False,
+        )
     offences = [
         str(path)
-        for path in source_paths()
+        for path in paths
         if fakes.D2_OBSERVED_IMAGE_ID in path.read_text(encoding="utf-8")
     ]
     assert offences == []

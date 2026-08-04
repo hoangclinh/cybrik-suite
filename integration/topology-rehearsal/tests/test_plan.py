@@ -55,18 +55,19 @@ def test_resource_names_are_derived_from_only_the_attempt_id(built) -> None:
     assert built.container_name == fakes.CONTAINER_NAME
     assert built.network_name == fakes.NETWORK_NAME
     assert built.volume_name == fakes.VOLUME_NAME
+    assert built.credential_path == fakes.SYNTHETIC_CREDENTIAL_PATH
 
 
 def test_the_network_is_created_internal_and_the_volume_is_disposable(built) -> None:
     assert built.create_commands[0] == (
-        "docker",
+        fakes.DOCKER_EXECUTABLE_PATH,
         "network",
         "create",
         "--internal",
         fakes.NETWORK_NAME,
     )
     assert built.create_commands[1] == (
-        "docker",
+        fakes.DOCKER_EXECUTABLE_PATH,
         "volume",
         "create",
         fakes.VOLUME_NAME,
@@ -79,6 +80,7 @@ def test_every_creation_command_is_the_same_named_plan_entry(built) -> None:
         built.commands["docker:create_network"],
         built.commands["docker:create_volume"],
         built.commands["docker:create_container"],
+        built.commands["docker:start_container"],
     )
 
 
@@ -96,7 +98,7 @@ def test_the_container_command_uses_digest_pull_never_and_loopback_publication(
     built,
 ) -> None:
     command = built.create_commands[2]
-    assert command[:2] == ("docker", "create")
+    assert command[:2] == (fakes.DOCKER_EXECUTABLE_PATH, "create")
     assert "--pull=never" in command
     assert ("--network", fakes.NETWORK_NAME) == (
         command[command.index("--network")],
@@ -106,6 +108,24 @@ def test_the_container_command_uses_digest_pull_never_and_loopback_publication(
     assert command[command.index("--publish") + 1] == fakes.PUBLISH_SPEC
     assert command[-1] == f"postgres@{fakes.SYNTHETIC_MANIFEST_DIGEST}"
     assert fakes.IMAGE_REFERENCE not in command
+    mount = command[command.index("--mount") + 1]
+    assert mount == (
+        f"type=bind,src={fakes.SYNTHETIC_CREDENTIAL_PATH},"
+        f"dst={fakes.CONTAINER_CREDENTIAL_PATH},readonly"
+    )
+    assert ("--env", f"POSTGRES_PASSWORD_FILE={fakes.CONTAINER_CREDENTIAL_PATH}") == (
+        command[command.index("--env")],
+        command[command.index("--env") + 1],
+    )
+    assert "--health-cmd" in command
+    assert "/usr/local/bin/pg_isready -U postgres" == command[
+        command.index("--health-cmd") + 1
+    ]
+    assert built.create_commands[3] == (
+        fakes.DOCKER_EXECUTABLE_PATH,
+        "start",
+        fakes.CONTAINER_NAME,
+    )
 
 
 def test_the_host_probe_is_the_exact_reviewed_no_data_probe(built) -> None:
@@ -114,8 +134,14 @@ def test_the_host_probe_is_the_exact_reviewed_no_data_probe(built) -> None:
 
 def test_plan_contains_only_observation_commands_after_creation(built) -> None:
     joined = tuple(" ".join(command) for command in built.observe_commands)
-    assert any(command.startswith("docker inspect") for command in joined)
-    assert any(command.startswith("docker port") for command in joined)
+    assert any(
+        command.startswith(f"{fakes.DOCKER_EXECUTABLE_PATH} inspect")
+        for command in joined
+    )
+    assert any(
+        command.startswith(f"{fakes.DOCKER_EXECUTABLE_PATH} port")
+        for command in joined
+    )
     assert any("network inspect" in command for command in joined)
     assert all(" create " not in f" {command} " for command in joined)
 
@@ -132,12 +158,14 @@ def test_every_external_effect_has_one_named_command_in_the_plan(built) -> None:
         "docker:platform",
         "docker:image",
         "docker:publications",
+        "docker:digest",
         "probe:digest",
         "probe:host",
         "signature:verify",
         "docker:create_network",
         "docker:create_volume",
         "docker:create_container",
+        "docker:start_container",
         "docker:health",
         "docker:container",
         "docker:event",
@@ -150,6 +178,30 @@ def test_every_external_effect_has_one_named_command_in_the_plan(built) -> None:
     }
     assert set(built.commands) == repository_keys | fixed_keys
     assert len(set(built.commands.values())) == len(built.commands)
+
+
+def test_listener_and_event_observations_pin_machine_readable_projections(built) -> None:
+    assert built.commands["host:listeners"] == (
+        "/usr/sbin/lsof",
+        "-nP",
+        "-sTCP:LISTEN",
+        f"-iTCP:{fakes.HOST_PORT}",
+        "-Fpn",
+    )
+    assert built.commands["docker:event"] == (
+        fakes.DOCKER_EXECUTABLE_PATH,
+        "events",
+        "--since",
+        f"{fakes.RUNTIME_LIMIT_SECONDS}s",
+        "--until",
+        "0s",
+        "--filter",
+        f"container={fakes.CONTAINER_NAME}",
+        "--filter",
+        "event=start",
+        "--format",
+        '{{json (index .Actor.Attributes "desktop.docker.io/ports/5432/tcp")}}',
+    )
 
 
 def test_control_identity_commands_bind_each_injected_root_without_shell(built) -> None:
@@ -182,19 +234,37 @@ def test_host_signature_and_probe_commands_are_absolute_and_bounded(built) -> No
     for key in ("host:ephemeral_range", "host:listeners", "probe:digest", "signature:verify"):
         assert built.commands[key][0].startswith("/")
     assert built.commands["probe:host"] == built.host_probe
+    assert all(
+        command[0] == fakes.DOCKER_EXECUTABLE_PATH
+        for name, command in built.commands.items()
+        if name.startswith("docker:") and name != "docker:digest"
+    )
+    assert built.commands["docker:digest"] == (
+        "/usr/bin/shasum",
+        "-a",
+        "256",
+        fakes.DOCKER_EXECUTABLE_PATH,
+    )
     assert built.commands["signature:verify"][:4] == (
         "/usr/bin/ssh-keygen",
         "-Y",
         "verify",
         "-f",
     )
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    assert built.commands["signature:verify"][4] == (
+        f"{suite_root}/docs/uat/topology-rehearsal-allowed-signers"
+    )
+    assert built.commands["signature:verify"][-1] == (
+        f"{suite_root}/{fakes.GRANT_PATH}.sig"
+    )
 
 
 def test_teardown_is_exactly_container_network_then_volume(built) -> None:
     assert built.teardown_commands == (
-        ("docker", "rm", "--force", fakes.CONTAINER_NAME),
-        ("docker", "network", "rm", fakes.NETWORK_NAME),
-        ("docker", "volume", "rm", fakes.VOLUME_NAME),
+        (fakes.DOCKER_EXECUTABLE_PATH, "rm", "--force", fakes.CONTAINER_NAME),
+        (fakes.DOCKER_EXECUTABLE_PATH, "network", "rm", fakes.NETWORK_NAME),
+        (fakes.DOCKER_EXECUTABLE_PATH, "volume", "rm", fakes.VOLUME_NAME),
     )
     assert built.teardown_commands == (
         built.commands["docker:remove_container"],

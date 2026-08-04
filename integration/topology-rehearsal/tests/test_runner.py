@@ -14,6 +14,7 @@ CREATE_CALLS = (
     "docker.create_volume",
     "credential.create",
     "docker.create_container",
+    "docker.start_container",
 )
 
 
@@ -51,7 +52,7 @@ def test_attempt_is_consumed_immediately_before_the_first_create_mutation(runner
     assert names[first_create] == "docker.create_network"
 
 
-def test_creation_is_exactly_network_volume_credential_container_once(runner) -> None:
+def test_creation_is_exactly_network_volume_credential_container_start_once(runner) -> None:
     adapters = fakes.passing_adapters()
     run(runner, adapters)
     assert tuple(name for name in adapters.log.names() if name in CREATE_CALLS) == CREATE_CALLS
@@ -68,6 +69,11 @@ def test_container_arguments_keep_internal_network_pull_never_and_loopback_only(
     assert call["volume"] == fakes.VOLUME_NAME
     assert call["publish"] == fakes.PUBLISH_SPEC
     assert call["pull"] == fakes.PULL_POLICY
+    assert call["environment"] == {
+        "POSTGRES_PASSWORD_FILE": fakes.CONTAINER_CREDENTIAL_PATH
+    }
+    assert adapters.log.count("docker.start_container") == 1
+    assert adapters.log.calls("docker.start_container")[0]["name"] == fakes.CONTAINER_NAME
 
 
 def test_every_post_consumption_path_tears_down_all_resources_and_rechecks_absence(
@@ -95,6 +101,7 @@ def test_every_post_consumption_path_tears_down_all_resources_and_rechecks_absen
         lambda: fakes.passing_adapters(image=None),
         lambda: fakes.passing_adapters(ephemeral_range=None),
         lambda: fakes.passing_adapters(probe_digest=None),
+        lambda: fakes.passing_adapters(docker_digest=None),
         lambda: fakes.passing_adapters(consumed=(fakes.RECORD_ID,)),
         lambda: fakes.passing_adapters(verdict=False),
     ],

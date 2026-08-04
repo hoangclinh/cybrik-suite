@@ -89,7 +89,7 @@ def grant_document(**overrides: Any) -> dict[str, Any]:
             for name, commit in fakes.EXPECTED_CONTROLS.items()
         },
         "tools": {
-            "docker": {"path": "/usr/local/bin/docker", "sha256": fakes.SYNTHETIC_DOCKER_SHA256, "version": "29.6.2"},
+            "docker": {"path": fakes.DOCKER_EXECUTABLE_PATH, "sha256": fakes.SYNTHETIC_DOCKER_SHA256, "version": "29.6.2"},
             "probe": {"path": fakes.PROBE_EXECUTABLE_PATH, "sha256": fakes.PROBE_EXECUTABLE_SHA256, "argv": list(fakes.PROBE_ARGV)},
         },
         "window": {

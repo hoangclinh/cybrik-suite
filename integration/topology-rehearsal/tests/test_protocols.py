@@ -78,6 +78,40 @@ def test_command_runner_protocol_binds_exact_argv_and_timeout(protocols) -> None
     assert signature.parameters["stdin"].kind is inspect.Parameter.KEYWORD_ONLY
 
 
+def test_default_command_result_is_unresolved_not_cheerful_success(protocols) -> None:
+    result = require_c8_attr(protocols, "CommandResult")()
+    assert result.returncode != 0
+    assert result.stdout == ""
+
+
+def test_docker_port_includes_tool_identity_start_and_observation_seams(protocols) -> None:
+    docker = require_c8_attr(protocols, "DockerPort")
+    assert tuple(inspect.signature(docker.observe_executable_digest).parameters) == (
+        "self",
+        "path",
+    )
+    assert tuple(inspect.signature(docker.start_container).parameters) == (
+        "self",
+        "name",
+    )
+
+
+def test_adapter_bundle_rejects_an_object_that_does_not_implement_its_port(protocols) -> None:
+    bundle_type = require_c8_attr(protocols, "Adapters")
+    adapters = fakes.passing_adapters()
+    with pytest.raises(TypeError):
+        bundle_type(
+            identities=object(),
+            host=adapters.host,
+            docker=adapters.docker,
+            probe=adapters.probe,
+            credential=adapters.credential,
+            verifier=adapters.verifier,
+            ledger=adapters.ledger,
+            clock=adapters.clock,
+        )
+
+
 def test_protocols_export_only_the_reviewed_seams(protocols) -> None:
     assert set(require_c8_attr(protocols, "__all__")) == {
         "Adapters",

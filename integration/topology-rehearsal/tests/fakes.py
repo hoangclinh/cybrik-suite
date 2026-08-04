@@ -69,6 +69,7 @@ SYNTHETIC_INDEX_DIGEST = "sha256:" + "2" * 64
 SYNTHETIC_MANIFEST_DIGEST = "sha256:" + "3" * 64
 SYNTHETIC_RUNNER_AGGREGATE_SHA256 = "4" * 64
 SYNTHETIC_DOCKER_SHA256 = "5" * 64
+DOCKER_EXECUTABLE_PATH = "/usr/local/bin/docker"
 # SYNTHETIC. Invented registry digests that name no image at all. They exist only so the
 # specification can state that a fully *resolved* host observation which disagrees with the
 # selected identity fails closed, which an unresolved-only case cannot state.
@@ -130,6 +131,12 @@ CONTAINER_NAME = f"cybrik-topology-{SYNTHETIC_ATTEMPT_ID}"
 NETWORK_NAME = f"cybrik-topology-net-{SYNTHETIC_ATTEMPT_ID}"
 VOLUME_NAME = f"cybrik-topology-vol-{SYNTHETIC_ATTEMPT_ID}"
 CREDENTIAL_NAME = f"cybrik-topology-credential-{SYNTHETIC_ATTEMPT_ID}"
+# Reviewed host-only directory for the one-attempt ephemeral credential. Unlike the
+# attempt-derived filename below, this directory is a runner constant rather than a
+# synthetic observation.
+CREDENTIAL_DIRECTORY = "/tmp/cybrik-topology-rehearsal"
+SYNTHETIC_CREDENTIAL_PATH = f"{CREDENTIAL_DIRECTORY}/{CREDENTIAL_NAME}.secret"
+CONTAINER_CREDENTIAL_PATH = "/run/secrets/cybrik-postgres-password"
 
 SUITE_CONTROL = "cybrik-suite"
 SOC_CONTROL = "cybrik-soc-command-center"
@@ -224,6 +231,7 @@ SYNTHETIC_VALUES = (
     SYNTHETIC_AI_TREE,
     SYNTHETIC_ATTEMPT_ID,
     SYNTHETIC_DOCKER_SHA256,
+    SYNTHETIC_CREDENTIAL_PATH,
     SYNTHETIC_FABRIC_COMMIT,
     SYNTHETIC_FABRIC_TREE,
     SYNTHETIC_HOST_IMAGE_ID,
@@ -425,6 +433,7 @@ class FakeDocker:
         publications: Sequence[str] | None = (),
         create_failure: BaseException | None = None,
         platform: Mapping[str, Any] | None | Unset = UNSET,
+        docker_digest: str | None = SYNTHETIC_DOCKER_SHA256,
     ) -> None:
         self._log = log
         self._health = _Script(list(health))
@@ -438,6 +447,11 @@ class FakeDocker:
         self._platform = (
             dict(DOCUMENTED_PLATFORM) if isinstance(platform, Unset) else platform
         )
+        self._docker_digest = docker_digest
+
+    def observe_executable_digest(self, *, path: str) -> str | None:
+        self._log.record("docker.observe_executable_digest", path=path)
+        return self._docker_digest
 
     def observe_platform(self) -> Mapping[str, Any] | None:
         self._log.record("docker.observe_platform")
@@ -480,6 +494,10 @@ class FakeDocker:
         )
         self._raise_scripted_failure()
         return f"container:{name}"
+
+    def start_container(self, *, name: str) -> None:
+        self._log.record("docker.start_container", name=name)
+        self._raise_scripted_failure()
 
     def observe_health(self, *, container: str, deadline: float) -> str | None:
         self._log.record("docker.observe_health", container=container, deadline=deadline)
@@ -672,6 +690,7 @@ def passing_adapters(
     publications: Sequence[str] | None = (),
     create_failure: BaseException | None = None,
     platform: Mapping[str, Any] | None | Unset = UNSET,
+    docker_digest: str | None = SYNTHETIC_DOCKER_SHA256,
     probe_digest: str | None = PROBE_EXECUTABLE_SHA256,
     probe_result: str | None = "reachable",
     verdict: bool | None = True,
@@ -699,6 +718,7 @@ def passing_adapters(
             publications=publications,
             create_failure=create_failure,
             platform=platform,
+            docker_digest=docker_digest,
         ),
         probe=FakeProbe(log, digest=probe_digest, result=probe_result),
         credential=FakeCredential(log, residual=credential_residual),
