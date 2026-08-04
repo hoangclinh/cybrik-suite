@@ -430,6 +430,7 @@ def test_selected_and_observed_registry_identities_must_agree(grant) -> None:
 def test_runtime_observation_key_order_is_not_a_signed_semantic(grant) -> None:
     document = documents.grant_document()
     observed = dict(reversed(tuple(document["observed_image_identity"].items())))
+    observed["platform"] = dict(reversed(tuple(observed["platform"].items())))
     observed["observed_at"] = documents.NOW_INSIDE_WINDOW
     verdict = require_c8_attr(grant, "verify_bindings")(
         document, facts(grant, observed_image_identity=observed)
@@ -463,7 +464,12 @@ def test_both_observation_timestamps_use_the_closed_open_window_boundaries(
     )
     assert verdict.satisfied is satisfied
     if not satisfied:
-        assert any("window" in finding for finding in verdict.findings)
+        label = "signed" if side == "signed" else "runtime"
+        assert any(
+            f"{label} image observation timestamp" in finding
+            and "outside the authorized window" in finding
+            for finding in verdict.findings
+        )
 
 
 @pytest.mark.parametrize(
@@ -550,6 +556,19 @@ def test_runtime_image_observation_has_exact_reviewed_shapes(
     )
     assert verdict.satisfied is False
     assert any("observed_image_identity" in finding for finding in verdict.findings)
+
+
+@pytest.mark.parametrize(
+    "malformed_selection",
+    (None, {}, {"repository": "postgres"}),
+)
+def test_a_malformed_selected_identity_refuses_without_raising(
+    grant, malformed_selection
+) -> None:
+    document = documents.grant_document(selected_image_identity=malformed_selection)
+    verdict = require_c8_attr(grant, "verify_bindings")(document, facts(grant))
+    assert verdict.satisfied is False
+    assert any("selected_image_identity" in finding for finding in verdict.findings)
 
 
 @pytest.mark.parametrize(
