@@ -14,7 +14,7 @@
   ],
   "current_state": {
     "record_id": "postgres-loopback-internal-v1-r1",
-    "record_sha256": "d81252c21cd0bbc0c3fd8355da8ca8c63457b9fd76203b137c4b06fbe142eed9",
+    "record_sha256": "f98cbae5dfebe433228574609f8ef7573bb0ef93c2f09e076e851698bab6cd37",
     "phase": "proposed",
     "attempt_consumed": false,
     "outcome": "not_run",

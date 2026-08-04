@@ -51,15 +51,16 @@
         "sha256": "b4d9e8cd0ff34b5a99d9b8b3e04419c27b1927d6e61d146d7658454a74c73874"
       },
       {
-        "kind": "independent_review",
+        "kind": "diagnosis_review",
         "path": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-REVIEW-R1.md",
         "sha256": "bba21165cbf1489bed58d5d583577515efa1217ab36982be18f837b32fe532c7"
       }
     ],
+    "record_review_binding": null,
     "result_controls": null
   },
   "disposition": {
     "profile": "HOLD",
-    "rationale": "Proposed topology-only preflight record held at HOLD. The independent_review artifact attests the diagnosis bytes only; it does not attest these record bytes, so record-level independent review remains owed before any authorization. The probe executable digest is a proposal-time observation of the host binary, not attempt evidence, and no probe was run. This record grants no Docker, listener, rehearsal execution, PostgreSQL RED, UAT, demo, merge, release or production authority."
+    "rationale": "Proposed topology-only preflight record held at HOLD. The diagnosis_review artifact attests the diagnosis bytes only; it does not attest these record bytes, so a record_review artifact and its record review binding, carrying the record-level review of these exact record bytes, remain owed before any authorization. The probe executable digest is a proposal-time observation of the host binary, not attempt evidence, and no probe was run. This record grants no Docker, listener, rehearsal execution, PostgreSQL RED, UAT, demo, merge, release or production authority."
   }
 }

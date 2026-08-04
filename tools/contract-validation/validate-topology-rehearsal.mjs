@@ -46,7 +46,7 @@ export const PINNED_TOPOLOGY_RECORDS = Object.freeze([
 export const PINNED_TOPOLOGY_STATE = Object.freeze({
   current_state: Object.freeze({
     record_id: 'postgres-loopback-internal-v1-r1',
-    record_sha256: 'd81252c21cd0bbc0c3fd8355da8ca8c63457b9fd76203b137c4b06fbe142eed9',
+    record_sha256: 'f98cbae5dfebe433228574609f8ef7573bb0ef93c2f09e076e851698bab6cd37',
     phase: 'proposed',
     attempt_consumed: false,
     outcome: 'not_run',
@@ -62,14 +62,18 @@ const EXPECTED_PROBE_ARGV = Object.freeze([
   '127.0.0.1',
   '15433',
 ]);
-const REQUIRED_BASE_ARTIFACTS = Object.freeze(['diagnosis', 'independent_review']);
-const REQUIRED_AUTHORIZED_ARTIFACTS = Object.freeze([
-  ...REQUIRED_BASE_ARTIFACTS,
+// Exhaustive per-phase artifact inventories. Review scope is split: diagnosis_review
+// attests the diagnosis bytes and is owed from the proposed phase, while record_review
+// attests the exact proposed record bytes and is owed only from authorization onward.
+const PROPOSED_ARTIFACT_INVENTORY = Object.freeze(['diagnosis', 'diagnosis_review']);
+const AUTHORIZED_ARTIFACT_INVENTORY = Object.freeze([
+  ...PROPOSED_ARTIFACT_INVENTORY,
+  'record_review',
   'grant',
   'authorization_signature',
 ]);
-const REQUIRED_CLOSED_ARTIFACTS = Object.freeze([
-  ...REQUIRED_AUTHORIZED_ARTIFACTS,
+const CLOSED_ARTIFACT_INVENTORY = Object.freeze([
+  ...AUTHORIZED_ARTIFACT_INVENTORY,
   'result',
   'evidence_manifest',
   'result_review',
@@ -207,6 +211,47 @@ const requireArtifactKinds = (path, artifacts, expectedKinds, errors) => {
   }
   if (new Set(digests).size !== digests.length) {
     errors.push(`${path}: artifact digests must be unique`);
+  }
+};
+
+// Exhaustive, not merely sufficient: the listed kinds must equal the reviewed phase
+// inventory as a multiset, so a surplus in-enum kind or a duplicate fails closed with
+// exactly one finding.
+const requireExactArtifactInventory = (path, phase, artifacts, expectedKinds, errors) => {
+  const kinds = artifacts.map((entry) => entry.kind);
+  if (
+    kinds.length !== expectedKinds.length
+    || JSON.stringify([...kinds].sort()) !== JSON.stringify([...expectedKinds].sort())
+  ) {
+    errors.push(
+      `${path}: ${phase} topology artifact inventory must exactly equal the reviewed phase inventory`,
+    );
+  }
+};
+
+// The record review binding pins the record_review artifact bytes. Cross-byte checks
+// against the pinned prior state remain out of scope for this control.
+const validateRecordReviewBinding = (path, phase, record, errors) => {
+  const binding = record.evidence.record_review_binding ?? null;
+  if (phase === 'proposed') {
+    if (binding !== null) {
+      errors.push(`${path}: proposed topology record cannot carry a record review binding`);
+    }
+    return;
+  }
+  if (!binding || typeof binding !== 'object' || Array.isArray(binding)) {
+    errors.push(`${path}: ${phase} topology record requires a record review binding`);
+    return;
+  }
+  const review = record.evidence.artifacts.find((entry) => entry?.kind === 'record_review');
+  if (
+    !review
+    || binding.review_path !== review.path
+    || binding.review_sha256 !== review.sha256
+  ) {
+    errors.push(
+      `${path}: record review binding must bind the listed record_review artifact path and digest`,
+    );
   }
 };
 
@@ -386,7 +431,15 @@ const validateAttemptSemantics = (path, record, errors) => {
     if (record.authorization !== null) {
       errors.push(`${path}: proposed topology record cannot carry authorization`);
     }
-    requireArtifactKinds(path, record.evidence.artifacts, REQUIRED_BASE_ARTIFACTS, errors);
+    requireArtifactKinds(path, record.evidence.artifacts, PROPOSED_ARTIFACT_INVENTORY, errors);
+    requireExactArtifactInventory(
+      path,
+      'proposed',
+      record.evidence.artifacts,
+      PROPOSED_ARTIFACT_INVENTORY,
+      errors,
+    );
+    validateRecordReviewBinding(path, 'proposed', record, errors);
     if (kinds.some((kind) => [
       'grant',
       'authorization_signature',
@@ -411,9 +464,17 @@ const validateAttemptSemantics = (path, record, errors) => {
     requireArtifactKinds(
       path,
       record.evidence.artifacts,
-      REQUIRED_AUTHORIZED_ARTIFACTS,
+      AUTHORIZED_ARTIFACT_INVENTORY,
       errors,
     );
+    requireExactArtifactInventory(
+      path,
+      'authorized',
+      record.evidence.artifacts,
+      AUTHORIZED_ARTIFACT_INVENTORY,
+      errors,
+    );
+    validateRecordReviewBinding(path, 'authorized', record, errors);
     if (kinds.some((kind) => ['result', 'evidence_manifest', 'result_review'].includes(kind))) {
       errors.push(`${path}: authorized topology record cannot carry result artifacts`);
     }
@@ -432,7 +493,15 @@ const validateAttemptSemantics = (path, record, errors) => {
       errors.push(`${path}: consumed outcome must consume the single topology attempt`);
     }
   }
-  requireArtifactKinds(path, record.evidence.artifacts, REQUIRED_CLOSED_ARTIFACTS, errors);
+  requireArtifactKinds(path, record.evidence.artifacts, CLOSED_ARTIFACT_INVENTORY, errors);
+  requireExactArtifactInventory(
+    path,
+    'closed',
+    record.evidence.artifacts,
+    CLOSED_ARTIFACT_INVENTORY,
+    errors,
+  );
+  validateRecordReviewBinding(path, 'closed', record, errors);
   const controls = record.evidence.result_controls;
   if (!controls || controls.teardown_verified !== true) {
     errors.push(`${path}: closed topology record requires verified teardown`);

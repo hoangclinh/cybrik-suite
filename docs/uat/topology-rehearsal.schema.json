@@ -135,6 +135,7 @@
         "directory",
         "external_bytes_ci_verified",
         "artifacts",
+        "record_review_binding",
         "result_controls"
       ],
       "properties": {
@@ -144,7 +145,13 @@
           "type": "array",
           "items": { "$ref": "#/$defs/artifact" },
           "minItems": 2,
-          "maxItems": 7
+          "maxItems": 8
+        },
+        "record_review_binding": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/recordReviewBinding" }
+          ]
         },
         "result_controls": {
           "oneOf": [
@@ -173,7 +180,8 @@
         "kind": {
           "enum": [
             "diagnosis",
-            "independent_review",
+            "diagnosis_review",
+            "record_review",
             "grant",
             "authorization_signature",
             "result",
@@ -183,6 +191,22 @@
         },
         "path": { "type": "string", "minLength": 1 },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "recordReviewBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_path",
+        "review_sha256",
+        "reviewed_phase",
+        "reviewed_record_sha256"
+      ],
+      "properties": {
+        "review_path": { "type": "string", "minLength": 1 },
+        "review_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "reviewed_phase": { "const": "proposed" },
+        "reviewed_record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     },
     "resultControls": {

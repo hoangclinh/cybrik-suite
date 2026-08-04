@@ -178,10 +178,15 @@ npm run test:topology-rehearsal
 It discovers only `docs/uat/topology-rehearsals/*/topology-rehearsal.json`, enforces the one exact
 policy-and-code-pinned record identity, fixed loopback/internal-network envelope, one 180-second
 cycle with no extension, exact bounded host probe, phase/outcome truth table, contained artifact
-digests with distinct role/path/bytes, policy-and-code-pinned current/prior state, detached Founder
-SSHSIG authorization, locally reviewed external-manifest limitation and zero residual resources for
-every closed record. The current valid state is one proposed HOLD record,
-`postgres-loopback-internal-v1-r1`, which is unauthorized, unconsumed and `not_run`. A green result is static
+digests with distinct role/path/bytes, exhaustive per-phase artifact inventories, policy-and-code-pinned
+current/prior state, detached Founder SSHSIG authorization, locally reviewed external-manifest
+limitation and zero residual resources for every closed record. Review scope is split: a
+`diagnosis_review` artifact attests the diagnosis bytes and is required from the proposed phase,
+while a `record_review` artifact and its record review binding carry the record-level review of the
+exact proposed record bytes and are required only from authorization onward. The current valid state
+is one proposed HOLD record, `postgres-loopback-internal-v1-r1`, which is unauthorized, unconsumed
+and `not_run`, carries only `diagnosis` and `diagnosis_review`, and pins a null record review
+binding because its `record_review` and record-level review remain owed. A green result is static
 control evidence only and grants no Docker effect, runtime, UAT, demo, release or production
 authority.
 
