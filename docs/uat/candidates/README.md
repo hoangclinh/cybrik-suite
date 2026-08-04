@@ -83,7 +83,13 @@ Rules:
   PostgreSQL authority was consumed by attempt `20260804T082945Z-22343`, which reached container
   health but stopped because no loopback host port was published. Role bootstrap, migration,
   application-role preflight and pytest did not run. Teardown was verified and a valid G-U2B RED
-  remains unproven; no retry is authorized by that record.
+  remains unproven; no retry is authorized by that record. The adjacent
+  [topology diagnosis](browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md)
+  and [independent review](browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-REVIEW-R1.md)
+  accept a fixed-loopback, topology-only rehearsal design at P0/P1/P2/P3 = `0/0/0/0`, but grant no
+  execution authority. A dedicated schema, singleton preflight validator, sealed-predecessor type,
+  typed non-authorizing topology prerequisite and exact successor-series allowlist must be
+  implemented and independently reviewed before any rehearsal authorization exists.
 - Any recovery must preserve every prior result. A later, genuinely distinct objective does so
   through the immutable lineage policy and a separately reviewed admission boundary; it cannot
   reinterpret R3 or create another PostgreSQL retry.
