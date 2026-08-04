@@ -12,7 +12,7 @@
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-      "evidence_sha256": "9276b4128fbf432a64630465904f8f1390570d3e2aabc908ee39e94ad029d382"
+      "evidence_sha256": "eaf6216dc9641c213dd43adbcb3ffc06bc09bdf372a107e79a29bf8361023cb8"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -300,7 +300,7 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-        "sha256": "9276b4128fbf432a64630465904f8f1390570d3e2aabc908ee39e94ad029d382"
+        "sha256": "eaf6216dc9641c213dd43adbcb3ffc06bc09bdf372a107e79a29bf8361023cb8"
       }
     ],
     "limitations": [
