@@ -12,6 +12,7 @@
     "attempt",
     "topology",
     "production_exclusion",
+    "authorization",
     "evidence",
     "disposition"
   ],
@@ -121,6 +122,12 @@
         "no_production_traffic": { "const": true }
       }
     },
+    "authorization": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/authorization" }
+      ]
+    },
     "evidence": {
       "type": "object",
       "additionalProperties": false,
@@ -137,7 +144,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/artifact" },
           "minItems": 2,
-          "maxItems": 6
+          "maxItems": 7
         },
         "result_controls": {
           "oneOf": [
@@ -168,6 +175,7 @@
             "diagnosis",
             "independent_review",
             "grant",
+            "authorization_signature",
             "result",
             "evidence_manifest",
             "result_review"
@@ -189,6 +197,32 @@
         "teardown_verified": { "type": "boolean" },
         "residual_resources": { "type": "integer", "minimum": 0 },
         "external_manifest_locally_verified": { "type": "boolean" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer",
+        "namespace",
+        "grant_path",
+        "grant_sha256",
+        "signature_path",
+        "signature_sha256",
+        "allowed_signers_path",
+        "allowed_signers_sha256",
+        "trust_path"
+      ],
+      "properties": {
+        "signer": { "const": "FOUNDER" },
+        "namespace": { "const": "cybrik-uat-topology-rehearsal-v1" },
+        "grant_path": { "type": "string", "minLength": 1 },
+        "grant_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "signature_path": { "type": "string", "minLength": 1 },
+        "signature_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "allowed_signers_path": { "const": "docs/uat/topology-rehearsal-allowed-signers" },
+        "allowed_signers_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "trust_path": { "const": "docs/uat/topology-rehearsal-authorization-trust.json" }
       }
     }
   }

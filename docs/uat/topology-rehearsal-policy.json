@@ -11,5 +11,7 @@
       "max_records": 1,
       "max_attempts": 1
     }
-  ]
+  ],
+  "current_state": null,
+  "state_history": []
 }

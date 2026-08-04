@@ -2,7 +2,7 @@
 // Static, deterministic and read-only. Green validates control records only;
 // it grants no Docker, runtime, UAT, demo, release or production authority.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -22,6 +22,13 @@ const DEFAULT_ROOT = resolve(HERE, '../..');
 export const TOPOLOGY_SCHEMA_PATH = 'docs/uat/topology-rehearsal.schema.json';
 export const TOPOLOGY_POLICY_PATH = 'docs/uat/topology-rehearsal-policy.json';
 export const TOPOLOGY_ROOT = 'docs/uat/topology-rehearsals';
+export const TOPOLOGY_TRUST_PATH =
+  'docs/uat/topology-rehearsal-authorization-trust.json';
+export const TOPOLOGY_ALLOWED_SIGNERS_PATH =
+  'docs/uat/topology-rehearsal-allowed-signers';
+const MASTER_AUTHORIZATION_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
+const AUTHORIZATION_NAMESPACE = 'cybrik-uat-topology-rehearsal-v1';
 
 export const PINNED_TOPOLOGY_RECORDS = Object.freeze([
   Object.freeze({
@@ -36,6 +43,10 @@ export const PINNED_TOPOLOGY_RECORDS = Object.freeze([
     max_attempts: 1,
   }),
 ]);
+export const PINNED_TOPOLOGY_STATE = Object.freeze({
+  current_state: null,
+  state_history: Object.freeze([]),
+});
 
 const EXPECTED_PROBE_ARGV = Object.freeze([
   '-z',
@@ -45,9 +56,13 @@ const EXPECTED_PROBE_ARGV = Object.freeze([
   '15433',
 ]);
 const REQUIRED_BASE_ARTIFACTS = Object.freeze(['diagnosis', 'independent_review']);
-const REQUIRED_CLOSED_ARTIFACTS = Object.freeze([
+const REQUIRED_AUTHORIZED_ARTIFACTS = Object.freeze([
   ...REQUIRED_BASE_ARTIFACTS,
   'grant',
+  'authorization_signature',
+]);
+const REQUIRED_CLOSED_ARTIFACTS = Object.freeze([
+  ...REQUIRED_AUTHORIZED_ARTIFACTS,
   'result',
   'evidence_manifest',
   'result_review',
@@ -124,14 +139,20 @@ const compileSchema = (root, errors) => {
   }
 };
 
-const walkRecordFiles = (root, relativeDir = TOPOLOGY_ROOT) => {
+const walkRecordFiles = (root, errors, relativeDir = TOPOLOGY_ROOT) => {
   const absoluteDir = resolve(root, relativeDir);
   if (!existsSync(absoluteDir)) return [];
   const files = [];
   for (const entry of readdirSync(absoluteDir, { withFileTypes: true })) {
     const path = join(relativeDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...walkRecordFiles(root, path));
+    if (entry.isSymbolicLink()) {
+      errors.push(`${path}: symlink entries are forbidden in the topology registry`);
+    } else if (entry.isDirectory()) {
+      if (entry.name === 'topology-rehearsal.json') {
+        errors.push(`${path}: topology-rehearsal.json must be a regular file, not a directory`);
+      } else {
+        files.push(...walkRecordFiles(root, errors, path));
+      }
     } else if (entry.name === 'topology-rehearsal.json') {
       files.push(path);
     }
@@ -148,11 +169,19 @@ const validateSchema = (validator, path, value, errors) => {
 
 const requireArtifactKinds = (path, artifacts, expectedKinds, errors) => {
   const kinds = artifacts.map((entry) => entry.kind);
+  const paths = artifacts.map((entry) => entry.path);
+  const digests = artifacts.map((entry) => entry.sha256);
   for (const kind of expectedKinds) {
     if (!kinds.includes(kind)) errors.push(`${path}: required ${kind} artifact is missing`);
   }
   if (new Set(kinds).size !== kinds.length) {
     errors.push(`${path}: artifact kind values must be unique`);
+  }
+  if (new Set(paths).size !== paths.length) {
+    errors.push(`${path}: artifact paths must be unique`);
+  }
+  if (new Set(digests).size !== digests.length) {
+    errors.push(`${path}: artifact digests must be unique`);
   }
 };
 
@@ -179,6 +208,95 @@ const validateArtifact = (root, recordPath, recordDirectory, artifact, errors) =
   const actual = sha256(readFileSync(resolved));
   if (actual !== artifact.sha256) {
     errors.push(`${recordPath}: artifact sha256 must match recorded bytes`);
+  }
+};
+
+const signerFingerprint = (encodedKey) =>
+  `SHA256:${createHash('sha256')
+    .update(Buffer.from(encodedKey, 'base64'))
+    .digest('base64')
+    .replace(/=+$/u, '')}`;
+
+const verifyFounderAuthorization = (root, recordPath, record, errors) => {
+  const authorization = record.authorization;
+  let verified = true;
+  const invalidate = () => {
+    verified = false;
+  };
+  if (!authorization || typeof authorization !== 'object') {
+    invalidate();
+  } else {
+    const grant = record.evidence.artifacts.find((entry) => entry.kind === 'grant');
+    const signature = record.evidence.artifacts.find(
+      (entry) => entry.kind === 'authorization_signature',
+    );
+    if (
+      authorization.signer !== 'FOUNDER'
+      || authorization.namespace !== AUTHORIZATION_NAMESPACE
+      || authorization.allowed_signers_path !== TOPOLOGY_ALLOWED_SIGNERS_PATH
+      || authorization.trust_path !== TOPOLOGY_TRUST_PATH
+      || !grant
+      || !signature
+      || authorization.grant_path !== grant.path
+      || authorization.grant_sha256 !== grant.sha256
+      || authorization.signature_path !== signature.path
+      || authorization.signature_sha256 !== signature.sha256
+    ) invalidate();
+
+    try {
+      const trust = readJson(root, TOPOLOGY_TRUST_PATH, errors);
+      const masterTrust = readJson(root, MASTER_AUTHORIZATION_TRUST_PATH, errors);
+      const allowedPath = containedRegularFile(root, TOPOLOGY_ALLOWED_SIGNERS_PATH);
+      const allowedBytes = readFileSync(allowedPath);
+      const allowedDigest = sha256(allowedBytes);
+      const parts = allowedBytes.toString('utf8').trim().split(/\s+/u);
+      const keyFingerprint = parts.length === 4 ? signerFingerprint(parts[3]) : null;
+      if (
+        !trust
+        || !masterTrust
+        || trust.schema !== 'CYBRIK-UAT-TOPOLOGY-AUTHORIZATION-TRUST/v1'
+        || trust.signer !== 'FOUNDER'
+        || trust.namespace !== AUTHORIZATION_NAMESPACE
+        || trust.key_type !== 'ssh-ed25519'
+        || trust.allowed_signers_path !== TOPOLOGY_ALLOWED_SIGNERS_PATH
+        || trust.allowed_signers_sha256 !== allowedDigest
+        || trust.key_fingerprint !== keyFingerprint
+        || masterTrust.signer !== trust.signer
+        || masterTrust.key_type !== trust.key_type
+        || masterTrust.key_fingerprint !== trust.key_fingerprint
+        || parts[0] !== 'FOUNDER'
+        || parts[1] !== `namespaces="${AUTHORIZATION_NAMESPACE}"`
+        || parts[2] !== 'ssh-ed25519'
+        || authorization?.allowed_signers_sha256 !== allowedDigest
+      ) invalidate();
+
+      const grantPath = containedRegularFile(root, authorization?.grant_path);
+      const signaturePath = containedRegularFile(root, authorization?.signature_path);
+      const grantBytes = readFileSync(grantPath);
+      if (
+        sha256(grantBytes) !== authorization?.grant_sha256
+        || sha256(readFileSync(signaturePath)) !== authorization?.signature_sha256
+      ) invalidate();
+      const verification = spawnSync(
+        '/usr/bin/ssh-keygen',
+        [
+          '-Y', 'verify',
+          '-f', allowedPath,
+          '-I', 'FOUNDER',
+          '-n', AUTHORIZATION_NAMESPACE,
+          '-s', signaturePath,
+        ],
+        { input: grantBytes, encoding: 'utf8' },
+      );
+      if (verification.error || verification.status !== 0) invalidate();
+    } catch {
+      invalidate();
+    }
+  }
+  if (!verified) {
+    errors.push(
+      `${recordPath}: authorized or closed topology record requires a verified Founder SSHSIG`,
+    );
   }
 };
 
@@ -217,8 +335,17 @@ const validateAttemptSemantics = (path, record, errors) => {
     if (record.evidence.result_controls !== null) {
       errors.push(`${path}: proposed topology record cannot carry result controls`);
     }
+    if (record.authorization !== null) {
+      errors.push(`${path}: proposed topology record cannot carry authorization`);
+    }
     requireArtifactKinds(path, record.evidence.artifacts, REQUIRED_BASE_ARTIFACTS, errors);
-    if (kinds.some((kind) => ['grant', 'result', 'evidence_manifest', 'result_review'].includes(kind))) {
+    if (kinds.some((kind) => [
+      'grant',
+      'authorization_signature',
+      'result',
+      'evidence_manifest',
+      'result_review',
+    ].includes(kind))) {
       errors.push(`${path}: proposed topology record cannot carry grant or result artifacts`);
     }
     return;
@@ -236,7 +363,7 @@ const validateAttemptSemantics = (path, record, errors) => {
     requireArtifactKinds(
       path,
       record.evidence.artifacts,
-      [...REQUIRED_BASE_ARTIFACTS, 'grant'],
+      REQUIRED_AUTHORIZED_ARTIFACTS,
       errors,
     );
     if (kinds.some((kind) => ['result', 'evidence_manifest', 'result_review'].includes(kind))) {
@@ -270,9 +397,69 @@ const validateAttemptSemantics = (path, record, errors) => {
   }
 };
 
+const hasExactKeys = (value, keys) =>
+  Boolean(value)
+  && typeof value === 'object'
+  && !Array.isArray(value)
+  && Object.keys(value).length === keys.length
+  && keys.every((key) => Object.hasOwn(value, key));
+
+const validateStateBinding = ({ records, recordBytes, statePolicy, errors }) => {
+  if (records.length === 0) {
+    if (statePolicy.current_state !== null || statePolicy.state_history.length !== 0) {
+      errors.push(`${TOPOLOGY_POLICY_PATH}: zero records require null current state and empty history`);
+    }
+    return;
+  }
+  if (records.length !== 1 || !records[0] || typeof records[0] !== 'object') return;
+  const record = records[0];
+  const grantSha = record.authorization?.grant_sha256 ?? null;
+  const derived = {
+    record_id: record.record_id,
+    record_sha256: sha256(recordBytes[0]),
+    phase: record.attempt?.phase,
+    attempt_consumed: record.attempt?.attempt_consumed,
+    outcome: record.attempt?.outcome,
+    grant_sha256: grantSha,
+  };
+  if (JSON.stringify(statePolicy.current_state) !== JSON.stringify(derived)) {
+    errors.push(`${TOPOLOGY_POLICY_PATH}: current state must bind the exact record bytes and phase`);
+  }
+
+  const history = statePolicy.state_history;
+  const expectedPhases = record.attempt?.phase === 'proposed'
+    ? []
+    : record.attempt?.phase === 'authorized' || record.attempt?.outcome === 'PRECHECK_ABORT'
+      ? ['proposed']
+      : ['proposed', 'authorized'];
+  if (history.length !== expectedPhases.length) {
+    errors.push(`${TOPOLOGY_POLICY_PATH}: state history must pin every prior phase exactly once`);
+    return;
+  }
+  const seenDigests = new Set();
+  for (let index = 0; index < history.length; index += 1) {
+    const entry = history[index];
+    const expectedPhase = expectedPhases[index];
+    if (
+      !hasExactKeys(entry, ['phase', 'attempt_consumed', 'outcome', 'record_sha256'])
+      || entry.phase !== expectedPhase
+      || entry.attempt_consumed !== false
+      || entry.outcome !== 'not_run'
+      || !/^[0-9a-f]{64}$/u.test(entry.record_sha256)
+    ) errors.push(`${TOPOLOGY_POLICY_PATH}: state history contains an invalid prior-state pin`);
+    if (seenDigests.has(entry.record_sha256)) {
+      errors.push(`${TOPOLOGY_POLICY_PATH}: prior-state record digests must be unique`);
+    }
+    seenDigests.add(entry.record_sha256);
+  }
+};
+
 const validateRecord = (root, path, record, schemaValidator, pinned, errors) => {
   validateSchema(schemaValidator, path, record, errors);
-  if (!record || typeof record !== 'object') return;
+  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+    errors.push(`${path}: topology record must be an object`);
+    return;
+  }
 
   const expectedPath = `${TOPOLOGY_ROOT}/${record.record_id}/topology-rehearsal.json`;
   if (path !== expectedPath || path !== pinned.record_path) {
@@ -306,6 +493,9 @@ const validateRecord = (root, path, record, schemaValidator, pinned, errors) => 
 
   validateFixedTopology(path, record.topology ?? {}, errors);
   validateAttemptSemantics(path, record, errors);
+  if (record.attempt.phase === 'authorized' || record.attempt.phase === 'closed') {
+    verifyFounderAuthorization(root, path, record, errors);
+  }
   if (Object.values(record.production_exclusion ?? {}).some((value) => value !== true)) {
     errors.push(`${path}: every production exclusion must remain true`);
   }
@@ -314,7 +504,10 @@ const validateRecord = (root, path, record, schemaValidator, pinned, errors) => 
   }
 };
 
-export const validateTopologyRehearsals = ({ root = DEFAULT_ROOT } = {}) => {
+export const validateTopologyRehearsals = ({
+  root = DEFAULT_ROOT,
+  pinnedState,
+} = {}) => {
   const errors = [];
   let schemaValidator = null;
   try {
@@ -328,10 +521,27 @@ export const validateTopologyRehearsals = ({ root = DEFAULT_ROOT } = {}) => {
     !policy
     || policy.schema_version !== '1.0.0'
     || JSON.stringify(policy.allowed_records) !== JSON.stringify(PINNED_TOPOLOGY_RECORDS)
-    || Object.keys(policy).length !== 2
+    || Object.keys(policy).length !== 4
   ) errors.push(`${TOPOLOGY_POLICY_PATH}: policy must exactly match the validator-pinned singleton`);
+  const statePolicy = {
+    current_state: policy?.current_state ?? null,
+    state_history: Array.isArray(policy?.state_history) ? policy.state_history : [],
+  };
+  let effectivePinnedState = pinnedState;
+  if (!effectivePinnedState) {
+    try {
+      effectivePinnedState = realpathSync(root) === realpathSync(DEFAULT_ROOT)
+        ? PINNED_TOPOLOGY_STATE
+        : statePolicy;
+    } catch {
+      effectivePinnedState = PINNED_TOPOLOGY_STATE;
+    }
+  }
+  if (JSON.stringify(statePolicy) !== JSON.stringify(effectivePinnedState)) {
+    errors.push(`${TOPOLOGY_POLICY_PATH}: state policy must exactly match the validator-pinned state`);
+  }
 
-  const discovered = walkRecordFiles(root);
+  const discovered = walkRecordFiles(root, errors);
   const exactDepth = discovered.filter((path) => path.split('/').length === 5);
   for (const path of discovered.filter((entry) => entry.split('/').length !== 5)) {
     errors.push(`${path}: mislocated topology-rehearsal.json`);
@@ -341,11 +551,14 @@ export const validateTopologyRehearsals = ({ root = DEFAULT_ROOT } = {}) => {
   }
 
   const records = [];
+  const recordBytes = [];
   const pinned = PINNED_TOPOLOGY_RECORDS[0];
   for (const path of exactDepth) {
     let record;
     try {
-      record = JSON.parse(readFileSync(containedRegularFile(root, path), 'utf8'));
+      const bytes = readFileSync(containedRegularFile(root, path));
+      record = JSON.parse(bytes.toString('utf8'));
+      recordBytes.push(bytes);
     } catch (error) {
       errors.push(`${path}: topology record must be a contained regular file: ${error.message}`);
       continue;
@@ -354,14 +567,16 @@ export const validateTopologyRehearsals = ({ root = DEFAULT_ROOT } = {}) => {
     validateRecord(root, path, record, schemaValidator, pinned, errors);
   }
 
+  validateStateBinding({ records, recordBytes, statePolicy, errors });
+
   return {
     errors,
     counts: {
       records: records.length,
       execution_authorized: records.filter(
-        (record) => record.attempt?.execution_authorized === true,
+        (record) => record?.attempt?.execution_authorized === true,
       ).length,
-      closed: records.filter((record) => record.attempt?.phase === 'closed').length,
+      closed: records.filter((record) => record?.attempt?.phase === 'closed').length,
     },
   };
 };

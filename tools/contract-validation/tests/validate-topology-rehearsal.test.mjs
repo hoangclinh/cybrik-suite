@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   cpSync,
@@ -22,6 +23,11 @@ import {
 const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/topology-rehearsal.schema.json';
 const POLICY_PATH = 'docs/uat/topology-rehearsal-policy.json';
+const TRUST_PATH = 'docs/uat/topology-rehearsal-authorization-trust.json';
+const ALLOWED_SIGNERS_PATH = 'docs/uat/topology-rehearsal-allowed-signers';
+const MASTER_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
+const AUTHORIZATION_NAMESPACE = 'cybrik-uat-topology-rehearsal-v1';
 const TOPOLOGY_ROOT = 'docs/uat/topology-rehearsals';
 const RECORD_ID = 'postgres-loopback-internal-v1-r1';
 const SERIES_ID = 'postgres-loopback-internal-v1';
@@ -37,7 +43,13 @@ const stableWriteJson = (path, value) => {
 
 const createRoot = () => {
   const root = mkdtempSync(join(os.tmpdir(), 'cybrik-topology-rehearsal-'));
-  for (const path of [SCHEMA_PATH, POLICY_PATH]) {
+  for (const path of [
+    SCHEMA_PATH,
+    POLICY_PATH,
+    TRUST_PATH,
+    ALLOWED_SIGNERS_PATH,
+    MASTER_TRUST_PATH,
+  ]) {
     mkdirSync(dirname(resolve(root, path)), { recursive: true });
     cpSync(resolve(ROOT, path), resolve(root, path));
   }
@@ -50,6 +62,68 @@ const artifact = (root, directory, kind, content = `${kind}\n`) => {
   mkdirSync(resolve(root, directory), { recursive: true });
   writeFileSync(resolve(root, path), content, 'utf8');
   return { kind, path, sha256: sha256(content) };
+};
+
+const installSignedAuthorization = (root, directory, artifacts) => {
+  const keyRoot = mkdtempSync(join(root, '.topology-authorization-key-'));
+  const keyPath = join(keyRoot, 'key');
+  execFileSync('/usr/bin/ssh-keygen', [
+    '-q', '-t', 'ed25519', '-N', '', '-f', keyPath,
+  ]);
+  const [keyType, encodedKey] = readFileSync(`${keyPath}.pub`, 'utf8')
+    .trim()
+    .split(/\s+/u);
+  const allowedSigners =
+    `FOUNDER namespaces="${AUTHORIZATION_NAMESPACE}" ${keyType} ${encodedKey}\n`;
+  const allowedSignersSha256 = sha256(allowedSigners);
+  const keyFingerprint = `SHA256:${createHash('sha256')
+    .update(Buffer.from(encodedKey, 'base64'))
+    .digest('base64')
+    .replace(/=+$/u, '')}`;
+  writeFileSync(resolve(root, ALLOWED_SIGNERS_PATH), allowedSigners, 'utf8');
+  stableWriteJson(resolve(root, TRUST_PATH), {
+    schema: 'CYBRIK-UAT-TOPOLOGY-AUTHORIZATION-TRUST/v1',
+    signer: 'FOUNDER',
+    namespace: AUTHORIZATION_NAMESPACE,
+    key_type: keyType,
+    key_fingerprint: keyFingerprint,
+    allowed_signers_path: ALLOWED_SIGNERS_PATH,
+    allowed_signers_sha256: allowedSignersSha256,
+  });
+  stableWriteJson(resolve(root, MASTER_TRUST_PATH), {
+    allowed_signers_sha256: '0'.repeat(64),
+    key_fingerprint: keyFingerprint,
+    key_type: keyType,
+    namespace: 'cybrik-uat-soc-ai-fabric-v1',
+    python_sha256: '0'.repeat(64),
+    schema: 'CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1',
+    signer: 'FOUNDER',
+  });
+
+  const grant = artifacts.find((entry) => entry.kind === 'grant');
+  const grantAbsolute = resolve(root, grant.path);
+  execFileSync('/usr/bin/ssh-keygen', [
+    '-Y', 'sign', '-f', keyPath, '-n', AUTHORIZATION_NAMESPACE, grantAbsolute,
+  ], { stdio: 'ignore' });
+  const signaturePath = `${grant.path}.sig`;
+  const signatureBytes = readFileSync(resolve(root, signaturePath));
+  const signature = {
+    kind: 'authorization_signature',
+    path: signaturePath,
+    sha256: sha256(signatureBytes),
+  };
+  artifacts.push(signature);
+  return {
+    signer: 'FOUNDER',
+    namespace: AUTHORIZATION_NAMESPACE,
+    grant_path: grant.path,
+    grant_sha256: grant.sha256,
+    signature_path: signature.path,
+    signature_sha256: signature.sha256,
+    allowed_signers_path: ALLOWED_SIGNERS_PATH,
+    allowed_signers_sha256: allowedSignersSha256,
+    trust_path: TRUST_PATH,
+  };
 };
 
 const buildRecord = (root, {
@@ -75,7 +149,7 @@ const buildRecord = (root, {
     artifacts.push(artifact(root, directory, 'evidence_manifest'));
     artifacts.push(artifact(root, directory, 'result_review'));
   }
-  return {
+  const record = {
     schema_version: '1.0.0',
     record_id: recordId,
     recorded_at: '2026-08-04T12:00:00Z',
@@ -111,6 +185,7 @@ const buildRecord = (root, {
       no_production_data: true,
       no_production_traffic: true,
     },
+    authorization: null,
     evidence: {
       directory,
       external_bytes_ci_verified: false,
@@ -128,11 +203,51 @@ const buildRecord = (root, {
       rationale: 'Topology-only preflight; no UAT, demo, release or production authority.',
     },
   };
+  if (phase !== 'proposed') {
+    record.authorization = installSignedAuthorization(root, directory, artifacts);
+  }
+  return record;
+};
+
+const stateHistoryFor = (record) => {
+  if (!record.attempt) return [];
+  const proposed = {
+    phase: 'proposed',
+    attempt_consumed: false,
+    outcome: 'not_run',
+    record_sha256: sha256(`${record.record_id}:proposed\n`),
+  };
+  if (record.attempt.phase === 'proposed') return [];
+  if (record.attempt.phase === 'authorized' || record.attempt.outcome === 'PRECHECK_ABORT') {
+    return [proposed];
+  }
+  return [
+    proposed,
+    {
+      phase: 'authorized',
+      attempt_consumed: false,
+      outcome: 'not_run',
+      record_sha256: sha256(`${record.record_id}:authorized\n`),
+    },
+  ];
 };
 
 const writeRecord = (root, record) => {
   const path = `${TOPOLOGY_ROOT}/${record.record_id}/topology-rehearsal.json`;
   stableWriteJson(resolve(root, path), record);
+  const policy = JSON.parse(readFileSync(resolve(root, POLICY_PATH), 'utf8'));
+  if (Object.hasOwn(policy, 'current_state')) {
+    policy.current_state = {
+      record_id: record.record_id,
+      record_sha256: sha256(readFileSync(resolve(root, path))),
+      phase: record.attempt?.phase,
+      attempt_consumed: record.attempt?.attempt_consumed,
+      outcome: record.attempt?.outcome,
+      grant_sha256: record.authorization?.grant_sha256 ?? null,
+    };
+    policy.state_history = stateHistoryFor(record);
+    stableWriteJson(resolve(root, POLICY_PATH), policy);
+  }
   return path;
 };
 
@@ -264,7 +379,7 @@ test('mislocated and symlinked machine records are rejected', async () => {
     stableWriteJson(outside, record);
     symlinkSync(outside, resolve(root, RECORD_PATH));
     report = validateTopologyRehearsals({ root });
-    assert.ok(report.errors.some((error) => error.includes('must be a contained regular file')));
+    assert.ok(report.errors.some((error) => error.includes('symlink entries are forbidden')));
   });
 });
 
@@ -488,6 +603,7 @@ test('null records and symlinked or record-named directories fail with findings,
     const outside = resolve(root, 'outside-record-directory');
     mkdirSync(outside, { recursive: true });
     stableWriteJson(join(outside, 'topology-rehearsal.json'), buildRecord(root));
+    rmSync(resolve(root, RECORD_DIR), { recursive: true, force: true });
     symlinkSync(outside, resolve(root, RECORD_DIR));
     let report = validateTopologyRehearsals({ root });
     assert.ok(report.errors.some((error) => error.includes('symlink entries are forbidden')));

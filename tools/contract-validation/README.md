@@ -178,9 +178,11 @@ npm run test:topology-rehearsal
 It discovers only `docs/uat/topology-rehearsals/*/topology-rehearsal.json`, enforces the one exact
 policy-and-code-pinned record identity, fixed loopback/internal-network envelope, one 180-second
 cycle with no extension, exact bounded host probe, phase/outcome truth table, contained artifact
-digests, locally reviewed external-manifest limitation and zero residual resources for every closed
-record. Zero prepared records is the current valid state. A green result is static control evidence
-only and grants no Docker effect, runtime, UAT, demo, release or production authority.
+digests with distinct role/path/bytes, policy-and-code-pinned current/prior state, detached Founder
+SSHSIG authorization, locally reviewed external-manifest limitation and zero residual resources for
+every closed record. Zero prepared records is the current valid state. A green result is static
+control evidence only and grants no Docker effect, runtime, UAT, demo, release or production
+authority.
 
 ## Runtime-admission records
 

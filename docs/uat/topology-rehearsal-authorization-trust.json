@@ -1,0 +1,9 @@
+{
+  "schema": "CYBRIK-UAT-TOPOLOGY-AUTHORIZATION-TRUST/v1",
+  "signer": "FOUNDER",
+  "namespace": "cybrik-uat-topology-rehearsal-v1",
+  "key_type": "ssh-ed25519",
+  "key_fingerprint": "SHA256:kzGy03jJRT74lJ0I1UuN+pIF9wDQ0/ofrUDZNH5TB44",
+  "allowed_signers_path": "docs/uat/topology-rehearsal-allowed-signers",
+  "allowed_signers_sha256": "04c1d4274218a6ba8adb971a5f6f5360d3ff8ce4aac83ab06be1437b195859e0"
+}
