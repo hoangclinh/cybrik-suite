@@ -1,8 +1,10 @@
 # G-U2B PostgreSQL RED runtime grant R1
 
-Status: `PROPOSED R1.2 — STRUCTURED ADMISSION REVIEW GO — EXECUTION HOLD`.
+Status: `ACTIVE R1.3 — STRUCTURED ADMISSION GO — ONE POSTGRESQL RED SELECTOR AUTHORIZED`.
 
 Prepared: `2026-08-04T13:44:19+07:00`.
+
+Activated: `2026-08-04T15:03:12+07:00` by the delegated technical Governor.
 
 Release dates: unchanged. Runtime demo and UAT: `HOLD`. Production: Founder only.
 
@@ -25,6 +27,14 @@ Authority basis:
   gate passes; and
 - `G-U2B-CONTRACT-ACCEPTANCE.md` requires a separate database-runtime grant before any migration
   or adapter implementation.
+
+R1.3 activates only the exact Section 3 attempt after the former singleton authority was closed by
+the signed append-only withdrawal committed at Suite `4937542fcdd3f871607df6fd3b2625082cc06be1`
+(tree `4be22a9b55598121bc93a7cbf2857379c09f856b`). The push and pull-request workflows
+`30890312010` and `30890315811` both completed successfully on that exact SHA; each rendered
+`contract standards validation` and `secret-scan` as success. Independent exact-byte review of the
+withdrawal event returned `GO`, P0/P1/P2/P3 = `0/0/0/0`. This activation does not reinterpret the
+withdrawal as runtime evidence and does not broaden any execution step below.
 
 ## 2. Exact immutable input
 
@@ -207,8 +217,8 @@ This grant does not authorize:
 |---|---|
 | First independent review | `NO-GO`, P1 = missing structured admission |
 | R1.2 structured-admission review | `GO`, P0/P1/P2/P3 = `0/0/0/0` |
-| Delegated Governor decision | `HOLD — prior singleton runtime authority remains active` |
-| Runtime authorization | `HOLD` |
+| Delegated Governor decision | `GO — prior singleton authority is validly withdrawn and every R1.3 pre-start gate is satisfied` |
+| Runtime authorization | `RUNTIME_AUTHORIZED — exactly one Section 3 attempt and the single Section 2 selector` |
 | Execution | `NOT RUN` |
 | PostgreSQL RED | `NOT PROVEN` |
 | GREEN implementation | `HOLD` |

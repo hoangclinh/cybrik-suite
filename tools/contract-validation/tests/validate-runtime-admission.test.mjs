@@ -1347,28 +1347,56 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve terminal results, held successors, and one authorized candidate', async () => {
+test('committed runtime-admission assets preserve history and exactly one effective authorized candidate', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  const byId = new Map(
+  const derivedById = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
       candidateReport.derivedDisposition,
     ]),
   );
-  const expectedDispositionById = new Map([
-    ['browser-integrated-uat-bridge-r1', 'HOLD'],
+  const expectedDerivedById = new Map([
+    ['browser-integrated-uat-bridge-r1', 'RUNTIME_AUTHORIZED'],
     ['runtime-admission-ai-pg-r1', 'NO-GO'],
     ['runtime-admission-ai-pg-r2', 'NO-GO'],
     ['runtime-admission-ai-pg-r3', 'NO-GO'],
     ['runtime-admission-soc-ai-lifecycle-mtls-r1', 'RUNTIME_AUTHORIZED'],
   ]);
-  assert.equal(report.counts.candidateFiles, expectedDispositionById.size);
-  assert.deepEqual(byId, expectedDispositionById);
+  const effectiveById = new Map(
+    report.candidates.map((candidateReport) => [
+      candidateReport.candidateId,
+      candidateReport.effectiveDisposition,
+    ]),
+  );
+  const expectedEffectiveById = new Map([
+    ['browser-integrated-uat-bridge-r1', 'RUNTIME_AUTHORIZED'],
+    ['runtime-admission-ai-pg-r1', 'NO-GO'],
+    ['runtime-admission-ai-pg-r2', 'NO-GO'],
+    ['runtime-admission-ai-pg-r3', 'NO-GO'],
+    ['runtime-admission-soc-ai-lifecycle-mtls-r1', 'HOLD'],
+  ]);
+  assert.equal(report.counts.candidateFiles, expectedDerivedById.size);
+  assert.deepEqual(derivedById, expectedDerivedById);
+  assert.deepEqual(effectiveById, expectedEffectiveById);
   assert.equal(
-    [...byId.values()].filter((disposition) => disposition === 'RUNTIME_AUTHORIZED').length,
+    [...derivedById.values()].filter(
+      (disposition) => disposition === 'RUNTIME_AUTHORIZED',
+    ).length,
+    2,
+  );
+  assert.equal(
+    [...effectiveById.values()].filter(
+      (disposition) => disposition === 'RUNTIME_AUTHORIZED',
+    ).length,
     1,
+  );
+  assert.equal(
+    report.candidates.find((candidate) =>
+      candidate.candidateId === 'runtime-admission-soc-ai-lifecycle-mtls-r1')
+      .effectiveAuthorizationState,
+    'withdrawn',
   );
 
   const r2 = JSON.parse(read(

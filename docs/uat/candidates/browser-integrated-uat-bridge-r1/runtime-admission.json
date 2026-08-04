@@ -1,18 +1,18 @@
 {
   "candidate_id": "browser-integrated-uat-bridge-r1",
-  "recorded_at": "2026-08-04T07:05:48Z",
+  "recorded_at": "2026-08-04T08:06:05Z",
   "attempt_accounting": {
     "series_id": "browser-integrated-uat-bridge",
     "attempt_ordinal": 1,
     "max_attempts": 1,
     "current_attempt": {
       "status": "not_run",
-      "execution_authorized": false,
+      "execution_authorized": true,
       "executed_checks": 0,
       "passed_checks": 0,
       "failed_checks": 0,
       "evidence_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-      "evidence_sha256": "3f502c09f39b66df709d3734165fcb78fc2491ae0ef02990051e124f5942a4f9"
+      "evidence_sha256": "9276b4128fbf432a64630465904f8f1390570d3e2aabc908ee39e94ad029d382"
     },
     "objective_lineage": {
       "capability_id": "cybrik.suite.golden-workflow",
@@ -23,8 +23,8 @@
   },
   "commit_tree": {
     "suite": {
-      "commit": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
-      "tree": "d8a51976b95671685564a593fe5c6105f4724192"
+      "commit": "4937542fcdd3f871607df6fd3b2625082cc06be1",
+      "tree": "4be22a9b55598121bc93a7cbf2857379c09f856b"
     },
     "soc": {
       "commit": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
@@ -43,13 +43,13 @@
     "required_checks": [
       {
         "repo": "suite",
-        "sha": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
+        "sha": "4937542fcdd3f871607df6fd3b2625082cc06be1",
         "name": "contract standards validation",
         "status": "success"
       },
       {
         "repo": "suite",
-        "sha": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
+        "sha": "4937542fcdd3f871607df6fd3b2625082cc06be1",
         "name": "secret-scan",
         "status": "success"
       },
@@ -211,7 +211,7 @@
       },
       {
         "name": "g_u2b_postgres_red_runtime",
-        "state": "disabled_admission_hold"
+        "state": "enabled_one_shot_exact_selector_only"
       },
       {
         "name": "browser_integrated_uat_demo",
@@ -225,7 +225,7 @@
       },
       {
         "capability": "g_u2b_postgres_red_observation",
-        "state": "proposed_not_run"
+        "state": "runtime_authorized_not_run"
       },
       {
         "capability": "browser_integrated_uat",
@@ -291,7 +291,7 @@
       "Independent RED-source plus G-U2B and G-U1 CI-quarantine reviews returned GO with P0/P1/P2/P3 equal to zero on the exercised source paths.",
       "Final independent review of the complete three-path R1.2 packet returned GO with P0/P1/P2/P3 equal to zero; all rendered required hosted checks are green on the exact four-repository tuple.",
       "The prior P1 on missing live application-role posture proof is closed by the exact fail-closed pre-test catalog preflight added in R1.2.",
-      "A different candidate, runtime-admission-soc-ai-lifecycle-mtls-r1, remains the sole RUNTIME_AUTHORIZED registry entry; this record cannot become a second active runtime authority until that lifecycle is terminally reconciled.",
+      "The former runtime-admission-soc-ai-lifecycle-mtls-r1 authority is append-only withdrawn by the Founder-signed sidecar at Suite commit 4937542fcdd3f871607df6fd3b2625082cc06be1; its historical record remains immutable and contributes no runtime credit.",
       "Cyber AI and Tool Fabric are pinned tuple context only and are not loaded, started or invoked by this exact single-database observation."
     ]
   },
@@ -300,17 +300,17 @@
     "artifacts": [
       {
         "path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
-        "sha256": "3f502c09f39b66df709d3734165fcb78fc2491ae0ef02990051e124f5942a4f9"
+        "sha256": "9276b4128fbf432a64630465904f8f1390570d3e2aabc908ee39e94ad029d382"
       }
     ],
     "limitations": [
-      "This pre-start record contains no PostgreSQL runtime result and authorizes zero execution while HOLD.",
+      "This pre-start record contains no PostgreSQL runtime result and authorizes only one execution of the exact selector under the bounded R1.3 attempt.",
       "Hosted API success covers the non-G-U2B suite because the accepted temporary g_u2b_red items are intentionally quarantined until GREEN.",
       "Hosted e2e success covers only the non-G-U1 browser suite because exactly 32 accepted G-U1 RED tests in six files are temporarily quarantined until G-U3 GREEN.",
       "The sole runtime objective is one attributable schema-absence RED; it provides no service, HTTP, UI, persona, accessibility, demo or integrated-UAT evidence.",
       "Rendered hosted facts were refreshed with read-only GitHub API access. SOC e2e ran 272 non-G-U1 tests on the exact SHA: 271 passed and one pre-existing environment-conditional test skipped; the 32 accepted G-U1 RED tests remained positively discoverable but quarantined."
     ],
-    "final_profile_verdict": "HOLD"
+    "final_profile_verdict": "RUNTIME_AUTHORIZED"
   },
   "network_exposure": {
     "mode": "local_only",
@@ -323,7 +323,7 @@
     "notes": "Docker network must be internal; no public bind, other Cybrik service, browser, Ollama, Internet egress or production traffic is admitted."
   },
   "disposition": {
-    "profile": "HOLD",
-    "rationale": "Execution remains closed because another registry candidate remains the sole RUNTIME_AUTHORIZED attempt. Exact-head hosted checks, exercised-path negative-smoke admissions and final packet review are green. This record is not UAT or release evidence."
+    "profile": "RUNTIME_AUTHORIZED",
+    "rationale": "The former singleton authority is validly withdrawn; exact-head hosted checks, exercised-path negative-smoke admissions and final packet review are green. This authorizes exactly one bounded PostgreSQL RED selector and remains neither UAT nor release evidence."
   }
 }
