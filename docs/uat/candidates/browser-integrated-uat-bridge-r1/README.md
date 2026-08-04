@@ -6,8 +6,10 @@ Recorded: `2026-08-04T00:30:15+07:00` (`Asia/Ho_Chi_Minh`).
 
 This is a design, implementation and evidence-closure plan for connecting a browser-facing SOC
 wave to the already admitted SOC → Cyber AI → Tool Fabric backend candidate. It is **not** a
-runtime-admission record, contains no `runtime-admission.json`, grants no execution authority and
-does not claim that a browser URL, UI account, BFF bridge, integrated UI stack or UAT result exists.
+runtime-admission record. The adjacent `runtime-admission.json` is a separate machine-readable
+`HOLD` record with `execution_authorized=false`; it grants no execution authority. Neither this
+README nor that record claims that a browser URL, UI account, BFF bridge, integrated UI stack or
+UAT result exists.
 
 The shortest honest path is sequential at the trust boundary and parallel inside each phase:
 

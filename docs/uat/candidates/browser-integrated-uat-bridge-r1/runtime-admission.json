@@ -1,0 +1,329 @@
+{
+  "candidate_id": "browser-integrated-uat-bridge-r1",
+  "recorded_at": "2026-08-04T07:05:48Z",
+  "attempt_accounting": {
+    "series_id": "browser-integrated-uat-bridge",
+    "attempt_ordinal": 1,
+    "max_attempts": 1,
+    "current_attempt": {
+      "status": "not_run",
+      "execution_authorized": false,
+      "executed_checks": 0,
+      "passed_checks": 0,
+      "failed_checks": 0,
+      "evidence_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
+      "evidence_sha256": "3f502c09f39b66df709d3734165fcb78fc2491ae0ef02990051e124f5942a4f9"
+    },
+    "objective_lineage": {
+      "capability_id": "cybrik.suite.golden-workflow",
+      "objective_id": "golden-uat-v1",
+      "historical_prerequisites": []
+    },
+    "failure_history": []
+  },
+  "commit_tree": {
+    "suite": {
+      "commit": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
+      "tree": "d8a51976b95671685564a593fe5c6105f4724192"
+    },
+    "soc": {
+      "commit": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+      "tree": "373ea72c03dcdbfed19449f8f91e3989eef7122b"
+    },
+    "cyber_ai": {
+      "commit": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+      "tree": "b45620e6be501f37341e87a346d4d2ba518bf394"
+    },
+    "tool_fabric": {
+      "commit": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+      "tree": "ca8b4a03116bea979de89b92b2f8fef4fd31e001"
+    }
+  },
+  "hosted_ci": {
+    "required_checks": [
+      {
+        "repo": "suite",
+        "sha": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
+        "name": "contract standards validation",
+        "status": "success"
+      },
+      {
+        "repo": "suite",
+        "sha": "35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "api",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "backup-tool",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "dependency-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "e2e",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "sbom",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "web",
+        "status": "success"
+      },
+      {
+        "repo": "soc",
+        "sha": "5e13e50f8e988acdd211b5293fdbccb3a40072ec",
+        "name": "pf-workers",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "lockfile-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "lint",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "type",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "test",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "build-offline",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "secret-scan",
+        "status": "success"
+      },
+      {
+        "repo": "cyber_ai",
+        "sha": "14d5919e1d80eac6fc22287a69a9476cac2b77a4",
+        "name": "security-supply-chain",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "admission-gate",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "scaffold-integrity",
+        "status": "success"
+      },
+      {
+        "repo": "tool_fabric",
+        "sha": "49583be00235a0f8ad7da8cb4ea99108ad201a69",
+        "name": "secret-scan",
+        "status": "success"
+      }
+    ],
+    "skipped_jobs": [
+      {
+        "repo": "tool_fabric",
+        "name": "executor",
+        "status": "skipped",
+        "reason": "Rendered skipped on the exact commit and absent from main branch protection required contexts."
+      }
+    ],
+    "suppressed_jobs": [
+      {
+        "repo": "soc",
+        "name": "e2e-org",
+        "status": "suppressed",
+        "reason": "Rendered skipped because the exact workflow retains if:false; excluded from required contexts."
+      },
+      {
+        "repo": "soc",
+        "name": "alert-context-route-db",
+        "status": "suppressed",
+        "reason": "Rendered skipped because the exact workflow retains if:false; excluded from required contexts."
+      }
+    ]
+  },
+  "contracts": {
+    "reviewed_contracts": [
+      "cybrik-suite:docs/operations/DELEGATED-GOVERNOR-RUNTIME-UAT-RECONCILIATION-2026-07-31.md",
+      "cybrik-suite:docs/uat/UAT-GATE-STANDARD.md",
+      "cybrik-suite:docs/uat/runtime-admission.schema.json",
+      "cybrik-suite:tools/contract-validation/validate-runtime-admission.mjs",
+      "cybrik-suite:docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-CONTRACT-ACCEPTANCE.md",
+      "cybrik-suite:docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md"
+    ],
+    "feature_flags": [
+      {
+        "name": "g_u2b_red_ci_quarantine",
+        "state": "active_temporary_remove_with_green_implementation"
+      },
+      {
+        "name": "g_u1_red_ci_quarantine",
+        "state": "active_exact_32_browser_tests_remove_with_g_u3_green"
+      },
+      {
+        "name": "g_u2b_postgres_red_runtime",
+        "state": "disabled_admission_hold"
+      },
+      {
+        "name": "browser_integrated_uat_demo",
+        "state": "hold_not_authorized_by_this_record"
+      }
+    ],
+    "capability_lifecycle": [
+      {
+        "capability": "g_u2b_durable_replay_contract",
+        "state": "accepted_tdd_red_not_implemented"
+      },
+      {
+        "capability": "g_u2b_postgres_red_observation",
+        "state": "proposed_not_run"
+      },
+      {
+        "capability": "browser_integrated_uat",
+        "state": "hold_separate_profile_not_proven"
+      }
+    ]
+  },
+  "test_data": {
+    "classification": "synthetic",
+    "approved": true,
+    "notes": "Only fresh generated tenant, role, database and credential values inside the disposable attempt are allowed; no real alert, user, customer or production value is admitted."
+  },
+  "production_exclusion": {
+    "no_production_credentials": true,
+    "no_production_configuration": true,
+    "no_production_data": true,
+    "no_production_traffic": true
+  },
+  "lifecycle_procedures": {
+    "start": [
+      "Re-observe the exact four-repository commit/tree tuple, clean SOC worktree, test blob and SHA-256 before any effect.",
+      "Require the already-present postgres:16-alpine image, one new Docker internal network and one loopback-only ephemeral host port; no pull or install is allowed.",
+      "Create one disposable database with fresh NOSUPERUSER NOBYPASSRLS roles, apply only committed migrations, then positively select exactly one g_u2b_red PostgreSQL test with maxfail one."
+    ],
+    "stop": [
+      "Stop and remove the exact disposable PostgreSQL container, network, volume and attempt-local credential material.",
+      "Verify the exact container, network, volume and listener are absent before ending the attempt."
+    ],
+    "reset": [
+      "Reset means a new empty mode-0700 evidence directory and no surviving container, network, volume, listener, database or credential from a prior attempt."
+    ],
+    "seed": [
+      "Use only repository migrations and generated synthetic identifiers; do not load a repository seed script or external dataset."
+    ],
+    "rollback": [
+      "On any identity, role, migration, selection, network or timeout mismatch, stop immediately, run the exact teardown, preserve redacted evidence and do not retry under this one-shot record."
+    ]
+  },
+  "negative_smoke": {
+    "tenant_isolation": [
+      {
+        "name": "Independent review confirmed the exact selector fails on missing FORCE RLS, tenant-bearing keys, parent-alert pinning or tenant-policy text, and the fail-closed preflight binds execution to the same unprivileged cybrik_app session.",
+        "status": "pass"
+      }
+    ],
+    "authorization": [
+      {
+        "name": "Independent review confirmed the pre-test catalog query fail-closes unless current_user and session_user are cybrik_app with rolsuper false, rolbypassrls false, database_owner false and public_schema_owner false; object owner/executor privilege remains a GREEN gate because the RED requires those objects to be absent.",
+        "status": "pass"
+      }
+    ],
+    "secret_boundary": [
+      {
+        "name": "Exact-head required secret scans are green on the four pinned repositories; attempt evidence forbids passwords, URLs with credentials and private material.",
+        "status": "pass"
+      }
+    ]
+  },
+  "open_findings": {
+    "critical": 0,
+    "high": 0,
+    "notes": [
+      "Independent RED-source plus G-U2B and G-U1 CI-quarantine reviews returned GO with P0/P1/P2/P3 equal to zero on the exercised source paths.",
+      "Final independent review of the complete three-path R1.2 packet returned GO with P0/P1/P2/P3 equal to zero; all rendered required hosted checks are green on the exact four-repository tuple.",
+      "The prior P1 on missing live application-role posture proof is closed by the exact fail-closed pre-test catalog preflight added in R1.2.",
+      "A different candidate, runtime-admission-soc-ai-lifecycle-mtls-r1, remains the sole RUNTIME_AUTHORIZED registry entry; this record cannot become a second active runtime authority until that lifecycle is terminally reconciled.",
+      "Cyber AI and Tool Fabric are pinned tuple context only and are not loaded, started or invoked by this exact single-database observation."
+    ]
+  },
+  "evidence": {
+    "directory": "docs/uat/candidates/browser-integrated-uat-bridge-r1",
+    "artifacts": [
+      {
+        "path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-GRANT-R1.md",
+        "sha256": "3f502c09f39b66df709d3734165fcb78fc2491ae0ef02990051e124f5942a4f9"
+      }
+    ],
+    "limitations": [
+      "This pre-start record contains no PostgreSQL runtime result and authorizes zero execution while HOLD.",
+      "Hosted API success covers the non-G-U2B suite because the accepted temporary g_u2b_red items are intentionally quarantined until GREEN.",
+      "Hosted e2e success covers only the non-G-U1 browser suite because exactly 32 accepted G-U1 RED tests in six files are temporarily quarantined until G-U3 GREEN.",
+      "The sole runtime objective is one attributable schema-absence RED; it provides no service, HTTP, UI, persona, accessibility, demo or integrated-UAT evidence.",
+      "Rendered hosted facts were refreshed with read-only GitHub API access. SOC e2e ran 272 non-G-U1 tests on the exact SHA: 271 passed and one pre-existing environment-conditional test skipped; the 32 accepted G-U1 RED tests remained positively discoverable but quarantined."
+    ],
+    "final_profile_verdict": "HOLD"
+  },
+  "network_exposure": {
+    "mode": "local_only",
+    "surfaces": [
+      {
+        "bind": "127.0.0.1:<attempt-ephemeral-port>",
+        "purpose": "one disposable PostgreSQL 16 listener for the exact selected RED test"
+      }
+    ],
+    "notes": "Docker network must be internal; no public bind, other Cybrik service, browser, Ollama, Internet egress or production traffic is admitted."
+  },
+  "disposition": {
+    "profile": "HOLD",
+    "rationale": "Execution remains closed because another registry candidate remains the sole RUNTIME_AUTHORIZED attempt. Exact-head hosted checks, exercised-path negative-smoke admissions and final packet review are green. This record is not UAT or release evidence."
+  }
+}
