@@ -1,14 +1,18 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import {
   existsSync,
   lstatSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +22,12 @@ const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
+const WITHDRAWAL_SCHEMA_PATH = 'docs/uat/runtime-authorization-withdrawal.schema.json';
+const WITHDRAWAL_TRUST_PATH = 'docs/uat/runtime-authorization-withdrawal-trust.json';
+const MASTER_AUTHORIZATION_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
+const WITHDRAWAL_FILENAME = 'runtime-authorization-withdrawal.json';
+const WITHDRAWAL_NAMESPACE = 'cybrik-uat-runtime-withdrawal-v1';
 const CANDIDATE_ROOT = 'docs/uat/candidates';
 const SUITE_REFERENCE_PREFIX = 'cybrik-suite:';
 const FORBIDDEN_PROFILES = new Set([
@@ -134,6 +144,23 @@ const compileSchema = (root, overrides, errors) => {
   }
 };
 
+const compileWithdrawalSchema = (root, overrides, errors) => {
+  const schema = parseJson(root, WITHDRAWAL_SCHEMA_PATH, overrides, errors);
+  if (!schema) return null;
+  try {
+    const ajv = new Ajv2020({
+      strict: true,
+      strictTypes: false,
+      allErrors: true,
+    });
+    addFormats(ajv);
+    return ajv.compile(schema);
+  } catch (error) {
+    errors.push(`${WITHDRAWAL_SCHEMA_PATH}: schema compile failed: ${error.message}`);
+    return null;
+  }
+};
+
 const validateAgainstSchema = (validator, path, value, errors) => {
   if (validator(value)) return true;
   for (const issue of validator.errors ?? []) {
@@ -161,6 +188,21 @@ const discoverCandidateFiles = (root) => {
   return discoverRuntimeAdmissionFiles(root)
     .filter((path) => path.split('/').length === 5)
     .sort();
+};
+
+const discoverWithdrawalFiles = (root, relativeDir = CANDIDATE_ROOT) => {
+  const absoluteDir = join(root, relativeDir);
+  if (!existsSync(absoluteDir)) return [];
+  const files = [];
+  for (const entry of readdirSync(absoluteDir, { withFileTypes: true })) {
+    const relativePath = join(relativeDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...discoverWithdrawalFiles(root, relativePath));
+    } else if (entry.name === WITHDRAWAL_FILENAME) {
+      files.push(relativePath);
+    }
+  }
+  return files.sort();
 };
 
 const evaluateSmokeChecks = (checks, label, path, errors) => {
@@ -341,6 +383,195 @@ const validateEvidenceArtifacts = (root, candidate, path, errors) => {
       errors,
       requireInsideEvidenceDir: true,
     });
+  }
+};
+
+const readContainedRegularFile = (root, path, label, errors) => {
+  if (!path || isAbsolute(path)) {
+    errors.push(`${label} must be a repository-relative regular file`);
+    return null;
+  }
+  const resolvedPath = resolve(root, path);
+  if (isPathOutside(root, resolvedPath)) {
+    errors.push(`${label} must stay inside the repository root`);
+    return null;
+  }
+  try {
+    const linkStats = lstatSync(resolvedPath);
+    const canonicalRoot = realpathSync(root);
+    const canonicalPath = realpathSync(resolvedPath);
+    if (
+      linkStats.isSymbolicLink()
+      || !linkStats.isFile()
+      || isPathOutside(canonicalRoot, canonicalPath)
+    ) {
+      errors.push(`${label} must resolve to a contained non-symlink regular file`);
+      return null;
+    }
+    return readFileSync(resolvedPath);
+  } catch {
+    errors.push(`${label} must resolve to a contained non-symlink regular file`);
+    return null;
+  }
+};
+
+const parseContainedJson = (root, path, label, errors) => {
+  const bytes = readContainedRegularFile(root, path, label, errors);
+  if (!bytes) return null;
+  try {
+    return JSON.parse(bytes.toString('utf8'));
+  } catch (error) {
+    errors.push(`${label} must contain valid JSON: ${error.message}`);
+    return null;
+  }
+};
+
+const allowedSignerIdentity = (bytes, errors, path) => {
+  let line;
+  try {
+    line = bytes.toString('ascii');
+  } catch {
+    errors.push(`${path}: withdrawal allowed-signers bytes must be ASCII`);
+    return null;
+  }
+  const parts = line.endsWith('\n') ? line.slice(0, -1).split(' ') : [];
+  if (
+    parts.length !== 4
+    || parts[0] !== 'FOUNDER'
+    || parts[1] !== `namespaces="${WITHDRAWAL_NAMESPACE}"`
+    || parts[2] !== 'ssh-ed25519'
+    || line.slice(0, -1).includes('\n')
+  ) {
+    errors.push(`${path}: withdrawal allowed-signers identity must bind FOUNDER to the dedicated namespace`);
+    return null;
+  }
+  let keyBlob;
+  try {
+    keyBlob = Buffer.from(parts[3], 'base64');
+  } catch {
+    errors.push(`${path}: withdrawal allowed-signers key must be valid base64`);
+    return null;
+  }
+  if (keyBlob.length === 0 || keyBlob.toString('base64').replace(/=+$/u, '') !== parts[3].replace(/=+$/u, '')) {
+    errors.push(`${path}: withdrawal allowed-signers key must be canonical base64`);
+    return null;
+  }
+  return {
+    signer: parts[0],
+    keyType: parts[2],
+    fingerprint: `SHA256:${createHash('sha256').update(keyBlob).digest('base64').replace(/=+$/u, '')}`,
+  };
+};
+
+const validateWithdrawalSignature = ({
+  root,
+  path,
+  withdrawal,
+  errors,
+}) => {
+  const closure = withdrawal.external_packet_closure;
+  const allowedBytes = readContainedRegularFile(
+    root,
+    closure.allowed_signers_path,
+    `${path}: withdrawal allowed-signers`,
+    errors,
+  );
+  const signatureBytes = readContainedRegularFile(
+    root,
+    closure.signature_path,
+    `${path}: withdrawal signature`,
+    errors,
+  );
+  const recordBytes = readContainedRegularFile(
+    root,
+    path,
+    `${path}: withdrawal record`,
+    errors,
+  );
+  const trust = parseContainedJson(
+    root,
+    WITHDRAWAL_TRUST_PATH,
+    `${path}: withdrawal trust descriptor`,
+    errors,
+  );
+  const masterTrust = parseContainedJson(
+    root,
+    MASTER_AUTHORIZATION_TRUST_PATH,
+    `${path}: tracked master UAT trust descriptor`,
+    errors,
+  );
+  if (!allowedBytes || !signatureBytes || !recordBytes || !trust || !masterTrust) {
+    errors.push(`${path}: withdrawal SSHSIG must verify against the pinned withdrawal trust`);
+    return;
+  }
+
+  const allowedDigest = createHash('sha256').update(allowedBytes).digest('hex');
+  const identity = allowedSignerIdentity(allowedBytes, errors, path);
+  if (!identity) return;
+  if (!hasExactKeys(trust, [
+    'schema',
+    'signer',
+    'namespace',
+    'key_type',
+    'key_fingerprint',
+    'allowed_signers_sha256',
+  ])) {
+    errors.push(`${WITHDRAWAL_TRUST_PATH}: withdrawal trust descriptor must have the exact field set`);
+    return;
+  }
+  if (
+    trust.schema !== 'CYBRIK-UAT-RUNTIME-WITHDRAWAL-TRUST/v1'
+    || trust.signer !== 'FOUNDER'
+    || trust.namespace !== WITHDRAWAL_NAMESPACE
+    || trust.key_type !== 'ssh-ed25519'
+    || trust.key_fingerprint !== identity.fingerprint
+    || trust.allowed_signers_sha256 !== allowedDigest
+    || closure.signer !== trust.signer
+    || closure.namespace !== trust.namespace
+    || closure.allowed_signers_sha256 !== allowedDigest
+  ) {
+    errors.push(`${path}: withdrawal trust descriptor, signer and allowed-signers identity must match exactly`);
+    return;
+  }
+  if (
+    masterTrust.schema !== 'CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1'
+    || masterTrust.signer !== trust.signer
+    || masterTrust.key_type !== trust.key_type
+    || masterTrust.key_fingerprint !== trust.key_fingerprint
+  ) {
+    errors.push(`${path}: withdrawal trust must retain the tracked master UAT signer identity`);
+    return;
+  }
+  if (closure.signature_path !== `${path}.sig`) {
+    errors.push(`${path}: withdrawal signature_path must be the adjacent detached SSHSIG`);
+    return;
+  }
+  const verifyRoot = mkdtempSync(join(tmpdir(), 'cybrik-withdrawal-verify-'));
+  try {
+    const allowedPath = join(verifyRoot, 'allowed_signers');
+    const signaturePath = join(verifyRoot, 'withdrawal.sig');
+    writeFileSync(allowedPath, allowedBytes, { mode: 0o600 });
+    writeFileSync(signaturePath, signatureBytes, { mode: 0o600 });
+    const verification = spawnSync(
+      '/usr/bin/ssh-keygen',
+      [
+        '-Y', 'verify',
+        '-f', allowedPath,
+        '-I', closure.signer,
+        '-n', closure.namespace,
+        '-s', signaturePath,
+      ],
+      {
+        input: recordBytes,
+        encoding: 'utf8',
+        env: { LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+      },
+    );
+    if (verification.status !== 0) {
+      errors.push(`${path}: withdrawal SSHSIG must verify against the pinned withdrawal trust`);
+    }
+  } finally {
+    rmSync(verifyRoot, { recursive: true, force: true });
   }
 };
 
@@ -1300,6 +1531,88 @@ const validateCandidateRegistry = (records) => {
   return findings;
 };
 
+const validateWithdrawalRecord = ({
+  root,
+  overrides,
+  path,
+  withdrawal,
+  withdrawalValidator,
+  targetRecord,
+  targetReport,
+  seriesRecords,
+}) => {
+  const errors = [];
+  if (!withdrawalValidator || !validateAgainstSchema(
+    withdrawalValidator,
+    path,
+    withdrawal,
+    errors,
+  )) {
+    return errors;
+  }
+  const expectedTargetPath = join(dirname(path), 'runtime-admission.json');
+  if (!targetRecord || !targetReport || withdrawal.target.record_path !== expectedTargetPath) {
+    errors.push(`${path}: withdrawal target must resolve to the adjacent runtime-admission record`);
+    return errors;
+  }
+  const candidate = targetRecord.candidate;
+  const attempt = candidate.attempt_accounting.current_attempt;
+  if (
+    withdrawal.withdrawal_id !== `${candidate.candidate_id}-withdrawal-r1`
+    || withdrawal.target.candidate_id !== candidate.candidate_id
+    || withdrawal.target.series_id !== candidate.attempt_accounting.series_id
+    || withdrawal.target.attempt_ordinal !== candidate.attempt_accounting.attempt_ordinal
+  ) {
+    errors.push(`${path}: withdrawal identity must bind the exact target candidate and attempt`);
+  }
+
+  const targetBytes = readContainedRegularFile(
+    root,
+    withdrawal.target.record_path,
+    `${path}: withdrawal target record`,
+    errors,
+  );
+  if (
+    targetBytes
+    && createHash('sha256').update(targetBytes).digest('hex')
+      !== withdrawal.target.record_sha256
+  ) {
+    errors.push(`${path}: target_record_sha256 must match the recorded runtime-admission bytes`);
+  }
+  if (
+    withdrawal.target.authorization_evidence_path !== attempt.evidence_path
+    || withdrawal.target.authorization_evidence_sha256 !== attempt.evidence_sha256
+  ) {
+    errors.push(`${path}: withdrawal authorization evidence must match the target attempt exactly`);
+  }
+  if (JSON.stringify(withdrawal.observed_attempt) !== JSON.stringify(attempt)) {
+    errors.push(`${path}: observed_attempt must preserve the target attempt exactly`);
+  }
+  if (
+    targetReport.declaredDisposition !== 'RUNTIME_AUTHORIZED'
+    || targetReport.derivedDisposition !== 'RUNTIME_AUTHORIZED'
+    || attempt.status !== 'not_run'
+    || attempt.execution_authorized !== true
+    || attempt.executed_checks !== 0
+    || attempt.passed_checks !== 0
+    || attempt.failed_checks !== 0
+  ) {
+    errors.push(`${path}: only an unused, historically RUNTIME_AUTHORIZED attempt may be withdrawn`);
+  }
+  if (seriesRecords.some((record) => record.path !== targetRecord.path)) {
+    errors.push(`${path}: withdrawn runtime-authorization series cannot reopen under the same series_id`);
+  }
+
+  validateWithdrawalSignature({
+    root,
+    overrides,
+    path,
+    withdrawal,
+    errors,
+  });
+  return errors;
+};
+
 export async function validateRuntimeAdmission({
   root = DEFAULT_ROOT,
   overrides = new Map(),
@@ -1309,6 +1622,7 @@ export async function validateRuntimeAdmission({
     errors.push(`${README_PATH}: missing`);
   }
   const validator = compileSchema(root, overrides, errors);
+  const withdrawalValidator = compileWithdrawalSchema(root, overrides, errors);
   const template = parseJson(root, TEMPLATE_PATH, overrides, errors);
   const lineagePolicy = parseJson(root, LINEAGE_POLICY_PATH, overrides, errors);
   if (validator && template) {
@@ -1320,12 +1634,14 @@ export async function validateRuntimeAdmission({
 
   const discoveredFiles = discoverRuntimeAdmissionFiles(root);
   const candidateFiles = discoverCandidateFiles(root);
+  const withdrawalFiles = discoverWithdrawalFiles(root);
   for (const path of discoveredFiles) {
     if (!candidateFiles.includes(path)) {
       errors.push(`${path}: mislocated runtime-admission.json; expected docs/uat/candidates/<candidate-id>/runtime-admission.json`);
     }
   }
   const candidates = [];
+  const parsedRecords = [];
   const registryRecords = [];
   const reportsByPath = new Map();
   for (const path of candidateFiles) {
@@ -1353,12 +1669,19 @@ export async function validateRuntimeAdmission({
     if (candidate && schemaValid) {
       registryRecords.push({ path, candidate });
     }
+    if (candidate) {
+      parsedRecords.push({ path, candidate });
+    }
     errors.push(...candidateErrors);
     const candidateReport = {
       path,
       candidateId: candidate?.candidate_id ?? null,
       declaredDisposition,
       derivedDisposition,
+      effectiveDisposition: derivedDisposition,
+      authorizationState: 'active',
+      effectiveAuthorizationState: 'active',
+      withdrawalId: null,
       errors: candidateErrors,
     };
     candidates.push(candidateReport);
@@ -1381,14 +1704,66 @@ export async function validateRuntimeAdmission({
       candidateReport.errors.push(finding.message);
       if (candidateReport.derivedDisposition !== 'NO-GO') {
         candidateReport.derivedDisposition = 'HOLD';
+        candidateReport.effectiveDisposition = 'HOLD';
+      }
+    }
+  }
+
+  const baseAuthorizedPaths = new Set(
+    candidates
+      .filter((candidateReport) =>
+        candidateReport.errors.length === 0
+        && candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED')
+      .map((candidateReport) => candidateReport.path),
+  );
+  const recordsByPath = new Map(registryRecords.map((record) => [record.path, record]));
+  const recordsBySeries = new Map();
+  for (const record of parsedRecords) {
+    const seriesId = record.candidate?.attempt_accounting?.series_id;
+    if (typeof seriesId !== 'string' || seriesId.length === 0) continue;
+    const series = recordsBySeries.get(seriesId) ?? [];
+    series.push(record);
+    recordsBySeries.set(seriesId, series);
+  }
+  for (const path of withdrawalFiles) {
+    const targetPath = join(dirname(path), 'runtime-admission.json');
+    const targetRecord = recordsByPath.get(targetPath) ?? null;
+    const targetReport = reportsByPath.get(targetPath) ?? null;
+    const withdrawalErrors = [];
+    if (path.split('/').length !== 5) {
+      withdrawalErrors.push(`${path}: mislocated ${WITHDRAWAL_FILENAME}; expected docs/uat/candidates/<candidate-id>/${WITHDRAWAL_FILENAME}`);
+    }
+    const withdrawal = parseJson(root, path, overrides, withdrawalErrors);
+    if (withdrawal) {
+      withdrawalErrors.push(...validateWithdrawalRecord({
+        root,
+        overrides,
+        path,
+        withdrawal,
+        withdrawalValidator,
+        targetRecord,
+        targetReport,
+        seriesRecords: targetRecord
+          ? recordsBySeries.get(targetRecord.candidate.attempt_accounting.series_id) ?? []
+          : [],
+      }));
+    }
+    errors.push(...withdrawalErrors);
+    if (targetReport) {
+      targetReport.withdrawalId = withdrawal?.withdrawal_id ?? null;
+      targetReport.errors.push(...withdrawalErrors);
+      if (withdrawalErrors.length === 0) {
+        targetReport.authorizationState = 'withdrawn';
+        targetReport.effectiveAuthorizationState = 'withdrawn';
+        targetReport.effectiveDisposition = 'HOLD';
       }
     }
   }
 
   const authorizedCandidates = candidates.filter(
     (candidateReport) =>
-      candidateReport.errors.length === 0
-      && candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED',
+      baseAuthorizedPaths.has(candidateReport.path)
+      && candidateReport.authorizationState === 'active',
   );
   if (authorizedCandidates.length > 1) {
     for (const candidateReport of authorizedCandidates) {
@@ -1397,6 +1772,7 @@ export async function validateRuntimeAdmission({
       errors.push(message);
       candidateReport.errors.push(message);
       candidateReport.derivedDisposition = 'HOLD';
+      candidateReport.effectiveDisposition = 'HOLD';
     }
   }
 
@@ -1404,6 +1780,7 @@ export async function validateRuntimeAdmission({
     errors,
     counts: {
       candidateFiles: candidateFiles.length,
+      withdrawalFiles: withdrawalFiles.length,
       templatesValidated: template ? 1 : 0,
     },
     candidates,

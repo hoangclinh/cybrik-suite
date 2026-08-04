@@ -176,16 +176,23 @@ npm run validate:runtime-admission
 npm run test:runtime-admission
 ```
 
-It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape, validates the
+It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape and
+`docs/uat/runtime-authorization-withdrawal.schema.json` as the append-only unused-authority
+withdrawal shape, validates the
 truthful HOLD template at `docs/uat/templates/runtime-admission.hold.json`, verifies the immutable
 three-record legacy seal and the allowed capability/objective registry at
 `docs/uat/runtime-admission-lineage-policy.json`, discovers only
-`docs/uat/candidates/*/runtime-admission.json`, and fail-closes on missing gate items, duplicate or
+`docs/uat/candidates/*/runtime-admission.json` plus the exact optional sibling
+`runtime-authorization-withdrawal.json`, and fail-closes on missing gate items, duplicate or
 incomplete four-repo tuples, non-success required hosted checks, missing rollback/seed procedures,
 open Critical/High findings, cross-series terminal-objective reopening, historical-evidence
 promotion or byte reuse, canonical-path escape through symlinked parents, stronger-profile
 overclaim, or any failed tenant-isolation,
-authorization or secret-boundary check. A green result validates static runtime-admission records
+authorization or secret-boundary check. A withdrawal frees the singleton only when it preserves
+the original unused authorization bytes, closes the series, and its detached SSHSIG verifies as
+`FOUNDER` against the pinned `docs/uat/runtime-authorization-withdrawal-trust.json` identity under
+the dedicated `cybrik-uat-runtime-withdrawal-v1` namespace. Invalid withdrawal material leaves the
+authority effectively active. A green result validates static runtime-admission records
 only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
 
 ## Receipt trust and durability

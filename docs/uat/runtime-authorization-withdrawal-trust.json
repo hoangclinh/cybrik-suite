@@ -1,0 +1,8 @@
+{
+  "schema": "CYBRIK-UAT-RUNTIME-WITHDRAWAL-TRUST/v1",
+  "signer": "FOUNDER",
+  "namespace": "cybrik-uat-runtime-withdrawal-v1",
+  "key_type": "ssh-ed25519",
+  "key_fingerprint": "SHA256:kzGy03jJRT74lJ0I1UuN+pIF9wDQ0/ofrUDZNH5TB44",
+  "allowed_signers_sha256": "19c2f845da20f614995c9c52afd07723477331e93e994f23db63b1d129bbde8e"
+}

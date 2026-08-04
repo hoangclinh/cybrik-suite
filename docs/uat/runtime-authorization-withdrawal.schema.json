@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/docs/uat/runtime-authorization-withdrawal.schema.json",
+  "title": "CYBRIK runtime authorization withdrawal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "withdrawal_id",
+    "recorded_at",
+    "target",
+    "observed_attempt",
+    "decision",
+    "external_packet_closure",
+    "effect",
+    "rationale",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "withdrawal_id": { "type": "string", "minLength": 1 },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "record_path",
+        "record_sha256",
+        "series_id",
+        "attempt_ordinal",
+        "authorization_evidence_path",
+        "authorization_evidence_sha256"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "record_path": { "type": "string", "minLength": 1 },
+        "record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "series_id": { "type": "string", "minLength": 1 },
+        "attempt_ordinal": { "type": "integer", "minimum": 1 },
+        "authorization_evidence_path": { "type": "string", "minLength": 1 },
+        "authorization_evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "observed_attempt": { "$ref": "#/$defs/attemptResult" },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "actor", "scope"],
+      "properties": {
+        "kind": { "const": "WITHDRAW_UNUSED_AUTHORIZATION" },
+        "actor": { "const": "CODEX_GOVERNOR" },
+        "scope": { "const": "bounded_nonproduction_runtime_only" }
+      }
+    },
+    "external_packet_closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "assertion",
+        "signer",
+        "namespace",
+        "allowed_signers_path",
+        "allowed_signers_sha256",
+        "signature_path"
+      ],
+      "properties": {
+        "mode": { "const": "no_signed_packet_issued_attested" },
+        "assertion": { "const": "no_signed_packet_issued_for_exact_target" },
+        "signer": { "const": "FOUNDER" },
+        "namespace": { "const": "cybrik-uat-runtime-withdrawal-v1" },
+        "allowed_signers_path": { "type": "string", "minLength": 1 },
+        "allowed_signers_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "signature_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization_state",
+        "effective_profile",
+        "series_state",
+        "objective_terminal",
+        "runtime_credit",
+        "authorization_reusable",
+        "production_authority"
+      ],
+      "properties": {
+        "authorization_state": { "const": "withdrawn" },
+        "effective_profile": { "const": "HOLD" },
+        "series_state": { "const": "closed" },
+        "objective_terminal": { "const": false },
+        "runtime_credit": { "const": "none" },
+        "authorization_reusable": { "const": false },
+        "production_authority": { "const": "none_founder_only" }
+      }
+    },
+    "rationale": { "type": "string", "minLength": 1 },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "attemptResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "execution_authorized",
+        "executed_checks",
+        "passed_checks",
+        "failed_checks",
+        "evidence_path",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "status": { "const": "not_run" },
+        "execution_authorized": { "const": true },
+        "executed_checks": { "const": 0 },
+        "passed_checks": { "const": 0 },
+        "failed_checks": { "const": 0 },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "evidence_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

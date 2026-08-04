@@ -19,6 +19,17 @@ Rules:
   must resolve to the exact prior failed `NO-GO` candidate and match its counts, evidence path and
   evidence SHA-256.
 - At most one registry candidate may derive `RUNTIME_AUTHORIZED`.
+- An unused authorization can be withdrawn only by the append-only sidecar
+  `docs/uat/candidates/<candidate-id>/runtime-authorization-withdrawal.json`. The original
+  `runtime-admission.json` remains immutable and keeps its historical derived disposition.
+  A valid sidecar must bind the exact candidate record and authorization-evidence digests, preserve
+  the zero-count `not_run` attempt, and carry a detached Founder SSHSIG under the dedicated
+  `cybrik-uat-runtime-withdrawal-v1` namespace. The signer set is pinned by
+  `docs/uat/runtime-authorization-withdrawal-trust.json`. Missing, invalid, symlinked, drifted or
+  unsigned withdrawal material fails closed and does not free the singleton authority slot.
+- A valid withdrawal changes only the effective state to `withdrawn` / `HOLD`, closes that series
+  against reopening, grants no runtime evidence credit, and never changes Founder control of
+  production. It is not a runtime result, UAT verdict, release or deployment authorization.
 - `docs/uat/runtime-admission-lineage-policy.json` is the immutable legacy bridge for the terminal
   R1/R2/R3 records. It pins each record by path and SHA-256 without changing those records. The
   validator seals this exact three-entry list; future candidates cannot be added to it.

@@ -15,6 +15,7 @@ import {
 
 const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
+const WITHDRAWAL_SCHEMA_PATH = 'docs/uat/runtime-authorization-withdrawal.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
@@ -40,6 +41,8 @@ const currentAttemptArtifact = (seriesId, ordinal) => `${evidenceDir(seriesId, o
 const candidateRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-admission.json`;
 const withdrawalRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-authorization-withdrawal.json`;
 const WITHDRAWAL_TRUST_PATH = 'docs/uat/runtime-authorization-withdrawal-trust.json';
+const MASTER_AUTHORIZATION_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
 const WITHDRAWAL_NAMESPACE = 'cybrik-uat-runtime-withdrawal-v1';
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
@@ -428,6 +431,11 @@ const withTempRepo = async ({
       }
     }
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
+    writeFileSync(
+      join(tempRoot, WITHDRAWAL_SCHEMA_PATH),
+      read(WITHDRAWAL_SCHEMA_PATH),
+      'utf8',
+    );
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
     stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
     stableWriteJson(
@@ -543,7 +551,10 @@ const runtimeAuthorizationWithdrawal = (
   const allowedSignersPath = `${candidate.evidence.directory}/withdrawal-allowed-signers`;
   const signaturePath = `${recordPath}.sig`;
   return {
+    allowedSignersPath,
+    recordPath,
     signaturePath,
+    trustPath: WITHDRAWAL_TRUST_PATH,
     install(tempRoot) {
       const keyPath = join(tempRoot, '.withdrawal-test-key');
       execFileSync('/usr/bin/ssh-keygen', [
@@ -613,6 +624,18 @@ const runtimeAuthorizationWithdrawal = (
         key_type: keyType,
         key_fingerprint: keyFingerprint,
         allowed_signers_sha256: allowedSignersSha256,
+      });
+      mkdirSync(join(tempRoot, dirname(MASTER_AUTHORIZATION_TRUST_PATH)), {
+        recursive: true,
+      });
+      stableWriteJson(join(tempRoot, MASTER_AUTHORIZATION_TRUST_PATH), {
+        allowed_signers_sha256: '0'.repeat(64),
+        key_fingerprint: keyFingerprint,
+        key_type: keyType,
+        namespace: 'cybrik-uat-soc-ai-fabric-v1',
+        python_sha256: '0'.repeat(64),
+        schema: 'CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1',
+        signer: 'FOUNDER',
       });
       stableWriteJson(join(tempRoot, recordPath), record);
       execFileSync('/usr/bin/ssh-keygen', [
@@ -2471,6 +2494,7 @@ test('a withdrawn runtime-authorization series cannot reopen under the same seri
       report.errors.some((error) =>
         error.includes('withdrawn runtime-authorization series cannot reopen under the same series_id'),
       ),
+      report.errors.join('\n'),
     );
     assert.equal(report.candidates.find((candidateReport) => candidateReport.candidateId === reopened.candidate_id).derivedDisposition, 'HOLD');
   });
@@ -2489,6 +2513,144 @@ test('an unsigned withdrawal cannot free the singleton', async () => {
       error.includes('withdrawal SSHSIG must verify against the pinned withdrawal trust')));
     assert.ok(report.errors.some((error) =>
       error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a withdrawal whose signed bytes drift cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    writeFileSync(recordPath, `${readFileSync(recordPath, 'utf8')} `, 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal SSHSIG must verify against the pinned withdrawal trust')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal signer and trust drift cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const allowedPath = join(tempRoot, withdrawal.allowedSignersPath);
+    writeFileSync(allowedPath, readFileSync(allowedPath, 'utf8').replace('FOUNDER', 'IMPOSTOR'), 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal allowed-signers identity must bind FOUNDER')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal trust must retain the tracked master UAT signer identity', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const masterTrustPath = join(tempRoot, MASTER_AUTHORIZATION_TRUST_PATH);
+    const masterTrust = JSON.parse(readFileSync(masterTrustPath, 'utf8'));
+    masterTrust.key_fingerprint = `SHA256:${'A'.repeat(43)}`;
+    stableWriteJson(masterTrustPath, masterTrust);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal trust must retain the tracked master UAT signer identity')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal signature path must remain the adjacent detached SSHSIG', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+    const relocatedSignaturePath = `${withdrawal.signaturePath}.relocated`;
+    writeFileSync(
+      join(tempRoot, relocatedSignaturePath),
+      readFileSync(join(tempRoot, withdrawal.signaturePath)),
+    );
+    record.external_packet_closure.signature_path = relocatedSignaturePath;
+    stableWriteJson(recordPath, record);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal signature_path must be the adjacent detached SSHSIG')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a symlinked withdrawal signature cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const signaturePath = join(tempRoot, withdrawal.signaturePath);
+    const relocatedPath = `${signaturePath}.relocated`;
+    writeFileSync(relocatedPath, readFileSync(signaturePath));
+    unlinkSync(signaturePath);
+    symlinkSync(relocatedPath, signaturePath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal signature must resolve to a contained non-symlink regular file')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a signed withdrawal cannot target a candidate that was never authorized', async () => {
+  const held = baseCandidate({
+    seriesId: 'aaa-test-held',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  const authorized = baseCandidate({ seriesId: 'aaa-test-authorized' });
+  const withdrawal = runtimeAuthorizationWithdrawal(held);
+
+  await withTempRepo({ candidates: [held, authorized] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('schema /observed_attempt/execution_authorized must be equal to constant')));
+    assert.equal(
+      report.candidates.find((candidateReport) =>
+        candidateReport.candidateId === authorized.candidate_id).effectiveDisposition,
+      'RUNTIME_AUTHORIZED',
+    );
+  });
+});
+
+test('withdrawal schema forbids production authority and reactivation fields', async () => {
+  const candidate = baseCandidate({ seriesId: 'aaa-test-authorized' });
+  const withdrawal = runtimeAuthorizationWithdrawal(candidate);
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+    record.effect.production_authority = 'delegated';
+    record.effect.reactivate = true;
+    stableWriteJson(recordPath, record);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes("schema /effect must NOT have additional properties")));
+    assert.ok(report.errors.some((error) =>
+      error.includes('schema /effect/production_authority must be equal to constant')));
   });
 });
 
