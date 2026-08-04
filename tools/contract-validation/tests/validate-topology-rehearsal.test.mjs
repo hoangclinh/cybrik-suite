@@ -17,7 +17,7 @@ import test from 'node:test';
 import {
   formatTopologyRehearsalReport,
   isMainModule,
-  validateTopologyRehearsals,
+  validateTopologyRehearsals as validateTopologyRehearsalsRaw,
 } from '../validate-topology-rehearsal.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
@@ -37,6 +37,24 @@ const RECORD_PATH = `${RECORD_DIR}/topology-rehearsal.json`;
 const NC_SHA = '427423db6d5d5e9f720c5e110a2c9b3cba39ea089dafed4ab936d04dd218bdac';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const validateTopologyRehearsals = (options = {}) => {
+  if (options.root && options.root !== ROOT && !Object.hasOwn(options, 'pinnedState')) {
+    let policy = { current_state: null, state_history: [] };
+    try {
+      policy = JSON.parse(readFileSync(resolve(options.root, POLICY_PATH), 'utf8'));
+    } catch {
+      // Invalid-policy tests still provide an explicit independent zero-state pin.
+    }
+    return validateTopologyRehearsalsRaw({
+      ...options,
+      pinnedState: {
+        current_state: policy.current_state ?? null,
+        state_history: policy.state_history ?? [],
+      },
+    });
+  }
+  return validateTopologyRehearsalsRaw(options);
+};
 const stableWriteJson = (path, value) => {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -219,7 +237,7 @@ const stateHistoryFor = (record) => {
     record_sha256: sha256(`${record.record_id}:proposed\n`),
   };
   if (record.attempt.phase === 'proposed') return [];
-  if (record.attempt.phase === 'authorized' || record.attempt.outcome === 'PRECHECK_ABORT') {
+  if (record.attempt.phase === 'authorized') {
     return [proposed];
   }
   return [
@@ -678,7 +696,7 @@ test('PRECHECK_ABORT history retains both proposed and authorized phase pins', a
 test('a non-default root cannot derive its own mutable state pin', async () => {
   await withRoot((root) => {
     writeRecord(root, buildRecord(root));
-    const report = validateTopologyRehearsals({ root });
+    const report = validateTopologyRehearsalsRaw({ root });
     assert.ok(report.errors.some((error) =>
       error.includes('non-default root requires an explicit independently supplied pinned state')));
   });
@@ -702,7 +720,13 @@ test('the topology registry root itself cannot be a symlink', async () => {
     mkdirSync(externalRoot, { recursive: true });
     rmSync(resolve(root, TOPOLOGY_ROOT), { recursive: true, force: true });
     symlinkSync(externalRoot, resolve(root, TOPOLOGY_ROOT));
-    const report = validateTopologyRehearsals({ root });
+    let report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('topology registry root must be a contained non-symlink directory')));
+
+    rmSync(resolve(root, TOPOLOGY_ROOT), { force: true });
+    symlinkSync(resolve(root, 'missing-topology-registry'), resolve(root, TOPOLOGY_ROOT));
+    report = validateTopologyRehearsals({ root });
     assert.ok(report.errors.some((error) =>
       error.includes('topology registry root must be a contained non-symlink directory')));
   });
