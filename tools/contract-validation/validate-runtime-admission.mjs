@@ -1793,8 +1793,13 @@ const validateLineagePolicy = ({
       const sealedDigest = sealedPredecessor.evidence_sha256;
       if (
         currentAttempt.evidence_sha256 === sealedDigest
-        || evidenceArtifacts.some((artifact) => artifact.sha256 === sealedDigest)
-        || failureHistory.some((historyRow) => historyRow.evidence_sha256 === sealedDigest)
+        || evidenceArtifacts.some(
+          (artifact) => isPlainObject(artifact) && artifact.sha256 === sealedDigest,
+        )
+        || failureHistory.some(
+          (historyRow) => isPlainObject(historyRow)
+            && historyRow.evidence_sha256 === sealedDigest,
+        )
       ) {
         addFinding(
           record.path,
@@ -1896,9 +1901,12 @@ const validateLineagePolicy = ({
       ]);
       if (
         topologyDigests.has(currentAttempt.evidence_sha256)
-        || evidenceArtifacts.some((artifact) => topologyDigests.has(artifact.sha256))
+        || evidenceArtifacts.some(
+          (artifact) => isPlainObject(artifact) && topologyDigests.has(artifact.sha256),
+        )
         || failureHistory.some(
-          (historyRow) => topologyDigests.has(historyRow.evidence_sha256),
+          (historyRow) => isPlainObject(historyRow)
+            && topologyDigests.has(historyRow.evidence_sha256),
         )
       ) {
         addFinding(
