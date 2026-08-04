@@ -84,6 +84,17 @@ const CONSUMED_OUTCOMES = new Set([
   'FAIL_INTERNAL_INGRESS',
   'STOP_CONTROL',
 ]);
+const RECORD_DIGEST_PATTERN = /^[0-9a-f]{64}$/u;
+const PRIOR_STATE_PIN_KEYS = Object.freeze([
+  'phase',
+  'attempt_consumed',
+  'outcome',
+  'record_sha256',
+]);
+const RECORD_REVIEW_SELF_ATTESTATION_FINDING =
+  'record review cannot attest the record bytes that contain it';
+const RECORD_REVIEW_PINNED_PROPOSED_FINDING =
+  'record review must attest the pinned proposed record bytes';
 
 const dependencyRequire = () => {
   const localRequire = createRequire(join(HERE, 'package.json'));
@@ -253,6 +264,38 @@ const validateRecordReviewBinding = (path, phase, record, errors) => {
       `${path}: record review binding must bind the listed record_review artifact path and digest`,
     );
   }
+};
+
+// Cross-byte scope: a record review can only attest record bytes that already existed when
+// the review was written. A binding naming the current record digest is a cryptographic
+// fixed point — writing the digest changes the very bytes it claims to name — so it can
+// only be self-attestation. The one attestable target is the proposed record digest pinned
+// in the prior-state history. Pure and side-effect free: every input is caller-supplied, so
+// the control is provable directly rather than through committed record bytes.
+export const validateRecordReviewByteBinding = ({
+  path,
+  phase,
+  reviewedRecordSha256 = null,
+  pinnedProposedRecordSha256 = null,
+  currentRecordSha256 = null,
+} = {}) => {
+  if (phase === 'proposed') return [];
+  if (
+    typeof reviewedRecordSha256 === 'string'
+    && reviewedRecordSha256 === currentRecordSha256
+  ) {
+    // Strictly more precise than the pinned-proposed finding such a binding also fails:
+    // report the fixed point alone so the failure names its exact cause.
+    return [`${path}: ${RECORD_REVIEW_SELF_ATTESTATION_FINDING}`];
+  }
+  if (
+    typeof pinnedProposedRecordSha256 !== 'string'
+    || !RECORD_DIGEST_PATTERN.test(pinnedProposedRecordSha256)
+    || reviewedRecordSha256 !== pinnedProposedRecordSha256
+  ) {
+    return [`${path}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`];
+  }
+  return [];
 };
 
 const validateArtifact = (root, recordPath, recordDirectory, artifact, errors) => {
@@ -521,6 +564,22 @@ const hasExactKeys = (value, keys) =>
   && Object.keys(value).length === keys.length
   && keys.every((key) => Object.hasOwn(value, key));
 
+const isPriorStatePin = (entry, expectedPhase) =>
+  hasExactKeys(entry, PRIOR_STATE_PIN_KEYS)
+  && entry.phase === expectedPhase
+  && entry.attempt_consumed === false
+  && entry.outcome === 'not_run'
+  && RECORD_DIGEST_PATTERN.test(entry.record_sha256);
+
+// Only one exact, well-formed proposed prior-state pin may supply the digest a record
+// review is allowed to attest. A missing or duplicated proposed pin supplies nothing, so
+// the record review fails closed instead of attesting an unpinned digest.
+const pinnedProposedRecordDigest = (stateHistory) => {
+  const pins = (Array.isArray(stateHistory) ? stateHistory : []).filter((entry) =>
+    isPriorStatePin(entry, 'proposed'));
+  return pins.length === 1 ? pins[0].record_sha256 : null;
+};
+
 const validateStateBinding = ({ records, recordBytes, statePolicy, errors }) => {
   if (records.length === 0) {
     if (statePolicy.current_state !== null || statePolicy.state_history.length !== 0) {
@@ -556,14 +615,9 @@ const validateStateBinding = ({ records, recordBytes, statePolicy, errors }) => 
   const seenDigests = new Set();
   for (let index = 0; index < history.length; index += 1) {
     const entry = history[index];
-    const expectedPhase = expectedPhases[index];
-    if (
-      !hasExactKeys(entry, ['phase', 'attempt_consumed', 'outcome', 'record_sha256'])
-      || entry.phase !== expectedPhase
-      || entry.attempt_consumed !== false
-      || entry.outcome !== 'not_run'
-      || !/^[0-9a-f]{64}$/u.test(entry.record_sha256)
-    ) errors.push(`${TOPOLOGY_POLICY_PATH}: state history contains an invalid prior-state pin`);
+    if (!isPriorStatePin(entry, expectedPhases[index])) {
+      errors.push(`${TOPOLOGY_POLICY_PATH}: state history contains an invalid prior-state pin`);
+    }
     if (seenDigests.has(entry.record_sha256)) {
       errors.push(`${TOPOLOGY_POLICY_PATH}: prior-state record digests must be unique`);
     }
@@ -571,15 +625,17 @@ const validateStateBinding = ({ records, recordBytes, statePolicy, errors }) => 
   }
 };
 
-const validateRecord = (
+const validateRecord = ({
   root,
   path,
   record,
   schemaValidator,
   pinned,
   trustContext,
+  recordSha256,
+  pinnedProposedRecordSha256,
   errors,
-) => {
+}) => {
   validateSchema(schemaValidator, path, record, errors);
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     errors.push(`${path}: topology record must be an object`);
@@ -619,6 +675,16 @@ const validateRecord = (
   validateFixedTopology(path, record.topology ?? {}, errors);
   validateAttemptSemantics(path, record, errors);
   if (record.attempt.phase === 'authorized' || record.attempt.phase === 'closed') {
+    // Owed from authorization onward and independent of history well-formedness: an absent
+    // or duplicated proposed pin leaves nothing attestable, which fails closed here too.
+    errors.push(...validateRecordReviewByteBinding({
+      path,
+      phase: record.attempt.phase,
+      reviewedRecordSha256:
+        record.evidence.record_review_binding?.reviewed_record_sha256 ?? null,
+      pinnedProposedRecordSha256,
+      currentRecordSha256: recordSha256,
+    }));
     verifyFounderAuthorization(root, path, record, trustContext, errors);
   }
   if (Object.values(record.production_exclusion ?? {}).some((value) => value !== true)) {
@@ -684,18 +750,31 @@ export const validateTopologyRehearsals = ({
   const records = [];
   const recordBytes = [];
   const pinned = PINNED_TOPOLOGY_RECORDS[0];
+  const pinnedProposedRecordSha256 = pinnedProposedRecordDigest(statePolicy.state_history);
   for (const path of exactDepth) {
     let record;
+    let recordSha256 = null;
     try {
       const bytes = readFileSync(containedRegularFile(root, path));
       record = JSON.parse(bytes.toString('utf8'));
+      recordSha256 = sha256(bytes);
       recordBytes.push(bytes);
     } catch (error) {
       errors.push(`${path}: topology record must be a contained regular file: ${error.message}`);
       continue;
     }
     records.push(record);
-    validateRecord(root, path, record, schemaValidator, pinned, trustContext, errors);
+    validateRecord({
+      root,
+      path,
+      record,
+      schemaValidator,
+      pinned,
+      trustContext,
+      recordSha256,
+      pinnedProposedRecordSha256,
+      errors,
+    });
   }
 
   validateStateBinding({ records, recordBytes, statePolicy, errors });
