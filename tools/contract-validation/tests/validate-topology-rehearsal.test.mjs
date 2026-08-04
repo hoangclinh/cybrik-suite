@@ -58,6 +58,55 @@ const STALE_ZERO_RECORD_PROSE = [
 ];
 const PROPOSED_RECORD_PROSE = /one proposed HOLD record/iu;
 
+// Reviewed review-scope hardening: the single topology artifact kind
+// independent_review is split into a diagnosis-scoped diagnosis_review and a
+// record-scoped record_review, and every phase inventory is exhaustive.
+const PROPOSED_ARTIFACT_KINDS = ['diagnosis', 'diagnosis_review'];
+const AUTHORIZED_ARTIFACT_KINDS = [
+  ...PROPOSED_ARTIFACT_KINDS,
+  'record_review',
+  'grant',
+  'authorization_signature',
+];
+const CLOSED_ARTIFACT_KINDS = [
+  ...AUTHORIZED_ARTIFACT_KINDS,
+  'result',
+  'evidence_manifest',
+  'result_review',
+];
+const SCHEMA_ARTIFACT_KINDS = CLOSED_ARTIFACT_KINDS;
+const RETIRED_ARTIFACT_KIND = 'independent_review';
+const RECORD_REVIEW_BINDING_KEYS = [
+  'review_path',
+  'review_sha256',
+  'reviewed_phase',
+  'reviewed_record_sha256',
+];
+const RETIRED_ARTIFACT_KIND_TERM = /\bindependent_review\b/u;
+const RECORD_REVIEW_TERM = /\brecord_review\b/u;
+const RECORD_LEVEL_REVIEW_PROSE = /record-level review/iu;
+const RECORD_REVIEW_TRUTH_PROSE_PATHS = [
+  REGISTRY_README_PATH,
+  CONTRACT_VALIDATION_README_PATH,
+];
+const RETIRED_TERM_TRUTH_PATHS = [
+  SCHEMA_PATH,
+  POLICY_PATH,
+  RECORD_PATH,
+  REGISTRY_README_PATH,
+  CONTRACT_VALIDATION_README_PATH,
+  SUITE_VALIDATOR_PATH,
+  VALIDATOR_PATH,
+];
+const inventoryFinding = (phase) =>
+  `${phase} topology artifact inventory must exactly equal the reviewed phase inventory`;
+const bindingRequiredFinding = (phase) =>
+  `${phase} topology record requires a record review binding`;
+const BINDING_FORBIDDEN_FINDING =
+  'proposed topology record cannot carry a record review binding';
+const BINDING_MISMATCH_FINDING =
+  'record review binding must bind the listed record_review artifact path and digest';
+
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 // Committed-truth helpers: assert presence first so a missing future artifact fails
@@ -195,6 +244,17 @@ const installSignedAuthorization = (root, directory, artifacts) => {
   };
 };
 
+// The record review reviews the proposed record bytes, so its binding pins the
+// same synthetic proposed-state digest that the prior-state history pins.
+const proposedStateDigest = (recordId) => sha256(`${recordId}:proposed\n`);
+
+const recordReviewBinding = (recordId, reviewArtifact) => ({
+  review_path: reviewArtifact.path,
+  review_sha256: reviewArtifact.sha256,
+  reviewed_phase: 'proposed',
+  reviewed_record_sha256: proposedStateDigest(recordId),
+});
+
 const buildRecord = (root, {
   recordId = RECORD_ID,
   seriesId = SERIES_ID,
@@ -209,8 +269,14 @@ const buildRecord = (root, {
   const directory = `${TOPOLOGY_ROOT}/${recordId}`;
   const artifacts = [
     artifact(root, directory, 'diagnosis'),
-    artifact(root, directory, 'independent_review'),
+    artifact(root, directory, 'diagnosis_review'),
   ];
+  let binding = null;
+  if (phase !== 'proposed') {
+    const review = artifact(root, directory, 'record_review');
+    artifacts.push(review);
+    binding = recordReviewBinding(recordId, review);
+  }
   if (phase === 'authorized') artifacts.push(artifact(root, directory, 'grant'));
   if (phase === 'closed') {
     artifacts.push(artifact(root, directory, 'grant'));
@@ -259,6 +325,7 @@ const buildRecord = (root, {
       directory,
       external_bytes_ci_verified: false,
       artifacts,
+      record_review_binding: binding,
       result_controls: phase === 'closed'
         ? {
             teardown_verified: teardownVerified,
@@ -284,7 +351,7 @@ const stateHistoryFor = (record) => {
     phase: 'proposed',
     attempt_consumed: false,
     outcome: 'not_run',
-    record_sha256: sha256(`${record.record_id}:proposed\n`),
+    record_sha256: proposedStateDigest(record.record_id),
   };
   if (record.attempt.phase === 'proposed') return [];
   if (record.attempt.phase === 'authorized') {
@@ -428,7 +495,7 @@ test('in-directory diagnosis and review artifacts are byte-identical to the revi
   const { record } = readCommittedRecord();
   const cases = [
     ['diagnosis', CANDIDATE_DIAGNOSIS_PATH, CANDIDATE_DIAGNOSIS_SHA256],
-    ['independent_review', CANDIDATE_REVIEW_PATH, CANDIDATE_REVIEW_SHA256],
+    ['diagnosis_review', CANDIDATE_REVIEW_PATH, CANDIDATE_REVIEW_SHA256],
   ];
   for (const [kind, sourcePath, sourceSha256] of cases) {
     const entry = artifactOfKind(record, kind);
@@ -450,11 +517,12 @@ test('the committed diagnosis provenance digest equals the reviewed candidate di
   assert.equal(sha256(readCommittedBytes(CANDIDATE_DIAGNOSIS_PATH)), CANDIDATE_DIAGNOSIS_SHA256);
 });
 
-test('the proposed artifact inventory is exactly diagnosis and independent review', () => {
+test('the proposed artifact inventory is exactly diagnosis and diagnosis review', () => {
   const { record } = readCommittedRecord();
   const kinds = (record.evidence?.artifacts ?? []).map((entry) => entry.kind);
-  assert.deepEqual([...kinds].sort(), ['diagnosis', 'independent_review']);
+  assert.deepEqual([...kinds].sort(), [...PROPOSED_ARTIFACT_KINDS].sort());
   for (const forbidden of [
+    'record_review',
     'grant',
     'authorization_signature',
     'result',
@@ -714,7 +782,7 @@ test('artifact inventory and remaining fixed controls reject drift', async () =>
     record.evidence.artifacts.pop();
     record.evidence.artifacts.push({ ...record.evidence.artifacts[0] });
     record.evidence.artifacts.push({
-      kind: 'independent_review',
+      kind: 'diagnosis_review',
       path: `${RECORD_DIR}/missing-review.txt`,
       sha256: '0'.repeat(64),
     });
@@ -952,4 +1020,192 @@ test('dependency fallback pins the system Git executable instead of trusting PAT
   const source = readFileSync(resolve(ROOT, VALIDATOR_PATH), 'utf8');
   assert.match(source, /execFileSync\(\s*'\/usr\/bin\/git'/u);
   assert.doesNotMatch(source, /execFileSync\(\s*'git'/u);
+});
+
+test('T1 committed schema pins exactly eight artifact kinds, retires independent_review and caps at eight', () => {
+  const schema = JSON.parse(readCommittedBytes(SCHEMA_PATH).toString('utf8'));
+  const kinds = schema.$defs?.artifact?.properties?.kind?.enum;
+  assert.ok(Array.isArray(kinds), `${SCHEMA_PATH}: artifact kind enum must be an array`);
+  assert.equal(kinds.length, 8, `${SCHEMA_PATH}: artifact kind enum must hold exactly eight kinds`);
+  assert.deepEqual([...kinds].sort(), [...SCHEMA_ARTIFACT_KINDS].sort());
+  assert.ok(
+    !kinds.includes(RETIRED_ARTIFACT_KIND),
+    `${SCHEMA_PATH}: retired ${RETIRED_ARTIFACT_KIND} kind must be absent`,
+  );
+
+  const artifacts = schema.properties?.evidence?.properties?.artifacts;
+  assert.equal(artifacts?.minItems, 2, `${SCHEMA_PATH}: artifacts minItems must remain 2`);
+  assert.equal(artifacts?.maxItems, 8, `${SCHEMA_PATH}: artifacts maxItems must be 8`);
+
+  const evidence = schema.properties?.evidence;
+  assert.ok(
+    (evidence?.required ?? []).includes('record_review_binding'),
+    `${SCHEMA_PATH}: evidence must always require record_review_binding`,
+  );
+  const binding = schema.$defs?.recordReviewBinding;
+  assert.ok(binding, `${SCHEMA_PATH}: schema must define the record review binding shape`);
+  assert.equal(binding.additionalProperties, false);
+  assert.deepEqual([...(binding.required ?? [])].sort(), [...RECORD_REVIEW_BINDING_KEYS].sort());
+  assert.deepEqual(Object.keys(binding.properties ?? {}).sort(), [...RECORD_REVIEW_BINDING_KEYS].sort());
+  assert.equal(binding.properties?.reviewed_phase?.const, 'proposed');
+});
+
+test('T2 the committed proposed record carries diagnosis plus diagnosis_review and a present null binding', () => {
+  const { record } = readCommittedRecord();
+  const kinds = (record.evidence?.artifacts ?? []).map((entry) => entry.kind);
+  assert.deepEqual(kinds, PROPOSED_ARTIFACT_KINDS);
+  assert.ok(
+    Object.hasOwn(record.evidence ?? {}, 'record_review_binding'),
+    `${RECORD_PATH}: evidence must always carry the record_review_binding key`,
+  );
+  assert.equal(
+    record.evidence.record_review_binding,
+    null,
+    `${RECORD_PATH}: a proposed record must pin a null record review binding`,
+  );
+});
+
+test('T3 an authorized record missing its record_review artifact fails closed', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.artifacts = record.evidence.artifacts.filter(
+      (entry) => entry.kind !== 'record_review',
+    );
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error.includes('required record_review artifact is missing')));
+    assert.ok(report.errors.some((error) => error.includes(inventoryFinding('authorized'))));
+  });
+});
+
+test('T4 a proposed record smuggling a record_review and its binding fails with two distinct findings', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root);
+    const review = artifact(root, RECORD_DIR, 'record_review');
+    record.evidence.artifacts.push(review);
+    record.evidence.record_review_binding = recordReviewBinding(RECORD_ID, review);
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    const findings = report.errors.filter((error) =>
+      error.includes(inventoryFinding('proposed')) || error.includes(BINDING_FORBIDDEN_FINDING));
+    assert.ok(report.errors.some((error) => error.includes(inventoryFinding('proposed'))));
+    assert.ok(report.errors.some((error) => error.includes(BINDING_FORBIDDEN_FINDING)));
+    assert.equal(new Set(findings).size, 2, 'record review smuggling must raise two distinct findings');
+  });
+});
+
+test('T5 an authorized record with a null record review binding fails closed', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.record_review_binding = null;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes(bindingRequiredFinding('authorized'))));
+  });
+});
+
+test('T6 the record review binding must bind the listed record_review path and digest', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.record_review_binding.review_path = `${RECORD_DIR}/diagnosis_review.txt`;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) => error.includes(BINDING_MISMATCH_FINDING)),
+      'binding path drift must fail closed',
+    );
+  });
+
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.record_review_binding.review_sha256 = '0'.repeat(64);
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) => error.includes(BINDING_MISMATCH_FINDING)),
+      'binding digest drift must fail closed',
+    );
+  });
+});
+
+test('T7 reviewed_phase drift in the record review binding is rejected by the schema', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.record_review_binding.reviewed_phase = 'authorized';
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) => error.includes(
+      'schema /evidence/record_review_binding/reviewed_phase must be equal to constant',
+    )));
+  });
+});
+
+test('T8 a closed record retains all eight artifacts at the exact maxItems boundary', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'TOPOLOGY_PASS',
+      attemptConsumed: true,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.deepEqual(report.errors, []);
+    assert.equal(record.evidence.artifacts.length, 8);
+    assert.deepEqual(
+      record.evidence.artifacts.map((entry) => entry.kind).sort(),
+      [...CLOSED_ARTIFACT_KINDS].sort(),
+    );
+
+    const ninthPath = `${RECORD_DIR}/ninth-artifact.txt`;
+    writeFileSync(resolve(root, ninthPath), 'ninth artifact\n', 'utf8');
+    record.evidence.artifacts.push({
+      kind: 'result',
+      path: ninthPath,
+      sha256: sha256('ninth artifact\n'),
+    });
+    writeRecord(root, record);
+    const overflowed = validateTopologyRehearsals({ root });
+    assert.ok(overflowed.errors.some((error) => error.includes(
+      'schema /evidence/artifacts must NOT have more than 8 items',
+    )));
+  });
+});
+
+test('T9 an in-enum but phase-forbidden artifact raises the exact exhaustive-inventory finding', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    record.evidence.artifacts.push(artifact(root, RECORD_DIR, 'evidence_manifest'));
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    const findings = report.errors.filter((error) =>
+      error.includes(inventoryFinding('authorized')));
+    assert.equal(findings.length, 1, 'exhaustive inventory must raise exactly one finding');
+    assert.equal(findings[0], `${RECORD_PATH}: ${inventoryFinding('authorized')}`);
+  });
+});
+
+test('T10 record rationale and registry truth prose name the owed record-level review', () => {
+  const { record } = readCommittedRecord();
+  const rationale = record.disposition?.rationale ?? '';
+  assert.match(rationale, RECORD_LEVEL_REVIEW_PROSE, `${RECORD_PATH}: rationale must name record-level review`);
+  assert.match(rationale, RECORD_REVIEW_TERM, `${RECORD_PATH}: rationale must name the record_review artifact`);
+  for (const path of RECORD_REVIEW_TRUTH_PROSE_PATHS) {
+    const text = readCommittedBytes(path).toString('utf8');
+    assert.match(text, RECORD_LEVEL_REVIEW_PROSE, `${path}: must name record-level review`);
+    assert.match(text, RECORD_REVIEW_TERM, `${path}: must name the record_review artifact kind`);
+  }
+});
+
+test('T11 no topology truth surface retains the standalone independent_review term', () => {
+  for (const path of RETIRED_TERM_TRUTH_PATHS) {
+    assert.doesNotMatch(
+      readCommittedBytes(path).toString('utf8'),
+      RETIRED_ARTIFACT_KIND_TERM,
+      `${path}: retired ${RETIRED_ARTIFACT_KIND} term must be replaced by the split review kinds`,
+    );
+  }
 });
