@@ -12,22 +12,12 @@ signature namespace. A binding module that could decide who signed a grant would
 positioned to satisfy the very control it exists to precede, and the separation is what keeps
 "this grant says the right thing" and "the Founder signed it" two independent answers.
 
-The canonical rendering keeps the document's own key order rather than sorting it. A
-canonicalizer that re-ordered would let two differently ordered documents render to the same
-bytes, so a signature taken over one would silently carry the other. The rendering is
-`ensure_ascii` JSON, which is why no carriage return and no byte-order mark can survive into
-the signed bytes: both would be escaped rather than emitted. It is bounded because an
-unbounded rendering is a byte budget nobody agreed to sign, and a document a reviewer cannot
-read in one sitting is not exact-action.
+Canonical rendering preserves document key order, uses bounded `ensure_ascii` JSON and emits
+one UTF-8 newline. Different ordered documents therefore retain different signed bytes.
 
-Every binding is mandatory and every one fails closed. Nothing here carries a default: a
-defaulted fact would let an unobserved control read as a satisfied one, which is exactly the
-fail-open this binding exists to prevent. The grant must bind the record and the runner the
-runner itself observed rather than its own claim, the reviewed topology, a registry selection
-kept separate from the host observation it is compared against, four distinctly identified
-clean control worktrees, the reviewed tools, one bounded window no wider than the reviewed
-runtime envelope, exactly one numbered attempt, one exact authorized action, and the denials
-that say what it grants no authority to do.
+Every binding is mandatory and fail closed, and no observed fact carries a default. The grant
+binds the record, runner, topology, selected and observed image identities, clean control
+worktrees, tools, one bounded window, one attempt, one action and explicit authority denials.
 """
 
 from __future__ import annotations
@@ -130,6 +120,9 @@ REGISTRY_DIGEST_KEYS = ("index_digest", "manifest_digest")
 OBSERVED_BINDING_KEYS = tuple(
     key for key in OBSERVED_IDENTITY_KEYS if key != "observed_at"
 )
+REGISTRY_IDENTITY_KEYS = tuple(
+    key for key in SELECTED_IDENTITY_KEYS if key not in SELECTION_ONLY_KEYS
+)
 
 RECORD_KEYS = ("path", "sha256")
 RUNNER_KEYS = ("aggregate_sha256",)
@@ -144,12 +137,7 @@ NO_AUTHORITY_KEYS = tuple(GRANT_NO_AUTHORITY)
 
 @dataclass(frozen=True)
 class GrantFacts:
-    """Everything the runner observed for itself before reading a grant against it.
-
-    Not one field carries a default. A defaulted fact would let a control nobody observed
-    read as a satisfied one, so an absent observation is a construction failure here rather
-    than a quiet pass three bindings later.
-    """
+    """Mandatory facts the runner observed independently; no field has a default."""
 
     record_path: str
     record_sha256: str
@@ -182,13 +170,7 @@ class GrantFacts:
 
 @dataclass(frozen=True)
 class GrantVerdict:
-    """One answer about one grant: satisfied, or refused with the exact reasons.
-
-    A verdict is the evidence a later phase reads, so incoherence is refused here rather
-    than left for each reader to re-decide. A verdict that reported `satisfied` while
-    carrying findings would let a refused grant be recorded as a bound one, and one that
-    refused with no reason at all would not be evidence of anything.
-    """
+    """One coherent answer: satisfied, or refused with exact non-empty reasons."""
 
     satisfied: bool
     findings: tuple[str, ...] = ()
@@ -290,9 +272,14 @@ def registry_digest(value: object) -> bool:
     return hex_string(value[len(DIGEST_PREFIX) :], DIGEST_HEX_LENGTH)
 
 
-def platform_findings(value: object, label: str) -> tuple[str, ...]:
+def platform_findings(
+    value: object, label: str, *, ordered: bool = True
+) -> tuple[str, ...]:
     """Require the exact platform inventory and typed values used by image identity."""
-    if not isinstance(value, Mapping) or tuple(value) != PLATFORM_KEYS:
+    inventory_matches = isinstance(value, Mapping) and (
+        tuple(value) == PLATFORM_KEYS if ordered else set(value) == set(PLATFORM_KEYS)
+    )
+    if not inventory_matches:
         return (
             f"{label}: platform {value!r} is not the reviewed ordered platform object",
         )
@@ -326,12 +313,18 @@ def keyed(
     if not isinstance(value, Mapping):
         return (f"{label}: {value!r} is not an object carrying the reviewed keys",)
     inventory = tuple(value)
-    matches = inventory == tuple(expected) if ordered else set(inventory) == set(expected)
+    expected_inventory = tuple(expected)
+    matches = (
+        inventory == expected_inventory
+        if ordered
+        else set(inventory) == set(expected_inventory)
+    )
     if matches:
         return ()
+    qualifier = "ordered " if ordered else ""
     drift = (
-        f"{label}: keys {inventory} are not the reviewed ordered inventory "
-        f"{tuple(expected)}"
+        f"{label}: keys {inventory} are not the reviewed {qualifier}inventory "
+        f"{expected_inventory}"
     )
     return (drift,)
 
@@ -496,7 +489,13 @@ def observed_identity_findings(
             if identity[key] is not None and not registry_digest(identity[key])
         )
         if identity["platform"] is not None:
-            findings.extend(platform_findings(identity["platform"], label))
+            findings.extend(
+                platform_findings(
+                    identity["platform"],
+                    label,
+                    ordered=label == "observed_image_identity",
+                )
+            )
         local = identity["local_image_id"]
         if local is not None and not registry_digest(local):
             findings.append(
@@ -515,7 +514,10 @@ def observed_identity_findings(
                 f"{label}: local_image_id equals a registry digest, but host and registry "
                 "identity categories are distinct"
             )
-        if identity["observed_at"] is not None and instant(identity["observed_at"]) is None:
+        if (
+            identity["observed_at"] is not None
+            and instant(identity["observed_at"]) is None
+        ):
             findings.append(
                 f"{label}: observed_at {identity['observed_at']!r} is not an exact UTC "
                 "instant"
@@ -527,19 +529,17 @@ def observed_identity_findings(
             "observed_image_identity: the stable signed identity does not equal the fresh "
             f"runtime observation: signed={signed_binding!r}, observed={runtime_binding!r}"
         )
-    registry_identity_keys = (
-        "repository",
-        "tag",
-        "platform",
-        "index_digest",
-        "manifest_digest",
-    )
-    selected_binding = {key: selected[key] for key in registry_identity_keys}
-    observed_binding = {key: section[key] for key in registry_identity_keys}
+    if not isinstance(selected, Mapping) or set(selected) != set(
+        SELECTED_IDENTITY_KEYS
+    ):
+        return tuple(findings)
+    selected_binding = {key: selected[key] for key in REGISTRY_IDENTITY_KEYS}
+    observed_binding = {key: section[key] for key in REGISTRY_IDENTITY_KEYS}
     if selected_binding != observed_binding:
         findings.append(
             "observed_image_identity: the observed registry identity does not equal the "
-            f"selected identity: selected={selected_binding!r}, observed={observed_binding!r}"
+            f"selected identity: selected={selected_binding!r}, "
+            f"observed={observed_binding!r}"
         )
     return tuple(findings)
 
