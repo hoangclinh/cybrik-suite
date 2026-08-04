@@ -54,3 +54,26 @@ grants no execution, runtime, UAT, demo, release or production authority — no 
 PostgreSQL RED run, no merge and no production change.
 The detached Founder exact-action SSHSIG over the exact grant remains separately required and is
 unchanged by this control.
+
+## Image identity separation — `CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1`
+
+A record and its grant keep two distinct image identities and never conflate them. The
+`topology.image` block of a record is the **selected required image identity**: what the rehearsal
+would be permitted to run. It carries `repository`, `tag`, `platform`, `index digest`,
+`manifest digest`, `pull_policy` and a `resolution_state`, and it may never carry a
+`local image ID` — a host-local identifier is not a selection. While `resolution_state` is
+`UNRESOLVED` the platform and both digests are `null`; nothing has been resolved from a registry and
+nothing has been observed on a host. The committed proposed HOLD record is exactly that: an
+`UNRESOLVED` selection of `postgres:16-alpine` with `pull_policy` `never`.
+
+The **observed host image identity** is the separate, timestamped statement of what a host actually
+has. It repeats `repository`, `tag`, `platform`, `index digest` and `manifest digest`, and adds the
+`local image ID` and an `observed_at` instant. An exact-action grant carries both identities and is
+refused unless they agree exactly: same repository, same tag, same platform, same `index digest` and
+same `manifest digest`. The `local image ID` is a host-local content identifier and must equal
+neither digest. An unresolved selection can never be granted.
+
+Non-claim: this separation is a static byte- and field-level control over declared identities. It
+performs no registry lookup, no pull, no digest resolution and no host inspection, it proves no
+image exists, and it
+grants no runtime, UAT, demo, merge, release or production authority.

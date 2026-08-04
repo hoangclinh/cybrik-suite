@@ -51,7 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
-// These 29 validators cover the accepted corpus and additive proposal checks.
+// These 31 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -88,6 +88,12 @@ const steps = [
   // record_review of the exact record bytes stays owed; green opens no runtime gate.
   'validate-topology-rehearsal.mjs',
   'tests/validate-topology-rehearsal.test.mjs',
+  // C8 exact-action topology grant contract — the grant schema, its canonical byte
+  // rendering, its exact semantics and its injection-only, fail-closed signature seam.
+  // Green is static document conformance only: no registry lookup, no pull, no host
+  // inspection, and no runtime, UAT, demo, merge, release or production authority.
+  'validate-topology-grant.mjs',
+  'tests/validate-topology-grant.test.mjs',
   // W2-K transport peer-evidence profile — ACCEPTED FOR IMPLEMENTATION but
   // NOT IMPLEMENTED. Server-neutral, fail-closed static conformance only; it
   // opens no socket, selects no server, and grants no runtime, UAT, release,

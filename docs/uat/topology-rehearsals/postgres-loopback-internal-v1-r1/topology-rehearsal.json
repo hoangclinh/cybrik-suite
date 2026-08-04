@@ -22,6 +22,15 @@
     "internal_network": true,
     "runtime_limit_seconds": 180,
     "extension_cycles": 0,
+    "image": {
+      "resolution_state": "UNRESOLVED",
+      "repository": "postgres",
+      "tag": "16-alpine",
+      "platform": null,
+      "index_digest": null,
+      "manifest_digest": null,
+      "pull_policy": "never"
+    },
     "probe": {
       "executable_path": "/usr/bin/nc",
       "executable_sha256": "427423db6d5d5e9f720c5e110a2c9b3cba39ea089dafed4ab936d04dd218bdac",
@@ -61,6 +70,6 @@
   },
   "disposition": {
     "profile": "HOLD",
-    "rationale": "Proposed topology-only preflight record held at HOLD. The diagnosis_review artifact attests the diagnosis bytes only; it does not attest these record bytes, so a record_review artifact and its record review binding, carrying the record-level review of these exact record bytes, remain owed before any authorization. The probe executable digest is a proposal-time observation of the host binary, not attempt evidence, and no probe was run. This record grants no Docker, listener, rehearsal execution, PostgreSQL RED, UAT, demo, merge, release or production authority."
+    "rationale": "Proposed topology-only preflight record held at HOLD. The diagnosis_review artifact attests the diagnosis bytes only; it does not attest these record bytes, so a record_review artifact and its record review binding, carrying the record-level review of these exact record bytes, remain owed before any authorization. The probe executable digest is a proposal-time observation of the host binary, not attempt evidence, and no probe was run. The selected required image identity is declared UNRESOLVED: its platform, index digest and manifest digest are null because no registry resolution and no host observation have occurred, and this record makes no local image ID claim. This record grants no image pull, Docker, listener, rehearsal execution, PostgreSQL RED, UAT, demo, merge, release or production authority."
   }
 }

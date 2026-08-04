@@ -16,6 +16,8 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { validateGrantBeforeSignature } from './validate-topology-grant.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
 
@@ -46,7 +48,7 @@ export const PINNED_TOPOLOGY_RECORDS = Object.freeze([
 export const PINNED_TOPOLOGY_STATE = Object.freeze({
   current_state: Object.freeze({
     record_id: 'postgres-loopback-internal-v1-r1',
-    record_sha256: 'f98cbae5dfebe433228574609f8ef7573bb0ef93c2f09e076e851698bab6cd37',
+    record_sha256: '135d1232cb33bd6b1ca97dccff597ee16071142e8a58507bd0f99d9e1a671dfe',
     phase: 'proposed',
     attempt_consumed: false,
     outcome: 'not_run',
@@ -555,6 +557,18 @@ const validateFounderTrust = (root, errors) => {
   return { valid, allowedPath, allowedDigest };
 };
 
+// A grant artifact is judged as a C8 exact-action grant document when it declares itself one:
+// a `.json` artifact path, or bytes that parse as JSON. Both forms are covered so a JSON grant
+// cannot dodge the document contract by wearing another suffix.
+const isExactActionGrantDocument = (grantPath, grantBytes) => {
+  if (typeof grantPath === 'string' && grantPath.endsWith('.json')) return true;
+  try {
+    return isPlainObject(JSON.parse(grantBytes.toString('utf8')));
+  } catch {
+    return false;
+  }
+};
+
 const verifyFounderAuthorization = (root, recordPath, record, trustContext, errors) => {
   const authorization = record.authorization;
   let verified = true;
@@ -592,18 +606,37 @@ const verifyFounderAuthorization = (root, recordPath, record, trustContext, erro
         sha256(grantBytes) !== authorization?.grant_sha256
         || sha256(readFileSync(signaturePath)) !== authorization?.signature_sha256
       ) invalidate();
-      const verification = spawnSync(
-        '/usr/bin/ssh-keygen',
-        [
-          '-Y', 'verify',
-          '-f', allowedPath,
-          '-I', 'FOUNDER',
-          '-n', AUTHORIZATION_NAMESPACE,
-          '-s', signaturePath,
-        ],
-        { input: grantBytes, encoding: 'utf8' },
-      );
-      if (verification.error || verification.status !== 0) invalidate();
+      // C8: a grant artifact that presents itself as a JSON document is judged as an exact-action
+      // grant before any signature process runs, so malformed grant bytes never reach the
+      // verifier. Signature verification stays here as the single injected process site; the
+      // grant validator itself spawns nothing.
+      if (isExactActionGrantDocument(authorization?.grant_path, grantBytes)) {
+        const grantFindings = validateGrantBeforeSignature(grantBytes, {
+          now: record.recorded_at,
+          verifySignature: verifySshsig,
+        });
+        if (grantFindings.length > 0) invalidate();
+      } else if (!verifySshsig(grantBytes)) {
+        // Scope boundary, stated rather than assumed: a non-JSON grant artifact carries no
+        // exact-action grant document, so only its detached SSHSIG governs it. Requiring every
+        // grant artifact to be a C8 document is a separate, record-side change.
+        invalidate();
+      }
+
+      function verifySshsig(bytes) {
+        const verification = spawnSync(
+          '/usr/bin/ssh-keygen',
+          [
+            '-Y', 'verify',
+            '-f', allowedPath,
+            '-I', 'FOUNDER',
+            '-n', AUTHORIZATION_NAMESPACE,
+            '-s', signaturePath,
+          ],
+          { input: bytes, encoding: 'utf8' },
+        );
+        return !verification.error && verification.status === 0;
+      }
     } catch {
       invalidate();
     }

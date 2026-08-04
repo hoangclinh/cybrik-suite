@@ -70,6 +70,7 @@
         "internal_network",
         "runtime_limit_seconds",
         "extension_cycles",
+        "image",
         "probe"
       ],
       "properties": {
@@ -77,6 +78,7 @@
         "host_port": { "const": 15433 },
         "container_port": { "const": 5432 },
         "internal_network": { "const": true },
+        "image": { "$ref": "#/$defs/selectedImageIdentity" },
         "runtime_limit_seconds": { "const": 180 },
         "extension_cycles": { "const": 0 },
         "probe": {
@@ -172,6 +174,71 @@
     }
   },
   "$defs": {
+    "selectedImageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_state",
+        "repository",
+        "tag",
+        "platform",
+        "index_digest",
+        "manifest_digest",
+        "pull_policy"
+      ],
+      "properties": {
+        "resolution_state": { "enum": ["UNRESOLVED", "RESOLVED"] },
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "platform": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/selectedImagePlatform" }
+          ]
+        },
+        "index_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/prefixedSha256" }]
+        },
+        "manifest_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/prefixedSha256" }]
+        },
+        "pull_policy": { "const": "never" }
+      },
+      "if": {
+        "properties": { "resolution_state": { "const": "UNRESOLVED" } },
+        "required": ["resolution_state"]
+      },
+      "then": {
+        "properties": {
+          "platform": { "type": "null" },
+          "index_digest": { "type": "null" },
+          "manifest_digest": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "platform": { "$ref": "#/$defs/selectedImagePlatform" },
+          "index_digest": { "$ref": "#/$defs/prefixedSha256" },
+          "manifest_digest": { "$ref": "#/$defs/prefixedSha256" }
+        }
+      }
+    },
+    "selectedImagePlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "variant"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "variant": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }]
+        }
+      }
+    },
+    "prefixedSha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": false,

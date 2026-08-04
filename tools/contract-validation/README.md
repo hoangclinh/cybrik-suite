@@ -156,8 +156,9 @@ absence of raw certificate or authorization material. It opens no socket and sel
 
 Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
 `validate.mjs`; W2-K entered when the orchestrator had 23 steps, while the `validate.mjs` header now
-truthfully states the present-day count. These 29 validators include the separately registered
-Fabric runtime-producer gate and its regression suite. The orchestrator's `ALL GREEN`
+truthfully states the present-day count. These 31 validators include the separately registered
+Fabric runtime-producer gate and its regression suite plus the C8 topology grant validator and its
+test. The orchestrator's `ALL GREEN`
 banner names W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. The W2-I P2-3 additive-byte pin now also carries the exact,
 additive W2-K paragraph, ADR-0013 catalog row and Governor-decision row applied to
 `docs/adr/README.md`; every other byte of that catalog, including the W2-I entries, is
@@ -222,6 +223,41 @@ grants no execution, runtime, UAT, demo, release or production authority — no 
 PostgreSQL RED run, no merge and no production change.
 The detached Founder exact-action SSHSIG over the exact grant remains separately required and is
 unchanged by this control.
+
+### Exact-action grant contract — `CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1`
+
+The grant validator is a separate static control over the grant document that a future
+authorization would have to carry:
+
+```bash
+npm run validate:topology-grant
+npm run test:topology-grant
+```
+
+It keeps two image identities strictly apart. A record's `topology.image` is the
+**selected required image identity** — `repository`, `tag`, `platform`, `index digest`,
+`manifest digest`, `pull_policy` and a `resolution_state` — and it may never carry a
+`local image ID`. While
+`resolution_state` is `UNRESOLVED` its platform and both digests are `null`, and an unresolved
+selection can never be granted. The **observed host image identity** is the separate, timestamped
+statement of what a host actually has: the same repository, tag, platform, `index digest` and
+`manifest digest`, plus the host-local `local image ID` and an `observed_at` instant. A grant carries
+both and fails closed unless they agree exactly; the `local image ID` must equal neither digest, and
+a stale or future observation is refused.
+
+The grant document itself must be bounded canonical JSON — exactly `JSON.stringify(value, null, 2)`
+followed by one LF, UTF-8, LF endings, no BOM, no trailing bytes, at most 65536 bytes — carrying the
+exact ordered twelve-key inventory `schema`, `record`, `runner`, `topology`,
+`selected_image_identity`, `observed_image_identity`, `repositories`, `tools`, `window`, `attempt`,
+`authorizes` and `grants_no_authority`. Its window is one 180-second cycle with zero extension,
+closed at `not_before` and open at `expires_at`. The document is judged before any signature process
+runs, so malformed grant bytes never reach the verifier, and every no-authority clause is mandatory
+and true.
+
+Non-claim: this is a static byte- and field-level control over declared identities. It performs no
+registry lookup, no pull, no digest resolution and no host inspection, it proves no image exists, it
+verifies no signature of its own, and it
+grants no runtime, UAT, demo, merge, release or production authority.
 
 ## Runtime-admission records
 

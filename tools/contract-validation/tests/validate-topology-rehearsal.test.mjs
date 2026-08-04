@@ -460,6 +460,15 @@ const buildRecord = (root, {
       internal_network: true,
       runtime_limit_seconds: 180,
       extension_cycles: 0,
+      image: {
+        resolution_state: 'UNRESOLVED',
+        repository: 'postgres',
+        tag: '16-alpine',
+        platform: null,
+        index_digest: null,
+        manifest_digest: null,
+        pull_policy: 'never',
+      },
       probe: {
         executable_path: '/usr/bin/nc',
         executable_sha256: NC_SHA,
@@ -2210,9 +2219,9 @@ const README_ATTESTATION_PROSE = [
   /grants no execution, runtime, UAT, demo, release or production authority/iu,
 ];
 const PINNED_COMMITTED_BYTES = [
-  [RECORD_PATH, 'f98cbae5dfebe433228574609f8ef7573bb0ef93c2f09e076e851698bab6cd37'],
-  [POLICY_PATH, '4a2b6f1355cfa2fa0d7e6332cabc0d9cafbb05756523b77f8dd20614df796831'],
-  [SCHEMA_PATH, '44784ac1872d110f47d5e1e628d1cb6f07c0960a43a5badfc1e7bfc07ce85fe3'],
+  [RECORD_PATH, '135d1232cb33bd6b1ca97dccff597ee16071142e8a58507bd0f99d9e1a671dfe'],
+  [POLICY_PATH, 'c22d81a942911b2471f9a2856be14c9e046f6e6b8a450ab8447d37504b542b37'],
+  [SCHEMA_PATH, '7c34a2b79e7a29d6bea3d24d062fc7b67583204c97a41cae2496ffa4d9d0ad79'],
   [TRUST_PATH, 'd844c4764066dff1e8eefe67a4feb1c1fd14f45bc7565696264eafcafa93aa77'],
   [ALLOWED_SIGNERS_PATH, '04c1d4274218a6ba8adb971a5f6f5360d3ff8ce4aac83ab06be1437b195859e0'],
 ];

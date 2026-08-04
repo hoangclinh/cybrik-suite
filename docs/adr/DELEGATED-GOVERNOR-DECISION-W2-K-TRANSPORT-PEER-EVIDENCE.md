@@ -61,8 +61,9 @@ Canonical registration is complete: within this bounded authority, `validate-tra
 and its test joined the then-23-validator canonical `validate.mjs` orchestrator. At R2, 23 was the
 truthful canonical count. The current orchestrator later grew to 25 registered steps; these 25 validators
 were the present-day count before the Fabric runtime-producer gate registration; it now has 27 registered
-validators. These 29 validators are the present-day count and include the separately registered Fabric
-runtime-producer gate and its regression suite. `docs/adr/README.md` gained the additive W2-K paragraph, ADR-0013
+validators; the Fabric runtime-producer gate and its regression suite then brought it to 29.
+These 31 validators are the present-day count and additionally include the C8 topology grant
+validator and its test. `docs/adr/README.md` gained the additive W2-K paragraph, ADR-0013
 catalog row, and Governor-decision row via the existing W2-I P2-3 additive-byte pin, which now also
 carries the exact W2-K additions. No other file changes, and no packet schema, fixture, or manifest
 byte under `contracts/` changes.
