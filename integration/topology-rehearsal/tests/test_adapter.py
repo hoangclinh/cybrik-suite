@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 import json
 import inspect
+import os
+import stat
 import threading
 import textwrap
 from concurrent.futures import ThreadPoolExecutor
@@ -90,6 +92,16 @@ def test_command_adapters_take_only_the_reviewed_plan_and_runner() -> None:
     for name in COMMAND_ADAPTERS:
         signature = inspect.signature(require_c8_attr(adapter, name))
         assert tuple(signature.parameters)[:2] == ("plan", "runner")
+    assert tuple(
+        inspect.signature(require_c8_attr(adapter, "DockerCommandAdapter")).parameters
+    ) == ("plan", "runner", "clock")
+
+
+def test_exact_command_adapter_rejects_a_non_runner_before_any_effect() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    with pytest.raises(TypeError, match="runner|CommandRunner"):
+        require_c8_attr(adapter, "ExactCommandAdapter")(plan, object())
 
 
 def test_effect_binding_table_is_exact_complete_and_uses_every_planned_command() -> None:
@@ -149,7 +161,7 @@ def test_docker_create_observe_and_teardown_all_use_named_plan_entries() -> None
     }
     log = fakes.CallLog()
     docker = require_c8_attr(adapter, "DockerCommandAdapter")(
-        plan, fakes.FakeCommandRunner(log, responses)
+        plan, fakes.FakeCommandRunner(log, responses), fakes.FakeClock(log)
     )
     assert docker.observe_executable_digest(path=fakes.DOCKER_EXECUTABLE_PATH) == "{}"
     docker.create_network(name=plan.network_name, internal=True)
@@ -182,7 +194,7 @@ def test_high_level_argument_drift_is_rejected_before_any_command() -> None:
     plan = built_plan()
     log = fakes.CallLog()
     docker = require_c8_attr(adapter, "DockerCommandAdapter")(
-        plan, fakes.FakeCommandRunner(log)
+        plan, fakes.FakeCommandRunner(log), fakes.FakeClock(log)
     )
     with pytest.raises(ValueError):
         docker.create_network(name="wrong", internal=True)
@@ -205,11 +217,17 @@ def test_realistic_adapter_outputs_decode_to_the_reviewed_semantics(monkeypatch)
         plan.commands["docker:health"]: fakes.FakeCommandResult(stdout='"healthy"\n'),
         plan.commands["probe:host"]: fakes.FakeCommandResult(returncode=0),
     }
-    runner = fakes.FakeCommandRunner(fakes.CallLog(), responses)
-    docker = require_c8_attr(adapter, "DockerCommandAdapter")(plan, runner)
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(log, responses)
+    clock = fakes.FakeClock(log, ticks=(10.0,))
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(plan, runner, clock)
     host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
     probe = require_c8_attr(adapter, "ProbeCommandAdapter")(plan, runner)
-    monkeypatch.setattr(adapter.time, "monotonic", lambda: 10.0)
+    monkeypatch.setattr(
+        adapter.time,
+        "monotonic",
+        lambda: pytest.fail("DockerCommandAdapter must use the injected clock"),
+    )
     assert docker.observe_executable_digest(path=fakes.DOCKER_EXECUTABLE_PATH) == (
         fakes.SYNTHETIC_DOCKER_SHA256
     )
@@ -220,9 +238,44 @@ def test_realistic_adapter_outputs_decode_to_the_reviewed_semantics(monkeypatch)
         fakes.OBSERVED_PUBLICATION
     )
     assert docker.observe_health(container=plan.container_name, deadline=20.0) == "healthy"
+    health_calls = [
+        call
+        for call in log.calls("command.run")
+        if call["argv"] == plan.commands["docker:health"]
+    ]
+    assert len(health_calls) == 1
+    assert health_calls[0]["timeout_seconds"] == 10.0
     assert probe.run(
         executable=fakes.PROBE_EXECUTABLE_PATH, argv=fakes.PROBE_ARGV
     ) == "reachable"
+
+
+def test_health_deadline_boundaries_never_run_late_or_widen_the_envelope() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+
+    expired_log = fakes.CallLog()
+    expired = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan,
+        fakes.FakeCommandRunner(expired_log),
+        fakes.FakeClock(expired_log, ticks=(20.0,)),
+    )
+    assert expired.observe_health(container=plan.container_name, deadline=20.0) is None
+    assert expired_log.calls("command.run") == ()
+
+    bounded_log = fakes.CallLog()
+    bounded_runner = fakes.FakeCommandRunner(
+        bounded_log,
+        {plan.commands["docker:health"]: fakes.FakeCommandResult(stdout='"healthy"\n')},
+    )
+    bounded = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, bounded_runner, fakes.FakeClock(bounded_log, ticks=(0.0,))
+    )
+    assert bounded.observe_health(container=plan.container_name, deadline=1000.0) == (
+        "healthy"
+    )
+    health_call = bounded_log.calls("command.run")[-1]
+    assert health_call["timeout_seconds"] == fakes.RUNTIME_LIMIT_SECONDS
 
 
 def test_listener_absence_is_resolved_empty_but_command_errors_are_unresolved() -> None:
@@ -230,6 +283,10 @@ def test_listener_absence_is_resolved_empty_but_command_errors_are_unresolved() 
     plan = built_plan()
     for result, expected in (
         (fakes.FakeCommandResult(returncode=1), ()),
+        (
+            fakes.FakeCommandResult(returncode=1, stderr="permission denied\n"),
+            None,
+        ),
         (fakes.FakeCommandResult(returncode=2, stderr="lsof error\n"), None),
     ):
         runner = fakes.FakeCommandRunner(
@@ -276,6 +333,20 @@ def test_an_undecodable_listener_field_is_unresolved_not_false_absence() -> None
     )
     host = require_c8_attr(adapter, "HostCommandAdapter")(plan, runner)
     assert host.observe_listeners(port=fakes.HOST_PORT) is None
+
+
+def test_an_empty_daemon_event_attribute_is_unresolved_not_a_publication() -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(
+        log,
+        {plan.commands["docker:event"]: fakes.FakeCommandResult(stdout='""\n')},
+    )
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, runner, fakes.FakeClock(log)
+    )
+    assert docker.observe_daemon_event(container=plan.container_name) is None
 
 
 def test_failed_probe_returns_a_diagnostic_refusal_not_a_false_reachable() -> None:
@@ -364,6 +435,132 @@ def test_attempt_ledger_refuses_any_ordinal_other_than_one_before_write(
     with pytest.raises(ValueError):
         ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=attempt_ordinal)
     assert tuple(tmp_path.iterdir()) == ()
+
+
+def test_attempt_ledger_refuses_to_follow_the_durable_path_symlink(tmp_path: Path) -> None:
+    adapter = load_c8("adapter")
+    target = tmp_path / "other-ledger"
+    target.write_text(f"{fakes.RECORD_ID} 1\n", encoding="utf-8")
+    ledger_path = tmp_path / "attempt-ledger"
+    ledger_path.symlink_to(target)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(ValueError, match="symlink|refuses|unreadable"):
+        ledger.is_consumed(record_id=fakes.RECORD_ID)
+
+
+def test_attempt_ledger_recovers_a_regular_stale_pending_file_under_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    pending = tmp_path / "attempt-ledger.pending"
+    pending.write_text("orphaned partial state\n", encoding="utf-8")
+    pending.chmod(0o600)
+    os.utime(pending, (0, 0))
+    sleeps: list[float] = []
+    monkeypatch.setattr(adapter.time, "sleep", sleeps.append)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert ledger_path.read_text(encoding="utf-8") == f"{fakes.RECORD_ID} 1\n"
+    assert not pending.exists()
+    assert sleeps == []
+
+
+def test_attempt_ledger_preserves_a_recent_pending_file_after_bounded_wait(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    pending = tmp_path / "attempt-ledger.pending"
+    pending.write_text("possibly live state\n", encoding="utf-8")
+    pending.chmod(0o600)
+    sleeps: list[float] = []
+    monkeypatch.setattr(adapter.time, "sleep", sleeps.append)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(ValueError, match="still held|in flight|recent"):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert pending.read_text(encoding="utf-8") == "possibly live state\n"
+    assert len(sleeps) == adapter.LEDGER_LOCK_ATTEMPTS
+
+
+def test_attempt_ledger_refuses_a_symlink_at_the_pending_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    ledger_path = tmp_path / "attempt-ledger"
+    target = tmp_path / "do-not-delete"
+    target.write_text("owned elsewhere\n", encoding="utf-8")
+    pending = tmp_path / "attempt-ledger.pending"
+    pending.symlink_to(target)
+    sleeps: list[float] = []
+    monkeypatch.setattr(adapter.time, "sleep", sleeps.append)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(str(ledger_path))
+    with pytest.raises(ValueError, match="symlink|non-regular"):
+        ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert pending.is_symlink()
+    assert target.read_text(encoding="utf-8") == "owned elsewhere\n"
+    assert sleeps == []
+
+
+def test_ledger_fsyncs_the_file_and_containing_directory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    adapter = load_c8("adapter")
+    events: list[str] = []
+    real_fsync = adapter.os.fsync
+    real_replace = adapter.os.replace
+
+    def recording_fsync(file_descriptor: int) -> None:
+        mode = adapter.os.fstat(file_descriptor).st_mode
+        events.append("fsync:directory" if stat.S_ISDIR(mode) else "fsync:file")
+        real_fsync(file_descriptor)
+
+    def recording_replace(source: str, destination: str) -> None:
+        events.append("replace")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(adapter.os, "fsync", recording_fsync)
+    monkeypatch.setattr(adapter.os, "replace", recording_replace)
+    ledger = require_c8_attr(adapter, "AtomicFileAttemptLedger")(
+        str(tmp_path / "attempt-ledger")
+    )
+    ledger.consume(record_id=fakes.RECORD_ID, attempt_ordinal=1)
+    assert "fsync:file" in events
+    assert "replace" in events
+    assert "fsync:directory" in events
+    assert events.index("fsync:file") < events.index("replace")
+    assert events.index("replace") < events.index("fsync:directory")
+
+
+def test_credential_adapter_is_plan_bound_and_fsyncs_its_directory(monkeypatch) -> None:
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    credential_type = require_c8_attr(adapter, "CredentialFileAdapter")
+    assert tuple(inspect.signature(credential_type).parameters) == ("plan",)
+    opened: list[tuple[str, int, int | None]] = []
+    fsynced: list[int] = []
+    closed: list[int] = []
+
+    def fake_open(path: str, flags: int, mode: int | None = None) -> int:
+        opened.append((path, flags, mode))
+        return 10 if path == plan.credential_path else 11
+
+    monkeypatch.setattr(adapter.os, "open", fake_open)
+    monkeypatch.setattr(adapter.os, "write", lambda descriptor, data: len(data))
+    monkeypatch.setattr(adapter.os, "fsync", fsynced.append)
+    monkeypatch.setattr(adapter.os, "close", closed.append)
+    credential = credential_type(plan)
+    assert credential.create(name=plan.credential_name) == plan.credential_path
+    assert opened[0][0] == plan.credential_path
+    assert any(path == fakes.CREDENTIAL_DIRECTORY for path, _flags, _mode in opened)
+    assert fsynced == [10, 11]
+    assert closed == [10, 11]
+    with pytest.raises(ValueError):
+        credential.create(name="wrong-credential")
+    with pytest.raises(ValueError):
+        credential.remove(name="wrong-credential")
+    with pytest.raises(ValueError):
+        credential.observe_residual(name="wrong-credential")
 
 
 def test_adapter_source_contains_one_runner_call_and_no_inline_effect_argv() -> None:
