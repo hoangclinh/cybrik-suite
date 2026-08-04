@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -37,6 +38,9 @@ const candidateDir = (seriesId, ordinal) => `docs/uat/candidates/${candidateId(s
 const evidenceDir = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/evidence`;
 const currentAttemptArtifact = (seriesId, ordinal) => `${evidenceDir(seriesId, ordinal)}/05-attempt-accounting.json`;
 const candidateRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-admission.json`;
+const withdrawalRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-authorization-withdrawal.json`;
+const WITHDRAWAL_TRUST_PATH = 'docs/uat/runtime-authorization-withdrawal-trust.json';
+const WITHDRAWAL_NAMESPACE = 'cybrik-uat-runtime-withdrawal-v1';
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 const templateRecord = () => ({
@@ -524,6 +528,100 @@ const historicalPrerequisite = (candidate) => ({
   evidence_sha256: candidate.attempt_accounting.current_attempt.evidence_sha256,
   evidence_use: 'historical_prerequisite',
 });
+
+const runtimeAuthorizationWithdrawal = (
+  candidate,
+  {
+    recordedAt = '2026-08-04T00:00:00Z',
+    rationale = 'Authorization withdrawn after closure proof.',
+    targetRecordSha256 = sha256(stableJson(candidate)),
+  } = {},
+) => {
+  const seriesId = candidate.attempt_accounting.series_id;
+  const ordinal = candidate.attempt_accounting.attempt_ordinal;
+  const recordPath = withdrawalRecordPath(seriesId, ordinal);
+  const allowedSignersPath = `${candidate.evidence.directory}/withdrawal-allowed-signers`;
+  const signaturePath = `${recordPath}.sig`;
+  return {
+    signaturePath,
+    install(tempRoot) {
+      const keyPath = join(tempRoot, '.withdrawal-test-key');
+      execFileSync('/usr/bin/ssh-keygen', [
+        '-q', '-t', 'ed25519', '-N', '', '-f', keyPath,
+      ]);
+      const [keyType, encodedKey] = readFileSync(`${keyPath}.pub`, 'utf8')
+        .trim()
+        .split(/\s+/u);
+      const allowedSigners = `FOUNDER namespaces="${WITHDRAWAL_NAMESPACE}" ${keyType} ${encodedKey}\n`;
+      const allowedSignersSha256 = sha256(allowedSigners);
+      const keyFingerprint = `SHA256:${createHash('sha256')
+        .update(Buffer.from(encodedKey, 'base64'))
+        .digest('base64')
+        .replace(/=+$/u, '')}`;
+      const record = {
+        schema_version: '1.0.0',
+        withdrawal_id: `${candidate.candidate_id}-withdrawal-r1`,
+        recorded_at: recordedAt,
+        target: {
+          candidate_id: candidate.candidate_id,
+          record_path: candidateRecordPath(seriesId, ordinal),
+          record_sha256: targetRecordSha256,
+          series_id: seriesId,
+          attempt_ordinal: ordinal,
+          authorization_evidence_path:
+            candidate.attempt_accounting.current_attempt.evidence_path,
+          authorization_evidence_sha256:
+            candidate.attempt_accounting.current_attempt.evidence_sha256,
+        },
+        observed_attempt: structuredClone(
+          candidate.attempt_accounting.current_attempt,
+        ),
+        decision: {
+          kind: 'WITHDRAW_UNUSED_AUTHORIZATION',
+          actor: 'CODEX_GOVERNOR',
+          scope: 'bounded_nonproduction_runtime_only',
+        },
+        external_packet_closure: {
+          mode: 'no_signed_packet_issued_attested',
+          assertion: 'no_signed_packet_issued_for_exact_target',
+          signer: 'FOUNDER',
+          namespace: WITHDRAWAL_NAMESPACE,
+          allowed_signers_path: allowedSignersPath,
+          allowed_signers_sha256: allowedSignersSha256,
+          signature_path: signaturePath,
+        },
+        effect: {
+          authorization_state: 'withdrawn',
+          effective_profile: 'HOLD',
+          series_state: 'closed',
+          objective_terminal: false,
+          runtime_credit: 'none',
+          authorization_reusable: false,
+          production_authority: 'none_founder_only',
+        },
+        rationale,
+        limitations: [
+          'No runtime, UAT, release, deployment or production credit.',
+        ],
+      };
+      mkdirSync(join(tempRoot, dirname(allowedSignersPath)), { recursive: true });
+      writeFileSync(join(tempRoot, allowedSignersPath), allowedSigners, 'utf8');
+      stableWriteJson(join(tempRoot, WITHDRAWAL_TRUST_PATH), {
+        schema: 'CYBRIK-UAT-RUNTIME-WITHDRAWAL-TRUST/v1',
+        signer: 'FOUNDER',
+        namespace: WITHDRAWAL_NAMESPACE,
+        key_type: keyType,
+        key_fingerprint: keyFingerprint,
+        allowed_signers_sha256: allowedSignersSha256,
+      });
+      stableWriteJson(join(tempRoot, recordPath), record);
+      execFileSync('/usr/bin/ssh-keygen', [
+        '-Y', 'sign', '-f', keyPath, '-n', WITHDRAWAL_NAMESPACE,
+        join(tempRoot, recordPath),
+      ], { stdio: 'ignore' });
+    },
+  };
+};
 
 test('exports include attempt_accounting in the candidate field contract', () => {
   assert.deepEqual(expectedRepositories, ['suite', 'soc', 'cyber_ai', 'tool_fabric']);
@@ -2277,6 +2375,120 @@ test('the registry cannot hold two independently authorized runtime candidates',
       ).length,
       0,
     );
+  });
+});
+
+test('a valid withdrawal frees the singleton without mutating the target record', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+  });
+  const second = baseCandidate({
+    seriesId: 'aaa-test-authorized-b',
+    ordinal: 1,
+  });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.equal(report.errors.length, 0);
+    const firstReport = report.candidates.find((candidateReport) => candidateReport.candidateId === first.candidate_id);
+    const secondReport = report.candidates.find((candidateReport) => candidateReport.candidateId === second.candidate_id);
+    assert.equal(firstReport.derivedDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(firstReport.effectiveDisposition, 'HOLD');
+    assert.equal(firstReport.authorizationState, 'withdrawn');
+    assert.equal(secondReport.effectiveDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(secondReport.authorizationState, 'active');
+  });
+});
+
+test('an invalid withdrawal fails closed and does not free the singleton', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+  });
+  const second = baseCandidate({
+    seriesId: 'aaa-test-authorized-b',
+    ordinal: 1,
+  });
+  const withdrawal = runtimeAuthorizationWithdrawal(first, {
+    targetRecordSha256: 'f'.repeat(64),
+  });
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('target_record_sha256 must match the recorded runtime-admission bytes'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate'),
+      ),
+    );
+    assert.equal(
+      report.candidates.filter(
+        (candidateReport) => candidateReport.effectiveDisposition === 'RUNTIME_AUTHORIZED',
+      ).length,
+      0,
+    );
+  });
+});
+
+test('a withdrawn runtime-authorization series cannot reopen under the same series id', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+    maxAttempts: 2,
+  });
+  const reopened = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 2,
+    maxAttempts: 2,
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  reopened.attempt_accounting.failure_history = [
+    {
+      candidate_id: first.candidate_id,
+      attempt_ordinal: 1,
+      executed_checks: 0,
+      passed_checks: 0,
+      failed_checks: 0,
+      evidence_path: first.attempt_accounting.current_attempt.evidence_path,
+      evidence_sha256: first.attempt_accounting.current_attempt.evidence_sha256,
+    },
+  ];
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, reopened] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('withdrawn runtime-authorization series cannot reopen under the same series_id'),
+      ),
+    );
+    assert.equal(report.candidates.find((candidateReport) => candidateReport.candidateId === reopened.candidate_id).derivedDisposition, 'HOLD');
+  });
+});
+
+test('an unsigned withdrawal cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    unlinkSync(join(tempRoot, withdrawal.signaturePath));
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal SSHSIG must verify against the pinned withdrawal trust')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
   });
 });
 
