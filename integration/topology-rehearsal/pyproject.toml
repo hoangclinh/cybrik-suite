@@ -1,0 +1,27 @@
+# Status: RED — TESTS ONLY — RUNNER NOT IMPLEMENTED.
+#
+# This project holds the executable specification (C7) of the topology-only rehearsal
+# runner described by
+# docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md
+# sections 7 and 8. The runner itself (C8) is not implemented, so every test here fails
+# closed on a missing-C8 guard. Nothing in this project authorizes a Docker effect, a
+# listener, a PostgreSQL RED attempt, UAT, demo, merge, release or production action.
+
+[project]
+name = "cybrik-suite-topology-rehearsal"
+version = "0.0.0"
+description = "Injection-only specification of the bounded topology-only rehearsal runner. Tests only; the runner is not implemented."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+test = [
+    "pytest==9.1.1",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
+testpaths = ["tests"]
