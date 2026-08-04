@@ -415,16 +415,22 @@ const readContainedRegularFile = (root, path, label, errors) => {
   }
 };
 
-const parseContainedJson = (root, path, label, errors) => {
+const readContainedJson = (root, path, label, errors) => {
   const bytes = readContainedRegularFile(root, path, label, errors);
   if (!bytes) return null;
   try {
-    return JSON.parse(bytes.toString('utf8'));
+    return {
+      bytes,
+      value: JSON.parse(bytes.toString('utf8')),
+    };
   } catch (error) {
     errors.push(`${label} must contain valid JSON: ${error.message}`);
     return null;
   }
 };
+
+const parseContainedJson = (root, path, label, errors) =>
+  readContainedJson(root, path, label, errors)?.value ?? null;
 
 const allowedSignerIdentity = (bytes, errors, path) => {
   let line;
@@ -467,6 +473,7 @@ const validateWithdrawalSignature = ({
   root,
   path,
   withdrawal,
+  recordBytes,
   errors,
 }) => {
   const closure = withdrawal.external_packet_closure;
@@ -480,12 +487,6 @@ const validateWithdrawalSignature = ({
     root,
     closure.signature_path,
     `${path}: withdrawal signature`,
-    errors,
-  );
-  const recordBytes = readContainedRegularFile(
-    root,
-    path,
-    `${path}: withdrawal record`,
     errors,
   );
   const trust = parseContainedJson(
@@ -1533,9 +1534,9 @@ const validateCandidateRegistry = (records) => {
 
 const validateWithdrawalRecord = ({
   root,
-  overrides,
   path,
   withdrawal,
+  recordBytes,
   withdrawalValidator,
   targetRecord,
   targetReport,
@@ -1605,9 +1606,9 @@ const validateWithdrawalRecord = ({
 
   validateWithdrawalSignature({
     root,
-    overrides,
     path,
     withdrawal,
+    recordBytes,
     errors,
   });
   return errors;
@@ -1733,13 +1734,19 @@ export async function validateRuntimeAdmission({
     if (path.split('/').length !== 5) {
       withdrawalErrors.push(`${path}: mislocated ${WITHDRAWAL_FILENAME}; expected docs/uat/candidates/<candidate-id>/${WITHDRAWAL_FILENAME}`);
     }
-    const withdrawal = parseJson(root, path, overrides, withdrawalErrors);
+    const withdrawalDocument = readContainedJson(
+      root,
+      path,
+      `${path}: withdrawal record`,
+      withdrawalErrors,
+    );
+    const withdrawal = withdrawalDocument?.value ?? null;
     if (withdrawal) {
       withdrawalErrors.push(...validateWithdrawalRecord({
         root,
-        overrides,
         path,
         withdrawal,
+        recordBytes: withdrawalDocument.bytes,
         withdrawalValidator,
         targetRecord,
         targetReport,

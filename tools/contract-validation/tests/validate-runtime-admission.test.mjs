@@ -2533,6 +2533,26 @@ test('a withdrawal whose signed bytes drift cannot free the singleton', async ()
   });
 });
 
+test('a symlinked withdrawal record is rejected before external JSON is parsed', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const relocatedPath = `${recordPath}.relocated`;
+    writeFileSync(relocatedPath, '{not-json', 'utf8');
+    unlinkSync(recordPath);
+    symlinkSync(relocatedPath, recordPath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal record must resolve to a contained non-symlink regular file')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
 test('withdrawal signer and trust drift cannot free the singleton', async () => {
   const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
   const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
@@ -2564,6 +2584,26 @@ test('withdrawal trust must retain the tracked master UAT signer identity', asyn
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) =>
       error.includes('withdrawal trust must retain the tracked master UAT signer identity')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a symlinked withdrawal trust descriptor cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const trustPath = join(tempRoot, WITHDRAWAL_TRUST_PATH);
+    const relocatedPath = `${trustPath}.relocated`;
+    writeFileSync(relocatedPath, readFileSync(trustPath));
+    unlinkSync(trustPath);
+    symlinkSync(relocatedPath, trustPath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal trust descriptor must resolve to a contained non-symlink regular file')));
     assert.ok(report.errors.some((error) =>
       error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
   });
