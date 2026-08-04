@@ -54,8 +54,13 @@ FORBIDDEN_LIBRARY_IMPORTS = frozenset(
 # The one status an authored C8 library module may declare. It is reviewed source and
 # nothing more: no module here has ever been run against Docker, a listener or a database.
 LIBRARY_STATUS = "Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`."
+# The project status is deliberately phase-independent. A line naming one lettered phase has
+# to be rewritten in lockstep with every slice that lands, and the failure mode of that is a
+# status that still names the phase before last — an overstatement of what is present dressed
+# as a pinned constant. "Partially present" stays exactly true from the first module until
+# the last, and the per-module inventory below is what says which ones those are.
 PROJECT_STATUS = (
-    "Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — "
+    "Status: BOUNDED C8 LIBRARY CORE PARTIALLY PRESENT — LATER C8 MODULES RED — "
     "NO RUNTIME AUTHORITY."
 )
 # Standings this specification cannot evidence. A module that claimed one would present
@@ -64,13 +69,12 @@ UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b
 
 # The exact sentences the package front door must carry. They are pinned rather than
 # paraphrased so a later edit cannot soften the absence back into an implied whole runner.
-FRONT_DOOR_BOUNDED_CLAIM = "Only the bounded C8-A core is present"
+FRONT_DOOR_BOUNDED_CLAIM = "Only part of the bounded C8 library core is present"
 FRONT_DOOR_ABSENCE_CLAIM = "remain absent, and their tests stay RED"
 FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
-# The modules absent while C8-A is the whole implemented core. Stated here so the front-door
-# control fails if one lands without the front door being brought back into line.
+# The modules still absent. Stated here so the front-door control fails if one lands without
+# the front door being brought back into line.
 FRONT_DOOR_ABSENT_MODULES = (
-    "observe",
     "grant",
     "preparation",
     "admission",

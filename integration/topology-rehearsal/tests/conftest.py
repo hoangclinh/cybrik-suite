@@ -1,9 +1,9 @@
 """Shared mixed-lifecycle harness for the topology-only rehearsal runner specification.
 
-Status: C8-A BOUNDED LIBRARY CORE PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
+Status: BOUNDED C8 LIBRARY CORE PARTIALLY PRESENT — LATER C8 MODULES RED — NO RUNTIME AUTHORITY.
 
 Every test states final C8 behaviour. `load_c8` / `require_c8_path` transparently load the
-present C8-A core and fail later absent modules with an exact, non-skipping reason. Tests may
+modules that are present and fail the absent ones with an exact, non-skipping reason. Tests may
 import the injection-only adapters but never open a socket, spawn a process or touch Docker;
 the autouse `forbid_real_io` tripwire turns any such attempt into a test failure.
 """
