@@ -10,7 +10,7 @@ import {
   expectedCandidateFields,
   expectedRepositories,
   isMainModule,
-  validateRuntimeAdmission,
+  validateRuntimeAdmission as validateRuntimeAdmissionRaw,
 } from '../validate-runtime-admission.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
@@ -25,6 +25,33 @@ const stableWriteJson = (path, value) =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const committedLineagePolicy = () => JSON.parse(read(LINEAGE_POLICY_PATH));
+// Every temp repo is seeded with the committed legacy candidates and sealed
+// predecessors, so candidate-file counts are relative to that seeded floor.
+const seededCandidateCount = () => {
+  const policy = committedLineagePolicy();
+  return policy.legacy_candidates.length + policy.sealed_predecessors.length;
+};
+const validateRuntimeAdmission = async (options = {}) => {
+  if (options.root && options.root !== ROOT && !Object.hasOwn(
+    options,
+    'pinnedLineagePolicy',
+  )) {
+    let policy = { allowed_objectives: [], sealed_predecessors: [] };
+    try {
+      policy = JSON.parse(readFileSync(resolve(options.root, LINEAGE_POLICY_PATH), 'utf8'));
+    } catch {
+      // Invalid-policy tests still supply explicit empty pins rather than self-pinning in code.
+    }
+    return validateRuntimeAdmissionRaw({
+      ...options,
+      pinnedLineagePolicy: {
+        allowed_objectives: policy.allowed_objectives ?? [],
+        sealed_predecessors: policy.sealed_predecessors ?? [],
+      },
+    });
+  }
+  return validateRuntimeAdmissionRaw(options);
+};
 
 const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
 const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
@@ -401,7 +428,10 @@ const withTempRepo = async ({
   try {
     mkdirSync(join(tempRoot, 'docs/uat/candidates'), { recursive: true });
     mkdirSync(join(tempRoot, 'docs/uat/templates'), { recursive: true });
-    for (const entry of committedLineagePolicy().legacy_candidates) {
+    for (const entry of [
+      ...committedLineagePolicy().legacy_candidates,
+      ...committedLineagePolicy().sealed_predecessors,
+    ]) {
       const sourceDir = resolve(ROOT, dirname(entry.record_path));
       cpSync(sourceDir, join(tempRoot, dirname(entry.record_path)), {
         recursive: true,
@@ -409,6 +439,9 @@ const withTempRepo = async ({
     }
     const records = [
       ...committedLineagePolicy().legacy_candidates.map((entry) =>
+        JSON.parse(read(entry.record_path)),
+      ),
+      ...committedLineagePolicy().sealed_predecessors.map((entry) =>
         JSON.parse(read(entry.record_path)),
       ),
       ...candidates,
@@ -490,40 +523,40 @@ const lineagePolicyFor = (candidates, {
   objectiveId = 'bounded-postgres-runtime-v1',
 } = {}) => {
   const policy = committedLineagePolicy();
-  policy.allowed_objectives = [
-    ...policy.allowed_objectives,
+  const allowedByKey = new Map(policy.allowed_objectives.map((entry) => [
+    `${entry.capability_id}\u0000${entry.objective_id}`,
     {
-      capability_id: capabilityId,
-      objective_id: objectiveId,
+      ...entry,
+      allowed_series_ids: new Set(entry.allowed_series_ids),
     },
-    {
-      capability_id: 'cybrik.suite.golden-workflow',
-      objective_id: 'golden-uat-v1',
-    },
-  ];
-  policy.allowed_objectives = [...new Map(policy.allowed_objectives.map(
-    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
-  )).values()];
-  return policy;
-};
-
-const lineagePolicyForCurrentCandidates = (candidates) => {
-  const policy = committedLineagePolicy();
-  const allowedByKey = new Map(policy.allowed_objectives.map(
-    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
-  ));
+  ]));
+  const ensureObjective = (capability, objective) => {
+    const key = `${capability}\u0000${objective}`;
+    if (!allowedByKey.has(key)) {
+      allowedByKey.set(key, {
+        capability_id: capability,
+        objective_id: objective,
+        allowed_series_ids: new Set(),
+      });
+    }
+    return allowedByKey.get(key);
+  };
+  ensureObjective(capabilityId, objectiveId);
   for (const candidate of candidates) {
     const lineage = candidate.attempt_accounting.objective_lineage;
     if (!lineage) continue;
-    const key = `${lineage.capability_id}\u0000${lineage.objective_id}`;
-    allowedByKey.set(key, {
-      capability_id: lineage.capability_id,
-      objective_id: lineage.objective_id,
-    });
+    ensureObjective(lineage.capability_id, lineage.objective_id)
+      .allowed_series_ids.add(candidate.attempt_accounting.series_id);
   }
-  policy.allowed_objectives = [...allowedByKey.values()];
+  policy.allowed_objectives = [...allowedByKey.values()].map((entry) => ({
+    capability_id: entry.capability_id,
+    objective_id: entry.objective_id,
+    allowed_series_ids: [...entry.allowed_series_ids].sort(),
+  }));
   return policy;
 };
+
+const lineagePolicyForCurrentCandidates = (candidates) => lineagePolicyFor(candidates);
 
 const historicalPrerequisite = (candidate) => ({
   candidate_id: candidate.candidate_id,
@@ -564,6 +597,151 @@ const topologyPrerequisite = ({
   evidence_manifest_sha256: manifestSha256,
   evidence_use: evidenceUse,
 });
+
+// Builds the single closed TOPOLOGY_PASS rehearsal record the dedicated policy
+// permits, in the exact shape docs/uat/topology-rehearsal.schema.json requires,
+// plus the artifact bytes its digests are taken over.
+const closedTopologyRehearsal = () => {
+  const diagnosisContent = '# bounded loopback topology diagnosis\n';
+  const reviewContent = '# independent review of the bounded topology plan\n';
+  const grantContent = '# founder grant for one bounded topology rehearsal\n';
+  const signatureContent =
+    '-----BEGIN SSH SIGNATURE-----\nsynthetic-detached-sshsig\n-----END SSH SIGNATURE-----\n';
+  const resultContent =
+    '# TOPOLOGY_PASS: 127.0.0.1:15433 reachable, internal-only, torn down\n';
+  const resultReviewContent = '# local review of the closed topology result\n';
+  const manifestValue = {
+    schema_version: '1.0.0',
+    record_id: 'postgres-loopback-internal-v1-r1',
+    external_bytes_ci_verified: false,
+    locally_verified: true,
+    result_sha256: sha256(resultContent),
+  };
+  const manifestContent = stableJson(manifestValue);
+
+  const prerequisite = topologyPrerequisite({
+    resultSha256: sha256(resultContent),
+    manifestSha256: sha256(manifestContent),
+  });
+  const directory = dirname(prerequisite.result_path);
+  const artifactFiles = [
+    { kind: 'diagnosis', path: `${directory}/01-diagnosis.md`, content: diagnosisContent },
+    {
+      kind: 'independent_review',
+      path: `${directory}/02-independent-review.md`,
+      content: reviewContent,
+    },
+    { kind: 'grant', path: `${directory}/03-grant.md`, content: grantContent },
+    {
+      kind: 'authorization_signature',
+      path: `${directory}/03-grant.md.sig`,
+      content: signatureContent,
+    },
+    { kind: 'result', path: prerequisite.result_path, content: resultContent },
+    {
+      kind: 'evidence_manifest',
+      path: prerequisite.evidence_manifest_path,
+      content: manifestContent,
+    },
+    {
+      kind: 'result_review',
+      path: `${directory}/04-result-review.md`,
+      content: resultReviewContent,
+    },
+  ];
+  const artifacts = artifactFiles.map((artifact) => ({
+    kind: artifact.kind,
+    path: artifact.path,
+    sha256: sha256(artifact.content),
+  }));
+  const grantArtifact = artifacts.find((artifact) => artifact.kind === 'grant');
+  const signatureArtifact = artifacts.find(
+    (artifact) => artifact.kind === 'authorization_signature',
+  );
+
+  const record = {
+    schema_version: '1.0.0',
+    record_id: prerequisite.record_id,
+    recorded_at: '2026-08-03T00:00:00Z',
+    identity: {
+      capability_id: prerequisite.capability_id,
+      objective_id: prerequisite.objective_id,
+    },
+    attempt: {
+      series_id: 'postgres-loopback-internal-v1',
+      attempt_ordinal: 1,
+      max_attempts: 1,
+      phase: 'closed',
+      execution_authorized: false,
+      attempt_consumed: true,
+      outcome: 'TOPOLOGY_PASS',
+    },
+    topology: {
+      host_ip: '127.0.0.1',
+      host_port: 15433,
+      container_port: 5432,
+      internal_network: true,
+      runtime_limit_seconds: 180,
+      extension_cycles: 0,
+      probe: {
+        executable_path: '/usr/bin/nc',
+        executable_sha256: '4'.repeat(64),
+        argv: ['-z', '-w', '5', '127.0.0.1', '15433'],
+      },
+    },
+    production_exclusion: {
+      no_production_credentials: true,
+      no_production_configuration: true,
+      no_production_data: true,
+      no_production_traffic: true,
+    },
+    authorization: {
+      signer: 'FOUNDER',
+      namespace: 'cybrik-uat-topology-rehearsal-v1',
+      grant_path: grantArtifact.path,
+      grant_sha256: grantArtifact.sha256,
+      signature_path: signatureArtifact.path,
+      signature_sha256: signatureArtifact.sha256,
+      allowed_signers_path: 'docs/uat/topology-rehearsal-allowed-signers',
+      allowed_signers_sha256: sha256(read('docs/uat/topology-rehearsal-allowed-signers')),
+      trust_path: 'docs/uat/topology-rehearsal-authorization-trust.json',
+    },
+    evidence: {
+      directory,
+      external_bytes_ci_verified: false,
+      artifacts,
+      result_controls: {
+        teardown_verified: true,
+        residual_resources: 0,
+        external_manifest_locally_verified: true,
+      },
+    },
+    disposition: {
+      profile: 'HOLD',
+      rationale:
+        'Bounded topology-only rehearsal closed with its single attempt consumed; it authorizes no runtime execution.',
+    },
+  };
+
+  return {
+    prerequisite,
+    record,
+    extraWrites: [
+      ...artifactFiles.map((artifact) => ({
+        kind: 'text',
+        dir: directory,
+        path: artifact.path,
+        value: artifact.content,
+      })),
+      {
+        kind: 'json',
+        dir: directory,
+        path: `${directory}/topology-rehearsal.json`,
+        value: record,
+      },
+    ],
+  };
+};
 
 const runtimeAuthorizationWithdrawal = (
   candidate,
@@ -871,6 +1049,40 @@ test('topology prerequisite bytes cannot be promoted into runtime execution evid
   });
 });
 
+test('a future successor citing the sealed predecessor and a closed topology rehearsal validates clean', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-successor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topology.prerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
+    const successor = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 1),
+    );
+    assert.equal(successor.declaredDisposition, 'HOLD');
+    assert.equal(successor.derivedDisposition, 'HOLD');
+  });
+});
+
 test('standalone validator rejects any attempt to grandfather a fourth legacy candidate', async () => {
   const policy = JSON.parse(read(LINEAGE_POLICY_PATH));
   policy.legacy_candidates.push({
@@ -928,7 +1140,7 @@ test('candidate discovery still validates only docs/uat/candidates/*/runtime-adm
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 4);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
     assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
 });
@@ -977,7 +1189,7 @@ test('valid retired R1 NO-GO and authorized R2 patterns validate together', asyn
     writeFileSync(join(tempRoot, r1AttemptPath), r1AttemptContent, 'utf8');
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 5);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 2);
     const byId = new Map(report.candidates.map((candidateReport) => [candidateReport.candidateId, candidateReport]));
     assert.equal(byId.get(candidateId(seriesId, 1)).declaredDisposition, 'NO-GO');
     assert.equal(byId.get(candidateId(seriesId, 1)).derivedDisposition, 'NO-GO');
@@ -1901,7 +2113,7 @@ test('mislocated runtime-admission records fail closed while unrelated candidate
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('mislocated runtime-admission.json')));
-    assert.equal(report.counts.candidateFiles, 4);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
   });
 });
 
@@ -2941,7 +3153,7 @@ test('a new series must declare objective lineage when terminal legacy records e
     disposition: 'HOLD',
   });
   delete future.attempt_accounting.objective_lineage;
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2970,7 +3182,7 @@ test('a new series cannot reopen a terminal capability objective under another n
       historicalPrerequisite(terminal.r3),
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -3002,7 +3214,7 @@ test('historical prerequisite evidence can never be promoted to execution author
       },
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -3031,7 +3243,7 @@ test('a distinct future objective may cite terminal R3 only as historical prereq
       historicalPrerequisite(terminal.r3),
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -3068,7 +3280,7 @@ test('a new current attempt cannot reuse bytes accounted by a historical prerequ
       sha256: prerequisite.evidence_sha256,
     },
   ];
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -3129,7 +3341,13 @@ test('a terminal future objective cannot be reopened by another future series', 
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, terminalFuture, reopened],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([
+      legacy.r1,
+      legacy.r2,
+      legacy.r3,
+      terminalFuture,
+      reopened,
+    ]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) =>
@@ -3156,6 +3374,8 @@ test('self-declared capability and objective aliases must be registered by polic
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, alias],
     extraWrites: legacy.extraWrites,
+    // The alias is deliberately excluded so its self-declared objective stays
+    // unregistered in allowed_objectives.
     lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
@@ -3188,7 +3408,7 @@ test('duplicate and drifted historical prerequisites fail closed', async () => {
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, future],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
@@ -3205,7 +3425,7 @@ test('duplicate and drifted historical prerequisites fail closed', async () => {
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, future],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
@@ -3263,7 +3483,7 @@ test('malformed policy and non-NO-GO legacy enrollment fail closed', async () =>
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
-      'must contain exactly schema_version, allowed_objectives and legacy_candidates',
+      'must contain exactly schema_version, allowed_objectives, legacy_candidates and sealed_predecessors',
     )));
   });
 
@@ -3309,7 +3529,7 @@ test('undeclared cross-series byte reuse is rejected registry-wide', async () =>
         value: 'attempt 3\n',
       },
     ],
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
