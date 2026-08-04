@@ -1809,44 +1809,55 @@ const validateLineagePolicy = ({
       const binding = evaluateTopologyBinding(root, topologyPrerequisite);
       for (const message of binding.messages) addFinding(record.path, message);
       if (binding.ok) {
-        const topologyRecord = binding.record;
+        // The binding proves only that these are the pinned bytes, not that they
+        // carry the expected shape, so the record and its artifact list are
+        // untrusted structure until proven otherwise.
+        const topologyRecord = isPlainObject(binding.record) ? binding.record : null;
+        const topologyArtifacts = Array.isArray(topologyRecord?.evidence?.artifacts)
+          ? topologyRecord.evidence.artifacts
+          : null;
         if (
-          topologyRecord.identity?.capability_id !== topologyPrerequisite.capability_id
-          || topologyRecord.identity?.objective_id !== topologyPrerequisite.objective_id
-          || topologyRecord.attempt?.phase !== 'closed'
-          || topologyRecord.attempt?.outcome !== 'TOPOLOGY_PASS'
-          || topologyRecord.attempt?.execution_authorized !== false
-          || topologyRecord.evidence?.external_bytes_ci_verified !== false
-          || topologyRecord.evidence?.result_controls?.external_manifest_locally_verified !== true
+          !topologyArtifacts
+          || topologyRecord?.identity?.capability_id !== topologyPrerequisite.capability_id
+          || topologyRecord?.identity?.objective_id !== topologyPrerequisite.objective_id
+          || topologyRecord?.attempt?.phase !== 'closed'
+          || topologyRecord?.attempt?.outcome !== 'TOPOLOGY_PASS'
+          || topologyRecord?.attempt?.execution_authorized !== false
+          || topologyRecord?.evidence?.external_bytes_ci_verified !== false
+          || topologyRecord?.evidence?.result_controls?.external_manifest_locally_verified !== true
         ) {
           addFinding(
             record.path,
             'topology_prerequisite must resolve to a closed non-authorizing TOPOLOGY_PASS record',
           );
         }
-        const resultArtifact = topologyRecord.evidence?.artifacts?.find(
-          (artifact) => artifact.kind === 'result',
-        );
-        const manifestArtifact = topologyRecord.evidence?.artifacts?.find(
-          (artifact) => artifact.kind === 'evidence_manifest',
-        );
-        if (
-          resultArtifact?.path !== topologyPrerequisite.result_path
-          || resultArtifact?.sha256 !== topologyPrerequisite.result_sha256
-        ) {
-          addFinding(
-            record.path,
-            'topology_prerequisite result path and digest must match the committed topology record',
+        // A record with no readable artifact list has already been reported
+        // above; re-reporting each cited artifact against it adds no signal.
+        if (topologyArtifacts) {
+          const resultArtifact = topologyArtifacts.find(
+            (artifact) => isPlainObject(artifact) && artifact.kind === 'result',
           );
-        }
-        if (
-          manifestArtifact?.path !== topologyPrerequisite.evidence_manifest_path
-          || manifestArtifact?.sha256 !== topologyPrerequisite.evidence_manifest_sha256
-        ) {
-          addFinding(
-            record.path,
-            'topology_prerequisite evidence manifest must match the committed topology record',
+          const manifestArtifact = topologyArtifacts.find(
+            (artifact) => isPlainObject(artifact) && artifact.kind === 'evidence_manifest',
           );
+          if (
+            resultArtifact?.path !== topologyPrerequisite.result_path
+            || resultArtifact?.sha256 !== topologyPrerequisite.result_sha256
+          ) {
+            addFinding(
+              record.path,
+              'topology_prerequisite result path and digest must match the committed topology record',
+            );
+          }
+          if (
+            manifestArtifact?.path !== topologyPrerequisite.evidence_manifest_path
+            || manifestArtifact?.sha256 !== topologyPrerequisite.evidence_manifest_sha256
+          ) {
+            addFinding(
+              record.path,
+              'topology_prerequisite evidence manifest must match the committed topology record',
+            );
+          }
         }
       }
       for (const [artifactPath, artifactSha256, label] of [
