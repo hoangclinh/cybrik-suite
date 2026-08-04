@@ -14,6 +14,13 @@ unresolved control read as a satisfied one.
 
 `Adapters` is the complete injected surface, frozen so that no phase of a single attempt can
 swap a port out from under a later phase.
+
+`__all__` is the curated *seam* surface — the ports, the bundle and the result type — and
+nothing else. The result plumbing below (`normalized_result`, `succeeded`, `decoded`,
+`lines`, `residual_names`, `decoded_listener`, `verified`, `require_port` and
+`require_exact`) is deliberately absent from it. Those are shared implementation that
+`adapter` imports by name, not part of the boundary a reviewer or a substitute has to
+satisfy; exporting them would present package plumbing as contract.
 """
 
 from __future__ import annotations
@@ -80,8 +87,18 @@ def require_exact(label: str, observed: object, expected: object) -> None:
         raise ValueError(f"{label}: {observed!r} is not the reviewed {expected!r}")
 
 
-def succeeded(effect: str, result: object) -> str:
-    """Return stdout only for a structurally valid zero-status command result."""
+def normalized_result(result: object) -> CommandResult | None:
+    """Return one structurally valid command result, or `None` when it is malformed.
+
+    Every decoder below reads a result it did not construct: it arrives through the injected
+    runner, so its shape is never guaranteed. Deciding that question once, here, keeps every
+    decoder's answer to a malformed reading identical instead of leaving each one to trip
+    over a different missing attribute and raise out of a seam whose contract is `None`.
+
+    `bool` is refused deliberately. `True` is an `int` in Python, so a truthy flag handed
+    back instead of a status would compare equal to the failure status 1 and be decoded as
+    a real reading.
+    """
     returncode = getattr(result, "returncode", None)
     stdout = getattr(result, "stdout", None)
     stderr = getattr(result, "stderr", None)
@@ -90,36 +107,71 @@ def succeeded(effect: str, result: object) -> str:
         or not isinstance(stdout, str)
         or not isinstance(stderr, str)
     ):
+        return None
+    return CommandResult(returncode=returncode, stdout=stdout, stderr=stderr)
+
+
+def succeeded(effect: str, result: object) -> str:
+    """Return stdout only for a structurally valid zero-status command result.
+
+    This is the mutation path, so a reading that is not a clean success is refused out loud
+    with its own reason rather than going quietly unresolved: a create, start or remove that
+    did not happen must not be recoverable as an absent observation.
+    """
+    observed = normalized_result(result)
+    if observed is None:
         raise ValueError(f"{effect}: the command result is malformed: {result!r}")
-    if returncode == UNRESOLVED_RETURNCODE:
+    if observed.returncode == UNRESOLVED_RETURNCODE:
         raise ValueError(f"{effect}: the command is unresolved — it never ran")
-    if returncode < 0:
-        raise ValueError(f"{effect}: the command was killed by signal {-returncode}")
-    if returncode != SUCCESS_RETURNCODE:
+    if observed.returncode < 0:
         raise ValueError(
-            f"{effect}: the command failed with status {returncode}: {stderr.strip()}"
+            f"{effect}: the command was killed by signal {-observed.returncode}"
         )
-    return stdout.strip()
+    if observed.returncode != SUCCESS_RETURNCODE:
+        raise ValueError(
+            f"{effect}: the command failed with status {observed.returncode}: "
+            f"{observed.stderr.strip()}"
+        )
+    return observed.stdout.strip()
 
 
-def decoded(result: CommandResult) -> Any:
+def decoded(result: object) -> Any:
     """Return one JSON projection, or `None` when it did not resolve."""
-    if result.returncode != SUCCESS_RETURNCODE or not result.stdout.strip():
+    observed = normalized_result(result)
+    if observed is None or observed.returncode != SUCCESS_RETURNCODE:
+        return None
+    payload = observed.stdout.strip()
+    if not payload:
         return None
     try:
-        return json.loads(result.stdout.strip())
+        return json.loads(payload)
     except ValueError:
         return None
 
 
-def lines(result: CommandResult) -> tuple[str, ...] | None:
+def lines(result: object) -> tuple[str, ...] | None:
     """Return non-empty lines, or `None` when the command did not resolve."""
-    if result.returncode != SUCCESS_RETURNCODE:
+    observed = normalized_result(result)
+    if observed is None or observed.returncode != SUCCESS_RETURNCODE:
         return None
-    return tuple(line.strip() for line in result.stdout.splitlines() if line.strip())
+    return tuple(line.strip() for line in observed.stdout.splitlines() if line.strip())
 
 
-def residual_names(result: CommandResult) -> tuple[str, ...] | None:
+def verified(result: object) -> bool | None:
+    """Return a signature verdict only for a verification that actually ran to a status.
+
+    `False` is the signer's own refusal: the command executed, read the bound bytes and
+    rejected them. A malformed result, the unresolved sentinel, a timeout and a signal death
+    are all commands that produced no verdict at all, and reporting one of them as a refusal
+    would send a reader after a bad signature when the remedy is to verify again.
+    """
+    observed = normalized_result(result)
+    if observed is None or observed.returncode < 0:
+        return None
+    return observed.returncode == SUCCESS_RETURNCODE
+
+
+def residual_names(result: object) -> tuple[str, ...] | None:
     """Decode one residual projection as JSON strings, failing closed."""
     observed = lines(result)
     if observed is None:

@@ -392,8 +392,8 @@ def teardown_command_table(
 
     Every kind the plan creates has its own residual projection. A teardown proof that could
     only see containers would report a leaked network or volume as a clean host, and each of
-    the three is exactly as much residue as the others. Each projection is filtered to this
-    attempt's own derived name, so no observation can ever describe another attempt.
+    the three is exactly as much residue as the others. Name filters may conservatively
+    over-match, but can never hide residue belonging to this attempt.
     """
     return {
         "docker:remove_container": (

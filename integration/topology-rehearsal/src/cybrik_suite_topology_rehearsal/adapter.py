@@ -47,10 +47,12 @@ from .protocols import (
     decoded,
     decoded_listener,
     lines,
+    normalized_result,
     require_exact,
     require_port,
     residual_names,
     succeeded,
+    verified,
 )
 
 __all__ = [  # noqa: RUF022 - repository contract requires Python lexical order
@@ -260,8 +262,10 @@ class ControlIdentityCommandAdapter(ControlIdentitySource):
             commit, tree, status = control_effects(repository)
             commit_lines = lines(self._run(commit))
             tree_lines = lines(self._run(tree))
-            status_result = self._run(status)
-            if not commit_lines or not tree_lines or status_result.returncode != 0:
+            status_result = normalized_result(self._run(status))
+            if not commit_lines or not tree_lines or status_result is None:
+                return None
+            if status_result.returncode != SUCCESS_RETURNCODE:
                 return None
             observed[repository] = {
                 "commit": commit_lines[0],
@@ -309,7 +313,9 @@ class HostCommandAdapter(HostObservationSource):
         also exits 1 when it could not look, so only a silent status 1 is a real absence.
         """
         require_exact("port", port, self._plan.host_port)
-        result = self._run(bound_effect("observe_listeners"))
+        result = normalized_result(self._run(bound_effect("observe_listeners")))
+        if result is None:
+            return None
         if result.returncode == LISTENER_ABSENT_RETURNCODE:
             silent = not result.stdout.strip() and not result.stderr.strip()
             return () if silent else None
@@ -485,7 +491,9 @@ class ProbeCommandAdapter(ProbePort):
         """
         require_exact("executable", executable, self._plan.probe_executable_path)
         require_exact("argv", tuple(argv), self._plan.host_probe[1:])
-        result = self._run(bound_effect("probe"))
+        result = normalized_result(self._run(bound_effect("probe")))
+        if result is None:
+            return None
         if result.returncode == SUCCESS_RETURNCODE:
             return PROBE_REACHABLE
         if result.returncode == PROBE_REFUSED_RETURNCODE:
@@ -528,19 +536,11 @@ class SshSignatureCommandAdapter(SignatureVerifier):
         after = bounded_file_bytes(self._plan.signature_path, SIGNATURE_MAX_BYTES)
         if after != before:
             return None
-        return result.returncode == SUCCESS_RETURNCODE
+        return verified(result)
 
 
 class CredentialFileAdapter(CredentialPort):
-    """Temporary credential material owned by one attempt and by one user only.
-
-    Creation is exclusive and refuses to follow a symlink, so a pre-created path cannot
-    capture the material, and the file is flushed before the handle is reported.
-
-    The adapter is bound to the reviewed plan, not a bare directory, so the path it writes
-    is the one the reviewed container argv mounts. A separately supplied directory could
-    drift from it without either spelling looking wrong on its own.
-    """
+    """Exclusive, no-follow credential material bound to the reviewed plan path."""
 
     def __init__(self, plan: TopologyPlan) -> None:
         require_port("plan", plan, TopologyPlan)
@@ -548,8 +548,7 @@ class CredentialFileAdapter(CredentialPort):
 
     def create(self, *, name: str) -> str:
         path = self._credential_path(name)
-        # The parent is judged before the file exists. A refusal issued afterwards would
-        # already have written credential material into the untrusted directory.
+        # Judge the parent before any credential byte can reach it.
         self._require_trusted_parent(path)
         handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
         try:
@@ -693,7 +692,7 @@ class AtomicFileAttemptLedger(AttemptLedger):
         return os.path.dirname(self._path) or os.curdir
 
     def _acquire(self, pending: str) -> int:
-        """Exclusive hold on the pending ledger, waiting out a consumption in flight."""
+        """Try briefly for an exclusive hold; preserve and refuse a recent live hold."""
         for _ in range(LEDGER_LOCK_ATTEMPTS):
             if self._reclaimable(pending):
                 handle = self._create_pending(pending)
