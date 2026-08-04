@@ -1,10 +1,10 @@
-# G-U2B replay-state contract acceptance
+# G-U2B replay-state contract R1.1 acceptance
 
 Status: `ACCEPTED — CONTRACT ONLY — OPENS BOUNDED TDD RED ONLY`.
 
 Prepared and accepted by: delegated technical governor under the active Founder delegation.
 
-Prepared and accepted at: `2026-08-04T10:14:25+07:00`.
+R1.1 erratum re-accepted at: `2026-08-04T12:00:26+07:00`.
 
 Release dates: unchanged. Runtime/demo/UAT: `HOLD`. Production authority: Founder only.
 
@@ -48,21 +48,21 @@ Repository: `cybrik-soc-command-center`.
 | Property | Exact value |
 |---|---|
 | Branch | `codex/uat-browser-g-u2b-data-boundary-r1` |
-| Commit | `fbad9cf95f4a8466046ca3336b36e15b812b3901` |
-| Tree | `d03ac589468643243e6ac110db5fcee59cbe3da8` |
-| Parent | `1114aadd98adadb31115758c06e629537b6c9a50` |
-| Commit subject | `docs: repair G-U2B replay state contract` |
+| Commit | `3e1e84db1d94961a026d485cbea2a29a795851a7` |
+| Tree | `c1ffb8242f1048791a476169d6c968a7cd267c73` |
+| Parent | `fbad9cf95f4a8466046ca3336b36e15b812b3901` |
+| Commit subject | `docs: clarify pre-bind alert mismatch state` |
 | Hosted ref at acceptance | exact commit above |
 | Hosted check runs / legacy statuses | `0 / 0`; no hosted-green claim |
 | Proposal path | `docs/architecture/INTEGRATED-INVESTIGATION-REPLAY-STATE-G-U2B-R1.md` |
-| Git blob | `2d8a4aaf96312cfcdc83286a37454d83149c0658` |
-| Bytes | `48177` |
-| SHA-256 | `9d30716194fbd72fcce732359337d54a2b4c19f78db188234406c44cda169974` |
-| Committed scope | exactly the proposal plus `docs/architecture/INDEX.md` |
+| Git blob | `c11629738b0d20cf44be4498e7252a48dfb09b75` |
+| Bytes | `49436` |
+| SHA-256 | `bcb33a3d6abcac4e51ea48aa1275009cc51a698e306daaebc8862be6503d8f6a` |
+| Committed scope | exactly the one proposal path for the bounded R1.1 erratum |
 | Worktree after commit | clean |
 
-`git diff --cached --check` passed. `gitleaks git --staged --redact --no-banner` scanned `48.47 KB`
-of staged content and reported no leaks.
+`git diff --cached --check` passed. `gitleaks git --staged --no-banner` scanned `2.30 KB` of staged
+erratum content and reported no leaks.
 The branch was pushed and `git ls-remote` resolved its hosted ref to the exact accepted commit. A
 later branch tip is not accepted implicitly; the commit, tree, blob and SHA-256 above are authority.
 
@@ -92,6 +92,9 @@ The following decisions are normative for the next RED packet:
    otherwise-identical session rotation therefore does not create a false 409.
 4. `alert_investigation_bindings` is created at T1 only after a live target read. It owns the exact
    parent alert FK, authoritative context and restrictive parent-alert tenant+org FORCE RLS.
+   A requested/authoritative alert-ID mismatch before valid T1 binding follows the existing closed
+   target-refusal path to binding-free `retryable`, non-disclosing 404 and no upstream call. Only
+   context drift while recovering an already valid `bound` record tombstones binding plus envelope.
 5. `cybrik_app` has no direct table privileges. Narrow `SECURITY DEFINER` functions require an exact
    `NOLOGIN NOBYPASSRLS` executor, `pg_catalog`-only search path, schema-qualified objects, PUBLIC
    revocation and real-role PostgreSQL proof.
@@ -132,8 +135,10 @@ for composite child FKs. This is contract text, not migration authorization.
 
 ## 5. Review chronology
 
-All Claude reviews used the explicit Work pool, Opus and 1DevTool. Counts are `P0/P1/P2/P3`, not a
-generic severity translation.
+The original R1 Claude reviews used the explicit Work pool, Opus and 1DevTool. Counts are
+`P0/P1/P2/P3`, not a generic severity translation. The bounded R1.1 erratum received a separate
+independent Codex architecture/security re-review with `0/0/0/0`; it has no Claude run ID and is
+therefore not added to the historical 1DevTool metadata JSON.
 
 The durable metadata snapshot is `G-U2B-REVIEW-RUN-METADATA.json`, `2625` bytes, SHA-256
 `523a7b55c857cb5fdbd180efd8cebff90708831a24a121dab512166ce2b0385f`. It pins each local
@@ -159,14 +164,17 @@ The final focused Opus review closed the remaining three proposal P3 wording/con
 and introduced no new finding. An additional internal advisory review reached the same result but
 had no durable run identity, so it is not counted as portable acceptance evidence.
 
+The R1.1 re-review independently confirmed that binding-free `retryable` removes the pre-bind
+alert-ID mismatch contradiction without adding a public state/token/route or weakening parent RLS.
+
 ## 6. Gate decision
 
 Under delegated technical governor authority:
 
 > **ACCEPT** the proposal at SOC commit
-> `fbad9cf95f4a8466046ca3336b36e15b812b3901`, blob
-> `2d8a4aaf96312cfcdc83286a37454d83149c0658`, SHA-256
-> `9d30716194fbd72fcce732359337d54a2b4c19f78db188234406c44cda169974`,
+> `3e1e84db1d94961a026d485cbea2a29a795851a7`, blob
+> `c11629738b0d20cf44be4498e7252a48dfb09b75`, SHA-256
+> `bcb33a3d6abcac4e51ea48aa1275009cc51a698e306daaebc8862be6503d8f6a`,
 > as the single normative G-U2B replay/`0026` contract repair, with `0024` amended only by
 > `UNIQUE (tenant_id, id)` on `alerts`.
 
