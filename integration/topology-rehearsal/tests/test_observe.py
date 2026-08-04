@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import ast
 import dataclasses
+from types import MappingProxyType
 
 import documents
 import fakes
 import pytest
-from conftest import load_c8, require_c8_attr
+from conftest import PACKAGE, SRC, load_c8, require_c8_attr
+
+# The names of the one decoded listener record's keys. They are read off the protocol
+# boundary rather than spelled here, so this suite cannot itself become the second place a
+# listener key is typed.
+LISTENER_RECORD_KEY_NAMES = (
+    "LISTENER_ADDRESS_KEY",
+    "LISTENER_PORT_KEY",
+    "LISTENER_PROTOCOL_KEY",
+)
 
 
 @pytest.fixture(name="observe")
@@ -20,8 +31,24 @@ def errors_module():
     return load_c8("errors")
 
 
+@pytest.fixture(name="protocols")
+def protocols_module():
+    return load_c8("protocols")
+
+
 def call(observe, name: str, *args, **kwargs):
     return require_c8_attr(observe, name)(*args, **kwargs)
+
+
+def string_constants(module: str) -> tuple[str, ...]:
+    """Every string literal an authored module types, read from its own source."""
+    path = SRC / PACKAGE / f"{module}.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return tuple(
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    )
 
 
 def publication_inputs(**overrides):
@@ -312,7 +339,7 @@ def test_every_refusal_carries_its_own_exact_terminal_class(observe, errors) -> 
             ),
             "PublicationFailure",
         ),
-        (call(observe, "validate_internal_network", None), "InternalIngressFailure"),
+        (call(observe, "validate_internal_network", None), "StopControl"),
         (call(observe, "validate_internal_ingress", None, None), "InternalIngressFailure"),
         (call(observe, "validate_image_identity", None, None), "PrecheckAbort"),
     )
@@ -369,6 +396,210 @@ def test_a_coherent_verdict_is_immutable(observe) -> None:
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         verdict.satisfied = True
+
+
+@pytest.mark.parametrize(
+    "projection",
+    (
+        None,
+        "",
+        (),
+        {"Internal": True},
+        fakes.network_projection(internal=False),
+        fakes.network_projection(internal=1),
+        fakes.network_projection(internal="true"),
+        fakes.network_projection(containers={}),
+        fakes.network_projection(containers=()),
+        fakes.network_projection(containers={"a": {}, "b": {}}),
+    ),
+)
+def test_an_unresolved_non_internal_or_ambiguous_network_is_a_stop_control(
+    observe, errors, projection
+) -> None:
+    """Diagnosis section 8 maps non-internal or multiple attachments to `STOP_CONTROL`.
+
+    An unresolved projection is the same refusal read one step earlier: a network nobody
+    could read is not a network anybody proved internal, and classifying it as a diagnostic
+    ingress failure would report a failed control invariant as a failed reachability probe.
+    """
+    verdict = call(observe, "validate_internal_network", projection)
+    assert verdict.satisfied is False
+    assert verdict.findings
+    assert verdict.outcome == fakes.STOP_CONTROL
+    assert require_c8_attr(errors, "error_for")(verdict.outcome) is require_c8_attr(
+        errors, "StopControl"
+    )
+
+
+@pytest.mark.parametrize(
+    ("health", "probe"),
+    (
+        (None, "reachable"),
+        ("starting", "reachable"),
+        ("healthy", None),
+        ("healthy", "refused"),
+    ),
+)
+def test_only_the_bounded_host_probe_reduction_keeps_the_internal_ingress_class(
+    observe, errors, health, probe
+) -> None:
+    """`FAIL_INTERNAL_INGRESS` is the healthy container the bounded probe could not reach.
+
+    Section 8 reserves the class for exactly that reading, so it stays on this reduction and
+    is not lent to the network control that now classifies as `STOP_CONTROL`.
+    """
+    verdict = call(observe, "validate_internal_ingress", health, probe)
+    assert verdict.satisfied is False
+    assert verdict.outcome == fakes.FAIL_INTERNAL_INGRESS
+    assert require_c8_attr(errors, "error_for")(verdict.outcome) is require_c8_attr(
+        errors, "InternalIngressFailure"
+    )
+
+
+def test_a_network_control_refusal_outranks_every_diagnostic_refusal(observe, errors) -> None:
+    """Precedence is not weakened by the reclassification: the control invariant still wins."""
+    network = call(
+        observe, "validate_internal_network", fakes.network_projection(internal=False)
+    )
+    publication = call(observe, "validate_publication", **publication_inputs(listeners=()))
+    ingress = call(observe, "validate_internal_ingress", "healthy", None)
+    candidates = (publication.outcome, network.outcome, ingress.outcome)
+    resolve = require_c8_attr(errors, "resolve_outcome")
+    assert resolve(candidates) == fakes.STOP_CONTROL
+    assert resolve(tuple(reversed(candidates))) == fakes.STOP_CONTROL
+
+
+def test_the_internal_ingress_error_docstring_does_not_conflate_network_and_probe(
+    errors,
+) -> None:
+    """The typed class must describe the one reading it is now reserved for."""
+    error = require_c8_attr(errors, "InternalIngressFailure")
+    assert error.outcome == fakes.FAIL_INTERNAL_INGRESS
+    docstring = error.__doc__
+    assert isinstance(docstring, str) and docstring.strip()
+    assert "network attachment" not in docstring
+
+
+@pytest.mark.parametrize("view", ("bindings", "ports"))
+@pytest.mark.parametrize(
+    "inventory",
+    (
+        # The reviewed binding agrees, but a second port is published beside it.
+        {fakes.CONTAINER_PORT_KEY: [port_binding()], "5433/tcp": [port_binding()]},
+        {
+            fakes.CONTAINER_PORT_KEY: [port_binding()],
+            f"{fakes.CONTAINER_PORT}/udp": [port_binding()],
+        },
+        # A malformed key inventory: the reviewed port spelled without its protocol, with
+        # the wrong protocol case, or as an integer the daemon never emits.
+        {"5432": [port_binding()]},
+        {f"{fakes.CONTAINER_PORT}/TCP": [port_binding()]},
+        {fakes.CONTAINER_PORT: [port_binding()]},
+        {fakes.CONTAINER_PORT_KEY: [port_binding()], "": [port_binding()]},
+    ),
+)
+def test_a_binding_inventory_that_is_not_exactly_the_reviewed_key_fails_closed(
+    observe, view: str, inventory
+) -> None:
+    """One reviewed key, and nothing else, may appear in a publication projection.
+
+    A projection that also publishes another port is not the reviewed single mapping, even
+    where the reviewed key itself agrees: section 7 item 6 requires the projection to contain
+    *only* the reviewed binding, so reading past the extra keys would accept a container with
+    a second, unreviewed publication as a satisfied control.
+    """
+    verdict = call(
+        observe, "validate_publication", **publication_inputs(
+            container=fakes.container_projection(**{view: inventory})
+        )
+    )
+    assert verdict.satisfied is False
+    assert verdict.findings
+
+
+@pytest.mark.parametrize("satisfied", (1, 0, "yes", None, (), 1.0))
+def test_a_verdict_refuses_a_satisfied_flag_that_is_not_exactly_a_bool(
+    observe, satisfied
+) -> None:
+    """`satisfied=1` is not a satisfied control.
+
+    `True` is an `int` in Python, so a truthy stand-in would compare equal to the real flag
+    and let an unread reduction be recorded as a passed one.
+    """
+    verdict_type = require_c8_attr(observe, "ObservationVerdict")
+    with pytest.raises(ValueError):
+        verdict_type(satisfied=satisfied)
+
+
+@pytest.mark.parametrize(
+    "views",
+    (
+        {},
+        {"daemon_event": fakes.OBSERVED_PUBLICATION},
+        None,
+        (),
+        [("daemon_event", None)],
+    ),
+)
+def test_a_verdict_refuses_a_views_table_a_reader_could_mutate(observe, views) -> None:
+    """Evidence a later phase reads may not be a mapping that phase could edit."""
+    verdict_type = require_c8_attr(observe, "ObservationVerdict")
+    with pytest.raises(ValueError):
+        verdict_type(satisfied=True, views=views)
+
+
+def test_a_verdict_keeps_its_views_exactly_read_only(observe) -> None:
+    verdict_type = require_c8_attr(observe, "ObservationVerdict")
+    verdict = verdict_type(
+        satisfied=True,
+        views=MappingProxyType({"daemon_event": fakes.OBSERVED_PUBLICATION}),
+    )
+    assert type(verdict.views) is MappingProxyType
+    assert dict(verdict.views) == {"daemon_event": fakes.OBSERVED_PUBLICATION}
+    with pytest.raises(TypeError):
+        verdict.views["daemon_event"] = None
+
+
+def test_the_claim_and_attachment_invariants_are_distinct_named_controls(observe) -> None:
+    """One claim per view and one network attachment are two invariants, not one constant.
+
+    They happen to be the same number today. Sharing a single name would make a later change
+    to either of them silently change the other, so each reduction names its own.
+    """
+    claims = require_c8_attr(observe, "EXPECTED_VIEW_CLAIM_COUNT")
+    attachments = require_c8_attr(observe, "EXPECTED_NETWORK_ATTACHMENT_COUNT")
+    assert claims == 1
+    assert attachments == 1
+    assert not hasattr(observe, "EXPECTED_CLAIM_COUNT"), "the shared name must be gone"
+
+
+def test_the_listener_record_keys_are_typed_once_at_the_protocol_boundary(
+    observe, protocols
+) -> None:
+    """The producer and the consumer of a listener record read the same key names.
+
+    Two independently typed spellings would drift the moment one of them changed, and the
+    reduction would then read `None` from a record the adapter believed it had filled.
+    """
+    for name in LISTENER_RECORD_KEY_NAMES:
+        assert require_c8_attr(observe, name) is require_c8_attr(protocols, name)
+    spellings = {require_c8_attr(protocols, name) for name in LISTENER_RECORD_KEY_NAMES}
+    retyped = [value for value in string_constants("observe") if value in spellings]
+    assert retyped == [], "the reduction must derive the keys, not re-type them"
+
+
+def test_a_decoded_host_listener_is_read_by_the_publication_reduction(
+    observe, protocols
+) -> None:
+    """The record the adapter decodes is exactly the record the reduction accepts."""
+    decode = require_c8_attr(protocols, "decoded_listener")
+    separator = require_c8_attr(protocols, "ADDRESS_SEPARATOR")
+    listener = decode(f"{fakes.HOST_IP}{separator}{fakes.HOST_PORT}")
+    assert listener is not None
+    verdict = call(
+        observe, "validate_publication", **publication_inputs(listeners=(listener,))
+    )
+    assert verdict.satisfied is True
 
 
 def test_observation_module_exports_only_pure_reducers(observe) -> None:

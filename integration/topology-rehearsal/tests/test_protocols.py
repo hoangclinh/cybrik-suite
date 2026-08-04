@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 from dataclasses import FrozenInstanceError
 from types import SimpleNamespace
 
 import fakes
 import pytest
-from conftest import load_c8, require_c8_attr
+from conftest import PACKAGE, SRC, load_c8, require_c8_attr
+
+# The keys of the one decoded host listener record. This boundary produces the record and
+# `observe` consumes it, so the spellings are typed here once and derived on both sides.
+LISTENER_RECORD_KEY_NAMES = (
+    "LISTENER_ADDRESS_KEY",
+    "LISTENER_PORT_KEY",
+    "LISTENER_PROTOCOL_KEY",
+)
 
 # Every shared malformed shape, plus two objects that carry no result field at all.
 MALFORMED_RESULTS = (None, object(), *fakes.MALFORMED_COMMAND_RESULTS)
@@ -219,6 +228,41 @@ def test_a_signature_verdict_is_returned_only_for_a_verification_that_ran(
     """
     result = require_c8_attr(protocols, "CommandResult")(returncode=returncode)
     assert require_c8_attr(protocols, "verified")(result) is expected
+
+
+def test_a_decoded_listener_record_carries_exactly_the_boundary_key_names(
+    protocols,
+) -> None:
+    """The decoded record's shape is the boundary's own declared key inventory.
+
+    A record built from inline literals would be a second, unreviewed spelling of the shape
+    the observation reduction reads, and the two could drift apart without either side
+    failing: the reduction would simply read `None` from a record the adapter had filled.
+    """
+    keys = tuple(require_c8_attr(protocols, name) for name in LISTENER_RECORD_KEY_NAMES)
+    separator = require_c8_attr(protocols, "ADDRESS_SEPARATOR")
+    decoded = require_c8_attr(protocols, "decoded_listener")(
+        f"{fakes.HOST_IP}{separator}{fakes.HOST_PORT}"
+    )
+    assert set(decoded) == set(keys)
+    assert decoded == dict(
+        zip(keys, (fakes.HOST_IP, fakes.HOST_PORT, fakes.PORT_PROTOCOL), strict=True)
+    )
+
+
+def test_each_listener_record_key_is_typed_exactly_once_in_this_boundary(
+    protocols,
+) -> None:
+    path = SRC / PACKAGE / "protocols.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    typed = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    for name in LISTENER_RECORD_KEY_NAMES:
+        spelling = require_c8_attr(protocols, name)
+        assert typed.count(spelling) == 1, f"{name} is typed more than once"
 
 
 def test_the_internal_result_helpers_are_shared_but_deliberately_unexported(
