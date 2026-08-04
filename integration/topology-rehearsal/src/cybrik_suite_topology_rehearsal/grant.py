@@ -125,8 +125,11 @@ OBSERVED_IDENTITY_KEYS = (
     *(key for key in SELECTED_IDENTITY_KEYS if key not in SELECTION_ONLY_KEYS),
     *HOST_ONLY_KEYS,
 )
-PLATFORM_KEYS = frozenset({"os", "architecture", "variant"})
+PLATFORM_KEYS = ("os", "architecture", "variant")
 REGISTRY_DIGEST_KEYS = ("index_digest", "manifest_digest")
+OBSERVED_BINDING_KEYS = tuple(
+    key for key in OBSERVED_IDENTITY_KEYS if key != "observed_at"
+)
 
 RECORD_KEYS = ("path", "sha256")
 RUNNER_KEYS = ("aggregate_sha256",)
@@ -224,9 +227,30 @@ def canonical_grant_bytes(document: object) -> bytes:
         raise ValueError(  # noqa: TRY004 - one refusal: this value has no canonical bytes
             f"a grant document must be a mapping, not {document!r}"
         )
+    pending: list[object] = [document]
+    visited: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if isinstance(current, Mapping):
+            identity = id(current)
+            if identity in visited:
+                continue
+            visited.add(identity)
+            for key, value in current.items():
+                if type(key) is not str:
+                    raise ValueError(
+                        f"a grant document key must be exactly a string, not {key!r}"
+                    )
+                pending.append(value)
+        elif isinstance(current, (list, tuple)):
+            identity = id(current)
+            if identity in visited:
+                continue
+            visited.add(identity)
+            pending.extend(current)
     try:
         rendered = json.dumps(document, indent=CANONICAL_INDENT, allow_nan=False)
-    except (TypeError, ValueError) as error:
+    except (RecursionError, TypeError, ValueError) as error:
         raise ValueError(f"a grant document must render exactly: {error}") from error
     canonical = rendered.encode(CANONICAL_ENCODING) + CANONICAL_TERMINATOR
     if len(canonical) > GRANT_BYTE_LIMIT:
@@ -242,9 +266,12 @@ def instant(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        return datetime.strptime(value, INSTANT_FORMAT).replace(tzinfo=UTC)
+        parsed = datetime.strptime(value, INSTANT_FORMAT).replace(tzinfo=UTC)
     except ValueError:
         return None
+    if parsed.strftime(INSTANT_FORMAT) != value:
+        return None
+    return parsed
 
 
 def hex_string(value: object, length: int) -> bool:
@@ -261,6 +288,26 @@ def registry_digest(value: object) -> bool:
     if not isinstance(value, str) or not value.startswith(DIGEST_PREFIX):
         return False
     return hex_string(value[len(DIGEST_PREFIX) :], DIGEST_HEX_LENGTH)
+
+
+def platform_findings(value: object, label: str) -> tuple[str, ...]:
+    """Require the exact platform inventory and typed values used by image identity."""
+    if not isinstance(value, Mapping) or tuple(value) != PLATFORM_KEYS:
+        return (
+            f"{label}: platform {value!r} is not the reviewed ordered platform object",
+        )
+    findings: list[str] = []
+    for key in ("os", "architecture"):
+        if not isinstance(value[key], str) or not value[key]:
+            findings.append(
+                f"{label}: platform {key} {value[key]!r} is not a non-empty string"
+            )
+    variant = value["variant"]
+    if variant is not None and (not isinstance(variant, str) or not variant):
+        findings.append(
+            f"{label}: platform variant {variant!r} is neither null nor a non-empty string"
+        )
+    return tuple(findings)
 
 
 def keyed(value: object, expected: Sequence[str], label: str) -> tuple[str, ...]:
@@ -397,13 +444,9 @@ def selected_identity_findings(
         for key in REGISTRY_DIGEST_KEYS
         if section[key] is not None and not registry_digest(section[key])
     )
-    platform = section["platform"]
-    if platform is not None and (
-        not isinstance(platform, Mapping) or set(platform) != PLATFORM_KEYS
-    ):
-        findings.append(
-            f"selected_image_identity: platform {platform!r} is not the reviewed "
-            "platform object"
+    if section["platform"] is not None:
+        findings.extend(
+            platform_findings(section["platform"], "selected_image_identity")
         )
     return (
         *findings,
@@ -414,38 +457,69 @@ def selected_identity_findings(
 def observed_identity_findings(
     document: Mapping[str, Any], facts: GrantFacts
 ) -> tuple[str, ...]:
-    """The host observation: separate from the selection, and never a registry digest."""
+    """Bind stable host identity while keeping the fresh runtime timestamp independent."""
     section = document["observed_image_identity"]
-    refusals = keyed(section, OBSERVED_IDENTITY_KEYS, "observed_image_identity")
+    observed = facts.observed_image_identity
+    refusals = (
+        *keyed(section, OBSERVED_IDENTITY_KEYS, "observed_image_identity"),
+        *keyed(
+            observed,
+            OBSERVED_IDENTITY_KEYS,
+            "observed_image_identity runtime observation",
+        ),
+    )
     if refusals:
         return refusals
     findings: list[str] = []
-    unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if section[key] is None)
-    if unread:
-        findings.append(
-            f"observed_image_identity: unresolved — {list(unread)} were never read, so "
-            "the host never said what it holds"
+    for label, identity in (
+        ("observed_image_identity", section),
+        ("observed_image_identity runtime observation", observed),
+    ):
+        unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if identity[key] is None)
+        if unread:
+            findings.append(
+                f"{label}: unresolved — {list(unread)} were never read, so the host "
+                "never said what it holds"
+            )
+        findings.extend(
+            f"{label}: {key} {identity[key]!r} is not a registry digest"
+            for key in REGISTRY_DIGEST_KEYS
+            if identity[key] is not None and not registry_digest(identity[key])
         )
-    findings.extend(
-        f"observed_image_identity: {key} {section[key]!r} is not a registry digest"
-        for key in REGISTRY_DIGEST_KEYS
-        if section[key] is not None and not registry_digest(section[key])
-    )
-    local = section["local_image_id"]
-    if local is not None and any(local == section[key] for key in REGISTRY_DIGEST_KEYS):
-        findings.append(
-            "observed_image_identity: local_image_id equals a registry digest, but a host "
-            "image id and a registry digest are distinct identity categories"
+        if identity["platform"] is not None:
+            findings.extend(platform_findings(identity["platform"], label))
+        local = identity["local_image_id"]
+        if local is not None and not registry_digest(local):
+            findings.append(
+                f"{label}: local_image_id {local!r} is not a sha256 image id"
+            )
+        selected = document["selected_image_identity"]
+        compared_digests = (
+            *(identity[key] for key in REGISTRY_DIGEST_KEYS),
+            *(
+                selected[key]
+                for key in REGISTRY_DIGEST_KEYS
+                if isinstance(selected, Mapping) and key in selected
+            ),
         )
-    if section["observed_at"] is not None and instant(section["observed_at"]) is None:
+        if local is not None and local in compared_digests:
+            findings.append(
+                f"{label}: local_image_id equals a registry digest, but host and registry "
+                "identity categories are distinct"
+            )
+        if identity["observed_at"] is not None and instant(identity["observed_at"]) is None:
+            findings.append(
+                f"{label}: observed_at {identity['observed_at']!r} is not an exact UTC "
+                "instant"
+            )
+    signed_binding = {key: section[key] for key in OBSERVED_BINDING_KEYS}
+    runtime_binding = {key: observed[key] for key in OBSERVED_BINDING_KEYS}
+    if signed_binding != runtime_binding:
         findings.append(
-            f"observed_image_identity: observed_at {section['observed_at']!r} is not an "
-            "exact UTC instant"
+            "observed_image_identity: the stable signed identity does not equal the fresh "
+            f"runtime observation: signed={signed_binding!r}, observed={runtime_binding!r}"
         )
-    return (
-        *findings,
-        *bound(facts.observed_image_identity, section, "observed_image_identity"),
-    )
+    return tuple(findings)
 
 
 def repository_findings(
@@ -580,6 +654,31 @@ def window_findings(document: Mapping[str, Any], facts: GrantFacts) -> tuple[str
             f"window: the observed now {facts.now!r} is outside the authorized window "
             f"[{section['not_before']!r}, {section['expires_at']!r})"
         )
+    observations = (
+        (
+            "signed image observation",
+            document["observed_image_identity"].get("observed_at")
+            if isinstance(document["observed_image_identity"], Mapping)
+            else None,
+        ),
+        (
+            "runtime image observation",
+            facts.observed_image_identity.get("observed_at")
+            if isinstance(facts.observed_image_identity, Mapping)
+            else None,
+        ),
+    )
+    for label, value in observations:
+        observed_at = instant(value)
+        if observed_at is None:
+            findings.append(
+                f"window: the {label} timestamp {value!r} is not an exact UTC instant"
+            )
+        elif not opening <= observed_at < expiry:
+            findings.append(
+                f"window: the {label} timestamp {value!r} is outside the authorized "
+                f"window [{section['not_before']!r}, {section['expires_at']!r})"
+            )
     return tuple(findings)
 
 
