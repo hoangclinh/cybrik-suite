@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "withdrawal_id": "runtime-admission-soc-ai-lifecycle-mtls-r1-withdrawal-r1",
+  "recorded_at": "2026-08-04T07:53:21Z",
+  "target": {
+    "candidate_id": "runtime-admission-soc-ai-lifecycle-mtls-r1",
+    "record_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json",
+    "record_sha256": "a59acf23125b4ffd912f59459faa4498c7441d00ca8f21b2c148b5d0b7780ba4",
+    "series_id": "runtime-admission-soc-ai-lifecycle-mtls",
+    "attempt_ordinal": 1,
+    "authorization_evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md",
+    "authorization_evidence_sha256": "9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7"
+  },
+  "observed_attempt": {
+    "status": "not_run",
+    "execution_authorized": true,
+    "executed_checks": 0,
+    "passed_checks": 0,
+    "failed_checks": 0,
+    "evidence_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md",
+    "evidence_sha256": "9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7"
+  },
+  "decision": {
+    "kind": "WITHDRAW_UNUSED_AUTHORIZATION",
+    "actor": "CODEX_GOVERNOR",
+    "scope": "bounded_nonproduction_runtime_only"
+  },
+  "external_packet_closure": {
+    "mode": "no_signed_packet_issued_attested",
+    "assertion": "no_signed_packet_issued_for_exact_target",
+    "signer": "FOUNDER",
+    "namespace": "cybrik-uat-runtime-withdrawal-v1",
+    "allowed_signers_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/withdrawal-allowed-signers",
+    "allowed_signers_sha256": "19c2f845da20f614995c9c52afd07723477331e93e994f23db63b1d129bbde8e",
+    "signature_path": "docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-authorization-withdrawal.json.sig"
+  },
+  "effect": {
+    "authorization_state": "withdrawn",
+    "effective_profile": "HOLD",
+    "series_state": "closed",
+    "objective_terminal": false,
+    "runtime_credit": "none",
+    "authorization_reusable": false,
+    "production_authority": "none_founder_only"
+  },
+  "rationale": "Withdraw the unused non-production runtime authority after confirming the exact prepared master packet was never signed or consumed, so a separately reviewed current candidate can enter admission without mutating historical evidence.",
+  "limitations": [
+    "This withdrawal grants no runtime, UAT, release, deployment or production credit.",
+    "The detached SSHSIG is a test-environment Founder attestation for this exact target only; production remains Founder-controlled.",
+    "The historical authorization record remains immutable and its series is permanently closed against reuse or reopening."
+  ]
+}
