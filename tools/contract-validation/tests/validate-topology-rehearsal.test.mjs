@@ -119,6 +119,60 @@ const RECORD_REVIEW_SELF_ATTESTATION_FINDING =
 const RECORD_REVIEW_PINNED_PROPOSED_FINDING =
   'record review must attest the pinned proposed record bytes';
 const HISTORY_LENGTH_FINDING = 'state history must pin every prior phase exactly once';
+const INVALID_PRIOR_PIN_FINDING = 'state history contains an invalid prior-state pin';
+const UNIQUE_PRIOR_DIGEST_FINDING = 'prior-state record digests must be unique';
+
+// C5 RED constants for the future C6 record-review attestation control. Every finding text
+// below is exact: C6 must emit these strings verbatim, path-prefixed.
+const RECORD_REVIEW_ATTESTATION_SCHEMA = 'CYBRIK-TOPOLOGY-RECORD-REVIEW/v1';
+const RECORD_REVIEW_ATTESTATION_KEYS = [
+  'schema',
+  'record_path',
+  'reviewed_phase',
+  'reviewed_record_sha256',
+  'reviewer_identity',
+  'reviewer_independent_of_record_author',
+  'reviewer_mode',
+  'decision',
+  'findings',
+  'grants_execution_authority',
+];
+const RECORD_REVIEW_MAX_BYTES = 65536;
+const RECORD_REVIEW_MAX_FINDINGS = 32;
+const DECISION_APPROVED = 'RECORD_BYTES_APPROVED';
+const DECISION_REJECTED = 'RECORD_BYTES_REJECTED';
+const ATTESTATION_SUFFIX_FINDING =
+  'record review artifact must be a .json attestation file';
+const ATTESTATION_CANONICAL_FINDING =
+  'record review artifact must be bounded canonical JSON bytes';
+const ATTESTATION_KEY_INVENTORY_FINDING =
+  'record review attestation must use the exact ordered attestation key inventory';
+const ATTESTATION_SUBJECT_FINDING =
+  'record review attestation must name this record path, schema and the proposed phase';
+const ATTESTATION_DIGEST_FINDING =
+  'record review attestation digest must equal the record review binding digest';
+const ATTESTATION_REVIEWER_FINDING =
+  'record review attestation must name an independent read-only reviewer claiming no execution authority';
+const ATTESTATION_DECISION_FINDING =
+  'record review attestation decision and findings must be exact and consistent';
+const ATTESTATION_APPROVAL_FINDING =
+  'authorized or closed topology record requires an approved record review of the proposed bytes';
+const ATTESTATION_CONTENT_FINDINGS = [
+  ATTESTATION_CANONICAL_FINDING,
+  ATTESTATION_KEY_INVENTORY_FINDING,
+  ATTESTATION_SUBJECT_FINDING,
+  ATTESTATION_DIGEST_FINDING,
+  ATTESTATION_REVIEWER_FINDING,
+  ATTESTATION_DECISION_FINDING,
+];
+const ALL_ATTESTATION_FINDINGS = [
+  ATTESTATION_SUFFIX_FINDING,
+  ...ATTESTATION_CONTENT_FINDINGS,
+  ATTESTATION_APPROVAL_FINDING,
+];
+// P2-2 robustness finding: a non-object evidence.artifacts entry must fail closed with one
+// finding rather than throwing a TypeError out of the validator.
+const ARTIFACT_OBJECT_ENTRY_FINDING = 'artifact entries must be objects';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -268,6 +322,90 @@ const recordReviewBinding = (recordId, reviewArtifact) => ({
   reviewed_record_sha256: proposedStateDigest(recordId),
 });
 
+// ---------------------------------------------------------------------------
+// C5 RED fixture algebra for the future C6 record-review attestation.
+//
+// Every transformation below is pure: helpers return new values and never mutate a
+// caller-supplied object, array or Buffer, so a case table cannot leak state into the
+// next case.
+// ---------------------------------------------------------------------------
+const DEFAULT_REVIEWED_RECORD_SHA256 = sha256('c5-default-proposed-record-bytes\n');
+const DEFAULT_REVIEWER_IDENTITY = 'CODEX-INDEPENDENT-RECORD-REVIEWER';
+
+const attestationValue = ({
+  recordPath = RECORD_PATH,
+  reviewedRecordSha256 = DEFAULT_REVIEWED_RECORD_SHA256,
+  reviewerIdentity = DEFAULT_REVIEWER_IDENTITY,
+  findings = [],
+  decision = findings.length === 0 ? DECISION_APPROVED : DECISION_REJECTED,
+} = {}) => ({
+  schema: RECORD_REVIEW_ATTESTATION_SCHEMA,
+  record_path: recordPath,
+  reviewed_phase: 'proposed',
+  reviewed_record_sha256: reviewedRecordSha256,
+  reviewer_identity: reviewerIdentity,
+  reviewer_independent_of_record_author: true,
+  reviewer_mode: 'read_only',
+  decision,
+  findings,
+  grants_execution_authority: false,
+});
+
+const attestationFinding = (id, severity = 'P1', summary = 'reviewed record bytes finding') =>
+  ({ id, severity, summary });
+
+// Spread keeps the position of every replaced key and appends genuinely new keys, so
+// `withFields` models a field edit and an extra-key injection without reordering.
+const withFields = (value, patch) => ({ ...value, ...patch });
+const withoutField = (value, key) =>
+  Object.fromEntries(Object.entries(value).filter(([name]) => name !== key));
+const withKeyOrder = (value, keys) =>
+  Object.fromEntries(keys.map((key) => [key, value[key]]));
+const canonicalBytes = (value) =>
+  Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
+const canonicalText = (value) => `${JSON.stringify(value, null, 2)}\n`;
+const canonicalApprovedBytes = (options = {}) => canonicalBytes(attestationValue(options));
+
+const replaceArtifactOfKind = (artifacts, kind, value) =>
+  artifacts.map((entry) => (entry?.kind === kind ? value : entry));
+const withArtifacts = (record, artifacts) => ({
+  ...record,
+  evidence: { ...record.evidence, artifacts },
+});
+const withRecordReviewBinding = (record, patch) => ({
+  ...record,
+  evidence: {
+    ...record.evidence,
+    record_review_binding: { ...record.evidence.record_review_binding, ...patch },
+  },
+});
+
+const priorStatePin = (phase, recordSha256) => ({
+  phase,
+  attempt_consumed: false,
+  outcome: 'not_run',
+  record_sha256: recordSha256,
+});
+
+// The record_review artifact is the one artifact whose bytes C6 machine-checks, so the
+// synthetic fixture writes a real canonical `.json` attestation instead of placeholder
+// text. `fileName` and `bytes` let a case install a deliberately non-conforming review.
+const writeRecordReviewArtifact = (root, directory, recordId, {
+  fileName = 'record_review.json',
+  bytes = null,
+  attestation = {},
+} = {}) => {
+  const content = bytes ?? canonicalApprovedBytes({
+    recordPath: `${TOPOLOGY_ROOT}/${recordId}/topology-rehearsal.json`,
+    reviewedRecordSha256: proposedStateDigest(recordId),
+    ...attestation,
+  });
+  const path = `${directory}/${fileName}`;
+  mkdirSync(resolve(root, directory), { recursive: true });
+  writeFileSync(resolve(root, path), content);
+  return { kind: 'record_review', path, sha256: sha256(content) };
+};
+
 const buildRecord = (root, {
   recordId = RECORD_ID,
   seriesId = SERIES_ID,
@@ -278,6 +416,7 @@ const buildRecord = (root, {
   teardownVerified = null,
   residualResources = null,
   externalManifestLocallyVerified = null,
+  recordReview = {},
 } = {}) => {
   const directory = `${TOPOLOGY_ROOT}/${recordId}`;
   const artifacts = [
@@ -286,7 +425,7 @@ const buildRecord = (root, {
   ];
   let binding = null;
   if (phase !== 'proposed') {
-    const review = artifact(root, directory, 'record_review');
+    const review = writeRecordReviewArtifact(root, directory, recordId, recordReview);
     artifacts.push(review);
     binding = recordReviewBinding(recordId, review);
   }
@@ -1376,4 +1515,752 @@ test('T15 a closed record review binding on the authorized prior-state digest fa
       'attesting the authorized prior-state digest is not attesting the proposed bytes',
     );
   });
+});
+
+// ---------------------------------------------------------------------------
+// C5 RED — P2-1: prior-state history robustness.
+//
+// The state-history loop reads `entry.record_sha256` off every slot before it has
+// established that the slot is an object, so a malformed pin is a crash surface rather
+// than a finding, and two malformed slots collide on `undefined` into a spurious
+// uniqueness finding. A control that fails closed must fail with findings.
+// ---------------------------------------------------------------------------
+const MALFORMED_PRIOR_STATE_PINS = [
+  ['null pin', null],
+  ['string pin', 'proposed'],
+  ['number pin', 1],
+  ['array pin', []],
+  ['empty object pin', {}],
+  ['extra-key pin', withFields(priorStatePin('proposed', sha256('t16-extra-key-pin\n')), {
+    unreviewed_note: 'extra',
+  })],
+];
+
+test('T16 every malformed prior-state pin yields an invalid-pin finding and never throws', async () => {
+  for (const [label, pin] of MALFORMED_PRIOR_STATE_PINS) {
+    await withRoot((root) => {
+      const record = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+      writeRecord(root, record, { stateHistory: [pin] });
+      let report;
+      assert.doesNotThrow(() => {
+        report = validateTopologyRehearsals({ root });
+      }, `${label}: a malformed prior-state pin must fail closed with a finding, never throw`);
+      assert.ok(
+        report.errors.some((error) =>
+          error === `${POLICY_PATH}: ${INVALID_PRIOR_PIN_FINDING}`),
+        `${label}: must raise the exact invalid prior-state pin finding`,
+      );
+    });
+  }
+});
+
+test('T17 duplicate proposed prior-state pins supply no attestable digest', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'TOPOLOGY_PASS',
+      attemptConsumed: true,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    writeRecord(root, record, {
+      stateHistory: [
+        priorStatePin('proposed', proposedStateDigest(record.record_id)),
+        priorStatePin('proposed', sha256(`${record.record_id}:proposed-duplicate\n`)),
+      ],
+    });
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`),
+      'two proposed pins pin nothing, so the record review has no attestable digest',
+    );
+  });
+});
+
+test('T18 a prior-state digest reused across proposed and authorized fails uniqueness', async () => {
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'closed',
+      outcome: 'TOPOLOGY_PASS',
+      attemptConsumed: true,
+      teardownVerified: true,
+      residualResources: 0,
+      externalManifestLocallyVerified: true,
+    });
+    const shared = proposedStateDigest(record.record_id);
+    writeRecord(root, record, {
+      stateHistory: [priorStatePin('proposed', shared), priorStatePin('authorized', shared)],
+    });
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${POLICY_PATH}: ${UNIQUE_PRIOR_DIGEST_FINDING}`),
+      'a digest reused across two prior phases must fail closed',
+    );
+  });
+});
+
+test('T19 a malformed later prior-state slot neither crashes nor forges a uniqueness finding', async () => {
+  const closedRecordOptions = {
+    phase: 'closed',
+    outcome: 'TOPOLOGY_PASS',
+    attemptConsumed: true,
+    teardownVerified: true,
+    residualResources: 0,
+    externalManifestLocallyVerified: true,
+  };
+
+  await withRoot((root) => {
+    const record = buildRecord(root, closedRecordOptions);
+    writeRecord(root, record, {
+      stateHistory: [priorStatePin('proposed', proposedStateDigest(record.record_id)), null],
+    });
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    }, 'a malformed second prior-state slot must not crash the validator');
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${POLICY_PATH}: ${INVALID_PRIOR_PIN_FINDING}`),
+      'a malformed second slot must raise the invalid prior-state pin finding',
+    );
+    assert.ok(
+      !report.errors.some((error) => error.includes(UNIQUE_PRIOR_DIGEST_FINDING)),
+      'one malformed slot carries no digest, so it cannot collide with a real digest',
+    );
+  });
+
+  await withRoot((root) => {
+    const record = buildRecord(root, closedRecordOptions);
+    writeRecord(root, record, { stateHistory: [{}, {}] });
+    let report;
+    assert.doesNotThrow(() => {
+      report = validateTopologyRehearsals({ root });
+    });
+    assert.ok(
+      !report.errors.some((error) => error.includes(UNIQUE_PRIOR_DIGEST_FINDING)),
+      'two absent digests are not a duplicated digest and must not forge a uniqueness finding',
+    );
+    assert.equal(
+      report.errors.filter((error) =>
+        error === `${POLICY_PATH}: ${INVALID_PRIOR_PIN_FINDING}`).length,
+      2,
+      'each malformed slot must raise its own invalid prior-state pin finding',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C5 RED — P2-2: artifact entry robustness.
+//
+// `requireArtifactKinds` maps `entry.kind` over every listed artifact before proving the
+// entry is an object, so a null entry throws a TypeError out of the validator instead of
+// producing a finding. A non-object entry must fail closed exactly once, alongside the
+// existing inventory and phase findings.
+// ---------------------------------------------------------------------------
+const NON_OBJECT_ARTIFACT_ENTRIES = [
+  ['null entry', null],
+  ['string entry', `${RECORD_DIR}/record_review.json`],
+  ['array entry', []],
+];
+const NON_OBJECT_ARTIFACT_PHASES = [
+  ['proposed', 'diagnosis_review', {}],
+  ['authorized', 'record_review', { phase: 'authorized', executionAuthorized: true }],
+  ['closed', 'result', {
+    phase: 'closed',
+    outcome: 'TOPOLOGY_PASS',
+    attemptConsumed: true,
+    teardownVerified: true,
+    residualResources: 0,
+    externalManifestLocallyVerified: true,
+  }],
+];
+
+test('T20 a non-object artifact entry fails closed with one finding in every phase', async () => {
+  for (const [phase, replacedKind, options] of NON_OBJECT_ARTIFACT_PHASES) {
+    for (const [label, entry] of NON_OBJECT_ARTIFACT_ENTRIES) {
+      await withRoot((root) => {
+        const built = buildRecord(root, options);
+        const record = withArtifacts(
+          built,
+          replaceArtifactOfKind(built.evidence.artifacts, replacedKind, entry),
+        );
+        writeRecord(root, record);
+        let report;
+        assert.doesNotThrow(() => {
+          report = validateTopologyRehearsals({ root });
+        }, `${phase}/${label}: a non-object artifact entry must fail closed, never throw`);
+        assert.equal(
+          report.errors.filter((error) =>
+            error === `${RECORD_PATH}: ${ARTIFACT_OBJECT_ENTRY_FINDING}`).length,
+          1,
+          `${phase}/${label}: must raise exactly one artifact-entry-object finding`,
+        );
+        assert.ok(
+          report.errors.some((error) => error.includes(inventoryFinding(phase))),
+          `${phase}/${label}: the exhaustive inventory finding must still fire`,
+        );
+        assert.ok(
+          report.errors.some((error) =>
+            error === `${RECORD_PATH}: required ${replacedKind} artifact is missing`),
+          `${phase}/${label}: the replaced artifact kind must still be reported missing`,
+        );
+      });
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// C5 RED — P2-3: the future C6 record-review attestation control.
+//
+// C4 proves only that the binding names the pinned proposed record digest. It says
+// nothing about what the reviewed bytes actually contain: today a record_review artifact
+// may be any bytes at all, so an "independent record review" is an unverified claim. C6
+// must machine-check the review artifact itself as a bounded canonical JSON attestation.
+//
+// Expected C6 contract — pure and side-effect free, every input caller-supplied:
+//   validateRecordReviewAttestation({
+//     path,                        // record path used to prefix every finding
+//     phase,                       // 'proposed' | 'authorized' | 'closed'
+//     recordPath,                  // record path the attestation must name
+//     reviewPath,                  // listed record_review artifact path
+//     reviewBytes,                 // Buffer of the review bytes, or null when unreadable
+//     bindingReviewedRecordSha256, // binding.reviewed_record_sha256, null when no binding
+//   }) => string[]                 // path-prefixed findings, empty when the review holds
+//
+// Reporting discipline, so every failure names its exact cause:
+//   * a proposed record owes no record review, so it owes no attestation findings;
+//   * a non-.json review path raises the suffix finding independently;
+//   * failing the canonical-bytes gate is terminal — nothing downstream can be trusted,
+//     so the canonical finding is reported alone;
+//   * failing the exact ordered key inventory is likewise terminal;
+//   * the digest and approval findings are derivative of the record review binding, so a
+//     null binding suppresses both and leaves the binding controls to report the cause.
+const DEFAULT_REVIEW_PATH = `${RECORD_DIR}/record_review.json`;
+const ATTESTATION_FINDING_SEVERITIES = ['P0', 'P1', 'P2', 'P3'];
+
+const withCrlf = (text) => text.replace(/\n/gu, '\r\n');
+const withBom = (text) => `\uFEFF${text}`;
+// Injects a second copy of one key immediately after the opening brace: the bytes still
+// parse, but they no longer round-trip to the canonical serialization of what they mean.
+const withDuplicateKey = (value, key) =>
+  canonicalText(value).replace(
+    '{\n',
+    `{\n  ${JSON.stringify(key)}: ${JSON.stringify(value[key])},\n`,
+  );
+
+const recordReviewAttestationInput = ({
+  path = RECORD_PATH,
+  phase = 'authorized',
+  recordPath = RECORD_PATH,
+  reviewPath = DEFAULT_REVIEW_PATH,
+  reviewBytes = canonicalApprovedBytes(),
+  bindingReviewedRecordSha256 = DEFAULT_REVIEWED_RECORD_SHA256,
+} = {}) => ({
+  path,
+  phase,
+  recordPath,
+  reviewPath,
+  reviewBytes,
+  bindingReviewedRecordSha256,
+});
+
+// Reads the helper off the namespace so a missing C6 export fails as a diagnostic
+// assertion rather than aborting module linking for the whole suite. Returns findings
+// with the path prefix stripped, after asserting every finding is prefixed and is one of
+// the exact reviewed attestation finding texts.
+const recordReviewAttestationFindings = (input) => {
+  const validate = topologyRehearsal.validateRecordReviewAttestation;
+  assert.equal(
+    typeof validate,
+    'function',
+    `${VALIDATOR_PATH}: must export a pure validateRecordReviewAttestation helper`,
+  );
+  const findings = validate(input);
+  assert.ok(
+    Array.isArray(findings),
+    `${VALIDATOR_PATH}: validateRecordReviewAttestation must return an array of findings`,
+  );
+  const prefix = `${input.path}: `;
+  return findings.map((finding) => {
+    assert.equal(typeof finding, 'string', `${VALIDATOR_PATH}: findings must be strings`);
+    assert.ok(
+      finding.startsWith(prefix),
+      `${finding}: record review attestation findings must be path-prefixed`,
+    );
+    const text = finding.slice(prefix.length);
+    assert.ok(
+      ALL_ATTESTATION_FINDINGS.includes(text),
+      `${finding}: must be one of the exact reviewed attestation finding texts`,
+    );
+    return text;
+  });
+};
+
+test('T21 a proposed record owes nothing and a canonical approved review passes clean', () => {
+  assert.deepEqual(
+    recordReviewAttestationFindings(recordReviewAttestationInput({
+      phase: 'proposed',
+      reviewPath: null,
+      reviewBytes: null,
+      bindingReviewedRecordSha256: null,
+    })),
+    [],
+    'a proposed record carries no record review, so it owes no attestation findings',
+  );
+  for (const phase of ['authorized', 'closed']) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({ phase })),
+      [],
+      `${phase}: a canonical approved attestation of the bound bytes must pass clean`,
+    );
+  }
+});
+
+test('T22 only bounded canonical JSON review bytes are accepted', () => {
+  const cases = [
+    ['missing review bytes', null],
+    ['invalid JSON', Buffer.from('{\n', 'utf8')],
+    ['compact JSON', Buffer.from(JSON.stringify(attestationValue()), 'utf8')],
+    ['CRLF line endings', Buffer.from(withCrlf(canonicalText(attestationValue())), 'utf8')],
+    ['UTF-8 BOM', Buffer.from(withBom(canonicalText(attestationValue())), 'utf8')],
+    ['trailing bytes', Buffer.concat([
+      canonicalBytes(attestationValue()),
+      Buffer.from('\n', 'utf8'),
+    ])],
+    ['duplicate keys', Buffer.from(withDuplicateKey(attestationValue(), 'schema'), 'utf8')],
+    ['oversize bytes', canonicalBytes(attestationValue({
+      findings: [attestationFinding('OVERSIZE-1', 'P1', 'x'.repeat(RECORD_REVIEW_MAX_BYTES))],
+    }))],
+  ];
+  for (const [label, reviewBytes] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({ reviewBytes })),
+      [ATTESTATION_CANONICAL_FINDING],
+      `${label}: must fail the bounded canonical bytes gate and report it alone`,
+    );
+  }
+  assert.ok(
+    canonicalBytes(attestationValue({
+      findings: [attestationFinding('OVERSIZE-1', 'P1', 'x'.repeat(RECORD_REVIEW_MAX_BYTES))],
+    })).length > RECORD_REVIEW_MAX_BYTES,
+    'the oversize fixture must actually exceed the reviewed byte bound',
+  );
+});
+
+test('T23 the attestation must use the exact ordered ten-key inventory', () => {
+  const cases = [
+    ['extra key', withFields(attestationValue(), { reviewer_notes: 'unreviewed extra key' })],
+    ['missing key', withoutField(attestationValue(), 'reviewer_mode')],
+    ['reordered keys', withKeyOrder(
+      attestationValue(),
+      [...RECORD_REVIEW_ATTESTATION_KEYS].reverse(),
+    )],
+  ];
+  assert.deepEqual(
+    Object.keys(attestationValue()),
+    RECORD_REVIEW_ATTESTATION_KEYS,
+    'the clean fixture must itself carry the exact ordered key inventory',
+  );
+  for (const [label, value] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(value),
+      })),
+      [ATTESTATION_KEY_INVENTORY_FINDING],
+      `${label}: must fail the exact ordered key inventory and report it alone`,
+    );
+  }
+});
+
+test('T24 the attestation must name this record path, schema and the proposed phase', () => {
+  const cases = [
+    ['wrong schema', { schema: 'CYBRIK-TOPOLOGY-RECORD-REVIEW/v2' }],
+    ['wrong record path', {
+      record_path: `${TOPOLOGY_ROOT}/postgres-loopback-internal-v1-r2/topology-rehearsal.json`,
+    }],
+    ['wrong reviewed phase', { reviewed_phase: 'authorized' }],
+  ];
+  for (const [label, patch] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(withFields(attestationValue(), patch)),
+      })),
+      [ATTESTATION_SUBJECT_FINDING],
+      `${label}: must fail the attestation subject check`,
+    );
+  }
+});
+
+test('T25 the attested digest must be a lowercase digest equal to the binding digest', () => {
+  const cases = [
+    [
+      'uppercase digest',
+      DEFAULT_REVIEWED_RECORD_SHA256.toUpperCase(),
+      DEFAULT_REVIEWED_RECORD_SHA256.toUpperCase(),
+    ],
+    ['truncated digest', 'abc123', 'abc123'],
+    [
+      'binding mismatch',
+      sha256('t25-unrelated-record-bytes\n'),
+      DEFAULT_REVIEWED_RECORD_SHA256,
+    ],
+  ];
+  for (const [label, attested, bound] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(attestationValue({ reviewedRecordSha256: attested })),
+        bindingReviewedRecordSha256: bound,
+      })),
+      [ATTESTATION_DIGEST_FINDING],
+      `${label}: must fail the attestation digest check`,
+    );
+  }
+});
+
+test('T26 a null record review binding suppresses the derivative digest and approval findings', () => {
+  assert.deepEqual(
+    recordReviewAttestationFindings(recordReviewAttestationInput({
+      reviewBytes: canonicalBytes(attestationValue({
+        reviewedRecordSha256: sha256('t26-unrelated-record-bytes\n'),
+      })),
+      bindingReviewedRecordSha256: null,
+    })),
+    [],
+    'with no binding there is no bound digest to contradict, so the digest finding is owed elsewhere',
+  );
+  assert.deepEqual(
+    recordReviewAttestationFindings(recordReviewAttestationInput({
+      reviewBytes: canonicalBytes(attestationValue({
+        findings: [attestationFinding('T26-1')],
+      })),
+      bindingReviewedRecordSha256: null,
+    })),
+    [],
+    'with no binding the approval finding is derivative and the binding control reports the cause',
+  );
+});
+
+test('T27 the attestation must name an independent read-only reviewer claiming no authority', () => {
+  const cases = [
+    ['blank reviewer identity', { reviewer_identity: '   ' }],
+    ['non-string reviewer identity', { reviewer_identity: null }],
+    ['non-independent reviewer', { reviewer_independent_of_record_author: false }],
+    ['non read-only reviewer mode', { reviewer_mode: 'read_write' }],
+    ['claimed execution authority', { grants_execution_authority: true }],
+  ];
+  for (const [label, patch] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(withFields(attestationValue(), patch)),
+      })),
+      [ATTESTATION_REVIEWER_FINDING],
+      `${label}: must fail the reviewer identity and authority check`,
+    );
+  }
+});
+
+test('T28 attestation findings must be exact bounded three-key entries with unique ids', () => {
+  const cases = [
+    ['non-array findings', { findings: {}, decision: DECISION_REJECTED }],
+    ['non-object finding entry', { findings: ['reviewed record bytes finding'] }],
+    ['finding key order drift', {
+      findings: [withKeyOrder(attestationFinding('T28-1'), ['summary', 'severity', 'id'])],
+    }],
+    ['extra finding key', {
+      findings: [withFields(attestationFinding('T28-1'), { owner: 'reviewer' })],
+    }],
+    ['blank finding id', { findings: [attestationFinding('   ')] }],
+    ['unknown severity', { findings: [attestationFinding('T28-1', 'BLOCKER')] }],
+    ['blank summary', { findings: [attestationFinding('T28-1', 'P1', '   ')] }],
+    ['too many findings', {
+      findings: Array.from(
+        { length: RECORD_REVIEW_MAX_FINDINGS + 1 },
+        (_, index) => attestationFinding(`T28-${index}`),
+      ),
+    }],
+    ['duplicate finding ids', {
+      findings: [
+        attestationFinding('T28-1'),
+        attestationFinding('T28-1', 'P2', 'second reviewed finding'),
+      ],
+    }],
+  ];
+  assert.ok(
+    ATTESTATION_FINDING_SEVERITIES.includes(attestationFinding('T28-0').severity),
+    'the clean finding fixture must use a reviewed severity',
+  );
+  for (const [label, patch] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(withFields(attestationValue(), patch)),
+      })),
+      [ATTESTATION_DECISION_FINDING],
+      `${label}: must fail the exact decision and findings check`,
+    );
+  }
+});
+
+test('T29 the decision value must be exact and coherent with the findings list', () => {
+  const cases = [
+    ['unknown decision', { decision: 'RECORD_BYTES_MAYBE', findings: [] }],
+    ['non-string decision', { decision: null, findings: [] }],
+    ['approved while carrying findings', {
+      decision: DECISION_APPROVED,
+      findings: [attestationFinding('T29-1')],
+    }],
+    ['rejected while carrying no findings', { decision: DECISION_REJECTED, findings: [] }],
+  ];
+  for (const [label, patch] of cases) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        reviewBytes: canonicalBytes(withFields(attestationValue(), patch)),
+      })),
+      [ATTESTATION_DECISION_FINDING],
+      `${label}: must fail the exact decision and findings check`,
+    );
+  }
+});
+
+test('T30 a well-formed rejected review blocks authorization with exactly the approval finding', () => {
+  for (const phase of ['authorized', 'closed']) {
+    assert.deepEqual(
+      recordReviewAttestationFindings(recordReviewAttestationInput({
+        phase,
+        reviewBytes: canonicalBytes(attestationValue({
+          findings: [attestationFinding('T30-1')],
+        })),
+      })),
+      [ATTESTATION_APPROVAL_FINDING],
+      `${phase}: a well-formed rejection is not malformed, it is a refusal to approve`,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// C5 RED — P2-4: the attestation control on the record path integration surface.
+// ---------------------------------------------------------------------------
+const CLOSED_RECORD_OPTIONS = Object.freeze({
+  phase: 'closed',
+  outcome: 'TOPOLOGY_PASS',
+  attemptConsumed: true,
+  teardownVerified: true,
+  residualResources: 0,
+  externalManifestLocallyVerified: true,
+});
+
+const attestationErrors = (report) =>
+  report.errors.filter((error) =>
+    ALL_ATTESTATION_FINDINGS.some((finding) => error === `${RECORD_PATH}: ${finding}`));
+
+test('T31 an authorized record with a canonical approved review raises no attestation finding', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, { phase: 'authorized', executionAuthorized: true }));
+    const report = validateTopologyRehearsals({ root });
+    assert.deepEqual(report.errors, []);
+    assert.deepEqual(attestationErrors(report), []);
+  });
+});
+
+test('T32 a plain-text record review artifact fails the canonical bytes gate', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+      recordReview: { bytes: Buffer.from('An independent reviewer approved this.\n', 'utf8') },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${ATTESTATION_CANONICAL_FINDING}`),
+      'prose is not a machine-checkable attestation of the reviewed record bytes',
+    );
+  });
+});
+
+test('T33 a markdown record review artifact fails the .json attestation suffix gate', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+      recordReview: { fileName: 'record_review.md' },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${ATTESTATION_SUFFIX_FINDING}`),
+      'the record review artifact must be a .json attestation file',
+    );
+  });
+});
+
+test('T34 a closed record carrying a rejected record review fails closed and renders exit 1', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...CLOSED_RECORD_OPTIONS,
+      recordReview: { attestation: { findings: [attestationFinding('T34-1')] } },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${ATTESTATION_APPROVAL_FINDING}`),
+      'a rejected record review cannot support an authorized or closed record',
+    );
+    const rendered = formatTopologyRehearsalReport(report);
+    assert.equal(rendered.exitCode, 1);
+    assert.match(rendered.stdout, /TOPOLOGY REHEARSAL: FAIL/u);
+  });
+});
+
+test('T35 the C4 byte-binding findings and the C6 attestation digest finding stay distinct', async () => {
+  assert.equal(
+    new Set([
+      RECORD_REVIEW_SELF_ATTESTATION_FINDING,
+      RECORD_REVIEW_PINNED_PROPOSED_FINDING,
+      ATTESTATION_DIGEST_FINDING,
+    ]).size,
+    3,
+    'three distinct controls must carry three distinct finding texts',
+  );
+
+  // The binding drifts off the pinned proposed digest while the attestation agrees with
+  // the binding: the C4 control fires and the C6 digest control has nothing to say.
+  const drift = sha256('t35-unpinned-record-bytes\n');
+  await withRoot((root) => {
+    const record = buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+      recordReview: { attestation: { reviewedRecordSha256: drift } },
+    });
+    writeRecord(root, withRecordReviewBinding(record, { reviewed_record_sha256: drift }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${RECORD_REVIEW_PINNED_PROPOSED_FINDING}`),
+      'a binding off the pinned proposed digest must still fail the C4 control',
+    );
+    assert.ok(
+      !report.errors.some((error) => error.includes(ATTESTATION_DIGEST_FINDING)),
+      'an attestation agreeing with its binding must not also fail the C6 digest control',
+    );
+  });
+
+  // The binding is exactly right and only the attestation bytes disagree: the C6 digest
+  // control fires alone, and no C4 byte-binding finding is raised.
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      phase: 'authorized',
+      executionAuthorized: true,
+      recordReview: { attestation: { reviewedRecordSha256: drift } },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) =>
+        error === `${RECORD_PATH}: ${ATTESTATION_DIGEST_FINDING}`),
+      'a review attesting bytes other than the bound proposed digest must fail closed',
+    );
+    for (const finding of [
+      RECORD_REVIEW_SELF_ATTESTATION_FINDING,
+      RECORD_REVIEW_PINNED_PROPOSED_FINDING,
+    ]) {
+      assert.ok(
+        !report.errors.some((error) => error.includes(finding)),
+        `an exact binding must not raise the C4 finding: ${finding}`,
+      );
+    }
+  });
+});
+
+test('T36 a missing record_review artifact raises no derivative attestation finding', async () => {
+  await withRoot((root) => {
+    const built = buildRecord(root, { phase: 'authorized', executionAuthorized: true });
+    const record = withArtifacts(
+      built,
+      built.evidence.artifacts.filter((entry) => entry?.kind !== 'record_review'),
+    );
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(report.errors.some((error) =>
+      error === `${RECORD_PATH}: required record_review artifact is missing`));
+    assert.deepEqual(
+      attestationErrors(report),
+      [],
+      'with no review artifact there are no review bytes to judge, so the cause is the missing artifact',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C5 RED — P2-5: documented truth and process guards.
+// ---------------------------------------------------------------------------
+const README_ATTESTATION_PROSE = [
+  new RegExp(RECORD_REVIEW_ATTESTATION_SCHEMA, 'u'),
+  /canonical JSON/iu,
+  /exact ordered ten-key inventory/iu,
+  new RegExp(DECISION_APPROVED, 'u'),
+  new RegExp(DECISION_REJECTED, 'u'),
+  /grants no execution, runtime, UAT, demo, release or production authority/iu,
+];
+const PINNED_COMMITTED_BYTES = [
+  [RECORD_PATH, 'f98cbae5dfebe433228574609f8ef7573bb0ef93c2f09e076e851698bab6cd37'],
+  [POLICY_PATH, '4a2b6f1355cfa2fa0d7e6332cabc0d9cafbb05756523b77f8dd20614df796831'],
+  [SCHEMA_PATH, '44784ac1872d110f47d5e1e628d1cb6f07c0960a43a5badfc1e7bfc07ce85fe3'],
+  [TRUST_PATH, 'd844c4764066dff1e8eefe67a4feb1c1fd14f45bc7565696264eafcafa93aa77'],
+  [ALLOWED_SIGNERS_PATH, '04c1d4274218a6ba8adb971a5f6f5360d3ff8ce4aac83ab06be1437b195859e0'],
+];
+const FORBIDDEN_VALIDATOR_IMPORTS = [
+  /node:net/u,
+  /node:http\b/u,
+  /node:https/u,
+  /node:dgram/u,
+];
+
+test('T37 both READMEs document the record review attestation contract and its non-claim', () => {
+  for (const path of RECORD_REVIEW_TRUTH_PROSE_PATHS) {
+    const text = readCommittedBytes(path).toString('utf8');
+    for (const pattern of README_ATTESTATION_PROSE) {
+      assert.match(text, pattern, `${path}: must document ${pattern}`);
+    }
+    for (const key of RECORD_REVIEW_ATTESTATION_KEYS) {
+      assert.match(
+        text,
+        new RegExp(`\\b${key}\\b`, 'u'),
+        `${path}: must name the ${key} attestation key`,
+      );
+    }
+  }
+});
+
+test('T38 the committed record, policy, schema and trust bytes remain exactly pinned', () => {
+  for (const [path, digest] of PINNED_COMMITTED_BYTES) {
+    assert.equal(
+      sha256(readCommittedBytes(path)),
+      digest,
+      `${path}: committed bytes must remain exactly as reviewed`,
+    );
+  }
+  assert.equal(
+    PINNED_TOPOLOGY_STATE.current_state.record_sha256,
+    PINNED_COMMITTED_BYTES[0][1],
+    'the validator-pinned current state must keep naming the committed record bytes',
+  );
+});
+
+test('T39 the validator keeps exact process targets and opens no network surface', () => {
+  const source = readCommittedBytes(VALIDATOR_PATH).toString('utf8');
+  assert.match(source, /'\/usr\/bin\/git'/u);
+  assert.match(source, /'\/usr\/bin\/ssh-keygen'/u);
+  assert.doesNotMatch(source, /execFileSync\(\s*'ssh-keygen'/u);
+  assert.doesNotMatch(source, /spawnSync\(\s*'ssh-keygen'/u);
+  for (const forbidden of FORBIDDEN_VALIDATOR_IMPORTS) {
+    assert.doesNotMatch(source, forbidden, `${VALIDATOR_PATH}: must open no network surface`);
+  }
 });
