@@ -3,8 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   cpSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -17,6 +19,7 @@ import test from 'node:test';
 import {
   formatTopologyRehearsalReport,
   isMainModule,
+  PINNED_TOPOLOGY_STATE,
   validateTopologyRehearsals as validateTopologyRehearsalsRaw,
 } from '../validate-topology-rehearsal.mjs';
 
@@ -36,7 +39,54 @@ const RECORD_DIR = `${TOPOLOGY_ROOT}/${RECORD_ID}`;
 const RECORD_PATH = `${RECORD_DIR}/topology-rehearsal.json`;
 const NC_SHA = '427423db6d5d5e9f720c5e110a2c9b3cba39ea089dafed4ab936d04dd218bdac';
 
+const CANDIDATES_ROOT = 'docs/uat/candidates';
+const CANDIDATE_DIR = `${CANDIDATES_ROOT}/browser-integrated-uat-bridge-r1`;
+const CANDIDATE_DIAGNOSIS_PATH =
+  `${CANDIDATE_DIR}/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md`;
+const CANDIDATE_REVIEW_PATH =
+  `${CANDIDATE_DIR}/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-REVIEW-R1.md`;
+const CANDIDATE_DIAGNOSIS_SHA256 =
+  'b4d9e8cd0ff34b5a99d9b8b3e04419c27b1927d6e61d146d7658454a74c73874';
+const CANDIDATE_REVIEW_SHA256 =
+  'bba21165cbf1489bed58d5d583577515efa1217ab36982be18f837b32fe532c7';
+const REGISTRY_README_PATH = `${TOPOLOGY_ROOT}/README.md`;
+const CONTRACT_VALIDATION_README_PATH = 'tools/contract-validation/README.md';
+const SUITE_VALIDATOR_PATH = 'tools/contract-validation/validate.mjs';
+const STALE_ZERO_RECORD_PROSE = [
+  /zero prepared records/iu,
+  /no record exists yet/iu,
+];
+const PROPOSED_RECORD_PROSE = /one proposed HOLD record/iu;
+
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+
+// Committed-truth helpers: assert presence first so a missing future artifact fails
+// as a diagnostic assertion instead of an ENOENT that aborts later assertions.
+const readCommittedBytes = (path) => {
+  assert.ok(
+    existsSync(resolve(ROOT, path)),
+    `${path}: expected committed file is missing`,
+  );
+  return readFileSync(resolve(ROOT, path));
+};
+
+const readCommittedRecord = () => {
+  const bytes = readCommittedBytes(RECORD_PATH);
+  let record = null;
+  assert.doesNotThrow(() => {
+    record = JSON.parse(bytes.toString('utf8'));
+  }, `${RECORD_PATH}: committed record must be valid JSON`);
+  return { bytes, record };
+};
+
+const readCommittedPolicy = () =>
+  JSON.parse(readCommittedBytes(POLICY_PATH).toString('utf8'));
+
+const artifactOfKind = (record, kind) => {
+  const entry = (record?.evidence?.artifacts ?? []).find((item) => item?.kind === kind);
+  assert.ok(entry, `${RECORD_PATH}: committed record must carry a ${kind} artifact`);
+  return entry;
+};
 const validateTopologyRehearsals = (options = {}) => {
   if (options.root && options.root !== ROOT && !Object.hasOwn(options, 'pinnedState')) {
     let policy = { current_state: null, state_history: [] };
@@ -279,15 +329,170 @@ const withRoot = async (fn) => {
   }
 };
 
-test('committed topology policy permits zero prepared records and grants no authority', () => {
+test('committed topology registry holds one proposed record and still grants no authority', () => {
   const report = validateTopologyRehearsals({ root: ROOT });
   assert.deepEqual(report.errors, []);
-  assert.equal(report.counts.records, 0);
+  assert.equal(report.counts.records, 1);
   assert.equal(report.counts.execution_authorized, 0);
+  assert.equal(report.counts.closed, 0);
   const rendered = formatTopologyRehearsalReport(report);
   assert.equal(rendered.exitCode, 0);
+  assert.match(rendered.stdout, /records 1, authorized 0, closed 0/u);
   assert.match(rendered.stdout, /static control only/i);
   assert.match(rendered.stdout, /no runtime, UAT, demo, release or production authority/i);
+  assert.doesNotMatch(rendered.stdout, /TOPOLOGY_PASS|docker|executed|verified runtime/iu);
+});
+
+test('the committed machine record is proposed, HOLD, unauthorized and production-excluded', () => {
+  const { record } = readCommittedRecord();
+  assert.equal(record.record_id, RECORD_ID);
+  assert.equal(record.identity?.capability_id, 'cybrik.suite.runtime-topology');
+  assert.equal(record.identity?.objective_id, SERIES_ID);
+  assert.equal(record.attempt?.series_id, SERIES_ID);
+  assert.equal(record.attempt?.attempt_ordinal, 1);
+  assert.equal(record.attempt?.max_attempts, 1);
+  assert.equal(record.attempt?.phase, 'proposed');
+  assert.equal(record.attempt?.execution_authorized, false);
+  assert.equal(record.attempt?.attempt_consumed, false);
+  assert.equal(record.attempt?.outcome, 'not_run');
+  assert.equal(record.authorization, null);
+  assert.equal(record.evidence?.directory, RECORD_DIR);
+  assert.equal(record.evidence?.external_bytes_ci_verified, false);
+  assert.equal(record.evidence?.result_controls, null);
+  assert.equal(record.disposition?.profile, 'HOLD');
+  assert.deepEqual(record.production_exclusion, {
+    no_production_credentials: true,
+    no_production_configuration: true,
+    no_production_data: true,
+    no_production_traffic: true,
+  });
+});
+
+test('committed policy current state binds the exact record bytes in exact six-key order', () => {
+  const { bytes } = readCommittedRecord();
+  const policy = readCommittedPolicy();
+  assert.ok(policy.current_state, `${POLICY_PATH}: current_state must pin the proposed record`);
+  assert.deepEqual(Object.keys(policy.current_state), [
+    'record_id',
+    'record_sha256',
+    'phase',
+    'attempt_consumed',
+    'outcome',
+    'grant_sha256',
+  ]);
+  assert.equal(policy.current_state.record_id, RECORD_ID);
+  assert.equal(policy.current_state.record_sha256, sha256(bytes));
+  assert.equal(policy.current_state.phase, 'proposed');
+  assert.equal(policy.current_state.attempt_consumed, false);
+  assert.equal(policy.current_state.outcome, 'not_run');
+  assert.equal(policy.current_state.grant_sha256, null);
+  assert.deepEqual(policy.state_history, []);
+});
+
+test('PINNED_TOPOLOGY_STATE exactly mirrors the committed policy state', () => {
+  const policy = readCommittedPolicy();
+  assert.equal(
+    JSON.stringify({
+      current_state: policy.current_state ?? null,
+      state_history: policy.state_history ?? [],
+    }),
+    JSON.stringify({
+      current_state: PINNED_TOPOLOGY_STATE.current_state,
+      state_history: PINNED_TOPOLOGY_STATE.state_history,
+    }),
+  );
+  assert.notEqual(PINNED_TOPOLOGY_STATE.current_state, null);
+});
+
+test('the live pinned state accepts the exact committed record and rejects one-byte drift', async () => {
+  const { bytes } = readCommittedRecord();
+  await withRoot((root) => {
+    cpSync(resolve(ROOT, RECORD_DIR), resolve(root, RECORD_DIR), { recursive: true });
+    const exact = validateTopologyRehearsalsRaw({
+      root,
+      pinnedState: PINNED_TOPOLOGY_STATE,
+    });
+    assert.deepEqual(exact.errors, []);
+
+    writeFileSync(resolve(root, RECORD_PATH), Buffer.concat([bytes, Buffer.from('\n')]));
+    const drifted = validateTopologyRehearsalsRaw({
+      root,
+      pinnedState: PINNED_TOPOLOGY_STATE,
+    });
+    assert.ok(drifted.errors.some((error) =>
+      error.includes('current state must bind the exact record bytes and phase')));
+  });
+});
+
+test('in-directory diagnosis and review artifacts are byte-identical to the reviewed sources', () => {
+  const { record } = readCommittedRecord();
+  const cases = [
+    ['diagnosis', CANDIDATE_DIAGNOSIS_PATH, CANDIDATE_DIAGNOSIS_SHA256],
+    ['independent_review', CANDIDATE_REVIEW_PATH, CANDIDATE_REVIEW_SHA256],
+  ];
+  for (const [kind, sourcePath, sourceSha256] of cases) {
+    const entry = artifactOfKind(record, kind);
+    assert.ok(
+      entry.path.startsWith(`${RECORD_DIR}/`),
+      `${kind}: artifact must live inside the record directory`,
+    );
+    const sourceBytes = readCommittedBytes(sourcePath);
+    assert.equal(sha256(sourceBytes), sourceSha256, sourcePath);
+    const inDirectoryBytes = readCommittedBytes(entry.path);
+    assert.ok(inDirectoryBytes.equals(sourceBytes), `${entry.path}: must be byte-identical to ${sourcePath}`);
+    assert.equal(entry.sha256, sha256(inDirectoryBytes), `${entry.path}: digest must match bytes`);
+  }
+});
+
+test('the committed diagnosis provenance digest equals the reviewed candidate diagnosis digest', () => {
+  const { record } = readCommittedRecord();
+  assert.equal(artifactOfKind(record, 'diagnosis').sha256, CANDIDATE_DIAGNOSIS_SHA256);
+  assert.equal(sha256(readCommittedBytes(CANDIDATE_DIAGNOSIS_PATH)), CANDIDATE_DIAGNOSIS_SHA256);
+});
+
+test('the proposed artifact inventory is exactly diagnosis and independent review', () => {
+  const { record } = readCommittedRecord();
+  const kinds = (record.evidence?.artifacts ?? []).map((entry) => entry.kind);
+  assert.deepEqual([...kinds].sort(), ['diagnosis', 'independent_review']);
+  for (const forbidden of [
+    'grant',
+    'authorization_signature',
+    'result',
+    'evidence_manifest',
+    'result_review',
+  ]) assert.ok(!kinds.includes(forbidden), `proposed record must not carry a ${forbidden} artifact`);
+});
+
+test('stale zero-record prose is replaced in registry, tooling and suite validator truth', () => {
+  for (const path of [
+    REGISTRY_README_PATH,
+    CONTRACT_VALIDATION_README_PATH,
+    SUITE_VALIDATOR_PATH,
+  ]) {
+    const text = readCommittedBytes(path).toString('utf8');
+    for (const stale of STALE_ZERO_RECORD_PROSE) {
+      assert.doesNotMatch(text, stale, `${path}: stale zero-record prose must be removed`);
+    }
+    assert.match(text, PROPOSED_RECORD_PROSE, `${path}: must state the one proposed HOLD record`);
+  }
+});
+
+test('no runtime-admission candidate cites a topology prerequisite while the record stays open', () => {
+  const candidatePaths = readdirSync(resolve(ROOT, CANDIDATES_ROOT), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `${CANDIDATES_ROOT}/${entry.name}/runtime-admission.json`)
+    .filter((path) => existsSync(resolve(ROOT, path)));
+  assert.ok(candidatePaths.length > 0, `${CANDIDATES_ROOT}: expected runtime-admission candidates`);
+  for (const path of candidatePaths) {
+    assert.doesNotMatch(
+      readFileSync(resolve(ROOT, path), 'utf8'),
+      /topology_prerequisite/u,
+      `${path}: topology prerequisite requires its own separately reviewed gate`,
+    );
+  }
+  const { record } = readCommittedRecord();
+  assert.notEqual(record.attempt?.phase, 'closed');
+  assert.notEqual(record.attempt?.outcome, 'TOPOLOGY_PASS');
 });
 
 test('one exact proposed singleton record validates while remaining HOLD', async () => {
