@@ -6,6 +6,7 @@ Runbooks and operating procedures for the suite.
 
 | Document | Purpose | Status |
 |---|---|---|
+| [CLAUDE-POOL-FAILURE-LEDGER.md](CLAUDE-POOL-FAILURE-LEDGER.md) | Append-only Claude pool/run failure evidence and deterministic quota, 529, permission and timeout fallback policy for the 48-agent roadmap | `ACTIVE OPERATIONS EVIDENCE`; no credentials, runtime authority or release-date change |
 | [UAT-TEST-SIGNER-ROTATION-2026-08-04.md](UAT-TEST-SIGNER-ROTATION-2026-08-04.md) | Provenance and fail-closed controls for the synthetic local-UAT Ed25519 trust rotation | `PROPOSED UNTIL COMMIT — LOCAL UAT TRUST ROTATION — NOT PRODUCTION AUTHORITY`; prior exact packet was unsigned/unconsumed and is superseded; new clean tuple/packet/signature required before admission |
 | [W1-48-AGENT-ROLLING-BOARD.md](W1-48-AGENT-ROLLING-BOARD.md) | W1 early-entry transition and the fixed roster of 48 immutable task identities; gate dispositions and the bounded documentation-authority record | `ACTIVE`. W0 closure `NO-GO` with `COMPLETE=0`; dependency-ready bounded product packets and evidence-gated technical integration are Governor-authorized; historical runtime holds are superseded only as stated in the 2026-07-31 Runtime/UAT Reconciliation |
 | [W1-E2-EVIDENCE-REGISTER.md](W1-E2-EVIDENCE-REGISTER.md) | Exact per-lane evidence for GATE A4, W1-C1, W1-C2 and FAB-C0 | `ACTIVE — MIXED HISTORICAL EVIDENCE`; current W1 C1/G1 + corrected C2 contract/control state is canonically integrated through PR #1 merge `28c564eb…`; product/runtime evidence stays separately scoped |
