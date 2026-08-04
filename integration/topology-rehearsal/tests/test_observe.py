@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import load_c8, require_c8_attr
 
 
