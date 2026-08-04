@@ -349,7 +349,9 @@
         "historical_prerequisites": {
           "type": "array",
           "items": { "$ref": "#/$defs/historicalPrerequisite" }
-        }
+        },
+        "sealed_predecessor": { "$ref": "#/$defs/sealedPredecessor" },
+        "topology_prerequisite": { "$ref": "#/$defs/topologyPrerequisite" }
       }
     },
     "historicalPrerequisite": {
@@ -378,6 +380,69 @@
         "evidence_use": {
           "const": "historical_prerequisite"
         }
+      }
+    },
+    "sealedPredecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "record_path",
+        "record_sha256",
+        "evidence_path",
+        "evidence_sha256",
+        "evidence_use"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "record_path": { "type": "string", "minLength": 1 },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_use": { "const": "sealed_predecessor" }
+      }
+    },
+    "topologyPrerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "capability_id",
+        "objective_id",
+        "record_path",
+        "record_sha256",
+        "result_path",
+        "result_sha256",
+        "evidence_manifest_path",
+        "evidence_manifest_sha256",
+        "evidence_use"
+      ],
+      "properties": {
+        "record_id": { "const": "postgres-loopback-internal-v1-r1" },
+        "capability_id": { "const": "cybrik.suite.runtime-topology" },
+        "objective_id": { "const": "postgres-loopback-internal-v1" },
+        "record_path": { "type": "string", "minLength": 1 },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "result_path": { "type": "string", "minLength": 1 },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_manifest_path": { "type": "string", "minLength": 1 },
+        "evidence_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_use": { "const": "non_authorizing_preflight" }
       }
     },
     "hostedCheck": {

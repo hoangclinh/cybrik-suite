@@ -1,13 +1,20 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "allowed_objectives": [
     {
       "capability_id": "cybrik.ai.durable-postgres",
-      "objective_id": "bounded-postgres-runtime-v1"
+      "objective_id": "bounded-postgres-runtime-v1",
+      "allowed_series_ids": [
+        "runtime-admission-ai-pg"
+      ]
     },
     {
       "capability_id": "cybrik.suite.golden-workflow",
-      "objective_id": "golden-uat-v1"
+      "objective_id": "golden-uat-v1",
+      "allowed_series_ids": [
+        "browser-integrated-uat-bridge",
+        "runtime-admission-soc-ai-lifecycle-mtls"
+      ]
     }
   ],
   "legacy_candidates": [
@@ -37,6 +44,18 @@
       "record_path": "docs/uat/candidates/runtime-admission-ai-pg-r3/runtime-admission.json",
       "record_sha256": "72ec88e98023c5992d5e42c710d0632680158d13ecc0a1065795a0a9db4263e3",
       "recorded_disposition": "NO-GO"
+    }
+  ],
+  "sealed_predecessors": [
+    {
+      "candidate_id": "browser-integrated-uat-bridge-r1",
+      "series_id": "browser-integrated-uat-bridge",
+      "capability_id": "cybrik.suite.golden-workflow",
+      "objective_id": "golden-uat-v1",
+      "record_path": "docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json",
+      "record_sha256": "b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578",
+      "recorded_disposition": "HOLD",
+      "recorded_current_attempt_status": "not_run"
     }
   ]
 }
