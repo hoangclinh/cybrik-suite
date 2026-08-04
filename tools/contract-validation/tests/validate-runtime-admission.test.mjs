@@ -1465,6 +1465,37 @@ test('topology_prerequisite without the record pins is rejected by the runtime-a
   });
 });
 
+// Robustness: a malformed candidate must fail closed as a reported schema
+// finding, never as a validator crash. Here exactly one field of an otherwise
+// valid topology prerequisite is retyped from string to number, every other
+// field stays present and correct, so the only admissible outcome is a resolved
+// report carrying the precise schema type finding for result_path.
+test('a non-string topology_prerequisite result_path is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-nonstring-result-path';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      result_path: 15433,
+    },
+  });
+  assert.equal(
+    Object.keys(candidate.attempt_accounting.objective_lineage.topology_prerequisite).length,
+    Object.keys(topology.prerequisite).length,
+  );
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/objective_lineage/topology_prerequisite/result_path must be string`,
+    );
+  });
+});
+
 test('default-root validation ignores caller-supplied lineage policy pins', async () => {
   // Empty pins would void the entire seal if the caller could reach it; at the
   // default root the validator must use only its own compiled-in pins.
