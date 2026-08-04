@@ -62,6 +62,24 @@ PROJECT_STATUS = (
 # unexecuted source as a tested, piloted or released capability.
 UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b"
 
+# The exact sentences the package front door must carry. They are pinned rather than
+# paraphrased so a later edit cannot soften the absence back into an implied whole runner.
+FRONT_DOOR_BOUNDED_CLAIM = "Only the bounded C8-A core is present"
+FRONT_DOOR_ABSENCE_CLAIM = "remain absent, and their tests stay RED"
+FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
+# The modules absent while C8-A is the whole implemented core. Stated here so the front-door
+# control fails if one lands without the front door being brought back into line.
+FRONT_DOOR_ABSENT_MODULES = (
+    "observe",
+    "grant",
+    "preparation",
+    "admission",
+    "runner",
+)
+
+# The reviewed per-module size bound, in lines. Strictly under, not up to.
+MODULE_LINE_LIMIT = 800
+
 # Literals that would name something other than the single reviewed loopback publication.
 # `127.0.0.1` is the only address any authored byte may contain.
 FORBIDDEN_ADDRESS_LITERALS = (
@@ -121,6 +139,50 @@ def test_the_package_imports_and_names_itself() -> None:
     assert require_c8_attr(package, "__name__") == PACKAGE
     docstring = require_c8_attr(package, "__doc__")
     assert isinstance(docstring, str) and docstring.strip()
+
+
+def test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder() -> None:
+    """The first thing a reader imports may not describe a runner that is not there.
+
+    The front door is where a reader forms their idea of what this package is. Announcing
+    an implemented runner while five of its ten modules and both entrypoints are absent is
+    the same overstatement the status lines exist to prevent — and it is the one place the
+    per-module status control never looks, because `__init__` is not in the inventory.
+
+    Present and absent are read off the tree rather than hard-coded, so the control keeps
+    holding as modules land instead of pinning today's split forever.
+    """
+    docstring = require_c8_attr(load_c8(), "__doc__")
+    package_dir = require_c8_path(SRC / PACKAGE)
+    unnamed = [
+        module for module in C8_MODULES if f"`{module}`" not in docstring
+    ]
+    assert unnamed == []
+    assert FRONT_DOOR_BOUNDED_CLAIM in docstring
+    assert FRONT_DOOR_ABSENCE_CLAIM in docstring
+    assert FRONT_DOOR_SCRIPT_CLAIM in docstring
+    for name in C8_SCRIPT_NAMES:
+        assert not (SCRIPTS / name).exists()
+    absent = tuple(
+        module for module in C8_MODULES if not (package_dir / f"{module}.py").exists()
+    )
+    assert absent == FRONT_DOOR_ABSENT_MODULES
+    # The overstatement this control replaces: a whole-runner claim from a partial package.
+    assert "This package implements the runner specified by" not in docstring
+
+
+def test_no_authored_module_exceeds_the_reviewed_size_bound() -> None:
+    """A module past the bound stops being reviewable in one sitting.
+
+    The limit is stated as a control rather than left to a reviewer's memory, because a file
+    drifts over it one honest paragraph at a time.
+    """
+    oversized = {
+        str(path.relative_to(SCRIPTS.parent)): len(module_source(path).splitlines())
+        for path in authored_sources()
+        if len(module_source(path).splitlines()) >= MODULE_LINE_LIMIT
+    }
+    assert oversized == {}
 
 
 def test_the_module_inventory_is_exactly_the_reviewed_inventory() -> None:

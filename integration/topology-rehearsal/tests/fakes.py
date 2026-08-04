@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -579,6 +580,29 @@ class FakeCommandResult:
     returncode: int = 0
     stdout: str = ""
     stderr: str = ""
+
+
+# Injected results that are not structurally a command result at all. A runner is an
+# injected port, so nothing downstream of it may assume the shape of what it returns: a
+# missing or wrong-typed field must decode as an unresolved observation rather than raise
+# `AttributeError` or `TypeError` out of a seam whose only failure value is `None`.
+#
+# `returncode=True` is deliberate. `bool` is a subclass of `int` in Python, so a truthy flag
+# handed back instead of a status would compare equal to the failure status `1` and read as
+# a real reading. It is refused as malformed, not accepted as a status.
+#
+# The tuple is shared by the protocol and adapter specifications so both state one surface.
+MALFORMED_COMMAND_RESULTS = (
+    SimpleNamespace(stdout="", stderr=""),
+    SimpleNamespace(returncode=None, stdout="", stderr=""),
+    SimpleNamespace(returncode="0", stdout="", stderr=""),
+    SimpleNamespace(returncode=True, stdout="", stderr=""),
+    SimpleNamespace(returncode=0.0, stdout="", stderr=""),
+    SimpleNamespace(returncode=0, stdout=None, stderr=""),
+    SimpleNamespace(returncode=0, stdout=b"", stderr=""),
+    SimpleNamespace(returncode=0, stdout="", stderr=None),
+    SimpleNamespace(returncode=0, stdout="", stderr=0),
+)
 
 
 class FakeCommandRunner:

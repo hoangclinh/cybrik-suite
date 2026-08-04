@@ -440,16 +440,14 @@ def write_signature(plan, payload: bytes) -> Path:
 
 
 def signature_verifier(plan, returncode: int = 0):
+    return signature_verifier_for(plan, fakes.FakeCommandResult(returncode=returncode))
+
+
+def signature_verifier_for(plan, result):
+    """A verifier whose one planned verification answers with exactly `result`."""
     adapter = load_c8("adapter")
     log = fakes.CallLog()
-    runner = fakes.FakeCommandRunner(
-        log,
-        {
-            plan.commands["signature:verify"]: fakes.FakeCommandResult(
-                returncode=returncode
-            )
-        },
-    )
+    runner = fakes.FakeCommandRunner(log, {plan.commands["signature:verify"]: result})
     verifier = require_c8_attr(adapter, "SshSignatureCommandAdapter")(plan, runner)
     return verifier, log
 
@@ -477,6 +475,47 @@ def test_signature_verification_accepts_only_the_exact_bytes_it_was_asked_about(
     write_signature(plan, SIGNATURE)
     verifier, log = signature_verifier(plan, returncode=returncode)
     assert verify(verifier) is expected
+    assert log.count("command.run") == 1
+
+
+@pytest.mark.parametrize("returncode", (1, 2, 125, 255))
+def test_only_an_executed_positive_status_is_the_signers_own_refusal(
+    tmp_path: Path, returncode: int
+) -> None:
+    """`False` means `ssh-keygen` ran, read the bound bytes and rejected them."""
+    plan = signature_plan(tmp_path)
+    write_signature(plan, SIGNATURE)
+    verifier, log = signature_verifier(plan, returncode=returncode)
+    assert verify(verifier) is False
+    assert log.count("command.run") == 1
+
+
+@pytest.mark.parametrize(
+    "result",
+    (
+        # The unresolved sentinel of a default-constructed result: nothing ever executed.
+        fakes.FakeCommandResult(returncode=-1),
+        # A timeout or a signal death: the verification was killed, not answered.
+        fakes.FakeCommandResult(returncode=-9),
+        fakes.FakeCommandResult(returncode=-15),
+        *fakes.MALFORMED_COMMAND_RESULTS,
+    ),
+)
+def test_an_unrun_or_malformed_verification_is_unresolved_not_a_refused_signature(
+    tmp_path: Path, result
+) -> None:
+    """A grant nobody verified may never be recorded as a grant the signer refused.
+
+    The two carry different remedies: a refusal says the signature is wrong, while an
+    unresolved check says the verification has to be run again. Collapsing the second into
+    the first — and raising `AttributeError` on a malformed result instead of either —
+    would misreport the state of the authorization.
+    """
+    plan = signature_plan(tmp_path)
+    write_signature(plan, SIGNATURE)
+    verifier, log = signature_verifier_for(plan, result)
+    assert verify(verifier) is None
+    # The exact byte binding is unchanged: the run still happens and is still re-checked.
     assert log.count("command.run") == 1
 
 
@@ -835,6 +874,89 @@ def test_a_failed_or_malformed_residual_projection_is_unresolved_not_clean(
     assert docker.observe_residual() is None
 
 
+# A deadline comfortably past the scripted clock reading, so the health observation is
+# bounded by the runtime envelope rather than skipped as already expired.
+HEALTH_DEADLINE = 1000.0
+
+# Every observing seam, each reached through the one runner. A seam that promises `None`
+# when it cannot answer must keep that promise for a result it cannot even parse.
+UNRESOLVED_OBSERVATIONS = {
+    "observe_controls": lambda ports, plan: ports["identities"].observe_controls(),
+    "observe_image": lambda ports, plan: ports["host"].observe_image(
+        reference=plan.image_reference
+    ),
+    "observe_ephemeral_range": lambda ports, plan: ports[
+        "host"
+    ].observe_ephemeral_range(),
+    "observe_listeners": lambda ports, plan: ports["host"].observe_listeners(
+        port=plan.host_port
+    ),
+    "observe_platform": lambda ports, plan: ports["docker"].observe_platform(),
+    "observe_executable_digest": lambda ports, plan: ports[
+        "docker"
+    ].observe_executable_digest(path=fakes.DOCKER_EXECUTABLE_PATH),
+    "observe_publications": lambda ports, plan: ports["docker"].observe_publications(
+        port=plan.host_port
+    ),
+    "observe_health": lambda ports, plan: ports["docker"].observe_health(
+        container=plan.container_name, deadline=HEALTH_DEADLINE
+    ),
+    "observe_container": lambda ports, plan: ports["docker"].observe_container(
+        container=plan.container_name
+    ),
+    "observe_daemon_event": lambda ports, plan: ports["docker"].observe_daemon_event(
+        container=plan.container_name
+    ),
+    "observe_docker_port": lambda ports, plan: ports["docker"].observe_docker_port(
+        container=plan.container_name, container_port=plan.container_port_key
+    ),
+    "observe_network": lambda ports, plan: ports["docker"].observe_network(
+        name=plan.network_name
+    ),
+    "observe_residual": lambda ports, plan: ports["docker"].observe_residual(),
+    "observe_digest": lambda ports, plan: ports["probe"].observe_digest(
+        path=plan.probe_executable_path
+    ),
+    "probe": lambda ports, plan: ports["probe"].run(
+        executable=plan.probe_executable_path, argv=fakes.PROBE_ARGV
+    ),
+}
+
+
+def observing_ports(plan, result):
+    """Every command adapter, answering one exact result for every planned command."""
+    adapter = load_c8("adapter")
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(log, dict.fromkeys(plan.commands.values(), result))
+    return {
+        "identities": require_c8_attr(adapter, "ControlIdentityCommandAdapter")(
+            plan, runner
+        ),
+        "host": require_c8_attr(adapter, "HostCommandAdapter")(plan, runner),
+        "docker": require_c8_attr(adapter, "DockerCommandAdapter")(
+            plan, runner, fakes.FakeClock(log)
+        ),
+        "probe": require_c8_attr(adapter, "ProbeCommandAdapter")(plan, runner),
+    }
+
+
+@pytest.mark.parametrize("result", fakes.MALFORMED_COMMAND_RESULTS)
+@pytest.mark.parametrize("observation", sorted(UNRESOLVED_OBSERVATIONS))
+def test_a_malformed_command_result_leaves_every_observation_unresolved(
+    observation: str, result
+) -> None:
+    """A structurally wrong result is an observation nobody made, not a crash or a default.
+
+    Each of these seams promises `None` when it cannot answer, and every caller branches on
+    exactly that. A raised `AttributeError` has no `None` branch at the call site, and a
+    `bool` status silently compared equal to `1` would let a broken `lsof` reading pass for
+    the observed absence a pre-consumption check looks for.
+    """
+    plan = built_plan()
+    ports = observing_ports(plan, result)
+    assert UNRESOLVED_OBSERVATIONS[observation](ports, plan) is None
+
+
 MUTATIONS = {
     "docker:create_network": lambda docker, plan: docker.create_network(
         name=plan.network_name, internal=True
@@ -905,21 +1027,43 @@ def test_every_mutating_docker_command_refuses_a_result_that_is_not_a_clean_succ
         MUTATIONS[effect](docker, plan)
 
 
+CREATED_ID = "created-id"
+
+# What each mutation must hand back. A create names the object the daemon just made, so the
+# runner can record that identifier as evidence; a start or a remove created nothing and
+# must name nothing rather than echo whatever the command happened to print.
+MUTATION_RETURNS = {
+    "docker:create_network": CREATED_ID,
+    "docker:create_volume": CREATED_ID,
+    "docker:create_container": CREATED_ID,
+    "docker:start_container": None,
+    "docker:remove_container": None,
+    "docker:remove_network": None,
+    "docker:remove_volume": None,
+}
+
+
 @pytest.mark.parametrize("effect", sorted(MUTATIONS))
 def test_a_clean_mutating_result_still_returns_the_daemons_own_identifier(
     effect: str,
 ) -> None:
+    """Each mutation is pinned to its one answer, not to a choice between two.
+
+    Accepting either the identifier or `None` for every mutation let a create that dropped
+    the daemon's identifier pass exactly as well as one that returned it, which is the
+    difference between recorded evidence and none.
+    """
     adapter = load_c8("adapter")
     plan = built_plan()
     log = fakes.CallLog()
     runner = fakes.FakeCommandRunner(
-        log, {plan.commands[effect]: fakes.FakeCommandResult(stdout="created-id\n")}
+        log, {plan.commands[effect]: fakes.FakeCommandResult(stdout=f"{CREATED_ID}\n")}
     )
     docker = require_c8_attr(adapter, "DockerCommandAdapter")(
         plan, runner, fakes.FakeClock(log)
     )
-    returned = MUTATIONS[effect](docker, plan)
-    assert returned in ("created-id", None)
+    assert MUTATIONS[effect](docker, plan) == MUTATION_RETURNS[effect]
+    assert sorted(MUTATION_RETURNS) == sorted(MUTATIONS)
     assert log.count("command.run") == 1
 
 
