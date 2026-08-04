@@ -7,10 +7,9 @@ import json
 from copy import deepcopy
 from dataclasses import FrozenInstanceError, replace
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import PACKAGE, SRC, load_c8, require_c8_attr, require_c8_path
 
 # One minute past the reviewed runtime envelope. A window wider than the limit authorizes

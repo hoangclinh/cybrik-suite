@@ -75,7 +75,6 @@ FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
 FRONT_DOOR_ABSENT_MODULES = (
-    "grant",
     "preparation",
     "admission",
     "runner",
