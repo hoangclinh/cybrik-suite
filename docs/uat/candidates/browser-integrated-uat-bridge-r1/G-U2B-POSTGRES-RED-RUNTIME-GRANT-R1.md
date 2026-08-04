@@ -42,8 +42,8 @@ withdrawal as runtime evidence and does not broaden any execution step below.
 
 | Fact | Exact value |
 |---|---|
-| Suite commit | `35c1fb3faed07f9e45b46c9eefcf0dd0f143d0d3` |
-| Suite tree | `d8a51976b95671685564a593fe5c6105f4724192` |
+| Suite commit | `4937542fcdd3f871607df6fd3b2625082cc06be1` |
+| Suite tree | `4be22a9b55598121bc93a7cbf2857379c09f856b` |
 | Accepted contract | `G-U2B-CONTRACT-ACCEPTANCE.md`, R1.1 |
 | Accepted SOC proposal commit | `3e1e84db1d94961a026d485cbea2a29a795851a7` |
 
