@@ -406,10 +406,120 @@ const writeRecordReviewArtifact = (root, directory, recordId, {
   return { kind: 'record_review', path, sha256: sha256(content) };
 };
 
+// ---------------------------------------------------------------------------
+// C8 exact-action grant fixture.
+//
+// The grant artifact of an authorized or closed record is a real canonical C8 grant
+// document, not placeholder text, so the synthetic root exercises the mandatory grant
+// branch end to end instead of an SSHSIG-only shortcut. `fileName`, `bytes` and `grant`
+// let a case install a deliberately non-conforming grant. Every helper is pure: it returns
+// new values and never mutates a caller-supplied object.
+// ---------------------------------------------------------------------------
+const GRANT_SCHEMA_VERSION = 'CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1';
+const AUTHORIZED_ACTION = 'topology_rehearsal_single_attempt';
+// The record's own deterministic admission instant, and one 180-second window that contains
+// it. Admission is judged from the record bytes, never from a wall clock.
+const RECORDED_AT = '2026-08-04T12:00:00Z';
+const GRANT_WINDOW = Object.freeze({
+  not_before: '2026-08-04T11:59:00Z',
+  expires_at: '2026-08-04T12:02:00Z',
+  runtime_limit_seconds: 180,
+  extension_cycles: 0,
+});
+const GRANT_OBSERVED_AT = '2026-08-04T11:59:30Z';
+const GRANT_CONTROL_REPOSITORIES = [
+  'cybrik-suite',
+  'cybrik-soc-command-center',
+  'cybrik-cyber-ai-platform',
+  'cybrik-security-tool-fabric',
+];
+const grantImageIdentity = () => ({
+  repository: 'postgres',
+  tag: '16-alpine',
+  platform: { os: 'linux', architecture: 'arm64', variant: null },
+  index_digest: `sha256:${'3'.repeat(64)}`,
+  manifest_digest: `sha256:${'4'.repeat(64)}`,
+});
+
+const grantValue = ({ recordId = RECORD_ID, ...overrides } = {}) => ({
+  schema: GRANT_SCHEMA_VERSION,
+  record: { path: RECORD_PATH, sha256: proposedStateDigest(recordId) },
+  runner: { aggregate_sha256: sha256('topology-grant-runner-aggregate\n') },
+  topology: {
+    host_ip: '127.0.0.1',
+    host_port: 15433,
+    container_port: 5432,
+    protocol: 'tcp',
+    internal_network: true,
+    publish_spec: '127.0.0.1:15433:5432/tcp',
+  },
+  selected_image_identity: { ...grantImageIdentity(), pull_policy: 'never' },
+  observed_image_identity: {
+    ...grantImageIdentity(),
+    local_image_id: `sha256:${'5'.repeat(64)}`,
+    observed_at: GRANT_OBSERVED_AT,
+  },
+  repositories: Object.fromEntries(GRANT_CONTROL_REPOSITORIES.map((name, index) => [name, {
+    commit: String(index + 1).repeat(40),
+    tree: ['a', 'b', 'c', 'd'][index].repeat(40),
+    clean: true,
+  }])),
+  tools: {
+    docker: {
+      path: '/usr/local/bin/docker',
+      sha256: sha256('topology-grant-docker\n'),
+      version: '29.6.2',
+    },
+    probe: { path: '/usr/bin/nc', sha256: NC_SHA, argv: ['-z', '-w', '5', '127.0.0.1', '15433'] },
+  },
+  window: { ...GRANT_WINDOW },
+  attempt: { ordinal: 1, max_attempts: 1 },
+  authorizes: AUTHORIZED_ACTION,
+  grants_no_authority: {
+    demo: true,
+    merge: true,
+    product_runtime: true,
+    production: true,
+    release: true,
+    uat: true,
+  },
+  ...overrides,
+});
+
+const writeGrantArtifact = (root, directory, recordId, {
+  fileName = 'grant.json',
+  bytes = null,
+  grant = {},
+} = {}) => {
+  const content = bytes ?? canonicalBytes(grantValue({ recordId, ...grant }));
+  const path = `${directory}/${fileName}`;
+  mkdirSync(resolve(root, directory), { recursive: true });
+  writeFileSync(resolve(root, path), content);
+  return { kind: 'grant', path, sha256: sha256(content) };
+};
+
+// Exact C8 record-path finding texts.
+const GRANT_ARTIFACT_SUFFIX_FINDING =
+  'grant artifact must be a .json exact-action grant document';
+const GRANT_ADMISSION_INSTANT_FINDING =
+  'record recorded_at must be one representable UTC instant to admit an exact-action grant';
+const GRANT_CANONICAL_BYTES_FINDING =
+  'grant bytes must be exact canonical JSON: JSON.stringify(value, null, 2) plus one LF, UTF-8, no BOM and no trailing bytes';
+const GRANT_RECORD_BINDING_FINDING =
+  'grant record binding must name the exact pinned proposed prior-state record digest';
+const GRANT_AUTHORIZES_FINDING = `grant must authorize exactly ${AUTHORIZED_ACTION}`;
+const GRANT_WINDOW_ADMISSION_FINDING =
+  'now must be inside the authorized grant window, closed at not_before and open at expires_at';
+const FOUNDER_SIGNATURE_FINDING =
+  'authorized or closed topology record requires a verified Founder SSHSIG';
+const grantDocumentError = (finding) => `${RECORD_PATH}: grant document: ${finding}`;
+
 const buildRecord = (root, {
   recordId = RECORD_ID,
   seriesId = SERIES_ID,
   phase = 'proposed',
+  recordedAt = RECORDED_AT,
+  grantArtifact = {},
   executionAuthorized = false,
   attemptConsumed = false,
   outcome = 'not_run',
@@ -429,9 +539,10 @@ const buildRecord = (root, {
     artifacts.push(review);
     binding = recordReviewBinding(recordId, review);
   }
-  if (phase === 'authorized') artifacts.push(artifact(root, directory, 'grant'));
+  if (phase !== 'proposed') {
+    artifacts.push(writeGrantArtifact(root, directory, recordId, grantArtifact));
+  }
   if (phase === 'closed') {
-    artifacts.push(artifact(root, directory, 'grant'));
     artifacts.push(artifact(root, directory, 'result'));
     artifacts.push(artifact(root, directory, 'evidence_manifest'));
     artifacts.push(artifact(root, directory, 'result_review'));
@@ -439,7 +550,7 @@ const buildRecord = (root, {
   const record = {
     schema_version: '1.0.0',
     record_id: recordId,
-    recorded_at: '2026-08-04T12:00:00Z',
+    recorded_at: recordedAt,
     identity: {
       capability_id: 'cybrik.suite.runtime-topology',
       objective_id: 'postgres-loopback-internal-v1',
@@ -1034,13 +1145,17 @@ test('an arbitrary grant cannot self-authorize a topology record', async () => {
       phase: 'authorized',
       executionAuthorized: true,
     });
-    writeFileSync(resolve(root, `${RECORD_DIR}/grant.txt`), 'I authorize myself.\n', 'utf8');
-    record.evidence.artifacts.find((entry) => entry.kind === 'grant').sha256 =
-      sha256('I authorize myself.\n');
+    const bytes = Buffer.from('I authorize myself.\n', 'utf8');
+    writeFileSync(resolve(root, `${RECORD_DIR}/grant.json`), bytes);
+    const grant = record.evidence.artifacts.find((entry) => entry.kind === 'grant');
+    grant.sha256 = sha256(bytes);
+    record.authorization.grant_sha256 = grant.sha256;
     writeRecord(root, record);
     const report = validateTopologyRehearsals({ root });
-    assert.ok(report.errors.some((error) =>
-      error.includes('authorized or closed topology record requires a verified Founder SSHSIG')));
+    assert.ok(
+      report.errors.some((error) => error === grantDocumentError(GRANT_CANONICAL_BYTES_FINDING)),
+      'free-text grant bytes are refused as a grant document, never self-authorizing',
+    );
   });
 });
 
@@ -2272,4 +2387,257 @@ test('T39 the validator keeps exact process targets and opens no network surface
   for (const forbidden of FORBIDDEN_VALIDATOR_IMPORTS) {
     assert.doesNotMatch(source, forbidden, `${VALIDATOR_PATH}: must open no network surface`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// C8-C2 RED — the mandatory exact-action grant document on the record path.
+//
+// Every authorized or closed grant artifact is a C8 exact-action grant document. There is
+// no SSHSIG-only fallback for free-text or non-`.json` grants; the grant's record binding
+// names the one pinned proposed prior-state digest rather than the current record's own
+// hash; the admission instant is the record's own canonical `recorded_at`, never a wall
+// clock; and a grant-document refusal names its exact cause instead of collapsing into the
+// generic signature message, which stays reserved for real signature or trust failure.
+// ---------------------------------------------------------------------------
+const AUTHORIZED_OPTIONS = Object.freeze({ phase: 'authorized', executionAuthorized: true });
+
+// Reads the helper off the namespace so a missing export fails as a diagnostic assertion
+// rather than aborting module linking for the whole suite.
+const canonicalRecordInstant = (value) => {
+  const canonicalise = topologyRehearsal.canonicalRecordInstant;
+  assert.equal(
+    typeof canonicalise,
+    'function',
+    `${VALIDATOR_PATH}: must export a pure canonicalRecordInstant helper`,
+  );
+  return canonicalise(value);
+};
+
+test('T40 recorded_at becomes one exact canonical UTC Z instant or is refused', () => {
+  for (const [label, value, expected] of [
+    ['already canonical', '2026-08-04T12:00:00Z', '2026-08-04T12:00:00Z'],
+    ['positive offset', '2026-08-04T14:00:00+02:00', '2026-08-04T12:00:00Z'],
+    ['negative offset', '2026-08-04T07:00:00-05:00', '2026-08-04T12:00:00Z'],
+    ['zero offset', '2026-08-04T12:00:00+00:00', '2026-08-04T12:00:00Z'],
+    ['lowercase designators', '2026-08-04t12:00:00z', '2026-08-04T12:00:00Z'],
+    ['zero fraction', '2026-08-04T12:00:00.000Z', '2026-08-04T12:00:00Z'],
+    ['non-zero fraction is unrepresentable', '2026-08-04T12:00:00.500Z', null],
+    ['no timezone designator', '2026-08-04T12:00:00', null],
+    ['date only', '2026-08-04', null],
+    ['expanded year', '+020260-08-04T12:00:00Z', null],
+    ['free text', 'shortly after noon', null],
+    ['empty string', '', null],
+    ['null', null, null],
+    ['epoch milliseconds', 1785844800000, null],
+    ['object', {}, null],
+  ]) {
+    assert.equal(canonicalRecordInstant(value), expected, label);
+  }
+  assert.equal(
+    canonicalRecordInstant('2026-08-04T14:00:00+02:00'),
+    canonicalRecordInstant('2026-08-04T12:00:00Z'),
+    'an offset and a Z rendering of the same instant must canonicalise identically',
+  );
+});
+
+test('T41 an exact canonical grant reaches signature verification and yields no errors', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, AUTHORIZED_OPTIONS));
+    const report = validateTopologyRehearsals({ root });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.execution_authorized, 1);
+  });
+
+  // Proof the verifier is genuinely reached rather than skipped: the same exactly valid
+  // document under a signature over other bytes fails with the signature finding alone.
+  await withRoot((root) => {
+    const record = buildRecord(root, AUTHORIZED_OPTIONS);
+    const resigned = canonicalBytes(grantValue({
+      runner: { aggregate_sha256: sha256('t41-unsigned-runner-aggregate\n') },
+    }));
+    writeFileSync(resolve(root, `${RECORD_DIR}/grant.json`), resigned);
+    const grant = record.evidence.artifacts.find((entry) => entry.kind === 'grant');
+    grant.sha256 = sha256(resigned);
+    record.authorization.grant_sha256 = grant.sha256;
+    writeRecord(root, record);
+    const report = validateTopologyRehearsals({ root });
+    assert.deepEqual(
+      report.errors,
+      [`${RECORD_PATH}: ${FOUNDER_SIGNATURE_FINDING}`],
+      'a real signature failure keeps exactly the generic signature finding',
+    );
+  });
+});
+
+test('T42 a grant binding any digest but the pinned proposed one refuses', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: {
+        grant: {
+          record: { path: RECORD_PATH, sha256: sha256('t42-unpinned-record-bytes\n') },
+        },
+      },
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [grantDocumentError(GRANT_RECORD_BINDING_FINDING)],
+      'a drifted proposed-record binding must refuse with exactly its own cause',
+    );
+  });
+
+  // The current record's own digest is the fixed point the pinned proposed digest exists to
+  // avoid: the record embeds grant_sha256 and the grant embeds the record digest, so naming
+  // the current hash can only ever name stale bytes.
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, AUTHORIZED_OPTIONS));
+    const currentRecordSha256 = sha256(readFileSync(resolve(root, RECORD_PATH)));
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: {
+        grant: { record: { path: RECORD_PATH, sha256: currentRecordSha256 } },
+      },
+    }));
+    assert.ok(
+      validateTopologyRehearsals({ root }).errors
+        .some((error) => error === grantDocumentError(GRANT_RECORD_BINDING_FINDING)),
+      'a self-binding grant must fail closed on the record binding',
+    );
+  });
+});
+
+test('T43 a grant authorizing a different action refuses with its exact cause', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: { grant: { authorizes: 'different_action' } },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.deepEqual(report.errors, [grantDocumentError(GRANT_AUTHORIZES_FINDING)]);
+    assert.equal(formatTopologyRehearsalReport(report).exitCode, 1);
+  });
+});
+
+test('T44 compact grant bytes refuse before any ssh-keygen verification', async () => {
+  await withRoot((root) => {
+    // The compact bytes are the bytes that were actually signed, so the detached SSHSIG over
+    // them is valid. The absence of the generic signature finding is the proof that the
+    // canonical-bytes gate refused the grant before the verifier could ever run.
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: { bytes: Buffer.from(JSON.stringify(grantValue())) },
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [grantDocumentError(GRANT_CANONICAL_BYTES_FINDING)],
+    );
+  });
+});
+
+test('T45 an offset recorded_at admits identically and an out-of-window one refuses', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      recordedAt: '2026-08-04T14:00:00+02:00',
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [],
+      'an offset rendering of the admitted instant must behave exactly like its Z rendering',
+    );
+  });
+
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      recordedAt: '2026-08-04T12:02:00Z',
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [grantDocumentError(GRANT_WINDOW_ADMISSION_FINDING)],
+      'the authorized window is open at expires_at, so that instant admits nothing',
+    );
+  });
+
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      recordedAt: '2026-08-04T13:00:00+02:00',
+    }));
+    assert.ok(
+      validateTopologyRehearsals({ root }).errors
+        .some((error) => error === grantDocumentError(GRANT_WINDOW_ADMISSION_FINDING)),
+      'an offset instant genuinely before not_before must still refuse',
+    );
+  });
+});
+
+test('T46 an unrepresentable recorded_at refuses admission with its exact cause', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      recordedAt: '2026-08-04T12:00:00.500Z',
+    }));
+    assert.ok(
+      validateTopologyRehearsals({ root }).errors
+        .some((error) => error === `${RECORD_PATH}: ${GRANT_ADMISSION_INSTANT_FINDING}`),
+      'a sub-second admission instant cannot be truncated into the canonical instant',
+    );
+  });
+});
+
+test('T47 a free-text or non-.json grant never falls back to SSHSIG-only acceptance', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: {
+        fileName: 'grant.txt',
+        bytes: Buffer.from('The Founder said yes.\n', 'utf8'),
+      },
+    }));
+    const report = validateTopologyRehearsals({ root });
+    assert.ok(
+      report.errors.some((error) => error === `${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`),
+      'a non-.json grant artifact must fail with the exact grant-document suffix cause',
+    );
+    assert.ok(
+      report.errors.some((error) => error === grantDocumentError(GRANT_CANONICAL_BYTES_FINDING)),
+      'free text is not a C8 grant document, however validly it is signed',
+    );
+    assert.ok(
+      !report.errors.some((error) => error === `${RECORD_PATH}: ${FOUNDER_SIGNATURE_FINDING}`),
+      'the generic signature finding is reserved for real signature or trust failure',
+    );
+  });
+
+  // A conforming grant document wearing another suffix is still refused on its path alone.
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: { fileName: 'grant.txt' },
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [`${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`],
+    );
+  });
+});
+
+test('T48 every closed grant artifact is judged by the same mandatory contract', async () => {
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, CLOSED_RECORD_OPTIONS));
+    assert.deepEqual(validateTopologyRehearsals({ root }).errors, []);
+  });
+
+  await withRoot((root) => {
+    writeRecord(root, buildRecord(root, {
+      ...CLOSED_RECORD_OPTIONS,
+      grantArtifact: { grant: { authorizes: 'different_action' } },
+    }));
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [grantDocumentError(GRANT_AUTHORIZES_FINDING)],
+      'a closed record is judged by the same exact-action grant contract as an authorized one',
+    );
+  });
 });

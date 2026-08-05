@@ -41,6 +41,24 @@ const GRANT_KEYS = [
 const TEST_DIGEST = (digit) => digit.repeat(64);
 const TEST_SHA = (digit) => `sha256:${TEST_DIGEST(digit)}`;
 
+const NOW = '2026-08-05T00:01:00Z';
+// The one exact proposed prior-state record digest a grant record binding may name. It is
+// supplied by the caller from the policy state history, never derived from the grant, and it
+// is never the current authorized record's own digest.
+const PINNED_PROPOSED_RECORD_SHA256 = TEST_DIGEST('1');
+const options = (overrides = {}) => ({
+  now: NOW,
+  pinnedProposedRecordSha256: PINNED_PROPOSED_RECORD_SHA256,
+  ...overrides,
+});
+
+// Exact finding texts. The record-binding finding is distinct from the record path/digest
+// shape finding, so an unpinned binding and a malformed record block name different causes.
+const RECORD_SHAPE_FINDING =
+  'grant record binding must name the pinned topology record path and its 64-hex digest';
+const RECORD_BINDING_FINDING =
+  'grant record binding must name the exact pinned proposed prior-state record digest';
+
 function grant(overrides = {}) {
   const value = {
     schema: 'CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1',
@@ -126,6 +144,7 @@ test('T1 C8 topology grant validator exports its bounded semantic surface', asyn
     [
       'GRANT_KEYS',
       'GRANT_SCHEMA_PATH',
+      'GRANT_SIGNATURE_FINDING',
       'canonicalGrantBytes',
       'validateGrantBeforeSignature',
       'validateGrantBytes',
@@ -145,7 +164,7 @@ test('T2 the grant schema exists and pins the exact ordered top-level inventory'
 
 test('T3 a canonical complete exact-action grant passes semantic validation', async () => {
   const { validateGrantDocument } = await implementation();
-  assert.deepEqual(validateGrantDocument(grant(), { now: '2026-08-05T00:01:00Z' }), []);
+  assert.deepEqual(validateGrantDocument(grant(), options()), []);
 });
 
 test('T3.1 every control repository must be clean', async () => {
@@ -153,7 +172,7 @@ test('T3.1 every control repository must be clean', async () => {
   for (const repository of Object.keys(grant().repositories)) {
     const malformed = grant();
     malformed.repositories[repository].clean = false;
-    const findings = validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' });
+    const findings = validateGrantDocument(malformed, options());
     assert.ok(
       findings.some((finding) => /clean|worktree/i.test(finding)),
       `${repository}: a dirty worktree must be a clean-worktree finding`,
@@ -167,13 +186,13 @@ test('T3.2 repository tree identities must be valid and distinct', async () => {
   const duplicate = grant();
   duplicate.repositories[repositories[1]].tree = duplicate.repositories[repositories[0]].tree;
   assert.ok(
-    validateGrantDocument(duplicate, { now: '2026-08-05T00:01:00Z' })
+    validateGrantDocument(duplicate, options())
       .some((finding) => /tree|repository/i.test(finding)),
   );
   const malformed = grant();
   malformed.repositories[repositories[2]].tree = 'not-a-git-tree';
   assert.ok(
-    validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' })
+    validateGrantDocument(malformed, options())
       .some((finding) => /tree|repository/i.test(finding)),
   );
 });
@@ -184,19 +203,19 @@ test('T3.3 repository inventory and commit identities are exact and distinct', a
   const missing = grant();
   delete missing.repositories[repositories[0]];
   assert.ok(
-    validateGrantDocument(missing, { now: '2026-08-05T00:01:00Z' })
+    validateGrantDocument(missing, options())
       .some((finding) => /repository|inventory/i.test(finding)),
   );
   const duplicate = grant();
   duplicate.repositories[repositories[1]].commit = duplicate.repositories[repositories[0]].commit;
   assert.ok(
-    validateGrantDocument(duplicate, { now: '2026-08-05T00:01:00Z' })
+    validateGrantDocument(duplicate, options())
       .some((finding) => /commit|repository/i.test(finding)),
   );
   const malformed = grant();
   malformed.repositories[repositories[2]].commit = 'not-a-git-commit';
   assert.ok(
-    validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' })
+    validateGrantDocument(malformed, options())
       .some((finding) => /commit|repository/i.test(finding)),
   );
 });
@@ -206,7 +225,7 @@ for (const key of GRANT_KEYS) {
     const { validateGrantDocument } = await implementation();
     const malformed = grant();
     delete malformed[key];
-    assert.ok(validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' }).length > 0);
+    assert.ok(validateGrantDocument(malformed, options()).length > 0);
   });
 }
 
@@ -223,7 +242,7 @@ const NON_CANONICAL_BYTES = [
 for (const [index, [label, bytes]] of NON_CANONICAL_BYTES.entries()) {
   test(`T5.${index + 1} grant bytes with ${label} are rejected terminally`, async () => {
     const { validateGrantBytes } = await implementation();
-    const findings = validateGrantBytes(bytes, { now: '2026-08-05T00:01:00Z' });
+    const findings = validateGrantBytes(bytes, options());
     assert.ok(findings.length > 0);
     assert.ok(findings.every((finding) => finding.includes('canonical') || finding.includes('bounded')));
   });
@@ -239,7 +258,7 @@ test('T6 unresolved selected image identity is one primary finding', async () =>
       manifest_digest: null,
     },
   });
-  const findings = validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' });
+  const findings = validateGrantDocument(malformed, options());
   assert.equal(findings.filter((finding) => finding.includes('unresolved')).length, 1);
 });
 
@@ -247,7 +266,7 @@ test('T7 local image id cannot equal an index or manifest digest', async () => {
   const { validateGrantDocument } = await implementation();
   const base = grant();
   base.observed_image_identity.local_image_id = base.selected_image_identity.manifest_digest;
-  assert.ok(validateGrantDocument(base, { now: '2026-08-05T00:01:00Z' }).some(
+  assert.ok(validateGrantDocument(base, options()).some(
     (finding) => finding.includes('identity'),
   ));
 });
@@ -259,7 +278,7 @@ test('T8 platform index manifest tag and observed identity must agree exactly', 
     base.observed_image_identity[key] = key === 'platform'
       ? { os: 'linux', architecture: 'amd64', variant: null }
       : 'drift';
-    assert.ok(validateGrantDocument(base, { now: '2026-08-05T00:01:00Z' }).length > 0);
+    assert.ok(validateGrantDocument(base, options()).length > 0);
   }
 });
 
@@ -270,7 +289,7 @@ test('T9 grant window is one 180-second cycle with zero extension', async () => 
     { ...grant().window, extension_cycles: 1 },
     { ...grant().window, expires_at: '2026-08-05T00:00:00Z' },
   ]) {
-    assert.ok(validateGrantDocument(grant({ window }), { now: '2026-08-05T00:01:00Z' }).length > 0);
+    assert.ok(validateGrantDocument(grant({ window }), options()).length > 0);
   }
 });
 
@@ -279,7 +298,7 @@ test('T9.1 grant expiry is exactly runtime_limit_seconds after not_before', asyn
   const malformed = grant({
     window: { ...grant().window, expires_at: '2026-08-05T00:04:00Z' },
   });
-  const findings = validateGrantDocument(malformed, { now: '2026-08-05T00:01:00Z' });
+  const findings = validateGrantDocument(malformed, options());
   assert.ok(
     findings.some((finding) => /window|duration|180/i.test(finding)),
     'a four-minute grant window must fail even while now remains inside it',
@@ -291,7 +310,7 @@ test('T10 every no-authority clause is mandatory and true', async () => {
   for (const key of Object.keys(grant().grants_no_authority)) {
     const base = grant();
     base.grants_no_authority[key] = false;
-    assert.ok(validateGrantDocument(base, { now: '2026-08-05T00:01:00Z' }).length > 0);
+    assert.ok(validateGrantDocument(base, options()).length > 0);
   }
 });
 
@@ -351,7 +370,7 @@ test('T11.2 malformed grant bytes never reach the injected signature verifier', 
   const malformed = grant({ authorizes: 'different_action' });
   let signatureCalls = 0;
   const findings = validateGrantBeforeSignature(canonicalBytes(malformed), {
-    now: '2026-08-05T00:01:00Z',
+    ...options(),
     verifySignature: () => {
       signatureCalls += 1;
       return true;
@@ -366,7 +385,7 @@ test('T11.3 canonical valid grant reaches the verifier exactly once and binds it
   const bytes = canonicalBytes(grant());
   const seen = [];
   const findings = validateGrantBeforeSignature(bytes, {
-    now: '2026-08-05T00:01:00Z',
+    ...options(),
     verifySignature: (verifiedBytes) => {
       seen.push(verifiedBytes);
       return true;
@@ -384,7 +403,7 @@ test('T11.4 false or throwing signature verification fails closed', async () => 
     ['verifier exception', () => { throw new Error('synthetic verifier failure'); }],
   ]) {
     const findings = validateGrantBeforeSignature(canonicalBytes(grant()), {
-      now: '2026-08-05T00:01:00Z',
+      ...options(),
       verifySignature,
     });
     assert.ok(findings.length > 0, `${label}: signature failure must produce a finding`);
@@ -448,12 +467,152 @@ test('T15 proposed HOLD record declares unresolved selection without a host iden
 
 test('T16 the authorized window is closed at not_before and open at expires_at', async () => {
   const { validateGrantDocument } = await implementation();
-  assert.deepEqual(validateGrantDocument(grant(), { now: '2026-08-05T00:00:00Z' }), []);
+  assert.deepEqual(validateGrantDocument(grant(), options({ now: '2026-08-05T00:00:00Z' })), []);
   for (const now of ['2026-08-04T23:59:59Z', '2026-08-05T00:03:00Z', '2026-08-05T00:03:01Z']) {
-    const findings = validateGrantDocument(grant(), { now });
+    const findings = validateGrantDocument(grant(), options({ now }));
     assert.ok(
       findings.some((finding) => /window/i.test(finding)),
       `${now}: a now outside the authorized window must be a window finding`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// C8-C2 — the grant record binding names the pinned proposed prior-state digest.
+//
+// It cannot name the current authorized record digest: that record embeds `grant_sha256`
+// and the grant embeds the record digest, so binding the current hash is a cryptographic
+// fixed point rather than a binding. The one attestable target is the exact proposed
+// prior-state digest already pinned by the policy state history, which is the same digest
+// the record-review byte binding attests. The pin is a required caller-supplied option:
+// an absent, malformed or duplicated proposed pin supplies no digest and refuses the grant.
+// ---------------------------------------------------------------------------
+
+test('T17 an exact pinned proposed-record binding passes and a drifted binding refuses', async () => {
+  const { validateGrantDocument } = await implementation();
+  assert.deepEqual(validateGrantDocument(grant(), options()), []);
+  const drifted = grant();
+  drifted.record.sha256 = TEST_DIGEST('7');
+  assert.deepEqual(
+    validateGrantDocument(drifted, options()),
+    [RECORD_BINDING_FINDING],
+    'a record digest other than the pinned proposed digest must refuse the grant',
+  );
+});
+
+test('T17.1 an absent, malformed or duplicated proposed pin refuses the grant', async () => {
+  const { validateGrantDocument } = await implementation();
+  for (const [label, pinned] of [
+    ['absent option', undefined],
+    ['missing or duplicated proposed history supplies null', null],
+    ['short hex pin', 'abcdef'],
+    ['uppercase pin', 'A'.repeat(64)],
+    ['non-hex pin', 'z'.repeat(64)],
+    ['numeric pin', 1],
+    ['object pin', {}],
+  ]) {
+    assert.deepEqual(
+      validateGrantDocument(grant(), options({ pinnedProposedRecordSha256: pinned })),
+      [RECORD_BINDING_FINDING],
+      `${label}: an unpinned proposed digest must refuse the grant`,
+    );
+  }
+});
+
+test('T17.2 a grant binding the current record digest instead of the pin refuses', async () => {
+  const { validateGrantDocument } = await implementation();
+  const currentRecordSha256 = TEST_DIGEST('8');
+  const selfBound = grant();
+  selfBound.record.sha256 = currentRecordSha256;
+  assert.notEqual(currentRecordSha256, PINNED_PROPOSED_RECORD_SHA256);
+  assert.deepEqual(
+    validateGrantDocument(selfBound, options()),
+    [RECORD_BINDING_FINDING],
+    'the current record hash is a fixed point, never an attestable prior-state digest',
+  );
+});
+
+test('T17.3 the record-binding finding stays distinct from the record shape finding', async () => {
+  const { validateGrantDocument } = await implementation();
+  assert.notEqual(RECORD_BINDING_FINDING, RECORD_SHAPE_FINDING);
+  const mispathed = grant();
+  mispathed.record.path = 'docs/uat/topology-rehearsals/other-r1/topology-rehearsal.json';
+  assert.deepEqual(
+    validateGrantDocument(mispathed, options()),
+    [RECORD_SHAPE_FINDING],
+    'an unpinned record path names its own cause, not a derivative binding cause',
+  );
+  const malformed = grant();
+  malformed.record.sha256 = 'not-a-digest';
+  assert.deepEqual(
+    validateGrantDocument(malformed, options()),
+    [RECORD_SHAPE_FINDING],
+    'a malformed record digest is not comparable, so only its shape cause is reported',
+  );
+});
+
+test('T18 the pinned proposed digest is required through bytes and signature validation', async () => {
+  const { validateGrantBytes, validateGrantBeforeSignature } = await implementation();
+  const bytes = canonicalBytes(grant());
+  assert.deepEqual(validateGrantBytes(bytes, options()), []);
+  assert.deepEqual(
+    validateGrantBytes(bytes, { now: NOW }),
+    [RECORD_BINDING_FINDING],
+    'validateGrantBytes must require the pinned proposed digest, not default it away',
+  );
+  let signatureCalls = 0;
+  assert.deepEqual(
+    validateGrantBeforeSignature(bytes, {
+      now: NOW,
+      verifySignature: () => {
+        signatureCalls += 1;
+        return true;
+      },
+    }),
+    [RECORD_BINDING_FINDING],
+    'validateGrantBeforeSignature must require the pinned proposed digest',
+  );
+  assert.equal(signatureCalls, 0, 'an unpinned grant must never reach the injected verifier');
+});
+
+test('T19 the exported signature finding is the exact injected-verifier failure text', async () => {
+  const { GRANT_SIGNATURE_FINDING, validateGrantBeforeSignature } = await implementation();
+  assert.equal(
+    typeof GRANT_SIGNATURE_FINDING,
+    'string',
+    'the signature finding must be exported so a caller can tell it from a document finding',
+  );
+  assert.deepEqual(
+    validateGrantBeforeSignature(canonicalBytes(grant()), options({
+      verifySignature: () => false,
+    })),
+    [GRANT_SIGNATURE_FINDING],
+  );
+  assert.deepEqual(
+    validateGrantBeforeSignature(canonicalBytes(grant()), options({
+      verifySignature: () => true,
+    })),
+    [],
+  );
+});
+
+// The exported semantic path is process-free; the command-line dependency resolver below it
+// may call the pinned system Git to locate the validation package root.
+test('T20 the grant module states its process boundary exactly', () => {
+  const source = readFileSync(MODULE_PATH, 'utf8');
+  const [semantic, cli] = source.split(
+    '// Command-line control surface.',
+  );
+  assert.ok(cli, 'the grant module must keep a marked command-line control surface');
+  assert.doesNotMatch(
+    semantic,
+    /execFileSync\(|spawnSync\(/u,
+    'no exported semantic unit may spawn a process',
+  );
+  assert.match(cli, /execFileSync\(\s*'\/usr\/bin\/git'/u);
+  assert.match(
+    source,
+    /command-line dependency resolver[\s\S]{0,200}\/usr\/bin\/git/u,
+    'the module comment must qualify that only the imported semantic path is process-free',
+  );
 });
