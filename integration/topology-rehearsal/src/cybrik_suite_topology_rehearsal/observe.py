@@ -1,12 +1,20 @@
-"""Fail-closed reductions from injected observations to one classified verdict.
+"""Fail-closed readings of injected observations: flat evidence, and classified verdicts.
 
 Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`.
 
 Every function here is total and pure. It reaches nothing, holds nothing between calls and
-returns one immutable `ObservationVerdict` for the observations it was handed. Those
-observations arrive through injected ports, so their shape is never guaranteed: a malformed
-projection decodes as an unresolved view rather than raising out of a seam whose only
-failure value is `None`.
+answers only from what it was handed: a reduction returns one immutable `ObservationVerdict`
+and a normalization returns one immutable flat reading. Those observations arrive through
+injected ports, so their shape is never guaranteed: a malformed projection decodes as an
+unresolved view rather than raising out of a seam whose only failure value is `None`.
+
+`platform_evidence` normalizes rather than judges, and it belongs to the same job family as
+the publication readers below: one decoded Docker projection in, one flat resolved reading
+or `None` out. It reads the raw `docker version` document into the flat inventory
+`preparation` compares, and lives beside those readers rather than in the Docker adapter
+that calls it, because nothing about it touches a command result or a process seam. Like
+them it is package plumbing rather than boundary contract, so it is deliberately absent from
+the curated `__all__` below, which names only the reducers a caller reaches for.
 
 `None` is the single unresolved value, and an unresolved view is never agreement. A view
 that could not be read says so; it never falls back to the reviewed value it was being
@@ -27,6 +35,7 @@ and the container readiness and bounded host probe are `FAIL_INTERNAL_INGRESS`.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -39,6 +48,7 @@ from .constants import (
     FAIL_PUBLICATION,
     HEALTH_HEALTHY,
     HOST_PORT,
+    PLATFORM_EVIDENCE_KEYS,
     PORT_PROTOCOL,
     PRECHECK_ABORT,
     PROBE_REACHABLE,
@@ -99,6 +109,27 @@ EXPECTED_VIEW_CLAIM_COUNT = 1
 # from the claim count above, and stays separate while both are one: a single shared name
 # would make a later change to either invariant silently change the other as well.
 EXPECTED_NETWORK_ATTACHMENT_COUNT = 1
+
+# `docker version --format {{json .}}` renders a nested document, and every reviewed platform
+# fact is read from the daemon's own `Server` section. The `Client` section is the CLI's own
+# identity and carries none of them, so it is never consulted. `ApiVersion` is the spelling
+# docker/cli emits for the reviewed packet; the capitalized `APIVersion` below is recorded
+# only so it can be recognised, never so it can be read. These names are all raw-document
+# keys, deliberately spelled unlike `preparation`'s flat inventory keys so that a key from
+# one side of the seam can never be mistaken for the same-named key on the other.
+SERVER_SECTION = "Server"
+PLATFORM_SECTION = "Platform"
+PLATFORM_NAME_KEY = "Name"
+SERVER_VERSION_KEY = "Version"
+API_VERSION_KEY = "ApiVersion"
+SUPERSEDED_API_VERSION_KEY = "APIVersion"
+
+# Docker Desktop states its version and its build in this one string and nowhere else, so
+# both halves are parsed out of it. The groups admit neither whitespace nor a parenthesis, so
+# an absent version, an absent build and an unterminated build cannot match as something.
+DESKTOP_PLATFORM_NAME = re.compile(
+    r"Docker Desktop (?P<version>[^\s()]+) \((?P<build>[^\s()]+)\)"
+)
 
 
 @dataclass(frozen=True)
@@ -394,3 +425,82 @@ def validate_image_identity(selected: object, observed: object) -> ObservationVe
                 f"{selection!r}"
             )
     return verdict_for(findings, PRECHECK_ABORT)
+
+
+def observed_text(value: object) -> str | None:
+    """One exactly-`str`, non-empty reading, or `None` when the field cannot be read.
+
+    The consuming phase judges each recorded value with `type(value) is not str`, so a
+    `str` subclass is refused here rather than carried one phase further to fail there.
+    """
+    return value if type(value) is str and value else None
+
+
+def desktop_identity(name: object) -> tuple[str, str] | None:
+    """The Docker Desktop version and build parsed out of the one string that carries both.
+
+    `docker version` states the Desktop product only as `Server.Platform.Name`, rendered as
+    `Docker Desktop <version> (<build>)`; there is no separate JSON field for either half.
+    The match is whole rather than a search, so a name that merely contains that shape — and
+    an Engine name such as `Docker Engine - Community`, which is not a Desktop platform at
+    all — yields no identity instead of a guess assembled from part of a string.
+    """
+    text = observed_text(name)
+    if text is None:
+        return None
+    matched = DESKTOP_PLATFORM_NAME.fullmatch(text)
+    return (matched["version"], matched["build"]) if matched else None
+
+
+def observed_api_version(server: Mapping[str, Any]) -> str | None:
+    """The API version under its one supported spelling, refusing a disagreeing duplicate.
+
+    `Server.ApiVersion` is what docker/cli emits for the reviewed packet. The capitalized
+    `Server.APIVersion` was a 29.0.0-only regression restored to `ApiVersion` by docker/cli
+    PR #6648 for 29.0.1, so no supported version authorizes reading it as a source. A
+    document carrying both spellings with different values states one fact twice and
+    disagrees with itself; nothing warrants preferring either, so it is left unresolved. The
+    same value under both is only an unread extra key and changes nothing. A duplicate that
+    is present but unreadable — a JSON `null`, say — is not treated as an absent key: it is
+    still a second, differing assertion about the one fact, so it is refused rather than
+    guessed past.
+    """
+    observed = observed_text(server.get(API_VERSION_KEY))
+    if observed is None:
+        return None
+    superseded = server.get(SUPERSEDED_API_VERSION_KEY, observed)
+    return observed if superseded == observed else None
+
+
+def platform_evidence(document: object) -> Mapping[str, Any] | None:
+    """The flat reviewed inventory read out of the raw `docker version` document.
+
+    All four facts come from the daemon's own `Server` section, because the daemon is the
+    Desktop product the attempt talks to; the `Client` section is the CLI's own identity and
+    carries none of them, so an absent or drifted client cannot move this result.
+
+    The inventory resolves whole or not at all. A partial reading would be refused
+    downstream as drift anyway, and a filled-in placeholder would record a platform identity
+    nobody observed. The keys are taken from the reviewed inventory rather than typed again,
+    so the emitted evidence cannot drift away from the inventory that is checked. `strict=True`
+    is the one deliberately non-total path in this module: an arity tripwire that fires only if
+    `PLATFORM_EVIDENCE_KEYS` changes without what is read here changing with it, and the phase
+    that consumes this turns it into a bounded refusal rather than letting it escape the seam.
+    """
+    if not isinstance(document, Mapping):
+        return None
+    server = document.get(SERVER_SECTION)
+    if not isinstance(server, Mapping):
+        return None
+    platform = server.get(PLATFORM_SECTION)
+    if not isinstance(platform, Mapping):
+        return None
+    desktop = desktop_identity(platform.get(PLATFORM_NAME_KEY))
+    engine = observed_text(server.get(SERVER_VERSION_KEY))
+    api = observed_api_version(server)
+    if desktop is None or engine is None or api is None:
+        return None
+    observed = (*desktop, engine, api)
+    return MappingProxyType(
+        dict(zip(PLATFORM_EVIDENCE_KEYS, observed, strict=True))
+    )
