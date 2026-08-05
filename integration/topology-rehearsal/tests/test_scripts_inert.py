@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import ast
-import sys
 import inspect
+import sys
 import textwrap
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import (
     C8_SCRIPT_NAMES,
     PACKAGE,
@@ -54,21 +54,47 @@ def built_plan():
 def runtime_wiring(script, **overrides):
     """Build the wiring the way the composition root does, with the control roots injected.
 
-    The roots are an explicit argument here, and that is not a test convenience. Every
-    `control:<repository>:*` entry in `plan.commands` carries its root as a literal argv
-    token, so the roots decide what the plan *is*. Only two sources are available to a
-    wiring that was handed none: the host it happens to run on, which would make every
-    command-plan assertion in this file a statement about the machine that ran it; or the
-    grant it is about to verify, which is self-witnessing — a plan derived from the document
-    under check can only ever agree with it. Injecting the synthetic roots keeps this file's
-    subject the wiring, and keeps the fixture strings out of the implementation, where
+    Every `control:<repository>:*` entry in `plan.commands` carries its root as a literal
+    argv token, so the four roots decide what the plan *is*, and where they come from is a
+    contract question rather than a test convenience. Three candidate sources were examined
+    and all three are refused. The grant is self-witnessing: a plan derived from the document
+    under check can only ever agree with it, which is the boundary Admission established. The
+    host is not honest either — the sibling-directory convention a resolver would need
+    resolves only `cybrik-suite` on a real checkout, so three of the four roots would have to
+    be invented, and every command-plan assertion in this file would become a statement about
+    the machine that ran it. The authorization envelope is the worst of the three: the
+    detached signature covers `grant_bytes` alone, so a root riding the envelope would be an
+    unsigned value selecting the allowed-signers file that `signature:verify` trusts.
+
+    What is left is the caller. The roots are an operator-declared input at the same trust
+    level as `execute_requested=True` and the choice of authorization file, and they are
+    passed here as a mandatory argument — the identical construction `tests/test_plan.py`
+    and `tests/test_adapter.py` already use against `plan.build_plan`. That is also what
+    keeps the fixture strings out of the implementation, where
     `test_no_synthetic_fixture_value_leaks_into_the_implementation` forbids them outright.
+
+    `setdefault` rather than a defaulted parameter, so a test can inject `None` — or any
+    other malformed value — and have it actually reach the wiring.
     """
+    overrides.setdefault("authorization", documents.authorization())
     overrides.setdefault("repository_roots", fakes.SYNTHETIC_REPOSITORY_ROOTS)
-    return require_c8_attr(script, "build_runtime_wiring")(
-        authorization=documents.authorization(),
-        **overrides,
-    )
+    return require_c8_attr(script, "build_runtime_wiring")(**overrides)
+
+
+def owned_suite_repository_roots(owned_root: Path) -> dict[str, str]:
+    """The four roots, with the Suite one pointed at a real directory the caller owns.
+
+    Three of the four stay synthetic because nothing reads them from disk. The Suite root
+    does not: `plan.signature_path` is built underneath it, and the signature adapter reads
+    that file before and after it verifies, so proving that adapter routes through the
+    injected runner needs a Suite root that really exists. `tests/test_adapter.py` already
+    builds its signature plans this way; this is the same construction reached through
+    `build_runtime_wiring` instead of through `build_plan` directly.
+    """
+    return {
+        **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+        fakes.SUITE_CONTROL: str(owned_root),
+    }
 
 
 def control_root_argument(command: tuple[str, ...]) -> str:
@@ -261,17 +287,16 @@ def test_entrypoint_surface_is_bounded(name: str) -> None:
     script = load_c8_script(name)
     expected = {"HOLD_EXIT", "build_parser", "main"}
     if name == "run_topology_rehearsal.py":
+        # No control-root resolver is exported, and that absence is the contract. The four
+        # worktrees the whole attempt is judged against are supplied by the caller of
+        # `build_runtime_wiring` or the wiring refuses; there is no host-observing second
+        # way to obtain them, so there is no named resolver to review, nothing for a test to
+        # replace, and no invented absolute path anywhere in `src/`.
         expected.update(
             {
                 "SubprocessCommandRunner",
                 "build_runtime_wiring",
                 "execute_authorized_attempt",
-                # One added name. The default control-root observation has to be a named,
-                # separately reviewable callable rather than an expression buried inside
-                # `build_runtime_wiring`: it is the one place the runner decides which four
-                # worktrees the whole attempt will be judged against, and a reviewer cannot
-                # read that decision, nor a test replace it, if it has no name.
-                "resolve_control_repository_roots",
             }
         )
     assert set(require_c8_attr(script, "__all__")) == expected
@@ -335,47 +360,280 @@ RESOURCE_ADAPTER_PROTOCOLS = {
 }
 
 
-def test_runtime_wiring_injects_the_one_executor_into_every_command_adapter() -> None:
+class LedgerRunner:
+    """A `CommandRunner` that answers every argv identically and records what it was asked.
+
+    It exists so this file can prove the shared-executor property by *observation* — every
+    command adapter's commands arriving at one object — rather than by asking each adapter to
+    hand its runner back. See
+    `test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor` for why the
+    difference matters.
+
+    The scripted line is deliberately a single non-empty token. It resolves nothing: it is
+    not a Git object id, not JSON and not two ephemeral bounds, so every decoder reading it
+    returns its own unresolved value. That is what keeps this a routing test — it observes
+    which argv reached the runner and never depends on what any adapter concluded.
+    """
+
+    UNRESOLVED_LINE = "unresolved"
+
+    def __init__(self) -> None:
+        self.argvs: list[tuple[str, ...]] = []
+
+    def run(
+        self,
+        argv: Sequence[str],
+        *,
+        timeout_seconds: float,
+        stdin: bytes | None = None,
+    ):
+        self.argvs.append(tuple(argv))
+        return fakes.FakeCommandResult(returncode=0, stdout=f"{self.UNRESOLVED_LINE}\n")
+
+
+def drive_command_adapter(name: str, wiring, signature_bytes: bytes) -> None:
+    """Ask one command adapter for the cheapest read-only observation it owns.
+
+    Every one of these is an observation, never a creation or a removal: nothing here can
+    have an effect even if it reached a real host, and the injected runner means it cannot.
+    Each call is made through the adapter's own reviewed method, so the commands that reach
+    the runner are the ones the adapter would really issue.
+    """
+    adapter = wiring.command_adapters[name]
+    if name == "controls":
+        adapter.observe_controls()
+    elif name == "host":
+        adapter.observe_ephemeral_range()
+    elif name == "docker":
+        adapter.observe_platform()
+    elif name == "probe":
+        adapter.observe_digest(path=wiring.plan.probe_executable_path)
+    elif name == "signature":
+        adapter.verify(
+            grant_bytes=documents.DEFAULT_GRANT_BYTES,
+            signature_bytes=signature_bytes,
+            signer=fakes.SIGNER,
+            namespace=fakes.AUTHORIZATION_NAMESPACE,
+        )
+    else:  # pragma: no cover - a new command adapter must be driven here deliberately
+        raise AssertionError(f"{name}: no reviewed read-only observation is driven for it")
+
+
+def wiring_over_owned_suite_root(script, owned_root: Path, runner):
+    """A wiring over roots this test owns, with its signature file written."""
+    wiring = runtime_wiring(
+        script,
+        repository_roots=owned_suite_repository_roots(owned_root),
+        command_runner=runner,
+    )
+    signature_file = Path(wiring.plan.signature_path)
+    signature_file.parent.mkdir(parents=True, exist_ok=True)
+    signature_file.write_bytes(documents.SIGNATURE_BYTES)
+    return wiring
+
+
+def test_runtime_wiring_builds_the_reviewed_plan_and_the_five_command_adapters() -> None:
     script = load_c8_script("run_topology_rehearsal.py")
-    command_runner = fakes.FakeCommandRunner(fakes.CallLog())
+    command_runner = LedgerRunner()
     wiring = runtime_wiring(script, command_runner=command_runner)
     assert wiring.command_runner is command_runner
     assert wiring.plan.commands == built_plan().commands
     assert tuple(wiring.command_adapters) == COMMAND_ADAPTER_NAMES
-    # One executor object, shared by identity: a per-adapter runner would be a second
-    # process seam that no AST control over the single spawn site can see.
+    # One plan object, shared by identity. The plan is inert reviewed data — a frozen
+    # dataclass of argv tuples — so publishing it grants no authority to act, only the
+    # ability to read what was already reviewed. `ExactCommandAdapter.plan` is the existing
+    # precedent. A per-adapter plan would let two adapters disagree about which four
+    # worktrees, which image and which container the one attempt is about.
     for name in COMMAND_ADAPTER_NAMES:
-        adapter = wiring.command_adapters[name]
-        assert adapter.runner is command_runner
-        assert adapter.plan is wiring.plan
+        assert wiring.command_adapters[name].plan is wiring.plan
+    # Nothing was executed by building the wiring.
+    assert command_runner.argvs == []
 
 
-def test_runtime_wiring_takes_the_control_roots_as_a_defaulted_named_argument() -> None:
-    """The roots are injectable, and injecting them may not be mandatory.
+def test_every_command_adapter_routes_its_commands_through_the_one_injected_runner(
+    tmp_path: Path,
+) -> None:
+    """One shared executor, proven by what the runner saw rather than by handing it out.
 
-    Both halves are forced. They must be injectable because the plan embeds each root as a
-    literal argv token and no field of the authorization carries one, so a wiring that could
-    not be told the roots could only invent them. The parameter must nonetheless carry a
-    default because `test_default_composition_loads_builds_and_runs_the_same_authorization`
-    pins the composition call as `wiring_builder(authorization=authorization)` with no second
-    argument, and `test_default_dependency_loader_returns_the_reviewed_real_triple` pins that
-    builder as `build_runtime_wiring` itself rather than a bound or partially applied stand-in.
+    A per-adapter runner would be a second process seam that no AST control over the single
+    spawn site can see, so the wiring must be provably one-executor. The previous statement
+    of this contract read `adapter.runner is command_runner` off each adapter, which forced
+    every command adapter — including the five inside the frozen `Adapters` bundle — to
+    publish the raw executor. That published an unguarded escape hatch: any holder of the
+    bundle could call `adapters.docker.runner.run(argv, ...)` with *arbitrary* argv and walk
+    straight past the plan-membership guard in `ExactCommandAdapter.run_effect`, which is the
+    one check that keeps a reachable command inside the reviewed plan.
+
+    The same property is stated here without that publication. Each adapter is asked for one
+    read-only observation it already owns, and the injected runner's ledger is read: if all
+    five adapters' commands arrive at the one object, they share it. This is strictly the
+    stronger statement of the two — identity proves an adapter was *handed* the runner, while
+    the ledger proves it actually *uses* it — and it hands the caller nothing.
     """
     script = load_c8_script("run_topology_rehearsal.py")
-    signature = inspect.signature(require_c8_attr(script, "build_runtime_wiring"))
-    parameter = signature.parameters["repository_roots"]
-    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
-    assert parameter.default is not inspect.Parameter.empty
+    command_runner = LedgerRunner()
+    wiring = wiring_over_owned_suite_root(script, tmp_path, command_runner)
+    assert wiring.command_runner is command_runner
+
+    planned = set(wiring.plan.commands.values())
+    routed: dict[str, tuple[tuple[str, ...], ...]] = {}
+    for name in COMMAND_ADAPTER_NAMES:
+        already = len(command_runner.argvs)
+        drive_command_adapter(name, wiring, documents.SIGNATURE_BYTES)
+        routed[name] = tuple(command_runner.argvs[already:])
+
+    # Every adapter reached the one runner, and every argv that arrived was a command of the
+    # one plan — never something an adapter assembled for itself.
+    silent = sorted(name for name, observed in routed.items() if not observed)
+    assert silent == []
+    unplanned = sorted(
+        f"{name}: {argv}"
+        for name, observed in routed.items()
+        for argv in observed
+        if argv not in planned
+    )
+    assert unplanned == []
+    assert len(command_runner.argvs) == sum(len(observed) for observed in routed.values())
+    # The controls adapter is the one that re-observes all four worktrees, so its routed argv
+    # are also the exact witness that the injected roots survived the whole wiring.
+    injected = owned_suite_repository_roots(tmp_path)
+    for name in fakes.EXPECTED_CONTROLS:
+        commit = wiring.plan.commands[f"control:{name}:commit"]
+        assert commit in routed["controls"]
+        assert control_root_argument(commit) == injected[name]
+
+
+UNREADABLE = object()
+
+
+def published_names(value: object) -> tuple[str, ...]:
+    """Every public name reachable on `value`, over its own state and its type's MRO.
+
+    `dir()` is deliberately not used: it is overridable through `__dir__`, so an adapter
+    could hide a published attribute from exactly the check that looks for one. The
+    instance's own `__dict__` and every class dictionary in the MRO are read directly
+    instead, which sees a plain instance attribute, a `property` and a class attribute
+    alike, and sees them wherever in the MRO they were defined — including on a shared
+    accessor mixin, which is where the superseded `.runner` accessor lives today.
+
+    `object`'s own surface is skipped because nothing an adapter authored is there.
+    """
+    names: list[str] = list(getattr(value, "__dict__", {}))
+    for klass in type(value).__mro__:
+        if klass is object:
+            continue
+        names.extend(vars(klass))
+    return tuple(sorted({name for name in names if not name.startswith("_")}))
+
+
+def read_published(holder: object, name: str) -> object:
+    """One published attribute, read the way a caller holding the wiring would read it.
+
+    A `property` is evaluated here rather than inspected as a descriptor, because a caller
+    writes `adapter.runner`, not `type(adapter).runner.fget(adapter)`. An attribute whose
+    read raises publishes nothing reachable, so it is reported as `UNREADABLE` and is not
+    a finding; an attribute whose read *answers with the executor* is the finding.
+    """
+    try:
+        return getattr(holder, name)
+    except Exception:  # noqa: BLE001 -- an attribute that refuses to be read publishes nothing
+        return UNREADABLE
+
+
+def hands_out_the_executor(value: object, runner: object) -> bool:
+    """True when `value` is the injected runner itself or one of its bound methods.
+
+    Both spellings hand a caller the identical authority: `<published>.run(argv, ...)` and
+    a directly published bound `<published>(argv, ...)` reach the same process seam. The
+    second cannot be caught by identity on the attribute — a bound method is a fresh object
+    on every read — so its `__self__` is compared instead. The `run` callable is what makes
+    either one usable, which is why it is required rather than assumed.
+    """
+    if value is runner:
+        return callable(getattr(value, "run", None))
+    owner = getattr(value, "__self__", None)
+    return owner is runner and callable(value)
+
+
+def executor_publications(holder: object, runner: object) -> tuple[str, ...]:
+    """Every published path on `holder` by which a caller can reach the injected runner.
+
+    The walk is two levels deep on purpose. One level catches `adapter.runner`; the second
+    catches an indirection such as `adapter.executor.runner`, which republishes the same
+    seam behind one extra hop and would satisfy a one-level check while leaving
+    `adapters.docker.executor.runner.run(argv, ...)` fully reachable. Paths are returned
+    rather than a bare boolean so a failure names the attribute that has to be withdrawn.
+    """
+    found: list[str] = []
+    for name in published_names(holder):
+        value = read_published(holder, name)
+        if value is UNREADABLE:
+            continue
+        if hands_out_the_executor(value, runner):
+            found.append(name)
+            continue
+        for inner in published_names(value):
+            nested = read_published(value, inner)
+            if nested is not UNREADABLE and hands_out_the_executor(nested, runner):
+                found.append(f"{name}.{inner}")
+    return tuple(found)
+
+
+def test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor() -> None:
+    """No command adapter publishes the raw process executor under any public name.
+
+    `ExactCommandAdapter.run_effect` is the one check that keeps a reachable command inside
+    the reviewed plan: it looks the effect up in `plan.commands` and runs that exact argv,
+    so nothing outside the plan can be executed through it. That guard is only worth what
+    the executor's reachability is worth. A command adapter that publishes the runner lets
+    any holder of the wiring — or of the frozen `Adapters` bundle — call
+    `adapters.docker.runner.run(argv, ...)` with *arbitrary* argv and step straight past it,
+    and the single-spawn AST control in
+    `test_the_only_process_executor_is_argv_only_shell_false_and_timeout_bounded` cannot see
+    that, because the spawn site is unchanged; only who may reach it has changed.
+
+    Superseded contract: commit `aae6a30` pinned `adapter.runner is command_runner` on every
+    command adapter as the way to prove the wiring shares one executor. Independent review
+    sustained that as a layering defect and it is withdrawn here. The shared-executor
+    property it was proving is now proven behaviourally, and more strongly, by
+    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner`:
+    identity showed only that an adapter had been *handed* the runner, while the ledger
+    shows every adapter actually *uses* it, and it hands the caller nothing.
+
+    `.plan` publication remains permitted, and that is not an inconsistency. A
+    `TopologyPlan` is inert reviewed data — a frozen dataclass of argv tuples — so reading
+    it confers no authority to act, only the ability to read what was already reviewed;
+    `ExactCommandAdapter.plan` is the existing precedent. The runner is the opposite kind of
+    object: it is the authority to act, and publishing it is publishing that authority. So
+    the plan identity is re-asserted below rather than merely tolerated.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    command_runner = LedgerRunner()
+    wiring = runtime_wiring(script, command_runner=command_runner)
+    assert wiring.command_runner is command_runner
+
+    published = {
+        name: executor_publications(wiring.command_adapters[name], command_runner)
+        for name in COMMAND_ADAPTER_NAMES
+    }
+    assert {name: paths for name, paths in published.items() if paths} == {}
+    # The inert half of the same contract, restated so the two are read together: the plan
+    # is still one shared object, published by identity, on every one of the five adapters.
+    for name in COMMAND_ADAPTER_NAMES:
+        assert wiring.command_adapters[name].plan is wiring.plan
+    # Reading every published attribute is itself inert. A publication that executed a
+    # command merely to answer a read would be a worse defect than the one under test.
+    assert command_runner.argvs == []
 
 
 def test_the_injected_control_roots_are_the_exact_argv_tokens_the_plan_carries() -> None:
-    """Accepting the roots is not enough: they must reach every planned observation.
+    """Accepting the argument is not enough: it must reach every planned observation.
 
     A wiring that took `repository_roots` and then resolved the host's own worktrees anyway
     would satisfy plan-shape assertions while planning against four repositories nobody
     named. So this reads the argv itself: each `git -C <root>` observation must be bound to
-    exactly the injected worktree, and no token anywhere in the plan may name the checkout
-    these tests run from or an ancestor of it.
+    exactly the worktree the caller injected, and no token anywhere in the plan may name the
+    checkout these tests run from or an ancestor of it.
     """
     script = load_c8_script("run_topology_rehearsal.py")
     wiring = runtime_wiring(script)
@@ -397,61 +655,264 @@ def test_the_injected_control_roots_are_the_exact_argv_tokens_the_plan_carries()
     assert trespassers == []
 
 
-def test_the_default_control_roots_are_observed_by_the_named_composition_root_resolver(
-    monkeypatch: pytest.MonkeyPatch,
+def test_two_wirings_differing_only_in_their_injected_roots_build_two_different_plans(
+    tmp_path: Path,
 ) -> None:
-    """The un-injected default routes through one named resolver, and it never reads the grant.
+    """A wiring that ignored the injected roots cannot pass this.
 
-    This pins the default by *identity and route*, never by calling the real resolver: the
-    four control worktrees do not exist on an arbitrary machine, so a test that executed the
-    real host observation would be asserting something about this laptop. Replacing the named
-    module attribute and reading the resulting argv proves the default path goes through it —
-    a `build_runtime_wiring` that inlined its own root expression would ignore the
-    replacement and still carry the host's paths.
-
-    The resolver takes no parameters at all, which is the enforceable form of "never derived
-    from the grant being verified": a callable that cannot be handed the authorization cannot
-    copy a root out of the document the attempt exists to check. A root taken from the grant
-    would make the control observation self-witnessing — it would prove only that the grant
-    agrees with itself.
+    The previous test can be satisfied by a wiring that happens to agree with one set of
+    roots. This one varies only `repository_roots` between two otherwise identical calls and
+    requires the plan to follow: a constant, a host observation or an inlined fixture would
+    produce the same commands twice and fail here regardless of what it produced.
     """
     script = load_c8_script("run_topology_rehearsal.py")
-    resolve = require_c8_attr(script, "resolve_control_repository_roots")
-    assert inspect.signature(resolve).parameters == {}
+    elsewhere = {
+        name: str(tmp_path / name) for name in fakes.SYNTHETIC_REPOSITORY_ROOTS
+    }
+    first = runtime_wiring(script)
+    second = runtime_wiring(script, repository_roots=elsewhere)
+    assert first.plan.commands != second.plan.commands
+    for name, root in elsewhere.items():
+        for observation in ("commit", "tree", "status"):
+            command = second.plan.commands[f"control:{name}:{observation}"]
+            assert control_root_argument(command) == root
+    assert second.plan.signature_path.startswith(f"{elsewhere[fakes.SUITE_CONTROL]}/")
 
-    source = ast.parse(textwrap.dedent(inspect.getsource(resolve)))
-    referenced = {node.id for node in ast.walk(source) if isinstance(node, ast.Name)} | {
+
+def test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default() -> None:
+    """The caller must name the four worktrees, and no default may answer for them.
+
+    Superseded contract: commit `82f0dd3` gave `repository_roots` a host-observing default,
+    and the working tree that followed replaced that with an envelope field and a test
+    asserting `"repository_roots" not in signature.parameters`. Both are withdrawn. Host
+    observation is refuted on this host — the sibling-directory convention such a resolver
+    would need resolves only `cybrik-suite`, so three of the four roots would have to be
+    invented. The envelope is worse: the detached signature covers `grant_bytes` alone and
+    `record_sha256` hashes nothing, so an envelope root would be an *unsigned* value, and
+    `plan` builds the allowed-signers file and the detached signature path underneath the
+    Suite root — an unsigned root therefore redirects the trust anchor of the very
+    `ssh-keygen -Y verify` that checks the grant.
+
+    The remaining honest answer is the one `plan.build_plan` already uses: a mandatory
+    keyword-only argument, no default, supplied by the entrypoint from its own argv or
+    config, at the same operator-declared trust level as `execute_requested=True` and the
+    choice of authorization file. Both halves are asserted, because the default is what
+    makes the difference: a parameter that exists but defaults would let a wiring handed no
+    roots quietly plan against something nobody named, which is exactly the failure mode the
+    refuted answers shared.
+
+    A `**kwargs` is refused for the mirrored reason: a variadic would accept the roots
+    without naming them, so the signature would stop being a readable statement of where the
+    worktrees come from.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    build = require_c8_attr(script, "build_runtime_wiring")
+    signature = inspect.signature(build)
+    assert "authorization" in signature.parameters
+    parameter = signature.parameters["repository_roots"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty
+    widening = sorted(
+        name
+        for name, parameter in signature.parameters.items()
+        if parameter.kind
+        in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+    )
+    assert widening == [], "no variadic parameter may accept roots without naming them"
+    # The signature is the declaration; this is the behaviour. A wiring built with no roots
+    # must fail to be built at all — never fall back to a host resolver, an envelope field
+    # or a constant, all three of which would look identical to a caller from here.
+    with pytest.raises(TypeError):
+        build(authorization=documents.authorization())
+
+
+# Every way an injected roots argument can fail to name exactly the four control worktrees,
+# stated in the same shape `tests/test_preparation.py` states the `expected_controls`
+# refusals: the argument unresolved, the argument carrying something that is not an
+# inventory at all, the inventory not being the reviewed key space, and one root that is not
+# a usable absolute separator-free worktree. `None` is the "supplied but unresolved" case:
+# the parameter is mandatory, so the caller has to pass *something*, and passing nothing
+# resolved is a refusal rather than a fallback.
+MALFORMED_REPOSITORY_ROOTS = [
+    pytest.param(None, id="unresolved"),
+    pytest.param({}, id="empty"),
+    pytest.param(
+        dict(list(fakes.SYNTHETIC_REPOSITORY_ROOTS.items())[:3]),
+        id="missing-one-repository",
+    ),
+    pytest.param(
+        {
+            **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+            "cybrik-extra": fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL],
+        },
+        id="extra-repository",
+    ),
+    pytest.param(
+        {
+            **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+            1: fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL],
+        },
+        id="extra-untyped-key",
+    ),
+    pytest.param(
+        {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: None},
+        id="unread-root",
+    ),
+    pytest.param(
+        {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SOC_CONTROL: 0}, id="untyped-root"
+    ),
+    pytest.param(
+        {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.AI_CONTROL: ""}, id="empty-root"
+    ),
+    pytest.param(
+        {
+            **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+            fakes.SOC_CONTROL: "cybrik-soc-command-center",
+        },
+        id="relative-root",
+    ),
+    pytest.param(
+        {
+            **fakes.SYNTHETIC_REPOSITORY_ROOTS,
+            fakes.FABRIC_CONTROL: "/synthetic/cybrik-security-tool-fabric;rm",
+        },
+        id="separator-malformed-root",
+    ),
+    pytest.param(list(fakes.SYNTHETIC_REPOSITORY_ROOTS), id="sequence"),
+    pytest.param(fakes.SUITE_CONTROL, id="string"),
+    pytest.param(0, id="integer"),
+]
+
+
+@pytest.mark.parametrize("roots", MALFORMED_REPOSITORY_ROOTS)
+def test_a_roots_argument_that_does_not_name_four_control_roots_is_refused(roots) -> None:
+    """No fallback exists, so a malformed argument is a refusal and never a resolved value.
+
+    Making the argument mandatory removes the only thing a wiring could have fallen back to,
+    and that is the point: a caller that does not name the four worktrees has left nothing
+    honest behind, because the sibling-directory convention a resolver would need resolves
+    only `cybrik-suite` on a real checkout and would have to invent the other three, and the
+    authorization envelope carries no signed root to read. So every malformed shape has to
+    end the same way `expected_controls` already ends — one typed `PrecheckAbort` naming the
+    parameter, before anything is built and before anything runs.
+
+    `plan.build_plan` already refuses each of these shapes, but it refuses with `ValueError`
+    and a `root:<repository>` label. The wiring is the boundary the operator is standing at,
+    so it owes the operator the reviewed refusal type and the name of the argument that was
+    wrong, not the internal label of whatever validated it.
+
+    The injected ledger is read afterwards for the same reason `tests/test_preparation.py`
+    asserts no forbidden effect was logged: a refusal that arrives *after* a process has been
+    spawned is not a refusal, it is a report. Building the wiring is not authorized to
+    execute anything even when the roots are well formed, and least of all when they are not.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    abort = require_c8_attr(load_c8("errors"), "PrecheckAbort")
+    command_runner = LedgerRunner()
+    with pytest.raises(abort) as refused:
+        runtime_wiring(
+            script,
+            repository_roots=roots,
+            command_runner=command_runner,
+        )
+    # A named refusal, not a bare classified stop: the operator is told which input failed.
+    assert "repository_roots" in str(refused.value)
+    assert command_runner.argvs == []
+
+
+class RecordingAuthorization:
+    """The real envelope, wrapped so every attribute read off it is recorded.
+
+    `__getattr__` rather than `__getattribute__`, so the two handles this class needs for
+    itself live in the instance dictionary and are never mistaken for a read the wiring
+    performed. Everything else falls through and is both recorded and answered truthfully,
+    which is what makes the recording a statement about the wiring rather than about a stub.
+    """
+
+    def __init__(self, envelope: object) -> None:
+        self.__dict__["envelope"] = envelope
+        self.__dict__["reads"] = []
+
+    def __getattr__(self, name: str) -> object:
+        self.__dict__["reads"].append(name)
+        return getattr(self.__dict__["envelope"], name)
+
+
+def test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root() -> None:
+    """Neither the document under check, nor the machine, nor the envelope may name a root.
+
+    This is the structural half of the contract the refusals above state behaviourally. A
+    root copied out of `authorization.grant` would make the whole control observation
+    self-witnessing — the document being verified would choose the worktree its own claims
+    are checked against, which is exactly the boundary Admission commit `1050684`
+    established. A root read from the process environment, the working directory, `argv` or
+    the wiring module's own location would make every command-plan assertion in this file a
+    statement about the machine that happened to run it. And a root read off any other
+    attribute of the authorization would be an unsigned sidecar: the detached signature
+    covers `grant_bytes` alone and `record_sha256` hashes nothing, so no field of that
+    envelope is covered, while the Suite root selects the allowed-signers file and the
+    detached signature path that `signature:verify` trusts.
+
+    Reading the AST rather than the behaviour is what makes this exact: a wiring that
+    consulted the grant only when the injected roots were silent would satisfy every test
+    above and still be self-witnessing on the one path that matters. `getattr` is refused
+    alongside the literal names because a dynamic read is the same defect spelled so that a
+    name-based walk cannot see it — and it is precisely the idiom `preparation` uses to read
+    `expected_controls` off the envelope. The AST-walk idiom is the one the withdrawn
+    resolver test used; only its subject was wrong, because there is no resolver left to
+    review and `build_runtime_wiring` itself is now the whole of the derivation.
+
+    The recording envelope closes the last gap. The AST names what may not be written; the
+    recording proves what was actually read, so a root reached through some third attribute
+    nobody thought to forbid still fails here.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    build = require_c8_attr(script, "build_runtime_wiring")
+    source = ast.parse(textwrap.dedent(inspect.getsource(build)))
+    attributes = {
         node.attr for node in ast.walk(source) if isinstance(node, ast.Attribute)
     }
-    # Neither the document under check, nor the directory the operator happened to stand in.
-    assert not referenced & {"authorization", "grant", "getcwd", "cwd", "environ", "argv"}
-    # The composition root observes its own location: the roots are anchored to the file
-    # that was reviewed, which is the only anchor an operator cannot move by moving.
-    assert "__file__" in referenced
-    # Observation here means the filesystem, not a process. The autouse `forbid_real_io`
-    # tripwire would already fail a spawn, but the default path must be structurally unable
-    # to need one, because it runs before anything has been authorized to execute.
-    assert not referenced & {"subprocess", "run", "Popen", "system", "popen"}
+    referenced = {
+        node.id for node in ast.walk(source) if isinstance(node, ast.Name)
+    } | attributes
+    # The document under check is not a source, and neither is the operator's own shell.
+    assert not referenced & {"grant", "getcwd", "cwd", "environ", "argv"}
+    # No process may be spawned to find a root: the wiring runs before anything is
+    # authorized to execute, so it must be structurally unable to need a spawn.
+    assert not referenced & {"subprocess", "Popen", "system", "popen"}
+    # Not even the reviewed file's own location. `__file__` was the anchor the withdrawn
+    # host-observing default used, and its absence is what proves that default is gone.
+    assert "__file__" not in referenced
+    # No envelope field, read either by name or dynamically. The injected argument is the
+    # whole of the derivation, so `repository_roots` may never appear as an attribute.
+    assert "repository_roots" not in attributes
+    assert "getattr" not in referenced
 
-    observed = {name: f"/observed/{name}" for name in fakes.SYNTHETIC_REPOSITORY_ROOTS}
-    monkeypatch.setattr(
-        script, "resolve_control_repository_roots", lambda: dict(observed)
-    )
-    wiring = require_c8_attr(script, "build_runtime_wiring")(
-        authorization=documents.authorization()
-    )
-    for name, root in observed.items():
-        assert control_root_argument(wiring.plan.commands[f"control:{name}:commit"]) == root
+    # And nothing root-shaped is read off the authorization at run time either.
+    envelope = RecordingAuthorization(documents.authorization())
+    wiring = runtime_wiring(script, authorization=envelope)
+    assert [name for name in envelope.__dict__["reads"] if "root" in name] == []
+    for name, root in fakes.SYNTHETIC_REPOSITORY_ROOTS.items():
+        command = wiring.plan.commands[f"control:{name}:commit"]
+        assert control_root_argument(command) == root
 
 
 def test_runtime_wiring_defaults_to_the_single_subprocess_executor() -> None:
-    """The default execute path may not silently wire some other process seam."""
+    """The default execute path may not silently wire some other process seam.
+
+    This pins the type of the default executor and nothing else. It used to also read
+    `command_adapters[name].runner is wiring.command_runner`, which required every command
+    adapter to publish the raw executor and so handed any holder of the wiring a way past
+    the plan-membership guard in `ExactCommandAdapter.run_effect`. That property is proven
+    without the publication by
+    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner`, and its
+    absence is enforced by
+    `test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor`.
+    """
     script = load_c8_script("run_topology_rehearsal.py")
     wiring = runtime_wiring(script)
     executor_type = require_c8_attr(script, "SubprocessCommandRunner")
     assert isinstance(wiring.command_runner, executor_type)
-    for name in COMMAND_ADAPTER_NAMES:
-        assert wiring.command_adapters[name].runner is wiring.command_runner
 
 
 def test_runtime_wiring_completes_the_injected_adapter_surface() -> None:

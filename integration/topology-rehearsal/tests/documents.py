@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from hashlib import sha256
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 from typing import Any
 
 import fakes
@@ -215,6 +215,16 @@ class Authorization:
     runner_aggregate_sha256: str = fakes.SYNTHETIC_RUNNER_AGGREGATE_SHA256
     observed_at: str = NOW_INSIDE_WINDOW
     expected_controls: Mapping[str, str] = field(default_factory=lambda: dict(fakes.EXPECTED_CONTROLS))
+    # This envelope deliberately carries no control-repository roots. A `repository_roots`
+    # field was drafted here and is withdrawn: the detached signature covers `grant_bytes`
+    # only, and `record_sha256` never hashes anything, so a root riding the envelope would be
+    # an unsigned sidecar. `expected_controls` survives that because `preparation` forces it
+    # to agree with the signature-covered grant pin, and a root has no signed counterpart to
+    # be forced to agree with. It also decides more than a `git -C` worktree: `plan` derives
+    # the allowed-signers file and the detached signature path from the Suite root, so an
+    # unsigned root would select the trust anchor of the very verification that checks it.
+    # The roots are therefore an operator-declared input the caller injects into
+    # `build_runtime_wiring`, exactly as `plan.build_plan` already requires.
 
 
 def authorization(**overrides: Any) -> Authorization:
