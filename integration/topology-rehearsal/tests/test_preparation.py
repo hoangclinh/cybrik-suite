@@ -79,6 +79,14 @@ IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
 STALE_OBSERVED_AT = "2026-08-04T23:59:59Z"
 FRESH_OBSERVED_AT = "2026-08-05T00:01:00Z"
 
+# Hostile edits an injected adapter could make to the caller-owned authorization *after* it
+# was validated and *before* it is compared against the host or recorded. Every value here is
+# well formed: the attack is not a malformed document but a live alias, so a phase that
+# re-reads the caller's own mappings after validation accepts all of them.
+HOSTILE_PULL_POLICY = "always"
+HOSTILE_COMMIT = "1" * 40
+HOSTILE_TREE = "2" * 40
+
 
 @pytest.fixture(name="preparation")
 def preparation_module():
@@ -178,10 +186,60 @@ class MutableInt(int):
         return instance
 
 
+class MutableStr(str):
+    """A `str` subclass carrying mutable caller state behind a safe-looking scalar.
+
+    `str` and `bytes` are also `Sequence`s, so a subclass that is not refused as a scalar is
+    not merely mis-typed: it is silently taken apart into a tuple of its own characters or
+    bytes, and the value the caller can still edit is what the phase went on to compare.
+    """
+
+    def __new__(cls, value: str):
+        instance = super().__new__(cls, value)
+        instance.state = []
+        return instance
+
+
+class MutableBytes(bytes):
+    """A `bytes` subclass carrying mutable caller state behind a safe-looking scalar."""
+
+    def __new__(cls, value: bytes):
+        instance = super().__new__(cls, value)
+        instance.state = []
+        return instance
+
+
 def exploding_adapters(port: str, method: str, error: BaseException):
     adapters = fakes.passing_adapters()
     return replace(
         adapters, **{port: exploding_port(getattr(adapters, port), method, error)}
+    )
+
+
+def mutating_port(port: Any, method: str, mutate: Any) -> Any:
+    """A well-behaved port whose one named observation first edits caller-owned state.
+
+    The real bound method still runs and still records on the shared call log, so the injected
+    surface stays exactly the eight reviewed read-only observations: the only added behaviour
+    is the edit a hostile or merely buggy adapter could make between validation and
+    comparison. As in `exploding_port`, the substitute is a shallow copy carrying an instance
+    attribute rather than a delegating proxy, so `isinstance` against the runtime-checkable
+    port still holds and the injected-surface check is not what fails.
+    """
+    original = getattr(port, method)
+
+    def observe(*args: Any, **kwargs: Any) -> Any:
+        mutate()
+        return original(*args, **kwargs)
+
+    substitute = copy.copy(port)
+    setattr(substitute, method, observe)
+    return substitute
+
+
+def mutating_adapters(adapters: Any, port: str, method: str, mutate: Any) -> Any:
+    return replace(
+        adapters, **{port: mutating_port(getattr(adapters, port), method, mutate)}
     )
 
 
@@ -412,6 +470,71 @@ def test_the_snapshot_holds_no_live_alias_into_a_callers_mutable_input(preparati
     )
 
 
+# ---------------------------------------------------------------------------
+# Authorization projection isolation
+#
+# `prepare` reads the authorization once and then takes eight observations through injected
+# ports. Between those two moments the caller's own mappings are reachable by anything the
+# surface calls. Holding them live across the observations means the document that was
+# validated, the document the host is compared against and the document that is recorded need
+# not be the same document — which is a defect of the phase, not of its adapters.
+# ---------------------------------------------------------------------------
+def test_an_adapter_cannot_edit_the_selected_identity_into_the_snapshot(preparation) -> None:
+    """What is recorded is the authorized selection, not one edited mid-observation."""
+    authorization = documents.authorization()
+
+    def mutate() -> None:
+        authorization.grant["selected_image_identity"]["pull_policy"] = HOSTILE_PULL_POLICY
+
+    adapters = mutating_adapters(
+        fakes.passing_adapters(), "probe", "observe_digest", mutate
+    )
+    result = prepare(preparation, adapters, authorization)
+    assert (
+        authorization.grant["selected_image_identity"]["pull_policy"] == HOSTILE_PULL_POLICY
+    ), "the control is vacuous unless the hostile edit really happened"
+    assert result.satisfied is True
+    assert result.selected_image_identity["pull_policy"] == fakes.PULL_POLICY
+
+
+def test_an_adapter_cannot_move_the_authorized_commits_to_match_what_it_reports(
+    preparation, abort
+) -> None:
+    """Control drift is decided against the authorization as read, not as it now stands.
+
+    This is the same live-alias defect at its worst. The identity port edits both the
+    authorization's expected commits and the grant's pinned repositories to the commits it is
+    about to report, so a phase comparing against the caller's live mappings finds four clean
+    worktrees on their authorized and granted commits, and satisfies a preparation for four
+    trees nobody ever authorized.
+    """
+    authorization = documents.authorization()
+    hostile_identities = {
+        name: {"commit": HOSTILE_COMMIT, "tree": HOSTILE_TREE, "clean": True}
+        for name in fakes.EXPECTED_CONTROLS
+    }
+
+    def mutate() -> None:
+        for name in fakes.EXPECTED_CONTROLS:
+            authorization.expected_controls[name] = HOSTILE_COMMIT
+            authorization.grant["repositories"][name].update(
+                {"commit": HOSTILE_COMMIT, "tree": HOSTILE_TREE}
+            )
+
+    adapters = mutating_adapters(
+        fakes.passing_adapters(identities=hostile_identities),
+        "identities",
+        "observe_controls",
+        mutate,
+    )
+    with pytest.raises(abort):
+        prepare(preparation, adapters, authorization)
+    assert (
+        authorization.expected_controls[fakes.SUITE_CONTROL] == HOSTILE_COMMIT
+    ), "the control is vacuous unless the hostile edit really happened"
+    assert not set(adapters.log.names()) & set(FORBIDDEN_EFFECTS)
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
@@ -447,6 +570,14 @@ def test_frozen_converts_a_mutable_byte_buffer_into_a_dead_copy(preparation) -> 
     [
         pytest.param(lambda: CustomMutable(), id="custom-mutable-object"),
         pytest.param(lambda: MutableInt(1), id="mutable-scalar-subclass"),
+        pytest.param(lambda: MutableStr("observed"), id="mutable-str-subclass"),
+        pytest.param(lambda: MutableBytes(b"observed"), id="mutable-bytes-subclass"),
+        pytest.param(
+            lambda: {"nested": MutableStr("observed")}, id="nested-mutable-str-subclass"
+        ),
+        pytest.param(
+            lambda: {MutableBytes(b"key"): "observed"}, id="keyed-mutable-bytes-subclass"
+        ),
         pytest.param(lambda: {"nested": CustomMutable()}, id="nested-custom-mutable"),
         pytest.param(lambda: [CustomMutable()], id="sequenced-custom-mutable"),
         pytest.param(lambda: cyclic_list(), id="cyclic-sequence"),
@@ -458,6 +589,15 @@ def test_frozen_refuses_a_value_it_cannot_prove_deeply_immutable(preparation, bu
     frozen = require_c8_attr(preparation, "frozen")
     with pytest.raises(ValueError):
         frozen(build())
+
+
+@pytest.mark.parametrize("value", ["observed", b"observed", 29, True, None])
+def test_frozen_keeps_an_exact_builtin_scalar_as_the_same_safe_leaf(preparation, value) -> None:
+    """A positive control: refusing scalar subclasses may not refuse the scalars themselves."""
+    frozen = require_c8_attr(preparation, "frozen")
+    result = frozen(value)
+    assert result is value
+    assert type(result) is type(value)
 
 
 def cyclic_list() -> list:
