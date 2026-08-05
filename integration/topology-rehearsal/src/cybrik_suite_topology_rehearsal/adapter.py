@@ -349,12 +349,6 @@ class DockerCommandAdapter(DockerPort):
         self._clock = clock
 
     def observe_platform(self) -> Mapping[str, Any] | None:
-        """The four reviewed platform facts, normalized here rather than left nested.
-
-        The command renders a nested client/server document, while every consumer compares
-        the flat reviewed inventory. Normalizing at the seam that owns the command keeps the
-        raw shape from travelling any further than the adapter that produced it.
-        """
         return platform_evidence(decoded(self._run(bound_effect("observe_platform"))))
 
     def observe_executable_digest(self, *, path: str) -> str | None:
