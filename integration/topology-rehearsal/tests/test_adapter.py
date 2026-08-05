@@ -409,13 +409,16 @@ def test_an_empty_daemon_event_attribute_is_unresolved_not_a_publication() -> No
 # records exactly what that document has to yield: "Docker Desktop `4.84.0` build `234817`,
 # Docker client/server `29.6.2`, API `1.55`". Those readings are replayed here through
 # `fakes.DOCUMENTED_PLATFORM`, so the raw document and the expected inventory cannot drift
-# apart inside this file.
+# apart inside this file. The Desktop product name is carried on the SERVER platform, not
+# the client: Docker's own macOS example renders `Client: Docker Engine - Community` and
+# `Server: Docker Desktop <version> (<build>)`, because the daemon is the Desktop product
+# and the CLI is only its client.
 # ---------------------------------------------------------------------------
 DESKTOP_PLATFORM_NAME = (
     f"Docker Desktop {fakes.DOCUMENTED_PLATFORM['desktop_version']} "
     f"({fakes.DOCUMENTED_PLATFORM['desktop_build']})"
 )
-DESKTOP_PLATFORM_PATH = ("Client", "Platform", "Name")
+DESKTOP_PLATFORM_PATH = ("Server", "Platform", "Name")
 ENGINE_VERSION_PATH = ("Server", "Version")
 API_VERSION_PATH = ("Server", "ApiVersion")
 DROPPED = object()
@@ -424,11 +427,14 @@ DROPPED = object()
 def version_document() -> dict:
     """One realistic raw `docker version --format {{json .}}` projection.
 
-    Docker Desktop states its own version and build only inside the client platform name,
-    while the engine and API versions under test are the server's, because the daemon is
-    what the attempt actually talks to. The surrounding fields are carried too, so the
-    normalization is stated against the document the command renders rather than against a
-    pre-flattened stand-in that would prove nothing about the real shape.
+    Docker Desktop states its own version and build only inside the SERVER platform name,
+    because the daemon is the Desktop product the attempt actually talks to; the CLI is
+    merely its client and renders as `Docker Engine - Community` on Docker's own macOS
+    example. `docker/cli`'s formatter defines the server product name at
+    `Server.Platform.Name`, which is why the four reviewed facts are read from the server
+    section alone. The surrounding fields are carried too, so the normalization is stated
+    against the document the command renders rather than against a pre-flattened stand-in
+    that would prove nothing about the real shape.
     """
     engine = fakes.DOCUMENTED_PLATFORM["engine_version"]
     api = fakes.DOCUMENTED_PLATFORM["api_version"]
@@ -439,10 +445,10 @@ def version_document() -> dict:
             "Os": "darwin",
             "Arch": "arm64",
             "Context": "desktop-linux",
-            "Platform": {"Name": DESKTOP_PLATFORM_NAME},
+            "Platform": {"Name": "Docker Engine - Community"},
         },
         "Server": {
-            "Platform": {"Name": "Docker Desktop"},
+            "Platform": {"Name": DESKTOP_PLATFORM_NAME},
             "Components": [
                 {"Name": "Engine", "Version": engine, "Details": {"ApiVersion": api}}
             ],
@@ -521,10 +527,9 @@ def test_the_normalized_platform_evidence_satisfies_the_phase_that_consumes_it()
 @pytest.mark.parametrize(
     ("path", "value"),
     [
-        pytest.param(("Client",), DROPPED, id="no-client-section"),
         pytest.param(("Server",), DROPPED, id="no-server-section"),
         pytest.param(("Server",), "29.6.2", id="server-section-not-an-object"),
-        pytest.param(("Client", "Platform"), DROPPED, id="no-client-platform"),
+        pytest.param(("Server", "Platform"), DROPPED, id="no-server-platform"),
         pytest.param(DESKTOP_PLATFORM_PATH, DROPPED, id="no-platform-name"),
         pytest.param(DESKTOP_PLATFORM_PATH, "", id="empty-platform-name"),
         pytest.param(DESKTOP_PLATFORM_PATH, ["Docker Desktop 4.84.0 (234817)"], id="name-not-a-string"),
@@ -551,6 +556,75 @@ def test_an_unreadable_platform_field_leaves_the_whole_observation_unresolved(
     platform identity nobody ever observed.
     """
     assert projected_platform(patched_document(path, value)) is None
+
+
+def test_the_2900_only_api_version_spelling_is_never_read() -> None:
+    """`Server.APIVersion` was a one-off 29.0.0 regression, not a supported spelling.
+
+    docker/cli's formatter emits `Server.ApiVersion` for the 29.6.2 target; the capitalized
+    `APIVersion` key existed only in the 29.0.0 release and was restored to `ApiVersion` by
+    docker/cli PR #6648 for 29.0.1. No supported-version policy authorizes reading it, so a
+    document that carries only that spelling must leave the whole observation unresolved
+    rather than accept it as the API version. `patched_document` cannot both drop one field
+    and set another in a single call, so this is its own test rather than a table row.
+    """
+    document = version_document()
+    del document["Server"]["ApiVersion"]
+    document["Server"]["APIVersion"] = fakes.DOCUMENTED_PLATFORM["api_version"]
+    assert projected_platform(document) is None
+
+
+def test_an_absent_client_section_still_resolves_the_full_platform_evidence() -> None:
+    """None of the four reviewed facts come from the client, so it need not even be present.
+
+    The adapter reads the daemon's own SERVER projection; the CLI's client section is not a
+    carrier of any reviewed fact and its absence must not affect the resolved inventory.
+    """
+    document = version_document()
+    del document["Client"]
+    assert projected_platform(document) == dict(fakes.DOCUMENTED_PLATFORM)
+
+
+def test_drifted_client_fields_are_ignored_because_the_daemon_is_read_not_the_cli() -> None:
+    """A client that disagrees with the daemon must not be able to smuggle its own values in.
+
+    Every client field is replaced with a decoy that differs from the reviewed evidence. If
+    the adapter accidentally read any of them, the resolved inventory would drift away from
+    `fakes.DOCUMENTED_PLATFORM`; instead it must resolve exactly as if the client had never
+    been touched, because the four reviewed facts are read from the server alone.
+    """
+    document = version_document()
+    document["Client"]["Platform"]["Name"] = "Docker Desktop 9.9.9 (000000)"
+    document["Client"]["Version"] = "1.2.3"
+    document["Client"]["ApiVersion"] = "9.99"
+    assert projected_platform(document) == dict(fakes.DOCUMENTED_PLATFORM)
+
+
+def test_conflicting_server_api_version_spellings_are_unresolved() -> None:
+    """Two disagreeing spellings of the same fact are an ambiguity, not a tiebreak.
+
+    `Server.ApiVersion` is the 29.6.2 spelling this adapter reads. If the raw document also
+    carries the 29.0.0-only `Server.APIVersion` key with a *different* value, there is no
+    warrant for silently preferring one over the other, so the whole observation must be
+    unresolved. Carrying both spellings with the *same* value is not a conflicting claim —
+    it is simply an unread extra key sitting alongside the one that is read — so that case
+    resolves normally in the companion test below.
+    """
+    document = version_document()
+    document["Server"]["APIVersion"] = "1.99"
+    assert projected_platform(document) is None
+
+
+def test_an_unread_duplicate_api_version_spelling_does_not_block_resolution() -> None:
+    """A duplicate spelling that agrees with the read key is not a claim, so it is ignored.
+
+    `Server.APIVersion` is never read. Carrying it alongside `Server.ApiVersion` with the
+    same value is just an extra key nobody consults, not a second, conflicting assertion
+    about the API version, so resolution proceeds exactly as it would without it.
+    """
+    document = version_document()
+    document["Server"]["APIVersion"] = fakes.DOCUMENTED_PLATFORM["api_version"]
+    assert projected_platform(document) == dict(fakes.DOCUMENTED_PLATFORM)
 
 
 @pytest.mark.parametrize(
