@@ -28,7 +28,7 @@ from .constants import (
     RUNTIME_LIMIT_SECONDS,
     SIGNER,
 )
-from .observe import platform_evidence
+from .observe import CommandAdapterAccessors, platform_evidence
 from .plan import (
     CREDENTIAL_ENVIRONMENT_KEY,
     TopologyPlan,
@@ -251,7 +251,7 @@ class ExactCommandAdapter:
         return self._runner.run(argv, timeout_seconds=timeout_seconds, stdin=stdin)
 
 
-class ControlIdentityCommandAdapter(ControlIdentitySource):
+class ControlIdentityCommandAdapter(ControlIdentitySource, CommandAdapterAccessors):
     """Control-repository identity read from each injected worktree, never from `PATH`."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner) -> None:
@@ -281,7 +281,7 @@ class ControlIdentityCommandAdapter(ControlIdentitySource):
         )
 
 
-class HostCommandAdapter(HostObservationSource):
+class HostCommandAdapter(HostObservationSource, CommandAdapterAccessors):
     """Read-only host observations. Nothing here creates, mutates or connects."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner) -> None:
@@ -339,7 +339,7 @@ class HostCommandAdapter(HostObservationSource):
         )
 
 
-class DockerCommandAdapter(DockerPort):
+class DockerCommandAdapter(DockerPort, CommandAdapterAccessors):
     """Every Docker effect, each one a named plan command validated before it runs."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner, clock: Clock) -> None:
@@ -471,7 +471,7 @@ class DockerCommandAdapter(DockerPort):
         )
 
 
-class ProbeCommandAdapter(ProbePort):
+class ProbeCommandAdapter(ProbePort, CommandAdapterAccessors):
     """The bounded, no-data host probe and the identity of its executable."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner) -> None:
@@ -506,7 +506,7 @@ class ProbeCommandAdapter(ProbePort):
         )
 
 
-class SshSignatureCommandAdapter(SignatureVerifier):
+class SshSignatureCommandAdapter(SignatureVerifier, CommandAdapterAccessors):
     """Detached signature verification of the externally signed grant."""
 
     def __init__(self, plan: TopologyPlan, runner: CommandRunner) -> None:

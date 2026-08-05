@@ -57,6 +57,7 @@ from .constants import (
     STOP_CONTROL,
 )
 from .errors import TERMINAL_ERRORS
+from .plan import TopologyPlan
 from .protocols import (
     ADDRESS_SEPARATOR,
     LISTENER_ADDRESS_KEY,
@@ -504,3 +505,38 @@ def platform_evidence(document: object) -> Mapping[str, Any] | None:
     return MappingProxyType(
         dict(zip(PLATFORM_EVIDENCE_KEYS, observed, strict=True))
     )
+
+
+class CommandAdapterAccessors:
+    """The one read-only `.plan` identity accessor shared by every command adapter.
+
+    Every command adapter in `adapter.py` holds one `ExactCommandAdapter` as `self._executor`
+    and, until the entrypoint wiring contract needed it, exposed neither the plan nor the
+    runner it was built with. A wiring that built all five adapters over one reviewed plan can
+    read it back by identity (`adapter.plan is wiring.plan`) rather than keeping a second,
+    adapter-local copy. A `TopologyPlan` is inert reviewed data — a frozen dataclass of argv
+    tuples — so publishing it grants no authority to act.
+
+    There is deliberately no matching `.runner`. `aae6a30` pinned one, and
+    `tests/test_adapter.py` withdrew it: publishing the raw executor off every command adapter
+    would let a holder of the frozen `Adapters` bundle call `adapters.docker.runner.run(argv,
+    ...)` with arbitrary argv and walk past the plan-membership guard in
+    `ExactCommandAdapter.run_effect`, the one check keeping a reachable command inside the
+    reviewed plan. That the five adapters share a single injected runner is proved
+    behaviourally instead — by driving each adapter and reading the injected runner's own
+    ledger — which proves the stronger property (each adapter *uses* it, not merely that it
+    was *handed* it) and hands the caller nothing.
+
+    This lives here, alongside `platform_evidence`, rather than in `adapter.py` itself,
+    because that module is already at its reviewed 800-line bound: this is the one place the
+    accessor can be added to every command adapter without growing it by a byte. With the
+    executor accessor withdrawn, nothing here reaches a process seam, so this module's own
+    claim to reach nothing still holds.
+
+    Like `platform_evidence`, this is package plumbing rather than a pure reducer, so it is
+    deliberately absent from the curated `__all__` above.
+    """
+
+    @property
+    def plan(self) -> TopologyPlan:
+        return self._executor.plan
