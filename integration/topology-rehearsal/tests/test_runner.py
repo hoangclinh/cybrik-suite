@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import dataclasses
 import re
 
 import pytest
@@ -429,6 +430,82 @@ def test_the_observed_facts_are_the_preparation_observations(runner) -> None:
     assert tuple(facts["tools"]["probe"]["argv"]) == fakes.PROBE_ARGV
 
 
+class FailingClock:
+    """A clock that answers `answers` readings and then stops answering.
+
+    The envelope takes exactly two readings: one before the ledger is consumed and one
+    after the attempt is consumed and all five resources exist. Scripting a failure at
+    each of those instants is what separates "the envelope is guarded" from "the envelope
+    is guarded whenever nothing unexpected happened on the way to it" — the shipped
+    `MonotonicClock` wraps a bare `time.monotonic()` that cannot raise, and the scripted
+    fake repeats its last tick, so neither of them can reach either path.
+    """
+
+    def __init__(self, log, answers: int = 1, opening: float = 0.0) -> None:
+        self._log = log
+        self._answers = answers
+        self._opening = opening
+        self._readings = 0
+
+    def monotonic(self) -> float:
+        self._readings += 1
+        if self._readings <= self._answers:
+            self._log.record("clock.monotonic", value=self._opening)
+            return self._opening
+        raise OSError("the monotonic clock stopped answering")
+
+
+def test_a_clock_that_fails_before_consumption_refuses_without_mutating(runner) -> None:
+    """An unreadable opening instant is a precheck refusal, not an unbounded attempt.
+
+    The opening reading is what fixes the one deadline. Without it there is no envelope
+    to run inside, so the attempt may not be consumed and no resource may be created.
+    A raising clock here escaped `run_topology_rehearsal` as an `OSError` instead.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(base, clock=FailingClock(base.log, answers=0))
+
+    result = run(runner, adapters)
+
+    # The call returns a terminal refusal rather than propagating the clock's failure.
+    assert result.outcome == fakes.PRECHECK_ABORT
+    assert result.attempt_consumed is False
+    # Nothing was consumed, created or torn down: the ledger still holds the one attempt.
+    assert adapters.log.count("ledger.consume") == 0
+    for name in CREATE_CALLS:
+        assert adapters.log.count(name) == 0
+    assert adapters.log.count("docker.remove") == 0
+    assert adapters.log.count("credential.remove") == 0
+    assert result.teardown_complete is False
+    assert result.residuals == ()
+    # The refusal names the unreadable clock rather than a generic precheck failure.
+    assert any("clock" in finding for finding in result.findings)
+
+
+def test_a_clock_that_fails_after_creation_still_tears_the_attempt_down(runner) -> None:
+    """An unreadable completion instant may not strand a consumed attempt's resources.
+
+    Every other injected seam between consumption and teardown is guarded. The completion
+    reading was not, so a raising clock escaped `run_topology_rehearsal` with the network,
+    volume, credential and container still on the host and the ledger already consumed.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(base, clock=FailingClock(base.log))
+
+    result = run(runner, adapters)
+
+    # The call returns a terminal answer rather than propagating the clock's failure.
+    assert result.attempt_consumed is True
+    assert result.outcome == fakes.STOP_CONTROL
+    # Teardown was still reached: the host is not left holding what the attempt created.
+    assert adapters.log.count("docker.remove") == len(fakes.TEARDOWN_KINDS) - 1
+    assert adapters.log.count("credential.remove") == 1
+    assert result.teardown_complete is True
+    assert result.residuals == ()
+    # The refusal names the unreadable clock rather than reporting a clean envelope.
+    assert any("clock" in finding for finding in result.findings)
+
+
 def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -> None:
     source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -436,6 +513,12 @@ def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -
         node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
     }
     assert "grant" not in read_attributes
+    # `PreparationResult.selected_image_identity` is copied straight out of the grant, so
+    # reading it here would launder a granted fact back into the facts that verify the
+    # grant — self-witnessing that no `.grant` read and no "grant" literal would reveal.
+    # The runner assembles this fact from the host projection plus the reviewed policy,
+    # and therefore never reads the attribute at all.
+    assert "selected_image_identity" not in read_attributes
     string_literals = {
         node.value
         for node in ast.walk(tree)
