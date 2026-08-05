@@ -315,6 +315,81 @@ level.
 
 No GREEN is push-eligible until that further RED lands and is independently reviewed.
 
+### Obstacle 4 adjudicated: injection at the argv boundary
+
+Independent architecture review read all the binding sites rather than the summary above, and
+found the contradiction is **wider than this section first stated**. Three tests pin the builder
+call shape, not one — `test_every_non_pass_result_maps_to_the_fixed_nonzero_hold_exit` also pins
+`wiring_builder=lambda *, authorization` (`test_scripts_inert.py:272`) — and
+`test_exact_execute_path_calls_one_injected_executor_with_external_paths` (`:175`) pins
+`execute(grant_path, signature_path)` as exactly two positionals. Any correction must amend all
+three.
+
+**Decision: the roots are injected at the argv boundary.** `run_topology_rehearsal.py` gains a
+repeatable, argparse-`required` `--control-root NAME=PATH`; `main` folds the pairs into a mapping
+and forwards it as a mandatory keyword-only `repository_roots` through
+`execute_authorized_attempt` into `build_runtime_wiring`, whose `3cd9d77` signature is unchanged.
+`load_runtime_dependencies` stays zero-argument, and
+`test_default_dependency_loader_returns_the_reviewed_real_triple` becomes satisfiable because the
+composition root now supplies both keywords. Two private helpers `_control_root_pair` and
+`_control_roots` split what the operator typed and observe nothing, so `__all__` does not change.
+**The parser-flag bound is the one bound that moves.**
+
+Rejected, recorded so they are not revisited:
+
+- A fourth field on the object `load_runtime_dependencies()` returns — that callable is pinned
+  zero-argument (`:247`), so the field could only come from host observation or a source
+  constant, both already refuted by `a5307cc`. It moves the dishonesty outside the AST guard
+  instead of removing it.
+- `functools.partial` binding to keep the builder one-argument — a partial is not
+  `build_runtime_wiring` by identity, so `:244` forces the partial to be formed at the call site,
+  which is the keyword pass anyway; and partial keywords stay caller-overridable, which is
+  strictly worse for the property being protected.
+- Four fixed flags (`--suite-root` and siblings) — duplicates `constants.CONTROL_REPOSITORIES`
+  into the script's parser; the repeatable form lets the script name no repository at all.
+- A roots manifest file — a second unsigned artifact, less auditable than the invocation itself.
+
+Two refusal bands, and they must not be merged. Argv **shape** — flag absent, token without `=`,
+empty name, empty path, a repeated name — is refused in `main` and returns `HOLD_EXIT` with the
+executor never called. Contract **semantics** — wrong key set, non-absolute, separator-carrying,
+non-`str` — stays at `build_runtime_wiring` as `errors.PrecheckAbort` naming `repository_roots`,
+which `main` converts to `HOLD_EXIT`. The key space is validated at exactly one site and must not
+be duplicated into the script; a test pins that `main` forwards a well-shaped mapping of the
+wrong repositories verbatim.
+
+Test delta for the next RED, all in `tests/test_scripts_inert.py`: amend six
+(`:154`, `:171`, `:201`, `:265`, and the comment only at `:285`), add six (a mandatory
+keyword-only assertion on `execute_authorized_attempt` mirroring `:682` one frame up — its
+absence is what let this contradiction land; argv→mapping parsing; hold when roots are unstated;
+hold on each malformed token; a typed `PrecheckAbort` converted to `HOLD_EXIT`; and the
+single-validation-site property). **Retire nothing** — `3cd9d77` already retired the only test
+this correction would have contradicted.
+
+Residual risks accepted, not fixed in code:
+
+- `:201` pins the loader *before* the builder, so the grant and signature files are read before
+  the roots are validated. Nothing spawns and no trust decision happens in that window, but if
+  `load_authorization` ever acquires a verification step this order must be revisited.
+- The trust anchor is now operator-typed: `--control-root cybrik-suite=<path>` selects the
+  allowed-signers file and signature path for `ssh-keygen -Y verify` (`plan.py:465-466`,
+  `:255-267`). That is the deliberate trade — the anchor is visible in the invocation record
+  instead of hidden in a default, at the same trust level as `--grant` — but shell history and CI
+  job definitions become the audit surface.
+- The AST guard at `:841` is scoped to `build_runtime_wiring`, so the two new private helpers are
+  unguarded and could later acquire `os.environ` or `Path.cwd()` unnoticed. Optional hardening
+  once the GREEN has chosen their names.
+- `authored_sources()` includes `scripts/`, so `run_topology_rehearsal.py` must hold the parser,
+  `main`, the composition root, `SubprocessCommandRunner` and the adapter wiring under 800 lines.
+  If it breaches, the fix is relocation as `69ed068` did — never a shrunk docstring.
+
+Slicing, no overlapping paths: this docs commit; then a tests-only RED owning exactly
+`tests/test_scripts_inert.py`; then an atomic GREEN owning exactly the two scripts,
+`src/cybrik_suite_topology_rehearsal/__init__.py` and `tests/test_surface_contract.py`. The last
+two are **forced** into the GREEN and cannot be deferred: `test_surface_contract.py:179` asserts
+the scripts are absent while `:434` and `:438` require them present, so the front door flips in
+the same change, exactly as `244f9a4` handled the runner's landing. Both scripts must land
+together, because the scripts-root control pins exactly two files.
+
 ## Front-door reconciliation owed when the scripts land
 
 Surveyed at `2b864e3`. The reconciliation is **entirely self-contained**: no file outside

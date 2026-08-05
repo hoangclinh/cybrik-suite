@@ -25,6 +25,7 @@ to be lost irrecoverably.
 | `a4dba72..7ed7702` | Runner, first review | NO-GO | 0/1/1/6 | NO | HOLD |
 | `a4dba72..d6c0d47` | Runner, second review + independent security verification | NO-GO / security FAIL | 0/3/1/0 | NO | HOLD |
 | `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
+| `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 
 ## Range detail
 
@@ -203,11 +204,102 @@ ended):
   different binary at an unpinned version and is recorded as a fallback, not as
   the gate.
 
-Open blocker found this cycle, independent of the pending review: the corrected
-injection contract stops one seam short of the composition root and pins a
-default path that can only raise `TypeError`. See obstacle 4 in
-`ENTRYPOINT-SLICE-SPEC.md`. The next commit on this slice is a further tests-only
-RED carrying the injection up to `main`'s argv boundary.
+The independent Opus review of this range then returned: **VERDICT NO-GO,
+P0=1 P1=2 P2=4 P3=2, PUSH-ELIGIBLE NO, RUNTIME HOLD.** Every finding is written
+out below before anything else happens, because this component has already lost
+two finding lists that way.
+
+**P0 — the composition root is pinned to a call shape the real builder can never
+accept, so no GREEN exists.** Three assertions in `test_scripts_inert.py` are
+mutually unsatisfiable: `:218` pins the builder call as `build(*, authorization)`
+and compares an exact `calls` list; `:251` pins
+`dependencies.wiring_builder is build_runtime_wiring` by identity, which excludes
+`functools.partial`; `:713-726` pins `repository_roots` keyword-only with
+`default is inspect.Parameter.empty`. Demonstrated under the venv: the one-keyword
+call succeeds on the fake and raises `TypeError` on the real function; the
+two-keyword call does the reverse. `git show 73ec822:tests/test_scripts_inert.py`
+confirms the fake already had this shape at origin, so **`3cd9d77` introduced the
+contradiction rather than inheriting it**. This is the same defect recorded
+independently as obstacle 4.
+
+**P1 — the self-witnessing AST guard is scoped to one function and simultaneously
+forbids the only read that makes the wiring implementable.**
+`test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root`
+(`:869-889`) inspects `inspect.getsource(build_runtime_wiring)` alone, so a helper
+reading `os.environ` passes every assertion. Worse, it is self-defeating: the
+review exhausted every envelope field for the attempt instant
+`20260805T000000Z-c8` and found it reachable **only** through
+`authorization.grant["observed_image_identity"]["observed_at"]` or
+`grant["window"]["not_before"]`. `authorization.observed_at` is `00:01:00Z`,
+`record["recorded_at"]` is `00:00:30Z`, and `record["topology"]["image"]` carries
+no such key. So the wiring must read `.grant`, while `:879` bans the name `grant`
+and `:889` bans `getattr`. The only route to GREEN is a helper whose body does the
+banned read — leaving a control whose docstring claims the derivation is wholly
+inside `build_runtime_wiring` while it demonstrably is not. Repair is either an
+AST walk over the whole module with an allow-list for the grant reads the plan
+genuinely needs, or moving the derivation into a reviewed `src` module and
+narrowing this test to "no *root* is derived", dropping a blanket `grant` ban that
+has nothing to do with roots.
+
+**P1 — `runner.py:299-300`: the attempt identity is fixed at composition time from
+the grant's pinned instant, but the runtime derives it from the live host
+observation, which the code requires to be no earlier.** `_attempt_names` computes
+`attempt_id` from `prepared.image[OBSERVED_AT_KEY]`, and `prepared.image` is the
+live observation (`preparation.py:740`), which `preparation.py:613-616` requires to
+be at or after the grant pin. The wiring must build its plan before any observation
+exists, so its `container_name`/`network_name`/`volume_name` embed the grant's
+instant. On any real run where the host is observed even one second later, the
+names differ, `require_exact` rejects the create, and the attempt returns
+`"creation: raised …"` — fails closed, but **always, on every real execution**. It
+is GREEN today only because the fixture host observation and
+`documents.IMAGE_OBSERVED_AT` are the same string. This is a latent defect in
+already-pushed code, not in this range. Repair: build the plan in two stages, or
+publish a plan factory the runner completes with `names.attempt_id`.
+`tests/test_runner.py` has no case where the live `observed_at` is strictly later
+than the grant pin; it needs one.
+
+**P2 — `wiring.command_runner` publishes the raw executor** (`:439, :476, :612,
+:915`), so the "no unguarded process seam" property holds for adapters only. Any
+holder of the wiring can call it with arbitrary argv and bypass
+`ExactCommandAdapter.run_effect`. Contained today only because
+`execute_authorized_attempt` passes `wiring.adapters`, never the wiring — and that
+containment is unpinned.
+
+**P2 — the publication walk cannot see private names** (`:509-526`):
+`published_names` skips `_`-prefixed names and the walk is two levels deep, so
+`wiring.command_adapters["docker"]._executor._runner.run([...])` stays fully
+reachable while the test reports zero publications. The docstring at `:582-609`
+states the property as absolute; what is checked is "no *public* path".
+
+**P2 — `test_entrypoint_surface_is_bounded` (`:286-302`) pins `__all__`, not the
+module's public namespace.** `__all__` governs `from x import *` only, so a
+module-level `resolve_control_roots` omitted from it is still importable and
+callable — while the comment at `:291-294` asserts its absence *is* the contract.
+Combined with the P1 above, a future implementation could ship a public
+host-observing helper no test in this file can see.
+
+**P2 — `CommandAdapterAccessors` sits in `observe.py` to keep `adapter.py` at 799
+lines** (`observe.py:508-542`). `69ed068`'s message and the class docstring both
+give the line count as the reason. `observe.py` is documented as pure
+decoders/reducers; an adapter mixin is not one, and the class is kept out of
+`__all__` to paper over that. Splitting by line count rather than cohesion defeats
+what the bound is for. Repair: put the accessor with the adapters and reclaim the
+lines by extracting a genuinely cohesive block instead.
+
+**P3 — absent roots raise `TypeError` while `None` roots raise `PrecheckAbort`**
+(`:713-726` vs `:788-820`), two refusal types for one class of operator mistake,
+against the file's stated "one typed refusal naming the parameter" principle.
+
+**P3 — `ruff check tests` reports 2 × I001** (`test_errors.py:12`,
+`test_runner.py:3`), pre-existing and outside this range. Repair in a separate
+chore commit — **not** with `--fix`, since formatters and auto-fixers are
+Founder-gated by the repo `CLAUDE.md`.
+
+What the review confirmed as genuinely closed: the RED is honest (all 41
+`test_scripts_inert.py` failures are the absent-script class, zero assertion
+failures), and `6bc0745` + `69ed068` completely withdrew the executor publication
+— `grep` finds no public callable process seam on any adapter, and the fixture-leak
+trap of prior cycles is closed, since no synthetic literal is needed anywhere.
 
 ## Open non-technical items for the Founder
 
