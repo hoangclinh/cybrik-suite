@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from math import isfinite
 from types import MappingProxyType
 from typing import Any
 
@@ -526,13 +527,23 @@ def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
     its failure must refuse before anything is consumed, while the completion reading only
     records where the attempt ended, so its failure is a finding rather than a reason to skip
     the mandatory teardown.
+
+    Not raising is only half of answering. A seam that returns a value this file then does
+    arithmetic on has to be checked for the shape of that value the way every other seam here
+    is, so the reading is admitted only if it is a real finite number: a string or `None`
+    would reach the deadline as a `TypeError` after the attempt was consumed, a `bool` is an
+    `int` without being an elapsed time, and a `nan` would compare its way past the deadline
+    to a falsely clean envelope instead of a stop control.
     """
     try:
-        return adapters.clock.monotonic(), None
+        reading = adapters.clock.monotonic()
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
         return None, f"clock: raised {type(error).__name__}: {error}"
+    if type(reading) not in (int, float) or not isfinite(reading):
+        return None, f"clock: answered {reading!r}, which is not an elapsed-time reading"
+    return reading, None
 
 
 def _run_attempt(
