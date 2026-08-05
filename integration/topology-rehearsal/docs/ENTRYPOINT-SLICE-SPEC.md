@@ -315,6 +315,46 @@ level.
 
 No GREEN is push-eligible until that further RED lands and is independently reviewed.
 
+## Front-door reconciliation owed when the scripts land
+
+Surveyed at `2b864e3`. The reconciliation is **entirely self-contained**: no file outside
+`integration/topology-rehearsal/` names this component at all. The repo-root `README.md` line 40
+describes only the parent `integration/` directory in aggregate, and `integration/README.md`'s
+directory table lists `compose/`, `helm/`, `fixtures/` and `compatibility/` — `topology-rehearsal/`
+is not a row in it. `contracts/`, `releases/`, `docs/README.md`, `AGENTS.md` and the root
+`CLAUDE.md` do not mention it either. So there is no external claim to correct; adding a row to
+`integration/README.md` would be a net-new registration, not a reconciliation.
+
+The repo-root validator does **not** gate this component. `tools/contract-validation/validate.mjs`
+never references `integration/topology-rehearsal` or `cybrik_suite_topology_rehearsal`. Its
+`validate-topology-rehearsal.mjs` step validates a same-named but different thing — the
+`docs/uat/topology-rehearsals/*` record registry. That name collision must not be mistaken for
+coverage: the only automated front-door gate over this component is its own
+`tests/test_surface_contract.py`.
+
+Test-pinned edits owed, all inside the component:
+
+1. `src/cybrik_suite_topology_rehearsal/__init__.py` — the sentence placing the scripts root on
+   the absent side must move to the present side, in the same commit that lands the scripts.
+   Two controls enforce this, so it is not cosmetic:
+   `test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder`
+   (`test_surface_contract.py:178-179`, currently asserting `not (SCRIPTS / name).exists()`) and
+   `test_the_front_door_places_every_module_on_the_side_it_is_actually_on`. Handled the way the
+   runner's landing was in `244f9a4`.
+2. `pyproject.toml` — the banner's "only the two entrypoint scripts remain intentionally RED and
+   absent" and the `description` field both become false. `PROJECT_STATUS` is a verbatim
+   test-pinned constant checked in both `pyproject.toml` and `tests/conftest.py` by
+   `test_project_and_harness_headers_state_the_mixed_c8a_lifecycle_truthfully`, so whether the
+   "PARTIALLY PRESENT / LATER MODULES RED" framing survives is a decision, not free text.
+3. `docs/REVIEW-LEDGER.md` — a new appended row, never an edit to a prior verdict.
+4. This file's own `DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner becomes stale and the
+   file is reconciled or retired; the tests remain the source of truth either way.
+
+Over-claim check: none found. Every current banner is correctly hedged, `RUNTIME remains HOLD`
+throughout, and the prohibition is already machine-gated — `test_surface_contract.py` matches
+`\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b` against the package docstring and requires
+zero hits.
+
 ## Scope this does not grant
 
 Landing these scripts is still static library work. It does not authorize running either
