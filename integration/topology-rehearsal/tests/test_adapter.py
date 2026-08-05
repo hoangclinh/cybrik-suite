@@ -109,14 +109,33 @@ def built_command_adapter(adapter, name: str, plan, runner, clock):
 
 
 @pytest.mark.parametrize("adapter_name", sorted(COMMAND_ADAPTERS))
-def test_command_adapters_expose_the_exact_injected_runner_and_plan_by_identity(
+def test_command_adapters_expose_the_injected_plan_by_identity_and_never_the_runner(
     adapter_name: str,
 ) -> None:
-    """The entrypoint wiring contract reads `.runner` and `.plan` back off each adapter.
+    """The reviewed plan is published; the process executor is not.
 
-    `tests/test_scripts_inert.py` asserts `adapter.runner is command_runner` and
-    `adapter.plan is wiring.plan` for every wired command adapter. A copy or a re-derived
-    value would satisfy equality but never `is`, so identity is what this proves.
+    `.plan` is read back off each wired command adapter by
+    `tests/test_scripts_inert.py`, and identity is what that needs: a copy or a re-derived
+    value would satisfy equality but never `is`, and two adapters holding two plans could
+    disagree about which worktrees, which image and which container the one attempt is
+    about. Publishing it costs nothing, because a `TopologyPlan` is inert reviewed data — a
+    frozen dataclass of argv tuples — so reading it confers no authority to act.
+
+    `.runner` is the opposite kind of object and its publication is withdrawn. Commit
+    `aae6a30` pinned `instance.runner is runner` here alongside the plan, to serve a wiring
+    contract that read the runner back off every adapter. Independent review sustained that
+    as a layering defect: the runner *is* the authority to act, so publishing it off every
+    command adapter makes the plan-membership guard in `ExactCommandAdapter.run_effect`
+    bypassable — a holder can call `<adapter>.runner.run(argv, ...)` with arbitrary argv.
+    That half is superseded by the non-publication contract, whose wiring-level statement is
+    `test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor` in
+    `tests/test_scripts_inert.py`; the shared-executor property `aae6a30` was really after is
+    proven behaviourally there by
+    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner`.
+
+    The assertion below is the adapter-unit half of that same property, stated against a
+    directly constructed adapter rather than against a wired one, so the regression is
+    attributed to the adapter that published the seam rather than to the composition root.
     """
     adapter = load_c8("adapter")
     plan = built_plan()
@@ -124,8 +143,13 @@ def test_command_adapters_expose_the_exact_injected_runner_and_plan_by_identity(
     runner = fakes.FakeCommandRunner(log)
     clock = fakes.FakeClock(log)
     instance = built_command_adapter(adapter, adapter_name, plan, runner, clock)
-    assert instance.runner is runner
     assert instance.plan is plan
+    # `hasattr` covers the instance and the whole MRO, which is where the withdrawn
+    # accessor lives: it was added on a mixin shared by every command adapter, so asking
+    # only about `vars(instance)` would miss it entirely.
+    assert not hasattr(instance, "runner"), (
+        f"{adapter_name} publishes the raw process executor as `.runner`"
+    )
 
 
 def test_exact_command_adapter_rejects_a_non_runner_before_any_effect() -> None:
