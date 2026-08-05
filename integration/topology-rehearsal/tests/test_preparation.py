@@ -841,6 +841,23 @@ def test_an_authorization_projection_that_raises_becomes_a_bounded_precheck_abor
     assert adapters.log.names() == (), "a refused authorization takes no observation"
 
 
+@pytest.mark.parametrize("failing", ["grant", "expected_controls"])
+@pytest.mark.parametrize("interrupt", [KeyboardInterrupt, SystemExit])
+def test_an_interrupt_raised_while_copying_a_projection_is_never_swallowed(
+    preparation, failing, interrupt
+) -> None:
+    """Copying the authorization dead at ingress may not swallow a process interrupt.
+
+    The copy walks the caller's own mapping, so an interrupt delivered during that walk
+    surfaces there rather than at a seam. It is still an interrupt, not a refusal.
+    """
+    adapters = fakes.passing_adapters()
+    authorization = documents.authorization(**{failing: HostileMapping(interrupt())})
+    with pytest.raises(interrupt):
+        prepare(preparation, adapters, authorization)
+    assert adapters.log.names() == (), "a refused authorization takes no observation"
+
+
 @pytest.mark.parametrize(
     "authorization",
     [

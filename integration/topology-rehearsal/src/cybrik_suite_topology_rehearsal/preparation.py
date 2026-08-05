@@ -117,6 +117,15 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     """Return a recursively immutable dead copy; reject cycles and unknown types."""
     if type(value) in IMMUTABLE_LEAVES:
         return value
+    if isinstance(value, IMMUTABLE_LEAVES):
+        # A safe leaf is an exact type, never a subclass of one. `str` and `bytes` are also
+        # `Sequence`s, so a subclass reaching the generic container handling below would be
+        # taken apart into a tuple of its own characters or bytes rather than refused, and
+        # the caller would keep a live handle on whatever mutable state it carries.
+        raise ValueError(  # noqa: TRY004 -- every unprovable value refuses the one same way
+            f"a {type(value).__name__} subclasses a safe scalar but may carry mutable state "
+            "of its own, so it is not one of the leaves this phase can prove"
+        )
     if id(value) in seen:
         raise ValueError(
             f"a {type(value).__name__} refers to itself, so no dead copy of it exists"
@@ -259,6 +268,28 @@ def guarded(label: str, read: Any) -> Any:
         finding = (
             f"{label}: raised {type(error).__name__} out of a seam whose only stated "
             "failure value is None"
+        )
+        raise refusal((finding,)) from None
+
+
+def projected(label: str, read: Any) -> Any:
+    """Read one caller-owned projection through a guard and copy it dead at ingress.
+
+    The copy is taken before any validation and before any observation, so the value that is
+    checked, the value the observed host is compared against and the value that is recorded
+    are one value. Neither the caller nor anything the injected surface reaches can edit an
+    already-validated authorization between the check and the snapshot. The read itself is
+    never repeated, so this costs no additional adapter call and mutates no input.
+    """
+    value = guarded(label, read)
+    try:
+        return frozen(value)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- an uncopyable projection fails closed
+        finding = (
+            f"{label}: raised {type(error).__name__} while being copied, so no dead copy "
+            "of it exists to prove anything against"
         )
         raise refusal((finding,)) from None
 
@@ -720,13 +751,15 @@ def snapshot(observed: Observations, document: Mapping[str, Any]) -> Preparation
 def prepare(authorization: object, adapters: object) -> PreparationResult:
     """Prove all pre-consumption facts or abort before consumption.
 
-    Inputs are projected once, never mutated, and ordinary seam errors stay bounded.
+    Inputs are projected once into dead copies, never mutated, and ordinary seam errors stay
+    bounded. Everything after ingress reads those copies only, so no later refusal or record
+    depends on a mapping the caller or an adapter still holds.
     """
-    expected = guarded(
+    expected = projected(
         "authorization expected_controls",
         lambda: getattr(authorization, "expected_controls", None),
     )
-    document = guarded(
+    document = projected(
         "authorization grant", lambda: getattr(authorization, "grant", None)
     )
     refusals = (
