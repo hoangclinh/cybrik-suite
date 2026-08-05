@@ -506,6 +506,116 @@ def test_a_clock_that_fails_after_creation_still_tears_the_attempt_down(runner) 
     assert any("clock" in finding for finding in result.findings)
 
 
+class MalformedClock:
+    """A clock that answers `answers` genuine readings, then answers with `reading` forever.
+
+    `_guarded_clock` only ever catches an exception; it never inspects what a clock that
+    returns *without* raising actually handed back. A clock reading is only useful when it is
+    a real, finite number. `"soon"`, `None` and an opaque object blow up the very next
+    arithmetic or comparison the runner performs on the value (`started + RUNTIME_LIMIT_SECONDS`
+    or `completed > deadline`), the same way `FailingClock` above blows up by raising. A `bool`
+    — an `int` subclass that is not a clock reading — and a non-finite float (`nan`, `inf`)
+    are worse: the arithmetic and comparison both survive them without raising, so they slip
+    through as a silently wrong answer instead of a crash. Both failure shapes are the same
+    unguarded seam.
+    """
+
+    def __init__(
+        self, log, reading: object, *, answers: int = 1, opening: float = 0.0
+    ) -> None:
+        self._log = log
+        self._reading = reading
+        self._answers = answers
+        self._opening = opening
+        self._readings = 0
+
+    def monotonic(self) -> object:
+        self._readings += 1
+        if self._readings <= self._answers:
+            self._log.record("clock.monotonic", value=self._opening)
+            return self._opening
+        self._log.record("clock.monotonic", value=self._reading)
+        return self._reading
+
+
+# Every shape of "not a real finite number" the guard must classify exactly like a raising
+# clock. `bool` and the non-finite floats are the arithmetic-tolerant shapes: they do not
+# raise, so a guard that only catches exceptions lets them through as a wrong answer.
+NON_READING_CLOCK_VALUES = (
+    pytest.param("soon", id="a-string"),
+    pytest.param(None, id="none"),
+    pytest.param(object(), id="an-opaque-object"),
+    pytest.param(True, id="a-bool"),
+    pytest.param(float("nan"), id="nan"),
+    pytest.param(float("inf"), id="infinity"),
+)
+
+
+@pytest.mark.parametrize("reading", NON_READING_CLOCK_VALUES)
+def test_a_clock_that_answers_with_a_non_reading_before_consumption_refuses_without_mutating(
+    runner, reading
+) -> None:
+    """An opening reading that is not a real finite number may not fix the envelope either.
+
+    The opening reading is what fixes the one deadline, exactly as in the raising-clock test
+    above. A clock that answers `"soon"`, `None` or an opaque object without raising crashes
+    the very next line (`started + RUNTIME_LIMIT_SECONDS`) with an unguarded `TypeError`. A
+    clock that answers `True`, `nan` or `inf` is worse: that arithmetic succeeds, so nothing
+    stops the attempt from being consumed and the resources from being created on a deadline
+    that was never a real instant.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(
+        base, clock=MalformedClock(base.log, reading, answers=0)
+    )
+
+    result = run(runner, adapters)
+
+    # The call returns a terminal refusal rather than propagating or mutating on a bad reading.
+    assert result.outcome == fakes.PRECHECK_ABORT
+    assert result.attempt_consumed is False
+    # Nothing was consumed, created or torn down: the ledger still holds the one attempt.
+    assert adapters.log.count("ledger.consume") == 0
+    for name in CREATE_CALLS:
+        assert adapters.log.count(name) == 0
+    assert adapters.log.count("docker.remove") == 0
+    assert adapters.log.count("credential.remove") == 0
+    assert result.teardown_complete is False
+    assert result.residuals == ()
+    # The refusal names the unusable clock rather than a generic precheck failure.
+    assert any("clock" in finding for finding in result.findings)
+
+
+@pytest.mark.parametrize("reading", NON_READING_CLOCK_VALUES)
+def test_a_clock_that_answers_with_a_non_reading_after_creation_still_tears_the_attempt_down(
+    runner, reading
+) -> None:
+    """A completion reading that is not a real finite number is a finding, never a crash.
+
+    Every other injected seam between consumption and teardown is guarded by structure, not
+    by whether the value happens to survive the next line. A clock that answers `"soon"`,
+    `None` or an opaque object for its completion reading crashes `completed > deadline` with
+    an unguarded `TypeError` and stops teardown from ever running. A clock that answers
+    `True`, `nan` or `inf` is worse: that comparison survives and answers cleanly, so the
+    attempt is reported as a clean envelope instead of the unreadable one it actually is.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(base, clock=MalformedClock(base.log, reading))
+
+    result = run(runner, adapters)
+
+    # The call returns a terminal answer rather than propagating the clock's bad reading.
+    assert result.attempt_consumed is True
+    assert result.outcome == fakes.STOP_CONTROL
+    # Teardown was still reached: the host is not left holding what the attempt created.
+    assert adapters.log.count("docker.remove") == len(fakes.TEARDOWN_KINDS) - 1
+    assert adapters.log.count("credential.remove") == 1
+    assert result.teardown_complete is True
+    assert result.residuals == ()
+    # The escalation names the unusable clock rather than reporting a clean envelope.
+    assert any("clock" in finding for finding in result.findings)
+
+
 def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -> None:
     source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
