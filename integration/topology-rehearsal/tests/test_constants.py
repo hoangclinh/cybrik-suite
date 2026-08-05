@@ -14,11 +14,17 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import pytest
-
-import fakes
 import documents
-from conftest import PACKAGE, SRC, load_c8, require_c8_attr, require_c8_path, source_paths
+import fakes
+import pytest
+from conftest import (
+    PACKAGE,
+    SRC,
+    load_c8,
+    require_c8_attr,
+    require_c8_path,
+    source_paths,
+)
 
 # name in `constants` -> exact reviewed value, mirrored from the committed diagnosis packet
 # and machine record. A drift on either side fails.

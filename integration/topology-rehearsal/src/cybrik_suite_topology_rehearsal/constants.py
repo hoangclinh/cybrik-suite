@@ -49,6 +49,7 @@ __all__ = [
     "OUTCOME_NOT_RUN",
     "OUTCOME_PRECEDENCE",
     "PHASE_AUTHORIZED",
+    "PLATFORM_EVIDENCE_KEYS",
     "PORT_PROTOCOL",
     "PRECHECK_ABORT",
     "PROBE_ARGV",
@@ -123,6 +124,19 @@ IMAGE_UNRESOLVED = "UNRESOLVED"
 # a file nobody selected.
 # --------------------------------------------------------------------------------------
 DOCKER_EXECUTABLE_PATH = "/usr/local/bin/docker"
+
+# The daemon identity a rehearsal must observe and record for itself (diagnosis section 3).
+# Only the inventory is reviewed here, never the observed values: the section-3 readings are
+# one operator's post-attempt observations of one machine, and re-typing them as constants
+# would present a historical reading as a fact this rehearsal proved. A rehearsal that
+# recorded fewer than these four fields would leave part of its own platform identity
+# unstated, and one that recorded a fifth would record a claim nobody reviewed.
+PLATFORM_EVIDENCE_KEYS = (
+    "desktop_version",
+    "desktop_build",
+    "engine_version",
+    "api_version",
+)
 
 # --------------------------------------------------------------------------------------
 # The one-attempt credential material (diagnosis section 7 item 4). The host directory holds

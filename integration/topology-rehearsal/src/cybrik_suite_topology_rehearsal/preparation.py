@@ -1,33 +1,16 @@
-"""The read-only pre-consumption phase: prove every fact, or refuse before any effect.
+"""Read-only pre-consumption proof, or typed refusal before any effect.
 
 Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`.
 
-This phase is diagnosis section 7 items 1-3 and nothing else. It takes exactly eight
-read-only observations through injected ports, compares each against the authorization the
-runner was handed, and answers with one immutable `PreparationResult` or one `PrecheckAbort`.
-It creates nothing, starts nothing, consumes no attempt, writes no credential material, pulls
-or installs no image and runs no probe: every mutating seam of the injected surface stays
-untouched, so a refusal here costs the one bounded attempt nothing.
-
-It does not consult the SSHSIG verifier either. Whether the Founder signed these bytes is a
-separate answer taken by a separate phase, and a preparation module that could reach the
-verifier would be positioned to satisfy the control it exists to precede.
-
-Every projection arrives through a port whose only failure value is `None`, so nothing here
-trusts a shape. A mapping that is not a mapping, a sequence that is a string, a `bool` handed
-back where an `int` was reviewed and a key inventory nobody stated are each read as an
-unresolved observation and refused — never walked into an exception out of a seam that has no
-exception in its contract. `None` is never a default and never a pass.
-
-A satisfied result carries the whole snapshot the later admission and runner phases read, and
-every nested mapping and sequence in it is deep-frozen. A later phase therefore never has to
-re-observe a fact, and never has to trust that a caller's mutable mapping still says what it
-said when it was proved here.
+Exactly eight injected observations are checked without verifier, ledger, credential, clock,
+probe, image pull or mutation access. Unknown shapes and `None` fail closed. A satisfied
+result is a recursively immutable snapshot for later phases, never a live input alias.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
@@ -37,6 +20,7 @@ from .constants import (
     DOCKER_EXECUTABLE_PATH,
     HOST_PORT,
     IMAGE_REFERENCE,
+    PLATFORM_EVIDENCE_KEYS,
     PROBE_ARGV,
     PROBE_EXECUTABLE_PATH,
     PROBE_EXECUTABLE_SHA256,
@@ -72,9 +56,7 @@ from .protocols import (
 
 __all__ = ["PreparationResult", "prepare"]
 
-# The four ports this phase may reach. The credential, ledger, verifier and clock seams are
-# deliberately absent: a phase that cannot name them cannot consume an attempt, write a secret
-# or decide who signed a grant.
+# The only four ports this read-only phase may reach.
 ADAPTER_PORTS = (
     ("identities", ControlIdentitySource),
     ("host", HostObservationSource),
@@ -82,8 +64,7 @@ ADAPTER_PORTS = (
     ("probe", ProbePort),
 )
 
-# The grant sections this phase reads. It reads no window, attempt or authority section: those
-# bind the authorization rather than the host, and belong to the phases that check them.
+# Only host-comparison sections; authorization semantics belong to admission.
 GRANT_SECTIONS = (
     "selected_image_identity",
     "observed_image_identity",
@@ -91,8 +72,7 @@ GRANT_SECTIONS = (
     "tools",
 )
 
-# A host image observation is the observed identity plus the one thing only a host can say:
-# whether the reviewed material is already there. Nothing here may fetch it if it is not.
+# The observed identity plus whether the reviewed image is already local.
 PRESENT_KEY = "present"
 HOST_IMAGE_KEYS = (PRESENT_KEY, *OBSERVED_IDENTITY_KEYS)
 PLATFORM_KEY = "platform"
@@ -107,13 +87,12 @@ TOOL_DIGEST_KEY = "sha256"
 TOOL_VERSION_KEY = "version"
 TOOL_ARGV_KEY = "argv"
 
-# Exactly two bounds, each a real port. A range that is not two increasing valid ports cannot
-# say whether the reviewed port is safe from the kernel's own ephemeral allocation.
+# Exactly two valid increasing bounds.
 EPHEMERAL_RANGE_BOUNDS = 2
 MINIMUM_PORT = 1
 MAXIMUM_PORT = 65535
 
-# The result fields whose deep immutability is enforced at construction rather than trusted.
+# Fields whose recursive immutability is enforced at construction.
 FROZEN_MAPPING_FIELDS = (
     "control_identities",
     "docker_executable",
@@ -130,19 +109,66 @@ FROZEN_SEQUENCE_FIELDS = (
 
 REFUSAL_PREFIX = "preparation refused before consumption"
 
+# Safe immutable leaves; known containers are converted and all other types refused.
+IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
 
-def frozen(value: object) -> Any:
-    """One deeply read-only copy of an observation, leaving the original untouched.
 
-    A snapshot a later phase can edit is not a snapshot: it is a shared reference that
-    happens to be correct at the moment it is read. Strings and bytes are already immutable
-    and are returned as they stand rather than exploded into per-character tuples.
-    """
-    if isinstance(value, Mapping):
-        return MappingProxyType({key: frozen(item) for key, item in value.items()})
-    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
+    """Return a recursively immutable dead copy; reject cycles and unknown types."""
+    if type(value) in IMMUTABLE_LEAVES:
         return value
-    return tuple(frozen(item) for item in value)
+    if id(value) in seen:
+        raise ValueError(
+            f"a {type(value).__name__} refers to itself, so no dead copy of it exists"
+        )
+    trail = (*seen, id(value))
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {frozen(key, trail): frozen(item, trail) for key, item in value.items()}
+        )
+    if isinstance(value, AbstractSet):
+        return frozenset(frozen(item, trail) for item in value)
+    if isinstance(value, Sequence):
+        return tuple(frozen(item, trail) for item in value)
+    raise ValueError(
+        f"a {type(value).__name__} cannot be proved deeply immutable, so it may not be "
+        "recorded as something this phase proved"
+    )
+
+
+def immutability_findings(
+    value: object, path: str, seen: tuple[int, ...] = ()
+) -> tuple[str, ...]:
+    """Report every nested value that is not already deeply immutable."""
+    if type(value) in IMMUTABLE_LEAVES:
+        return ()
+    if id(value) in seen:
+        return (f"{path} refers to itself",)
+    trail = (*seen, id(value))
+    if type(value) is MappingProxyType:
+        return tuple(
+            finding
+            for key, item in value.items()
+            for finding in (
+                *immutability_findings(key, f"{path}.<key>", trail),
+                *immutability_findings(item, f"{path}.<value>", trail),
+            )
+        )
+    if type(value) is tuple:
+        return tuple(
+            finding
+            for item in value
+            for finding in immutability_findings(item, f"{path}.<item>", trail)
+        )
+    if type(value) is frozenset:
+        return tuple(
+            finding
+            for item in value
+            for finding in immutability_findings(item, f"{path}.<member>", trail)
+        )
+    return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
 
 
 @dataclass(frozen=True)
@@ -161,14 +187,7 @@ class Observations:
 
 @dataclass(frozen=True)
 class PreparationResult:
-    """One satisfied pre-consumption phase and the complete snapshot it proved.
-
-    No field carries a default. A defaulted snapshot would let a fact nobody observed be read
-    later as a fact somebody did, which is the failure this phase exists to prevent. The
-    coherence is enforced here rather than trusted to each reader: a result reporting
-    `satisfied` while holding a listener on the reviewed port, an incomplete control inventory
-    or an editable nested mapping would be evidence of something that never happened.
-    """
+    """A coherent satisfied result containing the complete immutable snapshot."""
 
     satisfied: bool
     control_identities: Mapping[str, Any]
@@ -199,10 +218,18 @@ class PreparationResult:
                 raise ValueError(
                     f"{name} must be an immutable tuple, not {type(value).__name__}"
                 )
+        for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
+            nested = immutability_findings(getattr(self, name), name)
+            if nested:
+                raise ValueError(
+                    f"{name} is not a deep proof: " + "; ".join(nested)
+                )
+        # Sort representations so mixed key types remain a bounded refusal.
         if set(self.control_identities) != set(CONTROL_REPOSITORIES):
             raise ValueError(
-                f"control_identities {sorted(self.control_identities)} are not the four "
-                f"reviewed control repositories {sorted(CONTROL_REPOSITORIES)}"
+                f"control_identities {sorted(repr(key) for key in self.control_identities)}"
+                f" are not the four reviewed control repositories "
+                f"{sorted(CONTROL_REPOSITORIES)}"
             )
         if len(self.ephemeral_range) != EPHEMERAL_RANGE_BOUNDS or any(
             type(bound) is not int for bound in self.ephemeral_range
@@ -220,6 +247,20 @@ class PreparationResult:
 def refusal(findings: Sequence[str]) -> PrecheckAbort:
     """One typed abort carrying every exact reason, never a bare classified stop."""
     return PrecheckAbort(f"{REFUSAL_PREFIX}: " + "; ".join(findings))
+
+
+def guarded(label: str, read: Any) -> Any:
+    """Convert ordinary seam errors to bounded refusals; preserve process interrupts."""
+    try:
+        return read()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- every ordinary seam error fails closed
+        finding = (
+            f"{label}: raised {type(error).__name__} out of a seam whose only stated "
+            "failure value is None"
+        )
+        raise refusal((finding,)) from None
 
 
 def adapter_findings(adapters: object) -> tuple[str, ...]:
@@ -253,13 +294,7 @@ def expected_control_findings(expected: object) -> tuple[str, ...]:
 def identity_findings(
     section: Mapping[str, Any], keys: Sequence[str], label: str
 ) -> tuple[str, ...]:
-    """One fully resolved image identity: exact inventory, real digests, exact platform.
-
-    The key inventory is the whole check rather than a lookup of the fields a later
-    comparison happens to want. A selected registry identity that carried a host-only
-    observation would be asserting a fact about one machine as a condition on the material
-    an attempt may consume, and an inventory check is what refuses it.
-    """
+    """Validate one exact, fully resolved image identity."""
     refusals = keyed(section, keys, label)
     if refusals:
         return refusals
@@ -397,38 +432,53 @@ def grant_findings(document: object) -> tuple[str, ...]:
 
 
 def observe(adapters: Any) -> Observations:
-    """Take each reviewed read-only observation exactly once, and nothing else.
-
-    Every call here reads. None of them creates, starts, removes, consumes an attempt,
-    writes credential material, probes a port or reads a clock.
-    """
+    """Take each reviewed read-only observation exactly once through a bounded guard."""
     return Observations(
-        controls=adapters.identities.observe_controls(),
-        image=adapters.host.observe_image(reference=IMAGE_REFERENCE),
-        ephemeral_range=adapters.host.observe_ephemeral_range(),
-        listeners=adapters.host.observe_listeners(port=HOST_PORT),
-        platform=adapters.docker.observe_platform(),
-        docker_digest=adapters.docker.observe_executable_digest(
-            path=DOCKER_EXECUTABLE_PATH
+        controls=guarded(
+            "identities.observe_controls",
+            lambda: adapters.identities.observe_controls(),
         ),
-        publications=adapters.docker.observe_publications(port=HOST_PORT),
-        probe_digest=adapters.probe.observe_digest(path=PROBE_EXECUTABLE_PATH),
+        image=guarded(
+            "host.observe_image",
+            lambda: adapters.host.observe_image(reference=IMAGE_REFERENCE),
+        ),
+        ephemeral_range=guarded(
+            "host.observe_ephemeral_range",
+            lambda: adapters.host.observe_ephemeral_range(),
+        ),
+        listeners=guarded(
+            "host.observe_listeners",
+            lambda: adapters.host.observe_listeners(port=HOST_PORT),
+        ),
+        platform=guarded(
+            "docker.observe_platform", lambda: adapters.docker.observe_platform()
+        ),
+        docker_digest=guarded(
+            "docker.observe_executable_digest",
+            lambda: adapters.docker.observe_executable_digest(
+                path=DOCKER_EXECUTABLE_PATH
+            ),
+        ),
+        publications=guarded(
+            "docker.observe_publications",
+            lambda: adapters.docker.observe_publications(port=HOST_PORT),
+        ),
+        probe_digest=guarded(
+            "probe.observe_digest",
+            lambda: adapters.probe.observe_digest(path=PROBE_EXECUTABLE_PATH),
+        ),
     )
 
 
 def control_findings(
     observed: object, expected: Mapping[str, Any], pinned: Mapping[str, Any]
 ) -> tuple[str, ...]:
-    """Exactly the four reviewed worktrees, each on its pinned commit, tree and clean flag.
-
-    The commit is checked against both the authorization and the grant, and the tree against
-    the grant, because a commit alone cannot distinguish two worktrees that share it and
-    differ in content. An unresolved cleanliness reading is not a clean worktree.
-    """
+    """Require four clean worktrees on authorized commits and granted trees."""
     if not isinstance(observed, Mapping):
         return (f"control_identities: unresolved — {observed!r} is not an inventory",)
     findings: list[str] = []
-    unexpected = tuple(sorted(set(observed) - set(CONTROL_REPOSITORIES)))
+    # Sort representations so mixed key types cannot escape as TypeError.
+    unexpected = tuple(sorted(repr(key) for key in set(observed) - set(CONTROL_REPOSITORIES)))
     if unexpected:
         findings.append(
             f"control_identities: {list(unexpected)} are not control repositories"
@@ -490,18 +540,9 @@ def control_identity_findings(
 def image_findings(
     image: object, pinned: Mapping[str, Any], selected: Mapping[str, Any]
 ) -> tuple[str, ...]:
-    """The host must already hold exactly the selected material, and say so field by field.
+    """Require the selected image locally with exact stable identity and fresh observation.
 
-    The observation is compared against both identities the grant carries: the host identity
-    it pins and the registry selection it authorizes. Nothing here fetches or installs an
-    absent image — material that is not present is a refusal, not a task.
-
-    The binding covers the stable identity and deliberately leaves `observed_at` out of it.
-    The grant states when its author looked; this phase states when the runner looked, and
-    those two instants are never the same reading. Binding them would make a satisfied result
-    unreachable on any host whose observation was taken after the grant was signed. The
-    timestamp is still refused unless it is an exact UTC instant, so dropping it from the
-    comparison hands nothing back to an unresolved reading.
+    `observed_at` is ordered after the signed observation but excluded from identity equality.
     """
     if not isinstance(image, Mapping):
         return (f"image: unresolved — {image!r} is not a host image observation",)
@@ -520,9 +561,17 @@ def image_findings(
             f"image: unresolved — {list(unread)} were never read, so the host never said "
             "what it holds"
         )
-    if image[OBSERVED_AT_KEY] is not None and instant(image[OBSERVED_AT_KEY]) is None:
+    observed_at = instant(image[OBSERVED_AT_KEY])
+    signed_at = instant(pinned[OBSERVED_AT_KEY])
+    if observed_at is None:
         findings.append(
             f"image: {OBSERVED_AT_KEY} {image[OBSERVED_AT_KEY]!r} is not a UTC instant"
+        )
+    elif signed_at is None or observed_at < signed_at:
+        findings.append(
+            f"image: {OBSERVED_AT_KEY} {image[OBSERVED_AT_KEY]!r} is not at or after the "
+            f"granted host observation {pinned[OBSERVED_AT_KEY]!r}, so it describes a host "
+            "nobody re-checked"
         )
     findings.extend(
         f"image: {key} {image[key]!r} is not the granted host identity {pinned[key]!r}"
@@ -539,11 +588,7 @@ def image_findings(
 
 
 def ephemeral_findings(observed: object) -> tuple[str, ...]:
-    """Two exact valid increasing ports that do not cover the reviewed host port.
-
-    A reviewed port inside the host's own ephemeral range is a port the kernel may hand to
-    something else first, so the attempt would be competing for its own publication.
-    """
+    """Require two increasing valid bounds that exclude the reviewed host port."""
     if isinstance(observed, (str, bytes, bytearray)) or not isinstance(
         observed, Sequence
     ):
@@ -582,15 +627,20 @@ def emptiness_findings(observed: object, label: str) -> tuple[str, ...]:
 
 
 def platform_evidence_findings(observed: object, version: object) -> tuple[str, ...]:
-    """One readable platform evidence object whose engine is the pinned Docker version."""
-    if not isinstance(observed, Mapping) or not observed:
+    """Require the exact daemon inventory and the granted engine version."""
+    if not isinstance(observed, Mapping):
         return (f"docker_platform: unresolved — {observed!r} is not platform evidence",)
-    untyped = tuple(sorted(repr(key) for key in observed if type(key) is not str))
-    if untyped:
-        return (f"docker_platform: keys {list(untyped)!r} are not exactly strings",)
-    engine = observed.get(ENGINE_VERSION_KEY)
-    if not isinstance(engine, str) or not engine:
-        return (f"docker_platform: {ENGINE_VERSION_KEY} {engine!r} was never observed",)
+    inventory = keyed(observed, PLATFORM_EVIDENCE_KEYS, "docker_platform", ordered=False)
+    if inventory:
+        return inventory
+    unread = tuple(
+        f"docker_platform: {key} {observed[key]!r} is not a non-empty observed string"
+        for key in PLATFORM_EVIDENCE_KEYS
+        if type(observed[key]) is not str or not observed[key]
+    )
+    if unread:
+        return unread
+    engine = observed[ENGINE_VERSION_KEY]
     if engine != version:
         return (
             (
@@ -661,36 +711,38 @@ def snapshot(observed: Observations, document: Mapping[str, Any]) -> Preparation
                 TOOL_ARGV_KEY: PROBE_ARGV,
             }
         ),
-        ephemeral_range=tuple(observed.ephemeral_range),
-        pre_consumption_listeners=tuple(frozen(entry) for entry in observed.listeners),
-        docker_publications=tuple(observed.publications),
+        ephemeral_range=frozen(observed.ephemeral_range),
+        pre_consumption_listeners=frozen(observed.listeners),
+        docker_publications=frozen(observed.publications),
     )
 
 
 def prepare(authorization: object, adapters: object) -> PreparationResult:
-    """Prove every pre-consumption fact, or abort before anything is consumed.
+    """Prove all pre-consumption facts or abort before consumption.
 
-    The authorization is read first and entirely: a grant nobody can read pins nothing to
-    compare a host against, so an unreadable one is refused without taking an observation at
-    all. Once it is readable the eight reviewed observations are taken exactly once each,
-    every finding is gathered so a reader is told everything that is wrong rather than only
-    the first thing, and the phase either refuses with those exact reasons or returns the
-    frozen snapshot.
-
-    Neither input is edited, normalised or cached. The snapshot is a deep copy frozen on the
-    way out, so a caller that later mutates its own mapping cannot change what was proved.
+    Inputs are projected once, never mutated, and ordinary seam errors stay bounded.
     """
+    expected = guarded(
+        "authorization expected_controls",
+        lambda: getattr(authorization, "expected_controls", None),
+    )
+    document = guarded(
+        "authorization grant", lambda: getattr(authorization, "grant", None)
+    )
     refusals = (
-        *adapter_findings(adapters),
-        *expected_control_findings(getattr(authorization, "expected_controls", None)),
-        *grant_findings(getattr(authorization, "grant", None)),
+        *guarded("adapters", lambda: adapter_findings(adapters)),
+        *guarded(
+            "authorization expected_controls",
+            lambda: expected_control_findings(expected),
+        ),
+        *guarded("grant", lambda: grant_findings(document)),
     )
     if refusals:
         raise refusal(refusals)
-    document: Mapping[str, Any] = authorization.grant  # type: ignore[attr-defined]
-    expected: Mapping[str, Any] = authorization.expected_controls  # type: ignore[attr-defined]
     observed = observe(adapters)
-    findings = observation_findings(observed, expected, document)
+    findings = guarded(
+        "observation", lambda: observation_findings(observed, expected, document)
+    )
     if findings:
         raise refusal(findings)
-    return snapshot(observed, document)
+    return guarded("snapshot", lambda: snapshot(observed, document))

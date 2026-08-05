@@ -8,12 +8,10 @@ from dataclasses import replace
 from types import MappingProxyType
 from typing import Any
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import load_c8, require_c8_attr
-
 
 # Every effect on the injected surface that is not one of the eight reviewed read-only
 # observations. Preparation exists to refuse *before* anything is spent, so reaching any of
@@ -103,26 +101,24 @@ def prepare(preparation, adapters=None, authorization=None):
 # Test-side doubles. Everything here is local to this module: the shared fakes state a
 # well-behaved injected surface, and these state the malformed one preparation must survive.
 # ---------------------------------------------------------------------------
-class ExplodingPort:
+def exploding_port(port: Any, method: str, error: BaseException) -> Any:
     """A well-behaved port with exactly one call replaced by a raise.
 
-    Delegation keeps the runtime-checkable protocol satisfied, so the failure under test is
-    the raise itself rather than an adapter that fails the surface check first.
+    The replacement is bound onto a shallow copy of the real fake rather than served by a
+    delegating `__getattr__` proxy. Since Python 3.12, `isinstance` against a
+    runtime-checkable `Protocol` resolves members with `inspect.getattr_static`, so a proxy
+    that answers `hasattr` no longer satisfies one. A delegating double would therefore fail
+    the injected-surface check first and the failure actually under test — a read-only seam
+    that raises out of a contract whose only stated failure value is `None` — would never be
+    reached. The copy keeps the shared call log, so what the surface recorded stays exact.
     """
 
-    def __init__(self, port: Any, method: str, error: BaseException) -> None:
-        self._port = port
-        self._method = method
-        self._error = error
+    def explode(*args: Any, **kwargs: Any) -> Any:
+        raise error
 
-    def __getattr__(self, name: str) -> Any:
-        if name == object.__getattribute__(self, "_method"):
-
-            def explode(*args: Any, **kwargs: Any) -> Any:
-                raise object.__getattribute__(self, "_error")
-
-            return explode
-        return getattr(object.__getattribute__(self, "_port"), name)
+    substitute = copy.copy(port)
+    setattr(substitute, method, explode)
+    return substitute
 
 
 class HostileMapping(Mapping):
@@ -173,10 +169,19 @@ class CustomMutable:
         self.field = "value"
 
 
+class MutableInt(int):
+    """An immutable-looking scalar subclass that still carries mutable caller state."""
+
+    def __new__(cls, value: int):
+        instance = super().__new__(cls, value)
+        instance.state = []
+        return instance
+
+
 def exploding_adapters(port: str, method: str, error: BaseException):
     adapters = fakes.passing_adapters()
     return replace(
-        adapters, **{port: ExplodingPort(getattr(adapters, port), method, error)}
+        adapters, **{port: exploding_port(getattr(adapters, port), method, error)}
     )
 
 
@@ -239,6 +244,21 @@ def mutable_paths(value: Any, path: str = "result", seen: tuple[int, ...] = ()) 
             finding for item in value for finding in mutable_paths(item, f"{path}.<item>", trail)
         )
     return (f"{path}: {type(value).__name__} is not deeply immutable",)
+
+
+def plain(value: Any) -> Any:
+    """A frozen snapshot rendered into ordinary containers, so it can be compared later.
+
+    `copy.deepcopy` cannot take a before-picture of a deeply frozen result: a `mappingproxy`
+    is unpicklable, which is the very property that makes it a dead copy. Rendering into
+    plain containers keeps the before-and-after comparison honest without demanding that the
+    snapshot be copyable — a demand the deep-immutability control above forbids it to meet.
+    """
+    if type(value) is MappingProxyType:
+        return {key: plain(item) for key, item in value.items()}
+    if type(value) is tuple:
+        return [plain(item) for item in value]
+    return value
 
 
 def result_fields() -> dict[str, Any]:
@@ -380,16 +400,14 @@ def test_the_snapshot_holds_no_live_alias_into_a_callers_mutable_input(preparati
         preparation,
         fakes.passing_adapters(image=image, identities=identities, platform=platform),
     )
-    proved = copy.deepcopy(
-        (dict(result.image), dict(result.control_identities), dict(result.docker_platform))
+    proved = plain(
+        (result.image, result.control_identities, result.docker_platform)
     )
     image["platform"]["architecture"] = "changed"
     identities[fakes.SUITE_CONTROL]["clean"] = False
     platform["engine_version"] = "changed"
     assert (
-        copy.deepcopy(
-            (dict(result.image), dict(result.control_identities), dict(result.docker_platform))
-        )
+        plain((result.image, result.control_identities, result.docker_platform))
         == proved
     )
 
@@ -428,6 +446,7 @@ def test_frozen_converts_a_mutable_byte_buffer_into_a_dead_copy(preparation) -> 
     "build",
     [
         pytest.param(lambda: CustomMutable(), id="custom-mutable-object"),
+        pytest.param(lambda: MutableInt(1), id="mutable-scalar-subclass"),
         pytest.param(lambda: {"nested": CustomMutable()}, id="nested-custom-mutable"),
         pytest.param(lambda: [CustomMutable()], id="sequenced-custom-mutable"),
         pytest.param(lambda: cyclic_list(), id="cyclic-sequence"),
