@@ -401,6 +401,180 @@ def test_an_empty_daemon_event_attribute_is_unresolved_not_a_publication() -> No
     assert docker.observe_daemon_event(container=plan.container_name) is None
 
 
+# ---------------------------------------------------------------------------
+# Platform evidence
+#
+# `docker version --format {{json .}}` renders a nested client/server document, while
+# `preparation` compares the flat `PLATFORM_EVIDENCE_KEYS` inventory. Diagnosis section 3
+# records exactly what that document has to yield: "Docker Desktop `4.84.0` build `234817`,
+# Docker client/server `29.6.2`, API `1.55`". Those readings are replayed here through
+# `fakes.DOCUMENTED_PLATFORM`, so the raw document and the expected inventory cannot drift
+# apart inside this file.
+# ---------------------------------------------------------------------------
+DESKTOP_PLATFORM_NAME = (
+    f"Docker Desktop {fakes.DOCUMENTED_PLATFORM['desktop_version']} "
+    f"({fakes.DOCUMENTED_PLATFORM['desktop_build']})"
+)
+DESKTOP_PLATFORM_PATH = ("Client", "Platform", "Name")
+ENGINE_VERSION_PATH = ("Server", "Version")
+API_VERSION_PATH = ("Server", "ApiVersion")
+DROPPED = object()
+
+
+def version_document() -> dict:
+    """One realistic raw `docker version --format {{json .}}` projection.
+
+    Docker Desktop states its own version and build only inside the client platform name,
+    while the engine and API versions under test are the server's, because the daemon is
+    what the attempt actually talks to. The surrounding fields are carried too, so the
+    normalization is stated against the document the command renders rather than against a
+    pre-flattened stand-in that would prove nothing about the real shape.
+    """
+    engine = fakes.DOCUMENTED_PLATFORM["engine_version"]
+    api = fakes.DOCUMENTED_PLATFORM["api_version"]
+    return {
+        "Client": {
+            "Version": engine,
+            "ApiVersion": api,
+            "Os": "darwin",
+            "Arch": "arm64",
+            "Context": "desktop-linux",
+            "Platform": {"Name": DESKTOP_PLATFORM_NAME},
+        },
+        "Server": {
+            "Platform": {"Name": "Docker Desktop"},
+            "Components": [
+                {"Name": "Engine", "Version": engine, "Details": {"ApiVersion": api}}
+            ],
+            "Version": engine,
+            "ApiVersion": api,
+            "MinAPIVersion": "1.24",
+            "Os": "linux",
+            "Arch": "arm64",
+        },
+    }
+
+
+def patched_document(path, value) -> dict:
+    """A fresh realistic document with exactly one field replaced or dropped."""
+    document = version_document()
+    reached = document
+    for key in path[:-1]:
+        reached = reached[key]
+    if value is DROPPED:
+        del reached[path[-1]]
+    else:
+        reached[path[-1]] = value
+    return document
+
+
+def platform_observation(result):
+    """The adapter's platform observation for one scripted `docker version` result."""
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(log, {plan.commands["docker:platform"]: result})
+    docker = require_c8_attr(adapter, "DockerCommandAdapter")(
+        plan, runner, fakes.FakeClock(log)
+    )
+    return docker.observe_platform()
+
+
+def projected_platform(document):
+    """The observation for one raw document, rendered as the command renders it."""
+    return platform_observation(
+        fakes.FakeCommandResult(stdout=json.dumps(document) + "\n")
+    )
+
+
+def test_the_raw_docker_version_document_becomes_the_flat_reviewed_inventory() -> None:
+    """The nested document Docker renders is flattened to the four reviewed keys, and only
+    to those: an extra key is a claim nobody reviewed and `preparation` refuses the whole
+    inventory for it.
+    """
+    constants = load_c8("constants")
+    keys = require_c8_attr(constants, "PLATFORM_EVIDENCE_KEYS")
+    observed = projected_platform(version_document())
+    assert observed is not None
+    assert set(observed) == set(keys)
+    assert dict(observed) == dict(fakes.DOCUMENTED_PLATFORM)
+    # `preparation` reads each value with `type(value) is not str`, so a subclass or a
+    # non-string carried straight out of the raw document would be refused there.
+    assert all(type(observed[key]) is str and observed[key] for key in keys)
+
+
+def test_the_normalized_platform_evidence_satisfies_the_phase_that_consumes_it() -> None:
+    """Proven by calling `preparation`, not assumed: the two halves must actually agree.
+
+    The adapter and the phase are the two ends of one contract. Restating the expected
+    shape here alone would leave exactly the drift that let a nested client/server document
+    be returned as platform evidence no phase could ever accept.
+    """
+    preparation = load_c8("preparation")
+    findings = require_c8_attr(preparation, "platform_evidence_findings")
+    observed = projected_platform(version_document())
+    assert findings(observed, fakes.DOCUMENTED_PLATFORM["engine_version"]) == ()
+    # The comparison is real: a drifted grant is still refused through these same values.
+    assert findings(observed, "29.6.3") != ()
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        pytest.param(("Client",), DROPPED, id="no-client-section"),
+        pytest.param(("Server",), DROPPED, id="no-server-section"),
+        pytest.param(("Server",), "29.6.2", id="server-section-not-an-object"),
+        pytest.param(("Client", "Platform"), DROPPED, id="no-client-platform"),
+        pytest.param(DESKTOP_PLATFORM_PATH, DROPPED, id="no-platform-name"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "", id="empty-platform-name"),
+        pytest.param(DESKTOP_PLATFORM_PATH, ["Docker Desktop 4.84.0 (234817)"], id="name-not-a-string"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "Docker Engine - Community", id="not-a-desktop-platform"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "Docker Desktop 4.84.0", id="no-build-in-the-name"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "Docker Desktop 4.84.0 (234817", id="unterminated-build"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "Docker Desktop  (234817)", id="no-version-in-the-name"),
+        pytest.param(DESKTOP_PLATFORM_PATH, "Docker Desktop 4.84.0 ()", id="empty-build"),
+        pytest.param(ENGINE_VERSION_PATH, DROPPED, id="no-engine-version"),
+        pytest.param(ENGINE_VERSION_PATH, "", id="empty-engine-version"),
+        pytest.param(ENGINE_VERSION_PATH, 29, id="engine-version-not-a-string"),
+        pytest.param(API_VERSION_PATH, DROPPED, id="no-api-version"),
+        pytest.param(API_VERSION_PATH, None, id="unread-api-version"),
+        pytest.param(API_VERSION_PATH, 1.55, id="api-version-not-a-string"),
+    ],
+)
+def test_an_unreadable_platform_field_leaves_the_whole_observation_unresolved(
+    path, value
+) -> None:
+    """No partial inventory and no invented placeholder: the whole reading is `None`.
+
+    A field that cannot be read exactly cannot be filled in. An inventory short of the
+    reviewed keys is refused downstream as drift, and a fabricated stand-in would be a
+    platform identity nobody ever observed.
+    """
+    assert projected_platform(patched_document(path, value)) is None
+
+
+@pytest.mark.parametrize(
+    "result",
+    (
+        fakes.FakeCommandResult(returncode=1, stderr="cannot connect to the daemon\n"),
+        fakes.FakeCommandResult(returncode=125),
+        fakes.FakeCommandResult(returncode=-1),
+        fakes.FakeCommandResult(stdout=""),
+        fakes.FakeCommandResult(stdout="not a json document\n"),
+        fakes.FakeCommandResult(stdout='"29.6.2"\n'),
+        fakes.FakeCommandResult(stdout="[]\n"),
+        *fakes.MALFORMED_COMMAND_RESULTS,
+    ),
+)
+def test_a_platform_projection_that_did_not_resolve_is_never_platform_evidence(
+    result,
+) -> None:
+    """A failed status, a payload that is not an object and a malformed result all read
+    as the unresolved observation they are, never as a platform identity.
+    """
+    assert platform_observation(result) is None
+
+
 def test_failed_probe_returns_a_diagnostic_refusal_not_a_false_reachable() -> None:
     adapter = load_c8("adapter")
     plan = built_plan()
