@@ -858,6 +858,35 @@ def test_an_interrupt_raised_while_copying_a_projection_is_never_swallowed(
     assert adapters.log.names() == (), "a refused authorization takes no observation"
 
 
+def test_an_uncopyable_value_in_an_unreviewed_grant_section_aborts_at_ingress(
+    preparation, abort
+) -> None:
+    """The ingress copy covers the whole grant, not only the sections this phase compares.
+
+    `topology` is not one of the four sections preparation compares the observed host
+    against — admission owns those semantics — but it still travels inside the projection
+    later phases receive. A value there with no dead copy is therefore refused at ingress,
+    before the injected surface is checked and before any of the eight observations is taken,
+    rather than being carried past this phase as mutable authorization state nobody proved.
+    The refusal names the projection and the copy, and quotes neither the offending value nor
+    the copier's own message, so the reason stays bounded.
+    """
+    adapters = fakes.passing_adapters()
+    authorization = grant_authorization(
+        documents.with_nested(
+            documents.grant_document(), "topology", {"host_ip": CustomMutable()}
+        )
+    )
+    with pytest.raises(abort) as raised:
+        prepare(preparation, adapters, authorization)
+    reason = str(raised.value)
+    assert "authorization grant" in reason
+    assert "while being copied" in reason
+    assert "ValueError" in reason
+    assert CustomMutable.__name__ not in reason, "the refused value is not quoted back"
+    assert adapters.log.names() == (), "ingress precedes every observation"
+
+
 @pytest.mark.parametrize(
     "authorization",
     [

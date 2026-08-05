@@ -64,7 +64,12 @@ ADAPTER_PORTS = (
     ("probe", ProbePort),
 )
 
-# Only host-comparison sections; authorization semantics belong to admission.
+# The only four sections this phase compares the observed host against. Every other
+# authorization semantic — the window, the attempt, the topology — belongs to admission, and
+# nothing here validates any of them. Ingress is deliberately wider than this list:
+# `projected` dead-copies the whole grant, so an uncopyable value in a section preparation
+# never reads, such as `topology`, still refuses before any observation rather than reaching
+# later phases as mutable authorization bytes or state the caller or an adapter can edit.
 GRANT_SECTIONS = (
     "selected_image_identity",
     "observed_image_identity",
@@ -280,6 +285,13 @@ def projected(label: str, read: Any) -> Any:
     are one value. Neither the caller nor anything the injected surface reaches can edit an
     already-validated authorization between the check and the snapshot. The read itself is
     never repeated, so this costs no additional adapter call and mutates no input.
+
+    The copy covers the whole projection, not only the part this phase compares: `prepare`
+    semantically checks the four `GRANT_SECTIONS` and nothing else, but the entire grant is
+    what later phases receive, so the entire grant must be provably copyable here. A value
+    with no dead copy — anywhere in it, including a section preparation never reads — is
+    refused rather than passed on, which is what keeps later phases from sharing mutable
+    authorization bytes or state with the caller or an adapter.
     """
     value = guarded(label, read)
     try:
@@ -754,6 +766,11 @@ def prepare(authorization: object, adapters: object) -> PreparationResult:
     Inputs are projected once into dead copies, never mutated, and ordinary seam errors stay
     bounded. Everything after ingress reads those copies only, so no later refusal or record
     depends on a mapping the caller or an adapter still holds.
+
+    Each projection is copied in full while only the four `GRANT_SECTIONS` are semantically
+    compared here; the rest of the authorization is admission's to judge, not this phase's.
+    An authorization that cannot be deeply copied is refused at ingress — before the injected
+    surface is checked and before any observation — whichever section it sits in.
     """
     expected = projected(
         "authorization expected_controls",
