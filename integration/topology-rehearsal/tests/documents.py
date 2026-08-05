@@ -208,6 +208,12 @@ class Authorization:
     signature_bytes: bytes = SIGNATURE_BYTES
     record_path: str = fakes.RECORD_PATH
     record_sha256: str = fakes.SYNTHETIC_RECORD_SHA256
+    # Two further loader observations, taken at exactly the boundary that already supplies
+    # `record_path` and `record_sha256`: the entrypoint digests the runner source it is about
+    # to execute, and reads one exact UTC instant. Neither is derived from the grant, because
+    # a fact copied out of the document it is meant to check proves only that copying works.
+    runner_aggregate_sha256: str = fakes.SYNTHETIC_RUNNER_AGGREGATE_SHA256
+    observed_at: str = NOW_INSIDE_WINDOW
     expected_controls: Mapping[str, str] = field(default_factory=lambda: dict(fakes.EXPECTED_CONTROLS))
 
 

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 import fakes
 import documents
-from conftest import load_c8, require_c8_attr
+from conftest import PACKAGE, SRC, load_c8, require_c8_attr, require_c8_path
 
 
 CREATE_CALLS = (
@@ -299,3 +301,134 @@ def test_runner_exports_only_the_result_and_single_entrypoint(runner) -> None:
         "RehearsalResult",
         "run_topology_rehearsal",
     }
+
+
+# The nine mandatory `GrantFacts` members. Each one must reach admission from a source that
+# is independent of the grant being verified: the loader observations on the authorization
+# envelope, the preparation phase's host observations, or the reviewed constants. The grant
+# is the document under test, so it is never a source for the facts that test it.
+FACT_NAMES = (
+    "record_path",
+    "record_sha256",
+    "runner_aggregate_sha256",
+    "topology",
+    "selected_image_identity",
+    "observed_image_identity",
+    "repositories",
+    "tools",
+    "now",
+)
+HOST_OBSERVED_SELECTION_KEYS = (
+    "repository",
+    "tag",
+    "platform",
+    "index_digest",
+    "manifest_digest",
+)
+
+
+def assert_refused_before_any_mutation(result, adapters) -> None:
+    """A fact-source disagreement is a precheck refusal: nothing was created or torn down."""
+    assert result.outcome == fakes.PRECHECK_ABORT
+    assert result.attempt_consumed is False
+    assert not set(adapters.log.names()) & set(CREATE_CALLS)
+    assert adapters.log.count("docker.remove") == 0
+    assert adapters.log.count("credential.remove") == 0
+    assert adapters.log.count("ledger.consume") == 0
+
+
+def test_the_runner_aggregate_fact_is_the_loader_digest_not_the_granted_one(
+    runner,
+) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(
+        runner,
+        adapters,
+        authorization=documents.authorization(runner_aggregate_sha256="5" * 64),
+    )
+    assert_refused_before_any_mutation(result, adapters)
+
+
+def test_the_now_fact_is_the_loader_instant_not_a_moment_read_off_the_window(
+    runner,
+) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(
+        runner,
+        adapters,
+        authorization=documents.authorization(
+            observed_at=documents.NOW_AFTER_EXPIRES_AT
+        ),
+    )
+    assert_refused_before_any_mutation(result, adapters)
+
+
+@pytest.mark.parametrize("name", ("runner_aggregate_sha256", "observed_at"))
+@pytest.mark.parametrize("value", (None, "", 0))
+def test_an_unobserved_loader_fact_is_a_refusal_never_a_fallback_to_the_grant(
+    runner, name, value
+) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(
+        runner, adapters, authorization=documents.authorization(**{name: value})
+    )
+    assert_refused_before_any_mutation(result, adapters)
+
+
+def test_the_evidence_records_the_exact_nine_facts_the_attempt_observed(runner) -> None:
+    adapters = fakes.passing_adapters()
+    authorization = documents.authorization()
+    result = run(runner, adapters, authorization=authorization)
+    facts = result.evidence["facts"]
+    assert set(facts) == set(FACT_NAMES)
+    assert facts["record_path"] == authorization.record_path
+    assert facts["record_sha256"] == authorization.record_sha256
+    assert facts["runner_aggregate_sha256"] == authorization.runner_aggregate_sha256
+    assert facts["now"] == authorization.observed_at
+
+
+def test_the_topology_fact_is_the_reviewed_constant_not_the_granted_section(
+    runner,
+) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(runner, adapters)
+    assert result.evidence["facts"]["topology"] == {
+        "host_ip": fakes.HOST_IP,
+        "host_port": fakes.HOST_PORT,
+        "container_port": fakes.CONTAINER_PORT,
+        "protocol": fakes.PORT_PROTOCOL,
+        "internal_network": True,
+        "publish_spec": fakes.PUBLISH_SPEC,
+    }
+
+
+def test_selected_image_identity_is_the_host_observation_plus_the_reviewed_policy(
+    runner,
+) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(runner, adapters)
+    observed = fakes.host_image()
+    selected = result.evidence["facts"]["selected_image_identity"]
+    assert set(selected) == set(documents.SELECTED_IDENTITY_KEYS)
+    assert selected["pull_policy"] == fakes.PULL_POLICY
+    for key in HOST_OBSERVED_SELECTION_KEYS:
+        assert selected[key] == observed[key]
+
+
+def test_the_observed_facts_are_the_preparation_observations(runner) -> None:
+    adapters = fakes.passing_adapters()
+    result = run(runner, adapters)
+    facts = result.evidence["facts"]
+    observed = fakes.host_image()
+    assert facts["observed_image_identity"]["local_image_id"] == observed["local_image_id"]
+    assert facts["observed_image_identity"]["observed_at"] == observed["observed_at"]
+    assert set(facts["repositories"]) == set(fakes.EXPECTED_CONTROLS)
+    assert facts["tools"]["docker"]["sha256"] == fakes.SYNTHETIC_DOCKER_SHA256
+    assert facts["tools"]["probe"]["sha256"] == fakes.PROBE_EXECUTABLE_SHA256
+    assert tuple(facts["tools"]["probe"]["argv"]) == fakes.PROBE_ARGV
+
+
+def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -> None:
+    source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
+    assert not re.search(r"\.grant\b", source)
+    assert not re.search(r"\b[0-9a-f]{64}\b", source)
