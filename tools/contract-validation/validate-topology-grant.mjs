@@ -2,9 +2,13 @@
 //
 // Every exported semantic function is a pure projection over caller-supplied values: it
 // opens no file, spawns no process and touches no network, so the control is provable
-// directly rather than only through committed bytes. Signature verification is an
-// injection-only seam — this module never verifies a signature itself, it only refuses to
-// let malformed grant bytes reach an injected verifier and requires an exact `true` verdict.
+// directly rather than only through committed bytes. That claim is scoped to the imported
+// semantic path only. The command-line control surface at the bottom of this file is not
+// part of it: the command-line dependency resolver may call the pinned `/usr/bin/git` to
+// locate the validation package root, and it reads the committed grant schema. Signature
+// verification is an injection-only seam — this module never verifies a signature itself, it
+// only refuses to let malformed grant bytes reach an injected verifier and requires an exact
+// `true` verdict.
 //
 // Green validates grant documents only. It grants no Docker effect, listener, container,
 // PostgreSQL run, rehearsal execution, runtime, UAT, demo, merge, release or production
@@ -131,6 +135,8 @@ const CANONICAL_BYTES_FINDING =
 const SCHEMA_FINDING = `grant schema must be ${GRANT_SCHEMA_VERSION}`;
 const RECORD_FINDING =
   'grant record binding must name the pinned topology record path and its 64-hex digest';
+const RECORD_BINDING_FINDING =
+  'grant record binding must name the exact pinned proposed prior-state record digest';
 const RUNNER_FINDING = 'grant runner binding must be one 64-hex aggregate digest';
 const TOPOLOGY_FINDING =
   'grant topology must be the exact loopback, internal-network publish envelope';
@@ -165,7 +171,9 @@ const ATTEMPT_FINDING = 'grant attempt must be the single first attempt of one';
 const AUTHORIZES_FINDING = `grant must authorize exactly ${AUTHORIZED_ACTION}`;
 const NO_AUTHORITY_FINDING =
   'grant must declare every no-authority clause present and true';
-const SIGNATURE_FINDING =
+// Exported so a caller can tell an actual signature failure apart from a grant-document
+// failure and keep its own generic signature message reserved for the former.
+export const GRANT_SIGNATURE_FINDING =
   'grant signature verification must return an exact true verdict; a false, non-true or throwing verifier fails closed';
 
 // Totality helpers: every projection proves the shape it reads before reading it, so a
@@ -201,13 +209,28 @@ const isImageNameExact = (identity) =>
   && typeof identity.tag === 'string'
   && IMAGE_TAG_PATTERN.test(identity.tag);
 
-const validateRecordBinding = (grant, report) => {
+// The record binding names the one exact proposed prior-state record digest the caller pins
+// from the policy state history. It can never name the current authorized record's own
+// digest: that record embeds `grant_sha256` and the grant embeds the record digest, so a
+// current-hash binding is a cryptographic fixed point rather than an attestable binding. The
+// pin is caller-supplied and mandatory — an absent, malformed or duplicated proposed pin
+// supplies no digest, so the grant fails closed. The shape finding is terminal for the
+// binding: a record block that is not the pinned path and a 64-hex digest carries nothing
+// comparable, so only its own cause is reported.
+const validateRecordBinding = (grant, pinnedProposedRecordSha256, report) => {
   const record = grant.record;
   if (
     !hasExactOrderedKeys(record, RECORD_KEYS)
     || record.path !== PINNED_RECORD_PATH
     || !isDigest(record.sha256)
-  ) report(RECORD_FINDING);
+  ) {
+    report(RECORD_FINDING);
+  } else if (
+    !isDigest(pinnedProposedRecordSha256)
+    || record.sha256 !== pinnedProposedRecordSha256
+  ) {
+    report(RECORD_BINDING_FINDING);
+  }
   if (
     !hasExactOrderedKeys(grant.runner, RUNNER_KEYS)
     || !isDigest(grant.runner.aggregate_sha256)
@@ -362,14 +385,21 @@ const validateWindow = (window, now, report) => {
 /**
  * Exact semantic validation of one grant document. Pure: no file, process or network effect.
  * Returns every finding it can prove; an empty array means the document is exact.
+ *
+ * `pinnedProposedRecordSha256` is the caller's one pinned proposed prior-state record digest.
+ * It is mandatory: defaulting it away would let an unpinned grant pass, so its absence is a
+ * refusal rather than a skipped control.
  */
-export const validateGrantDocument = (grant, { now = null } = {}) => {
+export const validateGrantDocument = (
+  grant,
+  { now = null, pinnedProposedRecordSha256 = null } = {},
+) => {
   const findings = [];
   const report = (text) => findings.push(text);
   if (!hasExactOrderedKeys(grant, GRANT_KEYS)) return [KEY_INVENTORY_FINDING];
 
   if (grant.schema !== GRANT_SCHEMA_VERSION) report(SCHEMA_FINDING);
-  validateRecordBinding(grant, report);
+  validateRecordBinding(grant, pinnedProposedRecordSha256, report);
   validateTopology(grant.topology, report);
 
   const nowMs = instantMs(now);
@@ -409,7 +439,9 @@ const asBuffer = (value) => {
  * Byte-level validation of grant bytes. The bounded-length and canonical-rendering gates are
  * terminal: nothing downstream of non-canonical bytes can be trusted, so the exact cause is
  * reported alone. Round-tripping the parsed value rejects a BOM, CRLF endings, compact or
- * re-indented serializations, duplicate keys, reordered keys and any trailing byte. Pure.
+ * re-indented serializations, duplicate keys, reordered keys and any trailing byte. Every
+ * option, including the mandatory pinned proposed record digest, passes straight through to
+ * the document projection. Pure.
  */
 export const validateGrantBytes = (bytes, options = {}) => {
   const buffer = asBuffer(bytes);
@@ -431,22 +463,26 @@ export const validateGrantBytes = (bytes, options = {}) => {
  * Fail-closed grant authorization ahead of any signature acceptance.
  *
  * Signature verification is injection-only: this module spawns nothing and reads nothing. The
- * caller supplies `verifySignature`, which is reached only after the exact bytes and exact
- * document semantics hold, is called exactly once with the same bytes that were validated, and
+ * caller supplies `verifySignature`, which is reached only after the exact bytes, the exact
+ * document semantics and the pinned proposed record binding all hold — an unpinned grant never
+ * reaches it — is called exactly once with the same bytes that were validated, and
  * must return an exact `true`. A false verdict, a non-true value, a missing verifier or a
  * thrown exception all fail closed. Pure with respect to this module.
  */
-export const validateGrantBeforeSignature = (bytes, { now = null, verifySignature } = {}) => {
-  const findings = validateGrantBytes(bytes, { now });
+export const validateGrantBeforeSignature = (
+  bytes,
+  { now = null, pinnedProposedRecordSha256 = null, verifySignature } = {},
+) => {
+  const findings = validateGrantBytes(bytes, { now, pinnedProposedRecordSha256 });
   if (findings.length > 0) return findings;
-  if (typeof verifySignature !== 'function') return [SIGNATURE_FINDING];
+  if (typeof verifySignature !== 'function') return [GRANT_SIGNATURE_FINDING];
   let verdict;
   try {
     verdict = verifySignature(asBuffer(bytes));
   } catch {
-    return [SIGNATURE_FINDING];
+    return [GRANT_SIGNATURE_FINDING];
   }
-  return verdict === true ? [] : [SIGNATURE_FINDING];
+  return verdict === true ? [] : [GRANT_SIGNATURE_FINDING];
 };
 
 // ---------------------------------------------------------------------------

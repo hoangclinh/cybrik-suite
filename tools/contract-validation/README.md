@@ -184,7 +184,18 @@ current/prior state, detached Founder SSHSIG authorization, locally reviewed ext
 limitation and zero residual resources for every closed record. Review scope is split: a
 `diagnosis_review` artifact attests the diagnosis bytes and is required from the proposed phase,
 while a `record_review` artifact and its record review binding carry the record-level review of the
-exact proposed record bytes and are required only from authorization onward. The current valid state
+exact proposed record bytes and are required only from authorization onward. Every authorized or
+closed `grant` artifact is a mandatory `.json` exact-action grant document, judged in full by the
+grant contract below before any `ssh-keygen` verification runs: there is no free-text or
+SSHSIG-only fallback, because a signature proves who produced bytes and never what those bytes
+authorize. A grant-document refusal is reported with the record path and its own exact cause; the
+generic `authorized or closed topology record requires a verified Founder SSHSIG` finding stays
+reserved for an actual signature or trust failure. The admission instant is the record's own
+`recorded_at`, canonicalised to one second-resolution UTC `Z` rendering, never a wall clock, so
+offset and `Z` renderings of one instant admit identically and a `recorded_at` that rendering
+cannot represent exactly — a non-zero sub-second fraction, a missing designator, an impossible
+calendar date — refuses admission instead of being truncated into a different instant. The current
+valid state
 is one proposed HOLD record, `postgres-loopback-internal-v1-r1`, which is unauthorized, unconsumed
 and `not_run`, carries only `diagnosis` and `diagnosis_review`, and pins a null record review
 binding because its `record_review` and record-level review remain owed. A green result is static
@@ -253,6 +264,22 @@ exact ordered twelve-key inventory `schema`, `record`, `runner`, `topology`,
 closed at `not_before` and open at `expires_at`. The document is judged before any signature process
 runs, so malformed grant bytes never reach the verifier, and every no-authority clause is mandatory
 and true.
+
+The `record` binding names the pinned topology record path and the one exact **proposed prior-state
+record digest** that the caller pins from the policy state history — the same digest the record
+review byte binding attests. It can never name the current authorized record's own digest: that
+record embeds `grant_sha256` and the grant embeds the record digest, so a current-hash binding
+would be a cryptographic fixed point rather than a binding. The pin is a mandatory caller-supplied
+option on `validateGrantDocument`, `validateGrantBytes` and `validateGrantBeforeSignature`; an
+absent, malformed or duplicated proposed pin supplies no digest, so the grant is refused and never
+reaches the injected verifier. A record block that is not the pinned path and a lowercase 64-hex
+digest reports only its own shape cause, distinct from the record-binding cause.
+
+Every exported semantic function of the grant validator is a pure projection over caller-supplied
+values: it opens no file, spawns no process and touches no network. That claim is scoped to the
+imported semantic path; the command-line control surface below it reads the committed grant schema
+and its dependency resolver may call the pinned `/usr/bin/git` to locate the validation package
+root.
 
 Non-claim: this is a static byte- and field-level control over declared identities. It performs no
 registry lookup, no pull, no digest resolution and no host inspection, it proves no image exists, it

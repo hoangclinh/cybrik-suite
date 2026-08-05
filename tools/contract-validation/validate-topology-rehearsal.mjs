@@ -16,7 +16,10 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateGrantBeforeSignature } from './validate-topology-grant.mjs';
+import {
+  GRANT_SIGNATURE_FINDING,
+  validateGrantBeforeSignature,
+} from './validate-topology-grant.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(HERE, '../..');
@@ -557,19 +560,69 @@ const validateFounderTrust = (root, errors) => {
   return { valid, allowedPath, allowedDigest };
 };
 
-// A grant artifact is judged as a C8 exact-action grant document when it declares itself one:
-// a `.json` artifact path, or bytes that parse as JSON. Both forms are covered so a JSON grant
-// cannot dodge the document contract by wearing another suffix.
-const isExactActionGrantDocument = (grantPath, grantBytes) => {
-  if (typeof grantPath === 'string' && grantPath.endsWith('.json')) return true;
-  try {
-    return isPlainObject(JSON.parse(grantBytes.toString('utf8')));
-  } catch {
-    return false;
+// Every authorized or closed grant artifact is a C8 exact-action grant document. There is no
+// free-text or SSHSIG-only fallback: a signature proves who produced bytes, never what those
+// bytes authorize, so bytes that are not a canonical exact-action grant authorize nothing
+// however validly they are signed.
+const GRANT_ARTIFACT_SUFFIX_FINDING =
+  'grant artifact must be a .json exact-action grant document';
+const GRANT_ADMISSION_INSTANT_FINDING =
+  'record recorded_at must be one representable UTC instant to admit an exact-action grant';
+const grantDocumentError = (recordPath, finding) =>
+  `${recordPath}: grant document: ${finding}`;
+
+// Schema-valid `recorded_at` renderings of one instant must admit identically, so the
+// admission instant is canonicalised to exactly one second-resolution UTC `Z` rendering
+// before any grant window is judged. Anything the canonical rendering cannot represent
+// exactly — a non-zero sub-second fraction, a missing designator, an impossible calendar
+// date, an expanded year — is refused rather than truncated into a different instant.
+// Pure: a total projection over one caller-supplied value, deterministic and clock-free.
+const RECORD_INSTANT_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/u;
+const MINUTE_MS = 60000;
+
+export const canonicalRecordInstant = (value) => {
+  if (typeof value !== 'string') return null;
+  const parsed = RECORD_INSTANT_PATTERN.exec(value);
+  if (parsed === null) return null;
+  const [, year, month, day, hour, minute, second, fraction, sign, offsetHour, offsetMinute] =
+    parsed;
+  if (fraction !== undefined && /[^0]/u.test(fraction)) return null;
+  const [years, months, days, hours, minutes, seconds] =
+    [year, month, day, hour, minute, second].map(Number);
+  const localMs = Date.UTC(years, months - 1, days, hours, minutes, seconds);
+  // Round-tripping the components rejects every impossible field the pattern cannot: an
+  // out-of-range calendar day, a 24th hour, a 60th second and a two-digit legacy year.
+  const probe = new Date(localMs);
+  if (
+    probe.getUTCFullYear() !== years
+    || probe.getUTCMonth() !== months - 1
+    || probe.getUTCDate() !== days
+    || probe.getUTCHours() !== hours
+    || probe.getUTCMinutes() !== minutes
+    || probe.getUTCSeconds() !== seconds
+  ) return null;
+  let offsetMs = 0;
+  if (sign !== undefined) {
+    const offsetHours = Number(offsetHour);
+    const offsetMinutes = Number(offsetMinute);
+    if (offsetHours > 23 || offsetMinutes > 59) return null;
+    offsetMs = (sign === '-' ? -1 : 1) * (offsetHours * 60 + offsetMinutes) * MINUTE_MS;
   }
+  const instant = new Date(localMs - offsetMs);
+  // An instant outside the representable range renders nothing, so it admits nothing.
+  if (Number.isNaN(instant.getTime())) return null;
+  return `${instant.toISOString().slice(0, 19)}Z`;
 };
 
-const verifyFounderAuthorization = (root, recordPath, record, trustContext, errors) => {
+const verifyFounderAuthorization = ({
+  root,
+  recordPath,
+  record,
+  trustContext,
+  pinnedProposedRecordSha256,
+  errors,
+}) => {
   const authorization = record.authorization;
   let verified = true;
   const invalidate = () => {
@@ -595,6 +648,14 @@ const verifyFounderAuthorization = (root, recordPath, record, trustContext, erro
       || authorization.signature_sha256 !== signature.sha256
     ) invalidate();
 
+    // The suffix is judged on the declared path alone, so a conforming grant document cannot
+    // dodge the exact-action contract by wearing another suffix and a non-`.json` artifact
+    // names its own cause rather than a derivative one.
+    if (
+      typeof authorization.grant_path !== 'string'
+      || !authorization.grant_path.endsWith('.json')
+    ) errors.push(`${recordPath}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`);
+
     try {
       const { valid, allowedPath, allowedDigest } = trustContext;
       if (!valid || authorization?.allowed_signers_sha256 !== allowedDigest) invalidate();
@@ -606,21 +667,26 @@ const verifyFounderAuthorization = (root, recordPath, record, trustContext, erro
         sha256(grantBytes) !== authorization?.grant_sha256
         || sha256(readFileSync(signaturePath)) !== authorization?.signature_sha256
       ) invalidate();
-      // C8: a grant artifact that presents itself as a JSON document is judged as an exact-action
-      // grant before any signature process runs, so malformed grant bytes never reach the
-      // verifier. Signature verification stays here as the single injected process site; the
-      // grant validator itself spawns nothing.
-      if (isExactActionGrantDocument(authorization?.grant_path, grantBytes)) {
-        const grantFindings = validateGrantBeforeSignature(grantBytes, {
-          now: record.recorded_at,
+      // C8-C2: every grant artifact is judged as an exact-action grant document before any
+      // signature process runs, so malformed grant bytes never reach the verifier. Signature
+      // verification stays here as the single injected process site; the grant validator
+      // itself spawns nothing. The admission instant is the record's own canonical
+      // `recorded_at`, never a wall clock, so the same bytes always admit the same way.
+      const admittedAt = canonicalRecordInstant(record.recorded_at);
+      if (admittedAt === null) {
+        errors.push(`${recordPath}: ${GRANT_ADMISSION_INSTANT_FINDING}`);
+      } else {
+        // Each grant-document cause is surfaced exactly, with the record path, instead of
+        // collapsing into the generic signature message; that message stays reserved for an
+        // actual signature or trust failure.
+        for (const finding of validateGrantBeforeSignature(grantBytes, {
+          now: admittedAt,
+          pinnedProposedRecordSha256,
           verifySignature: verifySshsig,
-        });
-        if (grantFindings.length > 0) invalidate();
-      } else if (!verifySshsig(grantBytes)) {
-        // Scope boundary, stated rather than assumed: a non-JSON grant artifact carries no
-        // exact-action grant document, so only its detached SSHSIG governs it. Requiring every
-        // grant artifact to be a C8 document is a separate, record-side change.
-        invalidate();
+        })) {
+          if (finding === GRANT_SIGNATURE_FINDING) invalidate();
+          else errors.push(grantDocumentError(recordPath, finding));
+        }
       }
 
       function verifySshsig(bytes) {
@@ -932,7 +998,14 @@ const validateRecord = ({
       bindingReviewedRecordSha256:
         record.evidence.record_review_binding?.reviewed_record_sha256 ?? null,
     }));
-    verifyFounderAuthorization(root, path, record, trustContext, errors);
+    verifyFounderAuthorization({
+      root,
+      recordPath: path,
+      record,
+      trustContext,
+      pinnedProposedRecordSha256,
+      errors,
+    });
   }
   if (Object.values(record.production_exclusion ?? {}).some((value) => value !== true)) {
     errors.push(`${path}: every production exclusion must remain true`);
