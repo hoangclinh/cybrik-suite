@@ -6,13 +6,21 @@ import ast
 import sys
 import inspect
 import textwrap
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import fakes
 import documents
-from conftest import C8_SCRIPT_NAMES, PACKAGE, load_c8, load_c8_script, require_c8_attr
+from conftest import (
+    C8_SCRIPT_NAMES,
+    PACKAGE,
+    ROOT,
+    load_c8,
+    load_c8_script,
+    require_c8_attr,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -44,10 +52,41 @@ def built_plan():
 
 
 def runtime_wiring(script, **overrides):
+    """Build the wiring the way the composition root does, with the control roots injected.
+
+    The roots are an explicit argument here, and that is not a test convenience. Every
+    `control:<repository>:*` entry in `plan.commands` carries its root as a literal argv
+    token, so the roots decide what the plan *is*. Only two sources are available to a
+    wiring that was handed none: the host it happens to run on, which would make every
+    command-plan assertion in this file a statement about the machine that ran it; or the
+    grant it is about to verify, which is self-witnessing — a plan derived from the document
+    under check can only ever agree with it. Injecting the synthetic roots keeps this file's
+    subject the wiring, and keeps the fixture strings out of the implementation, where
+    `test_no_synthetic_fixture_value_leaks_into_the_implementation` forbids them outright.
+    """
+    overrides.setdefault("repository_roots", fakes.SYNTHETIC_REPOSITORY_ROOTS)
     return require_c8_attr(script, "build_runtime_wiring")(
         authorization=documents.authorization(),
         **overrides,
     )
+
+
+def control_root_argument(command: tuple[str, ...]) -> str:
+    """The exact worktree a `git -C <root> ...` observation is bound to."""
+    return command[command.index("-C") + 1]
+
+
+def names_this_checkout(token: str) -> bool:
+    """True when an argv token names this working tree or any ancestor of it.
+
+    A wiring that accepted `repository_roots` and then resolved host roots anyway would
+    plan against the checkout these tests are running from, or a parent of it. No reviewed
+    argv token — not `/usr/bin/git`, not an injected `/synthetic/<control>` root — has that
+    property, so this is an exact witness for "the injected roots were ignored".
+    """
+    if not token.startswith("/"):
+        return False
+    return ROOT == Path(token) or ROOT.is_relative_to(Path(token))
 
 
 @pytest.mark.parametrize("name", C8_SCRIPT_NAMES)
@@ -227,6 +266,12 @@ def test_entrypoint_surface_is_bounded(name: str) -> None:
                 "SubprocessCommandRunner",
                 "build_runtime_wiring",
                 "execute_authorized_attempt",
+                # One added name. The default control-root observation has to be a named,
+                # separately reviewable callable rather than an expression buried inside
+                # `build_runtime_wiring`: it is the one place the runner decides which four
+                # worktrees the whole attempt will be judged against, and a reviewer cannot
+                # read that decision, nor a test replace it, if it has no name.
+                "resolve_control_repository_roots",
             }
         )
     assert set(require_c8_attr(script, "__all__")) == expected
@@ -303,6 +348,100 @@ def test_runtime_wiring_injects_the_one_executor_into_every_command_adapter() ->
         adapter = wiring.command_adapters[name]
         assert adapter.runner is command_runner
         assert adapter.plan is wiring.plan
+
+
+def test_runtime_wiring_takes_the_control_roots_as_a_defaulted_named_argument() -> None:
+    """The roots are injectable, and injecting them may not be mandatory.
+
+    Both halves are forced. They must be injectable because the plan embeds each root as a
+    literal argv token and no field of the authorization carries one, so a wiring that could
+    not be told the roots could only invent them. The parameter must nonetheless carry a
+    default because `test_default_composition_loads_builds_and_runs_the_same_authorization`
+    pins the composition call as `wiring_builder(authorization=authorization)` with no second
+    argument, and `test_default_dependency_loader_returns_the_reviewed_real_triple` pins that
+    builder as `build_runtime_wiring` itself rather than a bound or partially applied stand-in.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    signature = inspect.signature(require_c8_attr(script, "build_runtime_wiring"))
+    parameter = signature.parameters["repository_roots"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is not inspect.Parameter.empty
+
+
+def test_the_injected_control_roots_are_the_exact_argv_tokens_the_plan_carries() -> None:
+    """Accepting the roots is not enough: they must reach every planned observation.
+
+    A wiring that took `repository_roots` and then resolved the host's own worktrees anyway
+    would satisfy plan-shape assertions while planning against four repositories nobody
+    named. So this reads the argv itself: each `git -C <root>` observation must be bound to
+    exactly the injected worktree, and no token anywhere in the plan may name the checkout
+    these tests run from or an ancestor of it.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    wiring = runtime_wiring(script)
+    for name, root in fakes.SYNTHETIC_REPOSITORY_ROOTS.items():
+        for observation in ("commit", "tree", "status"):
+            command = wiring.plan.commands[f"control:{name}:{observation}"]
+            assert control_root_argument(command) == root
+    # The Suite root is not only a `-C` argument: the reviewed signature verification names
+    # the allowed-signers file and the detached signature underneath it, so an ignored
+    # injection would also send `ssh-keygen` at a different worktree's trust material.
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    assert wiring.plan.signature_path.startswith(f"{suite_root}/")
+    trespassers = sorted(
+        f"{name}: {token}"
+        for name, command in wiring.plan.commands.items()
+        for token in command
+        if names_this_checkout(token)
+    )
+    assert trespassers == []
+
+
+def test_the_default_control_roots_are_observed_by_the_named_composition_root_resolver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The un-injected default routes through one named resolver, and it never reads the grant.
+
+    This pins the default by *identity and route*, never by calling the real resolver: the
+    four control worktrees do not exist on an arbitrary machine, so a test that executed the
+    real host observation would be asserting something about this laptop. Replacing the named
+    module attribute and reading the resulting argv proves the default path goes through it —
+    a `build_runtime_wiring` that inlined its own root expression would ignore the
+    replacement and still carry the host's paths.
+
+    The resolver takes no parameters at all, which is the enforceable form of "never derived
+    from the grant being verified": a callable that cannot be handed the authorization cannot
+    copy a root out of the document the attempt exists to check. A root taken from the grant
+    would make the control observation self-witnessing — it would prove only that the grant
+    agrees with itself.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    resolve = require_c8_attr(script, "resolve_control_repository_roots")
+    assert inspect.signature(resolve).parameters == {}
+
+    source = ast.parse(textwrap.dedent(inspect.getsource(resolve)))
+    referenced = {node.id for node in ast.walk(source) if isinstance(node, ast.Name)} | {
+        node.attr for node in ast.walk(source) if isinstance(node, ast.Attribute)
+    }
+    # Neither the document under check, nor the directory the operator happened to stand in.
+    assert not referenced & {"authorization", "grant", "getcwd", "cwd", "environ", "argv"}
+    # The composition root observes its own location: the roots are anchored to the file
+    # that was reviewed, which is the only anchor an operator cannot move by moving.
+    assert "__file__" in referenced
+    # Observation here means the filesystem, not a process. The autouse `forbid_real_io`
+    # tripwire would already fail a spawn, but the default path must be structurally unable
+    # to need one, because it runs before anything has been authorized to execute.
+    assert not referenced & {"subprocess", "run", "Popen", "system", "popen"}
+
+    observed = {name: f"/observed/{name}" for name in fakes.SYNTHETIC_REPOSITORY_ROOTS}
+    monkeypatch.setattr(
+        script, "resolve_control_repository_roots", lambda: dict(observed)
+    )
+    wiring = require_c8_attr(script, "build_runtime_wiring")(
+        authorization=documents.authorization()
+    )
+    for name, root in observed.items():
+        assert control_root_argument(wiring.plan.commands[f"control:{name}:commit"]) == root
 
 
 def test_runtime_wiring_defaults_to_the_single_subprocess_executor() -> None:
