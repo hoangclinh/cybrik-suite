@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 
 import pytest
@@ -430,5 +431,15 @@ def test_the_observed_facts_are_the_preparation_observations(runner) -> None:
 
 def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -> None:
     source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
-    assert not re.search(r"\.grant\b", source)
+    tree = ast.parse(source)
+    read_attributes = {
+        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+    }
+    assert "grant" not in read_attributes
+    string_literals = {
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    assert "grant" not in string_literals
     assert not re.search(r"\b[0-9a-f]{64}\b", source)
