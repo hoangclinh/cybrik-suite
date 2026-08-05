@@ -5,12 +5,17 @@ Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`.
 Admission reduces caller-owned authorization bytes to one immutable decision. It performs no
 host observation and no effect: a successful decision proves only that the exact static grant,
 record, signature and unconsumed ledger state may proceed to the later preparation/runner gates.
+
+Because admission observes nothing itself, the whole independent observation set arrives from
+the caller and is deep-copied dead at ingress. No field of it is ever read out of the grant or
+the record under verification: a grant compared against facts taken from itself would be its
+own witness and would pass whatever it happened to say.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from hashlib import sha256
 from typing import Any
 
@@ -19,7 +24,6 @@ from .constants import (
     AUTHORIZATION_NAMESPACE,
     CAPABILITY_ID,
     CONTAINER_PORT,
-    CONTROL_REPOSITORIES,
     EXTENSION_CYCLES,
     GRANT_PATH,
     HOST_IP,
@@ -29,12 +33,10 @@ from .constants import (
     OBJECTIVE_ID,
     OUTCOME_NOT_RUN,
     PHASE_AUTHORIZED,
-    PORT_PROTOCOL,
     PRECHECK_ABORT,
     PROBE_ARGV,
     PROBE_EXECUTABLE_PATH,
     PROBE_EXECUTABLE_SHA256,
-    PUBLISH_SPEC,
     RECORD_DIR,
     RECORD_ID,
     RECORD_PATH,
@@ -125,6 +127,11 @@ RECORD_REVIEW_KEYS = (
 DISPOSITION_KEYS = ("profile", "rationale")
 HEX = frozenset("0123456789abcdef")
 
+# The exact inventory a caller must observe and supply. It is read off `GrantFacts` rather
+# than typed again: the set admission demands is precisely the set the grant binding
+# mandates, so neither can grow a field the other never heard of.
+FACT_KEYS = tuple(entry.name for entry in fields(GrantFacts))
+
 
 @dataclass(frozen=True)
 class RecordShapeVerdict:
@@ -156,7 +163,12 @@ class AdmissionDecision:
 
 @dataclass(frozen=True)
 class AuthorizationSnapshot:
-    """Caller projections copied dead before any semantic or injected call."""
+    """Caller projections copied dead before any semantic or injected call.
+
+    This is the exact inventory admission needs and no more. A projection it has no use for
+    is authority it should never be holding, and every one of these is read exactly once so
+    a projection that answers differently twice cannot decide anything.
+    """
 
     record: Any
     grant: Any
@@ -164,7 +176,6 @@ class AuthorizationSnapshot:
     signature_bytes: Any
     record_path: Any
     record_sha256: Any
-    expected_controls: Any
 
 
 def _coherent(satisfied: object, findings: object, label: str) -> None:
@@ -377,6 +388,14 @@ def _artifact_findings(value: object) -> tuple[str, ...]:
             findings.append(
                 f"record evidence artifacts: {required!r} occurs {count} times, not once"
             )
+    # An unreviewed kind is a claim nobody read, so the inventory is exact in both
+    # directions: the five reviewed kinds, and nothing beside them.
+    unreviewed = sorted({kind for kind in kinds if kind not in REQUIRED_ARTIFACT_KINDS})
+    if unreviewed:
+        findings.append(
+            f"record evidence artifacts: {unreviewed!r} are not in the exact reviewed "
+            f"inventory {sorted(REQUIRED_ARTIFACT_KINDS)!r}"
+        )
     if len(kinds) != len(set(kinds)):
         findings.append("record evidence artifacts: artifact kinds are not unique")
     return tuple(findings)
@@ -493,7 +512,6 @@ def _snapshot(authorization: object) -> AuthorizationSnapshot:
         signature_bytes=_project(authorization, "signature_bytes"),
         record_path=_project(authorization, "record_path"),
         record_sha256=_project(authorization, "record_sha256"),
-        expected_controls=_project(authorization, "expected_controls"),
     )
 
 
@@ -529,6 +547,18 @@ def _binding_findings(snapshot: AuthorizationSnapshot) -> tuple[str, ...]:
         findings.append("record review does not attest the proposed phase")
     if review["reviewed_record_sha256"] != snapshot.record_sha256:
         findings.append("record review does not bind the loader proposed-record digest")
+    # The reviewed bytes are named once. The binding and the `record_review` artifact are
+    # the same file, so a record cannot present one review for the inventory and a second,
+    # unlisted one as the attestation that the prior state was actually read.
+    review_artifact = _artifact_by_kind(record, "record_review")
+    for binding_field, artifact_field in (
+        ("review_path", "path"),
+        ("review_sha256", "sha256"),
+    ):
+        if review[binding_field] != review_artifact[artifact_field]:
+            findings.append(
+                f"record review binding {binding_field} drifts from its own artifact"
+            )
     grant_record = grant.get("record")
     if not isinstance(grant_record, Mapping):
         findings.append("grant record binding is not an object")
@@ -580,49 +610,62 @@ def _binding_findings(snapshot: AuthorizationSnapshot) -> tuple[str, ...]:
     return tuple(findings)
 
 
-def _grant_facts(snapshot: AuthorizationSnapshot) -> GrantFacts:
-    record = snapshot.record
-    grant = snapshot.grant
-    if not isinstance(record, Mapping) or not isinstance(grant, Mapping):
-        raise TypeError("record and grant must be objects")
-    expected = snapshot.expected_controls
-    if not isinstance(expected, Mapping):
-        raise TypeError("expected controls must be an object")
-    expected_keys = _exact_keys(expected, CONTROL_REPOSITORIES, "expected controls")
-    if expected_keys:
-        raise ValueError(expected_keys[0])
-    repositories = grant["repositories"]
-    if not isinstance(repositories, Mapping):
-        raise TypeError("grant repositories must be an object")
-    independent_repositories = {
-        name: {
-            "commit": expected[name],
-            "tree": repositories[name]["tree"],
-            "clean": repositories[name]["clean"],
-        }
-        for name in CONTROL_REPOSITORIES
-    }
-    image = record["topology"]["image"]
-    selected = {key: image[key] for key in SELECTED_IDENTITY_KEYS}
-    topology = {
-        "host_ip": record["topology"]["host_ip"],
-        "host_port": record["topology"]["host_port"],
-        "container_port": record["topology"]["container_port"],
-        "protocol": PORT_PROTOCOL,
-        "internal_network": record["topology"]["internal_network"],
-        "publish_spec": PUBLISH_SPEC,
-    }
-    return GrantFacts(
-        record_path=snapshot.record_path,
-        record_sha256=snapshot.record_sha256,
-        runner_aggregate_sha256=grant["runner"]["aggregate_sha256"],
-        topology=topology,
-        selected_image_identity=selected,
-        observed_image_identity=grant["observed_image_identity"],
-        repositories=independent_repositories,
-        tools=grant["tools"],
-        now=record["recorded_at"],
-    )
+def _supplied_facts(facts: object) -> dict[str, Any]:
+    """Read the caller's observation set once, structurally, and never again."""
+    if isinstance(facts, GrantFacts):
+        return {name: getattr(facts, name) for name in FACT_KEYS}
+    if not isinstance(facts, Mapping):
+        raise PrecheckAbort(
+            "independent facts: admission observes nothing of its own, so the exact "
+            "observation set must be supplied as an object"
+        )
+    try:
+        return dict(facts.items())
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- hostile fact mappings fail closed
+        raise PrecheckAbort(
+            f"independent facts: items raised {type(error).__name__}"
+        ) from None
+
+
+def _observed_facts(facts: object) -> GrantFacts:
+    """Deep-copy the caller's independent observation set dead, then make it exact.
+
+    Every field is frozen before anything else looks at it, so a caller that keeps editing
+    its own mappings edits nothing admission decided on. The inventory is exact in both
+    directions and no value carries a default: a missing observation is a refusal, not an
+    assumption, and an extra one is a claim nobody reviewed.
+    """
+    supplied = _supplied_facts(facts)
+    keys = tuple(supplied)
+    if any(type(key) is not str for key in keys):
+        raise PrecheckAbort("independent facts: the observation set has a non-string key")
+    if set(keys) != set(FACT_KEYS) or len(keys) != len(FACT_KEYS):
+        raise PrecheckAbort(
+            f"independent facts: {sorted(keys)!r} is not the exact reviewed observation "
+            f"set {sorted(FACT_KEYS)!r}"
+        )
+    observed: dict[str, Any] = {}
+    for name in FACT_KEYS:
+        try:
+            observed[name] = frozen(supplied[name])
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- an uncopyable fact refuses in place
+            raise PrecheckAbort(
+                f"independent facts: {name} is not a value that can be copied dead: "
+                f"{type(error).__name__}"
+            ) from None
+    try:
+        return GrantFacts(**observed)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a malformed observation fails closed
+        raise PrecheckAbort(
+            f"independent facts: the observation set is not exact: "
+            f"{type(error).__name__}"
+        ) from None
 
 
 def _verify_signature(snapshot: AuthorizationSnapshot, adapters: object) -> bool:
@@ -639,12 +682,23 @@ def _verify_signature(snapshot: AuthorizationSnapshot, adapters: object) -> bool
 
 
 def decide(
-    authorization: object, adapters: object, *, execute_requested: object = False
+    authorization: object,
+    adapters: object,
+    *,
+    facts: object,
+    execute_requested: object = False,
 ) -> AdmissionDecision:
-    """Admit exact signed static authority without observing or consuming the attempt."""
+    """Admit exact signed static authority without observing or consuming the attempt.
+
+    `facts` is mandatory and is the caller's own independent observation set. Admission
+    reads nothing of the host, so it may derive no fact from the very grant and record it
+    is verifying; the set is copied dead at ingress and handed to the binding verifier
+    exactly as it was supplied.
+    """
     if execute_requested is not True:
         return _refused("the exact execute request was not supplied")
     try:
+        observed = _observed_facts(facts)
         snapshot = _snapshot(authorization)
         shape = validate_record_shape(snapshot.record)
         if not shape.satisfied:
@@ -652,8 +706,7 @@ def decide(
         bindings = _binding_findings(snapshot)
         if bindings:
             return _refused(*bindings)
-        facts = _grant_facts(snapshot)
-        grant_verdict = verify_bindings(snapshot.grant, facts)
+        grant_verdict = verify_bindings(snapshot.grant, observed)
         if not grant_verdict.satisfied:
             return _refused(*grant_verdict.findings)
         if not _verify_signature(snapshot, adapters):
