@@ -616,6 +616,253 @@ def test_a_clock_that_answers_with_a_non_reading_after_creation_still_tears_the_
     assert any("clock" in finding for finding in result.findings)
 
 
+class OverflowingClock:
+    """A clock that answers `answers` genuine readings, then an `int` with no float form.
+
+    `_guarded_clock`'s shape check (`type(reading) not in (int, float) or not
+    isfinite(reading)`) sits outside the `try` that only wraps the raw `monotonic()` call.
+    `isfinite` itself raises `OverflowError` when handed a Python `int` too large to convert
+    to a float, so this one reading shape passes the type half of the check and then blows
+    up the finiteness half — escaping `_guarded_clock`, and therefore
+    `run_topology_rehearsal`, as a bare `OverflowError` instead of becoming a finding.
+    """
+
+    def __init__(self, log, *, answers: int = 1, opening: float = 0.0) -> None:
+        self._log = log
+        self._answers = answers
+        self._opening = opening
+        self._readings = 0
+
+    def monotonic(self) -> object:
+        self._readings += 1
+        if self._readings <= self._answers:
+            self._log.record("clock.monotonic", value=self._opening)
+            return self._opening
+        value = 10**400
+        self._log.record("clock.monotonic", value=value)
+        return value
+
+
+def test_a_clock_reading_too_large_for_isfinite_before_consumption_refuses_without_mutating(
+    runner,
+) -> None:
+    """An opening reading `isfinite` cannot even evaluate must refuse, not escape.
+
+    The opening reading fixes the one envelope, so its failure must refuse before anything
+    is consumed, exactly like every other unusable opening reading. An `OverflowError`
+    escaping out of `_guarded_clock` instead of being caught the way every other seam here
+    is caught defeats that guarantee entirely.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(base, clock=OverflowingClock(base.log, answers=0))
+
+    result = run(runner, adapters)
+
+    assert result.outcome == fakes.PRECHECK_ABORT
+    assert result.attempt_consumed is False
+    assert adapters.log.count("ledger.consume") == 0
+    for name in CREATE_CALLS:
+        assert adapters.log.count(name) == 0
+    assert adapters.log.count("docker.remove") == 0
+    assert adapters.log.count("credential.remove") == 0
+    assert result.teardown_complete is False
+    assert result.residuals == ()
+    assert any("clock" in finding for finding in result.findings)
+
+
+def test_a_clock_reading_too_large_for_isfinite_after_creation_still_tears_the_attempt_down(
+    runner,
+) -> None:
+    """A completion reading `isfinite` cannot evaluate may not strand a consumed attempt.
+
+    The completion reading only records where the attempt ended, so an unusable reading
+    must become a finding rather than an escape that leaves the network, volume, credential
+    and container on the host with the ledger already consumed.
+    """
+    base = fakes.passing_adapters()
+    adapters = dataclasses.replace(base, clock=OverflowingClock(base.log))
+
+    result = run(runner, adapters)
+
+    assert result.attempt_consumed is True
+    assert result.outcome == fakes.STOP_CONTROL
+    assert adapters.log.count("docker.remove") == len(fakes.TEARDOWN_KINDS) - 1
+    assert adapters.log.count("credential.remove") == 1
+    assert result.teardown_complete is True
+    assert result.residuals == ()
+    assert any("clock" in finding for finding in result.findings)
+
+
+def test_a_completion_reading_earlier_than_the_opening_reading_is_a_stop_control_not_a_pass(
+    runner,
+) -> None:
+    """A completion reading earlier than the opening reading is not an elapsed time at all.
+
+    `elif completed > deadline` only ever escalates a completion reading that arrived too
+    late. A completion reading that is *earlier* than the opening reading cannot be a real
+    elapsed-time measurement either, yet the runner has no branch that catches it, so it
+    reaches a falsely clean `TOPOLOGY_PASS` untouched.
+    """
+    adapters = fakes.passing_adapters(ticks=(10.0, 5.0))
+
+    result = run(runner, adapters)
+
+    assert result.outcome == fakes.STOP_CONTROL
+    assert result.attempt_consumed is True
+    assert result.teardown_complete is True
+    assert result.evidence["timings"]["started"] == 10.0
+    assert result.evidence["timings"]["completed"] == 5.0
+    assert any(
+        "completed" in finding or "clock" in finding or "envelope" in finding
+        for finding in result.findings
+    )
+
+
+class DockerFailingOnRemove(fakes.FakeDocker):
+    """A Docker port whose `remove` raises for exactly one teardown kind."""
+
+    def __init__(self, log, *, failing_kind: str, **kwargs) -> None:
+        super().__init__(log, **kwargs)
+        self._failing_kind = failing_kind
+
+    def remove(self, *, kind: str, name: str) -> None:
+        super().remove(kind=kind, name=name)
+        if kind == self._failing_kind:
+            raise RuntimeError("synthetic removal failure")
+
+
+class CredentialFailingOnRemove(fakes.FakeCredential):
+    """A credential port whose `remove` raises instead of deleting the secret material."""
+
+    def remove(self, *, name: str) -> None:
+        super().remove(name=name)
+        raise RuntimeError("synthetic removal failure")
+
+
+def _teardown_adapters_failing_at(failing_kind: str) -> fakes.FakeAdapters:
+    """Passing adapters with exactly one teardown kind's removal wired to raise."""
+    base = fakes.passing_adapters()
+    if failing_kind == fakes.TEARDOWN_KINDS[-1]:
+        return dataclasses.replace(base, credential=CredentialFailingOnRemove(base.log))
+    return dataclasses.replace(
+        base, docker=DockerFailingOnRemove(base.log, failing_kind=failing_kind)
+    )
+
+
+@pytest.mark.parametrize("failing_kind", fakes.TEARDOWN_KINDS)
+def test_a_failing_removal_of_one_kind_still_attempts_every_remaining_teardown_kind(
+    runner, failing_kind
+) -> None:
+    """Teardown must isolate each removal so one raise cannot abandon the kinds after it.
+
+    `_teardown` wraps the whole removal sequence — the three Docker kinds and the
+    credential — in one `try`. A raise from removing any one kind today skips every kind
+    that would have come after it in that single `try`; for a Docker kind that means the
+    credential is never removed at all, and the credential is on-disk secret material
+    (mode 0600), so an unremoved credential orphans secret material on the host. A finding
+    naming the failed kind must also survive, not just a generic exception string.
+    """
+    adapters = _teardown_adapters_failing_at(failing_kind)
+
+    result = run(runner, adapters)
+
+    assert result.outcome == fakes.STOP_CONTROL
+    assert result.attempt_consumed is True
+    assert result.teardown_complete is False
+    removed_kinds = tuple(item["kind"] for item in adapters.log.calls("docker.remove"))
+    assert removed_kinds == fakes.TEARDOWN_KINDS[:-1]
+    assert adapters.log.count("credential.remove") == 1
+    assert any(failing_kind in finding for finding in result.findings)
+
+
+class DockerFailingOnObserveResidual(fakes.FakeDocker):
+    """A Docker port whose post-teardown residual read raises instead of answering."""
+
+    def observe_residual(self):
+        self._log.record("docker.observe_residual")
+        raise RuntimeError("synthetic residual observation failure")
+
+
+class CredentialFailingOnObserveResidual(fakes.FakeCredential):
+    """A credential port whose post-teardown residual read raises instead of answering."""
+
+    def observe_residual(self, *, name: str):
+        self._log.record("credential.observe_residual", name=name)
+        raise RuntimeError("synthetic residual observation failure")
+
+
+class HostFailingOnFinalListenerObservation(fakes.FakeHost):
+    """A host port whose *teardown* listener re-check raises; earlier reads still answer.
+
+    `observe_listeners` is read three times in one clean attempt: once during read-only
+    preparation, once during post-creation observation, and once again after teardown to
+    prove the reviewed port was actually released. Only that third, post-teardown reading
+    is the one this fake fails; the first two are answered exactly as `FakeHost` would.
+    """
+
+    def __init__(self, log, *, fail_at_call: int, **kwargs) -> None:
+        super().__init__(log, **kwargs)
+        self._fail_at_call = fail_at_call
+        self._calls = 0
+
+    def observe_listeners(self, *, port: int):
+        self._calls += 1
+        if self._calls == self._fail_at_call:
+            self._log.record("host.observe_listeners", port=port)
+            raise RuntimeError("synthetic listener observation failure")
+        return super().observe_listeners(port=port)
+
+
+POST_TEARDOWN_OBSERVATION_FACTORIES = (
+    pytest.param(
+        lambda base: dataclasses.replace(
+            base, docker=DockerFailingOnObserveResidual(base.log)
+        ),
+        id="docker-observe-residual",
+    ),
+    pytest.param(
+        lambda base: dataclasses.replace(
+            base, credential=CredentialFailingOnObserveResidual(base.log)
+        ),
+        id="credential-observe-residual",
+    ),
+    pytest.param(
+        lambda base: dataclasses.replace(
+            base, host=HostFailingOnFinalListenerObservation(base.log, fail_at_call=3)
+        ),
+        id="host-final-observe-listeners",
+    ),
+)
+
+
+@pytest.mark.parametrize("adapters_factory", POST_TEARDOWN_OBSERVATION_FACTORIES)
+def test_a_raising_post_teardown_observation_still_returns_a_stop_control_result(
+    runner, adapters_factory
+) -> None:
+    """Each post-teardown observation is a finding, never an exception that burns the attempt.
+
+    `docker.observe_residual()`, `credential.observe_residual(...)` and the teardown
+    re-check of `host.observe_listeners(...)` are each unguarded. If any of them raises,
+    the exception escapes the whole function after the single-use ledger entry has already
+    been consumed, burning the attempt with no `RehearsalResult` and no evidence at all.
+    """
+    base = fakes.passing_adapters()
+    adapters = adapters_factory(base)
+
+    result = run(runner, adapters)
+
+    assert result.attempt_consumed is True
+    assert result.outcome == fakes.STOP_CONTROL
+    assert tuple(item["kind"] for item in adapters.log.calls("docker.remove")) == (
+        "container",
+        "network",
+        "volume",
+    )
+    assert adapters.log.count("credential.remove") == 1
+    assert result.teardown_complete is False
+    assert any("teardown" in finding for finding in result.findings)
+
+
 def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -> None:
     source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
