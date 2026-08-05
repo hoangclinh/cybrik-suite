@@ -100,6 +100,34 @@ def test_command_adapters_take_only_the_reviewed_plan_and_runner() -> None:
     ) == ("plan", "runner", "clock")
 
 
+def built_command_adapter(adapter, name: str, plan, runner, clock):
+    """One command adapter built with exactly the injected plan, runner and clock it needs."""
+    adapter_type = require_c8_attr(adapter, name)
+    if name == "DockerCommandAdapter":
+        return adapter_type(plan, runner, clock)
+    return adapter_type(plan, runner)
+
+
+@pytest.mark.parametrize("adapter_name", sorted(COMMAND_ADAPTERS))
+def test_command_adapters_expose_the_exact_injected_runner_and_plan_by_identity(
+    adapter_name: str,
+) -> None:
+    """The entrypoint wiring contract reads `.runner` and `.plan` back off each adapter.
+
+    `tests/test_scripts_inert.py` asserts `adapter.runner is command_runner` and
+    `adapter.plan is wiring.plan` for every wired command adapter. A copy or a re-derived
+    value would satisfy equality but never `is`, so identity is what this proves.
+    """
+    adapter = load_c8("adapter")
+    plan = built_plan()
+    log = fakes.CallLog()
+    runner = fakes.FakeCommandRunner(log)
+    clock = fakes.FakeClock(log)
+    instance = built_command_adapter(adapter, adapter_name, plan, runner, clock)
+    assert instance.runner is runner
+    assert instance.plan is plan
+
+
 def test_exact_command_adapter_rejects_a_non_runner_before_any_effect() -> None:
     adapter = load_c8("adapter")
     plan = built_plan()
