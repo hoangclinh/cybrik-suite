@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from hashlib import sha256
+from typing import Any
 
-import pytest
-
-import fakes
 import documents
+import fakes
+import pytest
 from conftest import load_c8, require_c8_attr
 
 
@@ -33,6 +34,93 @@ def record_with_attempt(**patch):
 def record_with_authorization(**patch):
     record = documents.synthetic_authorized_record()
     return {**record, "authorization": {**record["authorization"], **patch}}
+
+
+def record_with_section(name: str, value: Any):
+    record = documents.synthetic_authorized_record()
+    return {**record, name: value}
+
+
+def record_with_nested(section: str, key: str, value: Any):
+    record = documents.synthetic_authorized_record()
+    return {**record, section: {**record[section], key: value}}
+
+
+def record_with_image(**patch):
+    record = documents.synthetic_authorized_record()
+    image = {**record["topology"]["image"], **patch}
+    return {
+        **record,
+        "topology": {**record["topology"], "image": image},
+    }
+
+
+def record_with_probe(**patch):
+    record = documents.synthetic_authorized_record()
+    probe = {**record["topology"]["probe"], **patch}
+    return {
+        **record,
+        "topology": {**record["topology"], "probe": probe},
+    }
+
+
+def record_with_evidence(**patch):
+    record = documents.synthetic_authorized_record()
+    return {**record, "evidence": {**record["evidence"], **patch}}
+
+
+def record_with_artifact(**patch):
+    record = documents.synthetic_authorized_record()
+    artifacts = list(record["evidence"]["artifacts"])
+    artifacts[0] = {**artifacts[0], **patch}
+    return record_with_evidence(artifacts=artifacts)
+
+
+def record_with_review(**patch):
+    record = documents.synthetic_authorized_record()
+    binding = {**record["evidence"]["record_review_binding"], **patch}
+    return record_with_evidence(record_review_binding=binding)
+
+
+class ExplodingKeys(dict):
+    """A structural mapping whose inventory read fails at the trust boundary."""
+
+    def __init__(self, error: BaseException) -> None:
+        super().__init__()
+        self._error = error
+
+    def keys(self):
+        raise self._error
+
+
+class RaisingAuthorization:
+    """The first authorization projection raises instead of returning a value."""
+
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    @property
+    def record(self):
+        raise self._error
+
+
+class RaisingVerifier:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    def verify(self, **_kwargs):
+        raise self._error
+
+
+class RaisingLedger:
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    def is_consumed(self, **_kwargs):
+        raise self._error
+
+    def consume(self, **_kwargs):
+        raise AssertionError("admission may never consume")
 
 
 def test_synthetic_authorized_fixture_matches_the_committed_record_shape(admission) -> None:
@@ -391,6 +479,116 @@ def test_an_already_consumed_attempt_refuses(admission) -> None:
     verdict = decide(admission, adapters)
     assert not verdict.admitted
     assert adapters.log.count("ledger.consume") == 0
+
+
+@pytest.mark.parametrize(
+    ("type_name", "args"),
+    [
+        ("RecordShapeVerdict", (1, ())),
+        ("RecordShapeVerdict", (True, ["mutable"])),
+        ("RecordShapeVerdict", (True, ("contradiction",))),
+        ("RecordShapeVerdict", (False, ())),
+        ("AdmissionDecision", (True, fakes.PRECHECK_ABORT, ())),
+        ("AdmissionDecision", (False, fakes.PRECHECK_ABORT, ())),
+    ],
+)
+def test_admission_value_objects_refuse_incoherent_states(
+    admission, type_name: str, args: tuple[Any, ...]
+) -> None:
+    with pytest.raises(ValueError):
+        require_c8_attr(admission, type_name)(*args)
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        None,
+        ExplodingKeys(RuntimeError("untrusted detail")),
+        {**documents.synthetic_authorized_record(), 7: "non-string key"},
+        record_with_section("schema_version", "2.0.0"),
+        record_with_section("record_id", "another-record"),
+        record_with_section("recorded_at", "not-an-instant"),
+        record_with_section("identity", None),
+        record_with_section("attempt", None),
+        record_with_section("topology", None),
+        record_with_section("production_exclusion", None),
+        record_with_section("authorization", None),
+        record_with_section("evidence", None),
+        record_with_section("disposition", None),
+        record_with_image(
+            repository="",
+            tag="",
+            platform={"os": "", "architecture": "arm64", "variant": 7},
+            index_digest="bad",
+            manifest_digest="bad",
+            pull_policy="",
+        ),
+        record_with_probe(argv="not-an-argv"),
+        record_with_probe(argv=["--wrong"]),
+        record_with_authorization(grant_sha256="bad"),
+        record_with_evidence(artifacts="not-an-array"),
+        record_with_evidence(artifacts=[None]),
+        record_with_artifact(kind="", path="", sha256="bad"),
+        record_with_evidence(
+            directory="wrong",
+            external_bytes_ci_verified=True,
+            result_controls={},
+        ),
+        record_with_review(review_path="", review_sha256="bad"),
+        record_with_nested("disposition", "profile", "PASS"),
+        record_with_nested("disposition", "rationale", ""),
+    ],
+)
+def test_record_shape_is_total_and_fail_closed_for_malformed_nested_values(
+    admission, record
+) -> None:
+    verdict = require_c8_attr(admission, "validate_record_shape")(record)
+    assert verdict.satisfied is False
+    assert verdict.findings
+
+
+@pytest.mark.parametrize("interrupt", [KeyboardInterrupt, SystemExit])
+def test_record_shape_never_reclassifies_a_process_interrupt(admission, interrupt) -> None:
+    with pytest.raises(interrupt):
+        require_c8_attr(admission, "validate_record_shape")(ExplodingKeys(interrupt()))
+
+
+def test_an_authorization_projection_exception_is_bounded_before_adapter_use(
+    admission,
+) -> None:
+    adapters = fakes.passing_adapters()
+    verdict = decide(
+        admission,
+        adapters,
+        RaisingAuthorization(RuntimeError("untrusted detail must not leak")),
+    )
+    assert verdict.admitted is False
+    assert adapters.log.entries == ()
+    assert all("untrusted detail" not in finding for finding in verdict.findings)
+
+
+@pytest.mark.parametrize("interrupt", [KeyboardInterrupt, SystemExit])
+def test_authorization_projection_preserves_process_interrupts(admission, interrupt) -> None:
+    with pytest.raises(interrupt):
+        decide(admission, fakes.passing_adapters(), RaisingAuthorization(interrupt()))
+
+
+def test_verifier_exception_is_bounded_and_never_reaches_the_ledger(admission) -> None:
+    adapters = fakes.passing_adapters()
+    adapters = replace(adapters, verifier=RaisingVerifier(RuntimeError("private detail")))
+    verdict = decide(admission, adapters)
+    assert verdict.admitted is False
+    assert adapters.log.count("ledger.is_consumed") == 0
+    assert all("private detail" not in finding for finding in verdict.findings)
+
+
+def test_ledger_exception_is_bounded_after_one_valid_signature(admission) -> None:
+    adapters = fakes.passing_adapters()
+    adapters = replace(adapters, ledger=RaisingLedger(RuntimeError("private detail")))
+    verdict = decide(admission, adapters)
+    assert verdict.admitted is False
+    assert adapters.log.count("verifier.verify") == 1
+    assert all("private detail" not in finding for finding in verdict.findings)
 
 
 def test_admission_exports_only_decision_and_gate(admission) -> None:
