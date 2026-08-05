@@ -6,7 +6,7 @@ import ast
 import inspect
 import sys
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -49,6 +49,40 @@ def built_plan():
         image_reference=f"postgres@{fakes.SYNTHETIC_MANIFEST_DIGEST}",
         repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
     )
+
+
+# The two external artifact paths every runner invocation names. Nothing in this file opens
+# them — they are only ever forwarded — so they stay literal strings rather than real files.
+GRANT_PATH = "/tmp/grant.json"
+SIGNATURE_PATH = "/tmp/grant.json.sig"
+
+
+def control_root_flags(roots: Mapping[str, str]) -> list[str]:
+    """The `--control-root NAME=PATH` tokens an operator types in order to name `roots`.
+
+    Repeatable rather than comma-joined, and four separate declarations rather than four
+    fixed flags: a joined value would need escaping and could hide one root inside another's
+    token, while fixed flags would copy `constants.CONTROL_REPOSITORIES` into the script's
+    parser and take away its ability to name no repository at all.
+    """
+    return [
+        token
+        for name, root in roots.items()
+        for token in ("--control-root", f"{name}={root}")
+    ]
+
+
+def execute_argv(roots: Mapping[str, str] | None = None) -> list[str]:
+    """One complete authorized invocation: the two artifact paths and the control roots."""
+    named = fakes.SYNTHETIC_REPOSITORY_ROOTS if roots is None else roots
+    return [
+        "--execute",
+        "--grant",
+        GRANT_PATH,
+        "--signature",
+        SIGNATURE_PATH,
+        *control_root_flags(named),
+    ]
 
 
 def runtime_wiring(script, **overrides):
@@ -152,42 +186,63 @@ def test_prepare_entrypoint_requires_the_exact_unsigned_prepare_flag() -> None:
 
 
 def test_runner_entrypoint_requires_exact_execute_plus_external_artifact_paths() -> None:
+    """The parser gains one repeatable option, and it accumulates rather than replaces.
+
+    `--control-root NAME=PATH` is the argv boundary the four control worktrees enter
+    through, and the parser bound is the one bound this correction moves. Accumulation is
+    asserted because it is the half an implementation can get wrong silently: an option that
+    replaced on each occurrence would reduce four declared roots to one and leave three to be
+    answered by something nobody named, which is the same failure every refuted derivation
+    shared. The existing `--execute`, `--grant` and `--signature` contracts are unchanged
+    and re-asserted here so the two are read together.
+
+    Required-ness is deliberately pinned where an operator observes it — see
+    `test_an_invocation_that_names_no_control_root_holds_without_calling_the_executor` —
+    rather than as a `SystemExit` off the bare parser here. The shared-surface contract
+    already permits either spelling, since `main([])` and `main(["--unknown"])` must *return*
+    the hold exit and an implementation may reach that either by converting the `SystemExit`
+    argparse raises or by overriding `parser.error`. Asserting the raise here would forbid
+    the second spelling while proving nothing more about the returned exit code.
+    """
     script = load_c8_script("run_topology_rehearsal.py")
     parser = require_c8_attr(script, "build_parser")()
-    args = parser.parse_args(
-        [
-            "--execute",
-            "--grant",
-            "/tmp/grant.json",
-            "--signature",
-            "/tmp/grant.json.sig",
-        ]
-    )
+    args = parser.parse_args(execute_argv())
     assert args.execute is True
-    assert args.grant == "/tmp/grant.json"
-    assert args.signature == "/tmp/grant.json.sig"
+    assert args.grant == GRANT_PATH
+    assert args.signature == SIGNATURE_PATH
+    assert list(args.control_root) == [
+        f"{name}={root}" for name, root in fakes.SYNTHETIC_REPOSITORY_ROOTS.items()
+    ]
 
 
 def test_exact_execute_path_calls_one_injected_executor_with_external_paths() -> None:
-    script = load_c8_script("run_topology_rehearsal.py")
-    calls: list[tuple[str, str]] = []
+    """`main` hands the executor the two paths it was given and the roots it was typed.
 
-    def execute(grant_path: str, signature_path: str) -> int:
-        calls.append((grant_path, signature_path))
+    Amended from the two-positional call shape `3cd9d77` left behind. That shape was
+    unsatisfiable end to end rather than merely incomplete: `3cd9d77` made `repository_roots`
+    a mandatory keyword-only argument of `build_runtime_wiring`, while `main` had no seam to
+    forward roots through and `load_runtime_dependencies` is pinned to return that real
+    builder *by identity*, so the default composition could only ever raise `TypeError:
+    missing a required keyword-only argument`. Each test passed alone and no honest
+    implementation satisfied the set.
+
+    The roots enter at argv, which is the one seam in this design allowed to hold an
+    operator-declared input — `--execute` and the choice of grant file already sit there at
+    the same trust level — and `main` forwards them as a mandatory keyword so no frame
+    between the operator and the plan can supply them instead.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    calls: list[tuple[object, ...]] = []
+
+    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
+        calls.append((grant_path, signature_path, repository_roots))
         return 0
 
-    exit_code = require_c8_attr(script, "main")(
-        [
-            "--execute",
-            "--grant",
-            "/tmp/grant.json",
-            "--signature",
-            "/tmp/grant.json.sig",
-        ],
-        execute=execute,
-    )
+    exit_code = require_c8_attr(script, "main")(execute_argv(), execute=execute)
     assert exit_code == 0
-    assert calls == [("/tmp/grant.json", "/tmp/grant.json.sig")]
+    assert calls == [
+        (GRANT_PATH, SIGNATURE_PATH, dict(fakes.SYNTHETIC_REPOSITORY_ROOTS))
+    ]
 
 
 def test_main_default_execute_is_the_reviewed_composition_root() -> None:
@@ -199,6 +254,20 @@ def test_main_default_execute_is_the_reviewed_composition_root() -> None:
 
 
 def test_default_composition_loads_builds_and_runs_the_same_authorization() -> None:
+    """One authorization, loaded once, built into one wiring and run once, in that order.
+
+    The builder call is amended from `build(authorization=authorization)` to carry the roots
+    the caller was handed. The one-keyword shape was the site of the defect: it described a
+    composition root that could drive the *fake* builder here and never the real one, so the
+    contradiction stayed invisible to every test taken alone.
+
+    The order is asserted rather than just the set, and it still loads before it builds. That
+    ordering is a residual risk carried deliberately: the grant and signature files are read
+    before the roots are validated. Nothing spawns and no trust decision is taken in that
+    window, but if `load_authorization` ever acquires a verification step the order must be
+    revisited. `execute_requested` remains the fixed literal `True`, never derived from what
+    was parsed, so a hold can never be turned into an execution by argv alone.
+    """
     script = load_c8_script("run_topology_rehearsal.py")
     execute = require_c8_attr(script, "execute_authorized_attempt")
     signature = inspect.signature(execute)
@@ -215,8 +284,8 @@ def test_default_composition_loads_builds_and_runs_the_same_authorization() -> N
         calls.append(("load", grant_path, signature_path))
         return authorization
 
-    def build(*, authorization):
-        calls.append(("build", authorization))
+    def build(*, authorization, repository_roots):
+        calls.append(("build", authorization, repository_roots))
         return wiring
 
     def run(authorization, received_adapters, *, execute_requested: bool):
@@ -229,16 +298,68 @@ def test_default_composition_loads_builds_and_runs_the_same_authorization() -> N
         runner=run,
     )
     exit_code = execute(
-        "/tmp/grant.json",
-        "/tmp/grant.json.sig",
+        GRANT_PATH,
+        SIGNATURE_PATH,
+        repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
         dependencies_loader=lambda: dependencies,
     )
     assert exit_code == 0
     assert calls == [
-        ("load", "/tmp/grant.json", "/tmp/grant.json.sig"),
-        ("build", authorization),
+        ("load", GRANT_PATH, SIGNATURE_PATH),
+        ("build", authorization, fakes.SYNTHETIC_REPOSITORY_ROOTS),
         ("run", authorization, adapters, True),
     ]
+
+
+def test_the_control_roots_are_mandatory_at_the_composition_root_as_well() -> None:
+    """The frame above the wiring must be mandatory too, or the mandate means nothing.
+
+    This mirrors `test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`
+    one frame up, and its absence is precisely what let the unsatisfiable contract land:
+    `3cd9d77` made the roots mandatory at `build_runtime_wiring` and left
+    `execute_authorized_attempt` on its prior two-positional shape, so nothing in the file
+    stated that the two had to agree. A defaulted `repository_roots` here would restore the
+    same defect in a quieter form — the composition root would answer for the operator, and
+    whatever it answered would be a value nobody typed.
+
+    The behavioural half matters as much as the signature: an invocation missing the roots
+    must fail before the grant is read, so the refusal cannot be mistaken for a verdict about
+    the artifacts. That is why the loader records and is then asserted untouched.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    execute = require_c8_attr(script, "execute_authorized_attempt")
+    signature = inspect.signature(execute)
+    parameter = signature.parameters["repository_roots"]
+    assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameter.default is inspect.Parameter.empty
+    widening = sorted(
+        name
+        for name, candidate in signature.parameters.items()
+        if candidate.kind
+        in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+    )
+    assert widening == [], "no variadic parameter may accept roots without naming them"
+
+    loaded: list[tuple[str, str]] = []
+
+    def load(grant_path: str, signature_path: str):
+        loaded.append((grant_path, signature_path))
+        return documents.authorization()
+
+    dependencies = SimpleNamespace(
+        authorization_loader=load,
+        wiring_builder=lambda *, authorization, repository_roots: SimpleNamespace(
+            adapters=object()
+        ),
+        runner=lambda *_args, **_kwargs: SimpleNamespace(outcome=fakes.TOPOLOGY_PASS),
+    )
+    with pytest.raises(TypeError):
+        execute(
+            GRANT_PATH,
+            SIGNATURE_PATH,
+            dependencies_loader=lambda: dependencies,
+        )
+    assert loaded == []
 
 
 def test_default_dependency_loader_returns_the_reviewed_real_triple() -> None:
@@ -268,14 +389,15 @@ def test_every_non_pass_result_maps_to_the_fixed_nonzero_hold_exit(outcome: str)
     wiring = SimpleNamespace(adapters=object())
     dependencies = SimpleNamespace(
         authorization_loader=lambda _grant, _signature: authorization,
-        wiring_builder=lambda *, authorization: wiring,
+        wiring_builder=lambda *, authorization, repository_roots: wiring,
         runner=lambda _authorization, _adapters, *, execute_requested: SimpleNamespace(
             outcome=outcome
         ),
     )
     exit_code = require_c8_attr(script, "execute_authorized_attempt")(
-        "/tmp/grant.json",
-        "/tmp/grant.json.sig",
+        GRANT_PATH,
+        SIGNATURE_PATH,
+        repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
         dependencies_loader=lambda: dependencies,
     )
     assert exit_code == require_c8_attr(script, "HOLD_EXIT")
@@ -288,10 +410,15 @@ def test_entrypoint_surface_is_bounded(name: str) -> None:
     expected = {"HOLD_EXIT", "build_parser", "main"}
     if name == "run_topology_rehearsal.py":
         # No control-root resolver is exported, and that absence is the contract. The four
-        # worktrees the whole attempt is judged against are supplied by the caller of
-        # `build_runtime_wiring` or the wiring refuses; there is no host-observing second
-        # way to obtain them, so there is no named resolver to review, nothing for a test to
-        # replace, and no invented absolute path anywhere in `src/`.
+        # worktrees the whole attempt is judged against arrive as `--control-root NAME=PATH`
+        # tokens on the operator's own invocation and are forwarded, unmodified, through
+        # `main` and `execute_authorized_attempt` into `build_runtime_wiring`, or the wiring
+        # refuses. There is no host-observing second way to obtain them, so there is no
+        # named resolver to review, nothing for a test to replace, and no invented absolute
+        # path anywhere in `src/`. Carrying the injection up to argv adds no export either:
+        # the two helpers that split what was typed, `_control_root_pair` and
+        # `_control_roots`, are private and observe nothing, so this bound is unmoved. The
+        # one bound that moved is the parser's.
         expected.update(
             {
                 "SubprocessCommandRunner",
