@@ -74,9 +74,7 @@ FRONT_DOOR_ABSENCE_CLAIM = "remain absent, and their tests stay RED"
 FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
-FRONT_DOOR_ABSENT_MODULES = (
-    "runner",
-)
+FRONT_DOOR_ABSENT_MODULES = ()
 # The modules that are present, in inventory order. Naming both sides explicitly is what
 # makes the front door falsifiable: a docstring that merely mentioned every module somewhere
 # would satisfy the name-check below while still placing a landed module among the absent.
@@ -90,6 +88,7 @@ FRONT_DOOR_PRESENT_MODULES = (
     "grant",
     "preparation",
     "admission",
+    "runner",
 )
 
 # The reviewed per-module size bound, in lines. Strictly under, not up to.
@@ -160,7 +159,7 @@ def test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder
     """The first thing a reader imports may not describe a runner that is not there.
 
     The front door is where a reader forms their idea of what this package is. Announcing
-    an implemented runner while five of its ten modules and both entrypoints are absent is
+    an implemented runner while both of its entrypoints are absent is
     the same overstatement the status lines exist to prevent — and it is the one place the
     per-module status control never looks, because `__init__` is not in the inventory.
 
@@ -207,9 +206,9 @@ def test_the_front_door_places_every_module_on_the_side_it_is_actually_on() -> N
     The previous control asserted only that every module appeared somewhere in the front
     door and that the two claim fragments were present. That passes unchanged when a module
     lands and stays listed as absent — the exact overstatement the front door exists to
-    prevent. Here the present sentence must place `preparation` alongside the seven modules
-    that landed before it, and the absence sentence must name `admission`, `runner` and both
-    entrypoint scripts and nothing else.
+    prevent. Here the present sentence must place every landed module, `runner` included,
+    among the present ones, and the absence sentence must name both entrypoint scripts and
+    nothing else.
     """
     docstring = require_c8_attr(load_c8(), "__doc__")
     package_dir = require_c8_path(SRC / PACKAGE)
