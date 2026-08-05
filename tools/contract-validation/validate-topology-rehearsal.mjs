@@ -654,7 +654,10 @@ const verifyFounderAuthorization = ({
     if (
       typeof authorization.grant_path !== 'string'
       || !authorization.grant_path.endsWith('.json')
-    ) errors.push(`${recordPath}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`);
+    ) {
+      errors.push(`${recordPath}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`);
+      return;
+    }
 
     try {
       const { valid, allowedPath, allowedDigest } = trustContext;
