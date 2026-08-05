@@ -75,7 +75,6 @@ FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
 FRONT_DOOR_ABSENT_MODULES = (
-    "admission",
     "runner",
 )
 # The modules that are present, in inventory order. Naming both sides explicitly is what
@@ -90,6 +89,7 @@ FRONT_DOOR_PRESENT_MODULES = (
     "observe",
     "grant",
     "preparation",
+    "admission",
 )
 
 # The reviewed per-module size bound, in lines. Strictly under, not up to.
