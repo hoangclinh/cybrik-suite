@@ -103,9 +103,57 @@ Known gate gap: branch coverage cannot currently be evidenced for this
 component — Coverage.py is neither installed nor declared here, and
 installing it is Founder-gated.
 
-As of `d6c0d47` (the current HEAD at time of writing), these blockers have
-not yet been re-reviewed and closed. The next independent review of this
-range must append its verdict below before any push.
+As of `d6c0d47` (the HEAD at the time that review was written), these
+blockers had not yet been re-reviewed and closed. They are closed by the
+range recorded in the next section.
+
+### `a4dba72..0b6c118` — Runner, third review
+
+11 commits. Independent Opus review, read-only, of the whole range.
+VERDICT GO. P0=0 P1=0 P2=0 P3=4. PUSH-ELIGIBLE YES. RUNTIME HOLD.
+
+All four blockers from the second review above are closed and pinned by
+tests: the finiteness question is now asked inside `_guarded_clock`'s guard,
+each teardown removal and each post-teardown residual read is separately
+guarded, and a completion reading earlier than its opening reading is
+escalated to `STOP_CONTROL` instead of reaching a clean `TOPOLOGY_PASS`.
+The nine-field anti-self-witnessing composition is preserved and is now
+enforced structurally by an AST test, not by substring.
+
+Evidence recorded at review time: `tests/test_runner.py` 75 passed; broad
+census 1390 passed / 29 failed, and all 29 are the intentional RED for the
+two absent entrypoint scripts (22 in `test_scripts_inert.py`, 7 in
+`test_surface_contract.py`), with no failure anywhere else; `runner.py` 725
+lines and every authored module under the 800-line bound; `ruff check src`
+clean; `python -m compileall src` clean; contract validator exit 0.
+
+Open P3 findings carried forward (none blocking):
+
+- **P3** — in `_teardown`, bound methods are resolved as argument
+  expressions outside the `try` that guards them, so a raising attribute
+  lookup would still escape. Unreachable today because every port is
+  isinstance-checked pre-consumption. Repair: resolve with `getattr` inside
+  the guard.
+- **P3** — `_observed_names` renders untrusted residual/listener values with
+  `f"{item}"` outside every guard; an item with a raising `__str__` would
+  escape.
+- **P3** — `resolve_outcome` and `_evidence` run post-teardown unguarded.
+  Statically unreachable; tripwire placement only.
+- **P3** — a residual read that itself raises reports `residuals == ()`,
+  indistinguishable from "no residue" unless `teardown_complete` is read
+  with it.
+
+The six P3 findings from the first review remain unrecoverable, as recorded
+above. Of the two admission P3s, the composition-documentation item is
+closed by `runner.py`'s module docstring plus the AST test; the shared
+refusal message for missing versus explicit-`None` projections stays open.
+
+Known gate gap, unchanged: branch coverage still cannot be evidenced for
+this component. Coverage.py is neither installed nor declared here, no
+alternate venv or vendored copy can produce it, no CI workflow measures it,
+and the prior Coverage.py authorizations were one-time, already consumed,
+and scoped to a different component. Closing this gate requires a new
+Founder decision.
 
 ## Open non-technical items for the Founder
 

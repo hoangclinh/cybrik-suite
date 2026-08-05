@@ -4,8 +4,8 @@
 # the topology-only rehearsal runner described by
 # docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md
 # sections 7 and 8. Constants, errors, protocols, plan, adapters, observation and the grant
-# binding are present; preparation, admission, runner and scripts remain intentionally RED
-# and absent.
+# binding are present, as are preparation, admission and the runner; only the two entrypoint
+# scripts remain intentionally RED and absent.
 # Nothing here authorizes a Docker effect, a listener, a PostgreSQL RED attempt, UAT, demo,
 # merge, release or production action.
 
