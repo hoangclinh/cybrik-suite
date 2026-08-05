@@ -421,47 +421,102 @@ def _observed_names(value: object) -> tuple[str, ...] | None:
     return tuple(f"{item}" for item in value)
 
 
+def _guarded_removal(remove: Any, kind: str, /, **arguments: Any) -> str | None:
+    """Remove one reviewed kind, or name the exact kind that refused to be removed.
+
+    Every kind is removed under a guard of its own rather than under one shared `try`: a
+    single raise used to abandon every removal after it, and the last kind removed is the
+    on-disk credential material, so one failed Docker removal orphaned a secret file on the
+    host that nothing later in the attempt would have gone back for.
+    """
+    try:
+        remove(**arguments)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a failed removal is a stop control
+        return f"teardown: removing the {kind} raised {type(error).__name__}: {error}"
+    return None
+
+
+def _guarded_reading(
+    read: Any, label: str, /, **arguments: Any
+) -> tuple[Any, str | None]:
+    """Take one post-teardown reading, or report the unreadable seam as a finding.
+
+    These readings are what prove the host actually let go of everything the attempt
+    created, so they are taken after the single-use entry is already spent. A raise from
+    any of them escaping here would burn the one attempt with no result and no evidence at
+    all, which is strictly worse than reporting that the host could not be re-read.
+    """
+    try:
+        return read(**arguments), None
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- an unreadable host is a stop control
+        return None, (
+            f"teardown: reading the {label} raised {type(error).__name__}: {error}"
+        )
+
+
 def _teardown(adapters: Any, names: AttemptNames) -> TeardownRecord:
     """Remove every reviewed kind in order, then re-observe what the host still holds.
 
     Teardown is unconditional after consumption and covers the whole reviewed inventory,
     whether or not each kind was reached: a create that failed part-way through leaves the
     kinds before it behind, and a removal of something that was never created is a no-op
-    rather than a reason to leave residue in place.
+    rather than a reason to leave residue in place. One kind that cannot be removed is a
+    finding about that kind, never a reason to stop removing the kinds after it.
     """
     findings: list[str] = []
     candidates: list[str] = []
     resources = dict(
         zip(TEARDOWN_KINDS, (names.container, names.network, names.volume), strict=False)
     )
-    try:
-        for kind in DOCKER_TEARDOWN_KINDS:
-            adapters.docker.remove(kind=kind, name=resources[kind])
-        adapters.credential.remove(name=names.credential)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except Exception as error:  # noqa: BLE001 -- an incomplete teardown is a stop control
-        return TeardownRecord(
-            complete=False,
-            residuals=(),
-            credential_residual=None,
-            listeners=(),
-            findings=(f"teardown: raised {type(error).__name__}: {error}",),
-            candidates=(STOP_CONTROL,),
+    removals = [
+        _guarded_removal(
+            adapters.docker.remove, kind, kind=kind, name=resources[kind]
         )
-    residuals = _observed_names(adapters.docker.observe_residual())
-    credential_residual = adapters.credential.observe_residual(name=names.credential)
-    listeners = _observed_names(adapters.host.observe_listeners(port=HOST_PORT))
-    if residuals is None:
+        for kind in DOCKER_TEARDOWN_KINDS
+    ]
+    removals.append(
+        _guarded_removal(
+            adapters.credential.remove,
+            CREDENTIAL_TEARDOWN_KIND,
+            name=names.credential,
+        )
+    )
+    findings.extend(removal for removal in removals if removal is not None)
+    residual_reading, residual_finding = _guarded_reading(
+        adapters.docker.observe_residual, "Docker residual inventory"
+    )
+    credential_residual, credential_finding = _guarded_reading(
+        adapters.credential.observe_residual,
+        f"{CREDENTIAL_TEARDOWN_KIND} residual",
+        name=names.credential,
+    )
+    listener_reading, listener_finding = _guarded_reading(
+        adapters.host.observe_listeners,
+        "post-attempt listener inventory",
+        port=HOST_PORT,
+    )
+    residuals = _observed_names(residual_reading)
+    listeners = _observed_names(listener_reading)
+    if residual_finding is not None:
+        findings.append(residual_finding)
+    elif residuals is None:
         findings.append("teardown: the Docker residual inventory was never read")
     elif residuals:
         findings.append(f"teardown: {list(residuals)!r} outlived the attempt")
-    if credential_residual is not False:
+    if credential_finding is not None:
+        findings.append(credential_finding)
+    elif credential_residual is not False:
         findings.append(
             f"teardown: the {CREDENTIAL_TEARDOWN_KIND} residual reading "
             f"{credential_residual!r} is not exactly False"
         )
-    if listeners is None:
+    if listener_finding is not None:
+        findings.append(listener_finding)
+    elif listeners is None:
         findings.append("teardown: the post-attempt listener inventory was never read")
     elif listeners:
         findings.append(f"teardown: {list(listeners)!r} still hold the reviewed port")
@@ -517,6 +572,22 @@ def _evidence(
     )
 
 
+def _finite_reading(reading: float) -> bool:
+    """Whether a numeric reading is a real finite value it is safe to measure with.
+
+    `isfinite` answers for every reading a clock can plausibly hand back except one: an
+    `int` too large to convert to a float raises `OverflowError` out of the check itself.
+    Asking the question inside the guard keeps that shape a finding like every other
+    unusable reading rather than an exception escaping the whole attempt.
+    """
+    try:
+        return isfinite(reading)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:  # noqa: BLE001 -- a reading with no float form is not a reading
+        return False
+
+
 def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
     """One monotonic reading, or the seam failure it must not let escape as an exception.
 
@@ -541,7 +612,7 @@ def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
         raise
     except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
         return None, f"clock: raised {type(error).__name__}: {error}"
-    if type(reading) not in (int, float) or not isfinite(reading):
+    if type(reading) not in (int, float) or not _finite_reading(reading):
         return None, f"clock: answered {reading!r}, which is not an elapsed-time reading"
     return reading, None
 
@@ -584,6 +655,12 @@ def _run_attempt(
     completed, completion_finding = _guarded_clock(adapters)
     if completion_finding is not None:
         findings.append(completion_finding)
+        candidates.append(STOP_CONTROL)
+    elif completed < started:
+        findings.append(
+            f"envelope: the attempt completed at {completed!r}, earlier than the opening "
+            f"reading {started!r}, so the pair is not an elapsed time at all"
+        )
         candidates.append(STOP_CONTROL)
     elif completed > deadline:
         findings.append(
