@@ -75,9 +75,21 @@ FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
 FRONT_DOOR_ABSENT_MODULES = (
-    "preparation",
     "admission",
     "runner",
+)
+# The modules that are present, in inventory order. Naming both sides explicitly is what
+# makes the front door falsifiable: a docstring that merely mentioned every module somewhere
+# would satisfy the name-check below while still placing a landed module among the absent.
+FRONT_DOOR_PRESENT_MODULES = (
+    "constants",
+    "errors",
+    "protocols",
+    "adapter",
+    "plan",
+    "observe",
+    "grant",
+    "preparation",
 )
 
 # The reviewed per-module size bound, in lines. Strictly under, not up to.
@@ -169,9 +181,58 @@ def test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder
     absent = tuple(
         module for module in C8_MODULES if not (package_dir / f"{module}.py").exists()
     )
+    present = tuple(module for module in C8_MODULES if module not in absent)
     assert absent == FRONT_DOOR_ABSENT_MODULES
+    assert present == FRONT_DOOR_PRESENT_MODULES
     # The overstatement this control replaces: a whole-runner claim from a partial package.
     assert "This package implements the runner specified by" not in docstring
+
+
+def sentences(text: str) -> tuple[str, ...]:
+    """The docstring as flat sentences, so a claim can be located rather than grepped."""
+    collapsed = " ".join(text.split())
+    return tuple(part.strip() for part in re.split(r"(?<=\.)\s+", collapsed) if part.strip())
+
+
+def sole_sentence_containing(docstring: str, claim: str) -> str:
+    """The one sentence carrying a pinned claim, or a RED failure naming the drift."""
+    found = [sentence for sentence in sentences(docstring) if claim in sentence]
+    assert len(found) == 1, f"exactly one sentence must carry {claim!r}, found {len(found)}"
+    return found[0]
+
+
+def test_the_front_door_places_every_module_on_the_side_it_is_actually_on() -> None:
+    """Naming a module is not enough: it must be named on the correct side of the split.
+
+    The previous control asserted only that every module appeared somewhere in the front
+    door and that the two claim fragments were present. That passes unchanged when a module
+    lands and stays listed as absent — the exact overstatement the front door exists to
+    prevent. Here the present sentence must place `preparation` alongside the seven modules
+    that landed before it, and the absence sentence must name `admission`, `runner` and both
+    entrypoint scripts and nothing else.
+    """
+    docstring = require_c8_attr(load_c8(), "__doc__")
+    package_dir = require_c8_path(SRC / PACKAGE)
+    absent = tuple(
+        module for module in C8_MODULES if not (package_dir / f"{module}.py").exists()
+    )
+    present = tuple(module for module in C8_MODULES if module not in absent)
+
+    present_sentence = sole_sentence_containing(docstring, FRONT_DOOR_BOUNDED_CLAIM)
+    unplaced = [module for module in present if f"`{module}`" not in present_sentence]
+    assert unplaced == [], "every present module must be named in the present sentence"
+    misplaced = [module for module in absent if f"`{module}`" in present_sentence]
+    assert misplaced == [], "an absent module may not be listed among the present ones"
+
+    absence_sentence = sole_sentence_containing(docstring, FRONT_DOOR_ABSENCE_CLAIM)
+    unnamed = [module for module in absent if f"`{module}`" not in absence_sentence]
+    assert unnamed == [], "every absent module must be named in the absence sentence"
+    overclaimed = [module for module in present if f"`{module}`" in absence_sentence]
+    assert overclaimed == [], "a landed module may not still be described as absent"
+    assert FRONT_DOOR_SCRIPT_CLAIM in absence_sentence
+    # The front door may not quietly acquire a runtime claim while it is being corrected.
+    assert re.findall(UNEVIDENCED_STATUS_CLAIMS, docstring) == []
+    assert LIBRARY_STATUS in [line.strip() for line in docstring.splitlines() if line.strip()]
 
 
 def test_no_authored_module_exceeds_the_reviewed_size_bound() -> None:

@@ -50,6 +50,15 @@ EXACT_VALUES = {
     "SELECTED_IDENTITY_KEYS": documents.SELECTED_IDENTITY_KEYS,
     "IMAGE_RESOLVED": fakes.IMAGE_RESOLVED,
     "IMAGE_UNRESOLVED": fakes.IMAGE_UNRESOLVED,
+    # The daemon identity a rehearsal must capture for itself. Diagnosis section 3 recorded
+    # exactly these four fields as post-attempt operator observations; a rehearsal that
+    # recorded fewer would leave part of its own platform identity unstated.
+    "PLATFORM_EVIDENCE_KEYS": (
+        "desktop_version",
+        "desktop_build",
+        "engine_version",
+        "api_version",
+    ),
     "PROBE_EXECUTABLE_PATH": fakes.PROBE_EXECUTABLE_PATH,
     "PROBE_EXECUTABLE_SHA256": fakes.PROBE_EXECUTABLE_SHA256,
     "PROBE_ARGV": fakes.PROBE_ARGV,
@@ -97,6 +106,7 @@ EXACT_VALUES = {
 # Every constant that must be an immutable container. A list or dict here would let one
 # caller mutate a reviewed value for every other caller in the process.
 IMMUTABLE_CONTAINERS = (
+    "PLATFORM_EVIDENCE_KEYS",
     "PROBE_ARGV",
     "OUTCOME_PRECEDENCE",
     "PUBLICATION_VIEWS",
@@ -180,6 +190,30 @@ def test_the_selected_identity_keys_exclude_every_host_only_observation(
     assert require_c8_attr(constants, "IMAGE_RESOLVED") != require_c8_attr(
         constants, "IMAGE_UNRESOLVED"
     )
+
+
+def test_the_platform_evidence_keys_are_exactly_the_documented_daemon_identity(
+    constants,
+) -> None:
+    """The four fields diagnosis section 3 recorded, and no host-only or attempt claim.
+
+    The section-3 observation names the Docker Desktop version and build, the Engine version
+    and the API version. It is explicitly *not* attempt evidence, which is why the constant
+    pins the inventory rather than any of the observed values: a rehearsal must capture its
+    own readings for these four fields, and a missing or extra field would mean it recorded
+    a platform identity nobody reviewed.
+    """
+    keys = require_c8_attr(constants, "PLATFORM_EVIDENCE_KEYS")
+    assert keys == tuple(fakes.DOCUMENTED_PLATFORM)
+    assert len(set(keys)) == len(keys)
+    assert "engine_version" in keys, "the pinned Docker version must be comparable"
+    assert not set(keys) & {
+        "local_image_id",
+        "observed_at",
+        "resolution_state",
+        "attempt_id",
+    }
+    assert all(isinstance(key, str) and key for key in keys)
 
 
 def test_the_reviewed_host_port_sits_below_the_observed_ephemeral_range(
