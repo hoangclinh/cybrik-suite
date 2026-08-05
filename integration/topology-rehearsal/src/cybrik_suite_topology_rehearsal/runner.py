@@ -516,6 +516,25 @@ def _evidence(
     )
 
 
+def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
+    """One monotonic reading, or the seam failure it must not let escape as an exception.
+
+    Every other injected seam in this file converts a raise into a terminal value instead of
+    propagating it; the clock had two bare calls that did not, so a raising clock escaped
+    `run_topology_rehearsal` as a bare `OSError`. The two callers decide what an unobserved
+    reading means for the phase they are in: the opening reading fixes the one envelope, so
+    its failure must refuse before anything is consumed, while the completion reading only
+    records where the attempt ended, so its failure is a finding rather than a reason to skip
+    the mandatory teardown.
+    """
+    try:
+        return adapters.clock.monotonic(), None
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
+        return None, f"clock: raised {type(error).__name__}: {error}"
+
+
 def _run_attempt(
     adapters: Any,
     prepared: PreparationResult,
@@ -523,7 +542,9 @@ def _run_attempt(
     names: AttemptNames,
 ) -> RehearsalResult:
     """Consume the one attempt, run it inside one envelope and always tear it down."""
-    started = adapters.clock.monotonic()
+    started, opening_finding = _guarded_clock(adapters)
+    if opening_finding is not None:
+        return _refused(opening_finding)
     deadline = started + RUNTIME_LIMIT_SECONDS
     try:
         adapters.ledger.consume(record_id=RECORD_ID, attempt_ordinal=ATTEMPT_ORDINAL)
@@ -549,8 +570,11 @@ def _run_attempt(
         )
     findings.extend(observation.findings)
     candidates.extend(observation.candidates)
-    completed = adapters.clock.monotonic()
-    if completed > deadline:
+    completed, completion_finding = _guarded_clock(adapters)
+    if completion_finding is not None:
+        findings.append(completion_finding)
+        candidates.append(STOP_CONTROL)
+    elif completed > deadline:
         findings.append(
             f"envelope: the attempt reached {completed!r}, past the one deadline "
             f"{deadline!r}, and no extension cycle is authorized"
