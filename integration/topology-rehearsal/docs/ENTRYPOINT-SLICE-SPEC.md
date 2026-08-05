@@ -283,6 +283,38 @@ host observation is refuted on this host, where none of the four `CONTROL_REPOSI
 `constants.py` are invented paths, with `/synthetic/<name>` already enrolled in the leak detector
 (`fakes.py:249`).
 
+## Obstacle 4: the corrected answer stops one seam short of the composition root
+
+Status: **OPEN — verified against the live tests at `3cd9d77`, gates the next RED.**
+
+Mandatory caller injection is right, but `3cd9d77` applied it only to `build_runtime_wiring`.
+The two callers above it were left on their prior shape, and the pair is unsatisfiable
+end to end:
+
+- `test_default_composition_loads_builds_and_runs_the_same_authorization`
+  (`test_scripts_inert.py:201`) pins `execute_authorized_attempt` to call its builder as
+  `build(authorization=authorization)`. The fake at `:216` is `def build(*, authorization)`
+  and accepts no second keyword, so an implementation that passed `repository_roots` would
+  raise `TypeError` against the fake.
+- `test_default_dependency_loader_returns_the_reviewed_real_triple`
+  (`test_scripts_inert.py:244`) pins `dependencies.wiring_builder is build_runtime_wiring` —
+  the real function, which `3cd9d77` made mandatory-keyword with no default.
+
+Each test passes on its own: the first never touches the real builder, the second never calls
+the callable whose identity it checks. Composed, the real default path can only ever raise
+`TypeError: missing a required keyword-only argument: 'repository_roots'`. The RED as committed
+therefore pins a composition root that no honest GREEN can drive, and `__all__`
+(`test_entrypoint_surface_is_bounded`) forbids exporting any resolver that could fill the gap.
+
+This is the same class of defect as obstacles 2 and 3 — a contract satisfiable test-by-test but
+not as a whole — and it takes the same handling: a further RED commit that carries the injection
+up to the argv boundary the corrected answer already named ("the entrypoint script supplies the
+roots from its own argv/config"), not a rewrite. `main` is the only seam in this design that is
+allowed to hold an operator-declared input; `--execute` already sits there at the same trust
+level.
+
+No GREEN is push-eligible until that further RED lands and is independently reviewed.
+
 ## Scope this does not grant
 
 Landing these scripts is still static library work. It does not authorize running either

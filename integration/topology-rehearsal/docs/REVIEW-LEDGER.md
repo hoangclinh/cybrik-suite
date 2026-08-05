@@ -24,6 +24,7 @@ to be lost irrecoverably.
 | `030926c..a4dba72` | Docker adapter platform normalization (4 commits) | GO | 0/0/0/4 | YES | HOLD |
 | `a4dba72..7ed7702` | Runner, first review | NO-GO | 0/1/1/6 | NO | HOLD |
 | `a4dba72..d6c0d47` | Runner, second review + independent security verification | NO-GO / security FAIL | 0/3/1/0 | NO | HOLD |
+| `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 
 ## Range detail
 
@@ -154,6 +155,59 @@ alternate venv or vendored copy can produce it, no CI workflow measures it,
 and the prior Coverage.py authorizations were one-time, already consumed,
 and scoped to a different component. Closing this gate requires a new
 Founder decision.
+
+### `73ec822..69ed068` — Entrypoint wiring RED chain + adapter plan accessor
+
+Independent Opus review. VERDICT NO-GO. P0=1 P1=2 P2=4 P3=2. PUSH-ELIGIBLE NO.
+RUNTIME HOLD.
+
+**The individual findings of this review were not written down before the
+reviewing cycle ended, and are unrecoverable.** This is the second time this
+component has lost a finding list that way; the first was the six P3s of the
+Runner's first review. What can be reconstructed is only what the three
+following commits claim to correct, and each claim is the commit's own, not the
+reviewer's words:
+
+- `6bc0745` withdraws `aae6a30`'s requirement that every command adapter publish
+  the raw process executor by identity, recording that review refuted the
+  security framing but sustained it as a layering defect — a holder of the
+  frozen `Adapters` bundle could reach `adapters.docker.runner.run(argv, ...)`
+  and walk past the plan-membership guard at `adapter.py:250`. Plausibly the P0.
+- `a5307cc` and `3cd9d77` refute the envelope answer for `repository_roots` and
+  replace it with mandatory caller injection.
+
+Treat the above as provenance, not as a discharge. Nothing here proves the
+review's P0/P1/P2 are closed, and the counts stay open until a fresh independent
+review of the full local range says otherwise.
+
+### `73ec822..3cd9d77` — the same chain plus the injection correction
+
+Live static evidence re-measured at `3cd9d77` (this is measurement, not a
+verdict; the independent review of this range was still running when the cycle
+ended):
+
+- Broad census: `1395 passed, 48 failed`. All 48 carry the identical
+  `missing C8 implementation ... does not exist` message for
+  `scripts/prepare_topology_grant.py`, `scripts/run_topology_rehearsal.py` and
+  the absent `scripts/` directory — 41 in `tests/test_scripts_inert.py`, 7 in
+  `tests/test_surface_contract.py`. No failure anywhere else.
+- `tests/test_adapter.py`, `test_runner.py`, `test_admission.py`,
+  `test_preparation.py`, `test_plan.py`: 901 passed, 0 failed.
+- `python -m compileall src` clean; contract validator exit 0, ALL GREEN.
+- No authored module reaches the 800-line bound: `adapter.py` 799,
+  `preparation.py` 798, `grant.py` 794, `runner.py` and `admission.py` 725 each.
+- The diff touches nothing outside `integration/topology-rehearsal/`.
+- **Gate gap:** `ruff` is not installed in this component's `.venv`; the
+  `.venv/bin/ruff` and `python -m ruff` gates could not run. A system `ruff` at
+  `/opt/homebrew/bin/ruff` reports all checks passed on `src`, but that is a
+  different binary at an unpinned version and is recorded as a fallback, not as
+  the gate.
+
+Open blocker found this cycle, independent of the pending review: the corrected
+injection contract stops one seam short of the composition root and pins a
+default path that can only raise `TypeError`. See obstacle 4 in
+`ENTRYPOINT-SLICE-SPEC.md`. The next commit on this slice is a further tests-only
+RED carrying the injection up to `main`'s argv boundary.
 
 ## Open non-technical items for the Founder
 
