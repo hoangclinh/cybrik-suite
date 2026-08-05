@@ -2596,17 +2596,10 @@ test('T47 a free-text or non-.json grant never falls back to SSHSIG-only accepta
       },
     }));
     const report = validateTopologyRehearsals({ root });
-    assert.ok(
-      report.errors.some((error) => error === `${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`),
-      'a non-.json grant artifact must fail with the exact grant-document suffix cause',
-    );
-    assert.ok(
-      report.errors.some((error) => error === grantDocumentError(GRANT_CANONICAL_BYTES_FINDING)),
-      'free text is not a C8 grant document, however validly it is signed',
-    );
-    assert.ok(
-      !report.errors.some((error) => error === `${RECORD_PATH}: ${FOUNDER_SIGNATURE_FINDING}`),
-      'the generic signature finding is reserved for real signature or trust failure',
+    assert.deepEqual(
+      report.errors,
+      [`${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`],
+      'the path suffix is a terminal document cause before bytes or signature are judged',
     );
   });
 
@@ -2619,6 +2612,42 @@ test('T47 a free-text or non-.json grant never falls back to SSHSIG-only accepta
     assert.deepEqual(
       validateTopologyRehearsals({ root }).errors,
       [`${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`],
+    );
+  });
+});
+
+test('T47.1 a canonical grant wearing a non-.json suffix never reaches signature verification', async () => {
+  await withRoot((root) => {
+    const built = buildRecord(root, {
+      ...AUTHORIZED_OPTIONS,
+      grantArtifact: { fileName: 'grant.txt' },
+    });
+    const signature = built.evidence.artifacts.find(
+      (entry) => entry.kind === 'authorization_signature',
+    );
+    const invalidSignatureBytes = Buffer.from('not an ssh signature\n', 'utf8');
+    const invalidSignatureSha256 = sha256(invalidSignatureBytes);
+    writeFileSync(resolve(root, signature.path), invalidSignatureBytes);
+    const record = {
+      ...built,
+      authorization: {
+        ...built.authorization,
+        signature_sha256: invalidSignatureSha256,
+      },
+      evidence: {
+        ...built.evidence,
+        artifacts: built.evidence.artifacts.map((entry) => (
+          entry.kind === 'authorization_signature'
+            ? { ...entry, sha256: invalidSignatureSha256 }
+            : entry
+        )),
+      },
+    };
+    writeRecord(root, record);
+    assert.deepEqual(
+      validateTopologyRehearsals({ root }).errors,
+      [`${RECORD_PATH}: ${GRANT_ARTIFACT_SUFFIX_FINDING}`],
+      'an invalid signature must remain unobserved when the grant path is already terminally invalid',
     );
   });
 });
