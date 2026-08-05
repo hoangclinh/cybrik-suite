@@ -435,3 +435,51 @@ zero hits.
 Landing these scripts is still static library work. It does not authorize running either
 script, Docker, a listener, a database, PKI, migration, runtime UAT, release, GA or
 production. RUNTIME remains HOLD.
+
+## Correction: the owed-edit list above is incomplete
+
+`0190f03` listed four owed edits and named `test_surface_contract.py:178-179` only as a
+*control* enforcing item 1. Reading the two front-door controls against the landed tree shows
+that file is not merely the enforcer — it is itself an owed edit, and so is
+`tests/conftest.py`. The atomic GREEN therefore owns six paths, not four.
+
+`test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder`
+(`test_surface_contract.py:178-179`) asserts `not (SCRIPTS / name).exists()` for both script
+names. `test_both_inert_entrypoints_exist` (`:434-435`) asserts the same two paths *do* exist.
+The two controls are contradictory by construction: exactly one of them is RED at any time, and
+landing the scripts flips which one. No prose edit to `__init__.py` can satisfy the absence
+assertion once the files are on disk, so the absence pin must move in the same commit.
+
+The same applies to `test_the_front_door_places_every_module_on_the_side_it_is_actually_on`
+(`:231`), which requires `FRONT_DOOR_SCRIPT_CLAIM` ("both entrypoint scripts") to sit inside the
+sentence carrying `FRONT_DOOR_ABSENCE_CLAIM`. Once the scripts are present that placement is the
+overstatement inverted: the front door would be describing landed files as absent, which is what
+`:203-234` exists to forbid for modules. The script claim must move to the present sentence and
+the control must move with it.
+
+`tests/conftest.py` is owed only conditionally. `PROJECT_STATUS` is asserted verbatim in both
+`pyproject.toml` and `conftest.py` by
+`test_project_and_harness_headers_state_the_mixed_c8a_lifecycle_truthfully` (`:140-148`). If the
+"BOUNDED C8 LIBRARY CORE PARTIALLY PRESENT — LATER C8 MODULES RED" framing is retired when the
+last RED module lands, both files must change together in the same commit or that control goes
+RED on the half-edit.
+
+Owed paths for the atomic GREEN, restated:
+
+1. `scripts/prepare_topology_grant.py` — new.
+2. `scripts/run_topology_rehearsal.py` — new.
+3. `src/cybrik_suite_topology_rehearsal/__init__.py` — the scripts sentence moves to the present
+   side.
+4. `tests/test_surface_contract.py` — the absence pin at `:178-179` and the script-claim
+   placement at `:231` move with it. Nothing else in that file weakens; the size bound, the
+   single-spawn-site control and the inventory stay exactly as reviewed.
+5. `pyproject.toml` — banner sentence and `description` stop claiming the scripts are absent.
+6. `tests/conftest.py` — only if `PROJECT_STATUS` itself is retired, and then in lockstep with
+   `pyproject.toml`.
+
+`docs/REVIEW-LEDGER.md` still takes an appended row, and this file's own `DRAFT` banner is still
+reconciled or retired, but neither is test-pinned and neither has to be atomic with the scripts.
+
+This correction changes no control and weakens no test. It records that a commit landing only
+the four paths `0190f03` named would leave the broad census RED for a reason the slice itself
+created. RUNTIME remains HOLD.
