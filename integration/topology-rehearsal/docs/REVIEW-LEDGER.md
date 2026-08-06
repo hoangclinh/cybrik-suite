@@ -1310,15 +1310,91 @@ the plan-bound ports still accept something and have not become refuse-everythin
 
 **F30 — P2 — `src/…/preparation.py:220` — the authority-bearing pinned instant is
 a defaulted field.** `granted_observed_at: str = ""` is the only field on
-`PreparationResult` with a default. Today only one construction site exists
-(`preparation.py:736`, inside `snapshot()`, which does pass it) and `grep` finds
-no `PreparationResult(` in `tests/`, so nothing currently receives the default.
-The exposure is forward-looking: a future construction site that omits it gets
-`""`, and `instant("")` returns `None`, which raises `PrecheckAbort` — fail-closed
-today, but the value that fixes every created resource name should be mandatory
-rather than defaulted, so the refusal is a type error at the construction site
-instead of a runtime abort deep inside `_attempt_names`. Smallest honest repair:
-make the field mandatory and keyword-only like its neighbours.
+`PreparationResult` with a default, and `__post_init__` (`:222-266`) validates
+every other field while never touching this one.
+
+**Correction — the original evidence for this finding was false, and is corrected
+in place per the maintenance rule below.** This entry first claimed that "`grep`
+finds no `PreparationResult(` in `tests/`, so nothing currently receives the
+default". The independent reviewer refuted it and the refutation is confirmed by
+measurement: `tests/test_preparation.py` binds the class as `result_type` and
+constructs it four times as `result_type(**result_fields())` (`:635`, `:641`,
+`:682`, `:695`). Measured directly: `PreparationResult` has **11** dataclass
+fields, `result_fields()` returns **10** keys, and the constructed object's
+`granted_observed_at` is `''`. The original grep searched for the literal class
+name and missed every bound-name call site — the exact evasion class this
+project's own AST guards exist to catch, committed here in a ledger claim.
+
+The exposure is therefore live, not forward-looking: four existing tests already
+exercise a result whose pinned instant is `""`. Behaviour stays fail-closed
+(`instant("")` is `None` → `PrecheckAbort` at `runner.py:309-313`), but no test
+reaches that branch — grepping `tests/` for the refusal message returns nothing —
+so the default's only consumer is unexercised. A directly constructed result may
+also carry a non-`str` or a `str` subclass, which contradicts `frozen()`'s
+explicit refusal of safe-scalar subclasses at `:125-133` on a class documented as
+a complete immutable snapshot (`:205`). Smallest honest repair: make the field
+mandatory, and add a `__post_init__` branch requiring
+`type(...) is str and instant(...) is not None`.
+
+**F32 — P2 — `tests/test_preparation.py:322`, `:637-641` — the positive control
+named "the exact proved field set" no longer constructs the proved field set.**
+`result_fields()`'s docstring says "Exactly the field values one satisfied
+preparation would have proved" and returns ten keys against eleven fields, so
+`test_the_exact_proved_field_set_constructs` now asserts that a *different* shape
+than `snapshot()` produces is coherent, and the negative parametrisations at
+`:614-635` and `:645-682` all run against a result pinned to `""`. Preparation has
+no field-inventory pin, unlike `tests/test_admission.py:803-806`, which asserts an
+exact `dataclass_fields` tuple — that absence is why an eleventh field could be
+added with no test noticing. Smallest honest repair: add the missing key to
+`result_fields()` and mirror the admission `dataclass_fields` inventory pin for
+`PreparationResult`.
+
+**F33 — P1 — `src/…/runner.py:116-117`, `:307-314` — the attempt-id derivation
+has no seam the composition root can call, so agreement is still carried by
+convention across a module boundary.** The repair makes the identity nameable
+before the host is read, which is what F29 owed at runtime, but the *formula*
+lives in runner-private constants (`ATTEMPT_INSTANT_FORMAT`, `ATTEMPT_SLICE`)
+that appear nowhere else in `src/` or `tests/`, inside a private
+`_attempt_names(prepared: PreparationResult)` the wiring cannot call because it
+holds no `PreparationResult`. `runner.__all__` is `["RehearsalResult",
+"run_topology_rehearsal"]` (`runner.py:81`), so `build_runtime_wiring` must
+re-implement the strftime format and the `-c8` suffix against the same grant
+field. Two independent renderings of one identity is the same defect *class*
+F29 was: nothing structurally prevents drift, and a divergence would again be
+discovered only by spending the single authorized attempt. This is P1 by F29's
+own acceptance wording — "the created names and the enforced names must be the
+same names" — and not P0, because the runner side is correct and the RED it was
+measured against is honestly green. Smallest honest repair: export one
+`attempt_id_for(pinned_observed_at: str) -> str` (or site the formula in
+`constants`/`plan`) and have both `_attempt_names` and the future wiring call it.
+**This finding must be discharged by the entrypoint GREEN, not after it** — the
+GREEN is what writes the second rendering.
+
+**F34 — P3 — `tests/test_runner.py:866-885` — the runner's anti-self-witnessing
+guard is a two-name denylist that cannot see the new grant-copied field.**
+`..._neither_reads_the_grant_nor_pins_a_fixture_digest` bans `.grant` reads plus
+the single name `selected_image_identity`, reasoning that it is copied straight
+out of the grant so reading it would launder a granted fact back into the facts
+that verify the grant. `granted_observed_at` is now a second field copied straight
+out of the grant (`preparation.py:759`) and read at `runner.py:307`; the guard
+neither bans nor entitles it. The substantive property still holds — the value
+reaches evidence, never `_grant_facts` — so this is a coverage/honesty gap, not a
+violation. Smallest honest repair: derive the denied set from the
+`PreparationResult` fields `snapshot()` copies out of `document`, and record
+`granted_observed_at` as the one named exception with its reason.
+
+**F35 — P3 — `src/…/runner.py:314` — the attempt id is now constant per grant and
+nothing states that property.** Every resource name is now a pure function of the
+signed document, so two runs under one authorization request identical container,
+network, volume and credential names. This is bounded today by the one-attempt
+admission (`admission.py:288-292`) and fails closed on collision at `docker
+create`, and it was already implied by the composition-time plan, so it is not a
+regression — but it is a new property of the runner: an attempt that aborts
+leaving a residual network, then retried under a re-signed grant carrying the same
+pinned observation, collides by name rather than getting a fresh one. Smallest
+honest repair: state the constancy and its residual interaction in the
+`_attempt_names` docstring, or add a test naming the collision as intended
+fail-closed behaviour.
 
 **F31 — P2 — `src/…/preparation.py` — the repair bought its file-size headroom by
 reflowing unrelated statements.** `preparation` is under the strict
