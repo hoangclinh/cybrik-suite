@@ -77,7 +77,7 @@ from .protocols import (
     SignatureVerifier,
     require_port,
 )
-from .views import proved_copy
+from .views import proved_copy, safe_repr, safe_type_name
 
 __all__ = ["RehearsalResult", "attempt_id_for", "run_topology_rehearsal"]
 
@@ -229,7 +229,7 @@ def _loader_facts(authorization: object) -> dict[str, Any]:
             raise
         except Exception as error:  # noqa: BLE001 -- untrusted projections fail closed
             raise PrecheckAbort(
-                f"authorization {projection}: raised {type(error).__name__}"
+                f"authorization {projection}: raised {safe_type_name(error)}"
             ) from None
         observed[name] = _observed_string(value, f"authorization {projection}")
     return observed
@@ -241,7 +241,7 @@ def _require_attempt_ports(adapters: object) -> None:
         try:
             require_port(name, getattr(adapters, name, None), port)
         except TypeError as error:
-            raise PrecheckAbort(f"adapters: {error}") from None
+            raise PrecheckAbort(f"adapters: {safe_repr(error)}") from None
 
 
 def _selected_identity(image: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -367,7 +367,7 @@ def _create_resources(adapters: Any, names: AttemptNames) -> str | None:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- a failed creation is a stop control
-        return f"creation: raised {type(error).__name__}: {error}"
+        return f"creation: raised {safe_type_name(error)}: {safe_repr(error)}"
     return None
 
 
@@ -479,7 +479,7 @@ def _guarded_observation(
             probe_result=None,
             network_projection=None,
             publication_views=MappingProxyType({}),
-            findings=(f"observation: raised {type(error).__name__}: {error}",),
+            findings=(f"observation: raised {safe_type_name(error)}: {safe_repr(error)}",),
             candidates=(STOP_CONTROL,),
         )
 
@@ -508,7 +508,7 @@ def _guarded_removal(remove: Any, kind: str, /, **arguments: Any) -> str | None:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- a failed removal is a stop control
-        return f"teardown: removing the {kind} raised {type(error).__name__}: {error}"
+        return f"teardown: removing the {kind} raised {safe_type_name(error)}: {safe_repr(error)}"
     return None
 
 
@@ -528,7 +528,7 @@ def _guarded_reading(
         raise
     except Exception as error:  # noqa: BLE001 -- an unreadable host is a stop control
         return None, (
-            f"teardown: reading the {label} raised {type(error).__name__}: {error}"
+            f"teardown: reading the {label} raised {safe_type_name(error)}: {safe_repr(error)}"
         )
 
 
@@ -685,7 +685,7 @@ def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
-        return None, f"clock: raised {type(error).__name__}: {error}"
+        return None, f"clock: raised {safe_type_name(error)}: {safe_repr(error)}"
     if type(reading) not in (int, float) or not _finite_reading(reading):
         return None, f"clock: answered {reading!r}, which is not an elapsed-time reading"
     return reading, None
@@ -707,7 +707,7 @@ def _run_attempt(
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- an unconsumed attempt never started
-        return _refused(f"ledger: raised {type(error).__name__}: {error}")
+        return _refused(f"ledger: raised {safe_type_name(error)}: {safe_repr(error)}")
     findings: list[str] = []
     candidates: list[str] = []
     creation = _create_resources(adapters, names)
@@ -790,7 +790,7 @@ def run_topology_rehearsal(
     except PrecheckAbort as error:
         return _refused(error.reason)
     except Exception as error:  # noqa: BLE001 -- every pre-consumption failure refuses
-        return _refused(f"preparation raised {type(error).__name__}: {error}")
+        return _refused(f"preparation raised {safe_type_name(error)}: {safe_repr(error)}")
     decision = decide(
         authorization, adapters, facts=facts, execute_requested=True
     )

@@ -1581,3 +1581,75 @@ def test_created_names_carry_the_granted_pin_not_this_host_s_live_observation(
         fakes.CONTAINER_NAME,
     )
     assert not any(live_attempt_id in name for name in created)
+
+
+class _RaisingStrError(Exception):
+    """An injected port's exception whose `__str__` refuses, as F0046 describes."""
+
+    def __str__(self):
+        raise RuntimeError("this message refuses to render")
+
+
+class _ForgingError(Exception):
+    """An injected port's exception whose message forges a second finding clause."""
+
+    def __str__(self):
+        return "observation refused; teardown: removed the container"
+
+
+class _HostileAdapters:
+    """Any port reached by the observation seam raises the supplied error."""
+
+    def __init__(self, error):
+        self._error = error
+
+    def __getattr__(self, name):
+        raise self._error
+
+
+def test_a_raising_str_on_an_observed_error_does_not_escape_the_observation_guard(runner):
+    """The guard contracted to return a stop control must not raise (F0046).
+
+    `_guarded_observation` renders a caught exception into a finding. Rendering it with a
+    raw `{error}` calls the attacker's `__str__` *inside* the handler, so an injected
+    adapter whose exception refuses to render escapes the seam. Nothing in `_run_attempt`
+    or `run_topology_rehearsal` catches it, so the mandatory `_teardown` is skipped after
+    the container, network, volume and credential already exist: the attempt is consumed
+    and its effects are orphaned. The guard must therefore render through `safe_repr`,
+    which returns through the unbound `str.__str__` slot and cannot be made to raise.
+    """
+    # Arrange. A port that raises an exception whose own rendering refuses.
+    guarded = require_c8_attr(runner, "_guarded_observation")
+    adapters = _HostileAdapters(_RaisingStrError())
+
+    # Act. The seam is contracted to return an observation, never to raise.
+    observation = guarded(adapters, None, 0.0)
+
+    # Assert. It refused in its own voice and stopped the attempt.
+    stop = require_c8_attr(runner, "STOP_CONTROL")
+    assert observation.candidates == (stop,)
+    assert len(observation.findings) == 1
+    assert "observation: raised" in observation.findings[0]
+    assert "_RaisingStrError" in observation.findings[0]
+
+
+def test_an_observed_error_cannot_forge_a_second_finding_clause(runner):
+    """Attacker-authored message text is quoted, not admitted verbatim (F0047).
+
+    Findings are joined with `'; '` into the receipt, so a message containing that
+    separator forges an additional clause in the evidence record. `safe_repr` renders the
+    exception through `repr`, which quotes the message and keeps the forged text inside a
+    single visibly-quoted token instead of presenting it as an independent finding.
+    """
+    # Arrange. A port whose exception message contains the receipt's clause separator.
+    guarded = require_c8_attr(runner, "_guarded_observation")
+    adapters = _HostileAdapters(_ForgingError())
+
+    # Act.
+    observation = guarded(adapters, None, 0.0)
+
+    # Assert. One finding, and the forged clause is not free-standing verbatim text.
+    assert len(observation.findings) == 1
+    finding = observation.findings[0]
+    assert "_ForgingError" in finding
+    assert not finding.endswith("teardown: removed the container")
