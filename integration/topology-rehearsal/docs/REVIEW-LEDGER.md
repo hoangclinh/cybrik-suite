@@ -2126,3 +2126,25 @@ and check `argument_pairs` against real Python binding for crashes. It had not r
 a verdict before the cycle closed, so **F39's repair is recorded as measured but not
 independently reviewed**, exactly as F43/F44 were left. It is owed before any push, and
 the open P1 set for the GREEN gate is judged only after it lands.
+
+## Cycle 20 — measured census at `cdb1f70`, before this cycle's edits
+
+Measured on a clean tree (`git status --short` showed only the untracked `uv.lock`)
+at HEAD `cdb1f70`, which is 44 commits ahead of the pushed PR #55 tip `73ec822`.
+
+| Gate | Command | Result |
+|---|---|---|
+| Broad census | `uv run --offline python -m pytest -q` | **58 failed / 1418 passed** in 0.64s |
+| Lint | `uv run --offline ruff check .` | **2 errors**, both pre-existing `I001`; `--fix` was NOT run |
+| Compile | `uv run --offline python -m compileall -q src tests` | clean |
+| Lockfile | `git status --short` | `uv.lock` untracked and untouched |
+| PR #55 | `gh pr view 55` | OPEN, **draft**, CLEAN; four rendered checks SUCCESS at `73ec822` |
+
+The 58/1418 total is unchanged from cycle 19 and from `25aadc0`. The per-file failure
+distribution was **not** re-measured on a clean tree this cycle — the census capture was
+truncated to its tail before the split was taken, and by the time that was noticed a
+writer lane was already editing the tree. The cycle-19 split (51 `test_scripts_inert.py`
++ 7 `test_surface_contract.py`) is therefore carried as prior evidence, not re-measured
+here. It is re-measured in the cycle-20 closing entry below.
+
+RUNTIME remains **HOLD**. No entrypoint script exists and none was executed.
