@@ -5080,3 +5080,141 @@ anti-self-witnessing control lost an assertion anywhere in the 84-commit range. 
 against the spec for still *naming* the second deleted test at `ENTRYPOINT-SLICE-SPEC.md:167` after
 its removal — the deletion is sound, the spec's reference to it is stale.
 
+### F87 escalated to an authority bypass by adversarial probe. **P1, OPEN, and worse than recorded.**
+
+An independent adversarial verifier was tasked to **refute** F87 and could not. It is REAL, its
+mechanism is confirmed by running probe, and its blast radius is larger than this ledger claimed.
+
+**The mechanism is object aliasing, not value forgery.** `views.stored_entries` snapshots into a
+local `dict` at `views.py:126` (`stored = dict(mapping.items())`); every validation then judges that
+snapshot, while the dataclass field keeps the **caller's live mapping**. Measured directly:
+`result.granted_image_identity is probe` → `True`. Nothing binds read *k* to read *k+1*, so a
+mapping that is honest for the reads validation consumes and hostile afterwards is accepted.
+
+The probe counted the read budget first, then straddled it. A `dict` subclass hostile after N reads
+— consistently across `items()`, `__getitem__`, `__iter__` **and** `.get` — wrapped in
+`MappingProxyType`, is exactly `MappingProxyType` by `type()`, so it clears the field-type gate at
+`preparation.py:205-209` and `immutability_findings`:
+
+```
+protocol reads consumed by validation: {'items': 3, 'getitem': 14, 'iter': 1, 'get': 0}
+ACCEPTED, satisfied = True
+--- what the RECORDED field says AFTER validation ---
+by iteration : attacker/exfil / EXFIL
+by subscript : attacker/exfil / EXFIL
+by .get      : attacker/exfil
+preparation.frozen(recorded field) = attacker/exfil / EXFIL
+recorded field IS the caller's object: True
+```
+
+**The escalation this ledger owed and did not have.** F87 was recorded as reaching only `frozen()`
+and auditors. A second probe on the `image` field, gated on a 22-read total-access counter, reached
+the live consumption path:
+
+```
+total protocol reads validation consumes on `image` = 22
+ACCEPTED, satisfied = True | reads used = 22
+runner._attempt_names(...).image_reference =
+    attacker/exfil@sha256:3333…3333
+```
+
+`runner._attempt_names` names the attempt off `attacker/exfil` — **an authority bypass on the live
+path, with no field-value change and no epoch trick. Every value the validator read was genuine.**
+This is not a documentation or auditor-visibility defect; it is the anti-self-witnessing control
+failing against a mapping that answers honestly exactly as long as anyone is checking.
+
+`views.py:100-101` — *"every recorded copy carries exactly what `.items()` yielded"* — is
+**false** on the `dataclasses.replace` path, and is the claim that made this look closed.
+
+**Anchor corrections (F91 again).** The ledger's `preparation.py:710-731` for `frozen()`'s call site
+is stale by ~22 lines. Verified at `721815b`: `frozen` is defined at `preparation.py:129`; its
+**only** call site is `snapshot()` at `preparation.py:728-756`, with
+`granted_image_identity=frozen(...)` at `:753`. Live anchors: `views.py:126` (the single read),
+`views.py:130` (`subscripted = mapping[key]` — a *second* read, not a binding on the first),
+`preparation.py:196-197` (the two pinned fields), `:113-117` (`FROZEN_MAPPING_FIELDS`), `:199`
+(`__post_init__`), `:215-218` (the `immutability_findings` loop), `:246-248` and `:251` (the two
+`stored_entries` calls the F83/F86 repair added), `:259` (`signed_identity_findings`),
+`observe.py:292,336`, `grant.py:315` (`inventory = tuple(value)`), and the live consumers
+`runner.py:279-280,332,340,591`.
+
+### The F87 repair is one line and needs no extraction commit — the size blocker was wrong
+
+This ledger recorded at cycle 43 and again above that F87 *"no longer fits"* in `preparation.py`'s
+7 free lines and owes a separately reviewed extraction first. **That is refuted.** The minimal
+repair rebinds each field to a dead copy inside the loop that already proves it immutable, at
+`preparation.py:219`:
+
+```python
+        for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
+            nested = immutability_findings(getattr(self, name), name)
+            if nested:
+                raise ValueError(f"{name} is not a deep proof: " + "; ".join(nested))
+            object.__setattr__(self, name, frozen(getattr(self, name)))   # <- the whole repair
+```
+
+`preparation.py` 793 → **794**, six free lines remain against the strict `< 800` bound. `frozen` is
+already in-module at `:129`, so no import is added. Placed at `:219` it runs **before** the
+`stored_entries` calls at `:246`/`:251`, so those reconcile a dead copy and validate-then-record
+collapses into **record-then-validate**. Verified against the probe:
+
+```
+after frozen(): type = mappingproxy | subscript = postgres | items = postgres
+```
+
+`frozen()` rebuilds recursively into fresh `MappingProxyType`-over-plain-`dict`, so the recorded
+object retains no live accessor and performs one `.items()` read whose result is both validated and
+recorded — exactly the property F87 says is missing. Because the loop covers all of
+`FROZEN_MAPPING_FIELDS` and `FROZEN_SEQUENCE_FIELDS`, the same line also closes the
+never-snapshotted fields, including `selected_image_identity`, which `observe.py:307-310` explicitly
+declares unvalidated.
+
+The honest doc repair belongs at `views.py:100-101` (163 lines, 636 free), not in `preparation.py`,
+and the now partly-obsolete 12-line comment at `preparation.py:234-245` **frees** lines rather than
+consuming them. **No extraction commit is required. The cycle-43 size blocker on F87 is withdrawn.**
+
+### F65 is distinct from F87, measured in both directions
+
+- F65 reproduces at HEAD with a **stable** forgery honest on every protocol forever:
+  `MappingProxyType({**genuine, "observed_at": "1970-01-01T00:00:00Z"})` →
+  `ACCEPTED: True | attempt_id -> 19700101T000000Z-c8`. It defeats validation by **content** — a
+  copy holds no authorization — not by time.
+- The F87 repair does not touch it: `frozen()` of the F65 forgery still reports
+  `observed_at = 1970-01-01T00:00:00Z`.
+- Conversely F87 needs no value change at all; its honest face is byte-identical to the genuine
+  identity. F65's authority residual is not its cause.
+
+F87 is likewise distinct from F85/F86, which are third-protocol (`.get`) holes on a *stable*
+mapping. This ledger's note at `:3596` that *"F85/F86/F87 are one defect wearing three faces"* was
+right that patching `.get` alone leaves F87 standing — the F87 mapping is consistent across all four
+protocols at every instant. **The F83/F86 repair landed at `186c1a7` does not close F87 and was
+never claimed to.**
+
+### Exact next action, sharpened
+
+**Repair F87 test-first at `preparation.py:219`**, with a RED that is the probe above — a
+read-budget-straddling mapping accepted with `satisfied = True` whose recorded field then names
+`attacker/exfil`, asserted through `runner._attempt_names(...).image_reference` so the RED states
+the **authority bypass**, not merely the aliasing. Repair `views.py:100-101`'s false claim in the
+same commit. Budget one source line. This is authority-sensitive and owes an independent Opus
+verdict before push, exactly as F83/F86 still do.
+
+### Reviews outstanding at the close of this cycle
+
+Two lanes were still running when the cycle window closed and their verdicts are **OWED, not
+absent-therefore-clean**:
+
+1. the full-range independent Opus review of `3c58664..721815b` — the verdict the F83/F86 repair
+   owes before it can move from REPAIRED-UNREVIEWED to closed;
+2. the mechanical ledger register cross-check (computed status totals vs. the register's claimed
+   P1 = 2 + 4, P2 = 28, P3 = 32; severity contradictions such as F16's P3-vs-P2).
+
+Both must be re-commissioned next cycle. **No finding is discharged by their absence.**
+
+### Push gate at `721815b` / `3631431`
+
+**P0 = 0. P1 OPEN = 2** (F33 deferred to the GREEN; **F87, now escalated to a confirmed authority
+bypass**). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 28. P3 = 33** (F101 added).
+The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays blocked. **None of the
+86-commit local range is push-eligible.** RUNTIME remains **HOLD**. PRODUCTION remains
+**Founder-only**.
+
