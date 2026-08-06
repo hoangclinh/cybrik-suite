@@ -137,9 +137,7 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     if is_immutable_leaf(value):
         return value
     if subclasses_immutable_leaf(value):
-        raise ValueError(f"a {safe_type_name(value)} subclasses a safe scalar but may carry "
-                         "mutable state of its own, so it is not one of the leaves this phase "
-                         "can prove")
+        raise ValueError(f"a {safe_type_name(value)} subclasses a safe scalar but may carry mutable state of its own, so it is not one of the leaves this phase can prove")
     if id(value) in seen:
         raise ValueError(f"a {safe_type_name(value)} refers to itself, so no dead copy of it exists")
     trail = (*seen, id(value))
@@ -154,11 +152,13 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     if isinstance(value, bytearray):
         return bytes(value)
     if isinstance(value, AbstractSet):
-        return frozenset(frozen(item, trail) for item in value)
+        try:
+            return frozenset(frozen(item, trail) for item in value)
+        except TypeError as error:  # F0042 member channel: a dead copy member that will not be hashed
+            raise ValueError(f"a {safe_type_name(value)} has an unhashable dead copy member") from error
     if isinstance(value, Sequence):
         return tuple(frozen(item, trail) for item in value)
-    raise ValueError(f"a {safe_type_name(value)} cannot be proved deeply immutable, so it may "
-                     "not be recorded as something this phase proved")
+    raise ValueError(f"a {safe_type_name(value)} cannot be proved deeply immutable, so it may not be recorded as something this phase proved")
 
 
 @dataclass(frozen=True)
