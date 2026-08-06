@@ -213,7 +213,7 @@ def _observed_string(value: object, label: str) -> str:
     """One loader observation, or a refusal. An unobserved value is never a fallback."""
     if type(value) is not str or not value:
         raise PrecheckAbort(
-            f"{label}: {value!r} was never observed, and a fact the loader did not read "
+            f"{label}: {safe_repr(value)} was never observed, and a fact the loader did not read "
             "may not be taken from the document it is meant to check"
         )
     return value
@@ -302,7 +302,7 @@ def attempt_id_for(pinned_observed_at: str) -> str:
     moment = instant(pinned_observed_at)
     if moment is None:
         raise PrecheckAbort(
-            f"attempt identity: the pinned host observation {pinned_observed_at!r} is not an "
+            f"attempt identity: the pinned host observation {safe_repr(pinned_observed_at)} is not an "
             "exact UTC instant, so no attempt can be named after it"
         )
     return f"{moment.strftime(ATTEMPT_INSTANT_FORMAT)}-{ATTEMPT_SLICE}"
@@ -427,7 +427,7 @@ def _observe_attempt(
     )
     if health != HEALTH_HEALTHY:
         findings.append(
-            f"container_health: {health!r} was not the reviewed {HEALTH_HEALTHY!r} "
+            f"container_health: {safe_repr(health)} was not the reviewed {HEALTH_HEALTHY!r} "
             "inside the one bounded envelope, so the wait ended without readiness"
         )
         candidates.append(STOP_CONTROL)
@@ -492,7 +492,7 @@ def _observed_names(value: object) -> tuple[str, ...] | None:
     """
     if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
         return None
-    return tuple(f"{item}" for item in value)
+    return tuple(str.__str__(i) if issubclass(type(i), str) else safe_repr(i) for i in value)
 
 
 def _guarded_removal(remove: Any, kind: str, /, **arguments: Any) -> str | None:
@@ -586,7 +586,7 @@ def _teardown(adapters: Any, names: AttemptNames) -> TeardownRecord:
     elif credential_residual is not False:
         findings.append(
             f"teardown: the {CREDENTIAL_TEARDOWN_KIND} residual reading "
-            f"{credential_residual!r} is not exactly False"
+            f"{safe_repr(credential_residual)} is not exactly False"
         )
     if listener_finding is not None:
         findings.append(listener_finding)
@@ -687,7 +687,7 @@ def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
     except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
         return None, f"clock: raised {safe_type_name(error)}: {safe_repr(error)}"
     if type(reading) not in (int, float) or not _finite_reading(reading):
-        return None, f"clock: answered {reading!r}, which is not an elapsed-time reading"
+        return None, f"clock: answered {safe_repr(reading)}, which is not an elapsed-time reading"
     return reading, None
 
 

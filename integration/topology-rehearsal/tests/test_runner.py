@@ -1590,11 +1590,22 @@ class _RaisingStrError(Exception):
         raise RuntimeError("this message refuses to render")
 
 
+# The exact clause an injected message tries to forge into the joined receipt.
+FORGED_CLAUSE = "teardown: removed the container"
+FORGED_MESSAGE = f"observation refused; {FORGED_CLAUSE}"
+
+
 class _ForgingError(Exception):
-    """An injected port's exception whose message forges a second finding clause."""
+    """An injected port's exception whose message forges a second finding clause.
+
+    The message is carried in `args` rather than only in a `__str__` override, because
+    `safe_repr` renders through `repr`. An override alone leaves `repr` at the default
+    `_ForgingError()`, which drops the forged text instead of quoting it, and a control
+    asserting only that the text is absent then passes for the wrong reason (F0051).
+    """
 
     def __str__(self):
-        return "observation refused; teardown: removed the container"
+        return FORGED_MESSAGE
 
 
 class _HostileAdapters:
@@ -1641,15 +1652,137 @@ def test_an_observed_error_cannot_forge_a_second_finding_clause(runner):
     exception through `repr`, which quotes the message and keeps the forged text inside a
     single visibly-quoted token instead of presenting it as an independent finding.
     """
-    # Arrange. A port whose exception message contains the receipt's clause separator.
+    # Arrange. A port whose exception carries the receipt's clause separator in its args,
+    # so `repr` actually renders the forged text and the quoting is the only thing
+    # standing between it and a free-standing clause (F0051).
     guarded = require_c8_attr(runner, "_guarded_observation")
-    adapters = _HostileAdapters(_ForgingError())
+    adapters = _HostileAdapters(_ForgingError(FORGED_MESSAGE))
 
     # Act.
     observation = guarded(adapters, None, 0.0)
 
-    # Assert. One finding, and the forged clause is not free-standing verbatim text.
+    # Assert. One finding, carrying the forged text only inside a quoted repr token.
     assert len(observation.findings) == 1
     finding = observation.findings[0]
     assert "_ForgingError" in finding
-    assert not finding.endswith("teardown: removed the container")
+
+    # The forged text is present and quoted. A raw `{error}` rendering would admit it
+    # unquoted, so this pins the quoting rather than the message merely being dropped.
+    assert repr(FORGED_MESSAGE) in finding
+
+    # And on the receipt's own '; ' join it never resolves to a free-standing clause:
+    # the closing quote keeps the final segment distinct from the forged clause itself.
+    assert FORGED_CLAUSE not in finding.split("; ")
+
+
+class _RaisingRepr:
+    """An injected *reading* whose own rendering refuses.
+
+    F0046/F0047 covered rendering of a caught *error*. A reading handed back by a port is
+    the same channel with no handler around it at all, so it is the one this class drives.
+    """
+
+    def __repr__(self):
+        raise RuntimeError("repr refused")
+
+
+class _RaisingStrItem:
+    """An inventory entry that refuses `__str__` but renders under `repr`."""
+
+    def __str__(self):
+        raise RuntimeError("str refused")
+
+
+class _ReadingClock:
+    """A clock whose single reading is supplied by the test."""
+
+    def __init__(self, reading):
+        self._reading = reading
+
+    def monotonic(self):
+        return self._reading
+
+
+class _ClockAdapters:
+    def __init__(self, reading):
+        self.clock = _ReadingClock(reading)
+
+
+# Every spelling that renders a foreign reading through the interpreter's unguarded slot.
+# Each was a live escape; they are pinned as text so the two sitting inside seams with no
+# behavioural stub yet cannot silently return (F0050).
+RAW_FOREIGN_RENDERINGS = (
+    "{value!r}",
+    "{pinned_observed_at!r}",
+    "{health!r}",
+    'f"{item}"',
+    "{credential_residual!r}",
+    "{reading!r}",
+)
+
+
+def test_no_foreign_reading_is_rendered_through_an_unguarded_slot(runner):
+    """Readings are rendered through `safe_repr`, at every site (F0050).
+
+    The F0046 repair was scoped to caught errors, so it left the *readings* those ports
+    hand back rendering through the attacker's own `__repr__`/`__str__` with no handler
+    in scope. `_observe_attempt` at the `container_health` site is the sharpest: it runs
+    after the container, network, volume and credential already exist and before
+    `_teardown`, so an escape there orphans all four after the single attempt is spent.
+    """
+    source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
+    admitted = [spelling for spelling in RAW_FOREIGN_RENDERINGS if spelling in source]
+    assert admitted == [], f"unguarded foreign renderings remain: {admitted}"
+
+
+def test_a_clock_reading_that_refuses_to_render_does_not_escape_the_clock_guard(runner):
+    """`_guarded_clock` is contracted to return a finding, never to raise (F0050)."""
+    # Arrange. A clock answering a non-numeric reading that refuses to render.
+    guarded = require_c8_attr(runner, "_guarded_clock")
+
+    # Act. The seam must answer in its own voice.
+    reading, finding = guarded(_ClockAdapters(_RaisingRepr()))
+
+    # Assert. It refused closed and named the unrenderable reading.
+    assert reading is None
+    assert finding is not None
+    assert "clock:" in finding
+    assert "_RaisingRepr" in finding
+
+
+def test_an_inventory_entry_that_refuses_to_render_does_not_escape_the_teardown(runner):
+    """`_observed_names` renders residual entries without calling their `__str__` (F0050)."""
+    # Arrange.
+    observed = require_c8_attr(runner, "_observed_names")
+
+    # Act.
+    names = observed([_RaisingStrItem()])
+
+    # Assert. One entry, named by its type rather than by a slot that refuses.
+    assert names is not None
+    assert len(names) == 1
+    assert "_RaisingStrItem" in names[0]
+
+
+def test_an_unobserved_fact_that_refuses_to_render_still_refuses_closed(runner):
+    """A loader fact that will not render is a refusal, not an escaping exception (F0050)."""
+    # Arrange.
+    observed_string = require_c8_attr(runner, "_observed_string")
+    abort = require_c8_attr(runner, "PrecheckAbort")
+
+    # Act / Assert. The refusal arrives in the seam's own exception type.
+    with pytest.raises(abort) as caught:
+        observed_string(_RaisingRepr(), "authorization tenant")
+    assert "_RaisingRepr" in str(caught.value)
+
+
+def test_a_pinned_observation_that_refuses_to_render_still_refuses_closed(runner):
+    """An unrenderable pinned instant names no attempt, and does not escape (F0050)."""
+    # Arrange.
+    attempt_id_for = require_c8_attr(runner, "attempt_id_for")
+    abort = require_c8_attr(runner, "PrecheckAbort")
+
+    # Act / Assert.
+    with pytest.raises(abort) as caught:
+        attempt_id_for(_RaisingRepr())
+    assert "_RaisingRepr" in str(caught.value)
