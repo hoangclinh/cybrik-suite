@@ -1368,6 +1368,20 @@ def test_a_nested_mapping_that_refuses_to_be_read_is_reported_rather_than_raisin
     assert "RuntimeError" in divergence[0], divergence[0]
 
 
+def test_a_top_level_mapping_that_refuses_to_be_read_is_reported_rather_than_raising() -> None:
+    """F141: the guard the nested path has, at the depth `__post_init__` actually calls.
+
+    `proved_copy` is entered on a field directly, so the exact-`MappingProxyType` branch is
+    the top of a real walk, not an interior node. A reducer contracted to return findings may
+    not raise out of it there either.
+    """
+    _, _, divergence = views_call(
+        "proved_copy", MappingProxyType(ItemsRefusesToAnswer()), "image"
+    )
+    assert len(divergence) == 1, divergence
+    assert "RuntimeError" in divergence[0], divergence[0]
+
+
 def test_an_honest_nested_reading_is_still_accepted_by_the_deepened_walk() -> None:
     """The positive control: a cross-check that refuses every reading has proved nothing."""
     reading = nested_reading(fakes.network_projection()["Containers"])

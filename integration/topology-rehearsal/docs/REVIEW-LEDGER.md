@@ -7743,3 +7743,108 @@ CLOSED 30 + P1 OPEN 6 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 11
 **`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible, the atomic entrypoint
 GREEN remains blocked, RUNTIME **HOLD**, production **Founder-only**.
 
+
+## Cycle 61 (V2 security lane) — F141 repaired test-first, and its cited site corrected
+
+Coordinator identity `cybrik-security-coordinator`, run `009c6e48-7e07-4ef9-96a9-47a3517a6c16`.
+Entered at HEAD `29d7c9dc692c00000783504bc22f935f413ea0d2`, 118 commits ahead of `73ec822`.
+
+### Live state re-derived, not carried forward
+
+The supplied checkpoint described HEAD `76553f4` at 11 commits ahead; the previous lane tail
+described `4a3d9d7` at 113. Both were stale. Live HEAD was `29d7c9d` at **118**. Every figure below
+is first-hand at that HEAD.
+
+The broad census was re-measured before any edit: **1566 passed / 58 failed**, reproducing cycle
+60's recorded figure exactly. The 58 remain the same absent-script REDs. **0 unintended failures.**
+
+### A provenance question raised and then resolved against itself
+
+Cycle 57 stopped `HUMAN_REQUIRED` stating this runtime advertises no agent-spawn tool, yet cycles 58
+and 60 record *independent* verdicts. That pairing is the shape of an anti-self-witnessing breach, so
+it was checked before anything else. It is **not** one: cycle 57's escalation asked the driver to
+"run a separate reviewer session bound to sha `4a3d9d7`", and cycle 58 addendum B reviews exactly
+`4a3d9d7`, in a `git archive` scratch tree, reporting a **NO-GO** against the coordinator's own
+framing. A self-witnessing writer does not overturn itself. **No finding is filed.** Recorded because
+the question will recur, and the answer should not have to be re-derived each time.
+
+This runtime still advertises no agent-spawn tool. Zero subagents were possible this cycle — a
+capability fact, not a choice to serialize.
+
+### F141 — the RED, proved by execution before any implementation existed
+
+`__post_init__` refuses every unprovable value as `ValueError`. `proved_copy`'s top-level exact-
+`MappingProxyType` branch called `stored_entries` unguarded, and a `mappingproxy` delegates
+`.items()` to the mapping beneath it. Measured traceback:
+
+```
+preparation.py:218  copied, nested, divergence = proved_copy(getattr(self, name), name)
+views.py:313        stored, divergence = stored_entries(value, path)
+views.py:135        stored = dict(mapping.items())
+RuntimeError: this mapping will not be read
+```
+
+A field that refuses iteration reached the caller as **`RuntimeError`, past every `except ValueError`
+written against this contract.** Two tests, both failing first:
+
+- `test_observe.py::test_a_top_level_mapping_that_refuses_to_be_read_is_reported_rather_than_raising`
+- `test_preparation.py::test_a_top_level_field_that_refuses_to_be_read_refuses_as_a_value_error`
+
+### F141 — correction to its own citation, recorded before it misdirects a repairer
+
+Cycle 60 cites the defect at **`views.py:224`**. At `29d7c9d` that line is inside `_dead_copy`'s
+`_proved_members` call, which **is already guarded**. The real unguarded site is **`:313`**. The
+finding's substance was correct and its address was not; a repairer trusting the citation would have
+inspected working code and closed F141 as unreproducible. Graded **P3** as an evidence-accuracy
+defect in the record, not in the product. No new product finding.
+
+### The applied repair
+
+The `:313` read is wrapped in the same guard the nested path already carries, with byte-identical
+refusal wording, `KeyboardInterrupt`/`SystemExit` re-raised ahead of it.
+
+**The verdict does not move.** The refusal returns no immutability finding and one divergence, so
+`__post_init__` still refuses this value — it now refuses it as the one documented type instead of a
+foreign one. Nothing that was refused became proved. **No control was traded for a closed finding.**
+
+### Gates measured after the repair
+
+| Gate | Before (`29d7c9d`) | After |
+|---|---|---|
+| Broad census | 1566 passed / 58 failed | **1568 passed / 58 failed** (+2 new tests) |
+| Unintended failures | 0 | **0** — the 58 are the same absent-script REDs |
+| Focused total | 1001 passed | **1003 passed, 0 failed** |
+| ruff 0.16.0 | 12 findings | **12 findings**, no `--fix` run, baseline not re-based |
+| `compileall` src + tests | exit 0 | **exit 0** |
+| `views.py` / `runner.py` | 337 / 799 | **351 / 799** — `runner.py` gained no line |
+| `uv.lock` MD5 | `ff29c06c8a4247c27f68dac52c14d02d` | **unchanged**, still untracked |
+
+### Owed, and explicitly not claimed
+
+1. **This repair is `repaired-unreviewed`.** No independent verdict has been obtained on it. **F141
+   is not closed by this entry**, and this cycle did not witness its own patch.
+2. The tuple/`frozenset` branches at `:327`/`:330` call `_proved_members` unguarded. Inspected and
+   judged safe — `type(value) is tuple`/`is frozenset` exactly, so iteration is the interpreter's
+   own and cannot dispatch to caller code. Recorded as inspected, **not** as tested.
+3. Neither entrypoint script was run. This remains static implementation and test evidence.
+
+### Gate at the close of cycle 61
+
+- **P0 = 0**
+- **P1 OPEN = 6** — F33, F123, F128, F131, F134, F135
+- **P1 repaired-unreviewed = 11** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122, F136)
+- **P2 OPEN = 43** (44 − **F141 → P2 repaired-unreviewed**)
+- **P2 repaired-unreviewed = 4** (F79, F84, F95, **F141**)
+- **P3 OPEN = 43** (42 + **F142**, the F141 citation correction)
+- **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30**, **SUPERSEDED = 2**, **PHANTOM = 4** (F56-F59)
+
+```
+CLOSED 30 + P1 OPEN 6 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 11
+  + P2 OPEN 43 + P2 r-u 4 + P3 OPEN 43 + P3 r-u 2 = 145
+```
+
+`145` = F1..F142 (142) + F29-A/B/C (3). Exact. Highest ID defined is now **F142**.
+
+**`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible, the atomic entrypoint
+GREEN remains blocked, RUNTIME **HOLD**, production **Founder-only**.

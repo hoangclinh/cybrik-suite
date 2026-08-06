@@ -697,6 +697,29 @@ def test_every_result_coherence_branch_refuses_a_snapshot_of_something_that_neve
         result_type(**{**result_fields(), field: value})
 
 
+class ItemsRefusesToAnswer(dict):
+    """A read-only field whose stored entries will not be handed over at all."""
+
+    def items(self):
+        raise RuntimeError("this mapping will not be read")
+
+
+def test_a_top_level_field_that_refuses_to_be_read_refuses_as_a_value_error(
+    preparation,
+) -> None:
+    """F141: `__post_init__` states one refusal type, and a field's `.items()` may not escape it.
+
+    Every other unprovable value reaches the caller as `ValueError`. A `mappingproxy` delegates
+    `.items()` to the mapping beneath it, so a field that refuses iteration reached the caller
+    as `RuntimeError` instead — past every `except ValueError` written against this contract.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    with pytest.raises(ValueError):
+        result_type(
+            **{**result_fields(), "image": MappingProxyType(ItemsRefusesToAnswer())}
+        )
+
+
 def test_a_mixed_key_control_inventory_is_refused_rather_than_compared(preparation) -> None:
     """Sorting a mixed-type inventory for a message must not raise `TypeError` instead."""
     result_type = require_c8_attr(preparation, "PreparationResult")

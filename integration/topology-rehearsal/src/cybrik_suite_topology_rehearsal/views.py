@@ -310,7 +310,21 @@ def proved_copy(
         return value, (f"{path} refers to itself",), ()
     trail = (*seen, id(value))
     if type(value) is MappingProxyType:
-        stored, divergence = stored_entries(value, path)
+        try:
+            stored, divergence = stored_entries(value, path)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a mapping that will not be read is refused
+            return (
+                value,
+                (),
+                (
+                    (
+                        f"{path}: this mapping raised {type(error).__name__} when it was "
+                        "read by iteration, so there is no reading of it to judge"
+                    ),
+                ),
+            )
         copied: dict[Any, Any] = {}
         nested_findings: list[str] = []
         diverged: list[str] = list(divergence)
