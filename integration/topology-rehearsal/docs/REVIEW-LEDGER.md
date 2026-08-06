@@ -5054,3 +5054,29 @@ does record one. No repair is attempted here: renumbering 45 headings is a large
 with real risk of breaking the `:NNNN` line references other findings depend on, and it must be
 scoped as its own commit.
 
+### Control-weakening sweep over the whole local range — clean, and each deletion accounted for
+
+The push gate forbids weakening the surface, inertness, single-spawn-site, anti-self-witnessing,
+fail-closed and file-size controls to obtain GREEN. That has been asserted each cycle and not
+measured across the range as a whole, so it was measured here. `git diff 73ec822..HEAD -- tests`
+was swept for every removed line matching `assert`, `pytest.raises` or `def test_`. **Exactly nine
+lines were removed, in two clusters, and both clusters are documented deliberate withdrawals rather
+than concessions:**
+
+| Removed | Cluster | Accounted for by |
+|---|---|---|
+| `def test_runner_exports_only_the_result_and_single_entrypoint` + 4 argv/exit assertions | the raw-runner publication withdrawal | `6bc0745`, spec `:224-269` — the `.runner` accessor is itself the authority defect |
+| `def test_runtime_wiring_injects_the_one_executor_into_every_command_adapter` + `adapter.runner is command_runner`, `adapter.plan is wiring.plan`, `wiring.command_adapters[name].runner is wiring.command_runner` | the same withdrawal at the wiring seam | `f6622d4` restored the single-executor control on the default wiring path *without* re-publishing the executor |
+
+Both clusters remove assertions that **required** every command adapter to hand out its executor.
+Deleting them is the F9/Obstacle-3 repair, not a relaxation: the control they carried
+(one executor, one spawn site) survives at `f6622d4` in a form that does not demand publication.
+The spec's own note at `:224` — *"the `.runner` accessor the wiring RED asks for is an authority
+defect"* — is the adjudication, and `69ed068` supplies the replacement seam (*"let every command
+adapter name its plan without handing out its executor"*).
+
+**Nothing else was removed.** No size bound, no inertness check, no fail-closed guard and no
+anti-self-witnessing control lost an assertion anywhere in the 84-commit range. F18 remains open
+against the spec for still *naming* the second deleted test at `ENTRYPOINT-SLICE-SPEC.md:167` after
+its removal — the deletion is sound, the spec's reference to it is stale.
+
