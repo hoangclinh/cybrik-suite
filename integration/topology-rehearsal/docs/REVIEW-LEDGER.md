@@ -4873,3 +4873,44 @@ cluster (F86 + F83) test-first**, reading both instants from what the mapping *s
 `views.stored_entries` and refusing a mapping whose two views diverge, before any binding is
 compared. The probe above is the ready-made RED. Budget 29 free lines in `preparation.py`. F87 and
 F65 are the same seam but a separate commit; F100's two new `I001` sites are cheap and independent.
+
+### F86 and F83 — repair landed at `186c1a7`. Status: **REPAIRED-UNREVIEWED**, not closed.
+
+Test-first, `ad08b19` (RED) then `186c1a7` (GREEN). Four tests added to `tests/test_preparation.py`.
+
+The RED did not rest on a bare `DID NOT RAISE`. It constructed a **satisfied** `PreparationResult`
+and printed the divergence it had accepted:
+
+```
+AssertionError: a satisfied result bound granted_observed_at '2026-08-05T00:00:00Z'
+                to a signed identity that stores '1970-01-01T00:00:00Z'
+AssertionError: a satisfied result pinned to '2026-08-05T00:00:00Z' recorded a live
+                reading that stores the older '2026-08-04T23:59:59Z'
+```
+
+Two **premise** tests, passing before the fix, pin that the forged mapping clears the
+`type(value) is not MappingProxyType` gate, `immutability_findings` **and** `stored_entries`
+divergence. That is what makes this a targeted repair rather than an incidentally green one: every
+other gate admitted the liar, and only the unreconciled third accessor did the damage.
+
+GREEN reads both instants from `stored_entries` snapshots and refuses a mapping whose two views
+diverge **before** either instant is compared. `dict.get` on a plain snapshot is the C
+implementation, so the third-protocol seam is removed rather than relocated. The subscript
+cross-check is kept, not dropped. `stored_entries` joins the existing `.observe` import block,
+preserving the F81/F90 re-export seam. No existing test, message or check ordering changed.
+
+Measured: `tests/test_preparation.py` 355 passed; broad census `58 failed, 1539 passed`
+(1535 -> 1539 is exactly the four added tests; the 58 are the unchanged absent-entrypoint REDs);
+`compileall -q src tests` exit 0.
+
+**Size cost, and the constraint it creates:** `preparation.py` 771 -> **793** of a strict `< 800`
+bound. **Seven free lines.** This module now joins `adapter.py` (1 free) and `grant.py` (6 free) at
+the wall. **F87 and F65 live in this same seam and no longer fit**: their repair must plan an
+extraction as its own separately reviewed commit *first*, which is precisely the mistake cycle 40
+made by hitting the size wall mid-repair.
+
+**Not closed, and not push-eligible.** This is authority-sensitive code and owes an independent
+Opus verdict on `3c58664..186c1a7`. Until that verdict exists these count as REPAIRED-UNREVIEWED,
+exactly like F78, F79, F84, F85, F95, F96 and F97 before them. The register's P1 line therefore
+reads: **P1 OPEN = 2** (F33 deferred to the GREEN; F87), **P1 repaired-unreviewed = 4**
+(F78, F85, F83, F86). P2 = 28, P3 = 32. The push gate `P0 = P1 = P2 = 0` remains **not met**.
