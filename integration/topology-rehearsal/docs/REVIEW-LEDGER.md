@@ -10019,3 +10019,106 @@ reviewer reaches the code for the first time.
 - `P0=P1=P2=0` is **not** established: the standing verdict is NO-GO and the code is unwitnessed.
 - No control weakened, no limit raised, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 22 (V2) — `VERDICT-574e1ed` **GO**, and the 16 rows this ledger never recorded
+
+Two things are recorded here in one commit, deliberately. Splitting them would cost an
+extra invalidation of this file for no gain; section 3 explains why that matters.
+
+### 1. `VERDICT-574e1ed`: GO, P0=0 P1=0 P2=0 P3=1
+
+Scope `runner.py` + `test_runner.py`. `findings_enumerated=true`, `covers_head=true`,
+execution evidence `COMPLETE`. This is the first verdict in which a reviewer actually
+read the F0056 guard: `VERDICT-93e1140` retired F0056/F0055/F0058/F0029 while stating it
+had witnessed no byte of the change, because the packet's body was consumed by this
+ledger. That retirement now rests on a reading, which is the only reason this lane
+reopened a question it had already been credited for.
+
+Dispositions carried by the verdict:
+
+| id | sev | disposition | note |
+| --- | --- | --- | --- |
+| F0061 | P3 | **new** | `runner.py` `attempt_id_for` :302 |
+| F0054 | P3 | carried | `teardown.credential_residual` published unreduced |
+| F0057 | P3 | carried | `PROVED_RENDERINGS` keyed by unparsed expression text |
+| F0059 | P3 | carried | the F0056 witness at :1921 cannot distinguish its two routes |
+| F0060 | P3 | carried | the bare `except Exception` at :500 discards the cause |
+
+**F0061 (P3, new).** The newly exported seam documents a total `PrecheckAbort` refusal but
+delegates classification to `grant.instant`, whose `isinstance(value, str)` gate admits a
+`__class__`-forging value that then raises `TypeError` out of `datetime.strptime`;
+`UNUSABLE_INSTANTS` at `test_runner.py:1350` enumerates nine shapes and no forging case, so
+the control cannot see it. Recorded, not repaired: it is P3, and the repair would re-touch
+`runner.py` and destroy coverage this verdict has just established.
+
+No control was weakened, no limit raised, no finding downgraded to obtain this GO.
+
+### 2. Sixteen open rows this ledger had never recorded
+
+Standing policy is that every P0–P3 finding is recorded here before the cycle ends.
+Measured at `574e1ed`, the driver's fold over the reviewer corpus carried 21 open rows and
+this file mentioned only five (F0040, F0054, F0057, F0059, F0060). The other 16 had never
+been written down here. They were not lost — the verdict corpus is authoritative and held
+them throughout — but anyone reading this ledger would have understood the backlog to be a
+third of its real size. That is a defect in the record, and it is this lane's.
+
+Every row is transcribed from the driver's fold over the reviewer's own verdicts. Severity,
+title, opening commit and verdict count are the reviewer's. None of it is this lane grading
+its own work. All 16 are P3; P3 does not gate the exit, which is why they survived
+unrecorded — an explanation, not a justification.
+
+| id | sev | path | symbol | line | title | opened by | seen |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F0011 | P3 | `tests/test_p1_1_dead_copy_leaf_subclass.py` | `test_the_attacker_content_is_not_what_gets_recorded` | 124 | assertion passes both before and after the repair, so it cannot fail either way | `e311f8b` | 1 |
+| F0012 | P3 | `src/.../views.py` | `_dead_copy` | 346 | duck-typed two-faced mapping that neither inherits nor registers Mapping is never cross-checked | `e311f8b` | 6 |
+| F0014 | P3 | `src/.../views.py` | `stored_entries` | 223 | comparison-raise handlers at :223-233 and :252-262 are unreachable while :147-148 and :207-208 promise they are live | `e311f8b` | 6 |
+| F0017 | P3 | `tests/test_p2_2_dead_copy_class_forgery.py` | `__doc__` | 3 | stale views.py line coordinates across test_p2_2, test_p1_1, test_f153 and test_f135; cite symbols instead | `e311f8b` | 4 |
+| F0018 | P3 | `tests/test_p2_10_dead_copy_bytearray.py` | `__doc__` | 32 | seam-coverage claim wider than asserted; ForgedBytearrayClass absent from the :89-92 parametrization | `e311f8b` | 1 |
+| F0019 | P3 | `tests/test_p2_10_dead_copy_bytearray.py` | `test_bytes_genuinely_consults_a_subclass_dunder_bytes` | 83 | mechanism control pins equality rather than the exactness the repair rests on; pragma at :49 is wrong | `e311f8b` | 1 |
+| F0021 | P3 | `tests/test_f134_get_accessor.py` | `test_proved_copy_cross_checks_the_get_accessor` | 104 | five now-GREEN tests still advertise INTENDED RED (also test_f135:151,:167 and test_f153:138), corrupting census prose | `e311f8b` | 1 |
+| F0027 | P3 | `tests/test_views_open_set_batch.py` | `test_unbounded_rebuilt_nesting_is_reported_not_recursed` | 113 | stray recursion_budget=None parameter reads as a fixture request and is silently ignored by pytest | `d2c290f` | 1 |
+| F0028 | P3 | `tests/test_views_open_set_batch.py` | `test_a_bytearray_mapping_hybrid_is_cross_checked_as_a_mapping` | 197 | bare 'assert diverged' pins no route; a key-set finding satisfies it as readily as the .get contradiction | `d2c290f` | 1 |
+| F0032 | P3 | `src/.../views.py` | `_key_set_findings` | 328 | union of announced and claimed is not deduplicated, so a key announced by both views emits two identical findings and counts twice in unstored | `c89761a` | 4 |
+| F0033 | P3 | `src/.../views.py` | `_key_set_findings` | 345 | len(announced) is reconciled against len(stored) but len(claimed) is never reconciled against anything, so a keys() that omits an entry passes | `c89761a` | 4 |
+| F0038 | P3 | `src/.../observe.py` | module | 78 | the stated reason for re-importing IMMUTABLE_LEAVES and immutability_findings is false: preparation imports neither, and no module in src reads either name through observe | `2066a8d` | 3 |
+| F0041 | P3 | `tests/test_open_set_hostile_string_cut.py` | `test_projected_fails_closed_when_the_copy_error_refuses_to_be_named` | 296 | after the read_items repair this test's HostileNamedError is swallowed and projected:315 names a plain ValueError, so no test drives a hostile-named error through the projected ingress guard | `ede0381` | 1 |
+| F0045 | P3 | `tests/test_f0042_set_arm_hash_channel.py` | `test_a_set_member_whose_dead_copy_is_unhashable_is_refused_as_a_value_error` | 102 | two tests declare themselves INTENDED RED in the commit that makes them green, contradicting the module docstring and misfeeding the declared-failure baseline | `3bdacfc` | 1 |
+| F0048 | P3 | `tests/test_preparation.py` | `test_a_nested_non_iterable_sequence_is_not_reported_as_an_unhashable_set_member` | 2366 | declares itself INTENDED RED (F0043) in the commit that makes it green, misfeeding the declared-failure baseline; the assertion is also pytest.raises(Exception) plus a negative substring, which passes on any other exception | `46e04aa` | 1 |
+| F0049 | P3 | `docs/ENTRYPOINT-SLICE-SPEC.md` | citation basis | 55 | the header pins every citation to test_scripts_inert.py at 4230858, but the superseded sections carry pre-015de49 coordinates; :201 and :244 are now :511 and :620, and :562-581 lands on a test asserting the opposite of what the citation claims | `46e04aa` | 1 |
+
+Transcribed rows: 16, all P3, none gating. Open set after this verdict: 22 rows, all P3.
+
+### 3. Why this is intended to be the last commit to this file before the push
+
+This file invalidates its own review. Coverage is keyed `(path, blob)`. The ledger has been
+scoped into four verdicts — `3bdacfc`, `d2c290f`, `8aef3da`, `93e1140`, all with findings
+enumerated — and is still uncovered, because twice in succession the next commit was a
+ledger-only commit recording the verdict just issued: `8aef3da..14ae5c5` touches this file
+and nothing else and is titled *record VERDICT-8aef3da*; `93e1140..574e1ed` likewise, titled
+*record VERDICT-93e1140*. Recording a verdict destroys the coverage that verdict granted.
+
+Two individually correct rules produce the loop: *record every finding here before the cycle
+ends*, and *every path must be reviewed at its current content*. Held together, `distance`
+can never reach 0, however correct the work. 114 of the 156 commits in this range touch this
+file.
+
+The loop is broken in one place only: **the verdict on this commit will not be appended
+here before the push.** It will be recorded in `roles/security/artifacts/` and in the push
+receipt, and its findings folded back into this ledger in the next range, after the push,
+where an invalidation costs nothing. No finding is thereby unrecorded; the audit rule is
+satisfied by a different, equally durable location for exactly one entry.
+
+What was refused to get here: moving the review `base` to a recent commit would cut this
+file's diff from 9,874 lines to about 111 and still earn full coverage credit, because
+`compute-gate-state-v2.zsh` resolves coverage as `git rev-parse <verdict.sha>:<path>` and
+never reads `.base`. That would make the gate say *reviewed* about content no reviewer read.
+Base stays `73ec822` and the reviewer is given `Read` coordinates instead.
+
+### Cycle action
+
+No product code changed; this ledger entry is the only edit. `runner.py` and `test_runner.py`
+are now genuinely reviewed at their current content with `P0=P1=P2=0`. The remaining distance
+is this file, and the request covering it is issued against this commit.
+
+- No control weakened, no limit raised, no finding downgraded, no entrypoint script written
+  or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
