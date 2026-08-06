@@ -1249,3 +1249,157 @@ def test_a_subscript_that_refuses_to_answer_at_all_is_still_refused(observe) -> 
     )
     assert len(findings) == 1
     assert "KeyError" in findings[0], findings[0]
+
+
+# ---------------------------------------------------------------------------
+# F85. The third protocol on the *live reading*: the binding comparison read the reading
+# through `.get`, while `keyed` validates it by iteration, `local_presence_findings` reads
+# what it stores, `preparation.frozen` rebuilds it from `.items()` and
+# `runner._observed_identity` carries forward exactly what `.items()` yielded — and
+# `stored_entries` cross-checks only `.items()` against `__getitem__`, never `.get`.
+#
+# `mappingproxy.get` delegates to the underlying mapping's own `get`, and `dict.items` and
+# `dict.__getitem__` are resolved in C and do not route through it. So a `dict` subclass that
+# overrides `get` alone stores and subscripts the attacker's binding while answering the one
+# accessor the comparison used with the genuine one. Every consumer records the forged
+# binding; the comparison saw the genuine one and found nothing to say.
+
+
+def reading_that_gets_another_binding(image, **forged):
+    """A live reading that *stores and subscripts* `forged` while its `.get` answers genuinely.
+
+    The genuine answers are taken from the same reading the case starts from, so a refusal
+    below is the control under test rather than a hand-built mapping that had drifted.
+    """
+    genuine = dict(image)
+
+    class StoresOneBindingGetsAnother(dict):
+        def get(self, key: str, default=None):
+            if key in forged:
+                return genuine[key]
+            return super().get(key, default)
+
+    return MappingProxyType(StoresOneBindingGetsAnother({**genuine, **forged}))
+
+
+def test_a_reading_that_gets_one_binding_and_stores_another_passes_every_gate(
+    observe,
+) -> None:
+    """The premise of the refusal below, asserted rather than assumed.
+
+    If the construction did not pass the type gate, the inventory check and the presence
+    control, the refusal below would prove nothing about the binding comparison.
+    """
+    _, image = signed_pair()
+    liar = reading_that_gets_another_binding(image, tag="FORGED")
+    assert type(liar) is MappingProxyType
+    assert dict(liar.items())["tag"] == "FORGED"
+    assert liar["tag"] == "FORGED"
+    assert liar.get("tag") == dict(image)["tag"], (
+        "premise: `.get` must answer the genuine binding, or the case is vacuous"
+    )
+    keys = require_c8_attr(observe, "HOST_IMAGE_KEYS")
+    assert call(observe, "keyed", liar, keys, "image", ordered=False) == ()
+    assert call(observe, "local_presence_findings", liar, "image") == ()
+    _, divergence = call(observe, "stored_entries", liar, "image")
+    assert divergence == (), (
+        "premise: the two cross-checked views agree, so only the third protocol admits this"
+    )
+
+
+# Bindings a live reading may store and subscript while answering `.get` genuinely. Each is a
+# value the reduction already refuses when the reading is read honestly, so what would admit
+# it is the third accessor and nothing else.
+FORGED_LIVE_BINDINGS = (
+    pytest.param({"tag": "FORGED"}, id="tag-forged"),
+    pytest.param({"repository": "evil/repo"}, id="repository-forged"),
+    pytest.param({"index_digest": "not-a-digest"}, id="index-digest-forged"),
+    pytest.param({"manifest_digest": "not-a-digest"}, id="manifest-digest-forged"),
+    pytest.param({"local_image_id": "junk"}, id="local-image-id-forged"),
+    pytest.param({"platform": "junk"}, id="platform-forged"),
+    pytest.param({"tag": None}, id="tag-unread"),
+)
+
+
+@pytest.mark.parametrize("forged", FORGED_LIVE_BINDINGS)
+def test_a_live_reading_is_judged_by_what_it_stores_however_it_answers_get(
+    observe, forged
+) -> None:
+    """The stored binding is the binding: it is what every consumer of this reading records."""
+    identity, image = signed_pair()
+    liar = reading_that_gets_another_binding(image, **forged)
+    findings = call(observe, "signed_identity_findings", identity, liar)
+    assert findings, (
+        f"a live reading storing {forged!r} must be refused whatever its `.get` answers"
+    )
+    key = next(iter(forged))
+    assert any(key in finding for finding in findings), (
+        f"the refusal must name {key!r}: {findings}"
+    )
+
+
+def test_a_live_reading_agreeing_through_all_of_its_views_is_still_accepted(
+    observe,
+) -> None:
+    """The positive control: a check that refuses every reading has proved nothing."""
+    identity, image = signed_pair()
+    assert call(observe, "signed_identity_findings", identity, image) == ()
+    subclassed = MappingProxyType(PlainIdentitySubclass(dict(image)))
+    assert call(observe, "signed_identity_findings", identity, subclassed) == ()
+    rebuilder = MappingProxyType(RebuildsEachSubscript(dict(image)))
+    assert call(observe, "signed_identity_findings", identity, rebuilder) == ()
+
+
+def test_a_live_reading_whose_subscript_states_another_binding_is_refused(
+    observe,
+) -> None:
+    """The reading's own two cross-checked views must not diverge either.
+
+    `__getitem__` is a live protocol on this field elsewhere in the package, so a reading
+    whose subscript answers something other than what it stores is a refusal in either
+    direction — the same discipline already applied to the signed identity.
+    """
+    identity, image = signed_pair()
+    inverted = subscripting(dict(image), {"tag": "FORGED"})
+    findings = call(observe, "signed_identity_findings", identity, inverted)
+    assert findings, "a reading whose subscript states another binding must be refused"
+
+
+def test_a_live_reading_whose_subscript_refuses_a_binding_reports_rather_than_raises(
+    observe,
+) -> None:
+    """A reducer contracted to *return findings* may not throw an unbounded `KeyError`."""
+    identity, image = signed_pair()
+    findings = call(
+        observe, "signed_identity_findings", identity, unreadable_identity(image, "tag")
+    )
+    assert findings, "a reading that will not answer must still be refused"
+
+
+def test_a_reading_whose_items_omit_a_binding_is_refused_rather_than_raising(
+    observe,
+) -> None:
+    """The stored snapshot is read by `.get`, so a short `.items()` refuses rather than raises.
+
+    `keyed` validates the inventory by iterating, and `dict(mapping.items())` is a separate
+    protocol: a subclass overriding `items` alone passes the inventory check while the
+    snapshot every judgement below is taken from is missing a key. Subscripting that snapshot
+    would throw `KeyError` out of a reducer contracted to return findings, so it is read by
+    `.get` on the plain local dict and an absent binding is refused as a disagreement.
+    """
+    identity, image = signed_pair()
+    genuine = dict(image)
+
+    class ItemsOmitsTheTag(dict):
+        def items(self):
+            return [(key, value) for key, value in genuine.items() if key != "tag"]
+
+    short = MappingProxyType(ItemsOmitsTheTag(genuine))
+    keys = require_c8_attr(observe, "HOST_IMAGE_KEYS")
+    assert call(observe, "keyed", short, keys, "image", ordered=False) == (), (
+        "premise: the inventory check reads by iteration, so this must pass it"
+    )
+    assert "tag" not in dict(short.items())
+    findings = call(observe, "signed_identity_findings", identity, short)
+    assert findings, "a reading whose snapshot omits a binding must be refused"
+    assert any("tag" in finding for finding in findings), findings

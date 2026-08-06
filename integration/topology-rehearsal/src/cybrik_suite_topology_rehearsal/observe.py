@@ -246,12 +246,13 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
 
     The answer is taken from what the reading *stores* — the entry its own iteration yields —
     because that is the answer every other consumer of this field records: `keyed` checks the
-    inventory by iterating, the binding comparison below reads through `.get`, `preparation.frozen`
-    rebuilds the mapping from `.items()`, and `runner._observed_identity` carries forward exactly
-    what `.items()` yielded. Reading this one field through a third protocol was a hole rather
-    than a style point: `MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType`
-    by `type()`, so it passes every declared read-only-mapping gate while overloading
-    `__getitem__`, and a reading that stored "not on this host" could answer this control `True`.
+    inventory by iterating, the binding comparison below reads the same stored snapshot,
+    `preparation.frozen` rebuilds the mapping from `.items()`, and `runner._observed_identity`
+    carries forward exactly what `.items()` yielded. Reading this one field through a third
+    protocol was a hole rather than a style point: `MappingProxyType` over a `dict` *subclass*
+    is exactly a `MappingProxyType` by `type()`, so it passes every declared read-only-mapping
+    gate while overloading `__getitem__`, and a reading that stored "not on this host" could
+    answer this control `True`.
 
     A subscript that disagrees with the stored entry — including one that refuses to answer at
     all — is itself a refusal rather than an accepted reading, because `__getitem__` is a live
@@ -313,6 +314,17 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     on the live reading. An identity that stored a forged tag while subscripting as the
     genuine one satisfied every check here and was then recorded, by `preparation.frozen` and
     by `runner`, as the forged pin it stored.
+
+    *Both* operands of that comparison are held to it, by the same helper. The live reading
+    used to be read through a third accessor — `image.get(key)` — which nothing cross-checks:
+    `keyed` iterates, `local_presence_findings` reads what the reading stores, and
+    `stored_entries` reconciles `.items()` against `__getitem__` only. `mappingproxy.get`
+    delegates to the underlying mapping's own `get`, while `dict.items` and `dict.__getitem__`
+    are resolved in C and do not, so a `dict` subclass overriding `get` alone stored and
+    subscripted a forged binding while answering this one comparison the genuine one: every
+    consumer recorded the forgery and this reduction found nothing to say. The reading is now
+    snapshotted by `stored_entries` like the identity, and a reading whose own two views
+    diverge is refused here before any binding is compared rather than read past.
     """
     label = "granted_image_identity"
     refusals = keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)
@@ -324,6 +336,9 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     signed, divergence = stored_entries(identity, label)
     if divergence:
         return divergence
+    live, reading_divergence = stored_entries(image, READING_LABEL)
+    if reading_divergence:
+        return reading_divergence
     unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if signed[key] is None)
     if unread:
         return (
@@ -338,10 +353,12 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     findings.extend(platform_findings(signed["platform"], label))
     findings.extend(local_presence_findings(image, READING_LABEL))
     findings.extend(
-        f"{label}: {key} {signed[key]!r} is not the {key} {image.get(key)!r} the live"
-        " reading states, so this result names two images and proves neither"
+        (
+            f"{label}: {key} {signed[key]!r} is not the {key} {live.get(key)!r} the live"
+            " reading states, so this result names two images and proves neither"
+        )
         for key in OBSERVED_BINDING_KEYS
-        if signed[key] != image.get(key)
+        if signed[key] != live.get(key)
     )
     return tuple(findings)
 
