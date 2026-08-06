@@ -1563,6 +1563,80 @@ would be weakening a control to obtain GREEN and is refused.
 RUNTIME remains **HOLD**. Neither entrypoint script was executed; neither
 exists.
 
+### Finding register at `c444fcb` — every ID F1..F35, status reconciled to live source
+
+Until now the status of a finding could only be recovered by reading ~1500
+lines of prose in which findings are opened by one review and repaired by a
+later commit. That is how earlier cycles lost detail. This register is the
+authoritative status index; the prose sections above remain the evidence.
+
+Produced by an independent read-only pass that re-read the whole ledger and
+then spot-checked **every closure claim against live source** at HEAD
+`c444fcb`. Result of that cross-check: **no falsely-closed finding**. Each of
+the six CLOSED items was confirmed present in shipped source, and each item
+the ledger calls OPEN was confirmed still open.
+
+| ID | Sev | Subject | Status |
+|---|---|---|---|
+| F1 | P1 | Single-shared-executor control deleted from default path | CLOSED |
+| F2 | P1 | Argv-shape refusal band had zero tests | CLOSED |
+| F3 | P1 | Anti-self-witnessing guard bans the only buildable read | **AMBIGUOUS** |
+| F4 | P1 | Spec's normative contract section states a refuted shape | CLOSED |
+| F5 | P1 | Attempt identity fixed from grant pin; runtime used live clock | OPEN — repaired, unreviewed |
+| F6 | P2 | Behavioural half of the mandatory-roots test cannot fail | OPEN |
+| F7 | P2 | Owed-path item 4 incomplete; false "nothing weakens" claim | CLOSED |
+| F8 | P2 | Publication walk cannot see private names | OPEN |
+| F9 | P2 | `wiring.command_runner` publishes the raw executor | OPEN |
+| F10 | P2 | Surface bound pins `__all__`, not the public namespace | OPEN |
+| F11 | P2 | `CommandAdapterAccessors` sited by line count, not cohesion | OPEN |
+| F12 | P2 | Obstacle 1 describes the withdrawn `.runner` accessor as required | CLOSED |
+| F13 | P2 | No negative case pins refusal when `--execute` is absent | OPEN |
+| F14 | P3 | One operator mistake, three refusal spellings | OPEN |
+| F15 | P3 | `.venv/bin/ruff` absent; the pinned lint gate never ran | OPEN |
+| F16 | P3 | `adapter.py` at 799 against a strict `< 800` bound | OPEN |
+| F17 | P3 | Spec claims an argparse-required `--control-root` | CLOSED |
+| F18 | P3 | Spec names a test that does not exist | OPEN |
+| F19 | P3 | Spec says "amend six", lists five | OPEN |
+| F20 | P3 | Spec calls the mixin uncommitted while supplying `.runner` | OPEN |
+| F21 | P3 | Adjudication section's line numbers no longer resolve | OPEN |
+| F22 | P1 | Module-wide walk never applies `computed_attribute_reads` | OPEN — repaired, unreviewed |
+| F23 | P1 | `**` splat launders a grant-derived root | OPEN — repaired, unreviewed |
+| F24 | P2 | Taint escapes via mutation and method-call returns | OPEN |
+| F25 | P2 | `HOST_ROOT_SOURCES` omits `getenv`; `argv[0]` exempted | OPEN |
+| F26 | P2 | Anti-vacuity floor satisfiable with zero real sinks | **OPEN, WIDENED** |
+| F27 | P3 | `def` sink checked over the whole body; validators falsely flagged | OPEN |
+| F28 | P3 | `builtins.getattr` bypasses normalisation and computed refusal | OPEN |
+| F29 | P1 | Created names and enforced names agree on only one host | OPEN — repaired, unreviewed |
+| F30 | P2 | Authority-bearing pinned instant is a defaulted field | OPEN |
+| F31 | P2 | Repair bought size headroom by reflowing unrelated statements | OPEN — recorded, not reverted |
+| F32 | P2 | "Exact proved field set" returns ten of eleven fields | OPEN |
+| F33 | P1 | Attempt-id formula had no seam the wiring can call | NARROWED / PARTIAL |
+| F34 | P3 | Attempt denylist names only `selected_image_identity` | OPEN |
+| F35 | P3 | (recorded at `:1386`) | OPEN |
+
+Sub-IDs `F29-A` (P2), `F29-B` (P3) and `F29-C` (P3) are open and consume no
+top-level number. **There are no gaps in F1..F35. The next unused finding
+number is `F36`** — a future review must not restart numbering at F34.
+
+**Counts at `c444fcb`:** 6 CLOSED, 1 AMBIGUOUS, 1 NARROWED, 27 OPEN.
+Open P1s: **F5/F29** (one defect under two IDs), **F22**, **F23** — all three
+repaired in shipped source but **none independently reviewed**. That is the
+exact reason this range is not push-eligible.
+
+**F3 is the one genuinely ambiguous entry and must not be silently dropped.**
+`:850` states "F3 is NOT discharged"; `:963-964` states F3 is re-opened by
+F22/F23. F22/F23 are since repaired, but no later section re-closes F3, and
+the open set at `:1247-1249` lists only F5, F29, F22, F23. F3's fate is
+therefore tracked entirely through F22/F23 and never restated. Owed: an
+explicit re-closure or re-opening of F3 once F22/F23 receive a verdict.
+
+**Correction to the section immediately above.** The `adapter.py` 799-line
+hazard recorded there is not new — it is **F16**, opened at `:518` and
+re-confirmed at `:1231` and `:1461`. The new facts in that section are only
+that the bound provably spans `scripts/` as well as `src/`, and that the
+entrypoint GREEN must therefore site `build_runtime_wiring` in the script.
+The 799-line count itself was already on the books.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
