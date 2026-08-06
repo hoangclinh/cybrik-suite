@@ -1030,16 +1030,85 @@ def test_runtime_wiring_defaults_to_the_single_subprocess_executor() -> None:
     This pins the type of the default executor and nothing else. It used to also read
     `command_adapters[name].runner is wiring.command_runner`, which required every command
     adapter to publish the raw executor and so handed any holder of the wiring a way past
-    the plan-membership guard in `ExactCommandAdapter.run_effect`. That property is proven
-    without the publication by
-    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner`, and its
-    absence is enforced by
+    the plan-membership guard in `ExactCommandAdapter.run_effect`. Its absence is enforced by
     `test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor`.
+
+    The *sharing* half of the withdrawn assertion is proven in two pieces, because the two
+    paths differ. When the caller injects an executor,
+    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner` proves
+    all five adapters reach that one object. On this default path there is no injected object
+    to observe, so the count is proven structurally by
+    `test_the_default_execute_path_constructs_exactly_one_process_executor`.
     """
     script = load_c8_script("run_topology_rehearsal.py")
     wiring = runtime_wiring(script)
     executor_type = require_c8_attr(script, "SubprocessCommandRunner")
     assert isinstance(wiring.command_runner, executor_type)
+
+
+def test_the_default_execute_path_constructs_exactly_one_process_executor() -> None:
+    """Exactly one executor object exists on the path an operator actually runs.
+
+    The injected path is covered by the ledger of
+    `test_every_command_adapter_routes_its_commands_through_the_one_injected_runner`, but that
+    test hands `build_runtime_wiring` a `LedgerRunner` and so says nothing about what the
+    default builds. Without this test a wiring that constructed a fresh
+    `SubprocessCommandRunner` per adapter — five of them, plus a sixth published as
+    `wiring.command_runner` — passes every test in this file: the single-spawn-site control in
+    `test_the_only_process_executor_is_argv_only_shell_false_and_timeout_bounded` counts spawn
+    *sites* in one class's source and is blind to how many instances of that class exist.
+
+    Five executors would be five independent process seams. The argv-only, `shell=False` and
+    timeout bounds are per-instance, so a later per-adapter executor could widen any of them
+    with no test able to see the widening. The property is stated over the source rather than
+    by reading `adapter.runner` off each adapter, because that read is exactly the publication
+    `6bc0745` withdrew; asserting it structurally hands the caller nothing.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    builder = require_c8_attr(script, "build_runtime_wiring")
+
+    def constructions(tree: ast.AST) -> list[ast.Call]:
+        return [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "SubprocessCommandRunner"
+        ]
+
+    module = ast.parse(inspect.getsource(script))
+    assert len(constructions(module)) == 1, (
+        "the whole script may construct the process executor exactly once"
+    )
+
+    # And that one construction is the composition root's own. A per-adapter executor built
+    # inside a private helper would keep the module count at one while running the call five
+    # times, which is the shape this finding was raised against.
+    builder_tree = ast.parse(textwrap.dedent(inspect.getsource(builder)))
+    assert len(constructions(builder_tree)) == 1, (
+        "the one construction must be `build_runtime_wiring`'s own, not a helper's"
+    )
+
+    # One call node is still not one object if it is evaluated more than once.
+    repeated = (
+        ast.For,
+        ast.AsyncFor,
+        ast.While,
+        ast.ListComp,
+        ast.SetComp,
+        ast.DictComp,
+        ast.GeneratorExp,
+        ast.Lambda,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+    )
+    root = builder_tree.body[0]
+    nested = [
+        type(node).__name__
+        for node in ast.walk(builder_tree)
+        if isinstance(node, repeated) and node is not root and constructions(node)
+    ]
+    assert nested == [], "the executor may not be built inside a loop, comprehension or def"
 
 
 def test_runtime_wiring_completes_the_injected_adapter_surface() -> None:
