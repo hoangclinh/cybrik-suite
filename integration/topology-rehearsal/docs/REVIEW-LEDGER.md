@@ -2095,7 +2095,13 @@ helpers, the `grant_derived_names` body line and docstring, and the new evasion 
 
 **Residual limits, stated rather than hidden.** Only a callee spelled as a literal
 `Name` matching a `def` in the same module is resolved — an aliased callee is caught by
-the module-name walk instead (`aliased-helper`), and a callee obtained at runtime is
+the module-name walk instead (`aliased-helper`) <!-- CORRECTED: the clause "an aliased
+callee is caught by the module-name walk instead (`aliased-helper`)" is FALSE about the
+shipped tree. Independent measurement (ledger cycle 28-29, F47) showed the aliased case
+MISSED, with an identical un-aliased control CAUGHT, isolating the alias as the sole
+cause. F47 remains open. The same false claim in the `call_parameter_bindings` docstring
+was already corrected in source; this prose sentence is corrected here, discharging the
+P3 opened at ledger line 2857. -->, and a callee obtained at runtime is
 outside what any static walk over this file can claim. Parameters are pooled by bare
 name across the module, so one derived `values` argument derives every parameter named
 `values`. That is an over-approximation, which for a fail-closed guard is the safe
@@ -3012,6 +3018,91 @@ Repair **F78** test-first — it is the newest P1, it defeats a control this ran
 repair is small: read the presence answer through the same protocol the inventory check and the
 binding comparison use, so one field is not judged through three accessors. The reviewer's
 `Lying(dict)` construction is the RED. F46 and the second opinion on the re-grade follow it.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
+exists and none was executed.
+
+---
+
+## Cycle 36 — F78 and F79 repaired test-first at `f2bb2c5`
+
+### Live state reconciliation at cycle open
+
+The supplied checkpoint named HEAD `76553f4`. That was stale by 46 commits. Live HEAD at cycle
+open was `c4f8668`, the branch 59 ahead of `origin`. PR #55 remains **draft, OPEN, CLEAN** at
+`73ec822` with all four rendered hosted checks SUCCESS (two `secret-scan`, two `contract standards
+validation`). The untracked `integration/topology-rehearsal/uv.lock` was preserved untouched.
+
+### Census re-measured at `c4f8668` before any edit
+
+`58 failed / 1493 passed` was the *post*-repair figure; the pre-edit baseline measured at
+`c4f8668` was **58 failed / 1486 passed**, which matches exactly the split the previous reviewer
+recorded (51 `test_scripts_inert.py` + 7 `test_surface_contract.py`, all carrying the identical
+absent-implementation reason). No unintended failure exists at HEAD.
+
+### F78 — **REPAIRED**. `observe.py:278-330`, `tests/test_observe.py`, commit `f2bb2c5`
+
+The reviewer's `Lying(dict)` construction was written as the RED first: a `dict` subclass
+overriding `__getitem__` to answer `True` for the presence key while `.items()` and `.get()` store
+`False`, wrapped in `MappingProxyType` and fed through `dataclasses.replace` on a genuine
+`PreparationResult`.
+
+The repair takes the answer from the reading's own iteration — the protocol `keyed` uses to
+validate the inventory, that `preparation.frozen` uses to rebuild the mapping, and that
+`runner._observed_identity` carries forward — instead of from `__getitem__`. A subscript that
+disagrees with the stored entry is itself refused, so the field's two views cannot diverge.
+
+### F79 — **REPAIRED** in the same commit. `observe.py:289`
+
+The old docstring claimed `keyed` made `image[PRESENT_KEY]` readable. `keyed` (`grant.py:300-329`)
+computes `tuple(value)` — it iterates keys and never touches a value, so the claim was false about
+the shipped tree. The docstring is corrected, and a subscript that refuses to answer is now
+converted into a finding rather than raising an unbounded `KeyError` out of a reducer contracted to
+return findings and out of `__post_init__`, which is documented and tested to raise `ValueError`.
+
+### Measured GREEN — coordinator's own measurement, not the writer's
+
+| Gate | Result |
+|---|---|
+| focused `test_adapter/test_observe/test_preparation/test_runner` | **934 passed** |
+| broad census | **58 failed / 1493 passed** — failure count unchanged from the 58 baseline |
+| `compileall` over `src/` | clean |
+| `observe.py` size | **709** lines, under the 800 bound (was 676) |
+
+The seven added passes are the new tests; **no absent-script RED changed character and no new
+failure appeared**. `ruff` and `mypy` remain absent and were not run.
+
+### The P3 ledger defect at line 2096 — **DISCHARGED**
+
+The prose sentence asserting "an aliased callee is caught by the module-name walk instead
+(`aliased-helper`)" now carries an inline correction naming it false and pointing at the F47
+measurement that refuted it. The same false claim in the `call_parameter_bindings` docstring was
+already corrected in source.
+
+### What this cycle did NOT do, stated so it is not read as wider than it is
+
+- **No independent review of `f2bb2c5` was obtained.** The repair is measured but **unreviewed and
+  unpushable**. Commissioning it is the next cycle's first action.
+- The second independent opinion on the proposed F45/F46/F47/F65 re-grade was commissioned in
+  parallel and had not returned when this cycle closed. **The re-grade therefore remains PROPOSED,
+  not applied**, exactly as the previous cycle left it.
+- No entrypoint script was written or executed. No Docker, listener, network or PKI path was
+  touched. The atomic entrypoint GREEN was deliberately not attempted, because P1 ≠ 0.
+
+### Open set at the close of this cycle
+
+**F45, F46, F47, F65** — P1 as recorded, re-grade proposed and awaiting a second independent
+opinion. **F80, F81, F82** — P3, open. F78 and F79 are repaired but their repair is unreviewed, so
+neither is discharged until an independent verdict says so.
+
+P1 ≠ 0 on any reading. The atomic entrypoint GREEN stays blocked and nothing is pushable.
+
+### Next action
+
+Obtain the independent review of `f2bb2c5`, and the still-owed second opinion on the re-grade. If
+that second opinion confirms the downgrade and `f2bb2c5` clears, P1 reaches 0 for the first time in
+this range and the atomic entrypoint GREEN becomes reachable. Otherwise repair **F46** test-first —
+the widest of the three helper gaps.
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
 exists and none was executed.
