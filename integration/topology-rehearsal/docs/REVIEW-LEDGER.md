@@ -8046,3 +8046,118 @@ still requires a reviewer session this lane cannot commission. What this cycle c
 falsifiable target and a vacuity control, rather than a source-derived inference. That repair is
 the natural next in-lane slice — it remains gate-neutral until reviewed, and should not be
 attempted in the same cycle as the entrypoint GREEN.
+
+---
+
+## Cycle 64 (V2 security lane) — F134 repaired test-first; cycle 63's NEXT was refuted by this ledger
+
+### Live state re-derived, not inherited
+
+HEAD at entry `76db015`, branch 121 ahead of `origin`, only untracked file `uv.lock`
+(MD5 `ff29c06c8a4247c27f68dac52c14d02d`, unchanged). Census re-measured first-hand before any
+edit: **1572 passed / 59 failed** — 58 pre-existing absent-script REDs + F131's intended RED.
+
+### The prior cycle's NEXT was not executed, because this ledger forbids it
+
+Cycle 63 closed with `NEXT = route the container reading at runner.py:434 (and probe_result at
+:443) through _proved_reading`. **Cycle 58 addendum B records an independent reviewer directive
+against precisely that edit**, quoted verbatim at `:7535`:
+
+> **Do not schedule F131's repair as "apply `_proved_reading` to two more call sites."**
+> `views.proved_copy` must be fixed first, or the fix will measure GREEN while still bypassable.
+
+The prerequisite is not discharged: **F134 and F135 are still P1 OPEN**. Had the F131 repair been
+written as directed by cycle 63, `tests/test_f131_ingress_guard.py` would have turned GREEN while
+the container reading stayed bypassable through `.get` — a repair that measures green and closes
+nothing. This is the exact trap cycle 58 named. The stale NEXT was rejected in favour of live
+ledger evidence, and F134 was repaired instead.
+
+### F146 — **P2** — **NEW, OPEN.** A cycle NEXT contradicted a recorded reviewer directive
+
+Cycle 63's NEXT is not a small imprecision: it would have produced a false GREEN on a P1 ingress
+bypass. Nothing in the hand-off mechanism cross-checks a proposed NEXT against standing reviewer
+directives in this ledger. **Every future cycle must re-read the directives before acting on an
+inherited NEXT.** Owed: a cheap standing check that a NEXT naming a finding also names that
+finding's recorded prerequisites.
+
+### F134 — repaired test-first. Status **P1 OPEN → P1 repaired-unreviewed**
+
+Cycle 58's reviewer proved F134 in a `/tmp` scratch tree that did not survive into the repository,
+so it existed here only as prose. New `tests/test_f134_get_accessor.py` (five cases) re-establishes
+it as a live executable RED and then closes it.
+
+Measured, before any implementation existed — 3 controls PASS, 2 intended REDs:
+
+| case | before | role |
+| --- | --- | --- |
+| `test_the_double_lies_only_to_get` | PASS | premise: `.items()` and `[k]` honest, `.get` hostile |
+| `test_the_package_validator_refuses_the_live_reading` | PASS | positive control: `validate_internal_network(live).satisfied is False` |
+| `test_the_honest_network_reading_still_passes` | PASS | **vacuity control** — honest shape reaches `TOPOLOGY_PASS` |
+| `test_proved_copy_cross_checks_the_get_accessor` | **RED** | the defect at the unit boundary |
+| `test_the_get_accessor_bypass_does_not_reach_a_pass` | **RED** | the bypass end to end |
+
+A network reading storing `Internal: True` and answering `.get("Internal") → False` reached
+**`TOPOLOGY_PASS`** with `findings: ()`, while the package's own `validate_internal_network`,
+handed the same live object, **refused it**. The receipt attested an isolation the live reading
+denied through the one accessor every verdict is read through.
+
+**The applied repair.** `views.stored_entries` now cross-checks a third view, `mapping.get(key)`,
+against the same single `.items()` read, under the same agreement rule as the subscript (identity
+fast path; otherwise exact same type and a literal `True` in both directions; a raise is a
+refusal). The comparison is extracted to `_states_the_same_value` so both accessors are judged by
+one rule rather than two drifting copies. `.get` is not a lesser accessor than `__getitem__` — it
+is the *primary* one: `observe.py:502`, `:507`, the `validate_publication` reducers and
+`views.nested` all read through it. Both intended REDs are now GREEN.
+
+### F145 — **P2** — **NEW, OPEN.** Two preparation refusals are no longer proved specific
+
+`test_the_pin_is_judged_against_the_instant_the_signed_identity_stores` and
+`test_the_ordering_is_judged_against_the_instant_the_live_reading_stores` assert only
+`pytest.raises(ValueError)` on `PreparationResult(...)`. Their liar stores and subscripts the
+forged instant while answering `.get` genuinely — which the F134 repair now refuses **at ingress**.
+Both still pass, but they may now pass through the cross-check rather than through the pin and
+ordering comparisons they were written for. **This is recorded rather than papered over.** Owed: a
+refinement asserting the refusal *reason*, so each control is proved specific again. No control was
+weakened to reach GREEN; the coverage moved earlier, and this finding is the debt that move created.
+
+### Two premise assertions updated, and why that is not a relaxation
+
+`test_observe.py:1483` and `test_preparation.py:959` asserted `divergence == ()` with the comment
+"only the third protocol admits this". They were **characterisations of the F134 hole itself**, so
+closing it necessarily falsified them. They now assert the opposite with an explicit note that they
+asserted `== ()` before F134 was repaired. **Every downstream security control they guard still
+passes untouched**, including `test_a_live_reading_is_judged_by_what_it_stores_however_it_answers_get`
+(7 params) and `test_a_live_reading_agreeing_through_all_of_its_views_is_still_accepted`. No test was
+deleted and no assertion was weakened.
+
+### Gates measured after the repair
+
+- Broad census **1577 passed / 59 failed** = 58 pre-existing absent-script REDs **+ F131's one
+  intended RED**. **0 unintended failures.** 1572 + 5 new = 1577 exactly.
+- **The intermediate census was checked, not assumed.** The first run after the repair read
+  1574/62; the arithmetic (+5 new passes, +2 net) exposed **3 regressions** that the totals alone
+  would have hidden. They were identified by name and resolved as above.
+- `ruff check .` = **12**, the recorded baseline, all in `observe.py`, `preparation.py`,
+  `test_errors.py`, `test_runner.py` — **none in `views.py` or the new module**; baseline not
+  re-based. `compileall src tests` rc=0.
+- `runner.py` **untouched at 799/800**; `views.py` 404/800. `uv.lock` untracked and unchanged.
+- **F131 is deliberately still RED.** Its repair is a separate slice and was not attempted here.
+
+### Owed, and explicitly not claimed
+
+1. **This repair is `repaired-unreviewed`.** No independent verdict has been obtained. F134 does
+   **not** decrement the gate.
+2. **F135 is still P1 OPEN** — the value-agreement fallback is still decided by an `__eq__` the
+   attacker owns on both sides, and `_states_the_same_value` inherits that weakness unchanged. It
+   was not in this slice's scope. **F131's repair is still blocked**: cycle 58's prerequisite is
+   only partly discharged.
+
+### Gate at the close of cycle 64
+
+- **P0 = 0**; **P1 OPEN = 6** (F33, F123, F128, F131, F135, F143 — **F134 → repaired-unreviewed**);
+  **P1 r-u = 12** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122, F136, **F134**);
+  **P2 OPEN = 46** (44 + **F145**, **F146**); **P2 r-u = 4**; **P3 OPEN = 43**; **P3 r-u = 2**;
+  **CLOSED = 30** (ninth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **149**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**.
