@@ -3106,3 +3106,56 @@ the widest of the three helper gaps.
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
 exists and none was executed.
+
+### F83 — **P1** — `src/cybrik_suite_topology_rehearsal/observe.py:321-348`. **NEW, OPEN.**
+
+Surfaced by the F78 writer while measuring its own residual, and recorded here rather than folded
+silently into a commissioned repair. **F78 was repaired on the live reading only; the pinned
+identity has the identical three-protocol hazard, and it is still open.**
+
+`signed_identity_findings` reads the identity through `identity[key]` — `__getitem__` — at the
+`unread` check, the registry-digest loop, `platform_findings` and the binding comparison, while
+`keyed` validates that same mapping by *iteration*. A `MappingProxyType` over a `dict` subclass
+therefore passes `__post_init__`'s exact-`type()` gate and every declared read-only-mapping gate
+while its subscript disagrees with what it stores. Measured by the writer:
+
+```
+stored tag: FORGED | .get('tag'): FORGED | identity['tag']: '16-alpine'
+replace(result, granted_image_identity=liar) -> ACCEPTED, satisfied = True | recorded tag = FORGED
+```
+
+A copy asserts `satisfied is True` while *recording* a forged tag. This is the exact mirror of F78
+with the live reading and the pinned identity swapped, so it is the same authority defect on the
+other operand and is graded the same: **P1**.
+
+Scope note recorded so the repair is not mis-sized: `preparation.image_findings` reads the other
+six reading keys and `observed_at` through `image[key]` as well, so the same seam exists a third
+time in `preparation.py`. `prepare()`'s live path is expected to be immune for the same reason it
+was immune to F78 — `frozen()` rebuilds any mapping from `.items()`, normalising a subclass away —
+but that has **not** been re-measured for the identity operand and must not be assumed.
+
+#### Correction to the F78 repair's description above
+
+The repair does **not** simply stop calling `__getitem__`. It keeps the subscript as a *cross-check*:
+acceptance requires the stored entry to be exactly `True` **and** the subscript to agree. The writer
+measured that pure single-protocol reading would have produced a **refuse→accept** transition,
+because `__getitem__` remains a live protocol on this field elsewhere (`runner._selected_identity`
+reads `image[key]`), so trusting `items()` alone would have re-admitted F79's previously-refused
+case. The stricter shipped form is deliberate.
+
+#### The repair's differential, as measured by the writer against `c4f8668`
+
+16 cases, **zero refuse→accept**. Exactly two rows moved, both toward refusal: the F78 liar
+`ACCEPTED(satisfied=True)` → `REFUSED(ValueError)`, and the F79 refuser `RAISE(KeyError)` →
+`REFUSED(ValueError)`. The remaining 14 are identical, including **two** positive controls — an
+unchanged `MappingProxyType` copy and a no-override `dict`-subclass proxy — both still
+`ACCEPTED(satisfied=True)`. The check is not vacuously refusing.
+
+Intended RED was `5 failed, 2 passed, 114 deselected`; GREEN `7 passed, 114 deselected`. The two
+that passed in both states are the deliberate positive controls.
+
+### Open set correction
+
+F83 joins the open P1 set: **F45, F46, F47, F65, F83**. P1 ≠ 0 stands independently of how the
+proposed F45/F46/F47/F65 re-grade resolves, because F83 is new, un-regraded and a live authority
+defect of the same shape the range has been closing. The atomic entrypoint GREEN remains blocked.
