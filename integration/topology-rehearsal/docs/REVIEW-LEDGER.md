@@ -1340,10 +1340,16 @@ line away from that gate.
 are untouched by design. This commit is one finding, test-first, as the cycle
 contract requires.
 
-**Independent review status.** An independent Opus review of exactly this
-working-tree diff was commissioned in the same cycle; its verdict is recorded in
-the section below. Until that verdict reads P0=P1=P2=0 across the whole local
-range, `73ec822..HEAD` stays **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+**Independent review status: NOT OBTAINED.** An independent Opus review of exactly
+this diff was commissioned in the same cycle and did **not** return before the
+cycle closed. No verdict section follows this one, and none may be inferred. This
+repair is therefore **claimed-repaired-but-unreviewed**, exactly like F22/F23 —
+the measured evidence above is real, but measurement is not a verdict. F5/F29
+stays on the open list until an independent reviewer reads this diff.
+
+Until that verdict reads P0=P1=P2=0 across the whole local range,
+`73ec822..HEAD` stays **PUSH-ELIGIBLE NO / RUNTIME HOLD**. The next cycle's first
+action is to obtain that review of `e3d6116..8cc85de`.
 
 ## Open non-technical items for the Founder
 
