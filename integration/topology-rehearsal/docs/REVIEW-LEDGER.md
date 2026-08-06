@@ -7402,3 +7402,33 @@ space first, and the naive relocation is blocked: `views.py` imports nothing fro
 `preparation.py` already imports `views.proved_copy` (`preparation.py:64`). Moving `_proved_reading`
 into `views.py` as written would therefore close an import cycle. The next writer must resolve that
 seam explicitly, and must not obtain space by relaxing `MODULE_LINE_LIMIT`.
+
+### Cycle 58 addendum A — independent evidence cross-check of cycle 57: **ACCURATE, 0 of 7 claims wrong**
+
+A read-only cross-checker, an identity distinct from cycle 57's writer, was asked to refute seven
+factual claims in the cycle-57 section against live source and live runs at `4a3d9d7`. It refuted
+none:
+
+| # | cycle-57 claim | verdict |
+|---|---|---|
+| 1 | Closing tally `30+4+4+2+10+39+3+41+2 = 135`, and `135 = F1..F132 (132) + F29-A/B/C (3)` | **CONFIRMED.** Arithmetic recomputed. Named sub-buckets match their counts. F131/F132 appear only in the cycle-57 section — not double-placed. F29-A/B/C confirmed to exist at `:1092`, `:1103`, `:1109`. |
+| 2 | `runner.py` 799 lines; `MODULE_LINE_LIMIT = 800` at `tests/test_surface_contract.py:96` | **CONFIRMED**, both exact. |
+| 3 | `runner.py:434` is the `frozen(...)` container reading; `:443` wraps the probe result | **CONFIRMED.** `:434` verbatim; `:443` is `probe_result = frozen(` closing on `:444`. |
+| 4 | `views.py` 246 lines | **CONFIRMED**, exact. |
+| 5 | Census 1551 passed / 58 failed, split 51 `test_scripts_inert.py` + 7 `test_surface_contract.py` | **CONFIRMED** from a live run, split counted from real `FAILED` lines. |
+| 6 | ruff 0.16.0, 12 findings, unchanged from the F120 baseline | **CONFIRMED.** Same 12 sites as the baseline pinned at `:5497`: `observe.py` F401 ×2 + ISC004 ×5 (`:266,:272,:281,:286,:345`); `preparation.py` F401 ×1 + ISC004 ×2 (`:655,:689`); `tests/test_errors.py` I001 `:12`; `tests/test_runner.py` I001 `:3`. No `--fix`. |
+| 7 | Highest finding ID defined is F132 | **CONFIRMED** as of `4a3d9d7`. The only `F1[3-9][0-9]`-shaped hits were `F401`, a ruff rule code, already disclaimed as a non-finding at `:7224`. **F133 is opened by this cycle and is now the highest.** |
+
+**Stated limit of this cross-check, recorded rather than glossed:** item 1 was verified by exact
+incremental delta-trace from cycle 56's already-reconciled close-out at `:7192-7230` (sum 133),
+showing cycle 57 adds exactly F131 to P1 OPEN and F132 to P2 OPEN and changes nothing else. The
+30-member CLOSED, 39-member P2 OPEN and 41-member P3 OPEN rosters were **not** re-derived bottom-up
+across all 57 cycles. The tally is therefore *consistent with a reconciled baseline*, not
+*independently recounted from zero*. F98's full bottom-up discharge at `:4629` remains the last
+from-scratch reconciliation.
+
+The coordinator separately re-measured gates 2, 4, 5 and 6 first-hand, and additionally re-proved
+all 51 `test_scripts_inert.py` REDs **absent-script by traceback** at this HEAD — 5 naming
+`scripts/prepare_topology_grant.py` and 46 naming `scripts/run_topology_rehearsal.py`, both "does
+not exist". Focused suites at `4a3d9d7`: `test_runner` 102, `test_observe` 157, `test_preparation`
+361, `test_adapter` 366 — **986 passed, 0 failed.**
