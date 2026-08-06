@@ -5952,3 +5952,46 @@ count **111**.
 **No part of the 98-commit local range is push-eligible.** The P0=P1=P2=0 gate fails on measurement.
 **The atomic entrypoint GREEN must not begin** while F108 stands. RUNTIME remains **HOLD**.
 Production remains **Founder-only**.
+
+### The F108 repair was applied in-tree this cycle, measured, and is NOT yet committable
+
+The specified minimal repair was applied to the working tree (uncommitted, preserved): all eight
+`guarded(...)` calls in `observe()` (`preparation.py:490-524`) became `projected(...)`. Inspected
+directly as a diff, that change is **exactly the specified repair and nothing else** — eight
+insertions, eight deletions, no control, refusal, guard or docstring removed — and at that point
+`preparation.py` was still **798** lines, i.e. line-neutral, as `projected` and `guarded` are the
+same length.
+
+**Measured with the repair applied**, at the working tree over HEAD `9ccd92a`:
+
+- Full suite: **`59 failed, 1544 passed`**. `1544 = 1542 + 2` new tests.
+- Terminus classification: **58 of the 59 terminate in `missing C8 implementation`**. There is
+  therefore **exactly one UNINTENDED failure** — the first non-absent-script failure this range has
+  produced.
+- `ruff check .`: 12 errors, **no delta** against the pinned baseline.
+- `python3 -m compileall -q src tests`: exit 0.
+
+### F113 — **P1** — `preparation.py`, working tree only. **NEW, OPEN. Blocking, measured.**
+
+The single unintended failure is
+`tests/test_surface_contract.py::test_no_authored_module_exceeds_the_reviewed_size_bound`:
+
+    AssertionError: assert {'src/cybrik_suite_topology_rehearsal/preparation.py': 803} == {}
+
+`MODULE_LINE_LIMIT` is **800** (`tests/test_surface_contract.py:96`). `preparation.py` reached **803**
+through **five net lines added after** the eight-swap minimal repair (the file diff grew from 8/8 to
+14 insertions / 9 deletions). This is a **reviewed size control failing closed exactly as designed**,
+and it is recorded as a P1 because the range's own control test is RED on non-absent-script grounds
+for the first time.
+
+**It must not be discharged by raising `MODULE_LINE_LIMIT`, by deleting a control, or by extracting a
+module.** Extraction is a separate reviewed change and is not authorized in this cycle. The repair is
+to revert the five lines that are not load-bearing for the F108 fix, returning the file to 798.
+
+**The F108 repair is therefore measured-but-not-committed.** Its RED-before-GREEN proof — the exact
+failing output showing attacker content recorded with `satisfied=True` through `prepare()` — was
+commissioned and has **not been received**, so this repair is **not yet recordable as TDD** and the
+two new tests are of unproved RED provenance. F108 stays **OPEN**.
+
+**Push gate unchanged: P0 = 0, P1 OPEN = 3** (F33, F108, F113). RUNTIME **HOLD**. Production
+**Founder-only**.
