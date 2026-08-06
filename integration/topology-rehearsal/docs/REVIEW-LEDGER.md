@@ -5407,3 +5407,72 @@ The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays bl
 88-commit local range is push-eligible.** Origin/PR #55 remains at `73ec822`, OPEN, draft, `CLEAN`,
 four rendered hosted checks SUCCESS. RUNTIME remains **HOLD**. PRODUCTION remains **Founder-only**.
 
+
+### F104 — **P1** — `preparation.py:224-230`. **NEW, OPEN. The candidate F87 repair relocates the bypass into `frozen()` itself.**
+
+The uncommitted candidate repair (freeze each proved field, but reconcile the *live* object's two
+views with `stored_entries` first, so F103's `SubscriptRefuser` refusal survives) was **measured, not
+assumed**. It does not close F87.
+
+**Measured evidence, current working tree.** A `dict` subclass budgeting all four protocols
+(`.items()`, `__iter__`, `__getitem__`, `.get`) together, under `MappingProxyType`, was applied to
+**both** `image` and `granted_image_identity` at once. Total live reads spent per field: **image 11,
+granted_image_identity 10**. The last of those is the read `frozen()` itself spends rebuilding from
+`.items()` at `preparation.py:151`. Setting each budget to `total - 1` — honest through
+`immutability_findings` and through the new live divergence check, hostile at the freeze read:
+
+```
+off=0 ACCEPTED ref='attacker/exfil@sha256:eeee…'  BYPASS
+off=1 ACCEPTED ref='attacker/exfil@sha256:eeee…'  BYPASS
+off=2 ACCEPTED ref='attacker/exfil@sha256:eeee…'  BYPASS
+```
+
+`satisfied` is `True`, and `runner._attempt_names` renders the attacker's image reference for the one
+authorized attempt. This is the exact hazard `:5199` predicted: *"the freeze itself performs one
+further `.items()` read, and an F87 mapping straddling its read budget answers that read hostilely."*
+
+**Why the single-field attack is not enough, and why that does not save the repair.** Flipping
+`image` alone is still refused: `signed_identity_findings` at `:271` compares the recorded image
+against the signed identity and reports drift. The attacker simply budgets **both** caller-supplied
+mappings to flip at their own freeze read, so the two agree on attacker content and the cross-check
+passes. Any repair that leaves the dead copy to be taken by a *further* live read is defeated the
+same way, whatever cross-checks follow it.
+
+**The new test is GREEN for the wrong reason.** `test_a_satisfied_result_may_not_record_a_mapping_
+that_can_still_answer` measures the budget with an unreachable budget first and then sets
+`budget = spent`, where `spent` *includes* the freeze's own read. It therefore pins only the variant
+where the mapping stays honest for the whole of construction. It is a genuine RED against HEAD —
+independently reproduced on an isolated `/tmp` copy of HEAD's source, failing with the attacker
+reference reached after 25 reads — but it is **not** a sufficient GREEN gate, and it must not be
+recorded as one.
+
+**Status.** F87 stays **P1 OPEN — defect stands**. F104 is **P1 OPEN** against the candidate. The
+candidate's source and test remain **uncommitted**; they are not a fix and must not be pushed. What
+the candidate *does* establish and keep: F103 is not repeated (both
+`test_a_proved_result_refuses_an_unreadable_*_as_a_value_error` pass), and the direct-alias variant
+is closed. F87's real repair must bind the dead copy to the validated read — one read, whose result
+is both judged and recorded — rather than re-reading the live object to copy it.
+
+### Static gates re-measured at the candidate working tree
+
+| Gate | Result |
+|---|---|
+| Broad census | **58 failed / 1540 passed**, every RED absent-script — baseline restored |
+| Regression hunt | **NONE** outside `test_scripts_inert.py` / `test_surface_contract.py` |
+| Lint | `uv run --frozen ruff check src tests` — **exactly 12**, no new error; `preparation.py` ISC004 anchors drift `650,684` → `662,696` (**F91 recurring a fourth time**) |
+| Compile | `compileall -q src tests` clean, exit 0 |
+| Size | `preparation.py` **799** of a strict `< 800` — the candidate first measured **805**, a real size-control breach caught by `test_no_authored_module_exceeds_the_reviewed_size_bound`; corrected by trimming comment prose only, no control touched |
+| Diff-check | `git diff --check` clean; `git status --short` exactly the three modified files plus the untracked `uv.lock`, unmodified |
+
+The 805-line breach is worth recording on its own: the size bound is enforced by a test, and it
+caught a real violation that the census's absent-script noise would otherwise have hidden at
+**59 failed**. Any future repair to `preparation.py` has **one** free line.
+
+### Push gate at this working tree
+
+**P0 = 0. P1 OPEN = 4** — F33 (deferred to the GREEN); F87 (**defect stands**, its candidate repair
+now refuted by measurement); F103; and **F104**. **P1 repaired-unreviewed = 4** (F78, F85, F83, F86).
+**P2 = 29.** **P3 = 33.** The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN
+stays blocked. **None of the 90-commit local range is push-eligible.** Origin/PR #55 remains at
+`73ec822`, OPEN, draft, `CLEAN`, four rendered hosted checks SUCCESS. RUNTIME remains **HOLD**.
+PRODUCTION remains **Founder-only**.
