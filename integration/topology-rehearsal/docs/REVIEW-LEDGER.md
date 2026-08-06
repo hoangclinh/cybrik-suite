@@ -8695,3 +8695,48 @@ The corrected extractor output against the absolute path is retained at
 `roles/security/artifacts/counting-rule-extractor-output-5a6a635.txt`, alongside the extractor
 itself, so the counterexample is reproducible by a third party. **Both are retained as evidence of
 a refuted method, not as a tool to be reused.**
+
+---
+
+## Cycle 72 — the blocking review is scoped and sized: 425 lines, one batch verdict
+
+Recorded in-repo (not only in role state) because a commissioned reviewer will be briefed from this
+file. No new finding is opened, no count moves, and no gate changes.
+
+### The reviewable surface is 6% of the range, not all of it
+
+Cycles have been reasoning against "an unwitnessed surface of 132 commits / +14938 lines," which is
+true but has made the unblock look intractable. Measured decomposition of `73ec822..20536dc`:
+
+| Category | Insertions | Share |
+| --- | --- | --- |
+| `docs/` (this lane's own prose, chiefly this ledger) | 9,156 | 61% |
+| `tests/` | 4,953 | 33% |
+| **`src/` — the security-relevant code** | **829** | **6%** |
+
+Source churn: `views.py` **+425/-0 (entirely new)**, `observe.py` +231, `preparation.py` +186,
+`runner.py` +116, `adapter.py` +12, `__init__.py` +2. **The root of the blocking chain is one new
+425-line module.** The ledger's own bulk is what made this look like a 15k-line audit.
+
+### Review F134 + F135 + F136 as one batch, not three serial verdicts
+
+All three are defects in the same copy path in `views.py`, and F131's remedy depends on **all
+three** — `.get` divergence (F134), attacker-owned `__eq__` (F135) and nesting below depth 0 (F136)
+each survive `_proved_reading` independently. Reviewing them one per cycle serializes the unblock
+behind three verdicts for no benefit. Bind the verdict to `HEAD=20536dc`, `tree=bb1de28`,
+`sha256(views.py)=b9149ef137942170d71a92b37edd6c0d66965e52f58e737f2cf494b1db65d303`.
+
+### F131 re-proved by execution, and its one-line repair re-confirmed as the documented trap
+
+At this HEAD `tests/test_f131_ingress_guard.py` is RED with all three controls sound (the two-faced
+double diverges, `frozen` takes only the `.items()` face, `_proved_reading` refuses that same
+reading, and the honest control still reaches `TOPOLOGY_PASS`). So **P1 OPEN >= 1 by execution**,
+independent of the unrecoverable tally. The line-neutral edit at `runner.py:434`
+(`frozen` → `_proved_reading`) fits the size bound and was **declined again**: per `:7529` it would
+measure GREEN while the class stays bypassable, and it would now additionally rest the container
+ingress on three `repaired-unreviewed` repairs. Census unchanged at **1582 passed / 59 failed**,
+0 unintended.
+
+Gate unchanged: `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible.
+RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**. Neither entrypoint
+script was written or run. The reviewer identity remains structurally unavailable (F143).
