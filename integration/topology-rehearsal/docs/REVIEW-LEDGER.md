@@ -5263,3 +5263,104 @@ The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays bl
 86-commit local range is push-eligible.** RUNTIME remains **HOLD**. PRODUCTION remains
 **Founder-only**.
 
+## Cycle 46 — the 58-RED census proved absent-script by traceback, the lint baseline pinned exactly, and F87's repair opened
+
+Measured at live HEAD `e4fc29c`, local range `73ec822..e4fc29c` (88 commits ahead of origin), on a
+tree carrying no modification but the untracked `uv.lock`.
+
+### The census claim is no longer an assumption. **ACCURATE, and now proved by mechanism.**
+
+Prior cycles asserted *"all 58 REDs are absent-script"* from the shape of the test names. An
+independent verifier was tasked to **refute** it by reading tracebacks rather than names, and could
+not. Measured: **58 failed / 1539 passed**, of which **58 are ABSENT-SCRIPT and 0 are OTHER**.
+
+The mechanism is a single guard, not 33 coincidences. Every one of the **33 distinct failing test
+functions** begins its body by calling `load_c8_script(...)` or `require_c8_path(...)`, which reaches
+`tests/conftest.py:91-95`:
+
+```python
+def require_c8_path(path: Path) -> Path:
+    if not path.exists():
+        pytest.fail(f"{_MISSING_C8}: {path} does not exist", pytrace=False)
+    return path
+```
+
+All 58 failing node-ids reproduce the identical frame `tests/conftest.py:94: Failed: missing C8
+implementation`. `ls scripts` returns *"No such file or directory"* — the root itself is absent, so
+this is not an assertion about incidental behaviour. The arithmetic closes exactly: 29 functions in
+`tests/test_scripts_inert.py` yield 51 node-ids, 4 in `tests/test_surface_contract.py` yield 7,
+and 51 + 7 = 58.
+
+**Consequence:** no failure in this range is a regression against existing source. Every RED is
+discharged by the atomic entrypoint GREEN and by nothing else.
+
+### F100's lint gate re-measured, and its baseline pinned for the first time
+
+`uv run --frozen ruff check src tests` runs and reports **exactly 12 errors** at `e4fc29c`. The
+complete baseline, so any future cycle can tell a new error from an inherited one:
+
+| Rule | Sites |
+|---|---|
+| `F401` unused import | `observe.py:84,85` (F90's re-export seam), `preparation.py:53` (F80's dead `PRESENT_KEY`) |
+| `ISC004` unparenthesized implicit concatenation | `observe.py:266,272,281,286,345`; `preparation.py:650,684` |
+| `I001` unsorted import block | `tests/test_errors.py:12`, `tests/test_runner.py:3` |
+
+Five are auto-fixable and seven more only under `--unsafe-fixes`. **No fixer was run** — running a
+formatter or auto-fixer requires Founder approval under `CLAUDE.md`, and F80/F90 record that two of
+these `F401`s are load-bearing re-exports whose "fix" would break `preparation.py:52,54`. The lint
+gate is therefore *measured*, not *satisfied*.
+
+### F94's `preparation.py` anchors are stale — F91 recurring a third time
+
+`:4533` records F94's preparation sites as *"`preparation.py:628,662` exact"*. At live HEAD the
+`ISC004` sites in that file are **`:650` and `:684`**, a drift of 22 lines — the same magnitude and
+the same cause as the `frozen()` anchor drift corrected at `:5127`. The `observe.py` half
+(`:266,272,281,286,345`) is confirmed exact. **F91 is re-confirmed OPEN**: this ledger's anchors
+decay faster than its cycles verify them, and F94's row is corrected here rather than re-asserted.
+
+### F87 — the repair is open, test-first, and not yet independently reviewed
+
+`:5083-5199` escalated F87 to a **confirmed authority bypass** and withdrew its size blocker. This
+cycle independently re-confirmed the consumption path it lands on before commissioning any edit:
+`runner.py:743` calls `_attempt_names(prepared)`, which at `runner.py:332` binds `selected =
+prepared.image` and derives `image_reference` from it. That is the live path the probe reached, so
+the RED owed is an **authority** assertion, not an aliasing one.
+
+The repair is the single line at the immutability loop in `PreparationResult.__post_init__`,
+`object.__setattr__(self, name, frozen(getattr(self, name)))`, which collapses validate-then-record
+into record-then-validate for all ten `FROZEN_MAPPING_FIELDS` + `FROZEN_SEQUENCE_FIELDS`. Budget
+confirmed at HEAD: `preparation.py` is **793** lines against the strict `< 800` bound, so one added
+line leaves six free and no extraction commit is owed.
+
+Note that this repair *makes true* the claim at `views.py:99-101` that F87 called false — once every
+field is re-frozen at construction, including on the `dataclasses.replace` path, every recorded copy
+does carry what `.items()` yielded. The doc correction owed there is therefore a **narrowing to the
+construction path**, not a retraction, and no control is weakened to obtain it.
+
+**Status: F87 remains P1 OPEN.** The repair was commissioned in this cycle and, if it lands, it lands
+as REPAIRED-UNREVIEWED with its exact commit named in its own register row per `:5253`. It does not
+close, and it does not move the push gate, until an independent Opus verdict returns.
+
+### Two risks this cycle deliberately did not resolve
+
+The repair re-runs `frozen()` over values that already passed `immutability_findings`. Two
+fail-closed false-positive hazards were identified and are **not yet measured**:
+
+1. **Double-freeze refusal.** `frozen()` at `preparation.py:129` refuses a subclass of an
+   `IMMUTABLE_LEAVES` type outright. If any value that passes `immutability_findings` would make
+   `frozen()` raise, a previously accepted honest construction becomes a refusal.
+2. **DAG-as-cycle refusal.** `frozen()` guards recursion with `if id(value) in seen`. A value shared
+   at two *sibling* positions is not a cycle but may share an id. If the `trail` is not per-branch,
+   an honest DAG is refused as a self-reference.
+
+Both are **open questions against the repair**, not against HEAD, and either one turns this repair
+from a fix into a new fail-closed defect. Neither may be assumed benign.
+
+### Push gate at `e4fc29c`
+
+**P0 = 0. P1 OPEN = 2** (F33 deferred to the GREEN; F87, an escalated authority bypass whose repair
+is in progress). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 29.** **P3 = 33.**
+The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays blocked. **None of the
+88-commit local range is push-eligible.** Origin/PR #55 remains at `73ec822`, OPEN, draft, `CLEAN`,
+four rendered hosted checks SUCCESS. RUNTIME remains **HOLD**. PRODUCTION remains **Founder-only**.
+
