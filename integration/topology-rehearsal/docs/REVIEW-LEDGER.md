@@ -4914,3 +4914,143 @@ Opus verdict on `3c58664..186c1a7`. Until that verdict exists these count as REP
 exactly like F78, F79, F84, F85, F95, F96 and F97 before them. The register's P1 line therefore
 reads: **P1 OPEN = 2** (F33 deferred to the GREEN; F87), **P1 repaired-unreviewed = 4**
 (F78, F85, F83, F86). P2 = 28, P3 = 32. The push gate `P0 = P1 = P2 = 0` remains **not met**.
+
+---
+
+## Cycle 45 — every static gate re-measured at live HEAD `721815b`, and the F83/F86 repair sent for its owed independent verdict
+
+Measured by an independent read-only verifier and reproduced against the coordinator's own broad
+census. Every figure below is a live measurement at `721815b`, not a carried-forward claim.
+
+### Live identity
+
+Local HEAD `721815b`, branch `codex/uat-browser-g-u2b-db-red-gate-r1`, **84 commits ahead** of
+origin. Origin/PR #55 remains at `73ec822`, **OPEN, draft, `CLEAN`**, four rendered hosted checks
+SUCCESS (two `secret-scan`, two `contract standards validation`, workflow `contracts`, all
+completed `2026-08-05T11:27-11:29Z`). The untracked `integration/topology-rehearsal/uv.lock` is the
+**only** untracked entry, unmodified, sha256
+`24135c76f28231b2d5201028e741cc5da85a6b8af13feaf99e6668bac6ab25eb`.
+
+**The autonomous checkpoint this cycle was handed was stale again**, and by more than last time: it
+named HEAD `76553f4` and "11 commits ahead". Live git was 84 ahead at `721815b` — the checkpoint was
+wrong by 73 commits. Live git and `gh pr view` were re-read first and are the only figures recorded
+here. This is now the second consecutive cycle in which the supplied checkpoint was stale by dozens
+of commits; the ledger, not the checkpoint, is the durable record.
+
+### Census, with all 58 failures classified rather than assumed
+
+`.venv/bin/python -m pytest tests -q` → **`58 failed, 1539 passed in 0.74s`**.
+
+Every one of the 58 was traced to its raising site rather than counted. All 58 reduce to the single
+guard `require_c8_path()` at `tests/conftest.py:94`, which fails closed with *"missing C8
+implementation — this RED test states the final runner behaviour and fails closed until it
+exists"*. The subjects break down exactly as:
+
+| Reported absent subject | Failures |
+|---|---:|
+| `scripts/run_topology_rehearsal.py` | 49 |
+| `scripts/prepare_topology_grant.py` | 8 |
+| `scripts` (the directory itself) | 1 |
+| **Total** | **58** |
+
+`ls scripts/` → `No such file or directory`; the directory itself is absent, not merely its two
+files. **58 of 58 are the intended absent-entrypoint-script RED. UNINTENDED = 0.**
+
+The count moved 1535 → 1539 across cycles 41→45 and that delta is exactly the four tests the
+F83/F86 repair added to `tests/test_preparation.py`. No test was deleted or weakened to obtain it.
+
+### Focused suites, measured separately
+
+| Suite | Result |
+|---|---|
+| `tests/test_preparation.py` | 355 passed |
+| `tests/test_adapter.py` | 366 passed |
+| `tests/test_observe.py` | 157 passed |
+| `tests/test_runner.py` | 96 passed |
+| `tests/test_surface_contract.py` | **7 failed**, 80 passed |
+
+The seven are inside the 58 and are the same absent-scripts RED
+(`test_both_inert_entrypoints_exist`, `test_the_scripts_root_holds_exactly_the_two_entrypoints`,
+`test_both_entrypoints_import_and_carry_a_docstring`, parameterised over the two script names).
+This figure is recorded named-and-per-file **because F97 opened on this ledger's habit of quoting an
+irreproducible aggregate "focused six-file set" number**; the five suites above are named exactly so
+the figure can be reproduced.
+
+`.venv/bin/python -m compileall -q src tests` → **exit 0**.
+
+### The lint gate re-read: still 12 errors, and two of F94's anchors had already gone stale
+
+`ruff check src tests`, `/opt/homebrew/bin/ruff` 0.16.0, read-only, **no `--fix` applied and none
+permitted** → **12 errors, exit 1**. Unchanged in count and composition from cycle 41, with one
+correction this cycle forces:
+
+| Site | Rule | Tracked as |
+|---|---|---|
+| `observe.py:84,85` | `F401` | F90 |
+| `observe.py:266,272,281,286,345` | `ISC004` | F94 |
+| `preparation.py:53` | `F401` | F80 |
+| `preparation.py:650,684` | `ISC004` | F94 — **anchors corrected, were `628,662`** |
+| `tests/test_errors.py:12` | `I001` | F100, untracked by any earlier review |
+| `tests/test_runner.py:3` | `I001` | F100, untracked by any earlier review |
+
+The two `preparation.py` `ISC004` sites moved `628,662` → `650,684`, displaced by the 22 lines the
+F83/F86 repair inserted above them. This is **F91 recurring on schedule**: the ledger's own line
+anchors are invalidated by any commit that inserts above them, and F94's anchors were stale within
+one cycle of being written. The anchors are corrected here; F91 stays open because the mechanism
+that keeps breaking them is unaddressed, not because this one instance is unrepaired.
+
+`ruff check --select I001 --diff` (read-only preview, nothing applied) shows both `I001` sites are
+pure reorderings of already-present imports with no semantic change — `import fakes` before
+`import pytest` in `tests/test_errors.py`, and `import documents, fakes` merged ahead of `pytest` in
+`tests/test_runner.py`. **They are not repaired in this cycle, and the reason is a real decision
+this ledger owes rather than an omission**: ruff classifies `fakes`, `documents` and `conftest` as
+third-party because nothing declares them first-party, so its preferred ordering merges the local
+test helpers into the `pytest` block and destroys the stdlib / third-party / local-helper grouping
+both files use deliberately. The two available repairs are not equivalent — accepting ruff's
+ordering changes the files, whereas declaring `known-first-party = ["fakes", "documents",
+"conftest"]` in `pyproject.toml` changes the *gate's configuration* and would silently re-grade
+every import block in the component. The second is a lint-gate change and must be reviewed as one.
+Neither may be obtained by running `--fix`: `--fix` is a formatter action requiring Founder
+authority under this repository's `CLAUDE.md`, and it would additionally delete the F90 re-export
+seam at `observe.py:84,85` that `preparation.py:52,54` load-bears on, breaking the package.
+
+### Size headroom re-measured — three modules are now at the wall, not two
+
+| Module | Lines | Free to the strict `< 800` bound |
+|---|---:|---:|
+| `adapter.py` | 799 | **1** |
+| `grant.py` | 794 | **6** |
+| `preparation.py` | 793 | **7** |
+| `runner.py` | 756 | 44 |
+| `admission.py` | 725 | 75 |
+| `observe.py` | 693 | 107 |
+| `plan.py` | 533 | 267 |
+| `protocols.py` | 382 | 418 |
+| `constants.py` | 264 | 536 |
+| `views.py` | 163 | 637 |
+| `errors.py` | 159 | 641 |
+| `__init__.py` | 11 | 789 |
+
+Bound source `tests/test_surface_contract.py:96` (`MODULE_LINE_LIMIT = 800`), enforced at `:247` by
+`>= MODULE_LINE_LIMIT`. `preparation.py` joined `adapter.py` and `grant.py` at the wall as the
+direct cost of the F83/F86 repair (771 → 793). **F87 and F65 live in `preparation.py`'s seam and no
+longer fit**: their repair owes a separately reviewed extraction commit *first*. That is precisely
+the mistake cycle 40 made by hitting the size wall mid-repair, and it is now structural rather than
+incidental — three of the twelve modules cannot absorb a repair of any size.
+
+### F101 — **P3** — `docs/REVIEW-LEDGER.md`, every `## Cycle` heading. **NEW, OPEN.**
+
+The cycle headings are not a monotonic index and cannot be used to locate the latest state. At live
+HEAD the sequence ends `:4414` Cycle 44, `:4629` Cycle 44 (addendum), `:4764` **Cycle 41** — a
+section written after Cycle 44 and labelled with a number three lower, describing a HEAD (`3c58664`)
+that post-dates both Cycle 44 sections. Two distinct sections at `:4005` and `:4154` are both
+labelled "Cycle 43" with different subjects, and cycles 23, 25 and 30–35 have no heading at all.
+
+This is the same class of defect as F98 — a navigational index that does not describe the body it
+indexes — and it has the same consequence: a reader taking the last `## Cycle` heading as the
+current state lands on a section that is neither the newest nor uniquely numbered. **The durable
+identifier is the recorded HEAD sha, not the cycle number**, and every section from `:4764` onward
+does record one. No repair is attempted here: renumbering 45 headings is a large mechanical edit
+with real risk of breaking the `:NNNN` line references other findings depend on, and it must be
+scoped as its own commit.
+
