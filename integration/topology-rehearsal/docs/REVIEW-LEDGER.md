@@ -27,6 +27,7 @@ to be lost irrecoverably.
 | `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 | `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 | `73ec822..76553f4` | Entrypoint slice, full local range (11 commits) | NO-GO | 0/5/8/4 | NO | HOLD |
+| `817227b..a1a97f6` | F3 repair (module-wide root-derivation ban) | NO-GO | 0/2/3/2 | NO | HOLD |
 
 ## Range detail
 
@@ -962,6 +963,69 @@ and F23 (P1) block GO. The open P2 set is F6, F8, F9, F10, F11, F13, F24, F25,
 F26. The open P3 set is F14, F15, F16, F18, F19, F20, F21, F27, F28. F1, F2, F3
 were repaired but **F3 is re-opened by F22/F23**; F4, F7, F12, F17 remain
 repaired. `73ec822..HEAD` is **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
+### `a1a97f6..HEAD` — attempt identity vs. composition-time plan, measured RED
+
+Not an independent review. This section records a **new defect found while the F3
+repair was under review**, the RED that states it, and the exact measurement of
+that RED. It is recorded before any repair so the finding cannot be lost the way
+a prior cycle's findings were.
+
+**F29 — P1 — `src/.../runner.py` `_attempt_names` vs. the composition root — the
+created names and the enforced names agree on exactly one host in the world.**
+The runner derives the attempt id from the *live* `prepared.image["observed_at"]`,
+which preparation admits at or after the grant's pinned instant rather than only
+at it. The plan those names are checked against is built by
+`build_runtime_wiring(*, authorization, repository_roots)`, which is handed no
+host observation at all, so it can only ever carry the grant's pinned instant.
+The two therefore coincide only when the host reports the same second the grant
+was signed on. On any real host — one second later is enough — the first create
+is refused by the shipped `DockerCommandAdapter`'s own `protocols.require_exact`
+check, the attempt returns `creation: raised ValueError: …`, and the rehearsal
+fails closed on every execution it will ever have.
+
+Failing closed is not the same as working. The single authorized attempt would be
+spent proving that the names disagree.
+
+Why nothing caught it: every pre-existing runner test is green only because
+`fakes.IMAGE_OBSERVED_AT` *is* that exact instant, so the whole suite states the
+lifecycle at the single reading where the defect is invisible. The existing
+`fakes.FakeDocker` records whatever name it is handed and never refuses, so no
+test stated whether the shipped port would accept what the runner asks for.
+
+**The RED.** `tests/test_runner.py` adds `PlanBoundDocker` and
+`PlanBoundCredential` — ports that reproduce the shipped refusal through the real
+`protocols.require_exact` and a real `build_plan` result rather than a
+hand-written compare — and states the property across the whole admitted band:
+
+| Test | Observation | Expected | Measured |
+|---|---|---|---|
+| `…_still_creates_names_the_plan_accepts[one-second-later]` | `2026-08-05T00:00:01Z` | FAIL (intended) | FAIL — `creation: raised ValueError: name: 'cybrik-topology-net-20260805T000001Z-c8' is not the reviewed 'cybrik-topology-ne…'`; `STOP_CONTROL != TOPOLOGY_PASS` |
+| `…_still_creates_names_the_plan_accepts[fifty-nine-seconds-later]` | `2026-08-05T00:00:59Z` | FAIL (intended) | FAIL — identical shape at `20260805T000059Z` |
+| `…_the_plan_bound_ports_pass_at_the_one_instant_the_grant_pinned` | `fakes.IMAGE_OBSERVED_AT` | PASS (anti-vacuity) | PASS |
+
+One second is the smallest gap a real host can produce; fifty-nine seconds is the
+largest this authorization admits (the runtime observation must not pass the
+loader's `now`), so the pair states the property across the admitted band rather
+than at one instant. The control is what makes the two failures a statement about
+the observation rather than about a fixture that refuses everything.
+
+**Measured census at this commit** (`.venv/bin/python -m pytest -q`, read-only
+verification, no runtime and no Docker): **60 failed, 1396 passed**. Of the 60,
+**58** carry the known absent-entrypoint marker `missing C8 implementation …
+scripts/{prepare_topology_grant.py,run_topology_rehearsal.py} does not exist`
+(51 in `test_scripts_inert.py`, 7 in `test_surface_contract.py`); the remaining
+**2** are the new intended REDs above. `tests/test_runner.py` collects 78 tests
+with no import or name error, and is 76 passed / 2 failed on its own.
+
+**F29 is open and unrepaired.** The property owed is agreement, not a particular
+repair. A repair that keeps one composition-time plan must make the attempt
+identity nameable before the host is read; a repair that completes the plan after
+the observation must expose the seam that completes it, and the fixture must then
+build its plan through that seam. Either way the created names and the enforced
+names must be the same names for every observation the authorization admits.
+Do not discharge F29 by pinning the fixture back to the grant instant — that is
+the blindness this RED exists to remove.
 
 ## Open non-technical items for the Founder
 
