@@ -8740,3 +8740,62 @@ ingress on three `repaired-unreviewed` repairs. Census unchanged at **1582 passe
 Gate unchanged: `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible.
 RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**. Neither entrypoint
 script was written or run. The reviewer identity remains structurally unavailable (F143).
+
+## Cycle 18 — F131's repair executed as a measurement: it works, and it does not fit
+
+Live state re-derived, not inherited: `HEAD=b5d5b8f`, `tree=4da434c`, 133 commits ahead of origin,
+`uv.lock` untracked and untouched, `sha256(views.py)=b9149ef1…` unchanged (the packaged review
+binding has not decayed). Baseline census re-measured by execution with `.venv/bin/python -m pytest
+-rf`: **1582 passed / 59 failed / 0 unintended**.
+
+### Two prior ledger claims are CORRECTED by execution
+
+The preceding section states the `runner.py:434` edit (`frozen` → `_proved_reading`) is
+**"line-neutral"** and **"fits the size bound"**. Both are **FALSE**, and no earlier cycle had
+applied the edit to find out. Applied, measured, then reverted:
+
+| claim | recorded | measured |
+| --- | --- | --- |
+| edit is line-neutral | yes | **NO** — `runner.py` 799 → **801** |
+| fits the size bound | yes | **NO** — `MODULE_LINE_LIMIT = 800`, *strictly under, not up to* |
+| would measure GREEN while bypassable | asserted `:7529` | **not reproduced for F131's class** |
+
+The single-line form is impossible on its face: the existing line is 83 chars and the reroute needs
++22 (`_proved_reading` plus the `"container"` label), exceeding the 88-char limit, so the call must
+wrap to three lines. **F131's repair costs exactly +2 lines that `runner.py` does not have.**
+
+### Measured effect of the reroute (applied, then reverted — no patch retained)
+
+- `tests/test_f131_ingress_guard.py`: **5 passed**. The proved ingress bypass closes, and the
+  anti-vacuity control `test_the_honest_container_reading_still_passes` **still reaches
+  `TOPOLOGY_PASS`**, so the RED did not turn GREEN by breaking the honest path.
+- Broad census stayed **1582 / 59**: exactly one intended RED retired
+  (`test_the_container_ingress_reading_is_cross_checked`) and exactly one **control violated**
+  (`test_no_authored_module_exceeds_the_reviewed_size_bound`). One-for-one, nothing else moved.
+
+**The source change was reverted.** `runner.py` is back to 799 and `git status` is clean but for the
+pre-existing untracked `uv.lock`. A file-size control may not be weakened to obtain GREEN, so this
+repair is **not retainable in its minimal form** and was not committed.
+
+### What this establishes, and what it does not
+
+**Establishes a hard ordering constraint not previously in the ledger:** F131 is blocked behind
+**F132**, not only behind review. Reclaiming >= 2 lines of `runner.py` budget is a *prerequisite* of
+F131's repair, not a parallel concern. The next writer must not re-attempt F131 directly; it will
+fail the size control every time.
+
+**Partially supersedes `:7529`.** That directive was recorded at cycle 58, *before* F134/F135/F136
+repaired `views.proved_copy`. Its stated mechanism — `.get` divergence, attacker-owned `__eq__`,
+nesting below depth 0 — no longer defeats the reroute for F131's proved class. **It remains valid as
+a caution:** this measurement proves only that *the class F131 proves* is closed. It does **not**
+prove no other container-ingress bypass survives, and the reroute would still rest the container
+ingress on three `repaired-unreviewed` repairs. That risk is unchanged and still owed a verdict.
+
+### Gate
+
+No finding retired, none downgraded, no control weakened, no count moved. **P1 OPEN >= 1 by
+execution** (F131 RED restored at HEAD). `P0 = P1 = P2 = 0` is **NOT** met; nothing ahead of
+`73ec822` is push-eligible. RUNTIME **HOLD**, production **Founder-only**, release dates
+**unchanged**. Neither entrypoint script was written or run. Reviewer identity remains structurally
+unavailable (F143) — the live tool surface is exactly `Read, Grep, Glob, Bash, Edit, Write`, with no
+`Agent`/`Task` tool and no `.claude/agents` definition, re-confirmed this cycle.
