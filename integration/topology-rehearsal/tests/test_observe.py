@@ -1092,3 +1092,160 @@ def test_a_proved_result_refuses_an_unreadable_signed_identity_as_a_value_error(
     refuser = unreadable_identity(result.granted_image_identity, "tag")
     with pytest.raises(ValueError):
         dataclasses.replace(result, granted_image_identity=refuser)
+
+
+# ---------------------------------------------------------------------------
+# F84. `stored_entries` cross-checks what a mapping stores against what its subscript
+# answers, and judged that agreement by *object identity*. A mapping that rebuilds its
+# values on subscript — returning an equal, distinct object of the same type — was refused
+# although its two views state the same value, and the refusal it emitted named that one
+# value twice and called it a disagreement.
+#
+# Equality alone is not the repair. `__eq__` is caller-defined: an object can claim equality
+# it does not have, can claim it in one direction only, or can refuse to answer, and this
+# cross-check exists to protect the *other* `__getitem__` readers (`runner._selected_identity`
+# and `grant`'s reductions), which will receive the subscripted object rather than the stored
+# one. Agreement is therefore identity, or same exact type with equality asserted in both
+# directions and returning exactly `True`; a comparison that raises is a refusal, not an
+# escape.
+
+
+class RebuildsEachSubscript(dict):
+    """An honest mapping that returns an equal, distinct object of the same type.
+
+    Nothing about this mapping is forged: both of its views state the same value. It is the
+    case the identity comparison refused.
+    """
+
+    def __getitem__(self, key: str):
+        stored = super().__getitem__(key)
+        if isinstance(stored, str):
+            return "".join(character for character in stored)
+        return stored
+
+
+class ClaimsEqualityWithAnything:
+    """A hostile object whose `__eq__` answers `True` to every comparison."""
+
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __hash__(self) -> int:
+        return 0
+
+    def __repr__(self) -> str:
+        return "ClaimsEqualityWithAnything()"
+
+
+class EqualInOneDirectionOnly:
+    """Two of these compare equal left-to-right and unequal right-to-left."""
+
+    def __init__(self, side: str) -> None:
+        self.side = side
+
+    def __eq__(self, other: object) -> bool:
+        return self.side == "left"
+
+    def __hash__(self) -> int:
+        return 0
+
+    def __repr__(self) -> str:
+        return f"EqualInOneDirectionOnly({self.side!r})"
+
+
+class RefusesToBeCompared:
+    """An object whose `__eq__` raises rather than answering."""
+
+    def __eq__(self, other: object) -> bool:
+        raise RuntimeError("this object will not be compared")
+
+    def __hash__(self) -> int:
+        return 0
+
+    def __repr__(self) -> str:
+        return "RefusesToBeCompared()"
+
+
+def subscripting(stored: dict, answers: dict):
+    """A mapping storing `stored` whose subscript answers `answers` where it has one."""
+
+    class SubscriptsItsOwnAnswer(dict):
+        def __getitem__(self, key: str):
+            if key in answers:
+                return answers[key]
+            return super().__getitem__(key)
+
+    return MappingProxyType(SubscriptsItsOwnAnswer(stored))
+
+
+def test_a_mapping_that_rebuilds_its_values_on_subscript_is_accepted(observe) -> None:
+    """The F84 case: equal, distinct, same type, and honest in both directions."""
+    rebuilder = MappingProxyType(RebuildsEachSubscript({"tag": "16-alpine"}))
+    assert rebuilder["tag"] is not dict(rebuilder.items())["tag"], (
+        "premise: this mapping must return a distinct object, or the case is vacuous"
+    )
+    stored, findings = call(observe, "stored_entries", rebuilder, "probe")
+    assert findings == (), f"an honest rebuilding mapping must be accepted, got {findings}"
+    assert stored == {"tag": "16-alpine"}
+
+
+def test_a_signed_identity_that_rebuilds_its_values_on_subscript_is_accepted(
+    observe,
+) -> None:
+    """The same case at the reduction that reads it, not only at the helper."""
+    identity, image = signed_pair()
+    rebuilder = MappingProxyType(RebuildsEachSubscript(dict(identity)))
+    assert call(observe, "signed_identity_findings", rebuilder, image) == ()
+
+
+def test_a_subscript_stating_another_value_is_still_refused_and_names_both(
+    observe,
+) -> None:
+    """A genuine disagreement must still refuse, and its message must be readable."""
+    mapping = subscripting({"tag": "16-alpine"}, {"tag": "FORGED"})
+    _, findings = call(observe, "stored_entries", mapping, "probe")
+    assert len(findings) == 1
+    message = findings[0]
+    assert repr("FORGED") in message and repr("16-alpine") in message, message
+    assert message.count(repr("16-alpine")) == 1, (
+        f"a refusal that names one value twice contradicts itself: {message}"
+    )
+
+
+def test_a_subscript_claiming_equality_with_anything_is_still_refused(observe) -> None:
+    """A hostile `__eq__` may not talk its way past the cross-check."""
+    mapping = subscripting({"tag": "16-alpine"}, {"tag": ClaimsEqualityWithAnything()})
+    _, findings = call(observe, "stored_entries", mapping, "probe")
+    assert findings, "an object that claims equality with anything must be refused"
+
+
+def test_a_subscript_equal_in_one_direction_only_is_refused(observe) -> None:
+    """Same exact type, equal left-to-right, unequal right-to-left: not agreement."""
+    stored_value = EqualInOneDirectionOnly("right")
+    subscripted = EqualInOneDirectionOnly("left")
+    assert (subscripted == stored_value) is True
+    assert (stored_value == subscripted) is False
+    assert type(subscripted) is type(stored_value)
+    mapping = subscripting({"tag": stored_value}, {"tag": subscripted})
+    _, findings = call(observe, "stored_entries", mapping, "probe")
+    assert findings, "an asymmetric equality claim must be refused"
+
+
+def test_a_subscript_whose_comparison_raises_is_reported_rather_than_escaping(
+    observe,
+) -> None:
+    """A reducer contracted to return findings may not raise out of a comparison."""
+    mapping = subscripting({"tag": RefusesToBeCompared()}, {"tag": RefusesToBeCompared()})
+    _, findings = call(observe, "stored_entries", mapping, "probe")
+    assert len(findings) == 1
+    assert "RuntimeError" in findings[0], findings[0]
+
+
+def test_a_subscript_that_refuses_to_answer_at_all_is_still_refused(observe) -> None:
+    """The pre-existing raising-subscript refusal, unchanged by this repair."""
+    identity, _ = signed_pair()
+    _, findings = call(
+        observe, "stored_entries", unreadable_identity(identity, "tag"), "probe"
+    )
+    assert len(findings) == 1
+    assert "KeyError" in findings[0], findings[0]

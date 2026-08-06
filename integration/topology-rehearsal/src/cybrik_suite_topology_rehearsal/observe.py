@@ -352,6 +352,16 @@ def stored_entries(
     A subscript that refuses to answer at all is a disagreement too, not an exception: passing
     `keyed` does not make a mapping subscriptable, and the callers here are reducers contracted
     to return findings and a `__post_init__` documented to raise `ValueError`.
+
+    Agreement is the *value*, not the object. Identity is the fast path; a mapping that
+    rebuilds its values on subscript states the same value through both views and is honest,
+    so refusing it was a defect. Bare `==` is not the fallback, because `__eq__` is defined by
+    the object being judged and the reader this cross-check protects (`runner._selected_identity`
+    and `grant`'s reductions) receives the subscripted object, not the stored one. The fallback
+    therefore demands the exact same type and `True` — not merely something truthy — from the
+    comparison in both directions, so an object that claims equality with anything, that claims
+    it one way only, or that is a lookalike of another type is still refused. A comparison that
+    raises is a refusal as well, since an object that will not be compared has not agreed.
     """
     stored = dict(mapping.items())
     findings: list[str] = []
@@ -366,10 +376,29 @@ def stored_entries(
                 f"this mapping stores {value!r}, so its two views of one entry disagree"
             )
             continue
-        if subscripted is not value:
+        if subscripted is value:
+            continue
+        try:
+            agreed = (
+                type(subscripted) is type(value)
+                and (subscripted == value) is True
+                and (value == subscripted) is True
+            )
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
-                f"{label}: {key} reads as {subscripted!r} by subscript while this mapping "
-                f"stores {value!r}, so its two views of one entry disagree"
+                f"{label}: {key} raised {type(error).__name__} when the object its subscript "
+                f"returned was compared with the {value!r} this mapping stores, so its two "
+                "views of one entry cannot be shown to agree"
+            )
+            continue
+        if not agreed:
+            findings.append(
+                f"{label}: {key} reads by subscript as the {type(subscripted).__name__} "
+                f"{subscripted!r} while this mapping stores the {type(value).__name__} "
+                f"{value!r}, which are distinct objects that do not compare exactly equal in "
+                "both directions, so its two views of one entry disagree"
             )
     return stored, tuple(findings)
 
