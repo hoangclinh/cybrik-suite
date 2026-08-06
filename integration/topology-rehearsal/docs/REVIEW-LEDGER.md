@@ -8892,3 +8892,83 @@ merely slow. Cycle 68's claim that "one bounded in-lane task (F132) is now avail
   published release dates **unchanged**.
 - Reviewer identity remains structurally unavailable (F143): the live tool surface is exactly
   `Read, Grep, Glob, Bash, Edit, Write`, with no `Agent`/`Task` tool, re-confirmed this cycle.
+
+---
+
+## Cycle 70 (V2 security lane) — F143 is discharged by the V2 review channel; the first verdict is requested against a minimal scope
+
+### Live state re-derived by this cycle's own execution
+
+HEAD at entry `40a6defe0443ec0d9f93e8a537d69a258df05cff`, branch **135 ahead** of `origin`, sole
+untracked file `uv.lock` (untouched). Census re-measured first-hand: **1582 passed / 59 failed**,
+**0 unintended** — 58 absent-script REDs plus F131's intended RED. `roles/security/FREEZE` absent
+and `REVIEW-REQUEST.json` absent at entry, so the request channel was open and unused.
+
+### F143 (P1) — status **OPEN → DISCHARGED BY THE V2 MANIFEST**, not by a repair
+
+Cycles 56-69 correctly established that no reviewer identity is reachable *by spawning one*: this
+runtime advertises exactly `Read, Grep, Glob, Bash, Edit, Write`, with no `Agent`/`Task` tool, and
+`filesystem_setting_sources=NONE` disables the only surface an agent definition loads from. That
+measurement is **re-confirmed unchanged this cycle** and is not withdrawn.
+
+**What changed is the mechanism, not the measurement.** The V2 lane wrapper supplies a reviewer that
+is not spawned at all: an out-of-process reviewer lane on a separate pool and account
+(`linhhc.eco@gmail.com`), reached by *writing a request artifact* to
+`roles/security/artifacts/REVIEW-REQUEST.json` and read back from `roles/reviewer/artifacts/`. The
+absent `Agent` tool is therefore no longer on the path to a verdict. **Fourteen consecutive
+escalations were correct when issued and are obsolete now**; repeating a fifteenth would be this
+lane failing to read its own governing manifest. F143 is discharged as a blocker; the underlying
+tool-surface contradiction stays recorded as documentation drift, since the manifest still advertises
+a `cybrik-readonly-worker` this runtime cannot spawn.
+
+### F151 (P2, NEW, OPEN) — cycle 69's gate tally silently reverted two repairs
+
+Cycle 66 (`:8262`) records `P1 OPEN = 5` (F33, F123, F128, F131, F143) with **F134 and F135 both in
+`P1 r-u = 13`**. Cycle 69's closing gate re-lists `P1 OPEN = 7` (F33, F123, F128, F131, **F134**,
+**F135**, F143). No cycle between them reopened either finding, and both repairs are still present in
+`views.py` and still GREEN under this cycle's census. The cycle-69 tally is therefore **wrong by two**
+and reverts adjudicated status by transcription. This is a third independent instance of F146 (the
+tally is unrecoverable from prose) and is the direct reason a verdict is requested now rather than
+after further bookkeeping: **prose arithmetic cannot retire a finding, only a bound verdict can.**
+
+### The review request, and why its scope is three files rather than the range
+
+Written to `roles/security/artifacts/REVIEW-REQUEST.json`, `base=73ec822`, `sha` = this commit.
+Scope is exactly:
+
+- `src/cybrik_suite_topology_rehearsal/views.py` (425 lines)
+- `tests/test_f134_get_accessor.py` (130)
+- `tests/test_f135_eq_fallback.py` (178)
+
+**733 lines against the range's 15,135.** The wrapper requires the scope be as small as the blocking
+finding allows, because a range-wide request freezes this lane for every cycle it takes to judge.
+Three properties make this the correct minimal cut:
+
+1. **`views.py` is the DAG leaf.** Read from source this cycle, it imports **nothing** internal —
+   only `collections.abc`, `types`, `typing`. It is judgeable standalone, with no reviewer dependency
+   on `observe`, `preparation` or `runner`.
+2. **It is where the unreviewed authority repairs actually live.** F134 (`.get` cross-check) and F135
+   (attacker-owned `__eq__` fallback) were both repaired test-first into `views.stored_entries` /
+   `proved_copy` and have never been witnessed. A GO retires two P1s outright — the first gate
+   movement since cycle 45 — and a NO-GO names a live bypass in the accessor every validator reads
+   through.
+3. **It is the prerequisite of the blocked chain, not a detour.** Cycle 68 recorded that F131's
+   reroute "would still rest the container ingress on three `repaired-unreviewed` repairs." Those
+   three are F134/F135/F136, all in this scope. Judging `views.py` is precisely the step that makes
+   F131's eventual repair trustworthy, so this cut is on the critical path rather than beside it.
+
+F131's own RED (`tests/test_f131_ingress_guard.py`) is **deliberately excluded**: F131 is OPEN and
+unrepaired, its repair is blocked behind F132/F150, and including it would enlarge the scope while
+retiring nothing.
+
+No diff hash is named: under V2 the driver measures it, and a verdict quoting a lane-supplied hash is
+rejected. Cycle 63's packet (`a900592`, "against an exact sha and diff hash") is superseded on that
+point.
+
+### Gate
+
+No finding retired by this lane, none downgraded, no control weakened, **no source file mutated** —
+only this ledger. `P0 = P1 = P2 = 0` is **NOT** met and nothing ahead of `73ec822` is push-eligible.
+RUNTIME **HOLD**, production **Founder-only**, published release dates **unchanged**. Neither
+entrypoint script was written or run. From the moment the request lands, the range is **frozen**: the
+next cycle must not commit product code until a verdict is bound or the request is withdrawn.
