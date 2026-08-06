@@ -8277,3 +8277,91 @@ patches. Repairs are landing on the reviewer-directed critical path, but **none 
 inside this lane**, so `P0=P1=P2=0` is structurally unreachable and the entrypoint GREEN cannot be
 legitimately gated. The driver must commission one independent Opus reviewer distinct from
 `cybrik-security-coordinator`, or grant this lane a real agent-spawn capability.
+
+---
+
+## Cycle 66 — the inherited NEXT is refused as forbidden, and the blocker is escalated
+
+No code changed this cycle. The one durable finding is that **the inherited NEXT must not be
+executed**, and it is recorded here so the next writer does not walk into it.
+
+### State re-measured at `3dcd9ab`, not quoted
+
+| Gate | Reading | Source |
+|---|---|---|
+| Broad census | **1582 passed / 59 failed** | `.venv/bin/python -m pytest tests/` |
+| Unintended failures | **0** — 58 absent-script REDs + F131's 1 intended RED | all 59 named in `test_surface_contract.py`/`test_scripts_inert.py` |
+| `ruff check .` (0.16.0, pinned) | **12** — the F120 baseline | not re-based, no `--fix` |
+| `compileall src tests` | **rc=0** | — |
+| `runner.py` / `views.py` | **799**/800, **425**/800 | no net line available in `runner.py` |
+| `uv.lock` | untracked, MD5 `ff29c06c8a4247c27f68dac52c14d02d` | **unchanged** |
+| PR #55 | draft, OPEN, MERGEABLE, tip `73ec822` | nothing pushed |
+| Local range | **126 commits** ahead of origin | the checkpoint's "11 ahead" is stale prose |
+
+### Why cycle 65's NEXT (`repair F137`) was refused
+
+Cycle 65 closed by directing that F137 be repaired next, reasoning that F131 must not route a
+second call site through a wrapper that discards findings. **That reasoning is sound and the defect
+is real** — re-verified in code this cycle at `runner.py:389`:
+
+```
+copied, _, divergence = proved_copy(view, label)
+```
+
+The immutability findings are bound to `_` and dropped, exactly as F137 states. But **two standing
+directives in this same ledger forbid repairing it now**:
+
+1. **Cycle 59** (`F137 must not be repaired before F136`): every real Docker network reading nests
+   plain `dict`s. Honouring those findings before the walk is deep converts **every** live reading
+   into a `STOP_CONTROL`. The repair is also constrained to be line-neutral — `runner.py` is at
+   799/800.
+2. **Cycle 60, item 3** (the binding one): *"F137 remains blocked behind an independent verdict on
+   this repair, **not merely behind its existence**. Honouring the immutability findings in
+   `runner._proved_reading` is only safe once the deep walk is *reviewed*, not once it is written."*
+
+F136's deep-walk repair exists in `views.py`, but at line 8263 above it is still **`repaired-
+unreviewed`**. No independent verdict has ever been obtained on it. **F137's precondition is
+therefore unmet**, and cycle 65's NEXT was written without re-reading the directive that governs it.
+
+This is the third consecutive cycle whose inherited NEXT was refuted by a standing directive
+(cycle 63's was refuted in cycle 64, cycle 64's stood, cycle 65's is refuted here). The recurrence
+is itself evidence: **NEXTs are being chosen from the last cycle's reasoning rather than from the
+ledger's accumulated constraints.**
+
+### Why no substitute repair was invented
+
+F141, F147 and F148 are open and technically reachable, but none is on the reviewer-directed path to
+the entrypoint GREEN, and each would land a **14th** unreviewed P1/P2 patch. The dependency chain is
+now fully closed on one missing capability:
+
+```
+entrypoint GREEN  ->  requires P0=P1=P2=0
+F131              ->  blocked by F137
+F137              ->  blocked by an independent verdict on F136
+F136              ->  blocked by the absence of any reviewer identity
+```
+
+Adding repairs does not shorten this chain; it lengthens the eventual review surface while leaving
+push-eligibility exactly where it was 13 patches ago. Policy forbids inventing work to fill slots.
+
+### Escalated: manifest conflicts with live capability
+
+The V2 manifest supplies `spawnable_agent_types: ["cybrik-readonly-worker"]`, a
+`Agent(cybrik-readonly-worker)` tool flag and a three-subagent WIP target. **This runtime advertises
+no Agent/Task tool** — re-confirmed a fifth time against this session's own tool set (`Read`,
+`Grep`, `Glob`, `Bash`, `Edit`, `Write`). The wrapper directs that a manifest which conflicts with
+live product evidence must **stop with the smallest exact reason rather than weaken a gate**.
+
+Four prior cycles reported this while returning `CONTINUE`, which let it be treated as non-blocking;
+P1 `repaired-unreviewed` grew **11 -> 13** in that window. It is escalated to `HUMAN_REQUIRED` here
+because no further progress of any kind is available without it, not because the work is hard.
+
+### Gate at the close of cycle 66 — unchanged, nothing repaired or retired
+
+- **P0 = 0**; **P1 OPEN = 5** (F33, F123, F128, F131, F143); **P1 r-u = 13**;
+  **P2 OPEN = 47**; **P2 r-u = 4**; **P3 OPEN = 44**; **P3 r-u = 2**;
+  **CLOSED = 30** (eleventh consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **151**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
+written or run.
