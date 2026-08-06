@@ -9342,3 +9342,68 @@ the first thing to judge in the next request, and the request scope includes tha
   deliberately **not** repaired — one finding per cycle, and it is a different finding.
 - No control weakened to obtain GREEN, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 9 — VERDICT-6d20929 recorded: NO-GO, P0=0 **P1=0** P2=8 P3=5. P1-1 retired; evidence UNAVAILABLE
+
+Independent verdict on `1b4adea..6d20929`, scope `views.py` + `test_p1_1_dead_copy_leaf_subclass.py`
++ `test_observe.py`, diff `6b139346079fb2122c187172ec93ad72362a2682962c69dff5b5c6a7b62385fc`,
+personal/`claude-opus-5`, ladder step 1, `covers_head: true`, observed `2026-08-06T15:04:33Z`.
+
+**P1-1 is retired — the first P1 to reach zero in this range.** The reviewer hand-traced
+`TwoFacedStrMapping` through `_walk` and confirmed the `Mapping`-before-leaf reorder reaches
+`_dead_mapping`, produces the two divergence findings, and returns a fresh proxy. It also **judged
+the changed `test_observe.py:1447-1449` assertion a legitimate correction, not a weakened control**:
+`copied is tagged` pinned exactly the filed defect, `type(copied) is str` is strictly stronger, and
+the two verdict-carrying assertions plus the anti-drift control at `:1419-1430` are byte-unchanged.
+Question (b) confirmed: `str.__str__`/`bytes.__getitem__` resolve on the base type and cannot be
+intercepted by a Python-level subclass.
+
+### The verdict is NO-GO on an evidence defect that is independent of every finding
+
+**`roles/reviewer/REVIEW-EVIDENCE.json` does not exist, so driver-measured execution evidence is
+UNAVAILABLE** — not PARTIAL, not COMPLETE. Every census, lint and compile number in the request
+packet is therefore the **writer's own claim**, and the manifest refuses GO in this condition
+regardless of the findings. The reviewer reached this independently, and this lane reached it the
+same cycle from the other side: the three lane drivers launched at `21:15` while the collector and
+`run-lane-v2.zsh` were written at `21:51`, so the running reviewer driver holds pre-collector code.
+Both verdicts on disk lack the `execution_evidence` key the current template always emits, and no
+`roles/reviewer/errors.jsonl` was created — proof the gate code never executed rather than failed.
+Full analysis: `roles/security/artifacts/FINDING-stale-reviewer-driver-evidence-gate.md`.
+
+**Rule adopted:** a verdict lacking `execution_evidence.status == COMPLETE` does **not** satisfy the
+push gate whatever its verdict field says. A NO-GO from such a verdict is still actionable — it
+withholds permission and needs no execution evidence to be safe.
+
+### Findings (full verbatim text: `roles/security/artifacts/VERDICT-6d20929-FINDINGS-verbatim.md`)
+
+The verdict JSON's `.reason` field echoes the **writer's request**, not the reviewer's findings; the
+verbatim artifact is the only structured copy. Two P2s are **new, introduced by this repair**:
+
+- **P2-1 (NEW)** — `views.py:323` is unreachable, yet the docstring and the new suite present it as
+  the live leaf test.
+- **P2-2 (NEW)** — the new `str`/`bytes` branches introduce an uncaught `TypeError` where the old
+  line returned silently.
+- **P2-3** (carried, was P2-1) — `views.py` publishes the forgeable primitive, keeps the safe one private.
+- **P2-4** (carried, was P2-2) — `stored_entries` documents the F135-refuted mechanism as current.
+- **P2-5** (carried, F138) — key set taken from one view; `:181-182`/`:197-198` assert the opposite.
+- **P2-6** (carried) — `proved_copy` recursion unbounded, cycle guard defeatable by construction.
+- **P2-7** (carried, F141) — `stored_entries` renders attacker-controlled `repr()` outside every guard.
+- **P2-8** (carried, F148) — an open, undecided behaviour change still inside the scoped file.
+- **P3-1** — `test_the_attacker_content_is_not_what_gets_recorded` cannot fail either way.
+- **P3-2** — a duck-typed two-faced `str` subclass not inheriting/registering `Mapping` is uncrossed.
+- **P3-3** — docstring omits `AbstractSet`; the "narrows nothing" claim needs its qualifier. The
+  reviewer corrected this lane's question (c): for a leaf subclass that **is** an `AbstractSet` or
+  `Sequence`, behaviour is **not** identical — it is a widening, but it fails closed, so not a defect.
+- **P3-4** (carried, F147 re-decided) — comparison-raise handlers remain unreachable; two docstrings
+  say they are live. This settles the item cycle 5 owed back.
+- **P3-5** (carried, F140) — duplicate-key collapse still unreported.
+
+### Gate after this cycle
+
+- **P1 OPEN = 0** for the first time. **P2 OPEN = 8**, P3 = 5. `P0=P1=P2=0` is **NOT** met.
+- Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft, tip unmoved at `73ec822`.
+- Census re-derived independently at `6d20929`: **1618 passed / 59 failed**, equal to
+  `REVIEW-BASELINE.json`'s declared 59 — **delta zero**, unchanged.
+- Freeze held `6d20929` for the whole outstanding period and HEAD never moved: **no `freeze_breach`**.
+- No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
+  production **Founder-only**, release dates **unchanged**.
