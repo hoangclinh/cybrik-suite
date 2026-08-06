@@ -883,3 +883,194 @@ def test_the_runner_source_neither_reads_the_grant_nor_pins_a_fixture_digest() -
     }
     assert "grant" not in string_literals
     assert not re.search(r"\b[0-9a-f]{64}\b", source)
+
+
+def reviewed_plan():
+    """The one command plan the composition root is able to build.
+
+    This is the identical construction `tests/test_scripts_inert.py` pins the wiring against,
+    and the attempt id is not a free choice: `build_runtime_wiring(*, authorization,
+    repository_roots)` is handed no host observation at all, and the instant that produces
+    `fakes.SYNTHETIC_ATTEMPT_ID` exists in the whole envelope only as the grant's
+    `observed_image_identity.observed_at`. A plan built before the host is read can therefore
+    only ever carry the grant's pinned instant.
+    """
+    plan = load_c8("plan")
+    return require_c8_attr(plan, "build_plan")(
+        attempt_id=fakes.SYNTHETIC_ATTEMPT_ID,
+        image_reference=f"postgres@{fakes.SYNTHETIC_MANIFEST_DIGEST}",
+        repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
+    )
+
+
+class PlanBoundDocker(fakes.FakeDocker):
+    """A Docker port that refuses a name the reviewed plan does not carry.
+
+    `fakes.FakeDocker` records whatever name it is handed, so every runner test above states
+    what the runner *asks* for and nothing states whether the shipped port would accept it.
+    The shipped `DockerCommandAdapter` does not record: it calls `protocols.require_exact`
+    against `self._plan` before each create, each start and each removal, so a name that is
+    not the plan's raises `ValueError` instead of reaching the daemon. That refusal is the
+    reviewed behaviour rather than a fixture invention, so it is reproduced here through the
+    real `require_exact` and a real `build_plan` result rather than a hand-written compare.
+    """
+
+    def __init__(self, log, *, plan, require_exact, **kwargs) -> None:
+        super().__init__(log, **kwargs)
+        self._plan = plan
+        self._require_exact = require_exact
+
+    def create_network(self, *, name: str, internal: bool) -> str:
+        self._require_exact("name", name, self._plan.network_name)
+        return super().create_network(name=name, internal=internal)
+
+    def create_volume(self, *, name: str) -> str:
+        self._require_exact("name", name, self._plan.volume_name)
+        return super().create_volume(name=name)
+
+    def create_container(self, *, name: str, network: str, volume: str, **kwargs) -> str:
+        self._require_exact("name", name, self._plan.container_name)
+        self._require_exact("network", network, self._plan.network_name)
+        self._require_exact("volume", volume, self._plan.volume_name)
+        return super().create_container(
+            name=name, network=network, volume=volume, **kwargs
+        )
+
+    def start_container(self, *, name: str) -> None:
+        self._require_exact("name", name, self._plan.container_name)
+        super().start_container(name=name)
+
+    def remove(self, *, kind: str, name: str) -> None:
+        expected = {
+            "container": self._plan.container_name,
+            "network": self._plan.network_name,
+            "volume": self._plan.volume_name,
+        }
+        self._require_exact("name", name, expected[kind])
+        super().remove(kind=kind, name=name)
+
+
+class PlanBoundCredential(fakes.FakeCredential):
+    """A credential port that refuses a name the reviewed plan does not carry.
+
+    The shipped `FileCredentialAdapter` reads the credential path off the plan for the one
+    reviewed credential name only, so a name derived from a different instant cannot name a
+    file the reviewed argv mounts. The credential is the on-disk secret material, so a
+    refusal here is also what would leave it behind.
+    """
+
+    def __init__(self, log, *, plan, require_exact, **kwargs) -> None:
+        super().__init__(log, **kwargs)
+        self._plan = plan
+        self._require_exact = require_exact
+
+    def create(self, *, name: str) -> str:
+        self._require_exact("name", name, self._plan.credential_name)
+        return super().create(name=name)
+
+    def remove(self, *, name: str) -> None:
+        self._require_exact("name", name, self._plan.credential_name)
+        super().remove(name=name)
+
+
+def plan_bound_adapters(observed_at: str):
+    """Passing adapters whose mutating ports are bound to the one composition-time plan."""
+    plan = reviewed_plan()
+    require_exact = require_c8_attr(load_c8("protocols"), "require_exact")
+    base = fakes.passing_adapters(image=fakes.host_image(observed_at=observed_at))
+    adapters = dataclasses.replace(
+        base,
+        docker=PlanBoundDocker(base.log, plan=plan, require_exact=require_exact),
+        credential=PlanBoundCredential(base.log, plan=plan, require_exact=require_exact),
+    )
+    return adapters, plan
+
+
+# Two host observations strictly later than the grant's pinned instant, both admitted by
+# preparation (`observed_at` at or after the pin) and by the window (the runtime observation
+# must not pass the loader's `now`, which is `00:01:00Z`). One second is the smallest gap a
+# real host can produce; fifty-nine seconds is the largest this authorization admits, so the
+# pair states the property across the whole admitted band rather than at one instant.
+LATER_HOST_OBSERVATIONS = (
+    pytest.param("2026-08-05T00:00:01Z", id="one-second-later"),
+    pytest.param("2026-08-05T00:00:59Z", id="fifty-nine-seconds-later"),
+)
+
+
+@pytest.mark.parametrize("observed_at", LATER_HOST_OBSERVATIONS)
+def test_a_host_observed_after_the_grant_pin_still_creates_names_the_plan_accepts(
+    runner, observed_at
+) -> None:
+    """The attempt must be runnable on a host read later than the grant was signed.
+
+    `_attempt_names` derives the attempt id from the *live* `prepared.image["observed_at"]`,
+    which preparation admits at or after the grant pin rather than only at it. The plan those
+    names are checked against is built by the composition root, which is handed the
+    authorization and the control roots and nothing else, so it can only carry the grant's
+    pinned instant. The two therefore agree on exactly one host in the world: the one that
+    reports the same second the grant was signed on.
+
+    Every existing runner test is green only because `fakes.IMAGE_OBSERVED_AT` is that exact
+    instant, so the whole suite states the lifecycle at the single reading where the defect is
+    invisible. On any real host — one second later is enough — the first create is refused,
+    the attempt returns `"creation: raised ValueError: ..."` and the reviewed rehearsal fails
+    closed on every execution it will ever have. Failing closed is not the same as working:
+    the one authorized attempt would be spent proving that the names disagree.
+
+    The property owed is agreement, not a particular repair. A repair that keeps one
+    composition-time plan must make the attempt identity nameable before the host is read; a
+    repair that completes the plan after the observation must expose the seam that completes
+    it, and this fixture must then build its plan through that seam. Either way the created
+    names and the enforced names are the same names for every observation the authorization
+    admits, which is what this test states and what nothing states today.
+    """
+    # Arrange. The case is only meaningful while the observation is genuinely later than the
+    # pin the plan was built from; an equal reading is the control below, not this test.
+    assert observed_at > fakes.IMAGE_OBSERVED_AT
+    adapters, plan = plan_bound_adapters(observed_at)
+    assert plan.attempt_id == fakes.SYNTHETIC_ATTEMPT_ID
+
+    # Act.
+    result = run(runner, adapters)
+
+    # Assert. The attempt runs to a real terminal verdict rather than being refused by its
+    # own adapters, and every name it created is a name the reviewed plan carries.
+    assert result.outcome == fakes.TOPOLOGY_PASS, result.findings
+    assert not any("creation" in finding for finding in result.findings)
+    assert adapters.log.calls("docker.create_network")[0]["name"] == plan.network_name
+    assert adapters.log.calls("docker.create_volume")[0]["name"] == plan.volume_name
+    assert adapters.log.calls("credential.create")[0]["name"] == plan.credential_name
+    assert adapters.log.calls("docker.create_container")[0]["name"] == plan.container_name
+    assert adapters.log.calls("docker.start_container")[0]["name"] == plan.container_name
+    # Teardown reached every kind, so nothing the attempt created outlives it.
+    assert tuple(item["kind"] for item in adapters.log.calls("docker.remove")) == (
+        "container",
+        "network",
+        "volume",
+    )
+    assert adapters.log.count("credential.remove") == 1
+    assert result.teardown_complete is True
+
+
+def test_the_plan_bound_ports_pass_at_the_one_instant_the_grant_pinned(runner) -> None:
+    """Anti-vacuity: the plan-bound ports refuse drift, not the fixture they are wired into.
+
+    Without this control the test above could not distinguish "the attempt id does not track
+    the plan" from "the plan-bound ports refuse everything", and a fixture that refused every
+    name would look exactly like the defect it is meant to expose. Running the identical
+    construction at `fakes.IMAGE_OBSERVED_AT` — the instant the grant pinned, and the only one
+    at which the two agree today — must reach the same clean `TOPOLOGY_PASS` the unbound
+    adapters reach, which is what makes the failure above a statement about the observation.
+    """
+    # Arrange.
+    adapters, plan = plan_bound_adapters(fakes.IMAGE_OBSERVED_AT)
+
+    # Act.
+    result = run(runner, adapters)
+
+    # Assert.
+    assert result.outcome == fakes.TOPOLOGY_PASS
+    assert result.attempt_consumed is True
+    assert result.teardown_complete is True
+    assert adapters.log.calls("docker.create_network")[0]["name"] == plan.network_name
+    assert adapters.log.calls("docker.create_container")[0]["name"] == plan.container_name
