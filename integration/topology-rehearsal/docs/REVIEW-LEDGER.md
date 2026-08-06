@@ -8161,3 +8161,119 @@ deleted and no assertion was weakened.
 
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, published release dates **unchanged**.
+
+---
+
+## Cycle 65 — F135 repaired test-first: agreement is no longer decided by the attacker's `__eq__`
+
+`CYBRIK_RUN_ID=dfd7e2cb-d988-4643-83e4-30d1d412064a`. Base HEAD `241143d`. Lane
+`cybrik-security-coordinator`, single writer, `SECURITY_LARGE`, work pool.
+
+This cycle executed the inherited NEXT exactly as written: F135 was the last recorded prerequisite
+before F131's container repair becomes legitimate, and it is now repaired test-first.
+
+### F135 re-established as an executable RED before any repair
+
+Like F134, F135 existed in this repository only as prose — cycle 58's reviewer proved it in a `/tmp`
+tree that never survived. `tests/test_f135_eq_fallback.py` (new, 5 tests) makes it falsifiable.
+
+The defect, exactly: `views._states_the_same_value` cleared an entry when
+`type(other) is type(stored) and (other == stored) is True and (stored == other) is True`. The
+docstring argued that exact-type plus literal-`True` plus bidirectionality defeats a lying
+comparison. **Every term of that conjunction is supplied by the reading being judged** — both
+operands come from the same mapping, and so does the type they share.
+
+**Measured before the repair**, on the real `fakes.network_projection()` shape: a `Containers`
+reading whose `.items()` face holds **one** attachment and whose `__getitem__`/`.get` faces hold
+**two**, both `EqLiar`s answering `True` to every comparison, produced `divergence = ()` and ran end
+to end to **`TOPOLOGY_PASS`** — while `observe.validate_internal_network`, handed the same live
+object, **refused it** (`satisfied is False`). A second party was attached to the network and the
+receipt attested the reviewed isolation.
+
+Anti-vacuity discipline held: a premise test proves the two faces genuinely differ while claiming
+equality, a positive control proves the reading is hostile by the package's own standard, and a
+vacuity control proves an honest reading of the same shape still reaches `TOPOLOGY_PASS`.
+
+### The repair
+
+Agreement is now **never decided by an `__eq__` the judged object defines**. Identity remains the
+fast path; equality is consulted **only for the exact builtin leaf types** (`IMMUTABLE_LEAVES`),
+which cannot carry an overriding `__eq__` because `type(x) is` excludes their subclasses. Every
+other value must be the *same object* through all three views.
+
+No isolation control was relaxed, no assertion weakened, no test deleted, `runner.py` untouched.
+
+### One regression, found by arithmetic and not by the summary line
+
+The first post-repair census read 1581/60. **The totals were not accepted**: 5 new tests all passed
+but net passes rose by only 4, exposing exactly one regression the summary line hid —
+`test_a_subscript_whose_comparison_raises_is_reported_rather_than_escaping`.
+
+Its cause is a **deliberate strengthening**, not a break. That test asserted the finding named
+`RuntimeError`, i.e. that a raising comparison was *caught and reported*. A non-leaf value is now
+refused on the spot, so its `__eq__` is **never invoked at all** — the hostile object is not given
+the opportunity to raise. The guarantee the test exists for (a reducer returns findings rather than
+raising) holds strictly more firmly. It was **renamed and re-pointed, not deleted**, and gained a
+`pytest.raises(RuntimeError)` premise assertion so it cannot silently become a test about an
+ordinary object.
+
+#### F147 (P3, NEW, OPEN) — the comparison-raise handler in `stored_entries` is now unreachable in practice
+
+`views.py:182-188` catches an exception from `_states_the_same_value`. After this repair the only
+comparisons reached are between exact builtin leaf types, whose comparison does not raise. The
+handler is retained deliberately as fail-closed defence in depth — **removing it would reduce the
+fail-closed surface** — but it is now unproven by execution, and this ledger records that rather
+than letting a dead branch pass as covered.
+
+#### F148 (P2, NEW, OPEN) — honest non-leaf rebuilding mappings are now refused; the strictness is real and undecided
+
+The repair is deliberately strict: a mapping that rebuilds a **non-leaf** value on each read is now
+refused, because it cannot be distinguished from a two-faced one without asking the object to grade
+itself. The honest case the fallback was written for (`RebuildsEachSubscript`, which rebuilds `str`)
+is a leaf and is **still accepted** — `test_a_mapping_that_rebuilds_its_values_on_subscript_is_accepted`
+and both signed-identity rebuild tests still pass. Widening to structural recursion over
+`MappingProxyType`/`tuple`/`frozenset` is a genuine option but is a **separate decision requiring its
+own review evidence**; fail-closed is the safe default meanwhile. Filed so the strictness is a
+recorded choice, not an accident.
+
+### Gates measured after the repair
+
+- Broad census **1582 passed / 59 failed** = 58 pre-existing absent-script REDs **+ F131's one
+  intended RED**. **0 unintended failures.** 1577 + 5 new = 1582 exactly; failures unchanged at 59.
+- `ruff check .` = **12**, the recorded baseline, **none in the touched files**; baseline not
+  re-based. `compileall src tests` rc=0.
+- `runner.py` **untouched at 799/800**; `views.py` 425/800. `uv.lock` untracked, MD5
+  `ff29c06c8a4247c27f68dac52c14d02d` **unchanged**.
+- **F131 is deliberately still RED.** Its repair is the next slice and was not attempted here.
+- Neither entrypoint script was written or run.
+
+### Owed, and explicitly not claimed
+
+1. **This repair is `repaired-unreviewed`.** No independent verdict was obtained. F135 does **not**
+   decrement the gate.
+2. **F131's prerequisites are now both repaired-unreviewed, not discharged.** Cycle 58's directive
+   forbids scheduling F131 as "apply `_proved_reading` to two more call sites" until `proved_copy`
+   is fixed. F134 and F135 are the two recorded halves of that fix and both are now repaired — but
+   **neither has been independently reviewed**, so F131 may be attempted only with that caveat
+   stated, and its GREEN must not be read as proof the class is closed.
+
+### Gate at the close of cycle 65
+
+- **P0 = 0**; **P1 OPEN = 5** (F33, F123, F128, F131, F143 — **F135 → repaired-unreviewed**);
+  **P1 r-u = 13** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122, F134, F136, **F135**);
+  **P2 OPEN = 47** (46 + **F148**); **P2 r-u = 4**; **P3 OPEN = 44** (43 + **F147**); **P3 r-u = 2**;
+  **CLOSED = 30** (tenth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **151**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**.
+
+### Standing blocker, now four cycles old and more expensive
+
+**P1 `repaired-unreviewed` = 13.** This runtime advertises **no Agent/Task tool**, independently
+re-confirmed this cycle: the manifest's `Agent(cybrik-readonly-worker)` and the "at most three
+useful subagents" WIP target are **not achievable**, so no reviewer identity distinct from the
+writer can exist inside this lane. Anti-self-witnessing forbids this lane from reviewing its own
+patches. Repairs are landing on the reviewer-directed critical path, but **none can be retired from
+inside this lane**, so `P0=P1=P2=0` is structurally unreachable and the entrypoint GREEN cannot be
+legitimately gated. The driver must commission one independent Opus reviewer distinct from
+`cybrik-security-coordinator`, or grant this lane a real agent-spawn capability.
