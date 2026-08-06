@@ -7342,3 +7342,63 @@ proved **partial** by F131. It closes only when the divergence refusal covers ev
 
 **`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible. The atomic
 entrypoint GREEN remains blocked. RUNTIME **HOLD**. Production **Founder-only**.
+
+## Cycle 58 — every gate re-measured at `4a3d9d7`; F132's headroom figure corrected before it misdirects F131's repair
+
+*2026-08-06. Coordinator identity, Opus. Pre-cycle HEAD `4a3d9d7`, branch
+`codex/uat-browser-g-u2b-db-red-gate-r1`, **113 commits ahead of `origin`**. The supplied checkpoint
+described this branch as 11 commits ahead at `76553f4`; that prose was stale by 102 commits and live
+git was taken as authoritative. Three independent lanes were commissioned this cycle: a full-range
+independent Opus review of the `4a3d9d7` F128 repair, an adversarial verifier owed F131's executed
+RED, and a read-only evidence cross-checker against this ledger's cycle-57 section. Their verdicts
+are recorded in the addendum below; nothing here is claimed on their behalf before it landed.*
+
+### Gates re-measured at `4a3d9d7` by the coordinator, not carried forward
+
+| gate | result at `4a3d9d7` |
+|---|---|
+| **Broad static census** | **1551 passed / 58 failed.** Split confirmed from the run: 51 `tests/test_scripts_inert.py` + 7 `tests/test_surface_contract.py` — the intended absent-entrypoint-script REDs. **0 unintended failures.** Unchanged from cycle 57. |
+| **compile** | `python -m compileall -q src tests` exit **0**. |
+| **`runner.py` size** | **799 lines**, measured. |
+| **`views.py` size** | **246 lines**, measured. |
+| **Size control** | `MODULE_LINE_LIMIT = 800` at `tests/test_surface_contract.py:96`; enforced `>=` at `:247`. Not violated. |
+| **`uv.lock`** | Untouched, still untracked, md5 `ff29c06c8a4247c27f68dac52c14d02d` — byte-identical to the value cycle 57 recorded. No dependency added, updated or regenerated. |
+
+No control was weakened this cycle. No formatter, auto-fixer, `--fix` or `--unsafe-fixes` was run.
+No stash, checkout, reset, revert or rebase was performed. The entrypoint scripts were **not** run;
+this remains static implementation and test evidence only.
+
+### F133 (P2, NEW, OPEN) — cycle 57's F132 states the size headroom off by one, in the unsafe direction, and regresses F96
+
+F132 records that `runner.py` at 799 lines *"left **one line**"* of headroom
+(`docs/REVIEW-LEDGER.md:7307`). **That is wrong, and it is wrong toward the breach.** The live
+control is
+
+```python
+MODULE_LINE_LIMIT = 800                                        # tests/test_surface_contract.py:96
+if len(module_source(path).splitlines()) >= MODULE_LINE_LIMIT   # tests/test_surface_contract.py:247
+```
+
+`>=`, so **799 is the maximum permitted count, not the last count below the ceiling**. `runner.py`
+has **zero** lines of headroom. One added line trips
+`test_no_authored_module_exceeds_the_reviewed_size_bound`.
+
+**This ledger already found and corrected this exact defect.** F96 (P3, `:4096`) corrected cycle 42's
+identical *"`adapter.py` is at 799 — one line of headroom"* and stated the failure scenario verbatim:
+*"a future repair reads 'one line of headroom', adds one line ... turning a bounded repair into an
+unplanned extraction mid-cycle."* Cycle 57 reintroduced the same off-by-one against a different
+module, and pointed it at F131 — the repair that is next in the queue.
+
+**Grading.** F96 was graded P3 as stale text in a historical table. F133 is graded **P2** because the
+figure is live, is load-bearing for the immediately-owed F131 repair, and would consume that repair's
+cycle exactly as F96 predicted. A reviewer may re-grade it to P3 on the F96 precedent; the reasoning
+is stated here so the choice is inspectable rather than silent.
+
+**Consequence for F131's repair, recorded before the repair is attempted:** the F131 repair may not
+add a single net line to `runner.py`. Routing the container reading and the probe reading through
+`_proved_reading` costs roughly +3 lines at the call sites alone, so the repair **requires** freeing
+space first, and the naive relocation is blocked: `views.py` imports nothing from this package
+(measured — it is a leaf), while `_proved_reading` depends on `preparation.frozen`, and
+`preparation.py` already imports `views.proved_copy` (`preparation.py:64`). Moving `_proved_reading`
+into `views.py` as written would therefore close an import cycle. The next writer must resolve that
+seam explicitly, and must not obtain space by relaxing `MODULE_LINE_LIMIT`.
