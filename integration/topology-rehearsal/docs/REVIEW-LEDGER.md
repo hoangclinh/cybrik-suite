@@ -825,6 +825,144 @@ Tests only. No `src/`, docs, dependency or lockfile change in the test commit.
 Neither entrypoint script was executed and neither exists. RUNTIME remains
 **HOLD**.
 
+### `817227b..a1a97f6` — F3 repair, independent review
+
+Independent Opus review of the F3 repair range, read-only, run at `c2d688c` with
+the tree unmodified. The reviewer extracted the nine new helpers verbatim into
+`/tmp/f3rev/guards.py` and ran 13 synthetic module sources against both the new
+pair and the `817227b` old guard; nothing was added to the repository for it.
+
+**VERDICT NO-GO. P0=0 P1=2 P2=3 P3=2. PUSH-ELIGIBLE NO. RUNTIME HOLD.**
+
+What the review confirms positively, so the repair is not re-litigated: F3's
+exact recorded evasion (`_roots(authorization)` reading `.grant`, called from the
+sink) is now **FLAGGED**; the fixed point genuinely follows two-hop helper
+chains, tuple unpacking, aliasing, comprehensions and class methods, verified
+positively against synthetic sources; and it terminates, because `derived` grows
+monotonically over the finite set of module-bound names with `grown <= derived`
+as the exit. The new test also fails closed for the intended reason — its
+message is `missing C8 implementation … run_topology_rehearsal.py does not
+exist`, not an AST-logic failure. The spec's own conforming shape
+(`ENTRYPOINT-SLICE-SPEC.md:377-388`) yields at least three sinks and is not
+flagged, so the anti-vacuity floor is not a false blocker for it, subject to F27.
+
+**F3 is NOT discharged.** Three fresh evasions of the same class pass, and one
+genuine defect the withdrawn blanket `grant` ban caught is now admitted. That
+last point directly refutes this ledger's own claim at the F3-repair evidence
+section — "No case was found where the old check caught a genuine
+root-derivation defect the new one misses" — and refutes the in-file claims that
+the new pair is "strictly stronger" (`test_scripts_inert.py:1448`) and that
+"between them lose nothing" (`:1454`). **Those three sentences are now known
+false and are themselves owed a correction (F23).** They are left standing here
+rather than silently edited, so the record shows what was claimed and what
+disproved it.
+
+**F22 — P1 — `tests/test_scripts_inert.py:1402` — the module-wide test never
+applies `computed_attribute_reads`, so a computed `getattr` in a module helper
+reaches a root undetected.** `computed_attribute_reads` is asserted only at
+`:1480`, inside the *function-scoped* guard; the module-wide walk at
+`:1402-1408` calls only `root_sinks`, `grant_derived_names`, `forbidden_origins`
+and `name_reads`. Because `literal_getattr_name` (`:1235`) returns `None` for a
+non-literal, `attribute_reads` (`:1244`) records **no read at all** and the
+helper never enters `derived`. Verified-passing source: `FIELD = "grant"` /
+`def _roots(authorization): return getattr(authorization, FIELD)["repositories"]`
+/ `plan.build_plan(repository_roots=_roots(authorization))` — F3's defect
+respelled in one extra line. Fix: add
+`assert computed_attribute_reads(module) == []` to the module-wide test body
+after `:1401`.
+
+**F23 — P1 — `tests/test_scripts_inert.py:1336-1341` — `root_sinks` recognises
+only a literal `repository_roots=` keyword, so a `**` splat launders a
+grant-derived root; this is a net coverage loss against the withdrawn ban.** The
+`named` comprehension requires `keyword.arg == ROOT_KEYWORD`; a `**mapping`
+argument carries `keyword.arg is None`, so the sink vanishes, and the dict that
+built it is bound to a non-root-shaped name so `held` (`:1344-1346`) misses it
+too. Verified inside `build_runtime_wiring` itself:
+`arguments = {"repository_roots": authorization.grant["repositories"]}` /
+`return plan.build_plan(**arguments)` — flagged by the old blanket `grant` ban,
+passes both new tests. The run-time recording at `:1485` cannot catch it either,
+because it filters on `"root" in name` while the read is `.grant`. Fix: in
+`root_sinks`, also treat any `keyword.arg is None` value, and any `ast.Dict`
+containing the constant key `"repository_roots"`, as a sink — and withdraw the
+three false claims named above.
+
+**F24 — P2 — `tests/test_scripts_inert.py:1275-1297` — `module_bindings`
+propagates taint only through `Assign`-bound bare `Name`s, so in-place mutation
+and method-call returns launder the grant.** There is no branch for `ast.Expr`
+calls, `global`/`nonlocal`, or attribute-valued reads, and the offence check at
+`:1405` intersects `derived` against `name_reads` only, so a derived *method*
+name is never matched. Two verified-passing sources: (a) `_CACHE = {}` /
+`def _fill(a): _CACHE.update(a.grant["repositories"])` /
+`repository_roots=dict(_CACHE)` — `.update` is an `Expr`, never a binding, so
+`_CACHE` stays clean; (b) a `class _Source` with
+`def resolve(self): return self.envelope.grant[...]` /
+`repository_roots=source.resolve()` — `resolve` enters `derived` but is read as
+an `ast.Attribute`, not a `Name`. Fix: treat the receiver of any mutating method
+call as bound from its arguments, and intersect `derived` against
+`attribute_reads(sink)` as well as `name_reads(sink)`.
+
+**F25 — P2 — `tests/test_scripts_inert.py:1213` and `:1469` —
+`HOST_ROOT_SOURCES` omits `getenv`, and the `argv` exemption admits
+`sys.argv[0]` as a host-derived root.** `{"environ", "getcwd", "cwd",
+"__file__"}` does not contain `getenv`, and neither does the function-scoped set
+at `:1469`. Pre-existing at `817227b`, but this commit re-states the set as the
+definitive host-observation inventory. Verified passing on both guards:
+`suite_root = os.getenv("CYBRIK_SUITE_ROOT")` fed to `repository_roots=` inside
+`build_runtime_wiring`. Separately, the deliberate module-wide `argv` exemption
+lets `def _here(): return pathlib.Path(sys.argv[0]).resolve().parent.parent`
+feed a root — `argv[0]` is the interpreter's script path, not the operator's
+`--control-root` tokens, so the exemption's stated justification does not cover
+it. Fix: add `getenv`, `environb`, `expanduser`, `home` to `HOST_ROOT_SOURCES`
+and to `:1469`, and flag a module-wide `argv` read whose subscript is the
+constant `0`.
+
+**F26 — P2 — `tests/test_scripts_inert.py:1400` — the anti-vacuity floor is
+satisfiable with zero real root sinks and does not enforce what its own message
+asserts.** `held` (`:1344-1346`) counts *any* binding named `root`/`roots` or
+suffixed `_root`/`_roots`, including `ast.For` and `ast.comprehension` targets.
+Verified: a module whose only root-shaped names are two `for root in …:` loop
+variables, and which never passes `repository_roots=` anywhere, satisfies
+`len(sinks) >= 2` and reaches `assert sorted(offences) == []` vacuously — while
+the message claims "the injected roots must reach the plan through a named
+argument". Fix: split the floor — require `len(named) >= 2` on the keyword sinks
+specifically, and keep `held` as an additional, uncounted source of sinks.
+
+**F27 — P3 — `tests/test_scripts_inert.py:1327-1347` — a `def` sink is checked
+with `forbidden_origins` over its entire body, so a helper that only *validates*
+against the grant is flagged as deriving a root from it.** `module_bindings`
+binds a `FunctionDef` name to the whole node (`:1283`), and
+`forbidden_origins(sink)` at `:1405` then sees every attribute anywhere in the
+body. Verified flagged: `def _control_roots(pairs, authorization): roots =
+dict(pairs); if set(roots) != set(authorization.grant["repositories"]): raise
+ValueError(...); return roots` — no root value derives from the grant, only an
+exact-key-set refusal is stated, yet the test reports two offences. This would
+block a legitimate implementation that cross-checks the operator's keys against
+the signed manifest. Fix: for `def` sinks, check only the expressions reachable
+from `return`/`yield`, not the whole body.
+
+**F28 — P3 — `tests/test_scripts_inert.py:1225-1233` — `getattr_calls` matches
+only a bare `ast.Name` named `getattr`, so `builtins.getattr` bypasses both the
+normalisation and the computed refusal.** The comprehension requires
+`isinstance(child.func, ast.Name) and child.func.id == "getattr"`; for
+`builtins.getattr(a, "environ")` the func is an `ast.Attribute`, so
+`attribute_reads` returns `{"getattr"}` (measured) rather than
+`{"getattr", "environ"}`, and `computed_attribute_reads` returns `[]` (measured)
+even for a computed name. The same hole covers `operator.attrgetter("grant")`
+and `vars(a)["grant"]`. Fix: also match `ast.Attribute` funcs whose `.attr` is
+`getattr`, and add `attrgetter`/`vars`/`__dict__` to the refused set.
+
+Nothing found at P0. No name shadowing: all nine new module-level helpers
+(`name_reads`, `getattr_calls`, `literal_getattr_name`, `attribute_reads`,
+`computed_attribute_reads`, `module_bindings`, `grant_derived_names`,
+`forbidden_origins`, `root_sinks`) are each defined exactly once across
+`tests/`, none is `test_`-prefixed, and none collides with `conftest.py`.
+
+**Open blocking set after this review.** F5 (P1) and the newly-opened F22 (P1)
+and F23 (P1) block GO. The open P2 set is F6, F8, F9, F10, F11, F13, F24, F25,
+F26. The open P3 set is F14, F15, F16, F18, F19, F20, F21, F27, F28. F1, F2, F3
+were repaired but **F3 is re-opened by F22/F23**; F4, F7, F12, F17 remain
+repaired. `73ec822..HEAD` is **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
