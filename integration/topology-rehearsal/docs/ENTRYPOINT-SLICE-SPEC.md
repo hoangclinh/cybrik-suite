@@ -52,41 +52,90 @@ supplied is unspecified by the current RED.
 
 ## `run_topology_rehearsal.py`
 
-Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>`.
+This section is restated from the live tests at the argv-boundary shape `42bc6f7` adjudicated
+and `015de49` landed. Every line-number citation below is into `tests/test_scripts_inert.py`
+as committed at `4230858`; where a citation and the file disagree, the file wins.
 
-`main(argv, *, execute=execute_authorized_attempt) -> int` calls `execute(args.grant,
-args.signature)` positionally and returns its result.
+Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>` and a repeatable
+`--control-root NAME=PATH` that *accumulates* into `args.control_root` in the order typed,
+never replaces (pinned by `tests/test_scripts_inert.py:207-215`). Required-ness of
+`--control-root` is deliberately not pinned at the parser — see the argv-shape band below.
 
-`execute_authorized_attempt(grant_path, signature_path, *,
-dependencies_loader=load_runtime_dependencies) -> int` must, in this exact order:
+`main(argv, *, execute=execute_authorized_attempt) -> int` folds the `--control-root` tokens
+into a mapping equal to `dict(NAME=PATH, …)` and calls
+`execute(args.grant, args.signature, repository_roots=<mapping>)` — the two artifact paths
+positionally, the roots as a mandatory keyword — and returns its result (pinned by
+`:237-245`; the default of `execute` is pinned by `:503-508`).
+
+`main` owns the argv-**shape** refusal band, and it forwards a well-shaped mapping verbatim
+rather than judging the key space:
+
+- unstated `--control-root` returns `HOLD_EXIT` with the executor never called (`:270-301`);
+- each malformed token — `novalue`, `=/path`, `name=`, and a repeated name — does the same
+  (`:308-355`);
+- a typed `errors.PrecheckAbort` raised downstream is converted to a returned `HOLD_EXIT`,
+  and the wrong-repositories mapping is recorded as forwarded unmodified (`:372-411`);
+- the script may not restate `constants.CONTROL_REPOSITORIES` in its own code (`:438-500`).
+
+`execute_authorized_attempt(grant_path, signature_path, *, repository_roots,
+dependencies_loader=load_runtime_dependencies) -> int`. `repository_roots` is keyword-only
+with no default, no variadic may accept it unnamed, and an invocation that omits it must
+raise before the grant is opened (`:569-617`). It must then, in this exact order (`:538-566`):
 
 1. `authorization = dependencies.authorization_loader(grant_path, signature_path)`
-2. `wiring = dependencies.wiring_builder(authorization=authorization)`
+2. `wiring = dependencies.wiring_builder(authorization=authorization,
+   repository_roots=repository_roots)`
 3. `result = dependencies.runner(authorization, wiring.adapters, execute_requested=True)`
 
 `execute_requested` is the fixed literal `True`, not derived. Return `0` only when
-`result.outcome == TOPOLOGY_PASS`, otherwise `HOLD_EXIT`, which must be non-zero.
+`result.outcome == TOPOLOGY_PASS`, otherwise `HOLD_EXIT`, which must be non-zero (`:641-659`).
 
-`load_runtime_dependencies()` returns a triple whose members are identity-equal to
-`load_authorization`, `build_runtime_wiring` and `runner.run_topology_rehearsal`.
+`load_runtime_dependencies()` is zero-argument and answers an object whose
+`authorization_loader`, `wiring_builder` and `runner` attributes are identity-equal to
+`load_authorization`, `build_runtime_wiring` and `runner.run_topology_rehearsal` (`:620-630`).
 
-`build_runtime_wiring(*, authorization, command_runner=None)` returns an object exposing
-`.command_runner`, `.plan`, `.command_adapters` iterating exactly
+`build_runtime_wiring(*, authorization, repository_roots, command_runner=None)`.
+`repository_roots` is mandatory keyword-only with no default and no variadic widening, and a
+wiring built without it must fail to be built at all rather than fall back (`:1064-1108`).
+Every malformed roots argument is refused with a typed `errors.PrecheckAbort` naming
+`repository_roots`, before anything is built and with nothing spawned (`:1118-1202`). The
+injected roots must reach every planned observation as literal argv tokens (`:1011-1038`),
+two wirings differing only in their roots must build two different plans (`:1040-1061`), and
+the wiring may read neither the grant nor the host for a root (`:1223-1280`).
+
+The returned object exposes `.command_runner`, `.plan`, `.command_adapters` iterating exactly
 `("controls", "docker", "host", "probe", "signature")`, `.adapters` as a `protocols.Adapters`
 whose `identities/docker/host/probe/verifier` are the same objects as the corresponding
 command adapters, and `.clock`/`.credential`/`.ledger` as concrete `MonotonicClock`,
-`CredentialFileAdapter` and `AtomicFileAttemptLedger` reachable identically from `.adapters`.
+`CredentialFileAdapter` and `AtomicFileAttemptLedger` reachable identically from `.adapters`
+(`:817-832`, `:1369-1384`). Each command adapter publishes the one shared `.plan` by identity
+and **none** publishes the process executor under any public name (`:830`, `:964-1008`); the
+default path must construct `SubprocessCommandRunner` exactly once, in `build_runtime_wiring`
+itself and not inside a loop, comprehension or nested `def` (`:1304-1366`).
 
-## Three obstacles found before implementation
+## Four obstacles found before implementation
 
-1. **Command adapters expose no public `.runner`/`.plan`.** The wiring test asserts
-   `adapter.runner is command_runner` and `adapter.plan is wiring.plan` for all five command
-   adapters, but the five classes in `adapter.py` store only private `_executor`/`_plan`, and
-   only the internal `ExactCommandAdapter` has a public `.plan`. This slice therefore needs an
-   additive `.runner`/`.plan` property pair on those five classes, or script-level wrappers.
-   `adapter.py` is 799 lines against a strict 800-line bound, so an additive change there does
-   not fit without first relocating something into `observe.py`, exactly as the earlier adapter
-   size correction did.
+Three were found in the first reading and are enumerated here; a fourth was found later, at
+the composition root, and is recorded in its own section below. The heading counts all four.
+
+1. **Command adapters exposed no public `.plan`, and the `.runner` half is withdrawn.**
+   Status: the `.plan` half is **settled**; the `.runner` half is **refuted and gone**.
+   `aae6a30` pinned both `adapter.runner is command_runner` and `adapter.plan is wiring.plan`
+   on all five command adapters. Only the plan half survived review. The wiring tests now
+   assert `wiring.command_adapters[name].plan is wiring.plan`
+   (`tests/test_scripts_inert.py:830` and `:1005`), while
+   `test_no_public_adapter_attribute_hands_out_the_unguarded_process_executor`
+   (`tests/test_scripts_inert.py:964-1008`) requires that *no* public name on any command
+   adapter hands out the executor, and the adapter-unit half asserts
+   `not hasattr(instance, "runner")` across the whole MRO (`tests/test_adapter.py:146,150`).
+   The additive accessor this obstacle asked for therefore landed as a `.plan`-only
+   `CommandAdapterAccessors` mixin (`observe.py:510-543`), mixed into the five classes in
+   `adapter.py` (`:254`, `:284`, `:342`, `:474`, `:509`); the shared-executor property the
+   `.runner` accessor was serving is now proven behaviourally through the injected runner's
+   ledger (`tests/test_scripts_inert.py:835-885`) and structurally on the default path
+   (`:1304-1366`). The 800-line bound is why the mixin sits in `observe.py` rather than
+   `adapter.py`, which is 799 lines; that siting is recorded as an open layering finding in
+   `docs/REVIEW-LEDGER.md` (F11) and is not settled by this section.
 
 2. **`repository_roots` has no derivation from the authorization.** The wiring test compares
    `wiring.plan.commands` against a plan built with
@@ -326,7 +375,11 @@ call shape, not one — `test_every_non_pass_result_maps_to_the_fixed_nonzero_ho
 three.
 
 **Decision: the roots are injected at the argv boundary.** `run_topology_rehearsal.py` gains a
-repeatable, argparse-`required` `--control-root NAME=PATH`; `main` folds the pairs into a mapping
+repeatable, accumulating `--control-root NAME=PATH`, whose required-ness is pinned where the
+operator observes it — as a returned `HOLD_EXIT` from `main` — and deliberately *not* as
+`required=True` on the parser: `tests/test_scripts_inert.py:199-205` declines to assert the
+`SystemExit` off a bare parser and permits either spelling, because `main([])` and
+`main(["--unknown"])` must *return* the hold exit either way. `main` folds the pairs into a mapping
 and forwards it as a mandatory keyword-only `repository_roots` through
 `execute_authorized_attempt` into `build_runtime_wiring`, whose `3cd9d77` signature is unchanged.
 `load_runtime_dependencies` stays zero-argument, and
@@ -470,9 +523,35 @@ Owed paths for the atomic GREEN, restated:
 2. `scripts/run_topology_rehearsal.py` — new.
 3. `src/cybrik_suite_topology_rehearsal/__init__.py` — the scripts sentence moves to the present
    side.
-4. `tests/test_surface_contract.py` — the absence pin at `:178-179` and the script-claim
-   placement at `:231` move with it. Nothing else in that file weakens; the size bound, the
-   single-spawn-site control and the inventory stay exactly as reviewed.
+4. `tests/test_surface_contract.py` — three edits, not one, and the third is a control that
+   genuinely goes away rather than moves:
+   - the absence pin at `:178-179` (`assert not (SCRIPTS / name).exists()`) moves to the
+     present side, against `test_both_inert_entrypoints_exist` (`:434-435`);
+   - the script-claim placement at `:231` (`FRONT_DOOR_SCRIPT_CLAIM in absence_sentence`)
+     moves to the present sentence, for the reason given above;
+   - `FRONT_DOOR_ABSENCE_CLAIM` itself (`:73`, `"remain absent, and their tests stay RED"`)
+     is owed a decision, and this list previously did not say so. `FRONT_DOOR_ABSENT_MODULES`
+     is already `()` (`:77`), so once the two scripts land nothing in the component is absent
+     — yet `:176` still requires the claim string to appear in the front-door docstring and
+     `:226` still requires *exactly one* sentence to carry it, while `:227-230` forbid that
+     sentence from naming any present module and `:231`'s move forbids it from naming the
+     scripts. The only docstring satisfying all four at once carries a sentence about
+     nothing. The honest replacement is to retire `FRONT_DOOR_ABSENCE_CLAIM` (`:73`), the
+     docstring requirement at `:176` and the `absence_sentence` half of `:226-231` together,
+     and to keep the falsifiability they were carrying in the halves that still have subject
+     matter: `:184`'s `absent == FRONT_DOOR_ABSENT_MODULES`, `:185`'s
+     `present == FRONT_DOOR_PRESENT_MODULES`, and the present-sentence placement at
+     `:220-224`, extended so both script names must sit on the present side exactly as the
+     modules do today.
+
+   That third item **is** a weakening in the strict sense — an assertion the tree makes today
+   stops being made — so this list's former sentence "Nothing else in that file weakens" is
+   withdrawn as false. The narrower claim that survives: no control over anything that still
+   exists is weakened. The size bound (`:237-249`), the single-spawn-site control
+   (`:355-431`), the scripts-root inventory (`:438-450`) and the unevidenced-status regex
+   (`:233`) stay exactly as reviewed. Retiring an absence control at the moment its subject
+   stops being absent is not the same as relaxing a bound, but it must be reviewed as a
+   deletion and recorded as one, not filed under "moves".
 5. `pyproject.toml` — banner sentence and `description` stop claiming the scripts are absent.
 6. `tests/conftest.py` — only if `PROJECT_STATUS` itself is retired, and then in lockstep with
    `pyproject.toml`.

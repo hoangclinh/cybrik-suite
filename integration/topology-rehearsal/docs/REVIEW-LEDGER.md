@@ -643,6 +643,95 @@ rather than taken from the commit message:
 Neither entrypoint script was executed and neither exists. No `src/`, docs,
 dependency or lockfile change. RUNTIME remains **HOLD**.
 
+### `33588bf..HEAD` — F4/F12/F17/F7 repair, spec truth
+
+One commit, `docs/ENTRYPOINT-SLICE-SPEC.md` only (+110/−31), repairing four
+recorded findings that were all confined to that one file: **F4 (P1)**,
+**F12 (P2)**, **F7 (P2)** and **F17 (P3)**. F3 and F5 are deliberately untouched
+and `73ec822..HEAD` remains **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
+This is a documentation-truth repair, so the tests are the source of truth: every
+normative claim in the rewritten regions now carries the
+`tests/test_scripts_inert.py` line that pins it, and the section states that
+where a citation and the file disagree, the file wins.
+
+| Finding | Old range | New range | Resolution |
+|---|---|---|---|
+| F4 (P1) | `:53-78` | `:53-114` | `## run_topology_rehearsal.py` rewritten to the argv-boundary shape; all five disagreements corrected |
+| F12 (P2) | `:80-89` | `:116-138` | Heading now "Four obstacles"; obstacle 1 restated as `.plan`-only, `.runner` half recorded as withdrawn |
+| F7 (P2) | `:473-475` | `:526-554` | Owed-path item 4 expanded to three edits; false "nothing else weakens" sentence withdrawn |
+| F17 (P3) | `:328-329` | `:377-384` | argparse-`required` replaced by required-ness pinned as a returned `HOLD_EXIT` |
+
+F4's five corrections: `--control-root NAME=PATH` added as repeatable and
+*accumulating* (`:207-215`); `main` calls
+`execute(args.grant, args.signature, repository_roots=<mapping>)` (`:237-245`);
+`execute_authorized_attempt` gains keyword-only `repository_roots` with no
+default (`:569-617`); the `wiring_builder` call carries `repository_roots`
+(`:538-566`); `build_runtime_wiring` gains mandatory keyword-only
+`repository_roots` (`:1064-1108`). Also corrected in the same region:
+`load_runtime_dependencies()` was described as returning "a triple"; it answers a
+zero-argument object with `authorization_loader`/`wiring_builder`/`runner`
+attributes (`:620-630`).
+
+**F7 is recorded as a deletion, not a move — this is the load-bearing part.**
+With `FRONT_DOOR_ABSENT_MODULES` already `()` (`test_surface_contract.py:77`),
+once the scripts land the only docstring satisfying `:176`, `:226`, `:227-230`
+and `:231` at once carries a sentence about nothing. The spec now says
+`FRONT_DOOR_ABSENCE_CLAIM` (`:73`), the docstring requirement (`:176`) and the
+`absence_sentence` half of `:226-231` are owed a **retirement decision**, names
+what keeps their falsifiability (`:184`, `:185`, `:220-224` extended to both
+script names), and explicitly withdraws the former "Nothing else in that file
+weakens" sentence as false. The narrower surviving claim: no control over
+anything that still exists is weakened — the size bound (`:237-249`),
+single-spawn-site control (`:355-431`), scripts-root inventory (`:438-450`) and
+unevidenced-status regex (`:233`) stay exactly as reviewed. Retiring an absence
+control at the moment its subject stops being absent must be reviewed as a
+deletion. **No control was relaxed by this commit**; the spec records what the
+GREEN owes, and `tests/test_surface_contract.py` is untouched.
+
+Citation spot-check by the coordinator, independent of the writer: five cited
+lines were read directly and all resolve exactly as claimed —
+`test_scripts_inert.py:207-215` (`list(args.control_root) == [...]`), `:237-245`
+(`execute(grant, signature, *, repository_roots)` recorder), `:1064`
+(`test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`),
+`test_adapter.py:146,150` (`instance.plan is plan`, `not hasattr(instance,
+"runner")`), and `observe.py:510` (`class CommandAdapterAccessors`).
+
+#### New findings opened by this repair
+
+The writer surfaced four further spec defects outside its four-finding scope and
+reported rather than silently fixed them. All are documentation accuracy with no
+control impact; none blocks.
+
+**F18 — P3 — `ENTRYPOINT-SLICE-SPEC.md:162`** names
+`test_runtime_wiring_injects_the_one_executor_into_every_command_adapter`, which
+does not exist at HEAD. The `wiring.plan.commands` assertion now lives in
+`test_runtime_wiring_builds_the_reviewed_plan_and_the_five_command_adapters`
+(`tests/test_scripts_inert.py:817-822`).
+
+**F19 — P3 — `ENTRYPOINT-SLICE-SPEC.md:413-414`** says "amend six" and then lists
+five sites (`:154`, `:171`, `:201`, `:265`, and a comment at `:285`). Arithmetic
+error in the `42bc6f7` adjudication. The "add six" half is already tracked by F2.
+
+**F20 — P3 — `ENTRYPOINT-SLICE-SPEC.md:213-214`** says the
+`CommandAdapterAccessors` mixin is "uncommitted" and "supplies both" `.plan` and
+`.runner`. Both halves are now false. It sits under an explicit
+`ADJUDICATED — REFUTED` banner retained as the record of a tested claim, so it is
+not a live normative claim, but a reader could misread it.
+
+**F21 — P3 — `ENTRYPOINT-SLICE-SPEC.md:377-435`** — every line number in the
+`42bc6f7` adjudication section (`:272`, `:175`, `:247`, `:244`, `:201`,
+`:265-269`, `:682`, `:841`) predates `015de49` and no longer resolves in the
+current test file. Historical by construction, but nothing in the section says so.
+
+#### Static evidence at this commit
+
+- Broad census unchanged at **1395 passed / 57 failed**, all the intended
+  absent-script class. Re-run because the component carries an unevidenced-status
+  regex control (`test_surface_contract.py:233`) that reads documentation.
+- `git diff --check` clean. Docs-only change; no `src/`, no tests, no
+  dependency, no lockfile change. Neither entrypoint script exists or was run.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
