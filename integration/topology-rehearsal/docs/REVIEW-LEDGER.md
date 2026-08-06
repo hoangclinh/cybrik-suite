@@ -36,13 +36,39 @@ to be lost irrecoverably.
 | `0f6883f..47dce0e` | F75 repair | NO-GO | 0/1/1/3 | NO | HOLD |
 | `4b25214` | F83 repair (`.get` protocol uncovered) | NO-GO | 0/3/1/1 † | NO | HOLD |
 | `9b96f49` | `views.py` extraction, scoped to the extraction | GO | 0/0/1/2 † | NO | HOLD |
+| — | F108 adversarial lane: universal clause REFUTED, narrow claim survives (:6213) | REFUTED ‡ | n/a ‡ | NO | HOLD |
+| — | Cycle-54 adversarial lane: accessor reasoning wrong (:6828) | NO-GO ‡ | n/a ‡ | NO | HOLD |
+| `4a3d9d7` | F128 repair, independent Opus (:7436) | NO-GO | 0/3/3/1 | NO | HOLD |
+| `abf4d5f` | Cycle 3 (V2), first V2-lane verdict (:8978) | NO-GO | 0/0/4/3 | NO | HOLD |
+| `a703a45` | Cycle 6/48 (:9181) | NO-GO | 0/1/6/4 | NO | HOLD |
+| `6d20929` | Cycle 9, `views.py` + two tests; evidence UNAVAILABLE (:9346) | NO-GO | 0/0/8/5 | NO | HOLD |
+| `af0d227` | Cycle 11, first verdict backed by driver execution evidence (:9488) | NO-GO | 0/0/9/6 | NO | HOLD |
+| `a31f54d` | Cycle 16, F0052 P1 + F0053 P2 (:9670) | NO-GO | 0/1/1/2 | NO | HOLD |
+| `8aef3da` | Cycle 17, two gating rows retired (:9737) | NO-GO | 0/1/0/5 | NO | HOLD |
+| `93e1140` | Cycle 20, four rows retired (:9920) | NO-GO | 0/0/0/4 | NO | HOLD |
+| `574e1ed` | Cycle 22, `runner.py` + `test_runner.py` (:10028) | GO | 0/0/0/1 | NO | HOLD |
+| `22fa33b` | Cycle 24, ledger scope (:10172) | NO-GO | 0/0/1/2 | NO | HOLD |
+| `fae019f` | Cycle 26, ledger scope — F0062/F0063/F0064 retired, F0065 P2 opened | NO-GO | 0/0/1/2 | NO | HOLD |
 
-† The eight rows above `b580b2c..eb472c1` quote a reviewer-stated P0/P1/P2/P3 line. For the two
-rows marked †, the reviewer's prose states only part of the count (`4b25214`: "NO-GO"; `9b96f49`:
-"P0 = 0 and P1 = 0"), so the remaining figures are **derived by this ledger** from the findings each
-verdict opened — F85/F86/F87 + F88 + F89 for `4b25214`, and F91 + F92/F93 for `9b96f49`. They are
-reconstructions, not quotations, and are marked so they are never mistaken for the reviewer's own
-arithmetic. See F95.
+**This index must be extended by the same commit that records a verdict in prose below (F0065).**
+It previously stopped at `9b96f49` while twelve later verdicts — eight of them NO-GO — existed only
+as prose sections, with nothing disclosing the cut-off. A reader scanning the top of the file saw a
+GO as the newest row. That is the identical defect this ledger graded P2 and repaired as F95 at
+`:3978-4003`, recurred at half again the scale and twenty lines from the top of the file. The rows
+above are now reconciled against the prose sections at the cited line numbers; a verdict recorded
+below without a row here is a defect, not a backlog.
+
+† For the two rows marked †, the reviewer's prose states only part of the count (`4b25214`:
+"NO-GO"; `9b96f49`: "P0 = 0 and P1 = 0"), so the remaining figures are **derived by this ledger**
+from the findings each verdict opened — F85/F86/F87 + F88 + F89 for `4b25214`, and F91 + F92/F93 for
+`9b96f49`. They are reconstructions, not quotations, and are marked so they are never mistaken for
+the reviewer's own arithmetic. See F95. The caveat attaches to the two † rows themselves; it
+previously read "the eight rows above `b580b2c..eb472c1`", which names rows containing no † mark at
+all, pointing the provenance warning at the wrong half of the table (F0066).
+
+‡ Adversarial-lane results, not independent range verdicts bound to a sha and diff hash. They are
+indexed here because they are refusals recorded in prose, but they carry no P0/P1/P2/P3 line and
+must never be counted as review coverage.
 
 ## Range detail
 
@@ -10092,9 +10118,15 @@ all P3.
 **22 is a floor, not the backlog, and the difference is not cosmetic (F0062).** The driver's
 fold that these rows are transcribed from is itself rendered `INCOMPLETE`: verdicts that carried
 no structured findings block contribute no rows to it, so their findings are absent from the
-fold and therefore absent from this table. Measured at this commit, 4 of 17 verdicts in the
-corpus carried no structured rows. The true open set is larger than 22 by an amount this ledger
-**cannot state**, because the missing rows were never enumerated anywhere.
+fold and therefore absent from this table. The true open set is larger than 22 by an amount this
+ledger **cannot state**, because the missing rows were never enumerated anywhere.
+
+That ratio is a corpus-time measurement and must not be pinned to a commit (F0067). The register
+is folded from the out-of-repo reviewer verdict corpus and re-folded every cycle, so the
+denominator grows while this file's commit does not: the fold read **4 of 17** when this sentence
+was first written and **4 of 18** at the very next cycle, from the same immutable sha. Only the
+numerator is stable — the four rows-less verdicts are historical and can never gain structured
+rows. Read the denominator from the current fold, never from this file.
 
 This matters most in the one place it is easiest to miss: section 2 above exists to repair an
 understated backlog, and the figure it repairs it with carries the same understatement. Any
@@ -10211,3 +10243,45 @@ escalated as a policy question rather than resolved by exempting this ledger fro
 
 - No control weakened, no limit raised, no finding downgraded, no entrypoint script written
   or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 26 (V2) — `VERDICT-fae019f` NO-GO: three rows retired, three opened
+
+| range | scope | verdict | P0/P1/P2/P3 | PUSH-ELIGIBLE | RUNTIME |
+| --- | --- | --- | --- | --- | --- |
+| `73ec822..fae019f` | `docs/REVIEW-LEDGER.md` | NO-GO | 0/0/1/2 | NO | HOLD |
+
+Bound to sha `fae019f`, `covers_head=true`, `findings_enumerated=true`, execution evidence
+`COMPLETE` (1725 passed, 59 failed, `unintended_failures=0`, `matches_baseline=true`).
+Recorded here before any push, as the preamble rule at `:12-17` requires.
+
+**Retired:** F0062 (P2) — the INCOMPLETE fold is disclosed and 22 is stated as a floor;
+F0063 (P3) and F0064 (P3) — the audit carve-out was withdrawn rather than reworded.
+Batching all three in one commit retired all three in one verdict.
+
+**Opened, and repaired in the commit that records this verdict:**
+
+1. **F0065 (P2, gating).** The `## Verdict history` index still ended at `9b96f49` with a GO as
+   its newest row, while twelve later verdicts — eight NO-GO, including the then-standing
+   `22fa33b` — existed only as prose, with nothing disclosing the cut-off. Repaired by
+   reconciling the index against every prose section and adding the maintenance rule.
+2. **F0066 (P3).** The † provenance footnote named "the eight rows above `b580b2c..eb472c1`",
+   which contain no † mark; both marks are at the `4b25214`/`9b96f49` rows. The warning against
+   mistaking reconstructions for quotations pointed at the wrong half of the table.
+3. **F0067 (P3).** "4 of 17 verdicts" pinned a corpus-time fold to an immutable commit. The
+   corpus is re-folded every cycle and already read 4 of 18.
+
+**The self-invalidation loop is not closed, and this commit is another turn of it.** Recording
+this verdict re-invalidates this file's coverage. The escape rejected at `22fa33b`+1 — keeping the
+verdict out of the ledger — is what F0063/F0064 established to be dishonest, so it stays rejected.
+The structural resolution remains a Founder policy question, escalated and not resolved here in the
+direction that happens to close the gate.
+
+**Separately escalated this cycle (driver-owned, outside this lane's write prefixes):**
+`push-when-clean-v2.zsh:88` computes its only findings clause as `p0+p1+p2` and never reads
+`.verdict`; `grep` for the verdict word in that file returns nothing, and `run-lane-v2.zsh:649`
+rejects only the converse (GO with nonzero gating counts). `VERDICT-93e1140` in the live corpus is
+`NO-GO` with `0/0/0/4`, so a refusal carried in the word alone would satisfy every push clause.
+This verdict was **not** that shape — the reviewer carried its refusal in `p2=1`, so the predicate
+would have refused — but the exposure became reachable this cycle for the first time, because
+distance had fallen to a single verdict with `PUSH-AUTHORIZED` present on disk. See
+`roles/security/artifacts/ESCALATION-push-predicate-ignores-verdict-word.md`.
