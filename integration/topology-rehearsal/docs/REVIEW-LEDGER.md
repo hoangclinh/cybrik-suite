@@ -3159,3 +3159,65 @@ that passed in both states are the deliberate positive controls.
 F83 joins the open P1 set: **F45, F46, F47, F65, F83**. P1 ≠ 0 stands independently of how the
 proposed F45/F46/F47/F65 re-grade resolves, because F83 is new, un-regraded and a live authority
 defect of the same shape the range has been closing. The atomic entrypoint GREEN remains blocked.
+
+---
+
+## Cycle 37 — the two owed independent opinions commissioned, and F83 repaired test-first
+
+### Live state reconciliation at cycle open
+
+The supplied checkpoint named HEAD `76553f4` and "11 commits ahead". Both were stale. Live HEAD at
+cycle open was **`f787935afe56ed4e0b97dc9ed0b2f1072bdb79c3`**, the branch **62 ahead** of `origin`.
+PR #55 remains **draft, OPEN, CLEAN** at `73ec822` with all four rendered hosted checks SUCCESS
+(two `secret-scan`, two `contract standards validation`, both under the `contracts` workflow). The
+untracked `integration/topology-rehearsal/uv.lock` was preserved untouched and is the only entry in
+`git status --short`.
+
+Commit provenance re-derived from `git show --stat`, not from prose: of the five commits after the
+last reviewed point `47dce0e`, **exactly one carries source** — `f2bb2c5` (`observe.py` +49/-8,
+`tests/test_observe.py` +126). `564a4e4`, `c4f8668`, `0f13ae7` and `f787935` are
+`docs/REVIEW-LEDGER.md`-only. The unreviewed *source* surface of this range is therefore `f2bb2c5`
+alone, and that is what was commissioned for review.
+
+### Census measured at `f787935` on a pristine tree, before any agent was launched
+
+```
+58 failed, 1493 passed in 0.70s
+```
+
+Classified by file, not assumed: **51 in `tests/test_scripts_inert.py` + 7 in
+`tests/test_surface_contract.py` = 58**. This is the identical split every prior cycle recorded.
+`ls scripts` returns **no such file or directory**, which is the direct cause: all 58 are
+absent-entrypoint-script REDs. **No unintended failure exists at HEAD.**
+
+### Three lanes commissioned this cycle — status at the moment this checkpoint was written
+
+Recorded before the results were in, so the record cannot later be read as claiming more than was
+obtained:
+
+1. **Independent review of `f2bb2c5`** (the F78/F79 repair, the range's only unreviewed source) —
+   commissioned, read-only, pinned to `git show f787935:` reads so the concurrent writer could not
+   move the tree beneath it. **Outstanding at checkpoint.**
+2. **Second independent opinion on the proposed F45/F46/F47/F65 re-grade** — commissioned,
+   read-only. This is the opinion the previous cycle owed and did not obtain, so the re-grade
+   stays **PROPOSED, not applied**. **Outstanding at checkpoint.**
+3. **F83 repair, test-first**, owning exactly `observe.py` and `tests/test_observe.py`, mirroring
+   `f2bb2c5`'s shipped dual-protocol cross-check onto the pinned-identity operand, with mandatory
+   positive controls and a zero-refuse→accept differential. **Outstanding at checkpoint; the working
+   tree carried no source edit when this commit was made.**
+
+### What this cycle did NOT do
+
+No entrypoint script was written or executed. No Docker, listener, network, PKI or database path was
+touched. Nothing was pushed. The atomic entrypoint GREEN was deliberately not attempted, because
+P1 ≠ 0. `ruff` and `coverage` are both **absent** from this venv (`No module named ruff`,
+`No module named coverage`); no dependency was installed to obtain them, so lint and coverage
+evidence remain unavailable by authority, not by oversight.
+
+### Open set at this checkpoint — unchanged from cycle 36's close
+
+**F45, F46, F47, F65** — P1 as recorded, re-grade proposed and still awaiting the second opinion.
+**F83** — P1, open, repair in flight. **F80, F81, F82** — P3, open. F78 and F79 are repaired but
+their repair is unreviewed, so neither is discharged.
+
+P1 ≠ 0 on every reading. Nothing in this range is pushable.
