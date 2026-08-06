@@ -6068,3 +6068,43 @@ verdict. **F108 moves from OPEN to repaired-unreviewed and must not be recorded 
 repaired-unreviewed = 8** (F78, F85, F83, F86, F87, F103, F104, **F108**). **P2 = 32. P3 = 37.**
 F113 CLOSED. **No part of the 101-commit local range is push-eligible**: the P0=P1=P2=0 gate requires
 an independent verdict that does not exist for F108. RUNTIME **HOLD**. Production **Founder-only**.
+
+## Cycle 52 — the owed F108 verdict recommissioned; every gate re-measured at `b15a226` first
+
+### The coordinator re-measured every gate itself before commissioning anything
+
+The previous cycle's figures were taken at `f40c5a9`, one commit below live HEAD. They are not
+evidence about `b15a226`. Re-measured directly at live HEAD `b15a226`, from the package root:
+
+| Gate | Cycle-51 claim (at `f40c5a9`) | Measured at `b15a226` | Result |
+|---|---|---|---|
+| Full suite | 58 failed, 1545 passed | **58 failed, 1545 passed** | MATCH |
+| RED reason | 58/58 `missing C8 implementation` | **58** matched, 0 UNINTENDED | MATCH |
+| `ruff check .` | 12 errors, delta 0 | **12 errors**, delta 0 vs pinned baseline | MATCH |
+| `python3 -m compileall -q src tests` | exit 0 | **exit 0** | MATCH |
+| Largest authored module | 799 (`adapter.py`) | **799** (`adapter.py`); `preparation.py` **798** | MATCH |
+| `git diff --check 73ec822..HEAD` | not previously recorded | **clean** | NEW |
+
+The 58 REDs were additionally proved absent-*root*, not merely absent-script: `scripts/` does not
+exist at HEAD (`ls: scripts/: No such file or directory`). No entrypoint script was run, and none
+exists to run.
+
+### The F108 repair diff was verified from the commit, not from its author's description
+
+`git show f40c5a9` touches exactly two files. On `preparation.py` it is 9 insertions / 9 deletions:
+**eight** `guarded(` -> `projected(` swaps (`controls`, `image`, `ephemeral_range`, `listeners`,
+`platform`, `docker_digest`, `publications`, `probe_digest`) plus one line-neutral docstring
+correction. **No guard was deleted, no exception clause widened, no `MODULE_LINE_LIMIT` raised.**
+`projected()` (`preparation.py:293-316`) reads once through `guarded()` and then `frozen()`s, and
+`frozen()` (`:129-`) recursively dead-copies mappings to `MappingProxyType` and sequences to tuples,
+refusing cycles, unknown types and safe-scalar subclasses. The structure matches the claim; whether
+it is *sufficient* is exactly what the independent lane must decide, and the coordinator does not
+pre-judge it here.
+
+### F108's owed verdict is recommissioned, not assumed
+
+The lane that failed to return within cycle 51's timebox has been re-commissioned this cycle as an
+explicitly adversarial reviewer instructed to *refute* the unreachability claim and to default to
+"not proved" under uncertainty, with F109 (`stored_entries` key-set gating) and F110
+(`views.nested`) named as specific hunting grounds. **Until it returns, F108 remains
+repaired-unreviewed. The push gate is unchanged.**
