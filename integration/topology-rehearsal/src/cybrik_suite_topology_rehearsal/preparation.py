@@ -65,6 +65,7 @@ from .views import (
     proved_copy,
     read_items,
     safe_repr,
+    safe_type_name,
     subclasses_immutable_leaf,
 )
 
@@ -137,17 +138,17 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
         return value
     if subclasses_immutable_leaf(value):
         raise ValueError(
-            f"a {type(value).__name__} subclasses a safe scalar but may carry mutable state "
+            f"a {safe_type_name(value)} subclasses a safe scalar but may carry mutable state "
             "of its own, so it is not one of the leaves this phase can prove"
         )
     if id(value) in seen:
-        raise ValueError(f"a {type(value).__name__} refers to itself, so no dead copy of it exists")
+        raise ValueError(f"a {safe_type_name(value)} refers to itself, so no dead copy of it exists")
     trail = (*seen, id(value))
     # The `Mapping` face precedes every buffer arm, matching `views._dead_copy` (F0024).
     if isinstance(value, Mapping):
         items = read_items(value)
         if items is None:
-            raise ValueError(f"a {type(value).__name__} raised when read by `.items()`")
+            raise ValueError(f"a {safe_type_name(value)} raised when read by `.items()`")
         return MappingProxyType({frozen(k, trail): frozen(i, trail) for k, i in items})
     if isinstance(value, bytearray):
         return bytes(value)
@@ -155,10 +156,8 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
         return frozenset(frozen(item, trail) for item in value)
     if isinstance(value, Sequence):
         return tuple(frozen(item, trail) for item in value)
-    raise ValueError(
-        f"a {type(value).__name__} cannot be proved deeply immutable, so it may not be "
-        "recorded as something this phase proved"
-    )
+    raise ValueError(f"a {safe_type_name(value)} cannot be proved deeply immutable, so it may "
+                     "not be recorded as something this phase proved")
 
 
 @dataclass(frozen=True)

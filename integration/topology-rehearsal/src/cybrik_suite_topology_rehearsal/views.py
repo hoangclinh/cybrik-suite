@@ -7,18 +7,17 @@ only: it reaches nothing, holds nothing between calls and raises nothing out of 
 callers are reducers contracted to return findings.
 
 These are the machinery `observe` and `preparation` share for reading a mapping that arrived
-through an injected port. Four of them were authored in `observe` and are held here so that
-module stays inside its reviewed size bound; `observe` re-imports them, so every name a caller
-already reached for through `observe` still resolves there. Nothing about that code moved with
-them. `proved_copy` is the one judgement authored here: it fuses the walk, the reconciliation
-and the copy into a single read so that what is judged and what is recorded cannot differ.
+through an injected port. Four were authored in `observe` and are held here so that module stays
+inside its reviewed size bound; `observe` re-imports them, so every name still resolves there,
+and nothing about that code moved with them. `proved_copy` is the one judgement authored here:
+it fuses the walk, the reconciliation and the copy into one read, so what is judged and what is
+recorded cannot differ.
 
-The one property they all turn on is that a mapping has two views of itself — what its own
-iteration yields and what its subscript returns — and that a projection is only trustworthy
-where those two agree. `MappingProxyType` over a `dict` *subclass* is exactly a
-`MappingProxyType` by `type()`, so it passes every declared read-only-mapping gate and the
-deep immutability proof while overloading `__getitem__`. A reader that consults one view while
-a later consumer records the other is exactly the hole these reconcile.
+They all turn on one property: a mapping has two views of itself — what its iteration yields
+and what its subscript returns — and a projection is trustworthy only where those agree.
+`MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType` by `type()`, so it
+passes every read-only-mapping gate and the immutability proof while overloading `__getitem__`.
+A reader consulting one view while a consumer records the other is the hole these reconcile.
 """
 
 from __future__ import annotations
@@ -42,9 +41,8 @@ __all__ = [
     "subclasses_immutable_leaf",
 ]
 
-# How deep a projection may nest before the walk stops and reports it. The walk recurses once
-# per level, so this must stay well below the interpreter's own limit: the seam is contracted
-# to return findings, and a `RecursionError` is not a finding. See `proved_copy`.
+# How deep a projection may nest before the walk stops and reports it. One recursion per level,
+# so this stays well below the interpreter's own limit: a `RecursionError` is not a finding.
 MAX_PROJECTION_DEPTH = 64
 
 
@@ -80,15 +78,15 @@ def is_immutable_leaf(value: object) -> bool:
     this sentence claimed otherwise (F0026).
 
     `type(value) in IMMUTABLE_LEAVES` was **not** this test, and that was F153. Membership is
-    defined as `any(e is x or e == x)`, so it consults `__eq__` on the class object — which a
-    metaclass owns. A class whose metaclass answers `True` to every comparison was therefore
-    admitted as a builtin leaf, and every control resting on that admission unfolded on a lie:
-    the value skipped the immutability walk, skipped `proved_copy`'s deep walk, and reached the
-    equality fallback that is only safe because the leaf types cannot override comparison.
+    `any(e is x or e == x)`, so it consults `__eq__` on the class object, which a metaclass owns.
+    A class whose metaclass answers `True` to every comparison was admitted as a builtin leaf,
+    and every control resting on that admission unfolded on a lie: the value skipped the
+    immutability walk and `proved_copy`'s deep walk, and reached the equality fallback that is
+    safe only because leaf types cannot override comparison.
 
     Identity cannot be forged: `is` is the interpreter's, not the judged object's. Nothing is
-    widened here — a leaf subclass without a lying metaclass was already excluded, because
-    `MySubclass == int` is `False` — so this closes the forgery and moves nothing else.
+    widened — a leaf subclass without a lying metaclass was already excluded (`MySubclass == int`
+    is `False`).
     """
     return any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)
 
@@ -97,20 +95,17 @@ def subclasses_immutable_leaf(value: object) -> bool:
     """Whether `value` inherits from a builtin leaf without being one exactly.
 
     The companion to `is_immutable_leaf`, and the *only* sanctioned spelling of the subclass
-    question. `preparation.frozen` refuses such a value rather than walking it, because `str`
-    and `bytes` are `Sequence`s and a subclass reaching generic container handling would be
-    taken apart into its own characters while the caller kept a live handle on whatever mutable
-    state it carries.
+    question. `preparation.frozen` refuses such a value rather than walking it: `str` and `bytes`
+    are `Sequence`s, and a subclass reaching generic container handling would be taken apart into
+    its own characters while the caller kept a live handle on its mutable state.
 
-    This is decided by `issubclass(type(value), ...)` rather than `isinstance`, for the reason
-    `VERDICT-6d20929` filed as P2-2: `isinstance` falls back to the instance's `__class__`, so
-    an unrelated object publishing `__class__ = str` was admitted here. Both operands are
-    ordinary types under `issubclass(type(value), ...)`, so the check resolves to
-    `PyType_IsSubtype` — the interpreter's relation, which the judged object does not own.
+    Decided by `issubclass(type(value), ...)` rather than `isinstance`, for the reason
+    `VERDICT-6d20929` filed as P2-2: `isinstance` falls back to the instance's `__class__`, so an
+    unrelated object publishing `__class__ = str` was admitted here. Both operands are ordinary
+    types here, so the check resolves to `PyType_IsSubtype` — the interpreter's relation.
 
-    Forging in the *opening* direction was never the exposure: a lie that makes this answer
-    `True` produces a spurious refusal, which is fail-closed. The exposure is a caller
-    re-deriving the test and getting a weaker answer than this one.
+    Forging in the *opening* direction was never the exposure: a lie making this answer `True`
+    is a spurious refusal, which is fail-closed. The exposure is a caller re-deriving the test.
     """
     return issubclass(type(value), IMMUTABLE_LEAVES) and not is_immutable_leaf(value)
 
@@ -121,8 +116,8 @@ def safe_repr(value: object) -> str:
     Every finding below interpolates the judged value, and the judged value arrived through an
     injected port. `repr()` is attacker-controlled code: a `__repr__` that raises turned the
     *report* of a divergence into an exception escaping a seam whose callers are reducers
-    contracted to return findings, so the hostile reading suppressed its own finding by
-    refusing to be printed. Formatting is therefore never allowed to raise.
+    contracted to return findings, so the reading suppressed its own finding by refusing to be
+    printed. Formatting is therefore never allowed to raise.
     """
     try:
         return repr(value)
@@ -180,7 +175,7 @@ def immutability_findings(
             for item in value
             for finding in immutability_findings(item, f"{path}.<member>", trail)
         )
-    return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
+    return (f"{path} holds a {safe_type_name(value)}, which is not deeply immutable",)
 
 
 def _states_the_same_value(stored: object, other: object) -> bool:
@@ -279,9 +274,11 @@ def _is_stored(key: Any, stored: dict[str, Any]) -> bool | None:
     Membership hashes the key, and the key arrived through an injected port. `__hash__` is
     attacker-controlled code — and an unhashable key needs no code at all, since `__hash__ =
     None` is enough — so `key not in stored` raised `TypeError` out of a seam contracted to
-    return findings. `VERDICT` row F0022 filed that: the announced-key reconciliation was the
-    one place a hostile key was touched before any handler existed. A key that will not be
-    hashed cannot be shown to be stored, which is a finding, not an exception.
+    return findings (F0022). That row also called this "the one place a hostile key was touched
+    before any handler existed", which was false: `stored_entries` hashes every key `.items()`
+    yields as it stores it, strictly before this runs. F0031 filed the lie. Both sites are
+    guarded now — this one for announced keys, the storing loop for yielded ones. A key that
+    will not be hashed cannot be shown to be stored: a finding, not an exception.
     """
     try:
         return key in stored
@@ -375,20 +372,16 @@ def stored_entries(
 ) -> tuple[dict[str, Any], tuple[str, ...]]:
     """What a mapping *stores*, and every entry whose subscript or `.get` disagrees with it.
 
-    The same shape of hole `local_presence_findings` closed, written once for a whole
-    inventory instead of one field. A mapping is validated here by iterating it — `keyed`
-    iterates and `preparation.frozen` rebuilds from `.items()` — so a judgement that reads the
-    values back through `__getitem__` is judging something no consumer records.
-    `MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType` by `type()`, so
-    such a mapping passes every declared read-only-mapping gate and the deep immutability proof
-    while overloading its subscript.
+    The same shape of hole `local_presence_findings` closed, written once for a whole inventory
+    instead of one field. A mapping is validated here by iterating it — `keyed` iterates and
+    `preparation.frozen` rebuilds from `.items()` — so a judgement reading values back through
+    `__getitem__` judges something no consumer records.
 
-    A recorded value carries exactly what `.items()` yielded only where the recording is built
-    from that same read. That used to be `prepare`'s ingress alone, and by a *separate* read: a
+    A recorded value carries what `.items()` yielded only where the recording is built from that
+    same read. That used to be `prepare`'s ingress alone, by a *separate* read: a
     `PreparationResult` built directly or copied by `dataclasses.replace` kept the caller's own
-    mapping object as its field, so the recorded value was no copy at all. `proved_copy` below
-    is what binds the two together on every path — it hands back the `stored` dict this function
-    already read, so what was judged and what is recorded are one read's answer.
+    mapping as its field, so the recording was no copy at all. `proved_copy` binds the two on
+    every path — it hands back the `stored` dict this function already read.
 
     The subscript is kept as a cross-check rather than dropped, because `__getitem__` is a
     live protocol on these mappings elsewhere in the package — `runner._selected_identity`
@@ -399,39 +392,28 @@ def stored_entries(
     `keyed` does not make a mapping subscriptable, and the callers here are reducers contracted
     to return findings and a `__post_init__` documented to raise `ValueError`.
 
-    `.get` is cross-checked for the same reason and is not a lesser accessor than `__getitem__`
-    — it is the *primary* one. Every verdict this package reaches over a live projection is read
-    through it: `observe.validate_internal_network` reads `projection.get(NETWORK_INTERNAL_KEY)`
-    and `projection.get(NETWORK_ATTACHMENT_KEY)`, `validate_publication`'s reducers read
-    `bindings.get`, `entry.get` and `listener.get`, and `nested` above walks every path by
-    `current.get(key)`. Cross-checking iteration against the subscript alone therefore proved
-    agreement between two views that no validator consults, while the view every validator does
-    consult was free to answer differently — a reading honest to `.items()` and `__getitem__` and
-    hostile only to `.get` cleared the whole cross-check and was then copied on its stored face,
-    so the receipt attested an isolation the same live object denied. A third accessor is a third
-    view of one entry, and disagreement in any of them is a refusal.
+    `.get` is cross-checked for the same reason and is the *primary* accessor, not a lesser one:
+    `observe.validate_internal_network`, `validate_publication`'s reducers and `nested` all read
+    live projections through it. Cross-checking iteration against the subscript alone therefore
+    proved agreement between two views no validator consults, while the one they all consult was
+    free to differ — a reading hostile only to `.get` cleared the cross-check and was copied on
+    its stored face, so the receipt attested an isolation the live object denied. A third
+    accessor is a third view of one entry, and disagreement in any of them is a refusal.
 
-    Agreement is decided by `_states_the_same_value`, and **this docstring used to describe a
-    test that function no longer performs.** It claimed the fallback "demands the exact same type
-    and `True` in both directions", and argued that this defeated a lying comparison. F135
-    refuted exactly that: every term of the conjunction is supplied by the hostile reading
-    itself, so an object answering `True` to every comparison satisfied all of it while its two
-    views stated different values. The bidirectional-equality fallback is therefore **no longer
-    reached for anything but an exact builtin leaf**, whose comparison belongs to the interpreter
-    rather than to the reading. For every other value, agreement means the *same object* through
-    all three views. `VERDICT-e311f8b` filed the stale wording as a finding in its own right,
-    because a docstring that describes a discarded control is a false statement of what is
-    enforced here. See `_states_the_same_value` for the decided strictness.
+    Agreement is decided by `_states_the_same_value`. F135 refuted the bidirectional-equality
+    fallback this docstring once advertised — every term of that conjunction is supplied by the
+    hostile reading itself — so it is no longer reached for anything but an exact builtin leaf,
+    whose comparison belongs to the interpreter. For every other value agreement means the *same
+    object* through all three views. `VERDICT-e311f8b` filed the stale wording as its own
+    finding. See `_states_the_same_value` for the decided strictness.
 
-    The cross-checked key set is **not** taken from `.items()` alone. `stored` is what `.items()`
-    yielded, but a mapping is free to announce keys through `__iter__`, `keys()` and `__len__`
-    that its `.items()` never yields — and those are precisely the entries a `.get`-based
-    validator would read while this cross-check looked away. Every key the mapping announces
-    through `__iter__` *or* `keys()` is therefore reconciled against the keys it actually
-    stored, and a key announced by either view that `.items()` never yielded is a refusal.
-    Reading `__iter__` alone was F0025: this paragraph claimed `keys()` was reconciled while
-    `_announced_keys` consulted iteration only, so a mapping needed only to keep its `__iter__`
-    honest. `__len__` is cross-checked separately, below.
+    The cross-checked key set is **not** taken from `.items()` alone. A mapping may announce keys
+    through `__iter__`, `keys()` and `__len__` that its `.items()` never yields, and those are
+    precisely the entries a `.get`-based validator would read while this cross-check looked away.
+    Every key announced by `__iter__` *or* `keys()` is reconciled against the keys actually
+    stored, and one announced but never yielded is a refusal. Reading `__iter__` alone was F0025:
+    this paragraph claimed `keys()` was reconciled while `_announced_keys` consulted iteration
+    only. `__len__` is cross-checked separately, below.
 
     Duplicate keys yielded by `.items()` collapse into `stored` silently — two pairs in, one
     entry judged — so the count `.items()` *yielded* is checked against the count it *stored*,
@@ -439,20 +421,37 @@ def stored_entries(
     paragraph claimed it did (F0025, F0015), and the two counts it did compare could not see a
     duplicate at all, because collapsing leaves both sides equal.
 
-    Every value interpolated into a finding is formatted through `safe_repr`, **including the
-    key**: `repr()` is attacker-controlled code, and a `__repr__` that raises must not let a
-    hostile reading suppress the report of its own divergence. Six findings interpolated the key
-    bare through `f"{key}"` — which calls `__format__`, equally attacker-controlled — outside
-    every `try`, so a key that refused to be printed suppressed the very divergence it caused
-    (F0006). Membership is likewise taken through `_is_stored`, because hashing an announced key
-    runs `__hash__` on an object that is free to have none (F0022).
+    Nothing hostile is touched outside a `try`. Values are printed through `safe_repr` and types
+    named through `safe_type_name`, because `repr`, `__format__` and `__name__` are all
+    attacker-controlled and a value that refuses to be described must not suppress the report of
+    its own divergence (F0006, F0030). Membership goes through `_is_stored` (F0022). The one
+    `.items()` read is guarded, and the key is hashed inside a `try` as it is stored, since that
+    hash runs before `_is_stored` is ever reached (F0031).
     """
+    try:
+        entries = tuple(mapping.items())
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a mapping that will not be read is refused
+        refusal = (f"{label}: this mapping raised {safe_type_name(error)} when it was read by "
+                   "`.items()`, so there is no reading of it to judge")
+        return {}, (refusal,)
     yielded = 0
     stored: dict[str, Any] = {}
-    for entry_key, entry_value in mapping.items():
+    findings: list[str] = []
+    for entry_key, entry_value in entries:
+        try:
+            stored[entry_key] = entry_value
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:  # noqa: BLE001 -- a key that will not be hashed is reported below
+            findings.append(
+                f"{label}: {safe_repr(entry_key)} was yielded by `.items()` but refuses to be "
+                "hashed, so this entry cannot be shown to be one this cross-check judges"
+            )
+            continue
         yielded += 1
-        stored[entry_key] = entry_value
-    findings: list[str] = list(_key_set_findings(mapping, stored, label, yielded))
+    findings.extend(_key_set_findings(mapping, stored, label, yielded))
     for key, value in stored.items():
         try:
             subscripted = mapping[key]
@@ -794,6 +793,6 @@ def proved_copy(
     copied_value, diverged = _dead_copy(value, path, trail)
     return (
         copied_value,
-        (f"{path} holds a {type(value).__name__}, which is not deeply immutable",),
+        (f"{path} holds a {safe_type_name(value)}, which is not deeply immutable",),
         diverged,
     )

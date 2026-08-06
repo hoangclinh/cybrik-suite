@@ -84,6 +84,9 @@ from .views import (
     IMMUTABLE_LEAVES,
     immutability_findings,
     nested,
+    read_items,
+    safe_repr,
+    safe_type_name,
     stored_entries,
 )
 
@@ -186,17 +189,17 @@ class ObservationVerdict:
     def __post_init__(self) -> None:
         if type(self.satisfied) is not bool:
             raise ValueError(
-                f"satisfied must be exactly a bool, not {self.satisfied!r}"
+                f"satisfied must be exactly a bool, not {safe_repr(self.satisfied)}"
             )
         if type(self.findings) is not tuple or any(
             not isinstance(finding, str) or not finding for finding in self.findings
         ):
             raise ValueError(
-                f"findings must be a tuple of non-empty reasons: {self.findings!r}"
+                f"findings must be a tuple of non-empty reasons: {safe_repr(self.findings)}"
             )
         if type(self.views) is not MappingProxyType:
             raise ValueError(
-                f"views must be a read-only mapping, not {type(self.views).__name__}"
+                f"views must be a read-only mapping, not {safe_type_name(self.views)}"
             )
         if self.satisfied:
             if self.findings or self.outcome is not None:
@@ -210,7 +213,7 @@ class ObservationVerdict:
                 "refusal is not evidence"
             )
         if self.outcome not in TERMINAL_ERRORS:
-            raise ValueError(f"{self.outcome!r} is not a failing terminal class")
+            raise ValueError(f"{safe_repr(self.outcome)} is not a failing terminal class")
 
 
 def verdict_for(
@@ -260,7 +263,12 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
     `keyed` does not make a mapping subscriptable, so this reducer, which is contracted to return
     findings, converts that disagreement into one rather than raising out of the reduction.
     """
-    stored = {key: value for key, value in image.items() if key == PRESENT_KEY}
+    entries = read_items(image)
+    if entries is None:
+        refusal = (f"{label}: this reading raised when it was read by `.items()`, so it never "
+                   "said whether the reviewed material is on this host")
+        return (refusal,)
+    stored = {key: value for key, value in entries if key == PRESENT_KEY}
     if PRESENT_KEY not in stored:
         return (
             f"{label}: present is stated by no entry of this reading, so the reviewed "
@@ -269,7 +277,7 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
     answer = stored[PRESENT_KEY]
     if answer is not True:
         return (
-            f"{label}: present is {answer!r}, not exactly True, so the reviewed "
+            f"{label}: present is {safe_repr(answer)}, not exactly True, so the reviewed "
             "material is not already on this host",
         )
     try:
@@ -283,7 +291,7 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
         )
     if subscripted is not True:
         return (
-            f"{label}: present reads as {subscripted!r} by subscript while this reading "
+            f"{label}: present reads as {safe_repr(subscripted)} by subscript while this reading "
             "stores True, so its two views of one answer disagree",
         )
     return ()
@@ -346,7 +354,7 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
             "what it holds",
         )
     findings = [
-        f"{label}: {key} {signed[key]!r} is not a registry digest"
+        f"{label}: {key} {safe_repr(signed[key])} is not a registry digest"
         for key in (*REGISTRY_DIGEST_KEYS, "local_image_id")
         if not registry_digest(signed[key])
     ]
@@ -354,7 +362,7 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     findings.extend(local_presence_findings(image, READING_LABEL))
     findings.extend(
         (
-            f"{label}: {key} {signed[key]!r} is not the {key} {live.get(key)!r} the live"
+            f"{label}: {key} {safe_repr(signed[key])} is not the {key} {safe_repr(live.get(key))} the live"
             " reading states, so this result names two images and proves neither"
         )
         for key in OBSERVED_BINDING_KEYS
@@ -471,7 +479,7 @@ def validate_publication(
     findings = tuple(
         f"{name}: unresolved — no publication was observed"
         if observed is None
-        else f"{name}: observed {observed!r}, not the reviewed {EXPECTED_PUBLICATION!r}"
+        else f"{name}: observed {safe_repr(observed)}, not the reviewed {EXPECTED_PUBLICATION!r}"
         for name, observed in views.items()
         if observed != EXPECTED_PUBLICATION
     )
@@ -495,19 +503,19 @@ def validate_internal_network(projection: object) -> ObservationVerdict:
     """
     if not isinstance(projection, Mapping):
         unreadable = (
-            f"internal_network: unresolved — {projection!r} is not a network projection"
+            f"internal_network: unresolved — {safe_repr(projection)} is not a network projection"
         )
         return verdict_for((unreadable,), STOP_CONTROL)
     findings: list[str] = []
     internal = projection.get(NETWORK_INTERNAL_KEY)
     if internal is not True:
         findings.append(
-            f"internal_network: Internal is {internal!r}, not exactly True"
+            f"internal_network: Internal is {safe_repr(internal)}, not exactly True"
         )
     attachments = projection.get(NETWORK_ATTACHMENT_KEY)
     if not isinstance(attachments, Mapping):
         findings.append(
-            f"network_attachment: unresolved — {attachments!r} is not an attachment "
+            f"network_attachment: unresolved — {safe_repr(attachments)} is not an attachment "
             "mapping"
         )
     elif len(attachments) != EXPECTED_NETWORK_ATTACHMENT_COUNT:
@@ -529,7 +537,7 @@ def validate_internal_ingress(health: object, probe: object) -> ObservationVerdi
     reported readiness, and a probe that did not answer has not reported reachability.
     """
     findings = [
-        f"{label}: observed {observed!r}, not the reviewed {expected!r}"
+        f"{label}: observed {safe_repr(observed)}, not the reviewed {expected!r}"
         for label, observed, expected in (
             ("container_health", health, HEALTH_HEALTHY),
             ("host_probe", probe, PROBE_REACHABLE),
@@ -554,7 +562,7 @@ def validate_image_identity(selected: object, observed: object) -> ObservationVe
     if not isinstance(selected, Mapping) or not isinstance(observed, Mapping):
         return verdict_for(
             tuple(
-                f"{label}: unresolved — {value!r} is not an image identity"
+                f"{label}: unresolved — {safe_repr(value)} is not an image identity"
                 for label, value in (
                     ("selected_image_identity", selected),
                     ("observed_image_identity", observed),
@@ -573,8 +581,8 @@ def validate_image_identity(selected: object, observed: object) -> ObservationVe
             findings.append(f"{key}: the host observation is unresolved")
         elif observation != selection:
             findings.append(
-                f"{key}: the host holds {observation!r}, which is not the selected "
-                f"{selection!r}"
+                f"{key}: the host holds {safe_repr(observation)}, which is not the selected "
+                f"{safe_repr(selection)}"
             )
     return verdict_for(findings, PRECHECK_ABORT)
 
