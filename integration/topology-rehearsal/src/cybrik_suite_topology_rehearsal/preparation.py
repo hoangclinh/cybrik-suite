@@ -486,38 +486,38 @@ def grant_findings(document: object) -> tuple[str, ...]:
 
 
 def observe(adapters: Any) -> Observations:
-    """Take each reviewed read-only observation exactly once through a bounded guard."""
+    """Take each read-only observation exactly once, dead-copied at that one read."""
     return Observations(
-        controls=guarded(
+        controls=projected(
             "identities.observe_controls",
             lambda: adapters.identities.observe_controls(),
         ),
-        image=guarded(
+        image=projected(
             "host.observe_image",
             lambda: adapters.host.observe_image(reference=IMAGE_REFERENCE),
         ),
-        ephemeral_range=guarded(
+        ephemeral_range=projected(
             "host.observe_ephemeral_range",
             lambda: adapters.host.observe_ephemeral_range(),
         ),
-        listeners=guarded(
+        listeners=projected(
             "host.observe_listeners",
             lambda: adapters.host.observe_listeners(port=HOST_PORT),
         ),
-        platform=guarded(
+        platform=projected(
             "docker.observe_platform", lambda: adapters.docker.observe_platform()
         ),
-        docker_digest=guarded(
+        docker_digest=projected(
             "docker.observe_executable_digest",
             lambda: adapters.docker.observe_executable_digest(
                 path=DOCKER_EXECUTABLE_PATH
             ),
         ),
-        publications=guarded(
+        publications=projected(
             "docker.observe_publications",
             lambda: adapters.docker.observe_publications(port=HOST_PORT),
         ),
-        probe_digest=guarded(
+        probe_digest=projected(
             "probe.observe_digest",
             lambda: adapters.probe.observe_digest(path=PROBE_EXECUTABLE_PATH),
         ),

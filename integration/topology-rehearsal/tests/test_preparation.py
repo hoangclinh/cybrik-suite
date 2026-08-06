@@ -1185,6 +1185,159 @@ def test_a_result_still_records_a_dead_copy_of_an_honest_reading(preparation) ->
 
 
 # ---------------------------------------------------------------------------
+# Ingress copy: the observation that was judged must be the observation that is recorded
+# ---------------------------------------------------------------------------
+# The sweeps above drive `PreparationResult` directly, and that is exactly why they cannot see
+# this: they prove the constructor judges and copies out of one read, but `prepare` is one
+# frame further up. `observe` takes each of the eight readings through a guard that does not
+# copy, so the live adapter-returned object survives ingress. `observation_findings` then
+# judges that live object, and `snapshot` later calls `frozen` on the *same* live object — a
+# second, unrelated read whose answer is what becomes the record. An adapter returning a
+# mapping that is honest for exactly as many reads as the findings spend and hostile
+# afterwards therefore raises no finding and is then recorded out of the hostile read, with
+# `satisfied=True`. The constructor never sees the divergence: by the time it runs, the
+# attacker's answer is the only answer there is.
+#
+# What is swept is the security property, not a read count: for every budget, `prepare` must
+# either refuse or return a result in which no attacker-supplied value appears anywhere. A
+# repair that merely moves the copy to a *later* live read still fails this, because the sweep
+# simply budgets up to that read.
+ATTACKER_COMMIT = "b" * 40
+ATTACKER_TREE = "c" * 40
+ATTACKER_ENGINE_VERSION = "0.0.0-attacker"
+
+# Every value only a hostile read can produce. No honest read of the fakes returns one, so
+# finding any of them anywhere in a satisfied snapshot is unambiguous.
+ATTACKER_VALUES = frozenset(
+    {
+        ATTACKER_COMMIT,
+        ATTACKER_TREE,
+        ATTACKER_ENGINE_VERSION,
+        ATTACKER_REPOSITORY,
+        ATTACKER_MANIFEST_DIGEST,
+    }
+)
+
+# Budgets are the number of honest reads, swept from zero — a reading already hostile when
+# `prepare` first touches it — up to at least this many. The ceiling comfortably covers every
+# straddle reproduced through `observe_controls` and `observe_platform`, and it keeps the
+# sweep meaningful after a repair that lowers the number of live reads: a budget above what is
+# spent simply never turns hostile. Zero is what keeps the exhaustion premise below reachable
+# once no straddle exists any more, because a reading taken exactly once can still be hostile
+# on that one read — and then it must be refused, having been judged on what it recorded.
+MINIMUM_OBSERVATION_SWEEP = 40
+
+
+def budgeted_controls(budget: int) -> ReadBudgetMapping:
+    """A control inventory reporting the granted worktrees, then the attacker's."""
+    genuine = fakes.control_identities()
+    hostile = {
+        name: {"commit": ATTACKER_COMMIT, "tree": ATTACKER_TREE, "clean": True}
+        for name in genuine
+    }
+    return ReadBudgetMapping(genuine, hostile, budget)
+
+
+def budgeted_image(budget: int) -> ReadBudgetMapping:
+    """A host image reading answering the selected identity, then the attacker's."""
+    genuine = fakes.host_image()
+    hostile = {
+        **genuine,
+        "repository": ATTACKER_REPOSITORY,
+        "manifest_digest": ATTACKER_MANIFEST_DIGEST,
+    }
+    return ReadBudgetMapping(genuine, hostile, budget)
+
+
+def budgeted_platform(budget: int) -> ReadBudgetMapping:
+    """Platform evidence stating the granted engine version, then the attacker's."""
+    genuine = dict(fakes.DOCUMENTED_PLATFORM)
+    hostile = {**genuine, "engine_version": ATTACKER_ENGINE_VERSION}
+    return ReadBudgetMapping(genuine, hostile, budget)
+
+
+def recorded_leaves(value: Any, path: str) -> tuple[tuple[str, Any], ...]:
+    """Every leaf a frozen snapshot records, with the path it is recorded at."""
+    if type(value) is MappingProxyType:
+        return tuple(
+            leaf
+            for key, item in value.items()
+            for leaf in recorded_leaves(item, f"{path}[{key!r}]")
+        )
+    if type(value) in (tuple, frozenset):
+        return tuple(
+            leaf
+            for position, item in enumerate(value)
+            for leaf in recorded_leaves(item, f"{path}[{position}]")
+        )
+    return ((path, value),)
+
+
+def attacker_content(result: Any) -> tuple[str, ...]:
+    """Every place a satisfied result records something only a hostile read could answer."""
+    return tuple(
+        f"{path} = {value!r}"
+        for field in dataclass_fields(type(result))
+        for path, value in recorded_leaves(getattr(result, field.name), field.name)
+        if isinstance(value, str) and value in ATTACKER_VALUES
+    )
+
+
+def observation_reads_spent(preparation, observation: str, build: Any) -> int:
+    """How many live protocol reads one whole `prepare` spends on that one observation."""
+    reading = build(UNREACHABLE_READ_BUDGET)
+    result = prepare(preparation, fakes.passing_adapters(**{observation: reading}))
+    assert result.satisfied is True, (
+        f"premise: an honest {observation} reading must still satisfy the phase"
+    )
+    return reading.reads
+
+
+@pytest.mark.parametrize(
+    ("observation", "build"),
+    [
+        pytest.param("identities", budgeted_controls, id="observe_controls"),
+        pytest.param("image", budgeted_image, id="observe_image"),
+        pytest.param("platform", budgeted_platform, id="observe_platform"),
+    ],
+)
+def test_no_observation_may_answer_the_record_differently_than_the_findings(
+    preparation, abort, observation, build
+) -> None:
+    """One reading, judged and recorded, whatever a hostile adapter budgets its honesty to.
+
+    This drives `prepare` rather than `PreparationResult`, because the bypass is in the caller:
+    the constructor's own proof is real and complete, and is handed the attacker's content
+    already as fact. The verdict is taken over the whole snapshot — every field, every nested
+    leaf — so it states the security property directly and not which accessor was trusted.
+    """
+    spent = observation_reads_spent(preparation, observation, build)
+    assert spent > 0, f"premise: prepare must read {observation} at all, spent {spent}"
+    exhausted = False
+    for budget in range(max(spent, MINIMUM_OBSERVATION_SWEEP) + 1):
+        reading = build(budget)
+        adapters = fakes.passing_adapters(**{observation: reading})
+        try:
+            result = prepare(preparation, adapters)
+        except abort:
+            exhausted = exhausted or reading.reads > reading.budget
+            continue
+        assert result.satisfied is True
+        recorded = attacker_content(result)
+        assert recorded == (), (
+            f"budget {budget}: {observation} answered every read the findings spent honestly "
+            f"and turned hostile afterwards, and a satisfied preparation recorded "
+            f"{list(recorded)!r}"
+        )
+        assert not set(adapters.log.names()) & set(FORBIDDEN_EFFECTS)
+        exhausted = exhausted or reading.reads > reading.budget
+    assert exhausted, (
+        f"premise: at least one budget in the sweep must actually be exhausted while preparing "
+        f"{observation}, or every case is vacuously honest"
+    )
+
+
+# ---------------------------------------------------------------------------
 # What a copy of a proved result can, and cannot, establish about the signed observation
 # ---------------------------------------------------------------------------
 # The pin check above relates two caller-supplied fields to each other, so a copy that moves
