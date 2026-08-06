@@ -3430,3 +3430,158 @@ not yet returned, so it is NOT discharged.**
 F78 and F79 remain repaired-but-unreviewed.
 
 P1 is not provably 0. **Nothing is pushable.**
+
+---
+
+## Cycle 39 — F84 repaired and checkpointed; F83's independent verdict is NO-GO
+
+Two lanes ran: an exact-path writer on the F84 repair, and two independent read-only reviewers on
+the F83 repair (`361292d..4b25214`) with disjoint lenses. Reviewers read source pinned at `4daa0ea`
+via `git show`, never the working tree, because the writer held `observe.py` and `test_observe.py`.
+**Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains HOLD — no entrypoint script
+exists and none was executed.**
+
+### Census reconfirmed at `4daa0ea` before any edit
+
+**1510 passed, 58 failed.** All 58 are in `test_scripts_inert.py` (51) and
+`test_surface_contract.py` (7) — the known absent-entrypoint REDs. Zero unintended failures.
+
+### F84 — **REPAIRED** at `6c684df`. `observe.py:376-401`, `tests/test_observe.py`
+
+Agreement between a mapping's two views is now the *value*, not the object. Identity stays the fast
+path; the fallback demands `type(subscripted) is type(value)` and `(subscripted == value) is True`
+and `(value == subscripted) is True`. A comparison that raises is a finding, not an escape.
+
+Bare `==` was rejected as the fallback on purpose: `__eq__` is defined by the object being judged,
+and the readers this cross-check is claimed to protect receive the subscripted object rather than
+the stored one. Exact-type-first means a lookalike of another class is refused before its `__eq__`
+runs; `is True` rather than truthiness refuses a truthy non-bool; both directions refuse an
+asymmetric `__eq__`. `local_presence_findings`' `subscripted is not True` (`observe.py:325`) is
+deliberately untouched — `bool` cannot be subclassed and `True` is a singleton.
+
+| gate | result |
+|---|---|
+| intended RED — new cases against the pre-repair module pinned at `4daa0ea`, in a copy outside the repo | **3 failed, 142 passed** |
+| GREEN — `tests/test_observe.py` | **145 passed** |
+| broad static census | **1517 passed, 58 failed** (baseline 1510/58; +7 for the 7 cases added, **zero new failures**) |
+| `compileall -q src tests` | exit 0 |
+| `git diff --check` | clean |
+| `observe.py` vs pinned `MODULE_LINE_LIMIT = 800` | **791 lines — 9 lines of headroom** |
+
+The RED was re-measured by the coordinator independently of the writer, against the pre-repair
+module, and reproduced 3F/142P. The four other new cases are positive controls that held before and
+after — they are exactly what a naive `==` repair would have broken.
+
+**Residual, stated rather than hidden.** Two objects of the *exact same type* that mutually claim
+`True` are still accepted. **`observe.py` has 9 lines of headroom; the next edit to this module
+likely needs an extraction first.** `ruff` and `mypy` remain absent, so lint and typecheck are not
+discharged. This repair is itself **unreviewed**.
+
+### F83's independent verdict: **NO-GO**. The `.get` protocol is uncovered.
+
+The authority-lens reviewer reproduced GREEN (138 passed at `4daa0ea`) and reproduced ledger F84
+exactly, then broke the repair. The finding that matters: **there are four views of these mappings —
+`__iter__`, `.items()`, `__getitem__` and `.get` — and `stored_entries` reconciles only two.**
+`.get` is the protocol actually used at `observe.py:430` for the live reading and at
+`preparation.py:233` for the identity. The docstring claim at `observe.py:346-349` that "the two
+views cannot diverge whichever one a later reader happens to use" is **false as written**.
+
+### F85 — **P1** — `src/cybrik_suite_topology_rehearsal/observe.py:430`. **NEW, OPEN.**
+
+The repair moved the identity operand of the binding comparison to the stored view but left the
+*other* operand read through `image.get(key)`, which `stored_entries` cross-checks on neither
+mapping. A live reading whose `.get` answers genuine while everything it stores and subscripts is
+the attacker's yields **zero findings**.
+
+Measured: with `class GetLies(dict)` delegating `.get` to the genuine image and
+`MappingProxyType(GetLies({**genuine, "repository": "attacker/exfil", "tag": "EXFIL", ...}))`,
+`keyed(image)` is `()`, `local_presence_findings` is `()`, `signed_identity_findings` is `()`,
+`satisfied=True`, and `runner._attempt_names` returns
+`image_reference='attacker/exfil@sha256:eeee…'`. One field, no epoch trick, no two-field replace.
+This is an authority bypass that records unsigned material as proved.
+
+### F86 — **P1** — `src/cybrik_suite_topology_rehearsal/preparation.py:233`. **NEW, OPEN.**
+
+The same third-protocol hole against the *pin binding*. `granted_observed_at` is bound to the
+identity two lines from the `stored_entries` call site, through `.get`. An identity that stores and
+subscripts the genuine instant while its `.get` answers the epoch is accepted: `stored_entries`
+returns no divergence, `signed_identity_findings` is `()`, `satisfied=True`, and
+`runner.attempt_id_for` yields `'19700101T000000Z-c8'`.
+
+Distinct from **F65**: F65 moves `observed_at` inside the identity too, so an auditor reading the
+identity sees the epoch. Here the identity reads genuine through every view an auditor would use.
+
+### F87 — **P1** — `observe.py:356` with `preparation.py:198`. **NEW, OPEN.** Validate-then-record TOCTOU.
+
+`__post_init__` records the caller's object rather than a rebuild — `frozen()` is called only in
+`prepare()` (`preparation.py:731`), never on the `dataclasses.replace` copy seam this pin exists
+for. `stored = dict(mapping.items())` is therefore one read that binds nothing about later reads.
+
+Measured: a `dict` subclass counting `items()` calls, honest for the first three reads and hostile
+thereafter through `items()`, `__getitem__` and `.get` alike, is accepted with `satisfied=True`
+after validation consumed only two reads; the recorded field then reports `repository='attacker/exfil'`
+by iteration *and* by subscript, and `preparation.frozen(...)` hands that forgery to every
+downstream consumer. **The docstring claim that "every recorded copy carries exactly what
+`.items()` yielded" is false on the copy path.**
+
+### F88 — **P2** — `observe.py:413,422,424,427,430`. **NEW, OPEN. A regression `4b25214` introduced.**
+
+`keyed` validates the inventory by `__iter__` (`grant.py:315`, `tuple(value)`) while `stored` is
+built from `.items()`. When those disagree, `signed[key]` raises an **uncaught `KeyError`** out of a
+reducer contracted to return findings and out of a `__post_init__` documented — and tested by this
+very commit — to raise `ValueError`.
+
+Measured differential: pre-repair `361292d` returns `findings: ()`; post-repair `4b25214` raises
+`KeyError('tag')`, and `dataclasses.replace(...)` raises `KeyError`, not `ValueError`. The commit's
+own `test_a_proved_result_refuses_an_unreadable_signed_identity_as_a_value_error` asserts precisely
+the property this new path breaks by another route.
+
+### F89 — **P3** — `observe.py:346-349`. **NEW, OPEN.** The stated rationale is factually wrong.
+
+The reason given for keeping the subscript cross-check *on this field* is that
+`runner._selected_identity`/`_observed_identity` read it by subscript. They do not — they read
+`prepared.image` (`runner.py:246,260`). `grep -rn "granted_image_identity" src/` returns only
+`preparation.py:114,195,233,238`. **No module in `src/` reads `granted_image_identity` by
+subscript at all.** This also weakens F84's "the repair is not obvious" argument, which rested on
+the same non-existent reader.
+
+### What the reviewer confirmed rather than broke
+
+- "The subscript was kept as a cross-check, not dropped" — **TRUE** (`observe.py:365-373`).
+- "Every binding is read from the stored view" — **TRUE only for the identity operand**.
+- "No control was weakened to obtain GREEN" — **TRUE narrowly**; no assertion was removed and GREEN
+  was reproduced. But **"nothing regressed" is FALSE** — see F88.
+- Duplicate `.items()` pairs are **not** a bypass: `dict(...)` and `preparation.frozen` collapse
+  identically, so no consumer sees the shadowed pair.
+- `subscripted is not True` at `observe.py:325` is **sound** — `bool` cannot be subclassed.
+
+### Not reviewed, stated so it is not mistaken for coverage
+
+`admission.py`, `plan.py`, `protocols.py`, `errors.py`, `constants.py` and `adapter.py` beyond
+greps. The claimed "11 failed / 15 passed" RED for `4b25214` was **not** independently re-derived —
+only GREEN was reproduced. `selected_image_identity`, `control_identities`, `docker_platform`,
+`docker_executable` and `probe_executable` were not attacked; `stored_entries` judges none of them.
+`preparation.image_findings` and the whole live `prepare()` path were not attacked — every attack
+lands on the `dataclasses.replace` copy seam. F45/F46/F47/F65/F78/F79/F80-F82 were not re-verified.
+`ruff`/`mypy` absent and not run. Nothing was written, staged or committed by either reviewer.
+
+**The second reviewer's correctness/false-refusal/test-quality opinion was commissioned in the same
+cycle and had not returned when this was recorded. It is outstanding, not waived.**
+
+### Open set at this cycle's close
+
+**P1: F83 (repaired at `4b25214`, now independently NO-GO), F85, F86, F87.**
+**P2: F45, F46, F65, F88.** **P3: F47, F80, F81, F82, F89.**
+F78, F79 remain repaired-but-unreviewed. F84 is repaired at `6c684df` and unreviewed.
+
+P1 = 4. **Nothing is pushable. The atomic entrypoint GREEN stays blocked.**
+
+### The exact next repair
+
+**F85/F86/F87 are one defect wearing three faces: validation reconciles a subset of a mapping's
+protocols and then records an object it does not own.** Patching `.get` alone would leave F87
+standing and invite a fifth protocol. The candidate direction is to make the recorded object a
+rebuild the validator owns — apply `preparation.frozen` (or an equivalent snapshot) at the
+`__post_init__` seam so that what is judged and what is recorded are the same object — and to judge
+that snapshot rather than the caller's mapping. That is authority-sensitive and must be designed
+before it is written. **`observe.py`'s 9 remaining lines mean the extraction comes first.**
