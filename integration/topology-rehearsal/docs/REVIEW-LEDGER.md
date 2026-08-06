@@ -5759,3 +5759,147 @@ correct, not an excuse**. `docs/ENTRYPOINT-SLICE-SPEC.md:525-563` names exactly 
 two entrypoint scripts, `__init__.py`, `tests/test_surface_contract.py`, `pyproject.toml`, and
 `tests/conftest.py` only if `PROJECT_STATUS` is retired), agreeing with the ledger. **No spec/ledger
 drift on the owed set.**
+
+## Cycle 50 — the F87 repair proved complete in `views.py` and proved incomplete one frame up
+
+Measured at live HEAD `45c82710e0ca8bebdec9f090b90b8698bcde61fe`, branch
+`codex/uat-browser-g-u2b-db-red-gate-r1`, 97 commits ahead of origin. Origin/PR #55 remains at
+`73ec822`, **OPEN, draft, `CLEAN`**, four rendered hosted checks SUCCESS (two `secret-scan`, two
+`contract standards validation`). Working tree carries only the untracked
+`integration/topology-rehearsal/uv.lock`, preserved untouched.
+
+### Gates re-measured at this HEAD
+
+- Broad static census: **`58 failed, 1542 passed in 0.85s`**.
+- Census classified **by traceback, not by test name**: **58 ABSENT-SCRIPT, 0 UNINTENDED**. Every
+  one of the 58 terminates in the same `conftest.py:94` `pytest.Failed: missing C8 implementation`,
+  split `scripts/` the directory ×1, `scripts/prepare_topology_grant.py` ×8,
+  `scripts/run_topology_rehearsal.py` ×49 = 58. By file: `tests/test_scripts_inert.py` 51,
+  `tests/test_surface_contract.py` 7. `scripts/` does not exist.
+- Focused adapter/runner/admission/preparation/plan/observe suites: **1144 passed**.
+- `git diff --check 73ec822..HEAD`: clean.
+- `python3 -m compileall -q src tests`: exit 0, no output.
+- `ruff check .`: **12 errors**, all pre-existing and none inside the range's new logic — F401 ×3
+  (`observe.py:84`, `observe.py:85`, `preparation.py:53`), ISC004 ×7 (`observe.py:266,272,281,286,345`;
+  `preparation.py:655,689`), I001 ×2 (`tests/test_errors.py:12`, `tests/test_runner.py:3`).
+- Size bound: **no file over 800**. `adapter.py` 799, `preparation.py` 798, `grant.py` 794,
+  `runner.py` 756, `admission.py` 725, `observe.py` 693, `plan.py` 533, `protocols.py` 382,
+  `constants.py` 264, `views.py` 246, `errors.py` 159, `__init__.py` 11. Total 6160.
+- F33's seam re-confirmed live: `runner.py:81` exports `attempt_id_for`, `runner.py:286` defines it,
+  `runner.py:331` is its sole caller. The second caller is the absent composition root, so
+  **"deferred to the atomic entrypoint GREEN" is accurate, not an excuse.**
+
+### F108 — **P1** — `preparation.py:490-524`, `:737-757`, `:792-798`. **NEW, OPEN. Confirmed authority bypass, reproduced.**
+
+An adversarial lane attacked `views.proved_copy` directly with twelve hostile `Mapping`
+implementations — read-budget flips at every K from 0 to 11, mutually-disagreeing
+`.items()`/`.keys()`/`.get()`/`__getitem__`, a refusing subscript, duplicate and injected keys, a
+single-pass iterator `.items()`, a `str` subclass, an `__eq__` that claims equality with anything,
+colliding hostile keys, a subscript that mutates as a side effect, and a nested mapping flipping at
+depth. **`views.py` refused every one.** `proved_copy` spends exactly one `.items()` read per
+mapping at every depth (`views.py:134`), builds the returned copy from that same `stored` dict
+(`views.py:227-234`), and never stores a subscript result (`views.py:138` is cross-check only).
+**The F87 repair is real and complete inside `PreparationResult.__post_init__`.**
+
+**It is defeated by its own caller.** `preparation.py:792` `observed = observe(adapters)` hands
+`prepare` the **live adapter objects**: `observe()` at `preparation.py:490-524` wraps each of the
+eight observations in plain `guarded()` with no copy. `preparation.py:793-795` then validates those
+live objects, and `preparation.py:737-757` calls `frozen(...)` on the *same live objects*, whose
+`.items()` at `preparation.py:151` is a **second, unrelated read** — and it is that second read's
+answer that becomes the record. `proved_copy` at `preparation.py:218` therefore runs on `frozen()`'s
+already-dead output and reconciles a dead copy with itself: **exactly the F103 failure mode the
+`views.py:201-203` docstring warns against, reintroduced one frame up.**
+
+Reproduced, not argued. A `dict` subclass honest for 13 reads and hostile on read 14, passed as
+`identities.observe_controls()`, yields `satisfied = True` with all four `control_identities`
+recorded as attacker commit/tree and `clean: False`. No exception, no finding. The accepting call is
+`preparation.py:798`. Two further straddles were confirmed on `docker.observe_platform()` at K=11
+and K=12 (`preparation.py:740`, `:745` are two separate live reads); at K=12 the result is
+self-contradictory, recording `engine_version 29.6.2` beside `docker_executable.version
+0.0.0-attacker`. `host.observe_image()` **refused at every budget**, because
+`signed_identity_findings` at `preparation.py:264` re-judges the dead copy against the grant-derived
+pin — which is the shape the repair should take everywhere.
+
+**No `MappingProxyType` trick is needed**: `frozen()` gates on `isinstance(value, Mapping)`
+(`preparation.py:149`), so a bare `dict` subclass suffices. This is strictly wider than F87.
+
+**Why the existing REDs missed it.** The F87 tests sweep read budgets against
+`PreparationResult(**fields)` directly (`tests/test_preparation.py:1051-1120`) and never against
+`prepare()`. The full suite is green through the bypass. **A green suite is not a proof of this
+control.**
+
+**Minimal fail-closed repair (specified, not yet applied).** Copy the eight observations dead **at
+ingress**, as the authorization already is: replace `guarded(...)` with the existing `projected(...)`
+for all eight calls in `observe()` (`preparation.py:490-524`). `projected` at `preparation.py:293-317`
+already guards, freezes and refuses, and `frozen(None)` returns `None` (`preparation.py:131`, with
+`type(None)` in `IMMUTABLE_LEAVES`), so the unresolved-observation findings are unaffected. The
+hostile object is then read exactly once, before any decision, and all four straddles become
+unreachable by construction. This must land **test-first**, with a RED that drives `prepare()` — not
+`PreparationResult` — through a read-budget sweep.
+
+### F109 — **P2** — `preparation.py:225`. **NEW, OPEN.**
+
+`stored_entries` accepts keys that `.items()` invents where `__getitem__` corroborates them —
+harmless in `views.py`, but `__post_init__` re-checks the key set only for `control_identities`.
+`docker_platform`, `docker_executable`, `probe_executable` and `selected_image_identity` have no
+key-set gate, so an injected extra key survives into a satisfied result.
+
+### F110 — **P2** — `observe.py:462-463`. **NEW, OPEN.**
+
+The live container projection is read twice through `views.nested`, which resolves by `.get()`
+(`views.py:49`) — the third protocol nothing in this package reconciles, and the same accessor F86
+and F85 were opened against. Same defect class, different seam.
+
+### F111 — **P3** — `docs/REVIEW-LEDGER.md:5749-5750`. **NEW, OPEN.**
+
+The claim that "the true defined-ID count is **104**" was stale when written. It computes
+`F1..F105 − 4 phantom + 3 sub-IDs = 104`, but F106 (`:5725`) and F107 (`:5734`) were opened *earlier
+in the same cycle-49 section*. The same method through F1..F107 gives **106**. The very next
+sentence folds F106/F107 into the P2/P3 counts and forgets them two clauses earlier.
+
+### F112 — **P3** — `docs/REVIEW-LEDGER.md:5563-5564`, `:5695-5698` against `:5709-5720`. **NEW, OPEN.**
+
+F103 and F104 are counted as "repaired-unreviewed" while the same cycle's own cross-check states
+their defects are absent from live source and that they are "more precisely superseded than
+patched." The arithmetic is self-consistent but rests on a classification this file flags as
+imprecise. Adjudicate once and restate in both places.
+
+### The independent cross-check of this file's own arithmetic
+
+An independent lane re-derived every total from the body rather than from any summary. **Every
+stated total in the cycle-49 push-gate block reconciles exactly**: P0 = 0 (the `:382` "P0" row
+predates F-numbering and is pre-DISCHARGED, not a live ID); P1 OPEN = 1 (F33); P1
+repaired-unreviewed = 7 (F78, F85, F83, F86, F87, F103, F104); P2 = 30; P3 = 35; closed 26;
+superseded 2; phantom 4. Full reconciliation: 26 + 2 + 4 + 1 + 7 + 30 + 3 (P2 repaired-unreviewed
+F79, F84, F95) + 35 + 2 (P3 repaired-unreviewed F96, F97) = **110 slots** = F1..F107 plus F29-A/B/C.
+**F56–F59 are re-confirmed phantom**: no `### F56`–`### F59` heading, table row or subject line
+exists anywhere; every mention is a sentence *about* the gap. **No register-only IDs.** F111 is the
+only arithmetic defect found.
+
+**F106 is ACCURATE against live source.** `preparation.py:233` today is the unrelated
+`ephemeral_range` refusal; the repaired site is `preparation.py:251-268`, where `stored_entries`
+reconciles `granted_image_identity` and `image` and where the `.get(OBSERVED_AT_KEY)` calls sit
+(`:259`, `:268`). F83's and F86's anchors are stale exactly as F106 claims.
+
+**F107 is ACCURATE.** `:1611` states `| F16 | P3 | ... |` and `:1858` states `| F16 | P2 | ... |`
+for the same ID, never reconciled at either site.
+
+**No spec/ledger drift.** `docs/ENTRYPOINT-SLICE-SPEC.md:525-563` names exactly the six owed paths —
+the two entrypoint scripts, `__init__.py`, `tests/test_surface_contract.py`, `pyproject.toml`, and
+`tests/conftest.py` conditionally on `PROJECT_STATUS` being retired — matching this file exactly,
+including the conditional framing.
+
+### Push gate at the end of cycle 50
+
+**P0 = 0. P1 OPEN = 2** — F33 (deferred to the atomic entrypoint GREEN) and **F108 (a confirmed,
+reproduced authority bypass)**. **P1 repaired-unreviewed = 7** (F78, F85, F83, F86, F87, F103, F104).
+**P2 = 32** (F109, F110 added). **P3 = 37** (F111, F112 added). Defined-ID count is now **111**
+(F1..F112 minus the four phantoms, plus F29-A/B/C).
+
+**No part of the 97-commit local range is push-eligible.** F108 is a P1, so the P0=P1=P2=0 gate
+fails on measurement, not on a missing review. **The atomic entrypoint GREEN must not begin**: it
+would build a composition root on top of a `prepare()` whose satisfied result can carry attacker
+content. RUNTIME remains **HOLD**. Production remains **Founder-only**.
+
+Heading numbering follows F101 (**P3, OPEN**): the `## Cycle` headings in this file are not in
+one-to-one correspondence with driver cycle indices.
