@@ -3781,3 +3781,99 @@ F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`, unreviewed.
 
 P1 = 4, unchanged. The atomic entrypoint GREEN stays blocked and nothing is pushable. Origin/PR #55
 remains at `73ec822` with four SUCCESS hosted checks.
+
+## Cycle 41 addendum — the extraction's independent verdict returned: **GO**
+
+The verdict recorded above as outstanding returned before the cycle ended. It is **GO**, pinned to
+the tree at `9b96f49`, with **P0 = 0 and P1 = 0**. The reviewer wrote, staged and committed nothing
+and ran no `git checkout`/`reset`/`stash`; its only writes were to `/tmp`.
+
+### What it derived independently, not by reproducing the coordinator
+
+- All four moved bodies are **byte-identical** as source segments, not merely AST-equal — including
+  both `# noqa: BLE001` comments, both `(KeyboardInterrupt, SystemExit)` re-raise pairs, the
+  `seen: tuple[int, ...] = ()` default and every f-string. `IMMUTABLE_LEAVES` is a module-level
+  tuple, not a closure, so nothing was captured or left behind.
+- Baseline re-derived by exporting `14f0784` with `git archive` into a **clean tree**:
+  `58 failed, 1517 passed`. At `c06a81b`: `58 failed, 1523 passed`. The failure **node-ID sets are
+  identical, 58/58** — no failure introduced and, equally important, **none silenced**.
+- The +6 passes are exactly the six `C8_MODULES`-parametrized gates, enumerated and each measured
+  PASS for `views.py`.
+- `observe.__all__` is unchanged and `tests/test_observe.py:606` asserts it as an **exact set**; it
+  passes. No control anywhere in `tests/` asserts on `__module__`, `getsource`, `getsourcefile`,
+  `dir()` or `inspect.` in a way this touches. The one dependency-direction control
+  (`test_grant.py:682`) is `grant`-specific and untouched. `preparation → observe → views` is
+  acyclic.
+
+### A claim of ours the reviewer corrected, recorded because it was ours
+
+Cycle 41 above argues that an unregistered `views.py` "would have been an unreviewed file inside the
+package". That **overstates the gap**. `conftest.source_paths()` uses `rglob("*.py")` over `SRC`
+rather than `C8_MODULES`, so four tree-wide controls — the 800-line size bound, the forbidden
+address and installer literals, the tree-wide effect-import policy and the single-spawn-site
+control — **already covered `views.py` before registration**. Nothing was ever outside a control's
+reach. Registration added six per-module gates to a file that already had four; it did not rescue
+the file from a hole. The honest version of the argument is the narrower one, and it still holds:
+the inventory control refused the file unaided, and the response was to register rather than exempt.
+
+Registration is additive in all three edits — no assertion deleted, relaxed or exempted — and it
+makes `test_observe.py:676` scan one more module for `PRESENT_KEY`/`HOST_IMAGE_KEYS`, which is
+**strictly stricter**. On the size question the reviewer argued both sides and concluded: the bound
+is written as explicitly per-module, the bodies are byte-identical so no judgement was diluted, and
+the net authored delta is +48 lines of imports and docstring. **Not control evasion.**
+
+### F91 independently confirmed
+
+The reviewer reached the stale-anchor finding on its own and its re-anchoring table agrees with the
+one recorded above, including that F87 and F89 now live in `views.py` rather than `observe.py`. Its
+framing is worth keeping: this "does not block the commit; it blocks safe consumption of the
+commit," and following `observe.py:430` for F85 lands on unrelated code — "precisely the failure
+mode that turned F83 into a NO-GO."
+
+### F92 — **P3** — `views.py`. **NEW, OPEN.** The only C8 module with no exact `__all__` assertion and no test file.
+
+Measured: every other module has an exact `__all__` set assertion — `test_constants.py:160`,
+`test_errors.py:158`, `test_protocols.py:158,277`, `test_adapter.py:1790`, `test_plan.py:371`,
+`test_grant.py:257`, `test_observe.py:606`, `test_preparation.py:415`, `test_admission.py:1293` and
+`runner`. `views` has none, and there is **no `tests/test_views.py`**. It gets only the generic
+sorted/non-repeating/resolvable check at `test_surface_contract.py:309`.
+
+Failure scenario: a later edit adds a fifth name to `views.__all__`, widening the module's public
+surface with no control objecting — the exact drift the per-module assertions exist to catch
+everywhere else. All behavioural coverage of the four names currently reaches them *through*
+`observe` or `preparation`; that coverage is real and passing, but it is coverage of the re-export,
+not of the module.
+
+### F93 — **P3** — `views.py:99-100,107-110,118-121`. **NEW, OPEN.** The new module is inaccurate at birth.
+
+The `stored_entries` docstring names `local_presence_findings`, `preparation.frozen`,
+`runner._selected_identity` and `grant`'s reductions. `local_presence_findings` used to sit directly
+above it and is now in another file, so a reader of `views.py` in isolation cannot follow the
+argument. More sharply, `views.py:108,119` **is the text F89 records as factually wrong** — `runner`
+reads `prepared.image` (`runner.py:246,260`), not `granted_image_identity` by subscript. The pure
+move faithfully carried a known-false rationale into a module being registered as reviewed for the
+first time. Not a new defect, but it means F89's repair now has two sites.
+
+### A CI fact worth recording on its own
+
+The reviewer measured that `.github/workflows/contracts.yml` runs gitleaks and the JS contract
+validators only: **no pytest and no ruff run against this package in CI at all.** The four SUCCESS
+checks on PR #55 therefore say nothing whatsoever about this package's 1523 passing tests. That is
+not a defect of this cycle, but it means every census in this ledger is local evidence only, and it
+lowers the trigger probability for F90 (nothing in CI would run `ruff --fix`) while raising the
+importance of the local gates.
+
+### Open set after the verdict
+
+**P1: F83 (repaired at `4b25214`, independently NO-GO), F85, F86, F87.**
+**P2: F45, F46, F65, F88, F91.** **P3: F47, F80, F81, F82, F89, F90, F92, F93.**
+F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`, unreviewed.
+
+**The GO is scoped to the extraction, and only to it.** It does not discharge one pre-existing
+finding. P1 = 4 and P2 = 5, so the push gate of P0 = P1 = P2 = 0 is not met, the atomic entrypoint
+GREEN stays blocked, and none of the 73-commit local range is push-eligible. Origin/PR #55 remains
+at `73ec822`.
+
+**The exact next action is F91's re-anchoring**, because the F85/F86/F87 repair is driven directly
+off anchors that are now wrong, and that repair must be designed against three files —
+`observe.py:341,344` for F85, `views.py:126` for F87, `preparation.py:233` for F86.
