@@ -28,6 +28,21 @@ to be lost irrecoverably.
 | `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 | `73ec822..76553f4` | Entrypoint slice, full local range (11 commits) | NO-GO | 0/5/8/4 | NO | HOLD |
 | `817227b..a1a97f6` | F3 repair (module-wide root-derivation ban) | NO-GO | 0/2/3/2 | NO | HOLD |
+| `b580b2c..eb472c1` | F29 RED, one commit (`test_scripts_inert.py` excluded) | GO on the RED | 0/1/1/2 | NO | HOLD |
+| `5bef003` | F39 repair | NO-GO | 0/4/3/3 | NO | HOLD |
+| `3e9bba6` | F30 repair | NO-GO | 0/2/1/2 | NO | HOLD |
+| `42d6d02` | F60/F61 repair | NO-GO | 0/1/4/2 | NO | HOLD |
+| `09da45d..0f6883f` | Cycle-26 range | GO | 0/0/3/2 | NO | HOLD |
+| `0f6883f..47dce0e` | F75 repair | NO-GO | 0/1/1/3 | NO | HOLD |
+| `4b25214` | F83 repair (`.get` protocol uncovered) | NO-GO | 0/3/1/1 † | NO | HOLD |
+| `9b96f49` | `views.py` extraction, scoped to the extraction | GO | 0/0/1/2 † | NO | HOLD |
+
+† The eight rows above `b580b2c..eb472c1` quote a reviewer-stated P0/P1/P2/P3 line. For the two
+rows marked †, the reviewer's prose states only part of the count (`4b25214`: "NO-GO"; `9b96f49`:
+"P0 = 0 and P1 = 0"), so the remaining figures are **derived by this ledger** from the findings each
+verdict opened — F85/F86/F87 + F88 + F89 for `4b25214`, and F91 + F92/F93 for `9b96f49`. They are
+reconstructions, not quotations, and are marked so they are never mistaken for the reviewer's own
+arithmetic. See F95.
 
 ## Range detail
 
@@ -3877,3 +3892,112 @@ at `73ec822`.
 **The exact next action is F91's re-anchoring**, because the F85/F86/F87 repair is driven directly
 off anchors that are now wrong, and that repair must be designed against three files —
 `observe.py:341,344` for F85, `views.py:126` for F87, `preparation.py:233` for F86.
+
+## Cycle 42 — census remeasured at `deee9d2`; two evidence defects found in this ledger itself
+
+### Live state reconciliation at cycle open
+
+HEAD `deee9d2a4b8cd07fae6a9b4a1e31625d455dbbd8`, branch **74** commits ahead of `origin`. PR #55 is
+OPEN, draft, `MERGEABLE`, still at `73ec822`, four rendered hosted checks SUCCESS (two
+`secret-scan`, two `contract standards validation`). The untracked
+`integration/topology-rehearsal/uv.lock` was preserved untouched and verified untracked before and
+after every measurement. Nothing was pushed, staged outside the two docs commits, reset or stashed.
+
+### Measured census at the exact live HEAD
+
+Measured on the live tree at `deee9d2`, git state proved identical before and after:
+
+```
+uv run --frozen python -m pytest tests -q
+58 failed, 1523 passed in 0.72s
+
+uv run --frozen python -m pytest tests/test_adapter.py tests/test_observe.py \
+  tests/test_preparation.py tests/test_grant.py tests/test_admission.py tests/test_plan.py -q
+1137 passed in 0.46s
+
+uv run --frozen python -m compileall -q src tests   # exit=0
+```
+
+**All 58 failures were individually confirmed intended**, not merely counted. Every one of the 58
+tracebacks carries the same guard message — `missing C8 implementation — this RED test states the
+final runner behaviour and fails closed until it exists: <path>/scripts/… does not exist` — and
+`scripts/` is confirmed absent from the tree. They fall in exactly two files: 51 in
+`tests/test_scripts_inert.py` and 7 in `tests/test_surface_contract.py`. **No failure has any other
+cause.** The sorted node-ID list is reproducible by rerunning the command above.
+
+This is the same 58/58 failure set as `14f0784` and `c06a81b`, now with +6 passes carried forward
+from the extraction's per-module gates: 1517 → 1523.
+
+### Module size — `adapter.py` has one line of headroom
+
+```
+799 adapter.py     794 grant.py      771 preparation.py   756 runner.py
+725 admission.py   676 observe.py    533 plan.py          382 protocols.py
+264 constants.py   163 views.py      159 errors.py         11 __init__.py
+```
+
+`MODULE_LINE_LIMIT = 800` (`tests/test_surface_contract.py:96`). **`adapter.py` is at 799 — one
+line of headroom — and `grant.py` at 794 has six.** This is recorded here because it is a live
+constraint on every future repair, not a defect: the F85/F86/F87 repair touches `observe.py` (124
+free), `preparation.py` (**29 free**) and `views.py` (637 free), so `preparation.py`'s 29 lines are
+the binding constraint on that repair, and any growth in `adapter.py` or `grant.py` now requires an
+extraction first, exactly as `observe.py` did at cycle 41.
+
+### F94 — **P3** — `observe.py:265,271,280,285,330`, `preparation.py:628,662`. **NEW, OPEN.**
+
+`ruff 0.16.0` reports **12 errors**, not the three this ledger has recorded. Three are the F401
+re-export seams already held as F90 and F15's precedent (`observe.py:84,85`, `preparation.py:53`);
+two are the long-standing `I001` import-order pair (`test_errors.py:12`, `test_runner.py:3`,
+recorded since cycle 3). **The remaining seven — `ISC004 Unparenthesized implicit string
+concatenation in collection` — appear nowhere in this ledger.** They were never recorded because
+`ruff` had not been run against `src` in the cycles that authored them.
+
+Why this is a finding and not styling: every one of the seven sites is a **single-element tuple of
+one finding message**, built by implicit concatenation inside the parentheses of a `return`:
+
+```python
+return (
+    f"{label}: present is stated by no entry of this reading, so the reviewed "
+    "material is not already on this host",
+)
+```
+
+Ruff's own diagnostic on each is *"Did you forget a comma?"*. In a reducer contracted to return a
+tuple of findings, **the number of elements is semantically meaningful**: a comma accidentally typed
+between the two fragments silently turns one finding into two truncated ones, and a comma
+accidentally omitted between two intended findings silently welds them into one. No control in
+`tests/` asserts on the arity of these particular returns, so either slip lands GREEN. The current
+text at all seven sites is correct — this is a latent authoring hazard on an authority-message seam,
+which is why it is P3 and not P2.
+
+Not repaired here, for the same reason F90 was not: the fix is parenthesisation across two modules
+and belongs with the F85/F86/F87 repair that already opens both files. `ruff --fix` was **not** run;
+running formatters or auto-fixers is Founder-gated by repo-root `CLAUDE.md`. `mypy` is still absent
+and was not installed.
+
+### F95 — **P2** — `docs/REVIEW-LEDGER.md:21-31`. **NEW. REPAIRED in this cycle.**
+
+**This ledger stopped obeying its own documented protocol.** Lines 12-17 instruct: *"before pushing
+any change in this component, the independent reviewer appends a new row/section below recording the
+commit range, verdict, P0/P1/P2/P3 counts, PUSH-ELIGIBLE decision, and any open findings — in that
+order."* The `## Verdict history` table held **8 rows, the newest `817227b..a1a97f6`**, while the
+cycle sections below it record **8 further independent verdicts** that were never given a row:
+
+`b580b2c..eb472c1`, `5bef003`, `3e9bba6`, `42d6d02`, `09da45d..0f6883f`, `0f6883f..47dce0e`,
+`4b25214` and `9b96f49`. **The summary table therefore covered barely half the review history**, and
+the half it omitted is the more recent half — including the two verdicts that most constrain the
+present state: the `4b25214` NO-GO that opened the live P1 set, and the `9b96f49` GO.
+
+Failure scenario, and it is the same one this file already warns about at line 16: a reader who
+consults the summary table to answer "what is the current verdict state?" — the exact purpose the
+table exists for — reads `817227b..a1a97f6` as the latest verdict and misses F83's NO-GO entirely.
+The findings were never lost, but the index into them was, which is the same class of defect as F91
+one level up: the evidence survives while the pointer to it rots.
+
+**Repaired in this cycle** by appending all eight missing rows with their ranges, verdicts and
+counts recovered from the prose sections. Two rows are marked `†` because the reviewer's prose
+states only part of the count; those figures are reconstructions by this ledger and are labelled as
+such rather than presented as the reviewer's arithmetic. No existing row was altered.
+
+**This does not change the open set.** Every one of the eight verdicts was already recorded in full
+in its cycle section; only the index was incomplete. P1 remains 4.
