@@ -580,6 +580,69 @@ Static evidence at `f6622d4`:
 Neither entrypoint script was executed. No `src/`, docs, dependency or lockfile
 change. RUNTIME remains **HOLD**.
 
+### `f6622d4..4230858` — F2 repair, measured evidence
+
+One commit, tests only, repairing exactly one recorded finding: **F2 (P1)**, the
+argv-shape refusal band that `015de49` owed and did not deliver. F3, F4 and F5
+are deliberately untouched and the `73ec822..4230858` range remains **NO-GO /
+PUSH-ELIGIBLE NO / RUNTIME HOLD**. One finding per cycle keeps each repair
+independently reviewable; it is not a claim that the others are discharged.
+
+The gap was self-evidencing: the docstring at `:200` forward-referenced
+`test_an_invocation_that_names_no_control_root_holds_without_calling_the_executor`
+as the place required-ness is pinned, and no such test existed.
+
+What landed, in `tests/test_scripts_inert.py` only (+255 lines, 7 new node ids):
+
+- unstated roots hold without the executor being called;
+- each malformed `--control-root` token holds the same way, parametrized over a
+  token with no separator, an empty name, an empty path and a repeated name;
+- a typed `PrecheckAbort` naming `repository_roots` is converted to a returned
+  `HOLD_EXIT` rather than propagating, on a well-shaped mapping forwarded
+  verbatim;
+- the script does not restate the control key space, pinned over its AST.
+
+The empty-executor-spy half is the load-bearing half of the first two: it pins
+that neither artifact file is read before the refusal, which is the exact
+ordering F2 named as reachable. All four refuse with **one spelling only**, a
+returned `HOLD_EXIT` — verified by reading the diff — so **F14's three-spelling
+count is not increased**.
+
+Effectiveness evidence — the controls are not vacuous. Exercised offline against
+synthetic reference implementations in `/tmp` scratch only; nothing was added to
+the repository for it. They **admit** a correct reference `main` and an honest
+`--help` example, and **refuse** F2's exact fold-to-`{}`-and-execute shape, each
+malformed-token shape, a propagating `PrecheckAbort`, both key-space
+duplications, and a `main` that returns `HOLD_EXIT` only after entering the
+executor.
+
+Static evidence at `4230858`, independently re-measured by a separate verifier
+rather than taken from the commit message:
+
+- Broad census: **1395 passed / 57 failed**, moved from 50 by exactly these 7
+  new node ids. The delta was confirmed *differentially* — the `f6622d4` tree
+  was archived to `/tmp`, censused there (1395 passed / 50 failed), and the
+  sorted `FAILED` lists diffed: exactly the 7 new lines added, no other line
+  changed.
+- All 57 failures are the intended absent-script class, every one raised by
+  `tests/conftest.py:93` `require_c8_path`. Breakdown:
+  **48** `run_topology_rehearsal.py`, **8** `prepare_topology_grant.py`,
+  **1** the `scripts` directory itself. **Zero** assertion failures, import
+  errors or collection errors.
+- Focused suites (`test_adapter`, `test_runner`, `test_admission`,
+  `test_preparation`, `test_plan`): **901 passed / 0 failed**.
+- `python -m compileall tests/ src/` — OK.
+- `git diff --check` — clean.
+- `ruff check tests/test_scripts_inert.py` — All checks passed, but on
+  `/opt/homebrew/bin/ruff`; `.venv/bin/ruff` still does not exist, so **F15
+  stands unchanged**. This is not a claim that the pinned lint gate ran.
+- Sizes: `adapter.py` **799**, `observe.py` **542**, `test_scripts_inert.py`
+  1384. **F16 stands unchanged** — the size bound is still met with one line of
+  headroom.
+
+Neither entrypoint script was executed and neither exists. No `src/`, docs,
+dependency or lockfile change. RUNTIME remains **HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
