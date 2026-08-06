@@ -1027,6 +1027,89 @@ names must be the same names for every observation the authorization admits.
 Do not discharge F29 by pinning the fixture back to the grant instant — that is
 the blindness this RED exists to remove.
 
+### `b580b2c..eb472c1` — F29 RED, independent review
+
+Independent Opus review of the F29 RED commit only, read-only against the shipped
+source rather than the fixtures. Scope was deliberately one commit;
+`tests/test_scripts_inert.py` was excluded because another lane was editing it.
+
+**VERDICT GO on the RED. P0=0 P1=1 P2=1 P3=2. PUSH-ELIGIBLE NO. RUNTIME HOLD.**
+
+Push-eligible is NO for the ordinary reason that the worktree is deliberately RED:
+the two new tests fail on purpose. The GO is a statement that the RED is honest,
+not that the range may be pushed.
+
+**F29 is CONFIRMED REAL**, on shipped source, at four independent points:
+
+- `src/…/runner.py:286-300` — `_attempt_names` reads
+  `observed_at = prepared.image[OBSERVED_AT_KEY]`, the **live** host observation,
+  and formats the attempt id from it, then derives every name from that id.
+- `src/…/preparation.py:607-618` — the only observation-time refusal is
+  `elif signed_at is None or observed_at < signed_at:`. An `observed_at` strictly
+  **later** than the grant pin is **admitted**. The band
+  `LATER_HOST_OBSERVATIONS` states is therefore correct, and the obvious defence
+  — "preparation requires equality with the pin" — is refuted.
+- `src/…/plan.py:437-460` — `build_plan(*, attempt_id, image_reference,
+  repository_roots)` takes the attempt id as an input and has no observation
+  input at all.
+- `src/…/adapter.py:364-398, 445-454, 627` and `protocols.py:93-96` — the shipped
+  `DockerCommandAdapter` and `FileCredentialAdapter` really do call
+  `require_exact` before create, start and remove, raising
+  `ValueError(f"{label}: {observed!r} is not the reviewed {expected!r}")`.
+  `PlanBoundDocker`/`PlanBoundCredential` therefore **reproduce shipped behaviour
+  and are not a fixture invention** that manufactures a failure the real system
+  would not have.
+
+**Why F29 is a design defect and not a wiring oversight.** The host image
+observation is itself obtained through `DockerCommandAdapter`, which is
+constructed already bound to a plan. A plan therefore cannot be built *after* the
+observation without introducing a new seam. The circularity is the finding.
+
+The review also confirms the fixture does not beg the question: `fakes.py:85`
+`IMAGE_OBSERVED_AT = "2026-08-05T00:00:00Z"` and `fakes.py:130`
+`SYNTHETIC_ATTEMPT_ID = "20260805T000000Z-c8"`; the test asserts the plan's
+attempt id as a *precondition* and then compares against names the runner derived
+independently, so the two sides come from different code paths. The commit is
+additive only — 191 insertions, 0 deletions, one file — with nothing weakened, no
+assertion deleted and no guard relaxed. No name shadowing: all five new module
+names are defined exactly once across `tests/` with no `conftest.py` collision.
+
+**F29-A — P2 — `tests/test_runner.py:888-897` — the docstring states a shipped
+fact that is not shipped.** It asserts in the present tense that
+`build_runtime_wiring(*, authorization, repository_roots)` "is handed no host
+observation at all", but `integration/topology-rehearsal/scripts/` does not exist
+in this worktree; that signature is pinned only by `tests/test_scripts_inert.py:115`
+and by this ledger. A reader of the test alone would believe the composition root
+is shipped. The commit message discloses this; the docstring does not. Fix: one
+clause — say the wiring is specified-and-pinned, not shipped. The defect claim
+itself survives, because any implementation of that pinned signature meets the
+circularity above.
+
+**F29-B — P3 — `tests/test_runner.py:1041-1063` — the anti-vacuity control cannot
+alone distinguish "ports refuse correctly" from "ports are inert".** Inert ports
+would also make it pass. It is sound only jointly with the RED failing, since
+inert ports would make the RED pass too. Fix: assert `pytest.raises(ValueError)`
+when `PlanBoundDocker.create_network` is handed a wrong name.
+
+**F29-C — P3 — `tests/test_runner.py:918-946` — the plan-bound ports
+under-reproduce the shipped ones.** `create_container` omits the shipped
+`require_exact("image", …)` and `remove` drops the shipped unknown-kind
+`ValueError` (`adapter.py:449-451`). This under-reproduces and never
+over-reproduces, so it cannot manufacture a failure the real system would not
+have; recorded rather than repaired.
+
+**Explicitly not checked by this reviewer**, recorded so it is not mistaken for
+cleared: the "fifty-nine seconds is the largest this authorization admits" upper
+bound was not verified against the loader's `now` (`grant.py:699` has
+`opening <= observed_at < expiry`, but the fixture envelope's `now` was not read);
+the rest of `test_runner.py` and the wider suite were not run (only the three new
+tests, 75 deselected); and the inert-port control was reasoned about analytically
+rather than by building the `/tmp` scratch variant, for budget.
+
+**Open blocking set is unchanged by this review**: F5, F22, F23 (P1) still block
+GO on `73ec822..HEAD`, and F29 (P1) is now added as an open unrepaired defect.
+`73ec822..HEAD` remains **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
