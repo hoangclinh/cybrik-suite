@@ -1191,6 +1191,74 @@ folded into `module_wide_offences`, and the two-shape `root_sinks` return.
 implementer's own measured evidence and its claims are unverified until a reviewer
 records a verdict below.
 
+### `73ec822..e3d6116` — independent audit of every open finding against live source
+
+An independent read-only auditor re-derived the status of every finding this
+ledger records, checking **live source rather than ledger prose**, at
+`e3d6116`. This exists because the ledger had accumulated repair *claims* across
+several commits and no one had confirmed which of them survive in the code.
+
+The auditor re-measured the census itself: **60 failed / 1398 passed**, 58
+absent-entrypoint, 2 intended F29 REDs at `tests/test_runner.py:1038`. That is an
+independent confirmation of the number recorded in the section above.
+
+It also raised a ledger-currency defect: at the moment it ran, `e3d6116` had no
+ledger entry at all, which the ledger's own rule at `:12-17` forbids. That is
+discharged by the preceding section, committed as `63496ff` after the audit
+started. Recorded rather than silently fixed.
+
+**Verified STILL OPEN in live code, with cites:**
+
+- **F5 / F29 — P1, one defect under two IDs.** `src/…/runner.py:293` reads
+  `observed_at = prepared.image[OBSERVED_AT_KEY]` — the live host observation —
+  and derives every attempt name from it at `:300-307`; `src/…/preparation.py:613`
+  admits a strictly-later observation (`elif signed_at is None or observed_at <
+  signed_at:`); `src/…/plan.py:437-442` takes `attempt_id` as an input and has no
+  observation input at all. Two live failing REDs already state the acceptance
+  condition at `tests/test_runner.py:988-1051`.
+- **P2, all confirmed present:** F26 (`:1466-1467`, and see below), F24
+  (`:1283-1296`, no `Expr`/`global`/`nonlocal` branch; `:1397` intersects
+  `name_reads` only), F25 (`:1213` and `:1849`; neither shape appears in
+  `EVADING_WIRING_SHAPES`), F8 (`:908` filters on `_` prefix; walk is two levels
+  at `:950-960`), F10 (`:684` asserts `__all__` against a list, never the module
+  namespace), F9 (`:995` still publishes the raw executor; the containment
+  assertion at `:562-566` predates the finding and discharges nothing), F6
+  (`:588-596` precede a `pytest.raises(TypeError)` at `:611` and a vacuous
+  `assert loaded == []` at `:617`), F13 (`args.execute` asserted only positively
+  at `:210`), F11 (`src/…/observe.py:510-542`, still sited by the 800-line bound),
+  F29-A (`tests/test_runner.py:892-893`).
+- **P3, spot-checked and all still open:** F14, F15 (confirmed: `.venv/bin/` has
+  no `ruff`), F16 (`adapter.py` is 799 lines), F18, F19, F20, F21, F27, F28,
+  F29-B, F29-C.
+
+**F26 is confirmed WIDENED by `e3d6116`, independently.** The floor at
+`:1466-1467` is still `len(root_sinks(module)) >= 2` while `root_sinks` now returns
+`named + splatted + keyed + held` at `:1372`, so strictly more shapes satisfy it
+than when F26 was raised. This is the same regression the implementer disclosed in
+the section above, now confirmed by someone who did not write it.
+
+**Confirmed REPAIRED-BUT-UNVERIFIED** (mechanism present in live code, no
+independent verdict): F22 (`:1391-1395`, asserted `:1469`, exercised `:1516-1538`
+via `:1742`), F23 (`:1355-1365`, pinned `:1541-1558`, false claims withdrawn in
+place at `:1806-1817` and `:1826-1837`), F1 (`:1893-1955`), F2 (four bands at
+`:270`, `:317`, `:372`, `:438`), F4/F12/F17 (spec `:53-58`, `:116-125`,
+`:377-386`), F7 (spec `:492+`).
+
+**Authoritative open set at `e3d6116`: P0=0, P1=4, P2=10, P3=11.** The four P1s
+are F5, F29, F22, F23; F5 and F29 are one underlying defect, and F22/F23 are
+repaired-but-unreviewed, so the distinct unrepaired P1 defect count is **one**.
+
+`73ec822..e3d6116` is **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD** on the
+P0=P1=P2=0 criterion.
+
+**Highest-value next repair, per the auditor: F5/F29.** It is the only open
+finding in shipped `src/`; every other open item is a test-guard or documentation
+defect. It is confirmed on shipped source at four independent points, it already
+has a live executable RED so a repair is verifiable the moment it lands, and it is
+the one defect that would spend the single authorized runtime attempt proving only
+that the names disagree. No amount of test-guard repair makes a runtime GREEN
+reachable while it stands.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
