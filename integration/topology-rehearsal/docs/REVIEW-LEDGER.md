@@ -9823,3 +9823,96 @@ all recording until after the push receipt.
   stays draft.
 - No control weakened, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 18 (V2) — F0056 repaired test-first and **net-zero on lines**; F0055 discharged in the same cut
+
+Numbering note: the preceding section is headed "Cycle 17" but was written by the driver's cycle 16.
+This section is the driver's cycle 17. The headings are left as written rather than renumbered,
+because this is an append-only record; F0058 asked for *ordering*, which now holds, not for
+retroactive edits.
+
+### What was repaired
+
+**F0056 (P1) — the member walk at `_observed_names` had no handler.**
+
+`CYBRIK_RUN_ID=40c7d2f1-d759-4ec3-9564-ebd4309eb50f`
+
+The F0052 repair narrowed the guard from `isinstance` to `issubclass(type(value), Sequence)`. That
+closed the *classification* escape. It did not close the *walk*: a class that is an honest
+`Sequence` subclass passes the guard truthfully, and the comprehension that follows then runs the
+foreign object's own `__iter__`/`__getitem__` outside any handler.
+
+`_teardown` calls `_observed_names` **twice** — for the Docker residual inventory and for the
+post-attempt listener inventory — and neither call site was guarded. A raising walk therefore left
+`_teardown` *after* the create mutations were already spent: no residual finding, no credential
+finding, no listener finding, and no `TeardownRecord` returned at all. The single attempt is burned
+with no result and no evidence. This is the same failure class F0050 and F0052 each closed one door
+on; this is the third door.
+
+**Intended RED first.** `_SequenceRefusingItsWalk` is a real `collections.abc.Sequence` subclass
+(`__len__`, `__getitem__`, `__iter__`) whose walk raises. The RED reproduced at exactly the
+coordinate the verdict named:
+
+```
+src/cybrik_suite_topology_rehearsal/runner.py:495: in _observed_names
+    return tuple(str.__str__(i) if issubclass(type(i), str) else safe_repr(i) for i in value)
+E   RuntimeError: the residual inventory refuses to be walked
+```
+
+**GREEN**: the comprehension now sits under `try` with the house pattern — `(KeyboardInterrupt,
+SystemExit)` re-raised, `Exception` refused closed to `None`. `None` is already a finding plus
+`STOP_CONTROL` at both call sites, so the seam answers in its own voice instead of escaping.
+
+**Two call-site messages were reworded so they stay true.** Both said the inventory "was never
+read", which is false for the new commonest case: the reading arrived and the *walk* failed. They
+now say "did not read as names", which is accurate for all three routes into `None` (a string, a
+non-sequence, an unwalkable sequence). This is the F0040 defect class — a refusal that states a
+cause that did not happen — and it would have been a new finding had it been left.
+
+**F0055 (P3) — the docstring documented only the string/sequence guard.** Reworded in place to
+state the dual spelling (`str.__str__` for a real `str`, `safe_repr` otherwise), *why* restoring a
+plain `f"{item}"` reopens the overridden-`__str__` escape, and *why* applying `safe_repr` to an
+already-`str` entry corrupts the published `result.residuals` — the exact failure this lane
+reported when it tried that. It also now states that passing the type guard never implies the
+reading can be walked.
+
+### The 800-line bound was honoured by reclaiming budget, not by raising the limit
+
+`MODULE_LINE_LIMIT = 800`, "strictly under, not up to" — so 799 is the ceiling and `runner.py` was
+already **exactly** at it. The guard (+5) and the docstring (+6) needed 11 lines that did not exist.
+
+They were paid for by collapsing **five** wrapped call sites that fit on one line each, none of
+them semantically touched: `observe_health`, `_guarded_reading`'s signature, `frozen(probe.run)`,
+the `MappingProxyType` evidence return, and the `decide` call. `runner.py` is **799 lines** again.
+
+Recorded so the next cycle does not have to rediscover it: ruff here has **no `line-length` rule
+enabled** (no `[tool.ruff] lint.select`, and E501 is outside ruff's default `E4/E7/E9/F`), so
+collapsing is free of lint cost. The longest pre-existing line in the module was already 103 chars.
+**F16/F70 ("Booby trap") remains undischarged** — this cut spent the last of the easy slack.
+
+### Measured at this commit
+
+| measurement | baseline | this commit | delta |
+| --- | --- | --- | --- |
+| pytest | 1724 passed / 59 failed | **1725 passed / 59 failed** | +1 passed, **failures unchanged** |
+| ruff | 12 | **12** | 0 |
+| compileall | rc 0 | **rc 0** | 0 |
+
+`unintended_failures = 0`. The +1 pass is the F0056 test itself. The 59 are the declared
+absent-entrypoint REDs; no entrypoint script was written or run.
+
+### Why the review scope is these three paths
+
+The driver-computed distance was **2** = 1 uncovered path (`REVIEW-LEDGER.md`) + 1 open gating row
+(F0056 P1). A cut at `runner.py` + `test_runner.py` + `REVIEW-LEDGER.md` addresses **both terms at
+once**: it carries the F0056 repair and re-covers the ledger at its post-commit content.
+
+This is deliberate and follows the lesson of the last cycle. The ledger is uncovered *because*
+recording a verdict edits it, so a request that omits it can never reach distance 0 — the very act
+of recording the answer re-opens the gap. Scoping at the open set rather than at the newest defect
+retired two rows last cycle; the same discipline here targets **F0056 (P1), F0055 (P3) and F0058
+(P3)** in one packet.
+
+- `P0=P1=P2=0` is **not yet** established — it is the reviewer's to say, not this lane's.
+- No control weakened, no finding downgraded, no limit raised, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.

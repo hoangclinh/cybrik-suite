@@ -422,9 +422,7 @@ def _observe_attempt(
     """
     findings: list[str] = []
     candidates: list[str] = []
-    health = adapters.docker.observe_health(
-        container=names.container, deadline=deadline
-    )
+    health = adapters.docker.observe_health(container=names.container, deadline=deadline)
     if health != HEALTH_HEALTHY:
         findings.append(
             f"container_health: {safe_repr(health)} was not the reviewed {HEALTH_HEALTHY!r} "
@@ -440,9 +438,7 @@ def _observe_attempt(
     network = _proved_reading(
         adapters.docker.observe_network(name=names.network), "network"
     )
-    probe_result = frozen(
-        adapters.probe.run(executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV)
-    )
+    probe_result = frozen(adapters.probe.run(executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV))
     publication = validate_publication(
         daemon_event=daemon_event,
         container=container,
@@ -485,14 +481,24 @@ def _guarded_observation(
 
 
 def _observed_names(value: object) -> tuple[str, ...] | None:
-    """One observed inventory of names, or `None` when nothing was read.
+    """One observed inventory of names, or `None` when no inventory of names was read.
 
     A string is a sequence of characters rather than of names, so accepting one would let a
-    single reported residual decode as a per-character inventory.
+    single reported residual decode as a per-character inventory. Entries render through
+    exactly two spellings — `str.__str__` for a real `str`, `safe_repr` otherwise: a plain
+    `f"{item}"` reopens the escape an overridden `__str__` gives, while `safe_repr` on an
+    already-`str` entry quotes it and corrupts the published `result.residuals`. Passing the
+    type guard says the reading *is* a sequence, never that it can be *walked*, so the walk
+    carries a handler of its own: `__iter__` is still the foreign object's code.
     """
     if issubclass(type(value), (str, bytes, bytearray)) or not issubclass(type(value), Sequence):
         return None
-    return tuple(str.__str__(i) if issubclass(type(i), str) else safe_repr(i) for i in value)
+    try:
+        return tuple(str.__str__(i) if issubclass(type(i), str) else safe_repr(i) for i in value)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:  # noqa: BLE001 -- an unwalkable inventory is a stop control
+        return None
 
 
 def _guarded_removal(remove: Any, kind: str, /, **arguments: Any) -> str | None:
@@ -512,9 +518,7 @@ def _guarded_removal(remove: Any, kind: str, /, **arguments: Any) -> str | None:
     return None
 
 
-def _guarded_reading(
-    read: Any, label: str, /, **arguments: Any
-) -> tuple[Any, str | None]:
+def _guarded_reading(read: Any, label: str, /, **arguments: Any) -> tuple[Any, str | None]:
     """Take one post-teardown reading, or report the unreadable seam as a finding.
 
     These readings are what prove the host actually let go of everything the attempt
@@ -578,7 +582,7 @@ def _teardown(adapters: Any, names: AttemptNames) -> TeardownRecord:
     if residual_finding is not None:
         findings.append(residual_finding)
     elif residuals is None:
-        findings.append("teardown: the Docker residual inventory was never read")
+        findings.append("teardown: the Docker residual inventory did not read as names")
     elif residuals:
         findings.append(f"teardown: {list(residuals)!r} outlived the attempt")
     if credential_finding is not None:
@@ -591,7 +595,7 @@ def _teardown(adapters: Any, names: AttemptNames) -> TeardownRecord:
     if listener_finding is not None:
         findings.append(listener_finding)
     elif listeners is None:
-        findings.append("teardown: the post-attempt listener inventory was never read")
+        findings.append("teardown: the post-attempt listener inventory did not read as names")
     elif listeners:
         findings.append(f"teardown: {list(listeners)!r} still hold the reviewed port")
     if findings:
@@ -641,9 +645,7 @@ def _evidence(
         teardown_record,
     )
     inventory = dict(zip(EVIDENCE_KEYS, recorded, strict=True))
-    return MappingProxyType(
-        {**inventory, FACTS_KEY: MappingProxyType(dict(facts))}
-    )
+    return MappingProxyType({**inventory, FACTS_KEY: MappingProxyType(dict(facts))})
 
 
 def _finite_reading(reading: float) -> bool:
@@ -791,9 +793,7 @@ def run_topology_rehearsal(
         return _refused(error.reason)
     except Exception as error:  # noqa: BLE001 -- every pre-consumption failure refuses
         return _refused(f"preparation raised {safe_type_name(error)}: {safe_repr(error)}")
-    decision = decide(
-        authorization, adapters, facts=facts, execute_requested=True
-    )
+    decision = decide(authorization, adapters, facts=facts, execute_requested=True)
     if not decision.admitted:
         return _refused(*decision.findings)
     return _run_attempt(adapters, prepared, facts, names)

@@ -6,7 +6,7 @@ import ast
 import dataclasses
 import inspect
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 
 import pytest
@@ -1721,6 +1721,24 @@ class _RefusingClassAttr:
         raise RuntimeError("__class__ refused")
 
 
+class _SequenceRefusingItsWalk(Sequence):
+    """A real `Sequence` subclass, registered and all, whose member walk raises.
+
+    The F0052 repair narrowed the guard from `isinstance` to `issubclass(type(value), ...)`,
+    which this class passes honestly: it *is* a `Sequence`. Nothing about passing the guard
+    implies the walk that follows it can be completed.
+    """
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, index):
+        raise RuntimeError("the residual inventory refuses to be walked")
+
+    def __iter__(self):
+        raise RuntimeError("the residual inventory refuses to be walked")
+
+
 class _ReadingClock:
     """A clock whose single reading is supplied by the test."""
 
@@ -1897,4 +1915,27 @@ def test_a_residual_reading_that_refuses_its_class_does_not_escape_observed_name
     names = observed(_RefusingClassAttr())
 
     # Assert. It refused closed rather than raising through the teardown.
+    assert names is None
+
+
+def test_a_residual_inventory_that_refuses_its_member_walk_does_not_escape(runner):
+    """INTENDED RED (F0056). `_observed_names` guards the walk, not only the guard.
+
+    Passing `issubclass(type(value), Sequence)` says the reading is a sequence. It does not
+    say the reading can be *walked*: `__iter__` and `__getitem__` are the foreign object's
+    own code, and the comprehension at the return runs them outside any handler. `_teardown`
+    calls this twice, for the Docker residual inventory and for the post-attempt listener
+    inventory, and neither call site is guarded — so a raising walk leaves `_teardown` after
+    the create mutations are already spent, skipping the residual, credential and listener
+    findings and returning no `TeardownRecord` at all. The attempt is burned with no result
+    and no evidence, which is the exact failure class F0050 and F0052 each closed one door on.
+    """
+    # Arrange.
+    observed = require_c8_attr(runner, "_observed_names")
+
+    # Act. An honest `Sequence` whose walk raises must still answer in this seam's own voice.
+    names = observed(_SequenceRefusingItsWalk())
+
+    # Assert. Refused closed — indistinguishable to the caller from "no inventory was read",
+    # which is already a finding plus STOP_CONTROL at both call sites.
     assert names is None
