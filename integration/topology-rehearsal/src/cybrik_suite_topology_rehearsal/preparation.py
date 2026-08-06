@@ -199,19 +199,19 @@ class PreparationResult:
     def __post_init__(self) -> None:
         if self.satisfied is not True:
             raise ValueError(
-                f"satisfied must be exactly True, not {self.satisfied!r}: an unsatisfied "
+                f"satisfied must be exactly True, not {safe_repr(self.satisfied)}: an unsatisfied "
                 "preparation is a refusal, not a result"
             )
         for name in FROZEN_MAPPING_FIELDS:
             value = getattr(self, name)
             if type(value) is not MappingProxyType:
                 raise ValueError(
-                    f"{name} must be a read-only mapping, not {type(value).__name__}")
+                    f"{name} must be a read-only mapping, not {safe_type_name(value)}")
         for name in FROZEN_SEQUENCE_FIELDS:
             value = getattr(self, name)
             if type(value) is not tuple:
                 raise ValueError(
-                    f"{name} must be an immutable tuple, not {type(value).__name__}")
+                    f"{name} must be an immutable tuple, not {safe_type_name(value)}")
         # One pass per field: `proved_copy` judges and copies out of the *same* `.items()` read,
         # so nothing is left for a later read of a caller's live mapping to answer differently.
         for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
@@ -285,7 +285,7 @@ def guarded(label: str, read: Any) -> Any:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- every ordinary seam error fails closed
-        finding = (f"{label}: raised {type(error).__name__} out of a seam whose only stated "
+        finding = (f"{label}: raised {safe_type_name(error)} out of a seam whose only stated "
                    "failure value is None")
         raise refusal((finding,)) from None
 
@@ -312,7 +312,7 @@ def projected(label: str, read: Any) -> Any:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- an uncopyable projection fails closed
-        finding = (f"{label}: raised {type(error).__name__} while being copied, so no dead copy "
+        finding = (f"{label}: raised {safe_type_name(error)} while being copied, so no dead copy "
                    "of it exists to prove anything against")
         raise refusal((finding,)) from None
 

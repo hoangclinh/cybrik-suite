@@ -286,7 +286,7 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
         raise
     except Exception as error:  # noqa: BLE001 -- a reading that will not answer is refused
         return (
-            f"{label}: present raised {type(error).__name__} when read by subscript while "
+            f"{label}: present raised {safe_type_name(error)} when read by subscript while "
             "this reading stores True, so its two views of one answer disagree",
         )
     if subscripted is not True:

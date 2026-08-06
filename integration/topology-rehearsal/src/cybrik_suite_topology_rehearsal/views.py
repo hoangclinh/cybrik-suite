@@ -111,16 +111,16 @@ def subclasses_immutable_leaf(value: object) -> bool:
 
 
 def safe_repr(value: object) -> str:
-    """`repr(value)`, or a stated placeholder when the value refuses to be represented.
+    """`repr(value)` as an exact `str`, or a stated placeholder when the value refuses.
 
-    Every finding below interpolates the judged value, and the judged value arrived through an
-    injected port. `repr()` is attacker-controlled code: a `__repr__` that raises turned the
-    *report* of a divergence into an exception escaping a seam whose callers are reducers
-    contracted to return findings, so the reading suppressed its own finding by refusing to be
-    printed. Formatting is therefore never allowed to raise.
-    """
+    Every finding interpolates a value that arrived through an injected port, so `repr` is
+    attacker-controlled: a raising `__repr__` turned the *report* of a divergence into an
+    exception escaping a seam contracted to return findings. Catching that raise is not enough,
+    because `isinstance` accepts a `str` *subclass* whose `__format__` refuses and the caller's
+    f-string is outside this `try`; both helpers therefore return through the unbound
+    `str.__str__` slot, which ignores the instance and yields an exact copy (F0006)."""
     try:
-        return repr(value)
+        return str.__str__(repr(value))
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException:  # noqa: BLE001 -- a value that will not be printed is still reported
@@ -135,7 +135,7 @@ def safe_type_name(value: object) -> str:
         raise
     except BaseException:  # noqa: BLE001 -- a type that will not be named is still reported
         return "<unnameable type>"
-    return name if isinstance(name, str) else "<unnameable type>"
+    return str.__str__(name) if isinstance(name, str) else "<unnameable type>"
 
 
 def immutability_findings(
@@ -246,7 +246,7 @@ def read_items(mapping: Mapping[Any, Any]) -> tuple[tuple[Any, Any], ...] | None
     callers do not name, out of one contracted to raise `ValueError` (F0024).
     """
     try:
-        return tuple(mapping.items())
+        return tuple((key, item) for key, item in mapping.items())
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception:  # noqa: BLE001 -- a mapping that will not be read is refused by the caller
@@ -355,7 +355,7 @@ def _key_set_findings(
         raise
     except Exception as error:  # noqa: BLE001 -- a mapping that will not be sized is refused
         findings.append(
-            f"{label}: this mapping raised {type(error).__name__} when it was asked its "
+            f"{label}: this mapping raised {safe_type_name(error)} when it was asked its "
             "length, so the size of the reading being judged cannot be established"
         )
         return tuple(findings)
@@ -426,15 +426,16 @@ def stored_entries(
     attacker-controlled and a value that refuses to be described must not suppress the report of
     its own divergence (F0006, F0030). Membership goes through `_is_stored` (F0022). The one
     `.items()` read is guarded, and the key is hashed inside a `try` as it is stored, since that
-    hash runs before `_is_stored` is ever reached (F0031).
+    hash runs before `_is_stored` is ever reached (F0031). The pair unpacking is inside that same
+    `try`, since `.items()` returning does not make what it yielded a pair (F0035).
     """
     try:
-        entries = tuple(mapping.items())
+        entries = tuple((key, item) for key, item in mapping.items())
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- a mapping that will not be read is refused
-        refusal = (f"{label}: this mapping raised {safe_type_name(error)} when it was read by "
-                   "`.items()`, so there is no reading of it to judge")
+        refusal = (f"{label}: this mapping raised {safe_type_name(error)} when it was read as "
+                   "`.items()` pairs, so there is no reading of it to judge")
         return {}, (refusal,)
     yielded = 0
     stored: dict[str, Any] = {}
@@ -459,7 +460,7 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
             findings.append(
-                f"{label}: {safe_repr(key)} raised {type(error).__name__} when read by subscript while "
+                f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when read by subscript while "
                 f"this mapping stores {safe_repr(value)}, so its two views of one entry disagree"
             )
             continue
@@ -469,7 +470,7 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
-                f"{label}: {safe_repr(key)} raised {type(error).__name__} when the object its subscript "
+                f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when the object its subscript "
                 f"returned was compared with the {safe_repr(value)} this mapping stores, so its two "
                 "views of one entry cannot be shown to agree"
             )
@@ -489,7 +490,7 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
             findings.append(
-                f"{label}: {safe_repr(key)} raised {type(error).__name__} when read by `.get` while this "
+                f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when read by `.get` while this "
                 f"mapping stores {safe_repr(value)}, so its two views of one entry disagree"
             )
             continue
@@ -499,7 +500,7 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
-                f"{label}: {safe_repr(key)} raised {type(error).__name__} when the object its `.get` "
+                f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when the object its `.get` "
                 f"returned was compared with the {safe_repr(value)} this mapping stores, so its two "
                 "views of one entry cannot be shown to agree"
             )
@@ -638,7 +639,7 @@ def _dead_copy(
         except Exception as error:  # noqa: BLE001 -- a container that will not be rebuilt is refused
             return value, (
                 (
-                    f"{path}: this container raised {type(error).__name__} when a dead copy "
+                    f"{path}: this container raised {safe_type_name(error)} when a dead copy "
                     "of it was built, so no copy of it exists to record"
                 ),
             )
@@ -664,7 +665,7 @@ def _dead_mapping(
     except Exception as error:  # noqa: BLE001 -- a mapping that will not be read is refused
         return value, (
             (
-                f"{path}: this mapping raised {type(error).__name__} when it was read by "
+                f"{path}: this mapping raised {safe_type_name(error)} when it was read by "
                 "iteration, so there is no reading of it to judge"
             ),
         )
@@ -767,7 +768,7 @@ def proved_copy(
                 (),
                 (
                     (
-                        f"{path}: this mapping raised {type(error).__name__} when it was "
+                        f"{path}: this mapping raised {safe_type_name(error)} when it was "
                         "read by iteration, so there is no reading of it to judge"
                     ),
                 ),
