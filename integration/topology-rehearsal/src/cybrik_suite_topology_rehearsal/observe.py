@@ -53,14 +53,14 @@ from .constants import (
     PRECHECK_ABORT,
     PROBE_REACHABLE,
     PUBLICATION_VIEWS,
-    SELECTED_IDENTITY_KEYS,
     STOP_CONTROL,
 )
 from .errors import TERMINAL_ERRORS
 from .grant import (
     OBSERVED_BINDING_KEYS,
-    OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS,
+    OBSERVED_IDENTITY_KEYS,
     REGISTRY_DIGEST_KEYS,
+    REGISTRY_IDENTITY_KEYS,
     keyed,
     platform_findings,
     registry_digest,
@@ -85,15 +85,13 @@ __all__ = [
 # read-only: a mutable default would let one verdict's evidence grow into every other's.
 NO_VIEWS: Mapping[str, str | None] = MappingProxyType({})
 
-# The identity fields a host can actually report back. `pull_policy` is a rule the attempt
-# obeys rather than anything a host observes, so demanding it of an observation would refuse
-# every correct reading. The host-only `local_image_id` is absent for the opposite reason: it
-# names bytes on one machine and can never equal a registry digest, so it is recorded as an
-# observation and never compared against the selection.
-SELECTION_ONLY_KEYS = ("pull_policy",)
-OBSERVED_IDENTITY_KEYS = tuple(
-    key for key in SELECTED_IDENTITY_KEYS if key not in SELECTION_ONLY_KEYS
-)
+# The two identity inventories this module reads are the grant's own objects, imported above
+# and never re-derived here. `REGISTRY_IDENTITY_KEYS` is what a selection and an observation
+# may be compared on: `pull_policy` is a rule the attempt obeys rather than anything a host
+# observes, and the host-only `local_image_id` names bytes on one machine that can never equal
+# a registry digest. `OBSERVED_IDENTITY_KEYS` is the whole signed reading, host-only fields
+# included. Typing either of them again here would give one name two meanings across the
+# package, which is exactly the collision that once refused every genuine identity.
 
 # The exact keys of the two container projections carrying a publication view. The listener
 # record's own keys are not re-typed here: they are the shape `protocols.decoded_listener`
@@ -272,10 +270,10 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     every key. Only `observed_at` may differ, because two readings are two separate events.
     """
     label = "granted_image_identity"
-    refusals = keyed(identity, SIGNED_IDENTITY_KEYS, label, ordered=False)
+    refusals = keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)
     if refusals:
         return refusals
-    unread = tuple(key for key in SIGNED_IDENTITY_KEYS if identity[key] is None)
+    unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if identity[key] is None)
     if unread:
         return (
             f"{label}: unresolved — {list(unread)} were never read, so the host never said "
@@ -497,7 +495,7 @@ def validate_image_identity(selected: object, observed: object) -> ObservationVe
             PRECHECK_ABORT,
         )
     findings: list[str] = []
-    for key in OBSERVED_IDENTITY_KEYS:
+    for key in REGISTRY_IDENTITY_KEYS:
         selection = selected.get(key)
         observation = observed.get(key)
         if selection is None:

@@ -610,3 +610,52 @@ def test_observation_module_exports_only_pure_reducers(observe) -> None:
         "validate_internal_network",
         "validate_publication",
     }
+
+
+def module_level_assignments(module: str) -> frozenset[str]:
+    """Every name an authored module binds at its own top level, read from its source."""
+    path = SRC / PACKAGE / f"{module}.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return frozenset(
+        target.id
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+        if isinstance(target, ast.Name)
+    )
+
+
+def test_the_observation_module_never_rebinds_a_name_the_grant_already_owns() -> None:
+    """One name, one meaning, package-wide.
+
+    `grant` is the single owner of the reviewed key inventories. When `observe` binds one of
+    those names again at its own top level, the same identifier denotes two different tuples
+    depending on which module a reader imported it from, and a later `from .observe import
+    OBSERVED_IDENTITY_KEYS` silently receives the narrower one. That is not a style point: it
+    is exactly the defect that refused every genuine identity when a validated function moved
+    into this module. Aliasing the import around the collision leaves the collision standing,
+    so the collision itself is what this pins.
+    """
+    grant = load_c8("grant")
+    owned = frozenset(
+        name
+        for name in vars(grant)
+        if name.isupper() and not name.startswith("_")
+    )
+    collisions = sorted(module_level_assignments("observe") & owned)
+    assert collisions == [], (
+        "observe re-binds names the grant already owns: "
+        f"{collisions}; import them instead of typing them again"
+    )
+
+
+def test_the_signed_identity_inventory_is_the_grant_inventory_itself(observe) -> None:
+    """The tuple this module checks a signed identity against must be grant's own object.
+
+    Equality is not enough. Two tuples that happen to agree today drift apart the moment a
+    key is added to one inventory, and the drift is silent because both sides still validate.
+    """
+    grant = load_c8("grant")
+    assert require_c8_attr(observe, "OBSERVED_IDENTITY_KEYS") is require_c8_attr(
+        grant, "OBSERVED_IDENTITY_KEYS"
+    )
