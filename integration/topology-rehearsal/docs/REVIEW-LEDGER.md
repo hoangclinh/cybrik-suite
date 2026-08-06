@@ -1637,6 +1637,47 @@ that the bound provably spans `scripts/` as well as `src/`, and that the
 entrypoint GREEN must therefore site `build_runtime_wiring` in the script.
 The 799-line count itself was already on the books.
 
+### `73ec822..211360b` — static gates re-measured at the current full local range
+
+Measured by the coordinator at HEAD `211360b`, before any independent verdict on
+this range was sought. Nothing was installed, auto-fixed or reformatted. The two
+commits added since `c444fcb` (`8bee06a`, `211360b`) are documentation-only.
+
+| Gate | Command | Result |
+|---|---|---|
+| Broad census | `uv run --offline python -m pytest -q` | **58 failed / 1417 passed** |
+| Focused suites | `… pytest -q tests/test_{adapter,runner,admission,preparation,plan}.py` | **921 passed / 0 failed** |
+| Lint | `ruff check src tests` | 2 findings, both `I001`, both pre-existing |
+| Compile | `python -m compileall -q src tests` | exit 0, no output |
+| Whitespace | `git diff --check 73ec822..HEAD` | exit 0, no output |
+
+The census is byte-identical to the count recorded at `c444fcb`, so the two
+documentation commits introduced no drift. `--fix` was **not** run on the two
+`I001` findings; running a formatter or auto-fixer is Founder-gated by repo-root
+`CLAUDE.md`.
+
+**Every one of the 58 failures is in the absent-script class**, and this is now
+measured rather than assumed. Grouping the failure list by file gives exactly
+two files and no third:
+
+| File | Failures |
+|---|---|
+| `tests/test_scripts_inert.py` | 51 |
+| `tests/test_surface_contract.py` | 7 |
+
+Both files gate on `scripts/prepare_topology_grant.py` and
+`scripts/run_topology_rehearsal.py`, neither of which exists. The five focused
+suites that do not touch `scripts/` are **wholly green at 921 passed**, up from
+the 901 recorded at `3cd9d77` purely because later commits added tests. There
+are therefore **zero unintended failures** at this HEAD.
+
+Module line counts are unchanged from `c444fcb`, so the F16 hazard has not
+moved: `adapter.py` 799, `preparation.py` 798, `grant.py` 794, `runner.py` 756,
+all against the strict `>= 800` bound at `tests/test_surface_contract.py:236-247`.
+`adapter.py` retains **one line** of headroom.
+
+RUNTIME remains **HOLD**. Neither entrypoint script was executed; neither exists.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
