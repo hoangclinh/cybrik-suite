@@ -3221,3 +3221,116 @@ evidence remain unavailable by authority, not by oversight.
 their repair is unreviewed, so neither is discharged.
 
 P1 ≠ 0 on every reading. Nothing in this range is pushable.
+
+### The owed second opinion on the F45/F46/F47/F65 re-grade — **LANDED. PARTIAL.**
+
+This is the opinion the previous two cycles owed and did not obtain. It is independent, it
+**measured** rather than deferred, and it **partially rejects** the proposal it was asked to check.
+
+**Verdict: all four confirmed OUT of P1. Landing grades: F45=P2, F46=P2, F47=P3, F65=P2.**
+
+The one rejection: the proposing auditor put F45 at **P3**; this opinion puts it at **P2**, on the
+ground that the P3 rested on the evading shape being exotic when its *host* limb is not — a default
+is evaluated at import, `os.getcwd()`/`os.environ[...]` in a default is an ordinary idiom, and "a
+module-level helper reading `os.environ` for a worktree path" is the exact evasion the guard's own
+docstring at `tests/test_scripts_inert.py:1510` names as its reason to exist. The grant limb is
+genuinely weak (an `authorization` is not in scope at import time), which is why it is P2 and not
+higher. **The re-grade is therefore applied as corrected, not as proposed.**
+
+#### What was measured, not read
+
+Probes imported the *shipped* helper (not a copy) and ran against the shipped package.
+
+`F45` — six shapes through `call_parameter_bindings`/`argument_pairs`
+(`tests/test_scripts_inert.py:1343-1385`), which read `call.args` and `call.keywords` and never
+`signature.defaults` or `kw_defaults`:
+
+| shape | `root_sinks` | `module_wide_offences` | verdict |
+|---|---|---|---|
+| `def _wire(values=os.environ["CONTROL_ROOT"])` + `_wire()` | 3 | `[]` | **MISSED** |
+| grant-origin default `values=_declared(AUTHORIZATION)` | 3 | `[]` | **MISSED** |
+| kw-only default `*, values=_declared(...)` | 3 | `[]` | **MISSED** |
+| root-shaped *parameter* name `roots=os.environ[...]` | 3 | `[]` | **MISSED** |
+| root-shaped *helper* name `_suite_root(value=os.environ[...])` | 4 | 2 offences | CAUGHT |
+| positive control — same value passed as an argument | 3 | `line 14: a control root derives from ['values']` | CAUGHT |
+
+The `sinks>=2` floor holds in every row, so these are verdicts about the derivation walk, **not**
+about vacuity. The last three rows are the reviewer's own additions and are what moved F45 up.
+
+`F46` — `call_parameter_bindings:1349` skips any callee whose `node.func` is not an `ast.Name`,
+although the `functions` table built by `ast.walk` at `:1343-1346` already holds every method's
+signature under its bare name. `_Wiring().wire(...)` MISSED; `@staticmethod` via `_Wiring.wire(...)`
+MISSED; but **natural class-shaped wiring with the grant read in a `roots()` method was CAUGHT**
+(root-shaped method name, flagged by `root_sinks`' `held` branch). That row is the reviewer's own and
+narrows the finding: the evasion needs a callee that is simultaneously attribute-spelled,
+non-root-named **and** laundering through a parameter. A cross-module callee (`helpers.wire(...)`)
+also MISSED, but that is the already-P3 F50 class and was correctly **not** counted against F46.
+
+`F47` — `_alias = _wire` then `_alias(...)` → `offences=[]`, MISSED; the byte-identical control
+calling `_wire` directly → CAUGHT. The alias is the sole cause, and the *uncompounded* alias is
+still caught: all 11 pinned `EVADING_WIRING_SHAPES` including `aliased-helper` remain CAUGHT at
+HEAD and `CONFORMING_WIRING_SHAPE` is still clean.
+
+`F65` — run against a genuine `prepare(documents.authorization(), fakes.passing_adapters())`,
+genuine pin `2026-08-05T00:00:00Z` → attempt `20260805T000000Z-c8`:
+
+- single-field control → **REFUSED**, `ValueError: granted_observed_at '1970-01-01T00:00:00Z' is
+  not the exact UTC instant '2026-08-05T00:00:00Z' the authorization signed…` — not vacuous;
+- two-field epoch forgery → **ACCEPTED**, `satisfied=True`, `runner._attempt_names` returns
+  `attempt_id='19700101T000000Z-c8'`, `container='cybrik-topology-19700101T000000Z-c8'`;
+- three-field forgery moving `granted_image_identity` + `image` together → **ACCEPTED**,
+  `satisfied=True`, `image.repository='attacker/exfil'`,
+  `image_reference='attacker/exfil@sha256:eee…'`, at the cost of one retry to satisfy the
+  registry-digest shape on `local_image_id`.
+
+The finding reproduces in full and the ledger's broadened three-field scope is **accurate**.
+
+#### Why "no live bypass" is a measured claim here, not an assumption
+
+The reviewer tested for (b) — shipped code actually exhibiting the evading shape — and found (a) for
+all four:
+
+- `src/` contains **zero** reads of `environ`, `getcwd`, `cwd()` or `__file__`, so no host root
+  source exists to place in a default;
+- the guard's actual subject, `scripts/run_topology_rehearsal.py`, **does not exist** (the test
+  fails for absence of subject), while the guard's own effectiveness test passes `2 passed`;
+- `module_wide_offences` run over all ten shipped `src/` modules: the only two holding root sinks,
+  `plan.py` and `runner.py`, produce **zero** derivation offences;
+- `src/` has **one** `PreparationResult(` construction (`preparation.py:708`) and **zero**
+  `dataclasses.replace` calls — the only `replace` tokens are `str.replace` (`runner.py:116`),
+  `datetime.replace` (`grant.py:251`) and `os.replace` (`adapter.py:671`);
+- decisively for F65, `run_topology_rehearsal` (`runner.py:742-743`) does
+  `prepared = prepare(authorization, adapters)` against the module-level import and hands it
+  straight to `_attempt_names` — the result **never crosses an injected seam**. Under this package's
+  declared threat model, the hostile injected adapter (`tests/test_preparation.py:86-92`: "the
+  attack is not a malformed document but a live alias"), the adapters never see the result.
+
+The reviewer also accepted the consistency argument on its own terms: grading the same
+copy-carries-no-authorization shape P2 under F75 and P1 under F65 was inconsistent.
+
+#### Reviewer-stated limits — recorded so they are not silently dropped
+
+`observe.py` and `test_observe.py` were read **pinned at `f787935`**, never from the working tree,
+because a writer held them. The `src/`-wide sweep applied a wiring-scoped guard to library modules
+it was never designed for: the `computed attribute name` offences it reports in `admission.py`,
+`grant.py`, `preparation.py`, `protocols.py` and `runner.py` are `getattr(self, name)` validator
+loops, **not defects**, and were correctly not treated as evidence either way. F48-F55, F66-F83 and
+F1-F44 were **not** re-verified. For F65 only `granted_image_identity`, `granted_observed_at` and
+`image` were attacked; the other `PreparationResult` fields were not swept and the
+`object.__setattr__`/`copy.copy`/subclass bypasses (F71) were not retested. `ruff` and `mypy` remain
+absent and were not run. Nothing was edited or committed by the reviewer.
+
+#### The gating answer, stated exactly
+
+**On these four alone, P1 would reach 0.** At HEAD it does **not**, because **F83** is open,
+un-regraded, and a live authority defect. The reviewer formed no opinion on F83 — it was outside the
+commission. The atomic entrypoint GREEN therefore stays blocked, and this re-grade does **not** open
+the gate. It removes four of the five reasons it was shut.
+
+### Open set after applying the corrected re-grade
+
+**P1: F83 only** — open, repair commissioned this cycle, result not yet in.
+**P2: F45, F46, F65.** **P3: F47, F80, F81, F82.**
+F78 and F79 remain repaired-but-unreviewed and are not discharged.
+
+P1 ≠ 0. Nothing is pushable.
