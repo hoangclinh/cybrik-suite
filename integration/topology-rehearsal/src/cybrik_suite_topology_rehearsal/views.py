@@ -55,6 +55,23 @@ def nested(value: object, path: Sequence[str]) -> Any:
 IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
 
 
+def _is_immutable_leaf(value: object) -> bool:
+    """Whether `value`'s type is *exactly* one of the builtin leaves, decided by identity.
+
+    `type(value) in IMMUTABLE_LEAVES` was **not** this test, and that was F153. Membership is
+    defined as `any(e is x or e == x)`, so it consults `__eq__` on the class object — which a
+    metaclass owns. A class whose metaclass answers `True` to every comparison was therefore
+    admitted as a builtin leaf, and every control resting on that admission unfolded on a lie:
+    the value skipped the immutability walk, skipped `proved_copy`'s deep walk, and reached the
+    equality fallback that is only safe because the leaf types cannot override comparison.
+
+    Identity cannot be forged: `is` is the interpreter's, not the judged object's. Nothing is
+    widened here — a leaf subclass without a lying metaclass was already excluded, because
+    `MySubclass == int` is `False` — so this closes the forgery and moves nothing else.
+    """
+    return any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)
+
+
 def immutability_findings(
     value: object, path: str, seen: tuple[int, ...] = ()
 ) -> tuple[str, ...]:
@@ -64,7 +81,7 @@ def immutability_findings(
     value only, reaching nothing and raising nothing. A cycle is reported at the path where it
     closes rather than followed, so an unbounded projection is a finding, not a recursion.
     """
-    if type(value) in IMMUTABLE_LEAVES:
+    if _is_immutable_leaf(value):
         return ()
     if id(value) in seen:
         return (f"{path} refers to itself",)
@@ -109,8 +126,15 @@ def _states_the_same_value(stored: object, other: object) -> bool:
 
     Agreement is therefore never decided by an `__eq__` the judged object defines. Equality is
     consulted only where the comparison belongs to the interpreter rather than to the reading:
-    the exact builtin leaf types, which cannot carry an overriding `__eq__` because `type(x) is`
-    excludes their subclasses. Every other value must be the *same object* through both views.
+    the exact builtin leaf types, which cannot carry an overriding `__eq__` because their identity
+    is checked by `_is_immutable_leaf`. Every other value must be the *same object* through both
+    views.
+
+    That guard used to be spelled `type(stored) in IMMUTABLE_LEAVES`, and this docstring claimed it
+    excluded subclasses. **It did not, and that was F153.** Membership consults `__eq__` on the
+    class, which a metaclass owns, so a forged type reached this fallback and was then trusted to
+    grade itself — the same shape of defect as F135, one level up. The guard is now an identity
+    test, which the judged object cannot supply.
 
     This is deliberately strict. A mapping that rebuilds a non-leaf value on each read is now
     refused rather than trusted, because there is no way to distinguish it from a two-faced one
@@ -127,7 +151,7 @@ def _states_the_same_value(stored: object, other: object) -> bool:
         return True
     if type(other) is not type(stored):
         return False
-    if type(stored) in IMMUTABLE_LEAVES:
+    if _is_immutable_leaf(stored):
         return (other == stored) is True and (stored == other) is True
     return False
 
@@ -378,7 +402,7 @@ def proved_copy(
     `immutability_findings` on the same value and `PreparationResult.__post_init__` refuses
     exactly what it refuses today. See `_dead_copy`.
     """
-    if type(value) in IMMUTABLE_LEAVES:
+    if _is_immutable_leaf(value):
         return value, (), ()
     if id(value) in seen:
         return value, (f"{path} refers to itself",), ()

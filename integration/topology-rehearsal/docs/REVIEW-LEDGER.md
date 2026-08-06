@@ -9109,3 +9109,69 @@ consequence is **derived, not executed**. This lane owns re-deriving each before
 **Next cycle repairs exactly one finding, test-first: F153**, because it is the only P1 among them,
 because it silently undermines all three repairs the last review was convened to retire, and because
 its correction is three identity comparisons that widen nothing.
+
+---
+
+## Cycle 4 (V2) — F153 repaired test-first; the leaf test is now decided by identity
+
+The range was **unfrozen** at cycle start: no `roles/security/FREEZE`, no open `REVIEW-REQUEST.json`,
+and the driver had archived the request bound to `abf4d5f` against its NO-GO verdict. HEAD was
+`ddde47f`, unmoved since the verdict — **no `freeze_breach` on this lane's record.** Branch B of
+`NEXT-SCOPE-PLAN-abf4d5f.md` therefore applied: repair exactly one named finding, test-first.
+
+### F153 (P1) — repaired, `repaired-unreviewed`
+
+**Re-derived before repairing, not taken on the previous cycle's word.** The probe was re-executed
+against the live bytes at `ddde47f`: `type(stored) in IMMUTABLE_LEAVES -> True` for a class outside
+the tuple by identity, `_states_the_same_value(1, 2) -> True`, `immutability_findings(forged) -> ()`.
+The forgery reproduces.
+
+**Repair.** One new private helper, `views._is_immutable_leaf`, deciding leaf status by identity
+(`any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)`), substituted at the three exact-type
+sites — `immutability_findings` (`:67`), `_states_the_same_value` (`:130`) and `proved_copy`
+(`:381`). `is` belongs to the interpreter; a metaclass cannot supply it.
+
+**Widened nothing.** A leaf subclass *without* a lying metaclass was already excluded, because
+`MySubclass == int` is `False`. The only behaviour that moves is the forgery. The vacuity controls
+in the new suite pin this: ten genuine leaf values keep leaf status, six still agree when rebuilt,
+and an honest mapping still shows no divergence.
+
+**`views.py:287`'s `isinstance(value, IMMUTABLE_LEAVES)` was deliberately NOT changed.** That site
+documents the opposite intent on purpose — "a safe scalar's subclass is a leaf here", because `str`
+and `bytes` are `Sequence`s and walking one yields its own characters. Changing it is a different
+decision on different evidence and is **recorded here as owed, not silently taken**.
+
+**The false docstring was corrected, not left standing.** `_states_the_same_value` had *argued* that
+its guard "cannot carry an overriding `__eq__` because `type(x) is` excludes their subclasses" — the
+exact reasoning that led the `abf4d5f` reviewer to clear F135. Prose that misleads a reviewer is part
+of the defect; it now states what the code does and records why it was wrong.
+
+### Evidence at this commit (measured on the worktree bytes it records)
+
+- **Intended RED, non-vacuous:** before the source change, `4 failed, 19 passed`. The four failures
+  were exactly the four defect assertions; **all premises and all vacuity controls passed**, so the
+  RED could not have been produced by a broken fixture.
+- **GREEN:** `tests/test_f153_metaclass_leaf.py` 23/23. `test_f134_get_accessor` and
+  `test_f135_eq_fallback` **still pass** — the repair does not disturb the repairs beneath it.
+- **Broad census: 1605 passed / 59 failed.** Prior census at `abf4d5f` was 1582/59. `1582 + 23 =
+  1605` and the failing-test-ID sets are **byte-identical by `diff`** — therefore **0 unintended
+  failures** and 0 regressions, established by set comparison rather than by matching counts.
+- **Lint:** ruff 12 errors, the recorded baseline, all in `observe.py` (7), `preparation.py` (3),
+  `test_errors.py` (1), `test_runner.py` (1). **None in `views.py` or the new suite.**
+- **`compileall` rc=0.** **Size-bound gate 13 passed** with `views.py` at 449 lines.
+- F131's ingress RED still fails, as it must: F131 is OPEN and unrepaired.
+
+### Gate after this cycle
+
+- **P0 = 0**; **P1 OPEN = 6** (F33, F123, F128, F131, F143, F149) — F153 leaves OPEN and becomes
+  **`repaired-unreviewed`**, so **P1 r-u = 14** (F134, F135, F136, F153).
+- The four P2s and three P3s from `VERDICT-abf4d5f` are **untouched and still open**; this cycle
+  repaired one P1 and did not batch. **P2 OPEN and P3 OPEN are unchanged.**
+- **`P0=P1=P2=0` is NOT met.** Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft.
+- **This lane does not witness this repair.** F153 is `repaired-unreviewed` and a review request is
+  cut against it. No verdict is issued, approved or inferred here.
+- **P3-2 (F147) needs re-grading, and this lane does not grade it.** Its reachability note above was
+  written on the pre-repair code; a forged leaf no longer reaches `==`. Whether the comparison-raise
+  handlers are once again unreachable is **owed to a reviewer**, not settled here.
+- No control weakened, no finding retired, no finding downgraded. Neither entrypoint script was
+  written or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
