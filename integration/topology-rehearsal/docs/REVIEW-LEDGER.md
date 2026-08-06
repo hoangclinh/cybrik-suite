@@ -2387,3 +2387,101 @@ volume and credential name derives from.
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
 script exists and none was executed.
+
+## Cycle 24 — F60/F61 repaired test-first; the independent verdict is **NO-GO**
+
+### Live state reconciliation at cycle open
+
+HEAD `d30def9`, branch 50 commits ahead of `origin`. PR #55 is OPEN, draft, `CLEAN` at
+`73ec822`, four rendered hosted checks SUCCESS (two `secret-scan`, two `contract standards
+validation`). The working tree carried an uncommitted F60/F61 repair, which this cycle measured
+and committed as `42d6d02`. The untracked `integration/topology-rehearsal/uv.lock` was preserved
+untouched and is still the only entry in `git status --short`.
+
+Broad census at `42d6d02`: **58 failed / 1444 passed in 0.63s**. The 58 are unchanged from
+cycle 22 and were independently reclassified this cycle: 51 in `test_scripts_inert.py`, 7 in
+`test_surface_contract.py`; by missing artifact, 49 `run_topology_rehearsal.py`,
+8 `prepare_topology_grant.py`, 1 missing `scripts/` directory. Every one carries the
+absent-entrypoint message. The passed count rose 1433 → 1444 on this cycle's 11 new tests.
+
+### The repair, measured. `42d6d02`
+
+`PreparationResult` now carries `granted_image_identity` — the signed host observation the pin
+was drawn from — and `__post_init__` requires the pin to equal that identity's `observed_at` and
+the live `image` reading to be at or after it.
+
+- **RED against the shipped parent**: **11 failed, 1 passed**. The five forged-pin copies and the
+  stale-reading copy DID NOT RAISE; the five carried-identity cases had no field to set. The one
+  pass is the F60 test, whose non-vacuity is proved separately.
+- **F60 non-vacuity**: mutation M7 — `snapshot()` sourcing `observed.image[OBSERVED_AT_KEY]` —
+  survived all five of that test's assertions before and is **killed** now, independently
+  re-measured (`1 failed`). `fakes.LATER_HOST_OBSERVED_AT = "2026-08-05T00:00:30Z"` genuinely
+  diverges from `IMAGE_OBSERVED_AT`.
+- **GREEN**: **781 passed** across `test_preparation.py test_runner.py test_adapter.py`.
+  `compileall -q src tests` clean. `ruff` is **absent** from `.venv/bin`; it was not run and was
+  not installed.
+- **Size bound**: `preparation.py` stays at **799** lines against a strictly-under-800 bound. The
+  seven added lines were paid for by collapsing seven multi-line error-message calls. Recorded,
+  not hidden — see **F70**.
+
+### Independent verdict on `42d6d02` — **NO-GO. P0=0 P1=1 P2=4 P3=2**
+
+| ID | Sev | Location | Defect | Reproducing shape |
+|---|---|---|---|---|
+| F65 | **P1** | `preparation.py:260-263` | `granted_image_identity` is pinned to the real authorization **only** in `snapshot()` (759). `__post_init__` checks pin == identity's `observed_at` — an internal consistency check between two caller-supplied fields. Moving **both** sides lands the exact F61 forgery again. No other consumer re-pins either field: the only ones are `runner.py:331 attempt_id_for(prepared.granted_observed_at)` and admission `grant.py:682-688`, which windows the *document's* signed instant and the *live* reading, never `granted_observed_at` | `F="1970-01-01T00:00:00Z"`; `replace(r, granted_image_identity=MappingProxyType({**dict(r.granted_image_identity), "observed_at": F}), granted_observed_at=F)` → **ACCEPTED**; `attempt_id_for` then names the attempt off 1970 |
+| F66 | P2 | `preparation.py:260` | The new field has **no shape contract** — `.get(OBSERVED_AT_KEY)` is all that is read — so a "signed host observation" may be a one-key stub bearing no registry or host identity, and cannot be the evidence the docstring at 214-219 claims | `replace(r, granted_image_identity=MappingProxyType({"observed_at": F}), granted_observed_at=F)` → **ACCEPTED** |
+| F67 | P2 | `preparation.py:264-270` | A satisfied result may have `image` disagreeing with `granted_image_identity` on **every** one of the six `OBSERVED_BINDING_KEYS`; only `observed_at` is related. `image_findings` compares them, but that judgement lives in `prepare` — precisely the "no copy goes through it" gap this commit claims to close. `runner._attempt_names` renders `image_reference` from `prepared.image`. Contained in the full runner path by `grant.py:461-478`, hence P2 | for each of `repository, tag, platform, index_digest, manifest_digest, local_image_id`: `replace(r, image=MappingProxyType({**dict(r.image), key: "FORGED-"+key}))` → all six **ACCEPTED** |
+| F68 | P2 | `tests/test_preparation.py:449` | The new field's **deep-freeze enforcement is unpinned**. Deleting `"granted_image_identity"` from `FROZEN_MAPPING_FIELDS` survives the entire suite unchanged. The amended test only asserts the snapshot `prepare()` built is immutable, which `snapshot()`'s `frozen()` guarantees regardless of the tuple, so it never exercises the validator | remove `"granted_image_identity",` from `preparation.py:105` → `58 failed, 1444 passed`, the baseline |
+| F70 | P2 | `preparation.py` (799) vs `test_surface_contract.py:95,246` | **Booby trap.** The module sits one line under a strictly-under-800 bound, held there by 7 hand-collapsed calls. Nothing in either file records the coupling; the next author who adds one line, or runs a formatter, breaks a test unrelated to their change. The collapsed closing-paren style is non-idiomatic and an autofixer would silently revert it | `wc -l` → 799; `MODULE_LINE_LIMIT = 800` compared with `>=`. The formatter arithmetic (7 collapses → ≥806) is **arithmetic, not measured** — `ruff` is absent |
+| F69 | P3 | `tests/test_preparation.py:855-870` | Two of the five `..._may_not_disagree` params do not test the control they name: `[one-second-after]` and `[far-future]` pass via the **ordering** check, not the equality check, and stay green when equality is reverted to shape-only | revert 261 to `... or instant(self.granted_observed_at) is None:` → `8 failed, 2 passed`; the 2 passing are those params |
+| F71 | P3 | `preparation.py:212` | `@dataclass(frozen=True)` invariants remain bypassable by `object.__setattr__`, `copy.copy(r).__dict__[...]=`, and a subclass with a no-op `__post_init__` that still satisfies `isinstance`. **Pre-existing and inherent, not a regression from this commit** — recorded so it is not re-raised as new. Supersedes F62 as the standing statement | `@dataclass(frozen=True) class Sub(PreparationResult): def __post_init__(self): pass` → constructs with `granted_observed_at=F` |
+
+### Disposition of the two findings this cycle set out to close
+
+- **F60 — genuinely CLOSED**, by measurement: M7 is killed, and the divergent host reading is real.
+- **F61 — NARROWED, not closed.** The literal reproducer now raises and mutations M1 (8 kills) and
+  M2 (1 kill) die. But the defect *class* survives as **F65**: a two-field `replace` carrying a
+  self-consistent, wholly invented identity is accepted, including the epoch value F61 named. The
+  commit message's claim that "agreement is provable *here*, in every copy of a result" is
+  **false**: what a copy proves is self-consistency, not agreement with anything the authorization
+  signed. That sentence overclaims and must be corrected when F65 is repaired.
+
+### Hypotheses the reviewer REFUTED by measurement — do not re-raise
+
+1. *The 34-line reformat changed behaviour.* Refuted by a recursive `co_consts` diff of the
+   compiled parent and child modules: the only string deltas are the three intentionally new
+   messages; every other literal, including the rewrapped `image_findings` stale message, folds
+   byte-identical. Rendered outputs of `ephemeral_findings` (3 branches),
+   `platform_evidence_findings`, `image_findings` (stale branch), `guarded` and `projected` are
+   identical old-vs-new.
+2. *The two collapsed single-element tuples degenerated into bare strings.* Refuted — trailing
+   commas retained; both still return 1-tuples.
+3. *`granted_image_identity` is not deep-frozen.* Refuted at HEAD: a proxy holding a live dict
+   raises `granted_image_identity is not a deep proof`. The *enforcement* being untested is a
+   different claim — that is F68.
+4. *The census is wrong.* Refuted, with the 58 independently reclassified (see above).
+5. *The 781 GREEN claim is wrong.* Refuted. (The commit message says "adapter**s**"; the file is
+   `test_adapter.py`.)
+6. *The `compileall` / `ruff` claims are wrong.* Refuted: `compileall` clean, `ruff` genuinely absent.
+7. *The new forged-pin and stale-reading tests are vacuous.* Refuted: M1 killed by 8 of 10, M2 by
+   the stale-reading test.
+
+### Reviewer-stated limits
+
+Static only — no entrypoint script, Docker, listener, network, installer or formatter was run, so
+F70's line arithmetic is unmeasured. `admission.py`, `grant.py`, `observe.py`, `plan.py` and
+`adapter.py` were read only at the call sites reachable from `granted_observed_at`,
+`granted_image_identity` and `prepared.image`; F67's containment by admission was confirmed to
+exist at `grant.py:461-478` but not exhaustively verified. No mutation testing of the ~307
+pre-existing `test_preparation.py` tests or of any other file beyond M7/M1/M2/M3. No coverage was
+taken. No downstream repository was reviewed for the new field's contract visibility. F65 has no
+in-repo caller today — `runner.run_topology_rehearsal` calls `prepare()` directly — and was graded
+P1 because the repair itself adopts the "results get copied" threat model and claims to close it.
+
+### Open P1 set after this cycle
+
+**F45, F46, F47** (F39's repair) and **F65** (this repair; supersedes F61, which is narrowed).
+F60 is closed. P1 ≠ 0, so the atomic entrypoint GREEN stays blocked and nothing is pushable.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
+script exists and none was executed.
