@@ -301,6 +301,52 @@ failures), and `6bc0745` + `69ed068` completely withdrew the executor publicatio
 — `grep` finds no public callable process seam on any adapter, and the fixture-leak
 trap of prior cycles is closed, since no synthetic literal is needed anywhere.
 
+### `73ec822..76553f4` — Entrypoint slice, measured evidence at the full local range
+
+Measured at HEAD `76553f4` (11 commits ahead of the pushed PR #55 tip `73ec822`),
+before any verdict. This section records **evidence only**; the independent
+verdict for this range is recorded separately below it and is not implied here.
+
+Broad static census: **1395 passed / 49 failed**. Every one of the 49 failures is
+the intended absent-entrypoint class, with no assertion failure and no error of
+any other kind:
+
+- 40 × `scripts/run_topology_rehearsal.py does not exist`
+- 8 × `scripts/prepare_topology_grant.py does not exist`
+- 1 × `scripts/ does not exist`
+
+All 49 are confined to `tests/test_scripts_inert.py` (42) and
+`tests/test_surface_contract.py` (7). `scripts/` is absent on disk, as intended.
+The count moved from 48 at `3cd9d77` to 49 at `76553f4` because `015de49` added
+`test_the_control_roots_are_mandatory_at_the_composition_root_as_well`.
+
+Other static evidence at this HEAD:
+
+- `python -m compileall src tests` — OK.
+- `git diff --check 73ec822..HEAD` — clean.
+- `ruff check src tests` — 2 × `I001`, both **pre-existing and outside this
+  range** (`tests/test_errors.py:12`, `tests/test_runner.py:3`; neither file is
+  touched by these 11 commits). Not repaired here: `--fix` is a Founder-gated
+  auto-fixer under the repo `CLAUDE.md`. This is the same P3 already recorded
+  for `73ec822..3cd9d77`, unchanged.
+- File sizes against the 800-line bound: `adapter.py` 799, `preparation.py` 798,
+  `grant.py` 794, `runner.py` 725, `admission.py` 725, `observe.py` 542. The
+  adapter headroom of one line is unchanged by this range and remains the
+  structural constraint the spec's obstacle 1 turns on.
+
+Coordinator's independent read of the range's central claim, recorded so the
+verdict can be checked against it rather than restating it: `015de49` moves the
+control-root injection to the argv boundary (`--control-root NAME=PATH`,
+repeatable, accumulating, mandatory, no default). `grep` confirms
+`fakes.SYNTHETIC_REPOSITORY_ROOTS` is referenced only from `tests/`, never from
+`src/`. That is the structural reason the prior range's P0 — that the wiring
+assertion could only be satisfied by writing the fixture path `/synthetic/<name>`
+into production source — no longer has a mechanism. Whether it is *fully*
+discharged is the independent reviewer's call, not this section's.
+
+RUNTIME remains **HOLD**. Neither entrypoint script was executed; nothing in this
+range was run beyond the static pytest suite.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
