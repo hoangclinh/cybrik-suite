@@ -10086,7 +10086,26 @@ unrecorded — an explanation, not a justification.
 | F0048 | P3 | `tests/test_preparation.py` | `test_a_nested_non_iterable_sequence_is_not_reported_as_an_unhashable_set_member` | 2366 | declares itself INTENDED RED (F0043) in the commit that makes it green, misfeeding the declared-failure baseline; the assertion is also pytest.raises(Exception) plus a negative substring, which passes on any other exception | `46e04aa` | 1 |
 | F0049 | P3 | `docs/ENTRYPOINT-SLICE-SPEC.md` | citation basis | 55 | the header pins every citation to test_scripts_inert.py at 4230858, but the superseded sections carry pre-015de49 coordinates; :201 and :244 are now :511 and :620, and :562-581 lands on a test asserting the opposite of what the citation claims | `46e04aa` | 1 |
 
-Transcribed rows: 16, all P3, none gating. Open set after this verdict: 22 rows, all P3.
+Transcribed rows: 16, all P3, none gating. Open set after this verdict: **at least** 22 rows,
+all P3.
+
+**22 is a floor, not the backlog, and the difference is not cosmetic (F0062).** The driver's
+fold that these rows are transcribed from is itself rendered `INCOMPLETE`: verdicts that carried
+no structured findings block contribute no rows to it, so their findings are absent from the
+fold and therefore absent from this table. Measured at this commit, 4 of 17 verdicts in the
+corpus carried no structured rows. The true open set is larger than 22 by an amount this ledger
+**cannot state**, because the missing rows were never enumerated anywhere.
+
+This matters most in the one place it is easiest to miss: section 2 above exists to repair an
+understated backlog, and the figure it repairs it with carries the same understatement. Any
+reader — including a future cycle of mine — who takes 22 as the backlog, or takes "all P3" as
+proof that nothing gating is outstanding, is relying on a number that cannot support either
+claim. What *is* separately established is narrower and should not be confused with it: the
+push predicate reads `findings_incomplete` from `compute-gate-state-v2.zsh`, which judges
+completeness per covered path rather than per verdict (`:142-147`) and lets a later
+rows-carrying verdict supersede an older silent one over the same content. That field being
+`false` clears the gate. It does **not** make this table complete, and the two must never be
+quoted for each other.
 
 ### 3. Why this is intended to be the last commit to this file before the push
 
@@ -10108,6 +10127,33 @@ receipt, and its findings folded back into this ledger in the next range, after 
 where an invalidation costs nothing. No finding is thereby unrecorded; the audit rule is
 satisfied by a different, equally durable location for exactly one entry.
 
+> **WITHDRAWN at `22fa33b`+1. Both sentences above were wrong, and the verdict on this commit
+> is recorded below in this file, as the unamended preamble rule always required.**
+>
+> *"Equally durable" was false (F0064).* `roles/security/artifacts/` and the push receipt do
+> not resolve inside the product worktree at all — they are un-versioned local state under the
+> autopilot role-state directory. They are not content on the pushed branch, are not fetched by
+> anyone who clones this repository, and survive only as long as one machine's state directory
+> does. That is a strictly weaker durability class than a committed file, not an equal one, and
+> the audit rule this ledger opens with is not satisfied by it.
+>
+> *The exception was also unreconciled with the preamble (F0063).* The rule at lines 15-17
+> forbids pushing first and backfilling later, and names that exact gap as the cause of the six
+> P3s lost irrecoverably in a prior cycle. Carving out an exception at line 10105 of a
+> 10,125-line file left two contradicting normative statements in one document, with the
+> exception buried where a reader would meet the rule first and the exception never.
+>
+> The exception is moot in any case: the verdict on `22fa33b` was **NO-GO**, so no push
+> followed and the loop-breaking rationale never applied. The honest resolution is to withdraw
+> the carve-out rather than to patch it, which is what this note does. The self-invalidation
+> loop described above is **real and remains unsolved** — recording this verdict here does
+> invalidate this file's coverage again. It is not solved by exempting the ledger from its own
+> audit rule. It is solved only by moving verdict records out of the reviewed range in a way
+> that keeps them on the branch, which collides with the standing instruction to record every
+> finding in this in-repo ledger. That collision is a policy question for the Founder and is
+> escalated as such, not resolved here by quietly picking the side that happens to close the
+> gate.
+
 What was refused to get here: moving the review `base` to a recent commit would cut this
 file's diff from 9,874 lines to about 111 and still earn full coverage credit, because
 `compute-gate-state-v2.zsh` resolves coverage as `git rev-parse <verdict.sha>:<path>` and
@@ -10119,6 +10165,49 @@ Base stays `73ec822` and the reviewer is given `Read` coordinates instead.
 No product code changed; this ledger entry is the only edit. `runner.py` and `test_runner.py`
 are now genuinely reviewed at their current content with `P0=P1=P2=0`. The remaining distance
 is this file, and the request covering it is issued against this commit.
+
+- No control weakened, no limit raised, no finding downgraded, no entrypoint script written
+  or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 24 (V2) — VERDICT-22fa33b
+
+| range | scope | verdict | P0/P1/P2/P3 | PUSH-ELIGIBLE | RUNTIME |
+| --- | --- | --- | --- | --- | --- |
+| `73ec822..22fa33b` | `docs/REVIEW-LEDGER.md` | **NO-GO** | 0/0/1/2 | NO | HOLD |
+
+Reviewer-stated counts, quoted from the verdict's own `findings` object, not derived by this
+ledger. `covers_head: true`. Execution evidence `COMPLETE`: pytest 1725 passed / 59 failed
+against the declared baseline, `unintended_failures: 0`; ruff 12 violations = baseline;
+`compileall` exit 0. The 59 are the declared absent-entrypoint REDs.
+
+### Findings opened
+
+| id | sev | path | title |
+| --- | --- | --- | --- |
+| F0062 | P2 | `docs/REVIEW-LEDGER.md` | the appendix states "Open set after this verdict: 22 rows, all P3" as the backlog, but the fold it transcribes is rendered INCOMPLETE and the file nowhere records that, so section 2 repairs an understated backlog with a figure carrying the same undisclosed understatement, three paragraphs before section 3 announces the push |
+| F0063 | P3 | `docs/REVIEW-LEDGER.md` | the preamble's rule that the verdict is appended here before the push, naming backfill-after-push as the cause of an irrecoverable loss of six P3s, is left unamended while :10105-10109 adopts exactly that exception for this commit's verdict |
+| F0064 | P3 | `docs/REVIEW-LEDGER.md` | "a different, equally durable location" is asserted of `roles/security/artifacts/` and the push receipt, which are absent from the product worktree and resolve under the autopilot role-state directory: un-versioned local state, not content on the pushed branch |
+
+### Cycle action — all three repaired in this commit
+
+The verdict was correct on every row and no finding was downgraded or contested.
+
+- **F0062** is repaired at the figure itself: 22 is now stated as a **floor**, with the
+  `INCOMPLETE` fold disclosed inline, the 4-of-17 measurement recorded, and an explicit warning
+  against the confusion that made the row P2 — namely quoting the gate's `findings_incomplete`
+  field as if it certified this table. It does not, and the two are now separated in text.
+- **F0063** and **F0064** are repaired by **withdrawing** the carve-out rather than patching it.
+  The exception was moot once the verdict came back NO-GO, "equally durable" was simply false,
+  and the preamble rule is restored as the single normative statement. This verdict is therefore
+  recorded here, in-file, before any push.
+
+Repairing three rows in one commit was chosen over repairing only the gating P2: all three live
+in this one file, whose coverage is destroyed by any edit to it, so the two P3s cost nothing
+additional to retire and would otherwise be carried into a later range at full price.
+
+The self-invalidation loop is **not** closed by this commit and is not claimed to be. Recording
+this verdict re-invalidates this file's coverage, which is the loop working as described. It is
+escalated as a policy question rather than resolved by exempting this ledger from its own rule.
 
 - No control weakened, no limit raised, no finding downgraded, no entrypoint script written
   or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
