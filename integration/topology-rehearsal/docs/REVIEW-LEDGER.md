@@ -5476,3 +5476,93 @@ now refuted by measurement); F103; and **F104**. **P1 repaired-unreviewed = 4** 
 stays blocked. **None of the 90-commit local range is push-eligible.** Origin/PR #55 remains at
 `73ec822`, OPEN, draft, `CLEAN`, four rendered hosted checks SUCCESS. RUNTIME remains **HOLD**.
 PRODUCTION remains **Founder-only**.
+
+
+## Cycle 47 — F87's real repair: binding the dead copy to the validated read
+
+Heading numbering follows F101 (**P3, OPEN**): the `## Cycle` headings in this file are not in
+monotonic order and this heading does not assert one.
+
+### Baseline re-measured at the candidate working tree, independently of the repair lane
+
+Local HEAD `cff1fb2476be5082debeccbc39018bf425b12ed7`; branch `codex/uat-browser-g-u2b-db-red-gate-r1`,
+92 commits ahead of origin. Working tree carries the three-file uncommitted F104 candidate plus the
+preserved untracked `uv.lock`, unmodified.
+
+| Gate | Result |
+|---|---|
+| Broad census | **58 failed / 1540 passed** |
+| RED classification | **all 58 absent-script**: 51 in `tests/test_scripts_inert.py`, 7 in `tests/test_surface_contract.py`, every one carrying `missing C8 implementation ... does not exist` |
+| Unintended regressions | **zero** — no failure outside those two files |
+| Lint | `uv run --frozen ruff check src tests` — **exactly 12**, the pinned baseline: `observe.py` F401 `:84,:85`, ISC004 `:266,:272,:281,:286,:345`; `preparation.py` F401 `:53`, ISC004 `:656,:690`; `tests/test_errors.py` I001 `:12`; `tests/test_runner.py` I001 `:3` |
+| Compile | `compileall -q src tests` clean, exit 0 |
+| Size | `preparation.py` **799**, `adapter.py` **799**, `views.py` **171**, all under the strict `< 800` bound |
+| Diff-check | `git diff --check` clean |
+
+The `preparation.py` ISC004 anchors read `656,690` here, against `662,696` recorded one cycle earlier
+and `650,684` before that — **F91 recurring a fifth time**. The anchors are a function of line count,
+not of any defect, and this file keeps recording them as if they were stable.
+
+### F87's real repair — the dead copy bound to the validated read. **REPAIRED-UNREVIEWED.**
+
+Two candidate repairs were refuted by measurement before this one (F103, F104). Both failed the same
+way: they left the dead copy to be taken by a read *later* than the read that judged. F104 stated the
+requirement exactly — *"one read, whose result is both judged and recorded"* — and that is what is
+implemented here.
+
+**Mechanism of the repair.** `__post_init__` used to spend three separate `.items()` reads on each
+caller-supplied field: `immutability_findings` judged it, `stored_entries` reconciled it, and
+`frozen` copied it. The pass that judged and the pass that copied were reading a live object free to
+answer them differently. New `views.proved_copy(value, path)` fuses all three into one recursive
+pass returning `(dead_copy, immutability_findings, divergence_findings)`. Per mapping there is
+**exactly one** `.items()` read, taken by `stored_entries`, and the `stored` dict that read produced
+is both what the live subscript is cross-checked against **and** what the returned copy is built
+from — at every depth, keys as well as values, through `tuple` and `frozenset` members too. No later
+read of the caller's object exists for a hostile mapping to answer.
+
+**F103 is not repeated.** `stored_entries` is still called on the **live** object, before anything is
+copied, so a `SubscriptRefuser` is still refused with `ValueError`. Freezing first — the F103
+candidate — would have discarded the caller's `__getitem__` and rendered that cross-check vacuous.
+Both pinned tests, `test_a_proved_result_refuses_an_unreadable_reading_as_a_value_error` and
+`test_a_proved_result_refuses_an_unreadable_signed_identity_as_a_value_error`, pass.
+
+**F104 is not repeated.** The freeze no longer spends a further read, so the budget-straddling attack
+that defeated the previous candidate has no read to land on.
+
+**The RED was strengthened before the GREEN.** F104 correctly refused the candidate's test as an
+insufficient gate: it measured `spent` with an unreachable budget and then set `budget = spent`,
+pinning only the stay-honest-throughout variant. That is replaced by a **budget sweep** — for every
+budget in `range(1, spent + 1)`, with `image` and `granted_image_identity` budgeted **together**
+(the variant F104 measured as the successful bypass, since flipping `image` alone is caught by
+`signed_identity_findings`), the outcome must be either a `ValueError` refusal or a result whose
+consumed image reference through `runner._attempt_names` is the honest one. The sweep is immune to
+read-count drift, so it states the ordering defect itself rather than one arithmetic coincidence.
+
+**Measured evidence at the repaired working tree.**
+
+| Gate | Result |
+|---|---|
+| Broad census | **58 failed / 1542 passed** — the RED set is unchanged (51 `test_scripts_inert.py`, 7 `test_surface_contract.py`, all absent-script) and **two additional tests pass** |
+| Unintended regressions | **zero** — no failure outside the two absent-script files |
+| Lint | **exactly 12**, the pinned baseline, no new code |
+| Compile | `compileall -q src tests` clean, exit 0 |
+| Size | `preparation.py` **798** (one line *smaller* than before the repair), `views.py` **245**, both under the strict `< 800` bound |
+| Diff-check | `git diff --check` clean |
+
+`preparation.py` shrinking while the control strengthens is worth recording: the fusion removed a
+pass rather than adding one, so the one free line the size bound left is not spent.
+
+**Status.** F87 is **REPAIRED-UNREVIEWED**, not closed. F103 and F104 are repaired by the same
+commit — each was a finding against a *candidate*, and neither candidate survives. Per F102, the
+exact repair commit is recorded in this row at the moment it is written rather than in surrounding
+prose. **An independent Opus verdict on this repair is owed and has not been obtained.** No
+`P1 -> 0` claim may be made until it is.
+
+### Push gate at this working tree
+
+**P0 = 0. P1 OPEN = 1** — F33 alone, deferred to the atomic entrypoint GREEN. **P1
+repaired-unreviewed = 7** (F78, F85, F83, F86, and now F87, F103, F104). **P2 = 29. P3 = 33.** The
+gate `P0 = P1 = P2 = 0` is **not met** and is not met by a repair that has not been reviewed. The
+atomic entrypoint GREEN stays blocked. **None of the local range is push-eligible.** Origin/PR #55
+remains at `73ec822`, OPEN, draft, `CLEAN`, four rendered hosted checks SUCCESS. RUNTIME remains
+**HOLD**. PRODUCTION remains **Founder-only**.

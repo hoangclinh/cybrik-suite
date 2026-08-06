@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import fields as dataclass_fields
 from dataclasses import replace
+from itertools import product
 from types import MappingProxyType
 from typing import Any
 
@@ -930,11 +931,18 @@ def test_a_mapping_that_gets_one_instant_and_stores_another_passes_every_other_g
     assert liar.get(OBSERVED_AT) == fakes.IMAGE_OBSERVED_AT, (
         "premise: `.get` must answer the genuine instant, or the case is vacuous"
     )
-    assert require_c8_attr(preparation, "immutability_findings")(liar, field) == ()
+    assert require_c8_attr(load_c8("views"), "immutability_findings")(liar, field) == ()
     _, divergence = require_c8_attr(load_c8("views"), "stored_entries")(liar, field)
     assert divergence == (), (
         "premise: the two cross-checked views agree, so only the third protocol admits this"
     )
+    # The reader `__post_init__` actually runs, asserted rather than inferred from the two
+    # above: it too must accept this mapping whole, and record what it *stores*.
+    copied, proof_findings, proof_divergence = require_c8_attr(
+        load_c8("views"), "proved_copy"
+    )(liar, field)
+    assert (proof_findings, proof_divergence) == ((), ())
+    assert dict(copied)[OBSERVED_AT] == forged
 
 
 def test_the_pin_is_judged_against_the_instant_the_signed_identity_stores(
@@ -982,6 +990,198 @@ def test_the_ordering_is_judged_against_the_instant_the_live_reading_stores(
             f"{recorded.granted_observed_at!r} recorded a live reading that stores the older "
             f"{dict(recorded.image.items())[OBSERVED_AT]!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Validate-then-record: the recorded field is a live accessor, not the value that was judged
+# ---------------------------------------------------------------------------
+# Every reader `__post_init__` runs snapshots what a mapping stores and reconciles that against
+# the subscript — but each snapshot is a *local* dict, and the dataclass field keeps the
+# caller's live mapping object. Nothing binds read k to read k+1. So a mapping that answers
+# every protocol honestly for exactly as many reads as validation spends, and hostilely
+# afterwards, is accepted with `satisfied=True` while the recorded field goes on to hand
+# attacker-controlled content to the live consumption path. No value the validator read was
+# ever false, no instant was moved and no field value changed: the whole bypass is the ordering
+# of the record against the check. Closing one accessor would leave the others, because what is
+# defective is not which view is trusted but that the recorded object can still answer at all.
+ATTACKER_REPOSITORY = "attacker/exfil"
+ATTACKER_MANIFEST_DIGEST = "sha256:" + "e" * 64
+
+# A budget no validation could reach, used only to measure how many reads validation spends.
+UNREACHABLE_READ_BUDGET = 10**6
+
+
+class ReadBudgetMapping(dict):
+    """Honest for exactly `budget` protocol reads, then answering out of `hostile` instead.
+
+    All four protocols a reader in this package can reach are budgeted together — `.items()`,
+    `__iter__`, `__getitem__` and `.get` — so no single accessor is the trick, and every one of
+    them is genuine for the whole of validation.
+    """
+
+    def __init__(
+        self, entries: Mapping[str, Any], hostile: Mapping[str, Any], budget: int
+    ) -> None:
+        super().__init__(entries)
+        self.hostile = dict(hostile)
+        self.budget = budget
+        self.reads = 0
+
+    def _exhausted(self) -> bool:
+        self.reads += 1
+        return self.reads > self.budget
+
+    def items(self):
+        return self.hostile.items() if self._exhausted() else super().items()
+
+    def __iter__(self):
+        return iter(self.hostile) if self._exhausted() else super().__iter__()
+
+    def __getitem__(self, key):
+        return self.hostile[key] if self._exhausted() else super().__getitem__(key)
+
+    def get(self, key, default=None):
+        return (
+            self.hostile.get(key, default)
+            if self._exhausted()
+            else super().get(key, default)
+        )
+
+
+def budgeted_field(name: str, budget: int) -> tuple[MappingProxyType, ReadBudgetMapping]:
+    """One live field mapping that turns hostile after `budget` reads, and its backing dict.
+
+    `MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType` by `type()`, so
+    this clears the declared read-only-mapping gate and the deep immutability proof.
+    """
+    genuine = dict(result_fields()[name])
+    backing = ReadBudgetMapping(
+        genuine,
+        {
+            **genuine,
+            "repository": ATTACKER_REPOSITORY,
+            "manifest_digest": ATTACKER_MANIFEST_DIGEST,
+        },
+        budget,
+    )
+    return MappingProxyType(backing), backing
+
+
+def honest_image_reference() -> str:
+    genuine = result_fields()["image"]
+    return f"{genuine['repository']}@{genuine['manifest_digest']}"
+
+
+ATTACKER_IMAGE_REFERENCE = f"{ATTACKER_REPOSITORY}@{ATTACKER_MANIFEST_DIGEST}"
+
+
+def build_with_budgets(
+    result_type: Any, budgets: Mapping[str, int]
+) -> tuple[Any, dict[str, MappingProxyType], dict[str, ReadBudgetMapping]]:
+    """Construct one result with each named field budgeted, or let its `ValueError` out."""
+    fields = dict(result_fields())
+    proxies: dict[str, MappingProxyType] = {}
+    backings: dict[str, ReadBudgetMapping] = {}
+    for name, budget in budgets.items():
+        proxy, backing = budgeted_field(name, budget)
+        fields[name] = proxy
+        proxies[name] = proxy
+        backings[name] = backing
+    return result_type(**fields), proxies, backings
+
+
+def reads_spent(result_type: Any, names: Sequence[str]) -> dict[str, int]:
+    """How many live protocol reads one construction spends on each named field."""
+    _, _, backings = build_with_budgets(
+        result_type, {name: UNREACHABLE_READ_BUDGET for name in names}
+    )
+    return {name: backing.reads for name, backing in backings.items()}
+
+
+def sweep_every_budget(preparation, names: Sequence[str]) -> None:
+    """No budget at all may leave a satisfied result naming the attempt from attacker content.
+
+    The sweep is what makes this immune to read-count drift. Pinning one arithmetic coincidence
+    — the budget that happens to equal what validation spends today — states only that a mapping
+    staying honest throughout is copied. It says nothing about a mapping that straddles the
+    reads, and straddling is the whole defect: a repair that merely moves the copy to a *later*
+    live read is still bypassed by a caller budgeting up to that read. So every budget from the
+    first read to the last is exercised, on the cartesian product of the named fields, and each
+    outcome must be either a refusal or an honest name. `image` and `granted_image_identity` are
+    swept together because flipping the reading alone is caught by `signed_identity_findings`
+    comparing it against the pin: an attacker simply flips both so the two agree on its content.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    namer = require_c8_attr(load_c8("runner"), "_attempt_names")
+    honest = honest_image_reference()
+    assert honest != ATTACKER_IMAGE_REFERENCE
+
+    spent = reads_spent(result_type, names)
+    assert all(count > 0 for count in spent.values()), (
+        f"premise: validation must read every swept field at all, spent {spent!r}"
+    )
+    exhausted = False
+    for combination in product(*(range(1, spent[name] + 1) for name in names)):
+        budgets = dict(zip(names, combination, strict=True))
+        try:
+            result, proxies, backings = build_with_budgets(result_type, budgets)
+        except ValueError:
+            exhausted = True
+            continue
+        assert result.satisfied is True
+        rendered = namer(result).image_reference
+        assert rendered == honest, (
+            f"budgets {budgets!r}: a satisfied result handed the one authorized attempt the "
+            f"image reference {rendered!r}, though every value validation read was the genuine "
+            f"{honest!r}"
+        )
+        for name, proxy in proxies.items():
+            assert getattr(result, name) is not proxy, (
+                f"budgets {budgets!r}: {name} is recorded as the caller's own live mapping, so "
+                "nothing binds what was validated to what is consumed"
+            )
+        exhausted = exhausted or any(
+            backing.reads > backing.budget for backing in backings.values()
+        )
+    assert exhausted, (
+        "premise: at least one budget in the sweep must actually be exhausted during "
+        "construction, or every case is vacuously honest"
+    )
+
+
+def test_a_satisfied_result_may_not_record_a_mapping_that_can_still_answer(
+    preparation,
+) -> None:
+    """What was validated must be what is recorded, not a live handle onto the same reads.
+
+    The verdict is taken through the live consumption path — `runner._attempt_names` renders the
+    image reference the one authorized attempt is created from — so this asserts an authority
+    bypass, not merely that two objects are aliases.
+    """
+    sweep_every_budget(preparation, ("image",))
+
+
+def test_a_satisfied_result_may_not_record_two_mappings_that_can_still_agree_later(
+    preparation,
+) -> None:
+    """The pin and the reading budgeted together, which is the variant that defeats the drift.
+
+    Flipping the reading alone is refused because the pin still states the genuine binding. Both
+    flipping at their own last read is the real attack, and it is the one a repair that copies by
+    a further live read cannot survive.
+    """
+    sweep_every_budget(preparation, ("image", "granted_image_identity"))
+
+
+def test_a_result_still_records_a_dead_copy_of_an_honest_reading(preparation) -> None:
+    """The premise of the sweep: an honest mapping is accepted, and not kept as a live alias."""
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    proxy, backing = budgeted_field("image", UNREACHABLE_READ_BUDGET)
+    result = result_type(**{**result_fields(), "image": proxy})
+    assert result.satisfied is True
+    assert backing.reads > 0
+    assert result.image is not proxy
+    assert dict(result.image) == dict(result_fields()["image"])
 
 
 # ---------------------------------------------------------------------------

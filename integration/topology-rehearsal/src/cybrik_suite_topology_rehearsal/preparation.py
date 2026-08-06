@@ -51,7 +51,6 @@ from .observe import (
     HOST_IMAGE_KEYS,
     IMMUTABLE_LEAVES,
     PRESENT_KEY,
-    immutability_findings,
     local_presence_findings,
     signed_identity_findings,
     stored_entries,
@@ -62,6 +61,7 @@ from .protocols import (
     HostObservationSource,
     ProbePort,
 )
+from .views import proved_copy
 
 __all__ = ["PreparationResult", "prepare"]
 
@@ -212,10 +212,15 @@ class PreparationResult:
             if type(value) is not tuple:
                 raise ValueError(
                     f"{name} must be an immutable tuple, not {type(value).__name__}")
+        # One pass per field: `proved_copy` judges and copies out of the *same* `.items()` read,
+        # so nothing is left for a later read of a caller's live mapping to answer differently.
         for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
-            nested = immutability_findings(getattr(self, name), name)
+            copied, nested, divergence = proved_copy(getattr(self, name), name)
             if nested:
                 raise ValueError(f"{name} is not a deep proof: " + "; ".join(nested))
+            if divergence:
+                raise ValueError("; ".join(divergence))
+            object.__setattr__(self, name, copied)
         # Sort representations so mixed key types remain a bounded refusal.
         if set(self.control_identities) != set(CONTROL_REPOSITORIES):
             raise ValueError(
@@ -241,8 +246,8 @@ class PreparationResult:
         # then bound to an instant the signed observation does not state, and `frozen`,
         # `runner`'s attempt names and any auditor recorded the one it stores. This is the hole
         # `signed_identity_findings` closed on the bindings of both operands, left behind on
-        # the two instants. A mapping whose own two views diverge is refused before either
-        # instant is compared rather than read past.
+        # the two instants. Both fields are already the dead copies `proved_copy` built above,
+        # so these reconcile what this result *carries*, never a live caller object.
         signed_entries, signed_divergence = stored_entries(
             self.granted_image_identity, "granted_image_identity"
         )
