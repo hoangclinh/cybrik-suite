@@ -2871,3 +2871,147 @@ pattern, so one cycle can land all three. Then obtain the still-owed independent
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
 exists and none was executed.
+
+### CORRECTION to the section above — the owed review DID land, and it is **NO-GO**
+
+The paragraph "Also owed, and not obtained this cycle" was written and committed at `564a4e4` while
+the review was still in flight. It returned shortly afterwards. **That paragraph is withdrawn as
+false**, and this section replaces it. The review was obtained.
+
+### Independent verdict on `0f6883f..47dce0e` — **NO-GO. P0=0 P1=1 P2=1 P3=3**
+
+The reviewer answered all eight commissioned questions by measurement. Seven of the eight came back
+clean and are recorded under "verified true" below. The eighth found that the control this commit
+*added* is itself bypassable.
+
+#### F78 — **P1** — `src/cybrik_suite_topology_rehearsal/observe.py:292`. **OPEN. Blocks push.**
+
+One field, three access protocols. `local_presence_findings` reads the presence answer through
+`image[PRESENT_KEY]` — `__getitem__`. `keyed` (`observe.py:324`) validates the inventory by
+*iteration*. The sibling binding comparison (`observe.py:341/344`) reads through `image.get(key)`.
+The `__post_init__` type gate at `preparation.py:200-204` accepts anything whose `type()` is exactly
+`MappingProxyType`, and a `MappingProxyType` wrapping a **`dict` subclass** satisfies that gate
+exactly. Such a subclass stores `present: False` — visible to `.items()`, to `.get()`, and therefore
+to `runner._observed_identity` (`runner.py:262`) and every downstream consumer — while answering
+`True` to the single accessor the new control uses. Measured:
+
+```
+type is MappingProxyType : True
+stored value (items())   : False
+liar.get('present')      : False
+liar['present']          : True
+immutability_findings    : ()
+keyed inventory          : ()
+local_presence_findings  : ()
+signed_identity_findings : ()
+>>> replace(result, image=liar) ACCEPTED. satisfied = True
+>>> present = False  / .get -> False
+```
+
+The result asserts `satisfied is True` over a reading that *stores* "not on this host" — precisely
+the scenario `47dce0e`'s message says it closed. This is **not** the sanctioned `object.__setattr__`
+hatch: it passes `__post_init__` and every declared type gate rather than skipping them. Subclass
+smuggling is inside this codebase's own stated threat model — `preparation.frozen()` explicitly
+refuses subclasses of safe scalars, commenting that one "may carry mutable state of its own" —
+`__post_init__` simply does not defend it. Stated so it can be regraded honestly: `prepare()`'s live
+path is **immune**, because `snapshot()` passes `frozen(observed.image)` and `frozen` rebuilds the
+mapping from `.items()`, normalising any subclass into a plain dict in a fresh proxy. The bypass is
+reachable only via `dataclasses.replace` — which is exactly the defence-in-depth path every new test
+in this commit models, so the finding lands squarely inside the repair's own claimed scope.
+
+#### F79 — **P2** — `observe.py:289`. **OPEN.**
+
+The new docstring asserts the inventory "is checked by `keyed` … before this is reached; calling
+this on an unchecked mapping would raise rather than report." Inaccurate about the shipped tree:
+passing `keyed` does not make `image[PRESENT_KEY]` readable, because `keyed` only iterates. A proxy
+over a `dict` subclass that raises on `__getitem__("present")` passes `keyed` cleanly and then throws
+an unbounded `KeyError` out of a reducer contracted to *return findings*, and out of `__post_init__`,
+which is documented and tested to raise `ValueError`. A caller catching `ValueError` would not catch
+it. Measured pre/post: the pre-repair tree **accepted** that same input, so the repair converted a
+fail-open into a fail-closed — an improvement — but with the wrong exception class and a docstring
+that misstates the reason.
+
+#### F80 — **P3** — `preparation.py:53` and `tests/test_observe.py:671`. **OPEN.**
+
+`PRESENT_KEY` is imported into `preparation` and used nowhere in it (`grep` returns the import line
+only). The new `HOST_READING_CONSUMERS` table declares `("preparation", "PRESENT_KEY")` under the
+comment "Every module that reads one of those names" — false about the shipped tree. The `is`-identity
+assertion therefore pins a **dead import** in place: removing it, the natural cleanup and an F401
+`ruff` would flag, turns the test red for a reason unrelated to the collision hazard it exists to pin.
+
+#### F81 — **P3** — `observe.py:76`. **OPEN. Widens F77 undisclosed.**
+
+`observe.__all__` is pinned by `test_observe.py:604` to five names. Before this commit `preparation`
+imported three names outside it and `runner` none; the commit takes `preparation` to **six** and
+`runner` to **one**. A refactor trusting the pinned `__all__` may now rename or delete `PRESENT_KEY`,
+`HOST_IMAGE_KEYS` or `local_presence_findings` with the surface contract and its test both green
+while two modules break. F77 was already open; this commit widened it without saying so.
+
+#### F82 — **P3** — `observe.py:324-326`. **OPEN.**
+
+The new `image` inventory check early-returns ahead of the `unread` identity check, so a copy
+carrying **both** an identity defect and an image-inventory defect now reports the image defect and
+masks the identity one. Measured: pre-repair reported `granted_image_identity: unresolved — ['tag']
+were never read`; post-repair reports the image inventory instead. No input changes from refused to
+accepted — diagnostic text only.
+
+#### Claims the reviewer VERIFIED TRUE — do not re-audit
+
+- **The repair does close the hole it names, for ordinary mappings.** All seven hostile readings were
+  REFUSED by `replace`: `present` False / dropped / `1` / `"yes"` / `None`, an extra unreviewed key,
+  and an empty mapping. The positive control — an unchanged `MappingProxyType` copy — was ACCEPTED
+  with `satisfied=True`, so the check is not vacuously refusing everything.
+- **Nothing was weakened.** A 14-case pre/post differential shows **zero** refuse→accept transitions.
+  Three moved accept→refuse. Two moved **RAISE→refuse** (`image` as `str`, `image=None`: pre-repair
+  `AttributeError`, post-repair a bounded finding) — an undisclosed improvement.
+- Both call sites really do run `keyed` first — `preparation.py:572` with an extra
+  `isinstance(image, Mapping)` guard at `:570`, and `observe.py:324` — each with an early return. For
+  plain mappings there is no `KeyError` path; the only reachable raise is F79's subclass case.
+- **One object, no stale duplicates.** `preparation.PRESENT_KEY is observe.PRESENT_KEY`,
+  `runner.PRESENT_KEY is observe.PRESENT_KEY`, `preparation.HOST_IMAGE_KEYS is
+  observe.HOST_IMAGE_KEYS` all `True`. Only `observe` assigns. No import cycle; all ten modules
+  import cleanly.
+- The commit's 13-failed/452-passed intended-RED claim is **exact**, and the two extra added tests are
+  positive controls that correctly pass in both states. Sizes as claimed, `observe.py` 676, all under
+  800. Census 58 failed / 1486 passed, split **51** `test_scripts_inert.py` + **7**
+  `test_surface_contract.py`, all carrying the identical absent-implementation reason.
+- **The stated residual is accurate, and the docstring is more complete than the commit message.** A
+  full field sweep found `docker_platform`, `docker_executable` and `probe_executable` equally
+  unvalidated against an empty mapping, beyond the `selected_image_identity` the message names. The
+  docstring's clause "and neither is any other field" covers them; the message gives one example.
+  Refused: `control_identities`, `image`, `ephemeral_range`, `granted_image_identity`.
+
+#### Hypotheses the reviewer REFUTED by measurement — do not re-raise
+
+- *The new collision test is vacuous because `"present"` is interned.* The `is`-identity half is
+  indeed vacuous for the string, but the test's **AST half is real**: reintroducing the declarations
+  into `preparation.py` fails it with `the host reading keys are declared in ['observe',
+  'preparation']`. The hazard is genuinely pinned.
+- *The reorder lets some previously-refused input through.* No refuse→accept transition exists.
+- *Moving the keys to `observe` closes an import cycle.* It does not.
+- *`prepare()`'s live path is exposed to F78/F79.* It is not — `frozen()` normalises the subclass away.
+
+#### Reviewer-stated limits
+
+`ruff`/`mypy` not run (absent). The 58 REDs not investigated beyond count, file split and reason. No
+runtime, Docker, PKI, network or entrypoint execution — none exists. `admission.py`, `adapter.py`,
+`plan.py` not reviewed except for the package-wide grep. **F45/F46/F47/F65 not re-verified** by this
+reviewer — they were the other lane's subject. Coverage not measured. `copy.copy` /
+`object.__setattr__` excluded per brief as a known pre-existing hatch; F78 is deliberately *not* that
+hatch.
+
+### Standing at the close of this cycle
+
+`47dce0e` is **measured, reviewed, and NO-GO**. It is not pushable. The open set is now **F78** (P1,
+new) plus **F45, F46, F47, F65** (P1 as recorded; a re-grade to P2/P3 is proposed above and awaits a
+second independent opinion). P1 ≠ 0 on any reading, so the atomic entrypoint GREEN stays blocked.
+
+### Next action
+
+Repair **F78** test-first — it is the newest P1, it defeats a control this range just added, and its
+repair is small: read the presence answer through the same protocol the inventory check and the
+binding comparison use, so one field is not judged through three accessors. The reviewer's
+`Lying(dict)` construction is the RED. F46 and the second opinion on the re-grade follow it.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
+exists and none was executed.
