@@ -7848,3 +7848,112 @@ CLOSED 30 + P1 OPEN 6 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 11
 
 **`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible, the atomic entrypoint
 GREEN remains blocked, RUNTIME **HOLD**, production **Founder-only**.
+
+---
+
+## Cycle 62 (V2 security lane) — no repair was made; the lane is proved unable to retire findings, and that is the blocker
+
+*2026-08-06. `CYBRIK_RUN_ID=0ebb0046-b35a-4156-bc9e-3c5f9ce62009`. Coordinator
+`cybrik-security-coordinator`, writer identity. Live HEAD `9376e89`, **119 commits ahead of
+`origin`**. This cycle deliberately made **no product change**. It records one measured structural
+finding and stops. `git status --short` shows only the untracked `uv.lock`.*
+
+### Every gate re-measured first-hand at `9376e89`
+
+Cycle 61's reported figures were re-derived by execution, not accepted on report. All match.
+
+| Gate | Measured at `9376e89` | Cycle 61 claim |
+|---|---|---|
+| Broad census | **1568 passed / 58 failed** | 1568 / 58 — **confirmed** |
+| RED split | **51 `test_scripts_inert.py` + 7 `test_surface_contract.py`** | absent-script REDs — **confirmed** |
+| Unintended failures | **0** | 0 — **confirmed** |
+| ruff 0.16.0 | **12 findings**, no `--fix` | 12 at baseline — **confirmed** |
+| `compileall` src + tests | **exit 0** | exit 0 — **confirmed** |
+| `runner.py` / `views.py` | **799 / 351** (limit 800) | 799 / 351 — **confirmed** |
+| `uv.lock` | MD5 `ff29c06c8a4247c27f68dac52c14d02d`, untracked | unchanged — **confirmed** |
+
+Cycle 61 reported accurately. Nothing below is a challenge to its measurements.
+
+### F143 — **P1** — **NEW, OPEN.** The gate `P0 = P1 = P2 = 0` is unreachable from inside this lane
+
+Filed against the *process*, not the product. Four measured facts, each independently checkable:
+
+1. **`CLOSED` has been frozen at 30 for six consecutive recorded tallies** — cycles 56, 57, 58, 59,
+   60 and 61 (`:7203`, `:7330`, `:7553`, `:7734`, `:7840`). **Zero findings have been retired in six
+   cycles.**
+2. **Over that same span the open set grew**: P1 OPEN `3 → 6`, P2 OPEN `38 → 43`, total findings
+   `133 → 145`. The gate did not merely fail to close; it receded.
+3. **15 P1/P2 findings are `repaired-unreviewed`** (P1 r-u 11 + P2 r-u 4). A `repaired-unreviewed`
+   finding still counts against `P0 = P1 = P2 = 0`. It can be retired **only** by an independent
+   verdict.
+4. **This lane cannot produce an independent verdict.** The writer may not witness its own patch
+   (`review.self_witnessing: FORBIDDEN`). The manifest offers `Agent(cybrik-readonly-worker)`, but
+   **the running Claude runtime advertises no agent-spawn tool** — the live tool surface is exactly
+   `Read, Grep, Glob, Bash, Edit, Write`, and no agent definitions exist (`~/.claude/agents` absent,
+   no `.claude/` in the worktree). Per the standing rule against inventing an unsupported launcher,
+   this gap is recorded, not worked around.
+
+**Therefore every in-lane action is gate-neutral or gate-negative.** A repair moves a finding
+`OPEN → repaired-unreviewed`, which does not decrement the gate. A measurement cycle opens new
+findings, which increments it. Neither can ever reach zero. Cycle 61 correctly diagnosed the
+symptom — "the gate erodes by attrition" — and then prescribed another in-lane action, which cannot
+address it.
+
+**The only mechanism that has ever retired findings here is a driver-run reviewer session.**
+Cycle 57 stopped `HUMAN_REQUIRED` requesting exactly that; cycle 58 recorded **two** resulting
+independent identities — a cross-checker and an Opus reviewer that returned NO-GO (`:7404`,
+`:7440`). That stop was the mechanism working, not a false stop. Cycle 61 judged a repeat of it a
+"false stop", declined it, and the unreviewed queue grew from 14 to 15.
+
+### F144 — **P2** — **NEW, OPEN.** Effort is being spent where the deliverable is not
+
+- **84 of the 119 unpushed commits (71%) touch only `docs/`.** 35 touch code.
+- The review ledger is **7850 lines**; the entire product source it reviews is **6308 lines**. The
+  record is now larger than the artifact.
+- The deliverable of this slice — the two entrypoint scripts — **still does not exist**. The 58 REDs
+  are unchanged in count and kind since cycle 46 (`:5266`).
+
+Recorded as a resource-allocation finding. It is a consequence of F143, not a separate cause: when
+findings cannot be retired, documenting them is the only remaining move.
+
+### What this cycle did not do, and why
+
+- **No repair was attempted.** Adding a 12th unreviewed P1 repair to a queue that cannot drain would
+  have consumed the cycle and moved the gate zero. Declining it is the finding.
+- **No independent verdict is claimed.** This cycle did not witness cycle 60's or cycle 61's
+  patches. F136 and F141 remain `repaired-unreviewed`.
+- **Neither entrypoint script was run.** Static evidence only.
+- **No control was weakened, no baseline re-based, no test deleted, no finding downgraded.**
+
+### Gate at the close of cycle 62
+
+- **P0 = 0**
+- **P1 OPEN = 7** — F33, F123, F128, F131, F134, F135, **F143**
+- **P1 repaired-unreviewed = 11** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122, F136)
+- **P2 OPEN = 44** (43 + **F144**)
+- **P2 repaired-unreviewed = 4** (F79, F84, F95, F141)
+- **P3 OPEN = 43**, **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30** (unchanged — **seventh** consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**
+
+```
+CLOSED 30 + P1 OPEN 7 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 11
+  + P2 OPEN 44 + P2 r-u 4 + P3 OPEN 43 + P3 r-u 2 = 147
+```
+
+`147` = F1..F144 (144) + F29-A/B/C (3). Exact. Highest ID defined is now **F144**.
+
+**`P0 = P1 = P2 = 0` is NOT met and cannot be met in-lane.** Nothing ahead of `73ec822` is
+push-eligible, the atomic entrypoint GREEN remains blocked, RUNTIME **HOLD**, production
+**Founder-only**, published release dates **unchanged**.
+
+### The exact decision required of the driver
+
+Commission **one independent Opus reviewer session**, distinct from `cybrik-security-coordinator`,
+bound to sha `9376e89` and range `73ec822..9376e89`, with authority to return per-finding verdicts
+for the **15 `repaired-unreviewed` P1/P2 findings as a batch** (P1: F78, F83, F85, F86, F87, F103,
+F104, F114, F121, F122, F136; P2: F79, F84, F95, F141). Batching is the cheaper correction: these
+repairs share `views.py`/`runner.py`/`preparation.py` ingress-copy provenance and reviewing them
+one per cycle cannot outpace the rate at which measurement opens new ones.
+
+Until such a session runs, the useful in-lane WIP is **fewer than one writer**, and further
+coordinator cycles should be expected to move the gate away from zero rather than toward it.
