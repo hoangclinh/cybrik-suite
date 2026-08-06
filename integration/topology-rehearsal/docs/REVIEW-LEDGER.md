@@ -20,27 +20,27 @@ to be lost irrecoverably.
 
 | Range | Subject | Verdict | P0/P1/P2/P3 | Push-eligible | Runtime |
 |---|---|---|---|---|---|
-| `e85c235..1050684` | Admission | GO | 0/0/0/2 | YES | HOLD |
-| `030926c..a4dba72` | Docker adapter platform normalization (4 commits) | GO | 0/0/0/4 | YES | HOLD |
-| `a4dba72..7ed7702` | Runner, first review | NO-GO | 0/1/1/6 | NO | HOLD |
-| `a4dba72..d6c0d47` | Runner, second review + independent security verification | NO-GO / security FAIL | 0/3/1/0 | NO | HOLD |
-| `a4dba72..0b6c118` | Runner, third review (11 commits) | GO | 0/0/0/4 | YES | HOLD |
-| `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
-| `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
-| `73ec822..76553f4` | Entrypoint slice, full local range (11 commits) | NO-GO | 0/5/8/4 | NO | HOLD |
+| `e85c235..1050684` | Admission | GO | 0/0/0/2 ¶ | YES | HOLD |
+| `030926c..a4dba72` | Docker adapter platform normalization (4 commits) | GO | 0/0/0/4 ¶ | YES | HOLD |
+| `a4dba72..7ed7702` | Runner, first review | NO-GO | 0/1/1/6 ¶ | NO | HOLD |
+| `a4dba72..d6c0d47` | Runner, second review + independent security verification | NO-GO / security FAIL | 0/3/1/0 ¶ | NO | HOLD |
+| `a4dba72..0b6c118` | Runner, third review (11 commits) | GO | 0/0/0/4 ¶ | YES | HOLD |
+| `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 ¶ | NO | HOLD |
+| `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 ¶ | NO | HOLD |
+| `73ec822..76553f4` | Entrypoint slice, full local range (11 commits) | NO-GO | 0/5/8/4 ¶ | NO | HOLD |
 | `73ec822..c47bd86` | Full-range review, four lanes (three verdict lanes + one verifier) | NO-GO | n/a § | NO | HOLD |
-| `817227b..a1a97f6` | F3 repair (module-wide root-derivation ban) | NO-GO | 0/2/3/2 | NO | HOLD |
-| `b580b2c..eb472c1` | F29 RED, one commit (`test_scripts_inert.py` excluded) | GO on the RED | 0/1/1/2 | NO | HOLD |
-| `5bef003` | F39 repair | NO-GO | 0/4/3/3 | NO | HOLD |
-| `3e9bba6` | F30 repair | NO-GO | 0/2/1/2 | NO | HOLD |
-| `42d6d02` | F60/F61 repair | NO-GO | 0/1/4/2 | NO | HOLD |
-| `09da45d..0f6883f` | Cycle-26 range | GO | 0/0/3/2 | NO | HOLD |
-| `0f6883f..47dce0e` | F75 repair | NO-GO | 0/1/1/3 | NO | HOLD |
+| `817227b..a1a97f6` | F3 repair (module-wide root-derivation ban) | NO-GO | 0/2/3/2 ¶ | NO | HOLD |
+| `b580b2c..eb472c1` | F29 RED, one commit (`test_scripts_inert.py` excluded) | GO on the RED | 0/1/1/2 ¶ | NO | HOLD |
+| `5bef003` | F39 repair | NO-GO | 0/4/3/3 ¶ | NO | HOLD |
+| `3e9bba6` | F30 repair | NO-GO | 0/2/1/2 ¶ | NO | HOLD |
+| `42d6d02` | F60/F61 repair | NO-GO | 0/1/4/2 ¶ | NO | HOLD |
+| `09da45d..0f6883f` | the owed independent range review, landed GO | GO | 0/0/3/2 ¶ | NO | HOLD |
+| `0f6883f..47dce0e` | F75 repair | NO-GO | 0/1/1/3 ¶ | NO | HOLD |
 | `4b25214` | F83 repair (`.get` protocol uncovered) | NO-GO | 0/3/1/1 † | NO | HOLD |
 | `9b96f49` | `views.py` extraction, scoped to the extraction | GO | 0/0/1/2 † | NO | HOLD |
 | — | F108 adversarial lane: universal clause REFUTED, narrow claim survives | REFUTED ‡ | n/a ‡ | NO | HOLD |
 | — | Cycle-54 adversarial lane: accessor reasoning wrong | NO-GO ‡ | n/a ‡ | NO | HOLD |
-| `4a3d9d7` | F128 repair, independent Opus | NO-GO | 0/3/3/1 | NO | HOLD |
+| `4a3d9d7` | F128 repair, independent Opus | NO-GO | 0/3/3/1 ¶ | NO | HOLD |
 | `abf4d5f` | first V2-lane verdict (3 paths) | NO-GO | 0/0/4/3 | NO | HOLD |
 | `a703a45` | (2 paths) | NO-GO | 0/1/6/4 | NO | HOLD |
 | `6d20929` | `views.py` + two tests; evidence UNAVAILABLE | NO-GO | 0/0/8/5 | NO | HOLD |
@@ -62,6 +62,7 @@ to be lost irrecoverably.
 | `fae019f` | ledger scope — F0062/F0063/F0064 retired, F0065 P2 opened | NO-GO | 0/0/1/2 | NO | HOLD |
 | `50d6be6` | ledger scope — F0066/F0067 retired, F0065 carried, F0068/F0069 opened | NO-GO | 0/0/1/2 | NO | HOLD |
 | `55c9810` | ledger scope — F0065 (3-cycle P2), F0068, F0069 retired; F0070 P2 + F0071-F0075 opened | NO-GO | 0/0/1/5 | NO | HOLD |
+| `c7d8357` | ledger scope — F0071-F0075 retired (five, the corpus's largest); F0070 carried, F0076 opened | NO-GO | 0/0/1/1 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -76,27 +77,59 @@ reconciled the index against a list of prose sections a reviewer happened to cit
 that list's limits; the reviewer stated its own sweep was pattern-based and not exhaustive. This
 commit instead folds the row set mechanically from the **driver-owned reviewer verdict corpus**
 (`roles/reviewer/artifacts/VERDICT-*.json`), which is the ground truth the gate is measured
-against, and which no lane on this side may write. Measured that way, **10 of the 20 corpus
-verdicts had no row here** — `e311f8b`, `d2c290f`, `c89761a`, `2066a8d`, `ede0381`, `3188cc5`,
-`3bdacfc`, `46e04aa`, `9173473` and `50d6be6` — carrying **P1=3 and P2=32** between them, roughly
-double the scale the citation-derived repair addressed.
+against, and which no lane on this side may write. Measured that way, **these corpus verdicts had no
+row here** — `e311f8b`, `d2c290f`, `c89761a`, `2066a8d`, `ede0381`, `3188cc5`, `3bdacfc`, `46e04aa`,
+`9173473` and `50d6be6` — carrying **P1=3 and P2=32** between them, roughly double the scale the
+citation-derived repair addressed. (The shas are named rather than counted against a corpus total,
+for the reason given two paragraphs below: the total moves on every verdict, and a fraction quoting
+it is stale the moment the next one lands. The `P1`/`P2` figures are sums over exactly these ten
+named verdicts' `findings` objects, so they do not depend on the corpus size.)
 
-**Provenance is split, and the previous blanket claim was false (F0070).** This paragraph used to
-assert that every figure above was corpus-transcribed except the † and § rows. It is not, and the
-exception clause named the wrong rows: the § rows `3188cc5` and `9173473` are precisely rows whose
-counts *are* corpus-transcribed, while the 16 rows that genuinely have **no corpus verdict file**
-were excluded from the caveat altogether. The corpus holds 20 files against 41 rows. The figures for
-these 16 ¶ rows are taken from this ledger's own prose, and for the two † rows from reconstruction —
-they are exactly the V1-era rows F95 recovered, so the sentence upgraded the provenance of the
-weakest rows in the table:
+**Provenance is marked per row, and no totals are published (F0070, second repair).** Two earlier
+versions of this paragraph failed. The first asserted every figure was corpus-transcribed except the
+† and § rows, which was false and named the wrong rows. The second replaced it with a three-way
+split that still did not partition: it declared "20 corpus-backed, 16 ¶ and 2 † rows, and no row
+outside those sets" — 38 against a table of 42 — leaving `73ec822..c47bd86` and the two ‡
+adversarial rows outside every set it called exhaustive. Its cardinalities were also stale in the
+commit that wrote them, because the `55c9810` row that same commit appended *is* the 21st corpus
+verdict and the 42nd row; and it contradicted its own F0073 repair, which published a prose-derived
+`0/1/1/1` for the Cycle-54 ‡ lane while the ¶ enumeration claimed to name every prose-derived figure.
+
+**This version therefore publishes no row count and no file count anywhere.** A total written into an
+append-only table is falsified by the next append — the same reason the line citations (F0068) and
+the cycle labels (F0072) were withdrawn as classes rather than re-transcribed. The rule below is
+per row and checkable one row at a time, with no denominator to go stale.
+
+Every row's count cell falls under exactly one case, identified by the marker the row carries:
+
+> - **unmarked** — counts transcribed from that row's own corpus verdict `findings` object. This is
+>   the default case, and every row added from here on belongs to it by construction, since a row is
+>   written precisely when a verdict file appears.
+> - **¶** — no corpus verdict file exists; the counts are taken from this ledger's own prose. It is
+>   exactly the V1-era rows F95 recovered, the weakest provenance in the table. **This commit puts
+>   the `¶` in each of those rows' own count cells.** They were previously named only in the
+>   enumeration below, so a rule phrased as "the marker the row carries" was false for exactly them —
+>   they read as unmarked, and unmarked means corpus-backed. The enumeration is kept as a redundant
+>   check, not as the sole carrier of the fact.
+> - **†** — no corpus verdict file exists; the counts are reconstructed rather than quoted. Exactly
+>   `4b25214` and `9b96f49`.
+> - **n/a** — not a bound range verdict, so no count is published in the cell at all. Exactly
+>   `73ec822..c47bd86` (§) and the two ‡ adversarial lanes. Where such a row's figure exists in this
+>   ledger's prose it is disclosed in the relevant footnote and is prose-derived, on the same footing
+>   as a ¶ row — see the ‡ footnote's `0/1/1/1` for the Cycle-54 lane.
 
 > ¶ `e85c235..1050684`, `030926c..a4dba72`, `a4dba72..7ed7702`, `a4dba72..d6c0d47`,
 > `a4dba72..0b6c118`, `73ec822..69ed068`, `73ec822..3cd9d77`, `73ec822..76553f4`,
 > `817227b..a1a97f6`, `b580b2c..eb472c1`, `5bef003`, `3e9bba6`, `42d6d02`, `09da45d..0f6883f`,
 > `0f6883f..47dce0e`, `4a3d9d7`.
 
-So: the 20 rows backed by a corpus verdict file carry counts transcribed from its `findings`
-object; the 16 ¶ rows and the 2 † rows do not, and no row outside those sets exists.
+The four cases are mutually exclusive and jointly exhaustive because they are defined by the marker
+in a row's own count cell, and every row carries at most one. The invariant a reader can check
+mechanically, without any total appearing in this file, is a **bijection**: a row is unmarked if and
+only if `roles/reviewer/artifacts/` holds a `VERDICT-<sha>.json` for the sha ending its Range cell.
+Both directions were verified over every row of this table before this commit was written — no
+unmarked row lacks a corpus file, and no marked row has one. A new verdict adds one file and one
+unmarked row, so it preserves the bijection instead of falsifying a count.
 
 **No line-number citations appear in this index, deliberately (F0068).** The previous version cited
 each prose section by line number; all twelve were wrong, ten of them uniformly 26 lines short,
@@ -104,7 +137,15 @@ because the coordinates were transcribed into the same commit that inserted 26 l
 line number in a file this one appends to is invalid the moment it is written, so the whole class is
 withdrawn rather than re-transcribed. Locate a section by searching for its sha.
 
-**No `Cycle N` labels appear in this index either, for the same reason (F0072).** The rows added by
+**No `Cycle N` label that resolves to a commit appears in this index, for the same reason (F0072,
+F0076).** The first version of this sentence claimed the class was gone outright while two rows still
+carried a label: `09da45d..0f6883f` read "Cycle-26 range" — ambiguous across `## Cycle 26` and
+`## Cycle 26 (V2)`, and wrong either way, since that verdict's prose sits under `## Cycle 27` — and
+the Cycle-54 ‡ row. The `09da45d..0f6883f` label is withdrawn. The **one** surviving use is the ‡
+adversarial lanes, which have no sha at all: `—` is their Range cell, so the lane name is their only
+handle, it is not a commit reference, and it resolves to exactly one prose section. It is kept
+deliberately and named here so this sentence is not read as a universal it does not hold. The rows
+added by
 the corpus fold carried driver-cycle numbers that contradicted this file's own `## Cycle N (V2)`
 prose headings from `e311f8b` onward, and five numbers named two different commits each — index
 `Cycle 16` was `ede0381` while the heading `Cycle 16 (V2)` is `a31f54d`, and likewise 17, 20, 22 and
@@ -10424,9 +10465,12 @@ reviewer accepted withdrawing the class as the repair that cannot regress on the
   † and § rows. False, and the exception named the wrong rows: the corpus holds 20 files against 41
   rows; 16 rows have **no corpus verdict file at all** and were excluded from the caveat, while the
   § rows `3188cc5`/`9173473` — which the caveat did exclude — are corpus-transcribed. The sentence
-  upgraded the provenance of exactly the weakest, V1-era reconstructed rows. Repaired by splitting
-  provenance explicitly into the 20 corpus-backed rows, the 16 enumerated ¶ prose-derived rows and
-  the 2 † reconstructions, with no row outside those sets.
+  upgraded the provenance of exactly the weakest, V1-era reconstructed rows. The repair attempted
+  here — an explicit three-way split into corpus-backed, ¶ and † rows — **did not hold**, and the
+  cardinalities it quoted are false; see the `c7d8357` section below, where `F0070` was carried and
+  repaired a second time by withdrawing row and file totals altogether. The figures once stated in
+  this bullet are deliberately not repeated, because restating a false property inside a repair
+  record is how it survived the first correction.
 - **`F0071` (P3).** The index denied any line citation existed while the paragraph above still cited
   F95 at `:3978-4003`, 60 lines short of its actual position. The citation is withdrawn.
 - **`F0072` (P3).** The fold's `Cycle N` labels contradicted this file's own `## Cycle N (V2)`
@@ -10450,5 +10494,51 @@ zero.
 **Structural, unchanged.** Recording this verdict re-invalidates this file's `(path, blob)` coverage
 and reopens the review loop. Keeping verdicts out of the ledger to escape that loop stays rejected:
 `F0063`/`F0064` established it as dishonest.
+
+RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
+
+## `c7d8357` (V2) — VERDICT-c7d8357, ledger scope
+
+Independent reviewer lane, personal pool, static review with driver-measured execution evidence
+`COMPLETE`. Scope `docs/REVIEW-LEDGER.md`, base `73ec822`. `covers_head: true`.
+
+**Verdict: NO-GO. P0=0 P1=0 P2=1 P3=1.** PUSH-ELIGIBLE NO. RUNTIME HOLD.
+
+**Retired by this verdict — five rows, the largest retirement in the corpus.** `F0071` (stale F95
+citation withdrawn as a class), `F0072` (all five cycle-label collisions gone from the fold rows),
+`F0073` (‡ footnote corrected, withheld 0/1/1/1 disclosed), `F0074` (`P2=32` re-derived and correct),
+`F0075` (13 lines / 17 occurrences re-verified against `push-when-clean-v2.zsh`).
+
+**`F0070` (P2) carried, not repaired.** The three-way split was not a partition: `20 + 16 + 2 = 38`
+against a 42-row table, leaving `73ec822..c47bd86` and the two ‡ rows outside sets declared
+exhaustive. The corpus holds 21 verdict files, not 20, and the 42nd row is the `55c9810` row that
+same commit added — the stale figure and the new row were one event counted in one place only. The
+split also contradicted its own `F0073` repair by publishing a prose-derived `0/1/1/1` outside the
+enumeration whose purpose was to name prose-derived figures.
+
+Repaired in this commit by **withdrawing row and file totals from the index entirely** and stating
+provenance as a per-row marker rule — unmarked / ¶ / † / n/a — that is checkable one row at a time
+and has no denominator to go stale. This is the third class withdrawal in this index, after the line
+citations (`F0068`) and the cycle labels (`F0072`); in each case re-transcribing the value would have
+been correct only until the next append.
+
+**`F0076` (P3) opened and repaired here.** The sentence withdrawing cycle labels was itself a false
+universal: `09da45d..0f6883f` still read "Cycle-26 range", ambiguous across two headings and wrong
+either way, since that verdict's prose sits under `## Cycle 27`. That label is withdrawn. The ‡
+adversarial rows keep theirs — their Range cell is `—`, so the lane name is their only handle and is
+not a commit reference — and the sentence now names that exception instead of denying it.
+
+**Independently measured by the writing lane before the verdict arrived.** Under freeze this cycle I
+re-derived the corpus and row counts myself and found the same `F0070` cardinality defect, recorded
+at `roles/security/artifacts/SELF-AUDIT-c7d8357-cardinality-defect.md`. I judged the partition
+"sound apart from the counts", which was too generous: the reviewer showed the sentence also omitted
+three rows outright. The self-audit is disclosed as a measurement, never as coverage — it is not a
+verdict, and this lane may not witness its own patch.
+
+**What this lane cannot witness.** Whether the corpus fold is complete, since it enumerates verdict
+*files*. Four corpus verdicts (`abf4d5f`, `a703a45`, `6d20929`, `af0d227`) declare 7, 11, 13 and 15
+findings but carry empty `finding_rows`, so 46 findings exist as counts that no register can
+enumerate; those four rows' figures in the index are transcribed correctly from their `findings`
+objects, so the gap is in the corpus, not here, and no lane on this side may repair a sealed verdict.
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
