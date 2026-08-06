@@ -4150,3 +4150,131 @@ An independent Opus review of `fa47e91` (the F85 repair), then the **F86** repai
 repair must fit **28 free lines** in `preparation.py`, and note that `preparation.py:242,244` read
 `self.image.get(OBSERVED_AT_KEY)` — the mirror of the hole just closed in `observe.py` — so that
 site belongs in the same repair.
+
+## Cycle 43 — the range's gates re-measured at live HEAD `671c8e6`, and F97 opened on this ledger's own irreproducible focused figure
+
+### Why this section exists
+
+The supplied checkpoint described the local range as `73ec822..76553f4`, eleven commits. **That is
+stale by sixty-six commits.** Live `git status --short --branch` reports the branch **77 ahead** of
+`origin/codex/uat-browser-g-u2b-db-red-gate-r1`, and live HEAD is `671c8e6`. Every figure below was
+re-measured by the coordinator on the live tree at that HEAD, not copied from any prior section.
+
+### Measured at `671c8e6`, on a tree carrying no modification
+
+```
+git status --short                      only ?? integration/topology-rehearsal/uv.lock  (preserved, untouched)
+python -m pytest tests -q                58 failed, 1535 passed in 0.72s
+python -m compileall -q src tests        exit=0
+ruff check src tests                     12 errors
+```
+
+`ruff` is **not** installed in `.venv` — `python -m ruff` reports `No module named ruff`. The count
+above was obtained from the system binary at `/opt/homebrew/bin/ruff`, which is the only ruff on this
+host. Prior sections quoting "12 errors" did not record which ruff produced them; they are consistent
+with this one.
+
+**All 58 failures are the intended absent-`scripts/` REDs, proved by enumeration rather than
+assumed.** `ls scripts` reports no such directory, and every failure lands in exactly the two files
+that address it:
+
+| file | failed | passed |
+|---|---|---|
+| `tests/test_scripts_inert.py` | **51** | 2 |
+| `tests/test_surface_contract.py` | **7** | 80 |
+| every other test file | **0** | 1453 |
+
+No other test file contributes a single failure. The census total reconciles exactly:
+1593 collected = 1535 passed + 58 failed.
+
+### Per-file counts at `671c8e6`, recorded so no future section has to guess a set
+
+| file | passed |
+|---|---|
+| `test_adapter.py` | 366 |
+| `test_preparation.py` | 351 |
+| `test_observe.py` | 157 |
+| `test_admission.py` | 141 |
+| `test_grant.py` | 108 |
+| `test_protocols.py` | 102 |
+| `test_runner.py` | 96 |
+| `test_surface_contract.py` | 80 (7 failed) |
+| `test_constants.py` | 77 |
+| `test_errors.py` | 29 |
+| `test_plan.py` | 26 |
+| `test_scripts_inert.py` | 2 (51 failed) |
+
+### Size table reconfirmed at `671c8e6` — the F96 correction holds
+
+The control is `tests/test_surface_contract.py:247`, `>= MODULE_LINE_LIMIT` with
+`MODULE_LINE_LIMIT = 800`, so **799 is the maximum permitted count and carries zero headroom.**
+Live `wc -l`:
+
+| module | lines | free |
+|---|---|---|
+| `adapter.py` | 799 | **0** |
+| `grant.py` | 794 | 5 |
+| `preparation.py` | 771 | 28 |
+| `runner.py` | 756 | 43 |
+| `admission.py` | 725 | 74 |
+| `observe.py` | 693 | 106 |
+| `plan.py` | 533 | 267 |
+| `protocols.py` | 382 | 418 |
+| `constants.py` | 264 | 536 |
+| `views.py` | 163 | 637 |
+| `errors.py` | 159 | 641 |
+
+Unmoved from the F96 table. **`adapter.py` still requires an extraction before any edit.**
+
+### F97 — **P3** — `docs/REVIEW-LEDGER.md`, every "focused six-file set" figure. **NEW, OPEN.**
+
+This ledger records a *"focused six-file set"* count at least twice — **1137** at the `c06a81b`
+extraction and **1149** at the `fa47e91` F85 repair — and **never names the six files.** An unnamed
+set is not reproducible evidence, and this one is actively misleading: the obvious reading of
+"focused" from the checkpoint's own wording is
+`adapter/runner/admission/preparation/plan/observe`, and that set measures **1137 at live HEAD** —
+numerically identical to the ledger's *pre-repair* figure, which invites the false conclusion that
+the F85 repair added nothing.
+
+Resolved by measurement rather than assumption. The set the ledger actually used substitutes
+`test_grant.py` for `test_runner.py`:
+
+```
+adapter + admission + grant + plan + preparation + observe   1149 passed in 0.43s   (the ledger's set)
+adapter + runner    + admission + plan + preparation + observe   1137 passed in 0.45s   (the collision)
+```
+
+Both figures the ledger quotes are **arithmetically correct for its own set**; 1137 → 1149 is exactly
+the twelve tests `fa47e91` added to `test_observe.py` (62 → 68 test definitions, 145 → 157 collected).
+**No prior claim is withdrawn.** The defect is that the set was never written down, and a coincidental
+collision with a differently-composed set of the same size made the discrepancy look like a
+regression until it was chased down. P3: an evidence-reproducibility defect in this ledger, not a
+defect in shipped source.
+
+Every future section quoting a focused figure must name its files. The set of record is
+**`test_adapter.py`, `test_admission.py`, `test_grant.py`, `test_plan.py`, `test_preparation.py`,
+`test_observe.py`**.
+
+### F86's site re-read against live source before its repair is designed
+
+`preparation.py:233` reads `self.granted_image_identity.get(OBSERVED_AT_KEY)` and compares it to
+`self.granted_observed_at` at `:234`, **five lines before** `signed_identity_findings` is called at
+`:238`. The mirror sites are `:242` and `:244`, both `self.image.get(OBSERVED_AT_KEY)`. The anchor is
+**live and exact** — it has not drifted through the `c06a81b` extraction or the `fa47e91` repair.
+
+### What this cycle did NOT do
+
+It did not repair F86 or F87, write either entrypoint script, run either entrypoint, touch
+`scripts/`, run Docker, install or update any dependency, run any formatter or auto-fixer, or push.
+The untracked `integration/topology-rehearsal/uv.lock` was neither added, regenerated nor deleted.
+**RUNTIME remains HOLD. PRODUCTION remains Founder-only.**
+
+### Open set at this cycle's close
+
+**P1: F83 (repaired at `4b25214`, independently NO-GO), F86, F87.** F85 repaired at `fa47e91`,
+**still unreviewed and therefore still not discharged**.
+**P2: F45, F46, F65, F88, F91.** **P3: F47, F80, F81, F82, F89, F90, F92, F93, F94, F96, F97.**
+
+P1 = 3 and P2 = 5. The push gate of P0 = P1 = P2 = 0 is **not** met, the atomic entrypoint GREEN
+stays blocked, and none of the 77-commit local range is push-eligible. Origin/PR #55 remains at
+`73ec822`, draft, CLEAN, four rendered hosted checks SUCCESS.
