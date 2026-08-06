@@ -1202,6 +1202,212 @@ def test_a_roots_argument_that_does_not_name_four_control_roots_is_refused(roots
     assert command_runner.argvs == []
 
 
+# The two envelope handles that carry the document under check. `grant` is the parsed
+# document and `grant_bytes` is the same document serialized, so a root taken from either is
+# the identical self-witnessing defect spelled two ways.
+GRANT_ATTRIBUTES = frozenset({"grant", "grant_bytes"})
+# Host observation that can never honestly name a control worktree. `argv` is deliberately
+# absent from this set: the operator's `--control-root` tokens *are* argv, so argv is the one
+# honest origin of a root, and banning it module-wide would forbid the very contract
+# `test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default` pins.
+HOST_ROOT_SOURCES = frozenset({"environ", "getcwd", "cwd", "__file__"})
+# The one keyword through which a root reaches a plan, and the shape of a name that holds one.
+ROOT_KEYWORD = "repository_roots"
+ROOT_NAMES = frozenset({"root", "roots"})
+ROOT_NAME_SUFFIXES = ("_root", "_roots")
+
+
+def name_reads(node: ast.AST) -> set[str]:
+    """Every bare name referenced anywhere under `node`."""
+    return {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
+
+
+def getattr_calls(node: ast.AST) -> list[ast.Call]:
+    return [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call)
+        and isinstance(child.func, ast.Name)
+        and child.func.id == "getattr"
+    ]
+
+
+def literal_getattr_name(call: ast.Call) -> str | None:
+    """The attribute a `getattr` reads, when it is spelled as a literal string."""
+    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant):
+        name = call.args[1].value
+        if isinstance(name, str):
+            return name
+    return None
+
+
+def attribute_reads(node: ast.AST) -> set[str]:
+    """Every attribute read under `node`, counting `getattr(x, "n")` as a read of `n`.
+
+    Normalising the dynamic form is what lets the blanket `getattr` ban be withdrawn without
+    losing anything the ban actually caught. A name-based walk that cannot see
+    `getattr(authorization, "repository_roots")` reads a dynamic read as no read at all,
+    which is precisely the evasion the ban existed to stop — while the ban itself also
+    forbade the reviewed idiom `preparation` uses to read `expected_controls` off the
+    envelope, which is a legitimate read this wiring may need to make.
+    """
+    attributes = {
+        child.attr for child in ast.walk(node) if isinstance(child, ast.Attribute)
+    }
+    named = {literal_getattr_name(call) for call in getattr_calls(node)}
+    return attributes | {name for name in named if name is not None}
+
+
+def computed_attribute_reads(node: ast.AST) -> list[int]:
+    """The line of every `getattr` whose attribute name is not a literal string.
+
+    A computed attribute name is unreviewable: no walk over this file can say which field it
+    reaches, so it is refused outright rather than normalised. Together with
+    `attribute_reads` this is equal-or-stronger than the blanket `getattr` ban it replaces —
+    the dynamic spelling is still refused, and the literal spelling is now checked against
+    the same forbidden names as the dotted one instead of being waved through.
+    """
+    return [
+        call.lineno for call in getattr_calls(node) if literal_getattr_name(call) is None
+    ]
+
+
+def module_bindings(module: ast.AST) -> list[tuple[set[str], ast.AST]]:
+    """Every `(names bound, expression bound from)` pair anywhere in the module.
+
+    A `def` binds its own name to its whole body, and that is the edge a function-scoped
+    guard structurally cannot follow: a module-level helper that reads the grant hands its
+    caller a grant-derived value under a name that mentions neither the grant nor the read.
+    """
+    pairs: list[tuple[set[str], ast.AST]] = []
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            pairs.append(({node.name}, node))
+        elif isinstance(node, ast.Assign):
+            bound = {name for target in node.targets for name in name_reads(target)}
+            pairs.append((bound, node.value))
+        elif isinstance(node, ast.AnnAssign | ast.AugAssign | ast.NamedExpr):
+            if node.value is not None:
+                pairs.append((name_reads(node.target), node.value))
+        elif isinstance(node, ast.For | ast.AsyncFor | ast.comprehension):
+            pairs.append((name_reads(node.target), node.iter))
+        elif isinstance(node, ast.withitem) and node.optional_vars is not None:
+            pairs.append((name_reads(node.optional_vars), node.context_expr))
+    return pairs
+
+
+def grant_derived_names(module: ast.AST) -> set[str]:
+    """Every name in the module that can hold something the grant or the host produced.
+
+    A fixed point rather than a single pass, because the defect being caught is a read moved
+    one level away from the function under review, and one level is not a bound: a helper
+    calling a helper calling the envelope has to be followed to its end.
+    """
+    bindings = module_bindings(module)
+    derived: set[str] = set()
+    while True:
+        grown = {
+            name
+            for bound, value in bindings
+            for name in bound
+            if forbidden_origins(value) or name_reads(value) & derived
+        }
+        if grown <= derived:
+            return derived
+        derived |= grown
+
+
+def forbidden_origins(node: ast.AST) -> set[str]:
+    """The grant handles and host observations this expression reads directly."""
+    return (name_reads(node) | attribute_reads(node)) & (
+        GRANT_ATTRIBUTES | HOST_ROOT_SOURCES
+    )
+
+
+def root_sinks(module: ast.AST) -> list[ast.AST]:
+    """Every expression through which a value becomes a control root.
+
+    Two shapes, because a root can be named or it can be held. The keyword is the one the
+    plan actually reads; the root-shaped binding catches the value one step earlier, so a
+    helper named `_control_roots` whose body reads the grant is an offence at its `def`
+    rather than only at whatever eventually calls it.
+    """
+    named = [
+        keyword.value
+        for node in ast.walk(module)
+        if isinstance(node, ast.Call)
+        for keyword in node.keywords
+        if keyword.arg == ROOT_KEYWORD
+    ]
+    held = [
+        value
+        for bound, value in module_bindings(module)
+        for name in bound
+        if name in ROOT_NAMES or name.endswith(ROOT_NAME_SUFFIXES)
+    ]
+    return named + held
+
+
+def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() -> None:
+    """A root may not reach the plan from the document under check, at any depth.
+
+    `test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root` below states this
+    property over `inspect.getsource(build_runtime_wiring)` alone, and a function-scoped walk
+    cannot state it at all. Two lines defeat it completely::
+
+        def _roots(authorization): return authorization.grant["repositories"]
+        ...  build_plan(..., repository_roots=_roots(authorization))
+
+    That wiring is fully self-witnessing and every assertion in the function-scoped guard
+    passes, because the banned bytes sit in a body the walk never opens. The same hole admits
+    a module-level helper reading `os.environ` for a worktree path.
+
+    The gap is not hypothetical, and closing it is what makes the wiring implementable at
+    all. `test_runtime_wiring_builds_the_reviewed_plan_and_the_five_command_adapters` pins
+    `wiring.plan.commands == built_plan().commands`, whose resource names embed
+    `fakes.SYNTHETIC_ATTEMPT_ID`; the instant that produces it, `2026-08-05T00:00:00Z`,
+    exists in the whole envelope only as `grant["observed_image_identity"]["observed_at"]`
+    (`fakes.py:85`) and `grant["window"]["not_before"]` (`documents.py:44`), while
+    `authorization.observed_at` is `00:01:00Z` (`documents.py:216`), `record["recorded_at"]`
+    is `00:00:30Z` (`documents.py:47`) and `record["topology"]["image"]` carries no instant
+    (`documents.py:143-144`). `SYNTHETIC_ATTEMPT_ID` is in `fakes.SYNTHETIC_VALUES`
+    (`fakes.py:233`), so `test_no_synthetic_fixture_value_leaks_into_the_implementation`
+    forbids inlining it. A blanket ban on the name `grant` therefore forced every
+    implementation into exactly the module-level helper the blanket ban could not see. The
+    ban is withdrawn and this test replaces it, stated over the property that was actually at
+    stake: not whether the grant is read, but whether anything read from it reaches a *root*.
+
+    Roots and the attempt identity are not symmetric, which is why one may come from the
+    grant and the other may not. The attempt identity is a name the signed document is
+    entitled to fix — it is what the one authorized attempt is *about*. A root is not: it
+    selects the worktree whose commit is compared against the grant's own `repositories`
+    pin, and `plan` derives the allowed-signers file and the detached signature path from
+    the Suite root, so a grant-derived root would let the document under check choose both
+    the evidence it is checked against and the key that checks it.
+
+    `argv` is deliberately not a forbidden origin here. The operator's `--control-root`
+    tokens *are* argv, so argv is the one honest source of a root; the wiring's own freedom
+    from argv stays where it belongs, in the function-scoped guard below.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    require_c8_attr(script, "build_runtime_wiring")
+    module = ast.parse(inspect.getsource(script))
+
+    # Anti-vacuity. A module with no root sink would pass this test by saying nothing at all,
+    # so the sinks are counted first: `main` names the roots to the wiring and the wiring
+    # names them to `plan.build_plan`, which is two before any helper is counted.
+    sinks = root_sinks(module)
+    assert len(sinks) >= 2, "the injected roots must reach the plan through a named argument"
+
+    derived = grant_derived_names(module)
+    offences: list[str] = []
+    for sink in sinks:
+        reached = forbidden_origins(sink) | (name_reads(sink) & derived)
+        if reached:
+            offences.append(f"line {sink.lineno}: a control root derives from {sorted(reached)}")
+    assert sorted(offences) == []
+
+
 class RecordingAuthorization:
     """The real envelope, wrapped so every attribute read off it is recorded.
 
@@ -1221,28 +1427,34 @@ class RecordingAuthorization:
 
 
 def test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root() -> None:
-    """Neither the document under check, nor the machine, nor the envelope may name a root.
+    """Neither the machine nor the envelope may name a root, and none is read at run time.
 
     This is the structural half of the contract the refusals above state behaviourally. A
-    root copied out of `authorization.grant` would make the whole control observation
-    self-witnessing — the document being verified would choose the worktree its own claims
-    are checked against, which is exactly the boundary Admission commit `1050684`
-    established. A root read from the process environment, the working directory, `argv` or
-    the wiring module's own location would make every command-plan assertion in this file a
-    statement about the machine that happened to run it. And a root read off any other
-    attribute of the authorization would be an unsigned sidecar: the detached signature
-    covers `grant_bytes` alone and `record_sha256` hashes nothing, so no field of that
-    envelope is covered, while the Suite root selects the allowed-signers file and the
-    detached signature path that `signature:verify` trusts.
+    root read from the process environment, the working directory, `argv` or the wiring
+    module's own location would make every command-plan assertion in this file a statement
+    about the machine that happened to run it. And a root read off any attribute of the
+    authorization would be an unsigned sidecar: the detached signature covers `grant_bytes`
+    alone and `record_sha256` hashes nothing, so no field of that envelope is covered, while
+    the Suite root selects the allowed-signers file and the detached signature path that
+    `signature:verify` trusts.
 
     Reading the AST rather than the behaviour is what makes this exact: a wiring that
-    consulted the grant only when the injected roots were silent would satisfy every test
-    above and still be self-witnessing on the one path that matters. `getattr` is refused
-    alongside the literal names because a dynamic read is the same defect spelled so that a
-    name-based walk cannot see it — and it is precisely the idiom `preparation` uses to read
-    `expected_controls` off the envelope. The AST-walk idiom is the one the withdrawn
-    resolver test used; only its subject was wrong, because there is no resolver left to
-    review and `build_runtime_wiring` itself is now the whole of the derivation.
+    consulted the host only when the injected roots were silent would satisfy every test
+    above and still be host-derived on the one path that matters.
+
+    Two enforcements this test used to carry have moved rather than gone. The blanket ban on
+    the name `grant` is withdrawn and replaced by
+    `test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant`, which is
+    strictly stronger: this walk saw one function, that one walks the whole module and
+    follows helpers to a fixed point, and it states the property that was actually at stake —
+    no *root* derives from the grant — rather than banning a read the plan genuinely needs
+    for the attempt identity and can obtain from nowhere else. The blanket ban on `getattr`
+    is withdrawn for the same reason it was too broad — it forbade the reviewed idiom
+    `preparation` uses to read `expected_controls` off the envelope — and is replaced by two
+    narrower controls that between them lose nothing: `attribute_reads` normalises
+    `getattr(x, "n")` into an ordinary read of `n`, so every forbidden name below is now
+    checked against the dynamic spelling too, and `computed_attribute_reads` refuses outright
+    any `getattr` whose attribute name is not a literal a reviewer can read.
 
     The recording envelope closes the last gap. The AST names what may not be written; the
     recording proves what was actually read, so a root reached through some third attribute
@@ -1251,14 +1463,10 @@ def test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root() -> No
     script = load_c8_script("run_topology_rehearsal.py")
     build = require_c8_attr(script, "build_runtime_wiring")
     source = ast.parse(textwrap.dedent(inspect.getsource(build)))
-    attributes = {
-        node.attr for node in ast.walk(source) if isinstance(node, ast.Attribute)
-    }
-    referenced = {
-        node.id for node in ast.walk(source) if isinstance(node, ast.Name)
-    } | attributes
-    # The document under check is not a source, and neither is the operator's own shell.
-    assert not referenced & {"grant", "getcwd", "cwd", "environ", "argv"}
+    attributes = attribute_reads(source)
+    referenced = name_reads(source) | attributes
+    # The operator's own shell is not a source of anything this function derives.
+    assert not referenced & {"getcwd", "cwd", "environ", "argv"}
     # No process may be spawned to find a root: the wiring runs before anything is
     # authorized to execute, so it must be structurally unable to need a spawn.
     assert not referenced & {"subprocess", "Popen", "system", "popen"}
@@ -1268,7 +1476,8 @@ def test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root() -> No
     # No envelope field, read either by name or dynamically. The injected argument is the
     # whole of the derivation, so `repository_roots` may never appear as an attribute.
     assert "repository_roots" not in attributes
-    assert "getattr" not in referenced
+    # And no attribute may be reached under a name this file cannot read.
+    assert computed_attribute_reads(source) == []
 
     # And nothing root-shaped is read off the authorization at run time either.
     envelope = RecordingAuthorization(documents.authorization())
