@@ -2756,3 +2756,118 @@ between the commit's stated numbers and the re-measured ones.
 
 `ruff` is still not in `.venv/bin`. It was not run and was **not installed** — installing it needs a
 dependency decision this lane does not hold. Lint therefore remains unrun, as in every prior cycle.
+
+### The open P1 set re-audited against live source — all four STILL REAL, all four over-graded
+
+`F45`, `F46`, `F47` and `F65` have blocked every GREEN for several cycles and none had been
+re-verified since it was opened. An independent auditor re-derived all four at HEAD by measurement,
+importing the shipped helper from `tests/test_scripts_inert.py` rather than a copy, and building a
+genuine `prepare()` result through `tests/conftest.py`. Probe code lives in `/tmp/f45probe/`; nothing
+in the repository was edited.
+
+**Every one of the four reproduces. None is refuted.** What changed is the grade, and the grade
+change is *proposed*, not applied — see the caveat below.
+
+| Finding | Status at HEAD | Measured | Proposed grade |
+|---|---|---|---|
+| F45 parameter defaults | STILL-REAL | `module_wide_offences=[]` → MISSED, both host- and grant-origin spellings; positive control with the value passed as an argument → CAUGHT | P3 |
+| F46 attribute/method callees | STILL-REAL | instance-method and `@staticmethod` callees both MISSED; cause measured, not inferred — `call_parameter_bindings` skips any callee that is not `ast.Name`, though `functions` already holds the method's signature | P2 |
+| F47 aliased callee + parameter laundering | STILL-REAL | MISSED; control B, identical but un-aliased, → CAUGHT, isolating the alias as sole cause | P3 |
+| F65 multi-field `replace` forgery | STILL-REAL, **broader than disclosed** | two-field epoch forgery ACCEPTED, `attempt_id_for` → `19700101T000000Z-c8`; **three-field** forgery moving `granted_image_identity` + `image` together to a wholly invented self-agreeing binding also ACCEPTED, `image.repository='attacker/exfil'`, `satisfied=True` | P2 |
+
+**Why no longer P1: no live bypass exists for any of the four.** F45/F46/F47 are gaps in a *test
+helper* whose subject file `run_topology_rehearsal.py` does not exist — the guard is one of the 58
+absent-script REDs, so today the walk is exercised only against pinned strings. For F65 the auditor
+measured exactly one `PreparationResult(` construction in `src/` (`preparation.py:708`) and **zero**
+`dataclasses.replace` calls anywhere in `src/`; `runner.run_topology_rehearsal` calls `prepare()`
+directly. F65's P1 grade rested explicitly on the repair "claiming to close" the copy threat model,
+and at HEAD the source itself withdraws that claim — `signed_identity_findings`' docstring now states
+that a copy carries no authorization and enumerates the `selected_image_identity` gap as open.
+Grading that P2 under F75 while grading F65 P1 for the same shape is inconsistent.
+
+**What HEAD does now refuse, measured** — the F66 bare one-key stub; identity-only drift on a single
+binding key; `image["present"]=False`, which is the F75 repair working; and any pin later than the
+live reading. **Still accepted:** `selected_image_identity=MappingProxyType({})`, exactly as the F75
+residual paragraph admits.
+
+#### F65's disclosed scope was too narrow and is corrected here
+
+The ledger described F65 as a *two-field* forgery. The auditor measured a **three-field** variant in
+which `granted_image_identity` and `image` move together to an invented binding — `attacker/exfil`,
+a fabricated `local_image_id` — with `satisfied=True`. The forged identity must satisfy the HEAD
+validators (seven-key inventory, no `None`, registry-digest shape, a well-formed platform *object*
+rather than the string `"linux/amd64"`), but that is a formatting cost, not an authority cost.
+
+F65 cannot be closed inside the dataclass: a copy holds no authorization, so any witness a validator
+could check is itself replaceable, and `__post_init__` can only prove self-consistency. The repair
+that makes the forgery **inert** is at the single consumer — `runner._attempt_names` (defined `:310`,
+called `:743`) should take the `authorization` already in scope at `:742` and derive the attempt
+instant from `authorization.grant["observed_image_identity"]["observed_at"]`, the same expression
+`preparation.snapshot()` uses at `preparation.py:732`, instead of from `prepared.granted_observed_at`
+at `runner.py:331`. Explicitly rejected alternative, reasoned through and recorded so it is not
+re-attempted: making `granted_observed_at` a derived property only shrinks the forgery from two
+fields to one, because the ordering check still admits any past instant.
+
+#### The three helper repairs are prototype-verified together
+
+Wrapping the shipped helper in-process without touching the repository, all three evasions plus both
+controls go CAUGHT; **all 11 currently pinned `EVADING_WIRING_SHAPES` stay CAUGHT**; and
+`CONFORMING_WIRING_SHAPE` stays clean, so there is no new false positive against the reviewed design.
+Smallest repairs, all three in `tests/test_scripts_inert.py`, `call_parameter_bindings`:
+
+- **F45** — a signature-only pass emitting `(parameter, default_expression)` for every default.
+  `signature.defaults` right-aligns against `posonlyargs + args`; `kw_defaults` aligns element-wise
+  with `kwonlyargs`, skipping `None`. It must sit in the walk over `FunctionDef`/`AsyncFunctionDef`,
+  **not** in `argument_pairs`, so a defaulted helper never called by a literal `Name` is still
+  derived.
+- **F46** — key the `functions` lookup on `node.func.id` for `ast.Name` and `node.func.attr` for
+  `ast.Attribute`. For the attribute branch do **not** reuse the positional index: a bound `self`
+  shifts every index by one and would reintroduce the F51 misalignment class. Pair fail-closed
+  instead — union every parameter name with every argument and keyword value at that call site.
+- **F47** — fold module-level function aliases into the `functions` table, iterating **to a fixed
+  point** so chained aliases converge; a single pass is order-dependent under `ast.walk` and silently
+  misses half the chains.
+
+#### The re-grade is PROPOSED, not APPLIED — the GREEN gate stays shut this cycle
+
+One independent auditor's severity opinion is not a discharge. Re-grading four findings out of P1
+is precisely the move that would let this slice declare a gate open it has not earned, and the gate
+exists to stop that. The re-grade is recorded as reasoned and measured, and it requires a **second
+independent confirmation** before the P1 set is treated as empty. Until then the open P1 set is
+unchanged — **F45, F46, F47, F65** — P1 ≠ 0, the atomic entrypoint GREEN stays blocked, and nothing
+is pushable.
+
+#### Auditor-stated limits
+
+Not run: `ruff`, `mypy` (absent). Not executed: any entrypoint, Docker, listener, network or PKI path
+— none exists. Not re-verified: F48-F55, F66-F77, F1-F44. For F65 only `granted_image_identity`,
+`granted_observed_at`, `image` and `selected_image_identity` were attacked; the other
+`PreparationResult` fields were not swept for replace-forgeability, and `object.__setattr__` /
+`copy.copy` / subclass bypasses (F71, pre-existing) were not retested. The `admission.py:461-478`
+containment the ledger credits for F67 was not verified. No downstream repository was reviewed.
+
+### Also owed, and not obtained this cycle
+
+The independent review of `0f6883f..47dce0e` itself was commissioned in parallel and had not returned
+when the cycle closed. `47dce0e` therefore remains **measured but unreviewed, and unpushable**.
+Commissioning it again is the next cycle's first action, before any repair.
+
+### Two ledger defects this audit exposed
+
+- `docs/REVIEW-LEDGER.md:2096-2098` still asserts that "an aliased callee is caught by the module-name
+  walk instead (`aliased-helper`)". Independent measurement has since shown that false, and line 2286
+  records the correction as owed, but the original sentence still carries no inline correction. **P3,
+  open.** The same false claim in the `call_parameter_bindings` docstring **is** already corrected at
+  HEAD — that limb of F46 is closed.
+- F65's recorded scope understated the defect, as corrected above.
+
+### Next action
+
+Repair **F46** test-first — the widest of the three helper gaps, since one method-spelled wiring
+helper disables the entire call-parameter taint edge and a class-based wiring module is an ordinary
+design rather than a contrivance. F45 and F47 are edits to the same function with the same test-first
+pattern, so one cycle can land all three. Then obtain the still-owed independent review of
+`0f6883f..47dce0e`, and a second independent opinion on the proposed re-grade.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
+exists and none was executed.
