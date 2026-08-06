@@ -9593,3 +9593,76 @@ P2-9's explicit lesson. **P2-9 remains OPEN and unrepaired**; one finding per cy
 - `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
 - No control weakened, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 15 (V2) — the open set cut at the cluster, and one "repair" that execution refuted
+
+Scope selected from the **driver-injected open set**, not from the newest finding. The ten gating
+rows sit in two files, and nine of them in `views.py`. Prior cycles repaired one row per verdict
+and the P2 count went 4 → 6 → 8 → 9; this cycle cuts at the four mechanisms the rows share.
+
+New RED module: `tests/test_views_open_set_batch.py` (18 tests, 8 intended RED before any source
+change, 10 vacuity/positive controls green before and after).
+
+### Rows addressed
+
+- **F0006** (P2) — six findings interpolated attacker-controlled `repr()` outside every `try`, so a
+  raising `__repr__` let a hostile reading suppress the report of its own divergence. All six now
+  format through `_safe_repr`/`_safe_type_name`, which never raise. The announced-key finding this
+  cycle adds is guarded the same way.
+- **F0005** (P2) — the `id()` cycle guard is defeated by a projection that rebuilds its nesting on
+  every read: it never presents the same object twice, so the walk recursed to `RecursionError`
+  out of a seam contracted to raise nothing. Bounded by `MAX_PROJECTION_DEPTH = 64`, independent
+  of identity. **Reported in the divergence channel, not the immutability one** — `_dead_mapping`
+  deliberately discards nested immutability findings, so a depth report placed there is silently
+  dropped on exactly the path that needs it. A bound that stops the crash and says nothing would
+  have converted a loud failure into a quiet one; the first draft did precisely that and the RED
+  caught it.
+- **F0009** (P2) — the `bytearray` arm preceded the `Mapping` arm, so a `bytearray`+`Mapping`
+  hybrid was copied on its buffer face and never cross-checked; its `.get` was free to contradict
+  its `.items()`. The `Mapping` arm now precedes every arm that copies on another face.
+- **F0004** (P2) + **F0015** (P3) — the cross-checked key set came from `.items()` alone, so a key
+  announced only by `__iter__`/`keys()`/`__len__` was never compared while `.get` answered for it.
+  `_key_set_findings` now reconciles announced keys, yielded count and declared length against the
+  one read being judged.
+- **F0002** (P2) — `is_immutable_leaf` is now public and exported; `IMMUTABLE_LEAVES` is exported
+  only to state *which* types those are. The alias kept for compatibility tripped
+  `test_no_module_declares_a_mutable_module_level_global[views]`; **the control was obeyed, not
+  weakened** — the alias was deleted and the one test reference retargeted.
+- **F0001** (P2), **F0003** (P2), **F0007** (P2), **F0013**/**F0020** (P3) — docstrings restored to
+  what the code performs: the unreachable leaf test in `_dead_copy` removed (`proved_copy` decides
+  leaf status one frame up), the F135-refuted equality conjunction withdrawn from `stored_entries`,
+  and the strictness in `_states_the_same_value` recorded as **decided** rather than deferred.
+
+### F0008 — repaired as a false claim, because the obvious repair re-opened F131
+
+`_dead_copy` claimed a `__class__`-forging imposter "falls through to the uncopied return". It does
+not: `isinstance(value, (AbstractSet, Sequence))` consults `__class__`, `str` is a registered
+`Sequence`, so the imposter enters the member walk and returns from the **refusal handler** with a
+divergence finding. Two ways to reconcile claim and code. Narrowing the arm to
+`issubclass(type(value), ...)` — the change the previous cycle designed and recorded as "measured
+safe" — was implemented and then **reverted**: `test_f131_ingress_guard` drove a two-faced container
+reading to `TOPOLOGY_PASS` under it. Narrowing silently drops hostile containers out of the
+cross-check. The asymmetry with the scalar arms is principled and is now documented in place: the
+scalar arms narrowed because they call unbound builtin slots that resolve on the real type, so an
+instance-nominated face made the slot raise; this arm calls no slot, it iterates, and iteration is
+caught and reported. **Broad admission plus a catching handler is fail-closed; narrow admission
+plus a silent fall-through is not.** The docstring was corrected instead, and the batch test now
+pins the actual route so claim and code cannot drift again.
+
+The previous cycle's "measured safe" probe was a unit-level probe of `_dead_copy` alone. It was not
+wrong about that function; it was wrong about the system. **F0010** is retired by the same evidence:
+its complaint was that the discarded divergence tuple hid the real route — the route is now asserted.
+
+### Measurements at this commit
+
+- **Broad census 1659 passed / 59 failed.** Failure delta **zero** against the declared baseline of
+  59; the `+18` passes are exactly the 18 new tests. No previously-passing test regressed.
+- **ruff 12 = baseline** (one `ISC004` introduced and fixed before commit). **compileall rc=0.**
+- `uv.lock` untouched and still untracked; every command `--frozen --offline`.
+
+### Gate after this cycle
+
+- Rows **repaired-unreviewed**, not retired: retirement is the reviewer's, per finding. P0=0, P1=0.
+- `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
+- No control weakened, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.

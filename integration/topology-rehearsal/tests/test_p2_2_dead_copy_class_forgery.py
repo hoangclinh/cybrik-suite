@@ -109,7 +109,7 @@ def test_the_forgery_really_fools_isinstance(views):
     assert isinstance(forged_bytes, bytes)
     assert not issubclass(type(forged_bytes), bytes)
 
-    is_immutable_leaf = require_c8_attr(views, "_is_immutable_leaf")
+    is_immutable_leaf = require_c8_attr(views, "is_immutable_leaf")
     assert not is_immutable_leaf(forged)
     assert not is_immutable_leaf(forged_bytes)
 
