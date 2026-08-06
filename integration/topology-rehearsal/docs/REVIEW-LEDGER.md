@@ -732,6 +732,99 @@ current test file. Historical by construction, but nothing in the section says s
 - `git diff --check` clean. Docs-only change; no `src/`, no tests, no
   dependency, no lockfile change. Neither entrypoint script exists or was run.
 
+### `817227b..a1a97f6` — F3 repair, measured evidence
+
+One commit, `tests/test_scripts_inert.py` only (+236/−27), repairing exactly one
+recorded finding: **F3 (P1)**, the anti-self-witnessing guard that forbade the
+only read making the wiring buildable while missing the evasion that mattered.
+F5 and the open P2/P3 set are deliberately untouched and `73ec822..a1a97f6`
+remains **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
+**The independent review of this repair is NOT yet recorded.** The reviewer lane
+did not return inside the cycle. Nothing below is a verdict; it is measurement
+only, and the repair is a recoverable local checkpoint, not push eligibility.
+
+What landed:
+
+- `test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant`
+  (`:1338`) walks the whole module rather than one function, resolves
+  `grant_derived_names` to a **fixed point** so helper-of-helper chains are
+  followed, collects `root_sinks` (the `repository_roots` keyword plus any
+  binding named `root`/`roots` or suffixed `_root`/`_roots`), and asserts no sink
+  derives from `GRANT_ATTRIBUTES | HOST_ROOT_SOURCES`.
+- The blanket `grant` ban at the old `:1006` is withdrawn; the function-scoped
+  forbidden set narrows to the host-observation set `{getcwd, cwd, environ,
+  argv}`. This is exactly the fix F3 prescribed.
+- The blanket `getattr` ban is withdrawn and replaced by `attribute_reads`
+  (normalises `getattr(x, "lit")` into a read of `lit`) plus
+  `computed_attribute_reads` (refuses any non-literal `getattr` outright).
+- Anti-vacuity: `len(sinks) >= 2` guards against a module that passes by saying
+  nothing. Against the spec's own conforming shape (`:377-388`) a real
+  implementation has at least three sinks — the `_control_roots` helper plus the
+  `repository_roots` keyword passes through `execute_authorized_attempt` and
+  `build_runtime_wiring` — so the bound is not a false blocker.
+
+**`argv` is deliberately not a forbidden origin of the module-wide test.** The
+operator's `--control-root` tokens *are* argv, so argv is the one honest source
+of a root; banning it module-wide would forbid the very contract
+`test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default` pins.
+The wiring's own freedom from argv stays in the function-scoped guard, unchanged.
+
+Effectiveness evidence — independently produced by a separate verifier against
+verbatim-copied helper bodies and 13 synthetic module sources under `/tmp`
+scratch only; nothing was added to the repository for it. All 16 sub-cases
+matched their predicted verdicts:
+
+| Case | New check | Old check |
+|---|---|---|
+| F3's exact evasion: `_roots(authorization)` reads `.grant`, sink calls it | **FLAGGED** | not flagged |
+| Two-hop `_a`→`_b`→sink (fixed point beyond depth 1) | **FLAGGED** | not flagged |
+| Module helper reading `os.environ` for a root | **FLAGGED** | not flagged |
+| Honest wiring: roots from the injected argument only, grant read solely for the attempt identity | not flagged | **FLAGGED** |
+| Module with fewer than two root sinks | anti-vacuity trip | not checked |
+| `getattr(os, "environ")` | refused | refused |
+| `getattr(authorization, "repository_roots")` | refused | refused |
+| `getattr(x, <computed>)` | refused | refused |
+
+The verifier hunted specifically for coverage loss. `getattr(authorization,
+"grant")` reaching a root is **still caught**, by the module-wide test, even
+though the function-scoped set no longer names `grant`. The only cases the old
+bans caught and the new pair does not are (a) a grant read reaching the *attempt
+identity* rather than a root, and (b) a `getattr` touching no forbidden name at
+all — both are precisely the over-breadth F3 required to be withdrawn. **No case
+was found where the old check caught a genuine root-derivation defect the new
+one misses.**
+
+Static evidence at `a1a97f6`, measured by the coordinator:
+
+- Broad census: **1395 passed / 58 failed**, moved from 57 by exactly one node
+  id. Confirmed **differentially** — the `817227b` tree was archived to
+  `/tmp/f3-base`, censused there (1395 passed / 57 failed), and the sorted
+  `FAILED` lists diffed: exactly one line added
+  (`test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant`),
+  no other line changed.
+- All 58 failures are the intended absent-script class, every one raised by
+  `require_c8_path`. Breakdown: **49** `run_topology_rehearsal.py`, **8**
+  `prepare_topology_grant.py`, **1** the `scripts` directory itself. **Zero**
+  assertion failures, import errors or collection errors. Both new tests fail
+  closed on the absent script, not on their own AST logic.
+- Focused suites (`test_adapter`, `test_runner`, `test_admission`,
+  `test_preparation`, `test_plan`): **901 passed / 0 failed**, unchanged.
+- `python -m compileall tests/test_scripts_inert.py` — OK.
+- `git diff --check` — clean.
+- No top-level helper name in the new block shadows an existing definition;
+  the file has zero duplicate top-level `def` names.
+- `ruff check tests/test_scripts_inert.py` — All checks passed, but on
+  `/opt/homebrew/bin/ruff`; `.venv/bin/ruff` still does not exist, so **F15
+  stands unchanged**. This is not a claim that the pinned lint gate ran.
+- Sizes: `adapter.py` **799**, `observe.py` **542**, `test_scripts_inert.py`
+  1593. All `src/` files remain under the strict `< 800` bound; **F16 stands
+  unchanged**.
+
+Tests only. No `src/`, docs, dependency or lockfile change in the test commit.
+Neither entrypoint script was executed and neither exists. RUNTIME remains
+**HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
