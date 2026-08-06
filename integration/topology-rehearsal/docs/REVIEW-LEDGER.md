@@ -3381,3 +3381,52 @@ owes do not exist yet.
 
 Neither is installed and neither may be installed without a separate dependency decision, so lint
 and typecheck are **not** discharged for this commit. Recorded rather than skipped silently.
+
+### F84 — **P2** — `src/cybrik_suite_topology_rehearsal/observe.py:369`. **NEW, OPEN.**
+
+Found by the coordinator's own probe of the repair it had just committed, before either
+commissioned opinion returned, and recorded rather than held.
+
+`stored_entries` refuses when `subscripted is not value` — **object identity**, not equality. A
+mapping whose `__getitem__` returns an equal-but-distinct object is therefore refused although its
+two views agree on the value, and the finding it emits contradicts itself. Measured against the
+shipped module at `4b25214`:
+
+```
+distinct object? False | equal? True          # subscript returns a new str with the same value
+honest reconstructing mapping -> REFUSED
+  probe: tag reads as '16-alpine' by subscript while this mapping stores '16-alpine',
+         so its two views of one entry disagree
+```
+
+The message names the same value twice and calls it a disagreement, which is unreadable as a
+refusal reason.
+
+**Why P2 and not P1.** This fails *closed*, not open: it refuses honest input rather than admitting
+forged input, so it is not an authority bypass and cannot produce a `satisfied=True` copy recording
+unsigned material. No shipped path currently triggers it — every identity mapping the live path
+builds is a plain `dict` or is rebuilt by `preparation.frozen`, so its subscript returns the
+identical object. It is a latent correctness defect on an injected seam plus a self-contradictory
+diagnostic.
+
+**The repair is not obvious and must not be rushed.** The apparent fix — compare with `==` — has a
+real cost: a hostile value's `__eq__` can claim equality it does not have, which weakens the
+cross-check that exists to protect the *other* `__getitem__` readers (`runner._selected_identity`,
+`grant`'s reductions). It does not weaken this reducer, which judges only the stored view. The
+candidate repair is therefore `subscripted is not value and subscripted != value` — identity as the
+fast path, equality as the fallback — with the diagnostic reworded to distinguish "a different
+value" from "a different object". **Deferred to the next cycle so the two commissioned opinions can
+be taken into account**, since this is an authority-sensitive comparison.
+
+The sibling at `observe.py:325` (`subscripted is not True`, the F78 repair) is **correct as
+written** and is not affected: `True` is a singleton, and identity there is deliberate — it refuses
+a truthy proxy that is not the boolean itself.
+
+### Open set at this cycle's close
+
+**P1: F83 — repaired at `4b25214`, measured, but its two independent opinions are commissioned and
+not yet returned, so it is NOT discharged.**
+**P2: F45, F46, F65, F84.** **P3: F47, F80, F81, F82.**
+F78 and F79 remain repaired-but-unreviewed.
+
+P1 is not provably 0. **Nothing is pushable.**
