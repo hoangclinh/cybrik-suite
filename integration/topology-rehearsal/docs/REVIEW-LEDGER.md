@@ -3719,3 +3719,65 @@ It did not begin the F85/F86/F87 repair, write either entrypoint script, run eit
 push, or touch `uv.lock`. It is an enabling refactor and its registration, nothing more. **The
 extraction's independent review was commissioned in this cycle and its verdict is recorded below;
 until that verdict is recorded, `c06a81b` is a recoverable checkpoint and not push-eligible.**
+
+### F91 — **P2** — `docs/REVIEW-LEDGER.md`, findings F85, F87, F88, F89. **NEW, OPEN.** The extraction invalidated the open findings' own line anchors.
+
+Surfaced by the independent reviewer of `c06a81b` and confirmed by measurement. Removing 115 lines
+from the middle of `observe.py` shifted every line below them, so the `file:line` anchors this
+ledger uses to locate the open P1/P2/P3 set now point at unrelated code:
+
+| finding | recorded anchor | what is there now | true current site |
+|---|---|---|---|
+| F85 | `observe.py:430` | `"""Reduce the five independent publication views...` | `observe.py:341,344` (`signed[key] != image.get(key)`) |
+| F87 | `observe.py:356` | `return None` | **`views.py:126`** (`stored = dict(mapping.items())`) |
+| F88 | `observe.py:413,422,424,427,430` | `return None`, blank | `observe.py:327,334,336,338,341,344` (`signed[key]`) |
+| F89 | `observe.py:346-349` | `return tuple(findings)` | **`views.py:108,119`** (the false `runner._selected_identity` rationale) |
+
+Two of the four findings **no longer live in `observe.py` at all** — F87's TOCTOU seam and F89's
+factually-wrong rationale both travelled into `views.py` with the code that carries them. F86's
+anchor at `preparation.py:233` is unaffected, because `preparation.py` was not touched.
+
+This is P2 rather than cosmetic. A repair driven from a stale anchor edits the wrong line, and a
+later reviewer who checks an anchor, finds unrelated code and concludes the finding was discharged
+would close a live P1 by accident. The three earlier cycles that "lost finding detail" are the
+precedent this ledger already records for exactly that failure mode.
+
+**This is a defect of the extraction cycle, not of the findings.** The extraction was reviewed for
+behaviour and is behaviour-preserving; what it silently broke is the ledger's ability to point at
+its own open set. Re-anchoring is owed before the F85/F86/F87 repair begins, since that repair is
+driven directly off these anchors. The table above is the re-anchoring; it is recorded here rather
+than by rewriting the original entries, so the audit trail of what was found where stays intact.
+
+### Independent review of the extraction — status at this cycle's close
+
+Commissioned in this cycle against the full extraction. **Measured and reported before the cycle
+closed:**
+
+- `python -m compileall src tests` exits 0.
+- The **failure set at `c06a81b` is identical, test-id by test-id, to the `14f0784` baseline** —
+  the reviewer diffed the two sorted `FAILED` lists and they match exactly. 58 failures, same 58
+  tests. This is a stronger statement than the matching counts recorded above, and it is the
+  reviewer's own independent derivation rather than a reproduction of the coordinator's.
+- F91 above.
+
+The coordinator separately proved the pure-move claim mechanically rather than by reading: parsing
+both files and comparing `ast.dump` of each moved definition against its pre-extraction version
+gives **IDENTICAL AST for all four** of `nested`, `IMMUTABLE_LEAVES`, `immutability_findings` and
+`stored_entries`, with **none left defined in `observe.py`** (so no shadowed duplicate). Object
+identity across the re-export seam is preserved and was verified at runtime:
+`preparation.IMMUTABLE_LEAVES is views.IMMUTABLE_LEAVES`, same for `immutability_findings`, and
+`observe.<name> is views.<name>` for all four. `views` has **zero package-internal imports**, so it
+is a leaf and cannot introduce an import cycle.
+
+**The reviewer's final GO/NO-GO verdict and its complete P0-P3 list had not returned when the cycle
+closed. It is outstanding, not waived, and must be collected and recorded at the top of the next
+cycle before anything else.** Nothing in this cycle is push-eligible.
+
+### Open set at this cycle's close
+
+**P1: F83 (repaired at `4b25214`, independently NO-GO), F85, F86, F87.**
+**P2: F45, F46, F65, F88, F91.** **P3: F47, F80, F81, F82, F89, F90.**
+F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`, unreviewed.
+
+P1 = 4, unchanged. The atomic entrypoint GREEN stays blocked and nothing is pushable. Origin/PR #55
+remains at `73ec822` with four SUCCESS hosted checks.
