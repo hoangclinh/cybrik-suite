@@ -137,19 +137,20 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     if is_immutable_leaf(value):
         return value
     if subclasses_immutable_leaf(value):
-        raise ValueError(
-            f"a {safe_type_name(value)} subclasses a safe scalar but may carry mutable state "
-            "of its own, so it is not one of the leaves this phase can prove"
-        )
+        raise ValueError(f"a {safe_type_name(value)} subclasses a safe scalar but may carry "
+                         "mutable state of its own, so it is not one of the leaves this phase "
+                         "can prove")
     if id(value) in seen:
         raise ValueError(f"a {safe_type_name(value)} refers to itself, so no dead copy of it exists")
     trail = (*seen, id(value))
-    # The `Mapping` face precedes every buffer arm, matching `views._dead_copy` (F0024).
-    if isinstance(value, Mapping):
+    if isinstance(value, Mapping):  # the Mapping face precedes every buffer arm (F0024)
         items = read_items(value)
         if items is None:
-            raise ValueError(f"a {safe_type_name(value)} raised when read by `.items()`")
-        return MappingProxyType({frozen(k, trail): frozen(i, trail) for k, i in items})
+            raise ValueError(f"a {safe_type_name(value)} would not be read as `.items()` pairs")
+        try:
+            return MappingProxyType({frozen(k, trail): frozen(i, trail) for k, i in items})
+        except TypeError as error:  # F0035 key channel: a dead copy key that will not be hashed
+            raise ValueError(f"a {safe_type_name(value)} has an unhashable dead copy key") from error
     if isinstance(value, bytearray):
         return bytes(value)
     if isinstance(value, AbstractSet):

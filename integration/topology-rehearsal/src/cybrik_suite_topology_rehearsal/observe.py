@@ -265,10 +265,20 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
     """
     entries = read_items(image)
     if entries is None:
-        refusal = (f"{label}: this reading raised when it was read by `.items()`, so it never "
+        refusal = (f"{label}: this reading would not be read as `.items()` pairs, so it never "
                    "said whether the reviewed material is on this host")
         return (refusal,)
-    stored = {key: value for key, value in entries if key == PRESENT_KEY}
+    # The key is compared and hashed inside the guard: `==` and `__hash__` are live protocols on
+    # an object that arrived through an injected port, and this reducer returns findings (F0035).
+    try:
+        stored = {key: value for key, value in entries if key == PRESENT_KEY}
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a key that will not be read is refused
+        refusal = (f"{label}: a key of this reading raised {safe_type_name(error)} when it was "
+                   "compared or hashed, so it never said whether the reviewed material is on "
+                   "this host")
+        return (refusal,)
     if PRESENT_KEY not in stored:
         return (
             f"{label}: present is stated by no entry of this reading, so the reviewed "

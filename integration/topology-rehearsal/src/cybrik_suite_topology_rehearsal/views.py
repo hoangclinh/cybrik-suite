@@ -128,14 +128,14 @@ def safe_repr(value: object) -> str:
 
 
 def safe_type_name(value: object) -> str:
-    """`type(value).__name__`, which a hostile `__name__` descriptor can also refuse."""
+    """`type(value).__name__`; `issubclass(type(name), str)` since `__class__` forged it (F0039)."""
     try:
         name = type(value).__name__
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException:  # noqa: BLE001 -- a type that will not be named is still reported
         return "<unnameable type>"
-    return str.__str__(name) if isinstance(name, str) else "<unnameable type>"
+    return str.__str__(name) if issubclass(type(name), str) else "<unnameable type>"
 
 
 def immutability_findings(

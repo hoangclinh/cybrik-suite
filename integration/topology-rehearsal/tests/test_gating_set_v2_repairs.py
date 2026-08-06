@@ -179,7 +179,10 @@ def test_frozen_and_dead_copy_agree_on_the_hybrid_face(views, preparation):
     assert type(walked[FIELD]) is not bytes, "_dead_copy copied the hybrid on its buffer face"
     assert diverged, "the unreadable mapping face must be reported"
 
-    with pytest.raises(ValueError, match="raised when read by"):
+    # F0040: the refusal no longer claims the mapping *raised*, because `read_items` also answers
+    # `None` for a well-formed `.items()` that yields a non-pair, where nothing raised at all.
+    # This hybrid genuinely does raise, and the widened wording still covers it.
+    with pytest.raises(ValueError, match=r"would not be read as `\.items\(\)` pairs"):
         frozen(HybridBytearrayMapping(b"ab"))
 
 
