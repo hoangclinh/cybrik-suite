@@ -5617,3 +5617,45 @@ not a control breach — the file is 553 lines under the bound — but this ledg
 only evidence the `< 800` control is not being approached silently, and a size table that is wrong
 by one line on the file the cycle actually created is a table that was transcribed rather than
 measured. Repair is to re-measure at write time, not to edit the number.
+
+## Cycle 49 — the F87 repair's independent verdict, obtained and recorded
+
+Heading numbering follows F101 (**P3, OPEN**): the `## Cycle` headings in this file are not in
+monotonic order and this heading does not assert one.
+
+### Why this cycle exists
+
+Cycle 48's heading claims to be about "the F87 repair's independent review". Its section
+re-measured the static gates and opened F105, and then **stopped — it records no verdict**. The
+cycle timed out before one was obtained. So F87, F103 and F104 stood as **repaired-unreviewed**
+alongside F78, F85, F83 and F86, and the atomic entrypoint GREEN stayed blocked on a review that
+had been commissioned twice and recorded zero times. Obtaining and durably recording that verdict
+is this cycle's whole outcome.
+
+### Live identity, re-read rather than carried forward
+
+The checkpoint this cycle opened from named local HEAD `76553f4` and "11 commits ahead". Live git
+is authoritative and says otherwise: HEAD is
+`5fb163fcaf7f80894e840adc00635ed00a709b0d`, branch `codex/uat-browser-g-u2b-db-red-gate-r1`,
+**94 commits ahead** of origin. No tracked file is modified; the untracked
+`integration/topology-rehearsal/uv.lock` is preserved unmodified. Origin/PR #55 remains at
+`73ec822`, **OPEN, draft, `CLEAN`**, four rendered hosted checks SUCCESS (two `secret-scan`, two
+`contract standards validation`, workflow `contracts`).
+
+### Static gates measured at live HEAD `5fb163f`, by a lane that wrote none of this code
+
+| Gate | Result |
+|---|---|
+| Broad census | **58 failed / 1542 passed** |
+| RED classification | **all 58 absent-script**: 51 in `tests/test_scripts_inert.py`, 7 in `tests/test_surface_contract.py`, every one raised at `tests/conftest.py:94` carrying `missing C8 implementation — ... does not exist` |
+| Unintended regressions | **zero** — no failure outside those two files, and no failure lacking the marker |
+| Lint | `uv run --frozen ruff check src tests` — **exactly 12**, every code and anchor matching the pinned baseline (2 `F401` + 5 `ISC004` in `observe.py`; 1 `F401` + 2 `ISC004` at `preparation.py:53,655,689`; 2 `I001` in `tests/`) |
+| Compile | `uv run --frozen python -m compileall -q src tests` clean, exit 0 |
+| Size | all 12 authored modules under the strict `< 800`; `adapter.py` **799**, `preparation.py` **798**, `grant.py` **794**, `views.py` **246** |
+| Diff-check | `git diff --check` exit 0; `git status --short` shows only the untracked `uv.lock` |
+
+**F105 is re-confirmed by measurement, not inherited.** `views.py` measures **246** at live HEAD.
+Commit `31d4d59`'s message and cycle 47 both state **245**. The finding stands as written.
+
+The `preparation.py` `ISC004` anchors measure `:655` and `:689`, unchanged from cycle 48 — F91 did
+not recur this cycle, because no source line moved.
