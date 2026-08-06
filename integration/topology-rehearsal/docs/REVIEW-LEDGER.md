@@ -6203,3 +6203,132 @@ identity. **Until that verdict is recorded here, F108 remains repaired-unreviewe
 **Push gate at `9c1c4d2`, unchanged by measurement: P0 = 0. P1 OPEN = 1** (F33). **P1
 repaired-unreviewed = 8** (F78, F85, F83, F86, F87, F103, F104, F108). **P2 = 32. P3 = 37.** No part
 of the 104-commit local range is push-eligible. RUNTIME **HOLD**. Production **Founder-only**.
+
+## Cycle 53 continued — three verdicts landed, F108 is answered, and a new P1 was proved
+
+All three commissioned lanes returned after the nudge. **F108's owed verdict exists for the first
+time in four cycles.** Every finding below was re-verified from live source by the coordinator
+before being recorded; none is accepted on report.
+
+### F108's verdict: the narrow claim survives, the universal clause is REFUTED
+
+The adversarial lane was instructed to refute and to default to "NOT PROVED". It returned
+**REFUTED** — but precisely, and the distinction matters:
+
+- **What survived attack.** All eight `observe()` observations go through `projected()`; there is no
+  ninth observation and no path into `prepare()` that bypasses `observe()`. `prepare()` also projects
+  `expected_controls` and the grant once each (`preparation.py:775-781`). `snapshot()`'s re-reads
+  (`:733-760`) land on `frozen()` dead copies, so the subscript is `dict.__getitem__`, never a hostile
+  one — **no grant re-read reaches a live object.** `stored_entries` gating (`:225-273`) runs *after*
+  the `proved_copy` loop at `:217-223`, so it reconciles the result against itself. `frozen()`
+  (`:129-160`) passes through by identity only for exact `IMMUTABLE_LEAVES`; no container type this
+  package uses survives it live. **F109 and F110 were both hunted and neither yielded a straddle in
+  `prepare()`.**
+- **What was refuted.** The cycle-51 wording "**every** straddle F108 reproduced is unreachable by
+  construction" is too strong as written. It is true of the observation *content* in `prepare()`. It
+  is false as a universal statement — see F114, which proves the same straddle class alive one layer
+  up, in exactly the consumer the lane flagged as unreached.
+
+**F108 is CLOSED** for the defect it filed: the eight-observation content straddle is independently
+confirmed eliminated. Its overbroad sentence is corrected here rather than left standing. F108 leaves
+the repaired-unreviewed bucket. **This closure does not extend past `prepare()`.**
+
+### F114 — **P1** — `runner.py:399`, `:409`, `:419`. **NEW, OPEN. Proved straddle, post-creation.**
+
+The post-creation network reading is judged from one read of a live port object and recorded from a
+**second** read of the same live object. `network = adapters.docker.observe_network(...)`
+(`runner.py:399`) is **not dead-copied at ingress**. It is judged by `validate_internal_network`
+(`:409`), which reads through `projection.get(...)` (`observe.py:502`, `:507`); it is then recorded
+by `network_projection=frozen(network)` (`:419`), which reads through `value.items()`
+(`preparation.py:151`). A mapping that answers `.get()` and `.items()` differently is admitted as an
+isolated network while the receipt records a non-isolated one. Measured:
+
+    verdict.satisfied = True   findings = ()
+    recorded = {'Internal': False, 'Containers': mappingproxy({'a': …, 'b': …, 'c': …})}
+
+The `STOP_CONTROL` for a non-internal / multi-attachment network never fires, and the bundle records
+the contradiction nobody judged. **This is not a strawman**: it is the exact hole `projected()` was
+built to close, and `preparation.py:293-317`'s own docstring states the rule — "the value that is
+checked and the value that is recorded are one value". The runner's post-creation path was never
+given that treatment. "The adapter is trusted" is not available as a defence: `observe.py:6-9` states
+that injected-port observations "arrive through injected ports, so their shape is never guaranteed".
+**Repair shape: dead-copy at ingress in `_observe_attempt` before validation, judging and recording
+the copy.** Not repaired in this cycle — it is a new P1 and needs its own RED first.
+
+### F115 — **P2** — `adapter.py:293-296`. **NEW, OPEN.**
+
+`observe_image` takes `projected[0]` from a decoded list without requiring exactly one entry. Where
+two local images answer one reference, "which image is this" is decided by list order, and a
+satisfied precheck can name the reviewed image while an unreviewed one also answers. `single_claim`
+(`observe.py:377-382`) refuses `len != 1` for exactly this reason on publication views; this reader
+does not. Confirmed at source.
+
+### F116 — **P2** — `adapter.py:229-235`. **NEW, OPEN.**
+
+`ExactCommandAdapter.__init__` calls `require_port("runner", runner, CommandRunner)` (`:233`) and
+performs **no** structural check on `plan`. `CredentialFileAdapter` *does* `require_port("plan", plan,
+TopologyPlan)` (`:546`), so the asymmetry shows the check was intended. A stand-in exposing a
+`.commands` mapping of arbitrary argv passes construction, and `run_effect` (`:248-251`) then hands
+that argv to the real runner. Single-spawn-site survives; **plan-membership becomes vacuous.**
+
+### F117 — **P2** — `preparation.py:323`, `:326`, `:491-524`. **NEW, OPEN. Two lanes converged.**
+
+`adapter_findings` isinstance-checks `getattr(adapters, name, None)` (`:326`) and re-reads it for the
+message (`:323`); `observe()` then reads `adapters.identities`/`.host`/`.docker`/`.probe` again, once
+per observation (`:491-524`). The port gate is **check-time only**. Measured by the adversarial lane:
+a preparation returning `satisfied is True` in which **all eight** observations were served by objects
+that are instances of none of the four reviewed ports. Damage is bounded — whatever is handed over is
+still `projected()`-copied and judged — so this is an authority-gate defect, not a content straddle.
+It is compounded by `runtime_checkable` Protocols (`protocols.py:216-312`) checking only member
+presence. **Recorded P2, the higher of the two independent gradings** (the full-range lane graded the
+same defect P3); the coordinator does not take the lower grade for a converged finding.
+
+### F118 — **P3** — `adapter.py:671-683`, `runner.py:663-667`. **NEW, OPEN.**
+
+If `fsync_directory` raises once `replaced=True`, `consume` re-raises and the runner reports
+`attempt_consumed=False` with `PRECHECK_ABORT` while the durable budget is in fact spent. It fails in
+the safe direction — budget burned, nothing created — but the **receipt misstates what happened**.
+
+### F119 — **P3** — `docs/ENTRYPOINT-SLICE-SPEC.md`. **NEW, OPEN. Citation drift.**
+
+The spec's citations through `:1202` land within 0-2 lines of the tests they describe. Beyond that
+they are stale: `:1223-1280` now points into AST-guard helper code rather than the root-derivation
+test (actually `tests/test_scripts_inert.py:1945-2031`); `:1304-1366` corresponds to
+`:2056-2119`; `:817-832`/`:1369-1384` to `:2121-2137`. Cause: `a1a97f6`, `e3d6116`, `5bef003`,
+`c56518f` inserted ~700 lines of module-wide root-derivation guard after `4230858`, the commit the
+spec pins to. The spec disclaims this for `test_scripts_inert.py` ("where a citation and the file
+disagree, the file wins", `:57`) but **not** for the front-door citations, which are independently off
+by 1-2 (`:178-179` actual `180`; `:231` actual `232`). Separately, the spec attributes `PROJECT_STATUS`
+to `tests/conftest.py`; it is defined at `tests/test_surface_contract.py:62`. **The contract substance
+is stable** — argv shape, mapping accumulation, mandatory-keyword injection, single executor and the
+withdrawn `.runner` publication all still match the live test bodies. Only the anchors drifted.
+
+### The spec's owed-edit list is confirmed six paths, and none is applied
+
+`scripts/prepare_topology_grant.py` and `scripts/run_topology_rehearsal.py` (new), `__init__.py`
+(still says the scripts root is empty), `tests/test_surface_contract.py` (three edits, one of which
+retires `FRONT_DOOR_ABSENCE_CLAIM` outright), `pyproject.toml`, and `tests/conftest.py` conditionally.
+**None applied at HEAD.** The 58 REDs decompose as 51 in `test_scripts_inert.py` (of 31 parametrised
+functions; the 2 passers run the AST guard over inline source and never load a script) plus the
+`test_surface_contract.py` set, every one a hard `pytest.fail` from `conftest.require_c8_path`, not a
+skip.
+
+### Push gate at this working tree
+
+**P0 = 0. P1 OPEN = 2** — F33 (deferred to the atomic entrypoint GREEN) and **F114** (new, proved).
+**P1 repaired-unreviewed = 7** (F78, F85, F83, F86, F87, F103, F104 — F108 has left this bucket).
+**P2 = 35** (+F115, F116, F117). **P3 = 39** (+F118, F119). The full-range independent verdict is
+**NO-GO**. The gate `P0 = P1 = P2 = 0` is not met. **No part of the 105-commit local range is
+push-eligible, and the atomic entrypoint GREEN stays blocked.** RUNTIME **HOLD**. Production
+**Founder-only**.
+
+### What the reviewers confirmed still holds
+
+Surface inertness was verified **empirically**, not asserted: importing the package plus `runner` and
+`adapter` with `builtins.open`, `os.open` and `subprocess.Popen` instrumented produced
+`opened: [] spawned: []`. Single-spawn-site holds — `run_effect` (`adapter.py:241-251`) is the only
+argv-to-runner handoff and `CommandAdapterAccessors` (`observe.py:661-693`) still publishes `.plan`
+and not `.runner`. Anti-self-witnessing holds in `_grant_facts` (`runner.py:265-283`) and
+`_selected_identity` (`:246-257`). Fail-closed construction holds: `ObservationVerdict.__post_init__`
+(`observe.py:186-213`) makes an incoherent verdict unconstructible, and `guarded`
+(`preparation.py:281-290`) bounds ordinary raises without swallowing `KeyboardInterrupt`/`SystemExit`.
