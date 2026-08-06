@@ -8408,3 +8408,85 @@ can exist inside this lane, and anti-self-witnessing forbids the writer supplyin
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
 written or run.
+
+## Cycle 68 — the commit record misattributes this lane's own work, and would have manufactured false review independence
+
+Nothing was repaired, retired or pushed. HEAD advances only by this docs entry. The standing blocker
+is unchanged. This cycle re-derived every gate at `a900592` and then recorded one **new** finding
+that no prior cycle had looked for, because it is invisible from the diff and only appears in commit
+metadata.
+
+**Re-measured this cycle, never quoted.** Census at `a900592`: **1582 passed / 59 failed** —
+**58** absent-script REDs (`tests/test_scripts_inert.py`, `tests/test_surface_contract.py`; neither
+entrypoint script exists, by design) plus **1** intended RED
+(`tests/test_f131_ingress_guard.py::test_the_container_ingress_reading_is_cross_checked`).
+**0 unintended.** ruff 0.16.0 → **12**, the established baseline. `compileall -q src tests` → rc=0.
+PR #55 **OPEN / draft / MERGEABLE**, head still `73ec822`. Untracked `uv.lock` preserved, MD5
+`ff29c06c8a4247c27f68dac52c14d02d`. Range is now **128** commits, 21 files, **+14651 / -222**.
+
+Two corrections to carried-forward prose, both from live measurement: the range is 128 commits (not
+127), and the diff hash has moved — see F149 and §"packet rebinding" below.
+
+#### F149 (P1, NEW, OPEN) — 127 of the 128 commits in this range are attributed to an identity that did not write them, and the one correctly-attributed commit makes the record internally inconsistent
+
+`git log 73ec822..a900592 --format='%an <%ae>'` reports:
+
+- **127** commits by `Cybrik Codex Worker <codex-worker@local.invalid>`
+- **1** commit by `cybrik-security-coordinator <linhhc@bpech.com>` (`a900592`, cycle 67's packet)
+
+The 127 are **not** the work of a Codex worker. `git config --local user.name/user.email` in this
+worktree is still `Cybrik Codex Worker / codex-worker@local.invalid`, a stale default that stamps
+every commit made here regardless of which agent actually wrote it. The coordinator policy states
+plainly that **Codex is not available**; these commits were produced by successive autopilot
+coordinator cycles under the single writer identity `cybrik-security-coordinator`, and their own
+messages are written in that voice (`docs: refuse cycle 65's NEXT…`, `docs: record the F135 repair…`).
+The author field is a config artifact, **not an identity attestation**.
+
+**Why this is P1 and not cosmetic.** The anti-self-witnessing rule is the single gate that has held
+this entire range unpushed for thirteen cycles. It binds on *who wrote the range*. A reviewer
+granted to this lane who establishes provenance the obvious way — from commit metadata — would read
+127 commits by a distinct, non-coordinator identity and could reasonably conclude that
+`cybrik-security-coordinator` did **not** author the range, and therefore may review it. That is a
+direct, fully-mechanical path to a **self-witnessed GO on 128 unreviewed commits**, including the
+authority-sensitive composition-root, control-root-injection and argv-boundary work. The gate would
+not be argued away; it would be silently recorded as already satisfied.
+
+**Cycle 67 made this strictly worse, not better.** By overriding the author on `a900592` alone, it
+produced a record in which the single *docs-only* commit carries the true writer identity and all
+127 *substantive* commits carry the false one — the exact inversion of the truth. An inconsistent
+record is more misleading than a uniformly wrong one, because the one correct entry reads as
+evidence that the field is meaningful and maintained.
+
+**Not repaired here, deliberately.** The correct fix is a decision this lane may not take alone:
+
+1. History **must not** be rewritten. Correcting authorship on 127 commits requires a rebase or
+   filter, which the non-negotiable boundary forbids outright. This is not a candidate repair.
+2. Changing `git config --local user.*` is outside this lane's `owned_write_prefixes`
+   (`integration/topology-rehearsal/`) and alters a shared worktree surface, so it is not taken
+   unilaterally.
+3. What *is* in scope, and is done: recording the true provenance in the ledger and stating it in
+   the review packet, so that the metadata cannot be relied on without meeting this entry first.
+
+**Reviewer directive, binding on the first granted reviewer identity.** Provenance for
+`73ec822..a900592` is established by **this entry**, not by `git log` author fields. The whole range
+is the work of `cybrik-security-coordinator`. Any identity that is or acts for
+`cybrik-security-coordinator` **must not** review it. Recording this finding is a provenance
+observation, not a verdict on the patch, and so is not itself self-witnessing.
+
+### Packet rebinding
+
+`roles/security/artifacts/REVIEW-PACKET-d35544d.md` is **stale**: it binds
+`73ec822..d35544d`, diff hash `d66a6605…82859d`. The range is now `73ec822..a900592`, diff hash
+`e7d5545ffedc591f15ff14a76446890de5157128d7ab16bb6039d9d51ac51808` (docs-only delta). Its own
+instruction to recompute the hash before starting correctly invalidates it. A rebound packet
+carrying F149 is written this cycle.
+
+### Gate at the close of cycle 68
+
+- **P0 = 0**; **P1 OPEN = 6** (F33, F123, F128, F131, F143, **F149**); **P1 r-u = 13**;
+  **P2 OPEN = 47**; **P2 r-u = 4**; **P3 OPEN = 44**; **P3 r-u = 2**;
+  **CLOSED = 30** (thirteenth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **152**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
+written or run.
