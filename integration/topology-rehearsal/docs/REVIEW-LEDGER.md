@@ -9407,3 +9407,78 @@ verbatim artifact is the only structured copy. Two P2s are **new, introduced by 
 - Freeze held `6d20929` for the whole outstanding period and HEAD never moved: **no `freeze_breach`**.
 - No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
   production **Founder-only**, release dates **unchanged**.
+
+## Cycle 10 — VERDICT-6d20929 **P2-2 repaired test-first**: the regression this lane authored, first
+
+`VERDICT-6d20929` left P0=0 P1=0 P2=8 P3=5. Of the eight open P2s, exactly one was **introduced by
+this lane's own P1-1 repair at `6d20929`**; the other seven were carried in from earlier cycles.
+A regression the writer authored outranks inherited findings, so P2-2 was taken alone.
+
+### What was wrong
+
+`views.py:329`/`:334` guarded the `str`/`bytes` copy branches with `isinstance`. CPython's
+`isinstance` falls back to the instance's `__class__` attribute when the direct `PyType_IsSubtype`
+check fails, so a class whose real type is unrelated to `str` passes the guard by publishing
+`__class__ = str`. The branch then calls the **unbound builtin slot** `str.__str__` — chosen
+precisely because it does not consult the instance — which rejects the imposter with `TypeError`.
+The guard asked the object; the call asked the interpreter; they disagreed. Neither call sat in a
+`try`, and `proved_copy:465` does not guard `_dead_copy`, so the raise left the seam and falsified
+the module totality claims at `:5-7` and `:415-416`. The pre-repair `:311` returned `(value, ())`
+for the same object without raising, so the failure mode was **introduced by those bytes**.
+
+Not graded a bypass, and the reviewer's reason is adopted rather than restated: every seam that
+reaches `proved_copy` (`runner.py:476`, `preparation.py:287`, `:314`) catches broad `Exception`, so
+the raise fails **closed** into a stop control. It is a totality-contract defect.
+
+### Repair
+
+Exactly the reviewer's smallest correction: `issubclass(type(value), str)` and
+`issubclass(type(value), bytes)`. Both operands are ordinary types, so the check resolves to
+`PyType_IsSubtype` — the same relation the slot call requires, and one `__class__` cannot forge.
+An imposter now falls through to the uncopied return at `:357`, exactly where the pre-repair line
+left it, and `proved_copy:465` still reports it as not deeply immutable. The `__class__` vector is
+recorded in the `_dead_copy` docstring, discharging the previous verdict's P3-2 request.
+
+### Evidence at this commit
+
+- **Intended RED first**: `2 failed / 11 passed`, the two failures being exactly the defect tests,
+  each raising the predicted `TypeError: descriptor '__str__'/'__getitem__' ...`. The reviewer
+  derived this from CPython source semantics and explicitly declared it **unexecuted**; it is now
+  **executed**, and the derivation is confirmed rather than merely trusted.
+- **GREEN**: `13/13` in `tests/test_p2_2_dead_copy_class_forgery.py`.
+- **Anti-vacuity**: the forgery is proved real before any refusal is asserted; a control pins the
+  slot-rejection mechanism itself so the finding cannot rot silently under a future CPython; honest
+  `str`/`bytes` subclasses are still copied to their exact leaf types; seven exact leaves are
+  unchanged. Every case enters through the public `proved_copy` seam, never the private function,
+  so no assertion here can pass without reaching the branch it guards — the defect class P2-1 filed.
+- **Adjacent suites**: `656 passed / 7 failed`, the 7 being the intentional absent-entrypoint REDs.
+- **Broad census**: **1631 passed / 59 failed** against the declared baseline's **59** — failure
+  delta **zero**; the `+13` passes are exactly the new tests.
+- **Lint** on the two scoped paths: clean. **compileall**: clean. **`git diff --check`**: clean.
+- `uv.lock` untouched and still untracked; every command ran `--frozen --offline`.
+
+### Self-derived findings (this lane's own measurement, not a verdict)
+
+- **S10-1 (P3, NEW) — the `bytearray` branch at `views.py:325` is the same class as P2-2 and was
+  left alone deliberately.** `isinstance(value, bytearray)` has the identical `__class__` fallback,
+  and `bytes(value)` at `:326` raises `TypeError` on an imposter. `git log -S` places that branch at
+  `29d7c9d`, so it is **pre-existing and not authored by the P1-1 repair** — it is therefore a
+  separate finding, not part of P2-2, and folding it into this patch would have widened both the
+  repair and the review scope beyond the one finding taken. Recorded here so it cannot be lost.
+- **S10-2 (P3, NEW) — 12 pre-existing `ruff` errors outside the scoped paths.** `observe.py`
+  (2 `F401`, 5 `ISC004`), `preparation.py` (1 `F401`, 2 `ISC004`), `test_errors.py` and
+  `test_runner.py` (`I001`). None are in the files this cycle touched, and none are new. They are
+  not repaired here because doing so would touch files no open finding covers.
+
+### Gate after this cycle
+
+- **P2 OPEN = 7** (was 8). P0=0, P1=0, P3 = 5 + 2 self-derived. `P0=P1=P2=0` is **NOT** met.
+- Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft, tip unmoved at `73ec822`.
+- The evidence gate remains **UNAVAILABLE**: `roles/reviewer/REVIEW-EVIDENCE.json` is still absent
+  and `roles/reviewer/errors.jsonl` still does not exist, so the collector has still never run. The
+  reviewer lane driver is still PID 7945, started 21:15:15, predating the 21:51 collector rewrite.
+  A verdict carrying no `execution_evidence.status == COMPLETE` does not satisfy the push gate
+  regardless of its verdict field — while its NO-GO is still acted on, since withholding permission
+  needs no evidence to be safe.
+- No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
+  production **Founder-only**, release dates **unchanged**.

@@ -319,6 +319,15 @@ def _dead_copy(
     The leaf test is `_is_immutable_leaf` for the F153 reason — membership consults a metaclass's
     `__eq__`, identity cannot be forged. A subclass of a non-`str`/`bytes` leaf that is neither a
     `Mapping` nor a `Sequence` still falls through to the same uncopied return as before.
+
+    The `str`/`bytes` family tests are `issubclass(type(value), ...)` rather than `isinstance`,
+    and that is a second forgery, not the F153 one. `isinstance` falls back to the instance's
+    `__class__` attribute when the direct type check fails, so an unrelated class publishing
+    `__class__ = str` passed the guard — and the unbound `str.__str__` slot the branch then calls
+    does *not* consult the instance, so it raised `TypeError` out of this seam. `VERDICT-6d20929`
+    filed that as P2-2 against the repair above. Both operands here are ordinary types, so the
+    check resolves to `PyType_IsSubtype`: the guard now asks exactly the relation the slot call
+    requires, and an imposter falls through to the uncopied return the pre-repair line gave it.
     """
     if _is_immutable_leaf(value):
         return value, ()
@@ -326,12 +335,12 @@ def _dead_copy(
         return bytes(value), ()
     if isinstance(value, Mapping):
         return _dead_mapping(value, path, trail)
-    if isinstance(value, str):
+    if issubclass(type(value), str):
         # A `str` subclass is copied to its exact leaf type, never walked. `str(value)` would
         # dispatch to a `__str__` the subclass owns; `str.__str__` is the builtin slot, and on a
         # non-exact instance it returns a fresh exact `str`, so the recorded value is inert.
         return str.__str__(value), ()
-    if isinstance(value, bytes):
+    if issubclass(type(value), bytes):
         # The same, for `bytes`. `bytes(value)` consults a `__bytes__` the subclass owns, so the
         # whole-slice subscript of the builtin is taken instead; it yields an exact `bytes`.
         return bytes.__getitem__(value, slice(None)), ()
