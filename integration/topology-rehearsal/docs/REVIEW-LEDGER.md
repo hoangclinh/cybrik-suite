@@ -9175,3 +9175,102 @@ of the defect; it now states what the code does and records why it was wrong.
   handlers are once again unreachable is **owed to a reviewer**, not settled here.
 - No control weakened, no finding retired, no finding downgraded. Neither entrypoint script was
   written or run. RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+---
+
+## Cycle 6/48 — `VERDICT-a703a45` recorded: **NO-GO**, P0=0 **P1=1 P2=6 P3=4**
+
+Verdict channel `roles/reviewer/artifacts/VERDICT-a703a45….json`, bound to sha `a703a45` and
+driver diff hash `25b911b8031febf47f20b90aa20da442cf1f95c5c6564895a9b7d5b519e4c8a0`
+(`REVIEW-DIFF-SHA256/v1`), reviewer `cybrik-reviewer-coordinator`, personal pool, `claude-opus-5`,
+ladder step 1, `execution_capability: NONE_STATIC_REVIEW_ONLY`, observed `2026-08-06T14:45:01Z`.
+
+**The verdict JSON carries counts only. The finding text below is transcribed from the reviewer
+cycle-2 log and is the authoritative record** — two earlier reviews lost finding detail, so it is
+written into the repo before any repair begins.
+
+### What the review confirmed in favour of the range
+
+The F153 repair is mechanically sound at the three sites it touches (`:84`, `:154`, `:405`); `type()`
+reads the type slot, `is` is not overridable, a module-level tuple cannot be intercepted. The
+non-widening claim holds statically. No standing directive is violated. **The NO-GO is not a
+rejection of the F153 repair** — the blockers are one new P1 and six P2s living in the same file.
+
+### P1-1 (NEW) — `_dead_copy` drops the divergence cross-check for any leaf *subclass*
+
+Defect `views.py:311`; false invariant `views.py:298-299`. `isinstance(value, IMMUTABLE_LEAVES)`
+returns the caller's **live object, uncopied, with zero divergence findings**. A class subclassing
+`str` *and* implementing `items`/`__getitem__`/`get` with two faces passes `:311` **by ordinary
+inheritance, no forgery required**, so `_dead_mapping` is never called. `:298-299` claims alignment
+with `preparation.frozen`, which **refuses** a scalar subclass (`preparation.py:133-141`) — the two
+functions are opposites at exactly this boundary. Full bypass needs two out-of-scope links (F137 at
+`runner.py:389`; F153's fourth site at `preparation.py:131`). **Derived from source, not executed.**
+Correction: use `_is_immutable_leaf` at `:311` plus an explicit `isinstance(value, (str, bytes))`
+branch, then correct `:298-299`.
+
+### P2-1 (NEW) — the forgeable primitive is public, the safe one is private
+
+`views.py:32`/`:55` export `IMMUTABLE_LEAVES`; `_is_immutable_leaf` (`:58`) is private. Demonstrated
+recurrence: **`preparation.py:131` is `type(value) in IMMUTABLE_LEAVES` — F153's fourth site**, so
+`frozen` is still metaclass-forgeable. The commit subject and ledger `:9129-9132` say "three exact
+-type sites"; **there are four.** Correction: publish `is_immutable_leaf`, not the raw tuple.
+
+### P2-2 (NEW) — `stored_entries` documents the F135-**refuted** mechanism as the current control
+
+`views.py:200-208` restates the exact conjunction that `_states_the_same_value:119-125` declares
+refuted ("**It did not, and that was F135**"). The conclusion is true post-repair but by a *different*
+mechanism. **This is precisely how `VERDICT-abf4d5f` cleared F135 in error** (ledger `:8997-9012`).
+F139 class. Correction: describe identity-or-exact-leaf-`==`, what the code actually does.
+
+### P2-3 (carried, F138) — key set taken from one view; `views.py:181-182`/`:197-198` assert the opposite
+### P2-4 (carried) — `proved_copy` recursion unbounded; `id()` guard defeatable by a fresh proxy per level
+### P2-5 (carried, F141 class) — `stored_entries` renders attacker `repr()` outside every guard
+`views.py:219-220`, `:229-231`, `:236-239`, `:248-249`, `:258-260`, `:265-268`; `:234-240` sits in no
+`try` at all. Correction: a total `_shown(v)` helper at all six sites.
+### P2-6 (carried, F148) — undecided behaviour change (non-leaf identity) inside the pinned bytes
+### P2-7 (NEW) — the vacuity control never executes the branch it guards
+`tests/test_f153_metaclass_leaf.py:185-190`. `rebuilt = type(value)(value)` returns the **same
+object** for all six parametrizations, so `views.py:154-155` is never reached and the test asserts no
+`rebuilt is not value`. The "widened nothing" claim at ledger `:9134-9137` **rests on this control.**
+
+### P3-1 (F147 re-decided) — comparison-raise handlers unreachable again; `:147-148` and `:207-208` say otherwise. Keep as defence in depth and say so.
+### P3-2 — `views.py:311`'s `isinstance` is also `__class__`-forgeable; the stated reason covers only subclasses.
+### P3-3 (F140) — duplicate-key collapse still unreported at `views.py:210`.
+### P3-4 — `tests/test_f153_metaclass_leaf.py:138` advertises four tests as RED that this same commit makes GREEN.
+
+### Owed to this lane, out of scope, no finding filed
+
+`preparation.py:131` (F153's fourth site); `runner.py:389` (F137); `observe.py:321` prose falsified
+by F134; `observe.py:623`'s two-argument `server.get(KEY, default)` — a fourth view `views.py:243`
+never reconciles.
+
+### This lane's own execution-backed measurements — evidence, NOT a grade
+
+The reviewer filed P2-5 with the caveat that it **"did not read the guarding in full, so the
+caller-side consequence is unverified."** This lane executes; that gap is answered here, and these
+are measurements only. **This lane does not grade its own findings.**
+
+- **`proved_copy`'s handler at `views.py:415-425` is total** — it interpolates only `path` and
+  `type(error).__name__`, never the attacker value. P2-5 therefore **cannot** escape through the
+  `proved_copy` seam, and the `try` at `:411` catches it. Read from source this cycle.
+- **`preparation.py:251`/`:256` operate on the dead copies `proved_copy` already built** (`:218-223`,
+  and `:249-250` says so). A value whose `__repr__` raises is not an exact leaf, so it is refused as
+  "not deeply immutable" at `:220` **before** reaching `:251`. Static derivation this cycle,
+  **NOT yet executed** — the probe was cut short by the verdict landing mid-cycle.
+- **A seventh P2-5 site, not among the reviewer's six:** `observe.validate_image_identity`
+  interpolates `{value!r}` at `:557` and `{observation!r}`/`{selection!r}` at `:570` on **caller-owned
+  raw `object`**, with no guard and no `proved_copy` upstream. It is a public exported validator, so
+  the entrypoint reaches it directly. **Static observation this cycle, not executed.** Referred to
+  the reviewer; this lane neither grades it nor folds it into P2-5 unilaterally.
+
+### Gate after this cycle
+
+- **P0 = 0. Nothing is retired: NO-GO retires nothing.** F153 stays `repaired-unreviewed`; F134,
+  F135, F136 stay `repaired-unreviewed` exactly as the request stated in advance.
+- **P1 OPEN = 7** (F33, F123, F128, F131, F143, F149 + the new `_dead_copy` P1-1). **P1 r-u = 14.**
+- **P2 OPEN = 7** (six from this verdict + the new seventh site, ungraded and referred).
+- **`P0=P1=P2=0` is NOT met.** Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft.
+- **No `freeze_breach`:** `FREEZE` held sha `a703a45`, HEAD never moved while the verdict was
+  outstanding, and this entry was written only after the driver archived the request and cleared it.
+- No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
+  production **Founder-only**, release dates **unchanged**.
