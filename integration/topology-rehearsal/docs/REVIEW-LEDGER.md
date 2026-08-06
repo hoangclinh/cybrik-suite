@@ -4758,3 +4758,118 @@ size wall mid-repair.
 Second priority, and cheaper: **F16 and F37 both live in the same seam.** `adapter.py` has **zero**
 free lines, and `CommandAdapterAccessors` is public at `observe.py:661` but absent from `__all__`.
 Any repair touching either module must budget for both.
+
+---
+
+## Cycle 41 — re-measurement at live HEAD `3c58664`, and the lint gate that was never actually unrunnable
+
+Measured by an independent read-only verifier and reproduced by the coordinator. Every figure below
+is a live measurement at `3c58664`, not a carried-forward claim.
+
+### Live identity
+
+Local HEAD `3c58664`, branch `codex/uat-browser-g-u2b-db-red-gate-r1`, **80 commits ahead** of
+origin. Origin/PR #55 remains at `73ec822`, **OPEN, draft, CLEAN**, four rendered hosted checks
+SUCCESS (two `secret-scan`, two `contract standards validation`). The untracked
+`integration/topology-rehearsal/uv.lock` is present, unmodified, sha256
+`24135c76f28231b2d5201028e741cc5da85a6b8af13feaf99e6668bac6ab25eb`.
+
+**The autonomous checkpoint this cycle was handed was stale**: it named HEAD `76553f4` and "11
+commits ahead". Both were wrong by 69 commits. Live git was authoritative and was re-read first.
+
+### Census, with all 58 failures classified rather than assumed
+
+`uv run --offline python -m pytest tests -q` → **`58 failed, 1535 passed in 0.72s`**.
+
+All 116 traceback lines (58 failures x 2) were swept. Every one reduces to a single source,
+`tests/conftest.py:94` in `require_c8_path()`, reporting one of `scripts/`,
+`scripts/prepare_topology_grant.py` or `scripts/run_topology_rehearsal.py` as absent. `ls scripts/`
+confirms the **directory itself** does not exist, not merely the two files.
+
+**58 of 58 are the intended absent-entrypoint-script RED. UNINTENDED = 0.**
+
+`uv run --offline python -m compileall -q src tests` → exit 0, clean.
+
+### F100 — **P2** — `docs/REVIEW-LEDGER.md`, finding F15. **NEW, OPEN. The pinned lint gate runs, and fails.**
+
+F15 has stood since band 1 as *"`.venv/bin/ruff` absent; the pinned lint gate never ran"*, and the
+open-set register carries it as a P3 documentation defect. The premise is half true and the
+conclusion is false. `.venv/bin/` does hold only `pytest, python, python3, python3.12` — but
+`uv run --offline ruff check src tests` **resolves `ruff` through the host `PATH`** to
+`/opt/homebrew/bin/ruff` 0.16.0 and **executes**. It has been runnable this whole time.
+
+It reports **12 errors, exit 1**, read-only `check` with no `--fix` applied:
+
+| Site | Rule | Already tracked as |
+|---|---|---|
+| `observe.py:84,85` | `F401` unused import | F90 |
+| `observe.py:266,272,281,286,345` | `ISC004` implicit concatenation | F94 |
+| `preparation.py:53` | `F401` unused `PRESENT_KEY` | F80 |
+| `preparation.py:628,662` | `ISC004` implicit concatenation | F94 |
+| `tests/test_errors.py:12` | `I001` unsorted import block | **NEW — untracked** |
+| `tests/test_runner.py:3` | `I001` unsorted import block | **NEW — untracked** |
+
+Two consequences, and the second is the one that matters:
+
+1. **F15 must be re-scoped**, not closed: the accurate finding is *"ruff is absent from the project
+   `.venv`, so the gate's availability depends on host `PATH` and is not reproducible in a clean
+   environment"* — a real supply-chain-of-evidence defect. Its severity as written (P3) understated
+   a gate that was reporting real failures nobody read.
+2. **The lint gate is a FAILING gate at live HEAD**, and has been recorded as unrunnable rather than
+   failing. Ten of the twelve errors independently corroborate F80, F90 and F94 from a second tool;
+   the two `I001` findings are new and were never opened by any review.
+
+No auto-fixer was run and none may be: `--fix` is a formatter action requiring Founder authority
+under this repository's `CLAUDE.md`, and `observe.py:84,85` is the deliberate F90 re-export seam
+that `preparation.py:52,54` depends on — `--fix` would delete a load-bearing import and break the
+package. This is exactly why the gate must be read by a human and not auto-applied.
+
+### F86 mechanism confirmed by direct probe, not by assertion
+
+The coordinator independently reproduced the `.get` delegation hazard that F83/F86 turn on:
+
+```
+class G(dict):
+    def get(self, k, d=None): return 'FORGED' if k=='observed_at' else dict.get(self,k,d)
+p = MappingProxyType(G({'observed_at':'GENUINE'}))
+  type(p) is MappingProxyType -> True
+  p.get('observed_at')        -> 'FORGED'
+  p['observed_at']            -> 'GENUINE'
+  dict(p.items())             -> 'GENUINE'
+```
+
+A `dict` subclass overriding **only** `get`, wrapped in `MappingProxyType`, passes the
+`type(value) is not MappingProxyType` gate in `PreparationResult.__post_init__` and the deep
+immutability proof, while `.get` diverges from **both** views `views.stored_entries` reconciles.
+`preparation.py:233` binds `signed` through exactly that `.get`, and `:243` reads the live reading's
+instant the same way. **F86 and F83 are CONFIRMED by measurement, not merely re-asserted.**
+
+### Size headroom re-measured, and two modules are at the wall
+
+| Module | Lines | Free to the strict `< 800` bound |
+|---|---:|---:|
+| `adapter.py` | 799 | **1** |
+| `grant.py` | 794 | **6** |
+| `preparation.py` | 771 | 29 |
+| `runner.py` | 756 | 44 |
+| `admission.py` | 725 | 75 |
+| `observe.py` | 693 | 107 |
+
+Bound source `tests/test_surface_contract.py:95-96` (`MODULE_LINE_LIMIT = 800`), enforced at `:247`
+by `>= MODULE_LINE_LIMIT`. `adapter.py` is **one line** from tripping the gate; `grant.py` is six.
+Any repair touching either must plan its extraction as a separate reviewed commit first.
+
+### Push gate at `3c58664`
+
+**P0 = 0. P1 = 4** (F33 deferred to the GREEN; F83, F86, F87). **P2 = 28** (the 27 of the `9439bd0`
+register, plus F100). **P3 = 32.** The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint
+GREEN stays blocked. **None of the 80-commit local range is push-eligible.** RUNTIME remains
+**HOLD**. PRODUCTION remains **Founder-only**.
+
+### Exact next action
+
+Unchanged in target, sharpened by this cycle's probe: **repair the `preparation.py:233-243` `.get`
+cluster (F86 + F83) test-first**, reading both instants from what the mapping *stores* via
+`views.stored_entries` and refusing a mapping whose two views diverge, before any binding is
+compared. The probe above is the ready-made RED. Budget 29 free lines in `preparation.py`. F87 and
+F65 are the same seam but a separate commit; F100's two new `I001` sites are cheap and independent.
