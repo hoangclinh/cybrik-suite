@@ -143,8 +143,13 @@ the composition root, and is recorded in its own section below. The heading coun
    `documents.Authorization` or `grant_document()` carries that value and no such string exists
    in `src/`. This must be resolved by design review, not guessed — either
    `build_runtime_wiring` takes its own `repository_roots` argument, or a reviewed source for
-   it has to be named. `attempt_id` and `image_reference` are both derivable from the grant's
-   observed and selected image identities using the existing `runner._attempt_names` formula.
+   it has to be named. `image_reference` is derivable from the grant's selected image
+   identity. `attempt_id` is not a fresh derivation at all: `runner.attempt_id_for` (defined
+   `runner.py:286`, exported `runner.py:81`) is already the one rendering of that identity in
+   the package, and the composition root must call it directly, fed the grant's pinned
+   `observed_image_identity.observed_at` instant — never a live host reading. It must not
+   reach for `runner._attempt_names`, which is private and takes a `PreparationResult` the
+   wiring does not hold.
 
 3. **The front door currently asserts the scripts are absent.**
    `test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder` asserts

@@ -2015,3 +2015,34 @@ and corrects a keyword; it removes no assertion and relaxes no guard.
 
 **F30, F39** remain open and unrepaired. **F36** is refuted. **F43** is discharged.
 **F44** is addressed in the entry that follows this one.
+
+### F44 — REPAIRED. `docs/ENTRYPOINT-SLICE-SPEC.md:146`
+
+The spec's obstacle-2 passage told the implementer that `attempt_id` is derivable
+"using the existing `runner._attempt_names` formula" — a private helper taking a
+`PreparationResult` the composition root does not hold, which is an instruction to
+re-render the identity by hand at a site
+`test_the_attempt_identity_format_is_rendered_in_exactly_one_place` cannot see
+(it parses `runner.py` only). It now names the exported seam, states that the root
+must call `runner.attempt_id_for` directly with the grant's pinned
+`observed_image_identity.observed_at`, and states explicitly that it must not reach
+for `_attempt_names`.
+
+The passage was the only one in the spec instructing an attempt-identity derivation;
+`_attempt_names`, `attempt_id`, `ATTEMPT_INSTANT_FORMAT`, `formula` and `observed_at`
+were all searched. The `image_reference` half was left as-is: it is a different field
+with no seam pinned for it, and widening it is not F44.
+
+**Evidence:** doc-only change; broad census `58 failed / 1418 passed`, unchanged.
+
+### Net effect on the GREEN gate
+
+F43 and F44 — the two artifacts the previous review required to be repaired *before*
+the GREEN, because both would have authored a second rendering of the identity — are
+both discharged. The open P1 set is now **F30** (authority-bearing pinned instant is
+an unvalidated defaulted field, `preparation.py:220`) and **F39** (`grant_derived_names`
+does not follow taint across the call-argument-to-parameter edge,
+`tests/test_scripts_inert.py:1299-1317`). P1 ≠ 0, so the GREEN stays blocked, and
+these repairs have not been independently reviewed.
+
+RUNTIME remains **HOLD**. No entrypoint script exists and none was executed.
