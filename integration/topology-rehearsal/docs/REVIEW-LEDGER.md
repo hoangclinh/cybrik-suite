@@ -6455,12 +6455,28 @@ frame deeper, on the un-copied `container` reading. A `PortBindings` mapping ite
 `{"8000/tcp"}` while also publishing another port defeats the control `observe.py:394-399` states in
 its own words; verdict and receipt agree with each other and both disagree with the container.
 
-**F123 — P2 — `observe.py:387`, `:389`, `:456-476`; `runner.py:419`, `:594`. NEW, OPEN.**
+**F123 — P1 — `observe.py:387`, `:389`, `:456-476`; `runner.py:438`, `:613`. OPEN.**
 `reported_publication` gates by subclass-permissive `isinstance(value, str)` and takes its value from
 an overridable `value.strip()`; the result is judged by `__eq__` and recorded verbatim into
 `publication_views`, which is never `frozen()`. One function, so it covers both `daemon_event` and
 `docker_port`. `preparation.frozen` (`preparation.py:132-138`) **explicitly refuses scalar
 subclasses for exactly this reason** — the post-creation path has no equivalent.
+
+*Re-graded and re-anchored in cycle 56.* **Grade P2 → P1**, the re-grade the cycle-55 addendum
+recorded as CONFIRMED at source and still OWED; it is applied here. **Anchors `runner.py:419` and
+`:594` were stale and are replaced by `:438` and `:613`.** Both replacements were verified against
+live committed source this cycle (`git show HEAD:…/runner.py`): `:438` is
+`publication_views=publication.views,` inside the `AttemptObservation` return, and `:613` is
+`observation.publication_views,` inside the `recorded` tuple — so the addendum's replacement anchors
+are correct and are written as given. The stale ones pointed elsewhere: at HEAD `:419` is
+`probe_result = frozen(` and `:594` is `probe = {`, which is **F129's** anchor, not F123's. The full
+committed route into the receipt is `runner.py:422` → `:438` → `:613` → `:619` → the shallow wrap at
+`:620-622`. The `observe.py` anchors were checked in the same pass and are **exact at HEAD**: `:387`
+is `if not isinstance(value, str):`, `:389` is `return value.strip() or None`, and the `views`
+mapping built by `validate_publication` spans `:456-470` (the cited `:456-476` additionally covers
+the findings comprehension at `:471-476`; left as filed, since it is wider rather than wrong). The
+read-only guard does not save this: `ObservationVerdict.__post_init__` (`observe.py:197-200`) checks
+only `type(self.views) is not MappingProxyType` and never examines the proxy's values.
 
 **F124 — P2 — `observe.py:380`, `:382`, `:429-437`. NEW, OPEN.**
 `listener_publication` judges "exactly one claim" through `__len__` and takes the claim through
@@ -6768,10 +6784,31 @@ traceability statement; the five headline numbers are unchanged:
 > **P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint GREEN). **P1 repaired-unreviewed =
 > 10** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122). **P2 OPEN = 39. P2
 > repaired-unreviewed = 3** (F79, F84, F95). **P3 OPEN = 40. P3 repaired-unreviewed = 2** (F96, F97).
-> CLOSED = 28, SUPERSEDED = 2, PHANTOM = 4 (F56-F59). Reconciliation: 28+2+4+1+10+39+3+40+2 = **129
-> slots** = F1..F126 plus F29-A/B/C; defined-ID count **125**. **Independently re-derived from the
-> body's own finding records, not carried forward.** The gate is **not met**. RUNTIME **HOLD**.
+> CLOSED = **29**, SUPERSEDED = 2, PHANTOM = 4 (F56-F59). Slot range **133** = F1..F130 plus
+> F29-A/B/C; defined-ID count **129**. **Independently re-derived from the body's own finding
+> records, not carried forward.** The gate is **not met**. RUNTIME **HOLD**.
 > Production **Founder-only**.
+>
+> *As originally written, now superseded:* `CLOSED = 28 … Reconciliation: 28+2+4+1+10+39+3+40+2 =`
+> `**129 slots** = F1..F126 plus F29-A/B/C; defined-ID count **125**.`
+
+**Correction applied in cycle 56.** The three corrected figures in the blockquote above derive from
+the **cycle-55 addendum's independent re-derivation** (end of this file) rolled forward from the
+source-verified baseline register at `9439bd0` (`:4716-4726`, 102 slots). The cause was that
+**F126 was double-placed**: this blockquote re-derived the *cycle-53* tally, in which F126 was still
+P2 OPEN, after `:6633` had already closed it — so F126 was counted once in P2 OPEN and once in
+CLOSED. The `+1` on P2 OPEN and the `−1` on CLOSED **cancelled**, which is precisely why the old
+`28+2+4+1+10+39+3+40+2 = 129` balanced and survived three consecutive readings. A tally that
+balances is not a tally that is right.
+
+Two consequences a future reader must not miss. First, with CLOSED at **29** the blockquote's
+**P2 OPEN = 39** is the double-placed figure; the correct post-F126-close value for that era is
+**38** (see the cycle-54 gate at `:6683`). Second, the blockquote's remaining figures — **P1 OPEN =
+1** and **P3 OPEN = 40** — are cycle-53-era values, taken before F127-F130 were filed and before
+F128 was raised to P1, so they do **not** sum to the corrected **133**-slot range. The authoritative
+summing reconciliation is the **"Cycle 56 — owed ledger text repairs applied"** section at the end
+of this file. Nothing above is deleted; the block is retained as the record of how the error was
+made.
 
 ### Still owed after this addendum
 
@@ -6838,11 +6875,29 @@ by the shallow outer `MappingProxyType` at `:620`. Any holder can execute
 The reviewer read only the last 250 ledger lines plus targeted greps, so "new" is **probable, not
 certain** — recorded as reported.
 
-**F130 — P3 — this ledger, cycle 52. NEW, OPEN.** F114's repair is attributed to `f40c5a9`, which
-touched **`preparation.py` only** (`git show --stat f40c5a9`; it converted `preparation.observe`'s
-eight `guarded(` calls to `projected(`). The actual `runner.py` network repair is **`f25bc97`**. A
-reader bisecting on `f40c5a9` finds no runner change. This ledger's own cycle-53 text carries the
-same misattribution.
+**F130 — REFUTED. CLOSED in cycle 56 as a false filing.** *Reason:* its author **conflated F108's
+repair commit `f40c5a9` with F114's** — every occurrence of `f40c5a9` in this file (`:6032`, `:6076`,
+`:6079`, `:6094`, `:6119`) sits inside the cycle-51 **F108** section and is correct about F108, so
+the ledger text F130 accuses is not wrong. Text preserved verbatim below; it no longer counts
+against the gate.
+
+> **F130 — P3 — this ledger, cycle 52. NEW, OPEN.** F114's repair is attributed to `f40c5a9`, which
+> touched **`preparation.py` only** (`git show --stat f40c5a9`; it converted `preparation.observe`'s
+> eight `guarded(` calls to `projected(`). The actual `runner.py` network repair is **`f25bc97`**. A
+> reader bisecting on `f40c5a9` finds no runner change. This ledger's own cycle-53 text carries the
+> same misattribution.
+
+The refutation is the cycle-55 addendum's, recorded at the end of this file and reproduced in short
+here so the entry is self-contained. Its *factual* half stands — `f40c5a9` does touch
+`preparation.py`/`test_preparation.py` only, and `f25bc97` is the commit that changed
+`runner.py:418` to `frozen(...)`. Its *ledger* half is false: `F114` first appears at `:6229` and
+nowhere in the `6025-6125` band; the cycle-52 section that actually records F114's repair
+(`:6336-6384`) cites HEAD `0730e5a`, quotes the diff, names no repair commit, and is not wrong; and
+the two cycle-53 sections (`:6145`, `:6207`) contain **zero** occurrences of `f40c5a9`, which refutes
+F130's closing sentence outright. **The only misattributed lines in this file were F130's own.** A P3
+was counted against the gate on a false premise. Bucketed as **CLOSED**, not PHANTOM — PHANTOM here
+is the specific F56-F59 set — so that the slot range stays exact; a future reader may re-bucket it
+without changing any other figure.
 
 ### Ruling on the accessor, recorded as binding
 
@@ -6874,10 +6929,20 @@ Reviewer's focused run: **697 passed, 7 failed**, all 7 the intended absent-`scr
 ### Push gate after both addenda
 
 **P0 = 0. P1 OPEN = 2** — F33 (deferred) and **F128 (new, blocking)**; **F123 re-grade to P1 owed**,
-which would make it 3. **P1 repaired-unreviewed = 10.** **P2 = 40** (+F129, −0; F127 is P3).
-**P3 = 42** (+F127, +F130). The gate `P0 = P1 = P2 = 0` is **not met** and has moved **further** from
-being met. **No part of the 108-commit local range is push-eligible.** RUNTIME **HOLD**. Production
-**Founder-only**.
+which would make it 3. **P1 repaired-unreviewed = 10.** **P2 OPEN = 39** (+F129, −0; F127 is P3).
+**P2 repaired-unreviewed = 3** (F79, F84, F95). **P3 OPEN = 42** (+F127, +F130). **P3
+repaired-unreviewed = 2** (F96, F97). The gate `P0 = P1 = P2 = 0` is **not met** and has moved
+**further** from being met. **No part of the 108-commit local range is push-eligible.** RUNTIME
+**HOLD**. Production **Founder-only**.
+
+*Corrected in cycle 56, per the cycle-55 addendum:* this paragraph read **`P2 = 40`**. That figure
+inherited the double-placed `39 + F129` chain; the correct chain is the cycle-54 gate's **38** at
+`:6683` plus F129, giving **39**. The two **repaired-unreviewed sub-buckets above were also absent
+from this paragraph** — the same completeness defect filed at `:6745-6747` and again in the cycle-55
+addendum, which states that any gate paragraph omitting them is wrong by construction. The
+`P0/P1/P3` figures in this paragraph are unchanged and were confirmed correct by the cross-check.
+These figures are the **cycle-54-era** gate; they predate the F123 re-grade and the F130 refutation,
+both applied in cycle 56. The current gate is the section at the end of this file.
 
 **Next cycle's single outcome: repair F128 test-first** — RED proving the hostile subscript-divergent
 network is admitted at HEAD, then `proved_copy` at `runner.py:418`, then GREEN, then an independent
@@ -7069,6 +7134,14 @@ defined-ID count), :6877 (P2 40→39), :6458 (F123 grade P2→P1 and its two sta
 :6841-6844 (F130 closed as REFUTED). These are text repairs to this ledger and must not be bundled
 into the F128 code slice.
 
+**DISCHARGED in cycle 56. All four repairs above are applied — do not apply them a second time.**
+See **"Cycle 56 — owed ledger text repairs applied"** at the end of this file for what was changed,
+the source verification of F123's replacement anchors, and the recomputed gate. Re-applying them
+would double-place F123 and F130 in exactly the way F126 was double-placed. Consequently the two
+sentences above that read "the P1 re-grade is still OWED and still not applied" (F123) and "Close it
+as a false filing" (F130) are **now discharged**, not outstanding; they are left in place as the
+record of what was owed and why.
+
 **Two live caveats already filed in-ledger still ride on these numbers:** F107 (:5734) — if F16
 resolves to P3, P2 → 38 and P3 → 43; F112 (:5860) — if F103/F104 are reclassified SUPERSEDED, P1
 repaired-unreviewed → 8.
@@ -7077,3 +7150,95 @@ repaired-unreviewed → 8.
 10, P2 OPEN = 39, P2 repaired-unreviewed = 3, P3 OPEN = 42, P3 repaired-unreviewed = 2, CLOSED = 29,
 SUPERSEDED = 2, PHANTOM = 4. `P0 = P1 = P2 = 0` is NOT met. Nothing ahead of `73ec822` is
 push-eligible. RUNTIME HOLD. Production Founder-only.**
+
+## Cycle 56 — owed ledger text repairs applied
+
+*2026-08-06. Text-only. No source file, no test file and no other document was touched by this
+work; the repairs are deliberately **not** bundled into the F128 code slice, exactly as the cycle-55
+addendum required.*
+
+The four text repairs the addendum above enumerated as owed have been applied. Each was located by
+content and verified against the passage before editing.
+
+| # | passage | before | after |
+|---|---|---|---|
+| 1 | cross-check reconciliation blockquote (`:6768-6774`) | CLOSED = 28; slot range 129 = F1..F126 + F29-A/B/C; defined-ID 125 | CLOSED = **29**; slot range **133** = F1..F130 + F29-A/B/C; defined-ID **129** |
+| 2 | "Push gate after both addenda" (`:6877`) | `P2 = 40`; both repaired-unreviewed sub-buckets absent | **P2 OPEN = 39**; **P2 repaired-unreviewed = 3** (F79, F84, F95) and **P3 repaired-unreviewed = 2** (F96, F97) added |
+| 3 | F123 entry (`:6458`) | grade **P2**; anchors `runner.py:419`, `:594` | grade **P1**; anchors `runner.py:438`, `:613` |
+| 4 | F130 entry (`:6841-6844`) | P3, NEW, OPEN | **REFUTED, CLOSED as a false filing**; text preserved verbatim in-entry |
+
+Repair 1's correction derives from the cycle-55 addendum's re-derivation from the source-verified
+`9439bd0` baseline register (`:4716-4726`); the cause was that **F126 was double-placed** — counted
+once as P2 OPEN in a cycle-53-era re-derivation and once as CLOSED after `:6633` — and the two errors
+cancelled, which is why the old sum balanced through three readings.
+
+Repair 3's replacement anchors were **verified against live committed source this cycle**, not
+carried on the addendum's word. At `HEAD`, `runner.py:438` is `publication_views=publication.views,`
+and `:613` is `observation.publication_views,`. The addendum's replacements are therefore correct
+and were written as given. The stale anchors pointed at unrelated code: `:419` is
+`probe_result = frozen(` and `:594` is `probe = {`, which belongs to F129.
+
+Repair 4's reason, in one line: **F130's author conflated F108's repair commit `f40c5a9` with
+F114's; the ledger text F130 accused is correct.** F130 is bucketed **CLOSED** rather than PHANTOM —
+PHANTOM in this ledger denotes the specific F56-F59 set — which keeps the slot range exact.
+
+### Gate movement caused by these repairs
+
+Repairs 1 and 2 are bookkeeping and move no finding between buckets. Repairs 3 and 4 do:
+
+- **F123: P2 OPEN → P1 OPEN.** P1 OPEN 2 → **3**; P2 OPEN 39 → **38**.
+- **F130: P3 OPEN → CLOSED.** P3 OPEN 42 → **41**; CLOSED 29 → **30**.
+
+### Corrected gate at the close of cycle 56
+
+- **P0 = 0**
+- **P1 OPEN = 3** — **F33** (deferred to the atomic entrypoint GREEN), **F123** (re-graded this
+  cycle), **F128** (blocking; repair **in progress and under independent review this cycle — NOT
+  complete, and not claimed complete here**)
+- **P1 repaired-unreviewed = 10** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122)
+- **P2 OPEN = 38**
+- **P2 repaired-unreviewed = 3** (F79, F84, F95)
+- **P3 OPEN = 41**
+- **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30**
+- **SUPERSEDED = 2**
+- **PHANTOM = 4** (F56-F59)
+
+**Exact arithmetic check:**
+
+```
+CLOSED                  30
+P1 OPEN                  3
+PHANTOM                  4
+SUPERSEDED               2
+P1 repaired-unreviewed  10
+P2 OPEN                 38
+P2 repaired-unreviewed   3
+P3 OPEN                 41
+P3 repaired-unreviewed   2
+                      ----
+                       133
+```
+
+`30 + 3 + 4 + 2 + 10 + 38 + 3 + 41 + 2 = 133` = **F1..F130 (130) plus F29-A/B/C (3)**. Exact. The
+highest finding ID actually defined is **F130**; `F401` seen in greps is a ruff code, not a finding.
+The slot range is unchanged by these repairs — refuting F130 re-buckets it, it does not delete the
+slot.
+
+**`P0 = P1 = P2 = 0` is NOT met.** P1 OPEN is 3 and P2 OPEN is 38, and the F123 re-grade moved the
+gate **further** from being met, not closer. **Nothing ahead of `73ec822` is push-eligible.**
+RUNTIME **HOLD**. Production **Founder-only**.
+
+**Caveats still riding on these numbers, unchanged:** F107 (`:5734`) — if F16 resolves to P3,
+P2 OPEN → 37 and P3 OPEN → 42; F112 (`:5860`) — if F103/F104 are reclassified SUPERSEDED, P1
+repaired-unreviewed → 8 and SUPERSEDED → 4.
+
+**Two known-stale figures deliberately left in place.** The cycle-55 headline paragraph at `:6990`
+also reads `P2 = 40` and `P3 = 42`. It is **not** edited here: it lies immediately above the cycle-55
+addendum that corrects it in full, so the record of the error and its correction stay adjacent. It
+was outside the enumerated repair list. A reader must take the section above, not `:6990`, as the
+current gate.
+
+**Nothing was downgraded, softened or deleted by this work.** F130 is the only finding removed from
+the open counts, and it is removed because it was **refuted on evidence**, not because it was
+graded down.
