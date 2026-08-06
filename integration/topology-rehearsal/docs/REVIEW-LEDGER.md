@@ -3334,3 +3334,50 @@ the gate. It removes four of the five reasons it was shut.
 F78 and F79 remain repaired-but-unreviewed and are not discharged.
 
 P1 ≠ 0. Nothing is pushable.
+
+---
+
+## Cycle 38 — the F83 repair landed, measured and checkpointed at `4b25214`
+
+The previous cycle timed out with the F83 repair uncommitted in the working tree. This cycle
+measured it rather than trusting it, committed it as `4b25214`, and commissioned two independent
+opinions on it. **Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains HOLD — no
+entrypoint script exists and none was executed.**
+
+### The repair, stated exactly
+
+`observe.stored_entries(mapping, label)` reads an inventory once by `.items()` and returns both what
+the mapping *stores* and a finding for every entry whose subscript disagrees with it — including a
+subscript that refuses to answer, which is reported as a finding rather than escaping the reducer.
+`signed_identity_findings` now takes every binding from the stored view: the unresolved check, the
+registry-digest loop, `platform_findings` and the binding comparison.
+
+The subscript is **kept as a cross-check, not dropped**, for the same reason the F78 repair kept it:
+`__getitem__` is a live protocol on this field elsewhere (`runner._selected_identity`, `grant`'s own
+reductions), so trusting `items()` alone would re-admit the F79 case. Disagreement in either
+direction is a refusal.
+
+### Measured at this cycle's HEAD, not read
+
+| gate | result |
+|---|---|
+| intended RED — the new cases against the pre-repair module at `361292d` | **11 failed, 15 passed, 112 deselected** |
+| GREEN — `tests/test_observe.py` at `4b25214` | **138 passed** |
+| broad static census — whole `tests/` tree at `4b25214` | **1510 passed, 58 failed** |
+| every one of the 58 | in `test_scripts_inert.py` / `test_surface_contract.py` only — the known absent-entrypoint REDs; **zero new failures** |
+| `compileall src tests` | exit 0 |
+| `git diff --check 361292d..4b25214` | clean |
+| `observe.py` against the pinned `MODULE_LINE_LIMIT = 800` (`tests/test_surface_contract.py:95`) | **762 lines — 38 lines of headroom** |
+
+The 15 that pass in the RED state are the deliberate positive controls, including an unchanged
+`MappingProxyType` copy and a no-override `dict`-subclass proxy. The control is therefore not
+vacuously refusing: the RED is a real refuse→accept differential on the forged shapes alone.
+
+The census is quoted from a clean tree at `4b25214` with only the untracked `uv.lock` present. It
+is **not** runtime evidence: 58 REDs stand precisely because the two entrypoint scripts this slice
+owes do not exist yet.
+
+### `ruff` and `mypy` remain absent
+
+Neither is installed and neither may be installed without a separate dependency decision, so lint
+and typecheck are **not** discharged for this commit. Recorded rather than skipped silently.
