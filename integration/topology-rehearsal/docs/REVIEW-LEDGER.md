@@ -41,32 +41,35 @@ to be lost irrecoverably.
 | — | F108 adversarial lane: universal clause REFUTED, narrow claim survives | REFUTED ‡ | n/a ‡ | NO | HOLD |
 | — | Cycle-54 adversarial lane: accessor reasoning wrong | NO-GO ‡ | n/a ‡ | NO | HOLD |
 | `4a3d9d7` | F128 repair, independent Opus | NO-GO | 0/3/3/1 | NO | HOLD |
-| `abf4d5f` | Cycle 3 (V2), first V2-lane verdict (3 paths) | NO-GO | 0/0/4/3 | NO | HOLD |
-| `a703a45` | Cycle 6/48 (2 paths) | NO-GO | 0/1/6/4 | NO | HOLD |
-| `6d20929` | Cycle 9, `views.py` + two tests; evidence UNAVAILABLE | NO-GO | 0/0/8/5 | NO | HOLD |
-| `af0d227` | Cycle 11, first verdict backed by driver execution evidence | NO-GO | 0/0/9/6 | NO | HOLD |
-| `e311f8b` | Cycle 12, 8 paths — largest P2 count in the corpus | NO-GO | 0/0/10/11 | NO | HOLD |
-| `d2c290f` | Cycle 13, 4 paths | NO-GO | 0/0/8/8 | NO | HOLD |
-| `c89761a` | Cycle 14, 3 paths | NO-GO | 0/0/3/5 | NO | HOLD |
-| `2066a8d` | Cycle 15, 4 paths | NO-GO | 0/0/4/5 | NO | HOLD |
-| `ede0381` | Cycle 16, 4 paths | NO-GO | 0/1/1/7 | NO | HOLD |
-| `3188cc5` | Cycle 17, 5 paths — § no prose section in this ledger | NO-GO | 0/0/1/6 | NO | HOLD |
-| `3bdacfc` | Cycle 18, 9 paths | NO-GO | 0/0/2/3 | NO | HOLD |
-| `46e04aa` | Cycle 19, 10 paths (widest scope reviewed) | NO-GO | 0/1/1/2 | NO | HOLD |
-| `9173473` | Cycle 20, 2 paths — § no prose section in this ledger | NO-GO | 0/1/1/0 | NO | HOLD |
-| `a31f54d` | Cycle 21, F0052 P1 + F0053 P2 | NO-GO | 0/1/1/2 | NO | HOLD |
-| `8aef3da` | Cycle 22, two gating rows retired | NO-GO | 0/1/0/5 | NO | HOLD |
-| `93e1140` | Cycle 23, four rows retired | NO-GO | 0/0/0/4 | NO | HOLD |
-| `574e1ed` | Cycle 24, `runner.py` + `test_runner.py` — the corpus's only GO | GO | 0/0/0/1 | NO | HOLD |
-| `22fa33b` | Cycle 25, ledger scope | NO-GO | 0/0/1/2 | NO | HOLD |
-| `fae019f` | Cycle 26, ledger scope — F0062/F0063/F0064 retired, F0065 P2 opened | NO-GO | 0/0/1/2 | NO | HOLD |
-| `50d6be6` | Cycle 27, ledger scope — F0066/F0067 retired, F0065 carried, F0068/F0069 opened | NO-GO | 0/0/1/2 | NO | HOLD |
+| `abf4d5f` | first V2-lane verdict (3 paths) | NO-GO | 0/0/4/3 | NO | HOLD |
+| `a703a45` | (2 paths) | NO-GO | 0/1/6/4 | NO | HOLD |
+| `6d20929` | `views.py` + two tests; evidence UNAVAILABLE | NO-GO | 0/0/8/5 | NO | HOLD |
+| `af0d227` | first verdict backed by driver execution evidence | NO-GO | 0/0/9/6 | NO | HOLD |
+| `e311f8b` | 8 paths — largest P2 count in the corpus | NO-GO | 0/0/10/11 | NO | HOLD |
+| `d2c290f` | 4 paths | NO-GO | 0/0/8/8 | NO | HOLD |
+| `c89761a` | 3 paths | NO-GO | 0/0/3/5 | NO | HOLD |
+| `2066a8d` | 4 paths | NO-GO | 0/0/4/5 | NO | HOLD |
+| `ede0381` | 4 paths | NO-GO | 0/1/1/7 | NO | HOLD |
+| `3188cc5` | 5 paths — § no prose section in this ledger | NO-GO | 0/0/1/6 | NO | HOLD |
+| `3bdacfc` | 9 paths | NO-GO | 0/0/2/3 | NO | HOLD |
+| `46e04aa` | 10 paths (widest scope reviewed) | NO-GO | 0/1/1/2 | NO | HOLD |
+| `9173473` | 2 paths — § no prose section in this ledger | NO-GO | 0/1/1/0 | NO | HOLD |
+| `a31f54d` | f0052 P1 + F0053 P2 | NO-GO | 0/1/1/2 | NO | HOLD |
+| `8aef3da` | two gating rows retired | NO-GO | 0/1/0/5 | NO | HOLD |
+| `93e1140` | four rows retired | NO-GO | 0/0/0/4 | NO | HOLD |
+| `574e1ed` | `runner.py` + `test_runner.py` — the corpus's only GO | GO | 0/0/0/1 | NO | HOLD |
+| `22fa33b` | ledger scope | NO-GO | 0/0/1/2 | NO | HOLD |
+| `fae019f` | ledger scope — F0062/F0063/F0064 retired, F0065 P2 opened | NO-GO | 0/0/1/2 | NO | HOLD |
+| `50d6be6` | ledger scope — F0066/F0067 retired, F0065 carried, F0068/F0069 opened | NO-GO | 0/0/1/2 | NO | HOLD |
+| `55c9810` | ledger scope — F0065 (3-cycle P2), F0068, F0069 retired; F0070 P2 + F0071-F0075 opened | NO-GO | 0/0/1/5 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
 prose sections, with nothing disclosing the cut-off. A reader scanning the top of the file saw a GO
-as the newest row. That is the identical defect this ledger graded P2 and repaired as F95 at
-`:3978-4003`, and F0065 is its **third** occurrence.
+as the newest row. That is the identical defect this ledger graded P2 and repaired as F95, and
+F0065 was its **third** occurrence. (The line citation this sentence used to carry was itself stale
+by 60 lines while the paragraph below denied any citation existed — F0071. Locate F95 by searching
+for `F95`.)
 
 **How the rows above were derived, and what that does and does not prove.** The previous repair
 reconciled the index against a list of prose sections a reviewer happened to cite, and inherited
@@ -75,17 +78,41 @@ commit instead folds the row set mechanically from the **driver-owned reviewer v
 (`roles/reviewer/artifacts/VERDICT-*.json`), which is the ground truth the gate is measured
 against, and which no lane on this side may write. Measured that way, **10 of the 20 corpus
 verdicts had no row here** — `e311f8b`, `d2c290f`, `c89761a`, `2066a8d`, `ede0381`, `3188cc5`,
-`3bdacfc`, `46e04aa`, `9173473` and `50d6be6` — carrying **P1=3 and P2=31** between them, roughly
-double the scale the citation-derived repair addressed. Two further rows (`a4dba72..0b6c118`,
-`73ec822..c47bd86`) exist as prose sections with no corpus verdict file and were added from the
-prose. Every P0/P1/P2/P3 figure above is now transcribed from the corpus `findings` object, not
-reconstructed, except the rows marked † and §.
+`3bdacfc`, `46e04aa`, `9173473` and `50d6be6` — carrying **P1=3 and P2=32** between them, roughly
+double the scale the citation-derived repair addressed.
+
+**Provenance is split, and the previous blanket claim was false (F0070).** This paragraph used to
+assert that every figure above was corpus-transcribed except the † and § rows. It is not, and the
+exception clause named the wrong rows: the § rows `3188cc5` and `9173473` are precisely rows whose
+counts *are* corpus-transcribed, while the 16 rows that genuinely have **no corpus verdict file**
+were excluded from the caveat altogether. The corpus holds 20 files against 41 rows. The figures for
+these 16 ¶ rows are taken from this ledger's own prose, and for the two † rows from reconstruction —
+they are exactly the V1-era rows F95 recovered, so the sentence upgraded the provenance of the
+weakest rows in the table:
+
+> ¶ `e85c235..1050684`, `030926c..a4dba72`, `a4dba72..7ed7702`, `a4dba72..d6c0d47`,
+> `a4dba72..0b6c118`, `73ec822..69ed068`, `73ec822..3cd9d77`, `73ec822..76553f4`,
+> `817227b..a1a97f6`, `b580b2c..eb472c1`, `5bef003`, `3e9bba6`, `42d6d02`, `09da45d..0f6883f`,
+> `0f6883f..47dce0e`, `4a3d9d7`.
+
+So: the 20 rows backed by a corpus verdict file carry counts transcribed from its `findings`
+object; the 16 ¶ rows and the 2 † rows do not, and no row outside those sets exists.
 
 **No line-number citations appear in this index, deliberately (F0068).** The previous version cited
 each prose section by line number; all twelve were wrong, ten of them uniformly 26 lines short,
 because the coordinates were transcribed into the same commit that inserted 26 lines above them. A
 line number in a file this one appends to is invalid the moment it is written, so the whole class is
 withdrawn rather than re-transcribed. Locate a section by searching for its sha.
+
+**No `Cycle N` labels appear in this index either, for the same reason (F0072).** The rows added by
+the corpus fold carried driver-cycle numbers that contradicted this file's own `## Cycle N (V2)`
+prose headings from `e311f8b` onward, and five numbers named two different commits each — index
+`Cycle 16` was `ede0381` while the heading `Cycle 16 (V2)` is `a31f54d`, and likewise 17, 20, 22 and
+24. The earliest rows matched their headings exactly, so this was one counter drifting, not two
+schemes coexisting; worse, following `Cycle 20` for `9173473` — a row § already flags as having no
+prose section — landed the reader on `VERDICT-93e1140` instead. A label that silently resolves to
+the wrong commit is more dangerous than no label, so the class is withdrawn. Sections are located by
+sha, and only by sha.
 
 § `3188cc5` and `9173473` appear **nowhere** in this ledger outside the row above: their verdicts
 exist only in the corpus, and this index is their only record here. `73ec822..c47bd86` is the
@@ -101,8 +128,13 @@ previously read "the eight rows above `b580b2c..eb472c1`", which names rows cont
 all, pointing the provenance warning at the wrong half of the table (F0066).
 
 ‡ Adversarial-lane results, not independent range verdicts bound to a sha and diff hash. They are
-indexed here because they are refusals recorded in prose, but they carry no P0/P1/P2/P3 line and
-must never be counted as review coverage.
+indexed here because they are refusals recorded in prose, and must never be counted as review
+coverage. The `n/a` in their count column means "not a bound range verdict", **not** "no count was
+published" — the previous wording claimed both lanes "carry no P0/P1/P2/P3 line", which is true only
+of the F108 lane. The Cycle-54 lane's own prose section states in bold `Verdict: NO-GO. P0=0 P1=1
+P2=1 P3=1`, so the footnote was withholding a count its own source publishes while denying the count
+existed, against the standing rule that this index must not read as a complete narrative (F0073).
+That lane's figures are therefore: **0/1/1/1**, prose-derived, still not review coverage.
 
 ## Range detail
 
@@ -10312,9 +10344,14 @@ direction that happens to close the gate.
 
 **Separately escalated this cycle (driver-owned, outside this lane's write prefixes):**
 `push-when-clean-v2.zsh:88` computes its only findings clause as `p0+p1+p2` and never reads
-`.verdict`; the word `verdict` does occur in that file 12 times (`VERDICT_DIR` :26, `verdict_file`
-:84, the refusal messages :85-91), so an earlier claim here that grepping for it "returns nothing"
-was false and is withdrawn (F0069) — what is true, and what the finding rests on, is that no `jq`
+`.verdict`; the word `verdict` does occur in that file, on **13 lines** (:19 :26 :61 :63 :82 :84 :85
+:86 :87 :88 :89 :91 :141) and **17 times**, since :26 carries both `VERDICT_DIR` and
+`CYBRIK_VERDICT_DIR` and :84 carries three. An earlier claim here that grepping for it "returns
+nothing" was false and is withdrawn (F0069); the replacement clause was also wrong — it said 12
+times and described :85-91 as "the refusal messages", which sweeps in :86-88, and those are `jq`
+assignments, not messages (F0075). The wrong figure was inherited from the `50d6be6` verdict and
+transcribed faithfully, which is no defence: a repair for a grep claim that fails its own first
+check still fails it. What is true, and what the finding rests on, is that no `jq`
 expression in that file ever selects `.verdict`, and `run-lane-v2.zsh:649`
 rejects only the converse (GO with nonzero gating counts). `VERDICT-93e1140` in the live corpus is
 `NO-GO` with `0/0/0/4`, so a refusal carried in the word alone would satisfy every push clause.
@@ -10363,5 +10400,55 @@ it enumerates verdict files, so a verdict that never produced a file would not
 appear. That is a narrower residue than the previous citation-derived sweep, but
 it is not zero, and it is the reason F0065 should be graded against the method
 recorded above rather than against this lane's assurance.
+
+RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
+
+## `55c9810` — ledger scope, independent Opus (personal pool, ladder step 1)
+
+VERDICT **NO-GO**. P0=0 P1=0 **P2=1** P3=5. `covers_head` true; execution evidence COMPLETE
+(pytest 1725 passed / 59 failed against a declared baseline of 59, 0 unintended; ruff 12 = 12;
+compileall 0; isolated checkout, identical before/after fingerprints). PUSH-ELIGIBLE NO.
+RUNTIME HOLD.
+
+**Retired by this verdict.** `F0065` — the verdict-index cut-off, a **P2 that survived three
+verdicts**. The reviewer enumerated the driver-owned corpus itself and confirmed 20 of 20 verdicts
+carry a row with an exactly transcribed count triple, that the "newest row is a GO at `9b96f49`"
+state is gone, and that its own independent sweep found no range verdict absent from the index.
+Also retired: `F0068` (all twelve stale line citations withdrawn rather than re-transcribed — the
+reviewer accepted withdrawing the class as the repair that cannot regress on the next append) and
+`F0069`.
+
+**Opened by this verdict, and repaired in this commit.**
+
+- **`F0070` (P2).** The provenance sentence asserted every figure was corpus-transcribed except the
+  † and § rows. False, and the exception named the wrong rows: the corpus holds 20 files against 41
+  rows; 16 rows have **no corpus verdict file at all** and were excluded from the caveat, while the
+  § rows `3188cc5`/`9173473` — which the caveat did exclude — are corpus-transcribed. The sentence
+  upgraded the provenance of exactly the weakest, V1-era reconstructed rows. Repaired by splitting
+  provenance explicitly into the 20 corpus-backed rows, the 16 enumerated ¶ prose-derived rows and
+  the 2 † reconstructions, with no row outside those sets.
+- **`F0071` (P3).** The index denied any line citation existed while the paragraph above still cited
+  F95 at `:3978-4003`, 60 lines short of its actual position. The citation is withdrawn.
+- **`F0072` (P3).** The fold's `Cycle N` labels contradicted this file's own `## Cycle N (V2)`
+  headings, with five numbers naming two commits each. Class withdrawn from all 20 rows.
+- **`F0073` (P3).** The ‡ footnote claimed both adversarial lanes "carry no P0/P1/P2/P3 line" while
+  the Cycle-54 lane's prose publishes `P0=0 P1=1 P2=1 P3=1` in bold. Footnote corrected; `n/a` now
+  states what it actually means, and the withheld count is disclosed as 0/1/1/1, prose-derived.
+- **`F0074` (P3).** `P2=31` across the ten unrecorded shas understated by one; the corpus figures
+  sum to 32. Corrected. The `P1=3` half was right.
+- **`F0075` (P3).** The F0069 replacement clause said `verdict` occurs 12 times in
+  `push-when-clean-v2.zsh`; it occurs **17** times on **13** lines, and ":85-91 the refusal messages"
+  swept in three `jq` assignments. Corrected. The wrong figure was inherited from the `50d6be6`
+  verdict and transcribed faithfully — which is no defence, since a repair for a grep claim that
+  fails its own first check still fails it.
+
+**What this lane cannot witness.** Whether the corpus fold is itself complete: it enumerates verdict
+*files*, so a verdict that never produced a file would not appear. Also byte-identity of the
+worktree copy with the pinned blob. Both are narrower than the sweep they replace, but neither is
+zero.
+
+**Structural, unchanged.** Recording this verdict re-invalidates this file's `(path, blob)` coverage
+and reopens the review loop. Keeping verdicts out of the ledger to escape that loop stays rejected:
+`F0063`/`F0064` established it as dishonest.
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
