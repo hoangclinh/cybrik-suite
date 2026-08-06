@@ -1311,31 +1311,45 @@ def call_parameter_bindings(module: ast.AST) -> list[tuple[set[str], ast.AST]]:
     parameter with the argument handed to it closes that edge and lets the existing fixed
     point do the rest: `values` enters `derived` because `_declared` is already in it.
 
-    Deliberately conservative in two directions. A `*args`/`**kwargs` call site cannot be
+    Deliberately conservative in three directions. A `*args`/`**kwargs` call site cannot be
     matched positionally, so every parameter of the callee is paired with the splatted value
-    rather than none of them. And parameters are pooled by bare name across the module, so a
-    parameter called `values` anywhere is derived once any `values` argument is — an
-    over-approximation, which for a fail-closed guard is the safe direction.
+    rather than none of them. Parameters are pooled by bare name across the module, so a
+    parameter called `values` anywhere is derived once any `values` argument is. And a name
+    may carry more than one `def` — a module helper and a method of a class, say — so *every*
+    signature registered under a name is paired against the call and the pairs are unioned,
+    rather than the last `def` seen by `ast.walk` silently replacing the others. Keying that
+    table name-to-signature was F48: writing `class _Other: def _wire(self, ignored): ...`
+    after a real `def _wire(values)` shadowed the real signature and disabled this whole edge
+    for that name in one line. All three are over-approximations, which for a fail-closed
+    guard is the safe direction; the shadowing shape is pinned as
+    `EVADING_WIRING_SHAPES["shadowed-helper-signature"]`.
 
-    The residual limit, stated rather than hidden: only a call whose callee is a literal
-    `Name` matching a `def` in this module is followed. An aliased or attribute-spelled
-    callee is not resolved here — `aliased-helper` in `EVADING_WIRING_SHAPES` is caught by
-    the module-name walk instead, and a call through a value obtained at runtime is outside
-    what any static walk over this file can claim.
+    The residual limit, stated as measured rather than as hoped: only a call whose callee is a
+    literal `Name` matching a `def` in this module is followed. An attribute-spelled callee is
+    not resolved here, and an earlier version of this docstring claimed such a callee "is
+    caught by the module-name walk instead". Independent review MEASURED that claim FALSE.
+    `_Wiring().wire(_declared(authorization))` is MISSED, and so is a `@staticmethod` reached
+    as `_Wiring.wire(...)`; that is open finding F46 (attribute/method callees), NOT closed
+    here. The alias case is only half true: `aliased-helper` in `EVADING_WIRING_SHAPES` is
+    caught, but an alias *composed with* parameter laundering — `_alias = _wire` and then
+    `_alias(_declared(authorization))` — was measured MISSED, because the alias target is
+    never resolved to the aliased `def`'s signature. That is open finding F47, also NOT closed
+    here. Open finding F45 is a third unmodelled binding edge in this same function: a
+    parameter DEFAULT value binds that parameter, and defaults are not paired at all, so
+    `def _wire(values=_declared(authorization))` carries taint past this walk. F45, F46 and
+    F47 are all open against this file; nothing below fixes them. A call through a value
+    obtained at runtime remains outside what any static walk over this file can claim.
     """
-    functions = {
-        node.name: node.args
-        for node in ast.walk(module)
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-    }
+    functions: dict[str, list[ast.arguments]] = {}
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            functions.setdefault(node.name, []).append(node.args)
     pairs: list[tuple[set[str], ast.AST]] = []
     for node in ast.walk(module):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
             continue
-        signature = functions.get(node.func.id)
-        if signature is None:
-            continue
-        pairs.extend(argument_pairs(signature, node))
+        for signature in functions.get(node.func.id, ()):
+            pairs.extend(argument_pairs(signature, node))
     return pairs
 
 
@@ -1818,6 +1832,40 @@ def _declared(authorization):
 
 def _wire(values):
     return plan.build_plan(repository_roots=values)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return _wire(_declared(authorization))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # The same parameter laundering, with one unrelated method of the same name written after
+    # it. A signature table keyed name-to-signature is last-wins over `ast.walk`, so the later
+    # `def _wire` replaces the real one and the call-argument-to-parameter edge for `_wire`
+    # disappears entirely — a one-line evasion primitive against a fail-closed guard.
+    "shadowed-helper-signature": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _declared(authorization):
+    return authorization.grant["repositories"]
+
+
+def _wire(values):
+    return plan.build_plan(repository_roots=values)
+
+
+class _Other:
+    def _wire(self, ignored):
+        return ignored
 
 
 def build_runtime_wiring(*, authorization, repository_roots):
