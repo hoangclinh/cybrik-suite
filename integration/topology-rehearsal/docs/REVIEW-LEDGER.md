@@ -6882,3 +6882,198 @@ being met. **No part of the 108-commit local range is push-eligible.** RUNTIME *
 **Next cycle's single outcome: repair F128 test-first** — RED proving the hostile subscript-divergent
 network is admitted at HEAD, then `proved_copy` at `runner.py:418`, then GREEN, then an independent
 verdict. Do not attempt the entrypoint GREEN; a control weakening outranks it.
+
+### Cycle 55 — F129 independently CONFIRMED by execution, and re-graded with its rationale corrected
+
+This cycle's commissioned outcome was the F128 repair. That repair is **in progress and NOT
+complete** — see the closing status below. What this cycle *did* durably establish is the
+adversarial verdict on F129, which the previous cycle filed explicitly as "probable, not certain".
+It is no longer probable. It is proved.
+
+**F129 — CONFIRMED. Re-graded P2 (grade unchanged), rationale CORRECTED.**
+
+The verifier anchored to committed HEAD `7ca49d2` and worked from a `git archive HEAD` export at
+`/tmp`, so the concurrent working-tree edit to `runner.py` could not contaminate the result. That
+isolation matters: this ledger has twice recorded conclusions drawn from a tree that was being
+edited underneath the reader.
+
+**The cited line numbers are exact, not stale.** `probe = {` at `runner.py:594`, `teardown_record =
+{` at `:599`, both entering `recorded` verbatim at `:615` and `:617`, wrapped only by the shallow
+outer `MappingProxyType` at `:620-622`.
+
+**Executed, not read.** Driven through `documents.authorization()` + `fakes.passing_adapters()`
+exactly as `tests/test_runner.py:32` `run()` does:
+
+> `evidence['probe']['result'] = 'refused'` — **MUTATION SUCCEEDED**, no `TypeError`; the bundle
+> re-reads as `'refused'` while `result.outcome` still reads `TOPOLOGY_PASS`.
+> `evidence['teardown']['complete'] = 'ATTACKER'` — **MUTATION SUCCEEDED**.
+
+**The counts in the original filing are exact.** The returned bundle is a `mappingproxy` of **12**
+keys (the 11 `EVIDENCE_KEYS` of `constants.py:252-264` plus `facts`); the filing's "eleven" counts
+the `EVIDENCE_KEYS` inventory only and is correct as written. A recursive scan to depth 6 found
+**exactly two** mutable containers reachable from the bundle — `probe` and `teardown` — and zero
+deeper ones. Every other entry refuses a top-level write with `TypeError`.
+
+**It breaches the module's own stated invariant, written three lines above the defect.**
+`runner.py:395-399` says the reading is "handed to the evidence bundle itself, which is a shallow
+proxy, so an unfrozen reading leaves a live handle in the receipt." The bundle is named "the
+receipt" by the module itself. `timings` is built as `MappingProxyType(...)` at `runner.py:724` and
+lands in the same tuple; `probe` and `teardown_record` are the only two of the eleven built without
+it. This is an internal inconsistency, not a design choice.
+
+**Why it stays P2 and is NOT promoted to P1 — the previous filing's impact framing was overstated.**
+The adversary this module defends against is the **adapter**, at the untrusted boundary. Adapters
+cannot reach these two dicts: both are constructed fresh inside `_evidence` from already-`frozen()`
+scalars, constants and tuples, and no adapter is invoked after `_evidence` runs (`runner.py:739`).
+There is no live-handle straddle here, unlike the ingress readings the docstring is actually about.
+Suite-wide, **no consumer re-reads `result.evidence`** — the only readers are `tests/test_runner.py`.
+There is no serializer, because `scripts/` does not exist at HEAD. Mutation therefore requires an
+in-process handle held by code that is already trusted.
+
+So the correct rationale is **"the bundle's stated immutability invariant is not held by two of its
+eleven entries, and no test pins it"** — *not* "an attacker can rewrite the receipt." The exposure
+becomes live the moment the planned entrypoint is authored to serialize the receipt after the
+verdict, which is why this must be closed **before** the entrypoint GREEN, not after.
+
+**Remedy, recorded but deliberately NOT applied this cycle** (F128 owns the writer this cycle; two
+writers on `runner.py` is the ownership violation this process bans). `MappingProxyType` is already
+imported at `runner.py:28`, so this matches the idiom already used at `:724`:
+
+- `runner.py:594` — `probe = {` becomes `probe = MappingProxyType({`, closing `})` at `:598`
+- `runner.py:599` — `teardown_record = {` becomes `teardown_record = MappingProxyType({`, closing
+  `})` at `:605`
+
+**The missing test is why this survived.** Nothing at HEAD asserts the entry types of the bundle.
+The remedy must land with a regression test asserting `type(result.evidence[k]) is not dict` for all
+eleven `EVIDENCE_KEYS` — a per-entry pin, not a spot check on one key.
+
+### F128 status at the close of cycle 55: repair STARTED, NOT COMPLETE — do not record it as repaired
+
+The previous cycle left an **uncommitted broken edit** in the worktree: `runner.py:418` called
+`proved_reading(...)` with `from .views import proved_reading` added. **`proved_reading` does not
+exist.** `views.py.__all__` is exactly `IMMUTABLE_LEAVES`, `immutability_findings`, `nested`,
+`proved_copy`, `stored_entries`. The tree therefore failed at import and every test was RED for the
+wrong reason. **An `ImportError` RED is not proof of a defect**, and had this cycle collected a
+census from that tree it would have recorded a fabricated result. It was caught before that.
+
+Three contract facts were established from source this cycle and are recorded so the repair does not
+have to rediscover them:
+
+1. **The defect is mechanically confirmed at its root.** `preparation.py:151-153` is
+   `MappingProxyType({frozen(key, trail): frozen(item, trail) for key, item in value.items()})`.
+   `frozen` builds solely from `.items()` and never consults `__getitem__`. A `MappingProxyType` over
+   a `dict` subclass that stores the honest entry and lies on subscript is accepted on the items side.
+2. **The raise idiom is `ValueError`** — `frozen` refuses that one way at `preparation.py:138`,
+   `:145` and `:157`. The repair must not introduce a new exception class.
+3. **The seam already converts it.** `_guarded_observation` (`runner.py:447-462`) catches bare
+   `Exception`, re-raises `KeyboardInterrupt`/`SystemExit`, and returns `candidates=(STOP_CONTROL,)`
+   with `findings=(f"observation: raised {type(error).__name__}: {error}",)`. No edit to that seam is
+   needed, and the divergence text from `stored_entries` (`views.py:163-170`) already contains both
+   the key name and the word "disagree", so the drafted assertion holds **only if** the `ValueError`
+   carries the finding strings through verbatim rather than summarizing them.
+
+`proved_copy` returns a **3-tuple** `(copy, nested_findings, divergence_findings)` and is total and
+pure — it **raises nothing**. It is therefore *not* a drop-in for `frozen`. The repair needs a small
+raising adapter that refuses when **either** findings tuple is non-empty. The size control is
+`tests/test_surface_contract.py:95-96`, `MODULE_LINE_LIMIT = 800`, "strictly under, not up to" —
+so `runner.py` must end at **799 or fewer**; it is 775 at HEAD.
+
+At the close of this cycle the writer had restored `runner.py` to its committed `frozen` form to
+obtain an **honest** RED and had not yet applied the GREEN. `runner.py` is unmodified; only
+`tests/test_runner.py` carries uncommitted work. That work is a recoverable checkpoint in the
+worktree and is **not** committed as a repair, because no verified RED-then-GREEN transition was
+collected inside the cycle budget.
+
+### Push gate at the close of cycle 55 — unchanged and still not met
+
+**P0 = 0. P1 OPEN = 2** — F33 (deferred) and **F128 (open, blocking, repair started)**; the **F123
+re-grade to P1 remains owed**, which would make it 3. **P1 repaired-unreviewed = 10.** **P2 = 40**,
+of which **F129 is now CONFIRMED rather than probable** — the count is unchanged because F129 was
+already carried at P2 and this cycle confirmed rather than added it. **P3 = 42.** The gate
+`P0 = P1 = P2 = 0` is **not met**. **No part of the local range ahead of `73ec822` is
+push-eligible.** RUNTIME **HOLD**. Production **Founder-only**.
+
+**Next cycle's single outcome: finish F128** — collect the honest RED (failing by *admission* of the
+hostile network, not by `ImportError`), apply the `proved_copy` adapter at `runner.py:418`, GREEN,
+then an independent adversarial verdict. F129's two-line remedy plus its eleven-entry regression test
+is the cycle after, and must not be merged into the F128 slice — one control repair per slice is what
+kept F128 itself from hiding inside the F114 repair.
+
+### Cycle 55 addendum — the tally I wrote above is WRONG, and F130 is REFUTED
+
+An independent evidence cross-check landed after the section above was written. It corrects that
+section. Both are preserved; the corrections below are authoritative.
+
+**F130 — REFUTED. Close it as a false filing.** Its *factual* half is right: `git show --stat
+f40c5a9` touches `preparation.py` and `test_preparation.py` only, and `f25bc97` is the commit that
+changed `runner.py:418` from a bare read to `frozen(...)`. But its *ledger* half is false. The
+complete occurrence set of `f40c5a9` in this file is lines 6032, 6076, 6079, 6094 and 6119 — **every
+one of them is inside the cycle-51 F108 section (heading at :5999) and every one is correct about
+F108.** `F114` first appears at :6229 and appears nowhere in the 6025-6125 band. The cycle-52 section
+that actually records F114's repair (:6336-6384) cites HEAD `0730e5a`, quotes the diff, names no
+repair commit, and is not wrong. F130's closing sentence — "this ledger's own cycle-53 text carries
+the same misattribution" — is also false: the two cycle-53 sections (:6145, :6207) contain zero
+occurrences of `f40c5a9`. **F130's author conflated F108's repair commit with F114's. The only
+misattributed lines in this file are F130's own, :6841-6844.** A P3 was counted against the gate on a
+false premise.
+
+**The tally in the section above is WRONG on two figures, and so is the tally at :6771 and :6877
+that it copied.** Derived independently from the ledger's own source-verified baseline register at
+`9439bd0` (:4716-4726, 102 slots) and rolled forward through every status-changing entry:
+
+| figure | as recorded | corrected | note |
+|---|---|---|---|
+| P0 | 0 | 0 | correct |
+| P1 OPEN | 2 (F33, F128) | 2 | correct |
+| P1 repaired-unreviewed | 10 | 10 | correct |
+| **P2** | **40** | **39** | **wrong, −1** |
+| P3 | 42 | 42 | correct |
+| **CLOSED** | **28** | **29** | **wrong, +1** |
+| SUPERSEDED | 2 | 2 | correct |
+| PHANTOM | 4 | 4 | correct |
+| **slot range** | 129 = F1..F126 + F29-A/B/C | **133 = F1..F130 + F29-A/B/C** | stale |
+| **defined-ID count** | 125 | **129** | stale |
+
+**Root cause: F126 is double-placed.** The cross-check blockquote at :6768-6774 re-derived the
+*cycle-53* tally, in which F126 was still P2 OPEN, and presented it as "the corrected gate text this
+ledger should carry forward" — after :6633 had already closed F126. :6877's `P2 = 40` then inherited
+`39 + F129` when the correct chain is the cycle-54 gate's `38` at :6683, plus F129, giving **39**.
+CLOSED moved 28 → 29 symmetrically. **The two errors cancel**, which is exactly why the
+reconciliation at :6771 still summed to 129 and passed three consecutive readings. A tally that
+balances is not a tally that is right.
+
+**Corrected reconciliation:** `29 + 2 + 4 + 2 + 10 + 39 + 3 + 42 + 2 = 133` = F1..F130 (130) plus
+F29-A/B/C (3). Exact. Highest finding ID actually defined is **F130** (:6841); `F401` seen in greps
+is a ruff code, not a finding.
+
+**Both repaired-unreviewed sub-buckets are still omitted from every headline paragraph**, including
+the one I wrote above: **P2 repaired-unreviewed = 3** (F79, F84, F95) and **P3 repaired-unreviewed =
+2** (F96, F97). This is the same completeness defect already filed at :6745-6747, now recurring for
+the third time. Any future gate paragraph that omits them is wrong by construction.
+
+**F123 — CONFIRMED at source; the P1 re-grade is still OWED and still not applied.** The cited range
+`observe.py:456-470` is **accurate at committed HEAD** — it is the `views` mapping built inside
+`validate_publication` (`observe.py:440-478`), and entries 1 and 4 are `reported_publication(...)` as
+filed. The by-identity site is `observe.py:385-389`: `:387` tests `isinstance(value, str)` rather
+than `type(value) is str`, and `:389` returns whatever the caller's overridable `strip()` returns, so
+a `str` subclass that overrides `strip()` to return `self` is stored verbatim — no copy, no
+`frozen()`, no exactness check on the path. The read-only guard does not help: 
+`ObservationVerdict.__post_init__` (`observe.py:197-200`) checks only
+`type(self.views) is not MappingProxyType` and never examines the proxy's values. The route into the
+receipt is real and committed: `runner.py:422` → `:438` → `:613` → `:619` → the shallow wrap at
+`:620-622`. **F123's own entry at :6458 carries stale anchors** — it cites `runner.py:419` and `:594`
+where committed HEAD has `:438` and `:613`. Repair the anchors when the re-grade lands.
+
+**Exact lines owed a correction, for the next cycle:** :6771-6772 (CLOSED 28→29, slot range,
+defined-ID count), :6877 (P2 40→39), :6458 (F123 grade P2→P1 and its two stale anchors), and
+:6841-6844 (F130 closed as REFUTED). These are text repairs to this ledger and must not be bundled
+into the F128 code slice.
+
+**Two live caveats already filed in-ledger still ride on these numbers:** F107 (:5734) — if F16
+resolves to P3, P2 → 38 and P3 → 43; F112 (:5860) — if F103/F104 are reclassified SUPERSEDED, P1
+repaired-unreviewed → 8.
+
+**Corrected gate at the close of cycle 55: P0 = 0, P1 OPEN = 2 (F33, F128), P1 repaired-unreviewed =
+10, P2 OPEN = 39, P2 repaired-unreviewed = 3, P3 OPEN = 42, P3 repaired-unreviewed = 2, CLOSED = 29,
+SUPERSEDED = 2, PHANTOM = 4. `P0 = P1 = P2 = 0` is NOT met. Nothing ahead of `73ec822` is
+push-eligible. RUNTIME HOLD. Production Founder-only.**
