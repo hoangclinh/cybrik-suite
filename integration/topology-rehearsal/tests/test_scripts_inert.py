@@ -1296,14 +1296,95 @@ def module_bindings(module: ast.AST) -> list[tuple[set[str], ast.AST]]:
     return pairs
 
 
+def call_parameter_bindings(module: ast.AST) -> list[tuple[set[str], ast.AST]]:
+    """Every `(parameter bound, argument passed)` pair for calls to this module's own helpers.
+
+    `module_bindings` follows taint only where a value acquires a *module* name. A parameter
+    never acquires one, so a helper that returns its own parameter carries the grant across
+    an edge that walk cannot see::
+
+        def _wire(values): return plan.build_plan(repository_roots=values)
+        ...  return _wire(_declared(authorization))
+
+    The sink there reads `values` — a name bound nowhere in the module — and the derivation
+    walk reports nothing, which is F22/F23's class respelled with one call. Pairing each
+    parameter with the argument handed to it closes that edge and lets the existing fixed
+    point do the rest: `values` enters `derived` because `_declared` is already in it.
+
+    Deliberately conservative in two directions. A `*args`/`**kwargs` call site cannot be
+    matched positionally, so every parameter of the callee is paired with the splatted value
+    rather than none of them. And parameters are pooled by bare name across the module, so a
+    parameter called `values` anywhere is derived once any `values` argument is — an
+    over-approximation, which for a fail-closed guard is the safe direction.
+
+    The residual limit, stated rather than hidden: only a call whose callee is a literal
+    `Name` matching a `def` in this module is followed. An aliased or attribute-spelled
+    callee is not resolved here — `aliased-helper` in `EVADING_WIRING_SHAPES` is caught by
+    the module-name walk instead, and a call through a value obtained at runtime is outside
+    what any static walk over this file can claim.
+    """
+    functions = {
+        node.name: node.args
+        for node in ast.walk(module)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    pairs: list[tuple[set[str], ast.AST]] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        signature = functions.get(node.func.id)
+        if signature is None:
+            continue
+        pairs.extend(argument_pairs(signature, node))
+    return pairs
+
+
+def argument_pairs(
+    signature: ast.arguments, call: ast.Call
+) -> list[tuple[set[str], ast.AST]]:
+    """One call matched against one signature, splats included."""
+    positional = signature.posonlyargs + signature.args
+    every = {
+        argument.arg
+        for argument in positional + signature.kwonlyargs
+        if argument is not None
+    } | {
+        argument.arg
+        for argument in (signature.vararg, signature.kwarg)
+        if argument is not None
+    }
+    pairs: list[tuple[set[str], ast.AST]] = []
+    for index, value in enumerate(call.args):
+        if isinstance(value, ast.Starred):
+            pairs.append((every, value.value))
+        elif index < len(positional):
+            pairs.append(({positional[index].arg}, value))
+        elif signature.vararg is not None:
+            pairs.append(({signature.vararg.arg}, value))
+    for keyword in call.keywords:
+        if keyword.arg is None:
+            pairs.append((every, keyword.value))
+        elif keyword.arg in every:
+            pairs.append(({keyword.arg}, keyword.value))
+        elif signature.kwarg is not None:
+            pairs.append(({signature.kwarg.arg}, keyword.value))
+    return pairs
+
+
 def grant_derived_names(module: ast.AST) -> set[str]:
     """Every name in the module that can hold something the grant or the host produced.
 
     A fixed point rather than a single pass, because the defect being caught is a read moved
     one level away from the function under review, and one level is not a bound: a helper
     calling a helper calling the envelope has to be followed to its end.
+
+    Two binding edges, not one. `module_bindings` carries taint to names the module binds;
+    `call_parameter_bindings` carries it across the call-argument-to-parameter edge, which
+    holds no module name at all and so was invisible to the walk this docstring already
+    claimed followed a helper "to its end". The parameter edge is used for derivation only
+    and is kept out of `root_sinks`, so widening the walk cannot invent a new sink shape.
     """
-    bindings = module_bindings(module)
+    bindings = module_bindings(module) + call_parameter_bindings(module)
     derived: set[str] = set()
     while True:
         grown = {
@@ -1715,6 +1796,32 @@ def _control_roots(tokens):
 def build_runtime_wiring(*, authorization, repository_roots):
     declared_roots = [entry for entry in authorization.grant["repositories"]]
     return plan.build_plan(repository_roots=dict(declared_roots))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # The sink names a parameter, and the taint enters that parameter as a call argument.
+    "parameter-laundered-root": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _declared(authorization):
+    return authorization.grant["repositories"]
+
+
+def _wire(values):
+    return plan.build_plan(repository_roots=values)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return _wire(_declared(authorization))
 
 
 def main(argv=None):
