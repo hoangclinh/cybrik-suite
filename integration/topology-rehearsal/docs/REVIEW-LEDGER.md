@@ -7570,3 +7570,85 @@ is push-eligible. The atomic entrypoint GREEN remains blocked. RUNTIME **HOLD**.
 executed RED had not returned when the cycle closed. F131 therefore remains **DERIVED-FROM-SOURCE
 and still owed an executed RED** — though F134-F136 have overtaken it in priority, since they must be
 repaired first.
+
+---
+
+## Cycle 59 — every gate re-measured at `5db202f`, and the F136 repair scoped against a control it would have weakened
+
+### Gates measured first-hand at `5db202f2c70e385e08b5a3b87315516d8ca79530`
+
+An independent measurement agent re-ran every gate on an unmodified tree (`git status --short`
+showed only the untracked `uv.lock`, whose MD5 `ff29c06c8a4247c27f68dac52c14d02d` was verified
+identical before and after every `uv` invocation).
+
+| Gate | Measured at `5db202f` | Versus cycle 58 |
+|---|---|---|
+| Broad census | **1551 passed / 58 failed** | unchanged |
+| Census split | 51 `test_scripts_inert.py` + 7 `test_surface_contract.py` | unchanged |
+| Unintended failures | **0** | unchanged |
+| `test_runner.py` | 102 passed | unchanged |
+| `test_observe.py` | 157 passed | unchanged |
+| `test_preparation.py` | 361 passed | unchanged |
+| `test_adapter.py` | 366 passed | unchanged |
+| Focused total | **986 passed, 0 failed** | unchanged |
+| ruff 0.16.0 | 12 findings, same 12 sites, no `--fix` | unchanged from the F120 baseline |
+| `compileall` src + tests | exit 0, clean | unchanged |
+| `runner.py` / `views.py` | 799 / 246 | unchanged |
+
+**The 58 REDs are re-proved absent-artifact by their own message**, not assumed. Every one raises the
+identical single line — `missing C8 implementation — this RED test states the final runner behaviour
+and fails closed until it exists: <path> does not exist` — with no traceback. Counted by path across
+**both** files: **8** name `scripts/prepare_topology_grant.py`, **49** name
+`scripts/run_topology_rehearsal.py`, and **1** names the bare `scripts` directory
+(`test_the_scripts_root_holds_exactly_the_two_entrypoints`). `8 + 49 + 1 = 58`.
+
+This refines, and does not contradict, cycle 58's `5 + 46` split: that count covered
+`test_scripts_inert.py` alone, and `test_surface_contract.py` supplies the remaining
+`3 + 3 + 1 = 7`. **No census drift.**
+
+### A control the obvious F136 repair would have weakened, found before it was written
+
+Cycle 58's reviewer directed that `views.proved_copy` be repaired before F131. The obvious repair —
+widen `proved_copy`'s walk set to everything `preparation.frozen` accepts (`Mapping`, `AbstractSet`,
+`Sequence` by `isinstance`) — is **wrong, and was rejected at design time rather than after
+measuring it GREEN**.
+
+`PreparationResult.__post_init__` (`preparation.py:218-221`) does **not** discard `proved_copy`'s
+immutability findings the way `runner._proved_reading` does (`runner.py:389`, F137). It raises
+`ValueError` on them. So a nested plain `dict` reaching a prepared field is refused there **today**.
+Widening the walk set would make that value walkable, its immutability finding would disappear, and
+**`preparation` would silently stop refusing it** — a weakened control traded for a closed finding,
+which this range's rules forbid.
+
+The repair scoped for this cycle therefore separates two answers `proved_copy` currently conflates:
+
+1. **What is walked and cross-checked** becomes everything `frozen` would rebuild, so divergence is
+   detected at every depth and no value survives `proved_copy` to be re-read live by `frozen`.
+2. **The immutability verdict is unchanged** — a value that is not exactly
+   `MappingProxyType`/`tuple`/`frozenset`/an `IMMUTABLE_LEAVES` type still yields its byte-identical
+   `holds a … which is not deeply immutable` finding, so `preparation`'s refusal and every existing
+   test stand exactly as they are.
+
+### A second live read, recorded because F136 understates it
+
+`_proved_reading` calls `frozen(copied)` at `runner.py:392`, and `frozen`
+(`preparation.py:148-156`) rebuilds any nested `Mapping`/`AbstractSet`/`Sequence` from **its own
+fresh `.items()` read** of the value `proved_copy` handed back uncopied. For every nested plain
+`dict` in a real Docker reading, the pipeline is therefore not merely "cross-checked at depth 0" — it
+is **judged at depth 0 and then copied from a second live read at depth 1**, which is precisely the
+two-pass hole `proved_copy`'s own docstring (`views.py:194-209`) claims the fusion eliminated.
+
+F136 is hereby recorded as **understated in cycle 58**: the defect is not only a missing cross-check,
+it is a reintroduced second read on the copy path.
+
+### Size constraint that fixes where this repair may live
+
+`runner.py` is **799** lines and `tests/test_surface_contract.py:247` fails at
+`>= MODULE_LINE_LIMIT (800)`. **No net line may be added to `runner.py`.** F137's direct repair —
+having `_proved_reading` honour the immutability findings it currently binds to `_` — is line-neutral
+and therefore still possible, but it must not be applied on its own: at present every real Docker
+network reading nests plain `dict`s, so honouring those findings without first making the walk deep
+would convert **every** live reading into a `STOP_CONTROL`. **F137 must not be repaired before
+F136.** This is recorded now because it is the exact trap the next writer would otherwise walk into,
+in the same shape as the one cycle 58 recorded for F131.
+
