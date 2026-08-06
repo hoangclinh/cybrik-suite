@@ -2534,15 +2534,26 @@ exactly as F70 predicted. It was **not** paid for by hand-collapsing more calls.
 moved to `observe.py`, which owns the findings-reader family and had headroom. `preparation.py` is
 now **771** and `observe.py` **626**, so both sit well clear of the bound.
 
+> **Corrected at cycle 27 by F73.** The `observe.py` figure above is the count at `7d1b00b`, the
+> intermediate commit, not at the tip. At `0f6883f` the measured count is **624**. `preparation.py`
+> **771** is correct at both. Both remain strictly under the 800 bound.
+
 ### F72 — a real symbol collision the move exposed. **P2. Repaired in the same commit.**
 
 `observe.py` already defines its own `OBSERVED_IDENTITY_KEYS` — **five** keys — while `grant.py`
 exports a **seven**-key tuple of the same name. Importing grant's into `observe.py` silently
 rebound it to the local five-key meaning, and the validator then refused every genuine identity:
-measured **99 failed** in `test_runner.py`, with `prepare()` aborting at `snapshot`. The import is
-now explicitly aliased `OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS`. The suite does detect a
-regression here — dropping the alias reproduces the 99 failures — but no test *names* the hazard,
-so a future reader sees a cascade rather than a collision. Recorded as owed.
+measured **99 failed** in `test_runner.py`, with `prepare()` aborting at `snapshot`. The suite does
+detect a regression here, but at `7d1b00b` no test *named* the hazard, so a future reader saw a
+cascade rather than a collision. Recorded as owed.
+
+> **Corrected at cycle 27 by F73.** The paragraph above described the `7d1b00b` state, in which the
+> import was aliased `OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS`. That alias no longer exists.
+> The undescribed follow-up commit `0f6883f` deleted both the alias and `observe.py`'s own five-key
+> tuple, so `observe.OBSERVED_IDENTITY_KEYS is grant.OBSERVED_IDENTITY_KEYS` — one name, one
+> seven-key meaning — and added `tests/test_observe.py:629`, which names the hazard by comparing
+> the two modules' shared uppercase names for disagreement. `observe.SIGNED_IDENTITY_KEYS` does
+> **not** exist at the tip; a reader grepping for it will correctly find nothing.
 
 ### What this cycle did NOT do
 
@@ -2557,3 +2568,131 @@ entrypoint GREEN stays blocked and nothing is pushable.
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
 script exists and none was executed.
+
+## Cycle 27 — the owed independent review of `09da45d..0f6883f` landed **GO**, and F73 corrected
+
+### Live state reconciliation at cycle open
+
+HEAD `0f6883f`, branch **54** commits ahead of `origin`. The supplied checkpoint was stale: it named
+HEAD `76553f4` and 11 ahead. PR #55 is OPEN, draft, `MERGEABLE`, still at `73ec822`, four rendered
+hosted checks SUCCESS (two `secret-scan`, two `contract standards validation`). The untracked
+`integration/topology-rehearsal/uv.lock` was preserved untouched. Nothing was pushed this cycle.
+
+### Measured at `0f6883f` before any edit — coordinator's own measurement, not the reviewer's
+
+- Broad census: **58 failed / 1471 passed in 0.66s**. All 58 are the unchanged absent-entrypoint
+  REDs in `test_scripts_inert.py` and `test_surface_contract.py`. No unintended failure.
+- Focused `test_preparation.py test_runner.py test_adapter.py test_observe.py`: **912 passed**.
+- `compileall -q src tests` clean. `ruff` remains **absent** from `.venv/bin`; not run, not installed.
+- File sizes, all strictly under the 800 bound: `adapter.py` 799, `grant.py` 794, `preparation.py`
+  771, `runner.py` 756, `admission.py` 725, `observe.py` **624**, `plan.py` 533.
+
+### Independent verdict on `09da45d..0f6883f` — **GO. P0=0 P1=0 P2=3 P3=2**
+
+Cycle 26 closed with its repair unreviewed and therefore unpushable. That debt is now discharged.
+An independent Opus reviewer, given the range plus live source and told to treat every cycle-26
+ledger claim as unverified, returned GO on the code with five findings, none of which is a security
+or authority defect. The findings are recorded in full below because two prior reviews lost detail.
+
+### F73 — P2 — `docs/REVIEW-LEDGER.md:2543` and `:2535`. **REPAIRED this cycle.**
+
+The cycle-26 record described a repair that is not in the shipped tree. It stated the collision was
+fixed by aliasing `OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS`, but the follow-up commit
+`0f6883f` deleted both that alias and `observe.py`'s local five-key tuple, and `0f6883f` had **no
+ledger entry at all**. It also recorded `observe.py` at **626**; the tip measures **624** — 626 was
+the intermediate `7d1b00b` state. A reviewer grepping for `SIGNED_IDENTITY_KEYS` would find nothing
+and could not tell whether the alias was deliberately superseded or the collision had silently
+returned. Both paragraphs now carry an inline correction naming the real tip state. This was the
+reviewer's stated must-fix-before-push item.
+
+### F74 — P2 — `tests/test_observe.py:629`. **OPEN.**
+
+The collision test's docstring claims "one name, one meaning, **package-wide**", but the test
+compares only `observe` against `grant`, and only for `isupper()` names. The reviewer measured
+**three surviving unequal same-name collisions**: `grant.RECORD_KEYS` (2 keys) vs
+`admission.RECORD_KEYS` (10), `constants.EVIDENCE_KEYS` (11) vs `admission.EVIDENCE_KEYS` (5), and
+`grant.tool_findings` vs `preparation.tool_findings` — two different functions, lowercase, invisible
+to this test even if aimed at the right module pair. `admission.py:52` **already** imports from
+`grant`, so adding `RECORD_KEYS` to that import line reproduces F72 exactly. `grant`/`admission`
+`PLATFORM_KEYS` and `adapter`/`plan` `CONTROL_OBSERVATIONS` are equal-but-duplicated silent-drift
+candidates. The docstring overclaims its own scope; either the claim narrows or the test widens.
+
+### F75 — P2 — `src/cybrik_suite_topology_rehearsal/observe.py:263`. **OPEN. Highest-value next repair.**
+
+`signed_identity_findings` validates the *identity* inventory exhaustively but reads the live
+reading only through `image.get(key)` for the six binding keys. It validates neither `image`'s own
+key inventory nor `image["present"]`, both of which `image_findings` (`preparation.py:568,572`)
+enforces at `prepare()` time. Measured: `replace(result, image=MappingProxyType({**dict(result.image),
+"present": False}))` **constructs successfully**, as does dropping `present` altogether, as does
+`replace(result, selected_image_identity=MappingProxyType({}))`. The result then asserts
+`satisfied is True` while its own reading says the reviewed material is not on the host, and
+`runner.py:262` strips `PRESENT_KEY` before recording, so the contradiction never reaches the
+evidence record. Cycle 26 enumerated "the six reading-drift copies" as the closed set; the seventh
+field and the inventory check were out of scope with no residual note. It is P2 rather than P1
+because the reviewer measured exactly one `PreparationResult(` construction in `src/` and **zero**
+`dataclasses.replace` calls in `src/` — the control is defence-in-depth, not a live path.
+
+### F76 — P3 — `src/cybrik_suite_topology_rehearsal/observe.py:273`. **OPEN.**
+
+`keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)` is laxer than `grant.py:464`, which
+checks the identical inventory with `ordered=True`. Measured: a seven-key `granted_image_identity`
+in reversed order is accepted by `__post_init__` but refused by `grant.keyed`. A result may carry a
+"signed host observation" the grant module would reject.
+
+### F77 — P3 — `src/cybrik_suite_topology_rehearsal/observe.py:75`. **OPEN.**
+
+`observe.__all__` is pinned by `test_observe.py:604` to exactly five reducers, yet
+`preparation.py:50-54` imports three symbols not in it (`IMMUTABLE_LEAVES`, `immutability_findings`,
+`signed_identity_findings`). A refactor trusting the pinned `__all__` could rename or remove
+`signed_identity_findings` with the surface contract and its test both staying green while
+`preparation` breaks — the same declared-meaning-vs-actual-dependency class F72 was about.
+
+### Claims the reviewer VERIFIED TRUE — do not re-audit
+
+- `signed_identity_findings` is called from `__post_init__` at `preparation.py:234`, after the
+  `FROZEN_MAPPING_FIELDS` type gate at `:200-204`, so both `identity` and `image` are guaranteed
+  `MappingProxyType` and there is no `AttributeError` escape hatch. Every `dataclasses.replace`
+  copy is validated.
+- `OBSERVED_BINDING_KEYS` is six keys, `observed_at` is correctly absent, and the comparison at
+  `observe.py:288-292` iterates all six.
+- F65 is **NARROWED, not closed**, exactly as cycle 26 stated: a two-field copy moving `image` and
+  `granted_image_identity` together to an unobserved digest is still accepted. The disclosure is
+  honest.
+- `observe.OBSERVED_IDENTITY_KEYS is grant.OBSERVED_IDENTITY_KEYS` → `True`. No shadowing name
+  remains **in `observe.py`**; the surviving collisions are in other module pairs (F74).
+
+### Hypotheses the reviewer REFUTED by measurement — do not re-raise
+
+- `validate_image_identity` was **not** silently weakened by the `OBSERVED_IDENTITY_KEYS` →
+  `REGISTRY_IDENTITY_KEYS` swap: `grant.REGISTRY_IDENTITY_KEYS` is byte-identical to the deleted
+  local five-tuple. Behaviour unchanged.
+- No circular import. `grant` imports only `constants`; `observe` imports `grant`/`plan`/`protocols`;
+  neither imports `preparation`.
+- `immutability_findings` was moved **verbatim**; only its docstring expanded.
+- `copy.copy` does skip `__post_init__`, but forging through it still requires `object.__setattr__`,
+  which defeats every frozen-dataclass control in the file equally and predates this change.
+  `pickle` fails outright on `mappingproxy`. Not attributable to this cycle.
+
+### Reviewer-stated limits
+
+Not checked: `ruff`/`mypy` (absent, nothing installed); the 58 RED entrypoint failures beyond
+confirming they are unchanged and unrelated; any runtime, Docker, PKI or network behaviour (none
+executed, no entrypoint exists); `admission.py` and `runner.py` beyond the symbol-collision and
+`present`-consumer questions; the earlier range `73ec822..09da45d` except where it defines imported
+symbols; **F45/F46/F47** (the open F39-repair P1s), untouched by this diff and not re-verified;
+coverage percentages, not measured.
+
+### Open P1 set after this cycle — unchanged
+
+**F45, F46, F47** (F39's repair) and **F65** (narrowed, not closed). This cycle's review returned
+P1=0 *for its own range* and closed cycle 26's review debt; it did not touch the pre-existing P1s.
+P1 ≠ 0 overall, so the atomic entrypoint GREEN stays blocked and nothing is pushable.
+
+### Next action
+
+Repair **F75** test-first — validate `image`'s own key inventory and `present` in
+`signed_identity_findings`, so a copy cannot assert `satisfied is True` over a reading that says the
+reviewed material is absent. Then re-measure and commission the next independent review.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
+exists and none was executed.
