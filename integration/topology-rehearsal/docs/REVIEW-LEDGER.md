@@ -8365,3 +8365,46 @@ because no further progress of any kind is available without it, not because the
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
 written or run.
+
+## Cycle 67 — the blocking review is now packaged, still not obtainable
+
+Nothing was repaired, retired or pushed. HEAD is unchanged at `d35544d`. This cycle re-derived the
+blocker independently rather than inheriting cycle 66's conclusion, and then removed the only part
+of it that this lane is actually permitted to remove.
+
+**Re-verified, not quoted.** Census re-measured at `d35544d`: **1582 passed / 59 failed** — 58
+absent-script REDs plus F131's 1 intended RED, **0 unintended**. ruff 0.16.0 **12 at baseline**;
+`compileall` rc=0; PR #55 OPEN/draft/MERGEABLE at unchanged pushed tip `73ec822`; untracked
+`uv.lock` preserved, MD5 `ff29c06c8a4247c27f68dac52c14d02d`. The range is 127 commits,
+21 files, +14608/-222.
+
+**The cycle-66 refusal was confirmed against the ledger, not taken on trust.** Line 7722 carries the
+binding cycle-60 directive that F137 waits on an independent *verdict* on F136, and line 8263 shows
+F136 still `repaired-unreviewed`. F137's precondition is genuinely unmet, so it was not scheduled
+again. No substitute repair was invented: a 14th unreviewed patch lengthens the review surface
+without moving push-eligibility.
+
+**What changed this cycle.** The manifest requires reviews to be bound to an exact SHA and diff hash
+(`bind_to_exact_sha_and_diff_hash: true`), and no such artifact had ever been produced — the lane's
+artifact directory was empty across 66 cycles. That packet now exists at
+`roles/security/artifacts/REVIEW-PACKET-d35544d.md`, bound to diff hash
+`d66a6605854cd469c303d5a74ed8cff19b8e8d7f044c1a9f152be5b11282859d`. It asserts **no verdict** — it is
+assembled by the writer identity and is evidence only, so it does not self-witness. It carries the
+binding facts, the re-measured census, the 13 `repaired-unreviewed` P1s, the mandatory F136-first
+review order with both standing directives, the controls that may not be weakened, and the
+identity requirement. A granted reviewer can now start on the range instead of re-deriving it.
+
+**The blocker itself is unchanged and remains the only thing gating every downstream lane.** This
+runtime advertises no Agent/Task tool — re-confirmed a sixth time against this session's own tool
+set (`Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`). No reviewer identity distinct from the writer
+can exist inside this lane, and anti-self-witnessing forbids the writer supplying one.
+
+### Gate at the close of cycle 67 — unchanged
+
+- **P0 = 0**; **P1 OPEN = 5** (F33, F123, F128, F131, F143); **P1 r-u = 13**;
+  **P2 OPEN = 47**; **P2 r-u = 4**; **P3 OPEN = 44**; **P3 r-u = 2**;
+  **CLOSED = 30** (twelfth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **151**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
+written or run.
