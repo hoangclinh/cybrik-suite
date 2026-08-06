@@ -8490,3 +8490,47 @@ carrying F149 is written this cycle.
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, published release dates **unchanged**. Neither entrypoint script was
 written or run.
+
+## Cycle 69 — re-derivation only; no repair, no new finding, no new packet
+
+Deliberately minimal, because F144 says the record is already larger than the artifact it reviews.
+
+**F143 evidence correction (the conclusion stands; one sub-claim was false).** F143 item 4 supports
+the "no reviewer obtainable" blocker partly with *"no `.claude/` in the worktree"*. **That is
+wrong.** `.claude/` **does** exist at the worktree root and is git-tracked, containing exactly one
+file, `.claude/settings.example.json`. What is genuinely absent is any *agent definition*:
+`~/.claude/agents` does not exist, and the example settings file is inert and is not an agent
+source. The blocker therefore holds on the true ground — **no agent-spawn tool and no agent
+definitions** — not on the false ground that `.claude/` is missing.
+
+This matters for the same reason F149 did, and in the same direction. A reviewer verifying F143 the
+obvious way would run `ls .claude`, find it present, and could dismiss F143's capability claim as
+unreliable — discharging the one blocker that is holding 129 commits unpushed and proceeding to a
+**false GO** over authority-sensitive work. Recorded as an evidence correction to F143, **not** a
+new finding: nothing about the product changed, and the open set must not grow for a bookkeeping fix.
+
+**Independently re-measured at `6a6c87d` (never quoted):** census **1582 passed / 59 failed** = 58
+absent-script REDs + F131's 1 intended RED, **0 unintended**; ruff 0.16.0 **12 at baseline**;
+`compileall` rc=0; PR #55 **draft/OPEN/MERGEABLE**, 4 checks SUCCESS at unchanged tip `73ec822`;
+`uv.lock` untracked, MD5 `ff29c06c…` unchanged. Live tool surface is exactly
+`Read, Grep, Glob, Bash, Edit, Write` — **eighth** consecutive confirmation that
+`Agent(cybrik-readonly-worker)` is not achievable in this runtime.
+
+**No new review packet was written.** `REVIEW-PACKET-6a6c87d.md` is still *exactly* bound to live
+state — base `73ec822`, head `6a6c87d`, diff hash `1472626f…` recomputed and matching, lockfile MD5
+matching. It is current and needs no reissue; issuing another would be pure F144 bloat.
+
+**No repair was attempted.** F143's arithmetic is unrefuted: a repair moves a finding
+`OPEN → repaired-unreviewed`, which does not decrement the gate, and the unreviewed queue already
+stands at 13 P1 + 4 P2. A fourteenth would consume the cycle and move the gate zero. Of the six open
+P1s, F143 and F149 are *structurally* unrepairable in-lane — F143 needs an external reviewer, and
+F149 needs `git config`/history authority outside `owned_write_prefixes`.
+
+### Gate at the close of cycle 69 — unchanged by construction
+
+- **P0 = 0**; **P1 OPEN = 6** (F33, F123, F128, F131, F143, F149); **P1 r-u = 13**;
+  **P2 OPEN = 47**; **P2 r-u = 4**; **P3 OPEN = 44**; **P3 r-u = 2**;
+  **CLOSED = 30** (fourteenth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **152**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, release dates **unchanged**. Neither entrypoint script was written or run.
