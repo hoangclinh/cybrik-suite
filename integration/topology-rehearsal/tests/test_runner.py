@@ -243,6 +243,98 @@ def test_the_recorded_network_projection_is_the_reading_the_verdict_judged(
     assert revalidate(recorded).satisfied is (result.outcome == fakes.TOPOLOGY_PASS)
 
 
+class DriftingProbeResult:
+    """A probe result whose first comparison answers reachable and whose later ones do not.
+
+    `validate_internal_ingress` judges this reading by `==` exactly once, and the evidence
+    bundle then records the reading itself rather than a copy of it. A live object is free
+    to answer the verdict's one comparison and every later reader differently, so this is
+    the smallest reading that is reachable to the control and unreachable in the receipt
+    the control is printed beside.
+    """
+
+    def __init__(self, judged: str, recorded: str) -> None:
+        self._answers = [judged, recorded]
+
+    def _answer(self) -> str:
+        return self._answers.pop(0) if len(self._answers) > 1 else self._answers[0]
+
+    def __eq__(self, other: object) -> bool:
+        return self._answer() == other
+
+    def __hash__(self) -> int:
+        return 0
+
+    def __repr__(self) -> str:
+        return "<drifting probe result>"
+
+
+def test_the_recorded_probe_result_is_the_reading_the_ingress_verdict_judged(
+    runner,
+) -> None:
+    """One probe reading is judged and recorded, so the receipt cannot contradict it."""
+    observe = load_c8("observe")
+    constants = load_c8("constants")
+    revalidate = require_c8_attr(observe, "validate_internal_ingress")
+    healthy = require_c8_attr(constants, "HEALTH_HEALTHY")
+    reachable = require_c8_attr(constants, "PROBE_REACHABLE")
+    adapters = fakes.passing_adapters(
+        probe_result=DriftingProbeResult(judged=reachable, recorded="refused")
+    )
+    result = run(runner, adapters)
+    recorded = result.evidence["probe"]["result"]
+    assert revalidate(healthy, recorded).satisfied is (
+        result.outcome == fakes.TOPOLOGY_PASS
+    )
+
+
+class TwoFacedBindings(Mapping):
+    """Port bindings that iterate as the reviewed key alone while storing a second one.
+
+    `binding_publication` checks the whole key inventory through `__iter__` and then reads
+    the reviewed entry through `.get`. A live projection may answer those two protocols
+    about two different containers. This is the smallest such value: iteration reports only
+    the reviewed publication, while what the mapping stores — the read every copy and every
+    receipt in this package is built from — carries a second, unreviewed publication.
+    """
+
+    def __init__(self, reviewed: dict, extra: dict) -> None:
+        self._iterated = dict(reviewed)
+        self._stored = {**reviewed, **extra}
+
+    def __getitem__(self, key: str):
+        return self._stored[key]
+
+    def __iter__(self):
+        return iter(self._iterated)
+
+    def __len__(self) -> int:
+        return len(self._stored)
+
+    def items(self):
+        return self._stored.items()
+
+
+def test_a_container_storing_a_second_publication_cannot_pass_the_binding_inventory(
+    runner,
+) -> None:
+    """The inventory control judges the bindings the container stores, not another view."""
+    observe = load_c8("observe")
+    resolve = require_c8_attr(observe, "binding_publication")
+    reviewed = {fakes.CONTAINER_PORT_KEY: [{"HostIp": fakes.HOST_IP, "HostPort": "15433"}]}
+    bindings = TwoFacedBindings(
+        reviewed=reviewed,
+        extra={"5433/tcp": [{"HostIp": "0.0.0.0", "HostPort": "15434"}]},
+    )
+    adapters = fakes.passing_adapters(
+        container=fakes.container_projection(bindings=bindings)
+    )
+    result = run(runner, adapters)
+    stored_view = resolve(dict(bindings.items()))
+    assert result.evidence["publication_views"]["host_config_port_bindings"] == stored_view
+    assert (result.outcome == fakes.TOPOLOGY_PASS) is (stored_view is not None)
+
+
 def test_publication_failure_outranks_internal_ingress_failure(runner) -> None:
     adapters = fakes.passing_adapters(
         daemon_event="0.0.0.0:15433",

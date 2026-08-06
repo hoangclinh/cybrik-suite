@@ -6503,3 +6503,105 @@ re-derive the ledger's own P0-P3 tallies and resolve the F114-F119 citations. **
 not returned when this cycle closed.** The tallies above are therefore carried forward arithmetically
 from the previous cycle's claimed counts plus this cycle's deltas; they are **not** independently
 re-derived. That verification is owed and is re-commissioned as the next cycle's parallel lane.
+
+## Cycle 53 — F121 and F122 repaired at ingress, coordinator-proved RED
+
+### The repair
+
+`_observe_attempt` now copies the `container` and `probe_result` readings dead at their single
+read, exactly as F114's applied repair did for `network`:
+
+- `runner.py:412` — `container = frozen(adapters.docker.observe_container(...))`
+- `runner.py:419-421` — `probe_result = frozen(adapters.probe.run(...))`
+
+Two functional lines. `runner.py` is **775** lines against the enforced 800 limit. No control was
+relaxed, and fail-closed moves **earlier**, not later: `frozen` raises on anything it cannot prove
+deeply immutable, and `_guarded_observation` (`runner.py:438-450`, coordinator-verified) converts
+that exception into a `STOP_CONTROL` observation. A refusal is a stop control, never a pass.
+
+### Both REDs were reproduced by the coordinator against unrepaired source
+
+The repaired file was copied aside, `runner.py` restored from HEAD, the two new tests run against
+the defect, and the repair restored byte-for-byte (`cmp` exact). Neither RED was accepted on report.
+
+**F121 RED, verbatim.** A `DriftingProbeResult(judged="reachable", recorded="refused")` produced
+outcome `TOPOLOGY_PASS` while the recorded probe result, re-judged independently, returned
+`ObservationVerdict(satisfied=False, outcome='FAIL_INTERNAL_INGRESS', ...)`. The receipt
+contradicted the verdict printed beside it. That is the filed defect exactly.
+
+**F122 RED, verbatim.** A `TwoFacedBindings` iterating as exactly the reviewed key while *storing*
+a second publication `5433/tcp` resolved `host_config_port_bindings` to `'127.0.0.1:15433'` — a
+satisfied publication — where the honestly-stored view resolves to `None`. `assert '127.0.0.1:15433'
+== None`. The whole-key-inventory control that `observe.py:395-398` states in its own words was
+defeated from inside one judgement.
+
+### Why `frozen` is the sufficient accessor here, and where that reasoning stops
+
+The ledger's carried-forward caveat is that `frozen()` copies but does not *reconcile* two views,
+and that `proved_copy` (`views.py:189-246`) is the accessor that cross-checks. That caveat governs
+a different shape: a copy built from a **later** read than the judgement. Here the copy is taken at
+the **single, first** read, so every downstream protocol — `set(bindings)` and `.get` at
+`observe.py:406-408`, both `nested()` traversals at `observe.py:462-463`, the `==` at
+`observe.py:537`, and the evidence bundle at `runner.py:587` — reads one dead value. There is no
+later read left for a hostile object to answer differently.
+
+For F121 the refusal is the mechanism, not the copy: `PROBE_REACHABLE` is the string `"reachable"`
+(`constants.py:160`) and `probe_result` is typed `Any` (`runner.py:177`), so the attack is a `str`
+subclass judging equal and rendering otherwise. `preparation.frozen` refuses scalar subclasses
+outright at `preparation.py:133-141` — coordinator-read at source — so that value never reaches a
+verdict at all.
+
+**This closes the filed F121 and F122. It is not a claim that a two-view adapter object is now
+reconciled anywhere else**, and it must not be read as one.
+
+### F126 — **P2** — root `docs/REVIEW-LEDGER.md`. NEW, OPEN. Two ledgers, two different push gates.
+
+Coordinator-observed directly. The suite-level `docs/REVIEW-LEDGER.md` still closes at **"P1 OPEN =
+7 (F33, F87, F103, F104, F105, F106, the F87 design), P2 = 32, P3 = 34, none of the 91-commit local
+range is push-eligible."** This package ledger closes at 107 commits, P1 OPEN = 3, P2 = 38, P3 = 40.
+A reader who lands on the suite-level record gets a **stale and materially different gate** —
+different finding set, different counts, different range length. Both cannot be true. Neither is
+marked as superseded by the other. The gate direction happens to agree (not push-eligible either
+way), which is exactly why the drift could persist unnoticed.
+
+### Gates measured at this working tree, after the repair
+
+- Census: **1548 passed / 58 failed**, every failure the intended absent-`scripts/` RED, **0
+  unintended** (independently measured at `f25bc97` as 1546/58/0 before the two new tests).
+- Focused set (runner, observe, adapter, preparation): **983 passed**.
+- `compileall` exit 0. `git diff --check` exit 0.
+- Lint: **12 ruff findings, unchanged** — F120 stands (`ISC004`x7, `F401`x3, `I001`x2). No fixer was
+  run; auto-fixers require Founder approval.
+- File-size control: `runner.py` 775. Independently measured near-limit files worth knowing before
+  anyone adds a line: `adapter.py` **799**, `preparation.py` **798**, `grant.py` **794** — all under
+  the 800 limit, three of them by a single-digit margin.
+- `scripts/` confirmed absent. `uv.lock` confirmed present and untracked. No dependency touched.
+
+### Push gate at this working tree
+
+**P0 = 0. P1 OPEN = 1** — F33 alone, genuinely deferred to the atomic entrypoint GREEN because its
+second caller cannot exist until `scripts/` does. **P1 repaired-unreviewed = 10** (F78, F85, F83,
+F86, F87, F103, F104, F114, **F121**, **F122**). **P2 = 39** (+F126). **P3 = 40.**
+The gate `P0 = P1 = P2 = 0` is **not met**: 39 P2 findings stand. **No part of the 108-commit local
+range is push-eligible**, and the atomic entrypoint GREEN stays blocked. RUNTIME **HOLD**.
+Production **Founder-only**.
+
+### Lane accounting — two verifications are owed and are NOT discharged
+
+Four lanes ran. The census verifier returned (numbers above). The exact-path writer's work was
+independently re-proved by the coordinator and is recorded above on the coordinator's own evidence,
+not the writer's report. **Two lanes had not returned when this cycle closed:**
+
+1. The **documentation/evidence cross-checker**, re-commissioned this cycle to independently
+   re-derive the P0-P3 tallies from the ledger's own finding records. It did not return. **The
+   tallies above are therefore still carried forward arithmetically plus this cycle's deltas, and
+   are still not independently re-derived — now for the second consecutive cycle.** This is the
+   oldest outstanding evidence debt in this ledger and it must be discharged before any tally in
+   this file is quoted as fact.
+2. The **adversarial reviewer** commissioned to attack the applied F114 repair at `f25bc97` and to
+   rule on whether `frozen` or `proved_copy` is correct for F121/F122. It did not return. The
+   accessor reasoning recorded above is the **coordinator's own**, verified at source, and has **not
+   received an independent adversarial verdict**. F121 and F122 are therefore
+   **repaired-unreviewed**, exactly like F114 before them.
+
+Both are re-commissioned as the next cycle's first two parallel lanes.

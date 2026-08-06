@@ -379,14 +379,24 @@ def _observe_attempt(
     rather than by a bound of its own. A container that never reports readiness inside that
     envelope is a timeout — a stop control — and not merely an ingress that was not reached.
 
-    The network reading is copied dead at ingress, at the one read, before any verdict sees
-    it — the same idiom `observe` uses for every preparation reading. Judging the live
-    adapter value and copying it again afterwards is two readings of something outside this
-    package's trust boundary: a projection that answers the verdict's `.get` and the
-    receipt's iteration differently, or that changes between them, was admitted as isolated
-    while the receipt recorded a network with a route off the host. Copying first makes the
-    judged reading and the recorded reading one value, so no receipt can disagree with the
-    verdict printed beside it.
+    The network, container and probe readings are copied dead at ingress, at their one read,
+    before any verdict sees them — the same idiom `observe` uses for every preparation
+    reading. Judging a live adapter value and copying it again afterwards is two readings of
+    something outside this package's trust boundary: a projection that answers the verdict's
+    `.get` and the receipt's iteration differently, or that changes between them, was
+    admitted as isolated while the receipt recorded a network with a route off the host.
+    Copying first makes the judged reading and the recorded reading one value, so no receipt
+    can disagree with the verdict printed beside it.
+
+    The same straddle is not only across a verdict and its receipt. `binding_publication`
+    checks the whole key inventory by iterating the bindings and then reads the reviewed
+    entry by subscript, so a live projection iterating as the reviewed key alone while
+    storing a second publication defeats the inventory control from inside one judgement.
+    The probe reading is worse again: it is judged by a single `==` and then handed to the
+    evidence bundle itself, which is a shallow proxy, so an unfrozen reading leaves a live
+    handle in the receipt. A dead copy answers every protocol out of the one `.items()` read
+    it was built from, and `frozen` refuses outright — scalar subclasses included — anything
+    whose immutability it cannot prove, which is a stop control rather than a pass.
     """
     findings: list[str] = []
     candidates: list[str] = []
@@ -399,15 +409,15 @@ def _observe_attempt(
             "inside the one bounded envelope, so the wait ended without readiness"
         )
         candidates.append(STOP_CONTROL)
-    container = adapters.docker.observe_container(container=names.container)
+    container = frozen(adapters.docker.observe_container(container=names.container))
     daemon_event = adapters.docker.observe_daemon_event(container=names.container)
     docker_port = adapters.docker.observe_docker_port(
         container=names.container, container_port=CONTAINER_PORT_KEY
     )
     listeners = adapters.host.observe_listeners(port=HOST_PORT)
     network = frozen(adapters.docker.observe_network(name=names.network))
-    probe_result = adapters.probe.run(
-        executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV
+    probe_result = frozen(
+        adapters.probe.run(executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV)
     )
     publication = validate_publication(
         daemon_event=daemon_event,
