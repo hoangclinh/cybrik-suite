@@ -4001,3 +4001,152 @@ such rather than presented as the reviewer's arithmetic. No existing row was alt
 
 **This does not change the open set.** Every one of the eight verdicts was already recorded in full
 in its cycle section; only the index was incomplete. P1 remains 4.
+
+## Cycle 43 — F85 repaired test-first at `fa47e91`; the size-bound headroom claim corrected
+
+### Live state reconciliation at cycle open
+
+HEAD `9ff3e0d2010e70b2acfa3d4261e61bd41ce586bc`, branch **75** commits ahead of `origin`. PR #55 is
+OPEN, draft, `CLEAN`, still at `73ec822`, four rendered hosted checks SUCCESS (two `secret-scan`,
+two `contract standards validation`). The untracked `integration/topology-rehearsal/uv.lock` was
+verified untracked and byte-identical (`sha256 24135c76f28231b2d5201028e741cc5da85a6b8af13feaf99e6668bac6ab25eb`)
+before and after every measurement. Nothing was pushed, reset or stashed. `uv` was never invoked;
+the pre-existing `.venv/bin/python3` (3.12.13, pytest 9.1.1) was used so the lockfile could not move.
+
+The checkpoint this cycle opened from named HEAD `76553f4` and an 11-commit range. That is **64
+commits stale**; live state was taken as authoritative and is recorded here so the drift is not
+repeated.
+
+### Census reconfirmed at `9ff3e0d` before any edit, and independently classified
+
+```
+python -m pytest tests -q -p no:cacheprovider     58 failed, 1523 passed in 0.75s
+focused six-file set                              1137 passed in 0.47s
+python -m compileall -q src tests                 exit=0
+ruff check src tests                              12 errors
+```
+
+**All 58 failures were individually classified, not counted.** 51 in `tests/test_scripts_inert.py`,
+7 in `tests/test_surface_contract.py`. Every traceback line carries `missing C8 implementation`;
+`grep -E "^/.*\.py:[0-9]+:" | grep -v "missing C8 implementation"` returned **empty**, and `scripts/`
+is confirmed absent from the worktree. **No unintended RED exists.** `tests/test_views.py` still does
+not exist (F92 remains open on exactly that).
+
+### F85 — **REPAIRED** at `fa47e91`. `observe.py:336-338,353-361`, `tests/test_observe.py`
+
+The re-anchored finding (`observe.py:341,344`) was confirmed real against live source. `signed`
+came from `stored_entries(identity, label)` and was correctly read from storage, but the *live
+reading* operand was read through `image.get(key)` — a **third accessor nothing cross-checks**.
+`keyed` validates by iterating, `local_presence_findings` reads what the reading stores, and
+`stored_entries` reconciles `.items()` against `__getitem__` only. Confirmed empirically:
+`mappingproxy.get` delegates to the underlying mapping's own `get`, while `dict.items` and
+`dict.__getitem__` are resolved in C and do not — so a `dict` subclass overriding `get` alone
+stored and subscripted a forged binding while answering this one comparison as the genuine one.
+
+Repair: the live reading is snapshotted by `stored_entries(image, READING_LABEL)` exactly as the
+identity is, a reading whose own two views diverge is refused *before* any binding is compared, and
+the comparison reads the local plain-`dict` snapshot. **No injected protocol remains on either
+operand.**
+
+`live.get(key)` rather than `live[key]` is deliberate and pinned by its own test. `live` is the
+local dict `stored_entries` built; it cannot be overloaded. Subscripting it would be a **new raise
+path**: `keyed` validates by `tuple(value)` (iteration), a different protocol from
+`dict(mapping.items())`, so a subclass overriding `items` alone passes `keyed` with a short snapshot
+and `live[key]` would throw `KeyError` out of a reducer contracted to return findings — and out of
+`preparation.__post_init__`, which is documented and tested to refuse with `ValueError`. With
+`.get`, an absent key reads `None`, which the preceding `unread` guard proves can never equal
+`signed[key]`, so it fails closed as a finding. This mirrors `local_presence_findings`'s existing
+`if PRESENT_KEY not in stored` shape.
+
+**Measured RED, then GREEN, not asserted:**
+
+```
+RED   9 failed, 2 passed, 145 deselected in 0.11s   — every failure `assert ()`, the bypass itself
+GREEN 11 passed, 145 deselected in 0.02s
+```
+
+The two RED-phase passes were the premise test (the hostile construction clears the type gate,
+`keyed`, `local_presence_findings` and `stored_entries` with zero divergence) and the positive
+control. 12 tests were added in total; **no existing test was modified.**
+
+**Measured after the repair, at `fa47e91`, reproduced independently by the coordinator:**
+
+```
+python -m pytest tests -q                58 failed, 1535 passed in 0.75s
+focused six-file set                     1149 passed in 0.44s
+python -m compileall -q src tests        exit=0
+ruff check src tests                     12 errors — unmoved from baseline
+wc -l observe.py                         693   (was 676; +17, limit 800)
+```
+
+Failures unchanged at 58 and still exclusively the absent-`scripts/` REDs; the pass count rose by
+exactly the 12 added tests, 1523 → 1535. **No control was weakened.** `keyed(image, …)` and
+`local_presence_findings(image, …)` are both still called in the same order; the new block only
+*adds* a refusal path. Two existing tests that already relied on such readings being refused still
+pass, now refused one step earlier. The new generator expression is explicitly parenthesised and is
+**not** a new `ISC004`; the 12 ruff errors are the same 12 sites at shifted line numbers.
+
+Two docstrings were repaired in the same commit because the change made them false:
+`local_presence_findings` claimed "the binding comparison below reads through `.get`", and
+`signed_identity_findings` gained the paragraph recording the closed hole and its mechanism.
+
+**F85 is REPAIRED-BUT-UNREVIEWED.** It is not discharged. An independent verdict is owed before it
+may count against the push gate.
+
+### F96 — **P3** — `docs/REVIEW-LEDGER.md`, cycle 42's size table. **NEW. REPAIRED in this cycle.**
+
+Cycle 42 recorded *"`adapter.py` is at 799 — one line of headroom — and `grant.py` at 794 has six."*
+**Both figures are off by one, in the unsafe direction.** The live control is
+
+```python
+if len(module_source(path).splitlines()) >= MODULE_LINE_LIMIT      # tests/test_surface_contract.py:247
+MODULE_LINE_LIMIT = 800                                            # :96, commented "Strictly under, not up to."
+```
+
+`>=`, so **799 is the maximum permitted count, not the last safe one below the ceiling**.
+`adapter.py` at 799 therefore has **zero** headroom and `grant.py` at 794 has **five**.
+
+Failure scenario, and it is not hypothetical: a future repair reads "one line of headroom", adds one
+line to `adapter.py`, and trips `test_no_authored_module_exceeds_the_reviewed_size_bound` — turning a
+bounded repair into an unplanned extraction mid-cycle, exactly the obstacle that cost cycle 40 its
+whole repair and forced the `views.py` extraction at cycle 41. Corrected headroom, measured at
+`fa47e91`:
+
+| module | lines | free |
+|---|---|---|
+| `adapter.py` | 799 | **0** |
+| `grant.py` | 794 | 5 |
+| `preparation.py` | 771 | 28 |
+| `runner.py` | 756 | 43 |
+| `admission.py` | 725 | 74 |
+| `observe.py` | 693 | 106 |
+
+**Any edit to `adapter.py` now requires an extraction first.** This is P3 because it is an evidence
+defect in this ledger rather than a defect in shipped source; it is recorded rather than silently
+fixed because the wrong figure was already relied on once when planning the F85/F86/F87 repair.
+
+### What this cycle did NOT do, stated so it is not read as wider than it is
+
+It did not repair F86 or F87 — the directive is one exact finding per cycle, and both remain open at
+their re-anchored locations (`preparation.py:233`, `views.py:126`). It did not write either
+entrypoint script, run either entrypoint, touch `scripts/`, run Docker, install or update any
+dependency, run any formatter or auto-fixer, or push. **RUNTIME remains HOLD.**
+
+### Open set at this cycle's close
+
+**P1: F83 (repaired at `4b25214`, independently NO-GO), F86, F87.** F85 repaired at `fa47e91`,
+**unreviewed**.
+**P2: F45, F46, F65, F88, F91.** **P3: F47, F80, F81, F82, F89, F90, F92, F93, F94.**
+
+P1 = 3 and P2 = 5, so the push gate of P0 = P1 = P2 = 0 is **not** met, the atomic entrypoint GREEN
+stays blocked, and none of the 76-commit local range is push-eligible. Origin/PR #55 remains at
+`73ec822`.
+
+### The exact next action
+
+An independent Opus review of `fa47e91` (the F85 repair), then the **F86** repair at
+`preparation.py:233` — the same third-protocol hole against the pin binding, where
+`granted_observed_at` is bound through `.get` two lines from the `stored_entries` call site. F86's
+repair must fit **28 free lines** in `preparation.py`, and note that `preparation.py:242,244` read
+`self.image.get(OBSERVED_AT_KEY)` — the mirror of the hole just closed in `observe.py` — so that
+site belongs in the same repair.
