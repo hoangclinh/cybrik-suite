@@ -213,11 +213,9 @@ class PreparationResult:
     ephemeral_range: tuple[int, ...]
     pre_consumption_listeners: tuple[Any, ...]
     docker_publications: tuple[str, ...]
-    # The instant the grant signed for its host observation. It is not an observation and
-    # never a fact — `image[observed_at]` stays the live reading — but it is the one instant
-    # both this phase and a plan built before any host was read can name. The default is what
-    # a snapshot that proved no pin holds: not an instant, so it names nothing.
-    granted_observed_at: str = ""
+    # The instant the grant signed for its host observation: never a fact — `image[observed_at]`
+    # stays the live reading — but the one instant this phase and a pre-host plan can both name.
+    granted_observed_at: str
 
     def __post_init__(self) -> None:
         if self.satisfied is not True:
@@ -259,6 +257,9 @@ class PreparationResult:
                 "a satisfied preparation observed no listener and no publication on the "
                 "reviewed port, so neither may be recorded as one"
             )
+        if type(self.granted_observed_at) is not str or instant(self.granted_observed_at) is None:
+            raise ValueError(f"granted_observed_at {self.granted_observed_at!r} is not the exact"
+                             " UTC instant the authorization signed, so it names no attempt")
 
 
 def refusal(findings: Sequence[str]) -> PrecheckAbort:

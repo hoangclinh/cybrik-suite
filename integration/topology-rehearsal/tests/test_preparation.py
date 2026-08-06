@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Mapping
+from dataclasses import fields as dataclass_fields
 from dataclasses import replace
 from types import MappingProxyType
 from typing import Any
@@ -367,6 +368,7 @@ def result_fields() -> dict[str, Any]:
         "ephemeral_range": fakes.EPHEMERAL_RANGE,
         "pre_consumption_listeners": (),
         "docker_publications": (),
+        "granted_observed_at": fakes.IMAGE_OBSERVED_AT,
     }
 
 
@@ -693,6 +695,88 @@ def test_a_mixed_key_control_inventory_is_refused_rather_than_compared(preparati
     )
     with pytest.raises(ValueError):
         result_type(**{**result_fields(), "control_identities": identities})
+
+
+# ---------------------------------------------------------------------------
+# The pinned instant a satisfied result names its authorization with
+# ---------------------------------------------------------------------------
+# Everything that is not the exact UTC instant the grant signed for its host observation. The
+# field is not decoration: `runner.attempt_id_for` renders the single authorized attempt's name
+# out of it, so a result carrying any of these is a satisfied snapshot that names no attempt,
+# and the disagreement would surface only once that one attempt had been spent. `MutableStr` is
+# included because `frozen()` refuses safe-scalar subclasses outright (`preparation.py:125-133`)
+# while a subclass still parses as an instant — a snapshot documented as a complete immutable
+# record may not hold one value the same module would refuse to copy.
+UNPINNED_INSTANTS = (
+    pytest.param("", id="empty"),
+    pytest.param("   ", id="whitespace"),
+    pytest.param("2026-08-05T00:00:00Z ", id="trailing-space"),
+    pytest.param("not-an-instant", id="prose"),
+    pytest.param("2026-08-05T00:00:00+00:00", id="offset-instead-of-z"),
+    pytest.param("2026-13-05T00:00:00Z", id="impossible-month"),
+    pytest.param("2026-8-5T00:00:00Z", id="unpadded-fields"),
+    pytest.param("20260805T000000Z", id="already-rendered"),
+    pytest.param(None, id="never-observed"),
+    pytest.param(20260805000000, id="not-a-string"),
+    pytest.param(MutableStr(fakes.IMAGE_OBSERVED_AT), id="str-subclass"),
+)
+
+
+@pytest.mark.parametrize("pinned", UNPINNED_INSTANTS)
+def test_a_satisfied_result_may_not_record_a_pin_that_names_no_attempt(
+    preparation, pinned
+) -> None:
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    with pytest.raises(ValueError):
+        result_type(**{**result_fields(), "granted_observed_at": pinned})
+
+
+def test_the_pinned_instant_is_mandatory_rather_than_defaulted(preparation) -> None:
+    """A satisfied result must *name* its authorization, not fall back to naming nothing.
+
+    A default made "no pin was proved" a constructible state of a class whose one documented
+    state is a proof. Nothing ever constructed it deliberately — `snapshot()` always copies the
+    grant's signed instant — so the default's only reachable consumers were direct constructions
+    that meant to state a pin and silently did not.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    proved = {
+        name: value
+        for name, value in result_fields().items()
+        if name != "granted_observed_at"
+    }
+    with pytest.raises(TypeError):
+        result_type(**proved)
+
+
+def test_a_satisfied_result_keeps_the_exact_instant_the_authorization_signed(
+    preparation,
+) -> None:
+    """A positive control: the reviewed instant must construct and survive unaltered."""
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    result = result_type(**result_fields())
+    assert result.granted_observed_at == fakes.IMAGE_OBSERVED_AT
+    assert type(result.granted_observed_at) is str
+
+
+def test_the_result_field_inventory_is_exactly_the_proved_field_set(preparation) -> None:
+    """Pin the inventory, so a twelfth field cannot arrive unvalidated and unnoticed.
+
+    This is the control whose absence let `granted_observed_at` be added to the class without
+    `result_fields()` or any coherence parametrisation noticing. It mirrors the inventory pin
+    `tests/test_admission.py:803` already holds over the independent fact record.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    names = tuple(field.name for field in dataclass_fields(result_type))
+    assert names == tuple(result_fields())
+
+
+def test_the_pinned_instant_reaches_the_snapshot_from_the_signed_document(
+    preparation,
+) -> None:
+    """The proved path must produce the instant the grant signed, not a live host reading."""
+    result = prepare(preparation, fakes.passing_adapters())
+    assert result.granted_observed_at == fakes.IMAGE_OBSERVED_AT
 
 
 @pytest.mark.parametrize(
