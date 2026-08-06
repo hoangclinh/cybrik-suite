@@ -2696,3 +2696,63 @@ reviewed material is absent. Then re-measure and commission the next independent
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint script
 exists and none was executed.
+
+## Cycle 28-29 — F75's repair landed at `47dce0e` unrecorded; this cycle measured and reviewed it
+
+### Live state reconciliation at cycle open
+
+HEAD `47dce0e37b8cc058163e56b50c6aa55245ecd0f4`, branch **56** commits ahead of `origin`. The
+supplied checkpoint was stale again — it named HEAD `76553f4` and 11 ahead — and the ledger's last
+entry stopped at cycle 27's `0f6883f`. The intervening commit `47dce0e`, the F75 repair, carried
+**no ledger entry and no independent review**: cycle 28 committed it and then hit its 600-second
+timeout. Cycle 27 had recorded that commissioning that review was the next cycle's first action.
+That debt is what this cycle discharges.
+
+PR #55 is OPEN, draft, `CLEAN`, still at `73ec822`, four rendered hosted checks SUCCESS (two
+`secret-scan`, two `contract standards validation`). The untracked
+`integration/topology-rehearsal/uv.lock` was verified present at 4674 bytes and left untouched.
+Nothing was pushed.
+
+### `47dce0e`'s own measurement claims, independently re-measured — all seven CONFIRMED
+
+The commit message makes seven measurable claims. A verifier that did not write the commit re-ran
+every one of them against live source and reported exact numbers. This matters because two earlier
+cycles recorded claims that were false about the shipped tree; a commit message is not evidence
+until someone else runs it.
+
+| Claim | Claimed | Measured | Verdict |
+|---|---|---|---|
+| Focused suite | 927 passed | **927 passed, 0 failed** | CONFIRMED |
+| Broad census | 58 failed / 1486 passed, all absent-entrypoint REDs | **58 failed / 1486 passed**; every `FAILED` line is in `test_scripts_inert.py` or `test_surface_contract.py` and nowhere else | CONFIRMED |
+| Intended RED | 13 failed / 452 passed with pre-repair sources restored | **13 failed / 452 passed** | CONFIRMED |
+| `compileall -q src tests` | clean | exit 0, no output | CONFIRMED |
+| `observe.py` size | 676, under the 800 bound | **676**; no `src` file reaches 800, the largest being `adapter.py` at 799 | CONFIRMED |
+| Whitespace hygiene | (implied) | `git diff --check 0f6883f..47dce0e` exit 0, no output | CONFIRMED |
+| Tree state | (implied) | `git status --short` shows only the untracked `uv.lock` | CONFIRMED |
+
+The intended-RED check is the one worth spelling out, because a repair whose tests pass against the
+*pre*-repair source proves nothing. The verifier copied the package to `/tmp/f75check`, restored
+`observe.py`, `preparation.py` and `runner.py` from `0f6883f` — confirming byte-identity against
+`git show` for all three — left the tests at HEAD, and measured 13 failures. All 13 are tests added
+by `47dce0e`'s own diff:
+
+- `test_observe.py` (7): `test_the_host_reading_inventory_is_declared_in_exactly_one_module`;
+  `test_a_signed_identity_is_refused_against_a_reading_that_denies_the_material` in its four
+  parametrisations `present-false`, `present-unread`, `present-truthy-not-true`,
+  `present-truthy-string`; `..._missing_its_presence_answer`; `..._carrying_an_unreviewed_key`.
+- `test_preparation.py` (6): `test_a_proved_result_may_not_carry_a_reading_that_denies_its_own_material`
+  in its five parametrisations including `unreviewed-extra-key`; `..._with_no_presence_answer`.
+
+The commit's phrase "all 13 the tests added here" is exact, not approximate. Two further tests added
+by the same commit — `test_a_signed_identity_agreeing_with_a_whole_host_reading_is_accepted` and
+`test_a_genuine_proved_result_is_still_copyable_unchanged` — are positive controls and correctly
+pass on both sides. That is the right result: without them, a reducer that refused *every* reading
+would look exactly as green as one that refuses only self-contradicting readings.
+
+No unintended failure, no regression outside the two known-RED files, and no discrepancy of any kind
+between the commit's stated numbers and the re-measured ones.
+
+### `ruff` remains absent
+
+`ruff` is still not in `.venv/bin`. It was not run and was **not installed** — installing it needs a
+dependency decision this lane does not hold. Lint therefore remains unrun, as in every prior cycle.
