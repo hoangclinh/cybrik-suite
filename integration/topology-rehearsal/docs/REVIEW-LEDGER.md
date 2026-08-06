@@ -9666,3 +9666,70 @@ its complaint was that the discarded divergence tuple hid the real route — the
 - `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
 - No control weakened, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 12 — `VERDICT-a31f54d` NO-GO: interrogation, not just rendering (F0052 P1, F0053 P2)
+
+The verdict on `a31f54d` returned the two rows that are the entire remaining gate distance. Both
+are recorded here with their repair, before any further lane was started.
+
+### F0052 (P1) — `runner.py`: the repair closed *rendered* foreign readings, not *interrogated* ones
+
+The F0050 cut guarded every site that renders a foreign value. It left the sites that **classify**
+one. Two escapes, both proved live by probe before a line was changed:
+
+- `:689` `type(reading) not in (int, float)` — `x in (a, b)` is `PySequence_Contains`, which is rich
+  comparison, **not** identity. Asking containment of a *class* dispatches to that class's
+  metaclass `__eq__`. The line sits *after* the `except` that ends the try at `:688`, so a raising
+  metaclass leaves `_guarded_clock` at its call site inside the envelope, before `_teardown` —
+  orphaning container, network, volume and the on-disk credential after the attempt is spent.
+- `:493` `isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence)` —
+  `isinstance` consults the instance's own `__class__`, and `Sequence`'s `ABCMeta.__instancecheck__`
+  consults it a second time. A residual reading refusing that slot escapes `_observed_names` and
+  with it `_teardown`, burning the attempt with no result and no evidence.
+
+Repaired to the interpreter's own relation, per this package's sanctioned spelling at
+`views.py:102-110`: identity comparison at `:689`, `issubclass(type(...))` at `:493`. Both are
+**1:1 line replacements** — `runner.py` remains at **799** against a strictly-under limit of 800,
+which is zero slack. Probe re-run after the repair: both seams now return their own refusal.
+
+### F0053 (P2) — `test_runner.py`: a denylist cannot see the seventh escape
+
+The sole cover for `:430`/`:589` was a six-literal substring denylist over the source text. It could
+not detect an unguarded rendering it had not been told about, and was defeated outright by renaming
+the interpolated local. Replaced by an **allowlist over `ast.FormattedValue`** built on the
+`runner_tree()` helper already present in this suite: every interpolation must be a
+`safe_repr`/`safe_type_name` call or an exact expression entered in `PROVED_RENDERINGS` with its
+proof. Anything else fails closed.
+
+The old control could not fail. The replacement was **mutation-proved against three classes**, all
+detected: (A) the exact rename-defeat `{safe_repr(health)}` → `{observed!r}`; (B) a *seventh*
+escape at `:585`, a site the denylist never named; (C) unguarding an existing `safe_type_name` call.
+
+### Coupling recorded, because three sites depend on a check that does not mention them
+
+`:735-742` render `{completed!r}`, `{started!r}`, `{deadline!r}` with no handler in scope. They are
+safe **only** because `_guarded_clock` proves `type(x) is int/float` by identity first. Relaxing
+`:689` to `isinstance` would silently make all three live escapes. That dependency is now written
+into `PROVED_RENDERINGS` beside those three entries, where a future editor will meet it.
+
+### Not repaired this cycle, and why
+
+**F0055 (P3)** asks the `_observed_names` docstring to document the dual `str.__str__`/`safe_repr`
+spelling. It is a genuine gap. `runner.py` is at 799/800, and the reviewer's own instruction was to
+reword the existing paragraph *net-zero*; no faithful 2-line wording carries the point. F0055 is
+**non-gating** and is deliberately left open rather than trading gate risk, or a line-hunt through
+unrelated reviewed code, for a P3. **F0054 (P3)** likewise remains open.
+
+### Measurements at this commit
+
+- **Broad census 1724 passed / 59 failed.** Failure delta **zero** against the declared baseline of
+  59. **ruff 12 = baseline** (the `test_runner.py:3` I001 is pre-existing; no import was touched).
+  **compileall rc=0.** All commands `--frozen --offline`; `uv.lock` untouched and still untracked.
+
+### Gate after this cycle
+
+- F0052 and F0053 are **repaired-unreviewed**, not retired: retirement is the reviewer's, per
+  finding. They are the only two gating rows, so a GO on this scope takes distance to **0**.
+- `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
+- No control weakened, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.

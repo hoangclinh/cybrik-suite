@@ -1693,6 +1693,34 @@ class _RaisingStrItem:
         raise RuntimeError("str refused")
 
 
+class _RaisingMetaclassEq(type):
+    """A metaclass whose `__eq__` refuses, so `type(x) in (...)` raises rather than answers.
+
+    `x in (a, b)` is `PySequence_Contains`, which is rich comparison, not identity. Asking
+    the containment question of a *class* therefore dispatches to that class's metaclass —
+    an interrogation slot the guarded-rendering repair (F0050) never closed, because it
+    scoped itself to values that are *rendered* (F0052).
+    """
+
+    def __eq__(cls, other):
+        raise RuntimeError("metaclass __eq__ refused")
+
+    def __hash__(cls):
+        return 0
+
+
+class _ReadingRefusingInterrogation(metaclass=_RaisingMetaclassEq):
+    """A clock reading that renders perfectly well but refuses to be *classified*."""
+
+
+class _RefusingClassAttr:
+    """A value whose `__class__` refuses, the slot `isinstance` consults twice for an ABC."""
+
+    @property
+    def __class__(self):
+        raise RuntimeError("__class__ refused")
+
+
 class _ReadingClock:
     """A clock whose single reading is supplied by the test."""
 
@@ -1708,30 +1736,74 @@ class _ClockAdapters:
         self.clock = _ReadingClock(reading)
 
 
-# Every spelling that renders a foreign reading through the interpreter's unguarded slot.
-# Each was a live escape; they are pinned as text so the two sitting inside seams with no
-# behavioural stub yet cannot silently return (F0050).
-RAW_FOREIGN_RENDERINGS = (
-    "{value!r}",
-    "{pinned_observed_at!r}",
-    "{health!r}",
-    'f"{item}"',
-    "{credential_residual!r}",
-    "{reading!r}",
-)
+# Every interpolation in runner.py that is permitted to reach the interpreter's rendering
+# slots *without* safe_repr/safe_type_name around it, each with the proof that carries it.
+# This is an allowlist keyed by exact expression source, not a denylist of known-bad
+# spellings: a denylist cannot see a seventh escape, and is defeated by renaming the
+# interpolated local ({health!r} -> {observed!r}) (F0053). A new interpolation fails closed
+# here until it is either guarded or entered below with its proof.
+PROVED_RENDERINGS = {
+    # In-package constants. Not foreign: module-level literals of this package.
+    "ATTEMPT_SLICE",
+    "CREDENTIAL_TEARDOWN_KIND",
+    "RESOURCE_PREFIX",
+    "NETWORK_INFIX",
+    "VOLUME_INFIX",
+    "CREDENTIAL_INFIX",
+    "DIGEST_MARKER",
+    "HEALTH_HEALTHY",
+    # Locals the package itself minted as exact `str` before the interpolation is reached.
+    "attempt_id",
+    "label",
+    "kind",
+    "projection",
+    "moment.strftime(ATTEMPT_INSTANT_FORMAT)",
+    # Entries of a `selected` mapping already proved by the plan's own admission.
+    "selected['repository']",
+    "selected['manifest_digest']",
+    # Clock readings. Safe ONLY because `_guarded_clock` proves `type(x) is int/float` by
+    # identity before any of these is reachable. Relaxing that check to `isinstance` makes
+    # all three live escapes again; `test_a_clock_reading_that_refuses_*` pins it (F0052).
+    "completed",
+    "started",
+    "deadline",
+    # Inventories whose every entry `_observed_names` already normalised to an exact `str`.
+    "list(residuals)",
+    "list(listeners)",
+}
+
+GUARDED_RENDERERS = {"safe_repr", "safe_type_name"}
 
 
 def test_no_foreign_reading_is_rendered_through_an_unguarded_slot(runner):
-    """Readings are rendered through `safe_repr`, at every site (F0050).
+    """Every interpolation is a guarded call or a proved value, by AST (F0050, F0053).
 
     The F0046 repair was scoped to caught errors, so it left the *readings* those ports
     hand back rendering through the attacker's own `__repr__`/`__str__` with no handler
     in scope. `_observe_attempt` at the `container_health` site is the sharpest: it runs
     after the container, network, volume and credential already exist and before
     `_teardown`, so an escape there orphans all four after the single attempt is spent.
+
+    The first cover for this was a six-literal substring denylist over the source text.
+    It could not see a seventh unguarded rendering, and renaming the interpolated local
+    defeated it outright, so it is replaced here by an allowlist over `ast.FormattedValue`
+    that fails closed on anything it has not been shown a proof for (F0053).
     """
-    source = require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8")
-    admitted = [spelling for spelling in RAW_FOREIGN_RENDERINGS if spelling in source]
+    admitted = []
+    for node in ast.walk(runner_tree()):
+        if not isinstance(node, ast.FormattedValue):
+            continue
+        value = node.value
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in GUARDED_RENDERERS
+        ):
+            continue
+        rendered = ast.unparse(value)
+        if rendered in PROVED_RENDERINGS:
+            continue
+        admitted.append(f"line {node.lineno}: {{{rendered}}}")
     assert admitted == [], f"unguarded foreign renderings remain: {admitted}"
 
 
@@ -1786,3 +1858,43 @@ def test_a_pinned_observation_that_refuses_to_render_still_refuses_closed(runner
     with pytest.raises(abort) as caught:
         attempt_id_for(_RaisingRepr())
     assert "_RaisingRepr" in str(caught.value)
+
+
+def test_a_clock_reading_that_refuses_interrogation_does_not_escape_the_clock_guard(runner):
+    """`_guarded_clock` classifies its reading by identity, not by comparison (F0052).
+
+    The F0050 repair closed readings that are *rendered*. This reading renders perfectly;
+    it refuses to be *classified*. `type(reading) not in (int, float)` sits after the
+    `except` that ends the try, so the metaclass exception it raises leaves `_guarded_clock`
+    at its call site inside the envelope, before `_teardown` — orphaning the container,
+    network, volume and the on-disk credential after the single attempt is already spent.
+    """
+    # Arrange. A clock whose reading refuses the containment comparison, not the rendering.
+    guarded = require_c8_attr(runner, "_guarded_clock")
+
+    # Act. The seam must answer in its own voice rather than raise through the envelope.
+    reading, finding = guarded(_ClockAdapters(_ReadingRefusingInterrogation()))
+
+    # Assert. Refused closed, and named the reading it refused.
+    assert reading is None
+    assert finding is not None
+    assert "clock:" in finding
+    assert "_ReadingRefusingInterrogation" in finding
+
+
+def test_a_residual_reading_that_refuses_its_class_does_not_escape_observed_names(runner):
+    """`_observed_names` asks the interpreter for the type, not the object (F0052).
+
+    `isinstance` consults the instance's own `__class__`, and `Sequence`'s `ABCMeta`
+    `__instancecheck__` consults it a second time. A residual inventory refusing that slot
+    escapes `_observed_names`, and with it `_teardown`, burning the one attempt with no
+    result and no evidence.
+    """
+    # Arrange.
+    observed = require_c8_attr(runner, "_observed_names")
+
+    # Act. A non-sequence that refuses `__class__` is still simply "nothing was read".
+    names = observed(_RefusingClassAttr())
+
+    # Assert. It refused closed rather than raising through the teardown.
+    assert names is None

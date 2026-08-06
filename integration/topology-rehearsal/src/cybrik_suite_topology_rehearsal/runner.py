@@ -490,7 +490,7 @@ def _observed_names(value: object) -> tuple[str, ...] | None:
     A string is a sequence of characters rather than of names, so accepting one would let a
     single reported residual decode as a per-character inventory.
     """
-    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+    if issubclass(type(value), (str, bytes, bytearray)) or not issubclass(type(value), Sequence):
         return None
     return tuple(str.__str__(i) if issubclass(type(i), str) else safe_repr(i) for i in value)
 
@@ -686,7 +686,7 @@ def _guarded_clock(adapters: Any) -> tuple[float | None, str | None]:
         raise
     except Exception as error:  # noqa: BLE001 -- an unreadable clock is a stop control, not a crash
         return None, f"clock: raised {safe_type_name(error)}: {safe_repr(error)}"
-    if type(reading) not in (int, float) or not _finite_reading(reading):
+    if (type(reading) is not int and type(reading) is not float) or not _finite_reading(reading):
         return None, f"clock: answered {safe_repr(reading)}, which is not an elapsed-time reading"
     return reading, None
 
