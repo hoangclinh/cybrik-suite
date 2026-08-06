@@ -5659,3 +5659,40 @@ Commit `31d4d59`'s message and cycle 47 both state **245**. The finding stands a
 
 The `preparation.py` `ISC004` anchors measure `:655` and `:689`, unchanged from cycle 48 — F91 did
 not recur this cycle, because no source line moved.
+
+### The independent verdict was commissioned and did not return inside the timebox
+
+Three independent lanes were commissioned against commit `31d4d59` at live HEAD: a full independent
+GO/NO-GO review of the repair in its module context, an adversarial verifier tasked to *refute* it by
+building and running executable hostile mappings, and a ledger cross-check of the seven
+repaired-unreviewed P1s against live source. **None returned before this cycle's timebox expired.**
+
+**No verdict is claimed here.** This section is written so the next cycle cannot mistake a
+commissioned review for an obtained one — the precise error cycle 48 made, whose heading announced
+a review it never recorded. F87, F103, F104, F78, F85, F83 and F86 remain **repaired-unreviewed**.
+
+The coordinator's own reading of the repair is recorded as *unreviewed analysis, not a verdict*, so
+the next reviewer has a starting point rather than a conclusion to ratify:
+
+- `proved_copy` (`views.py:189`) takes exactly one `.items()` read per mapping, via
+  `stored_entries` (`views.py:134`, `stored = dict(mapping.items())`), and the `stored` dict that
+  read produced is both what the subscript is cross-checked against (`views.py:136-170`) and what
+  the copy is built from (`views.py:227-235`). On the direct-construction path this appears to be
+  the single-read property F87 demanded.
+- **An open question the next reviewer must settle, not assume:** on the `prepare()` ingress path
+  the caller's mapping is already reduced to a dead copy by `frozen()` (`preparation.py:129-152`,
+  `737-758`) *before* `PreparationResult` is constructed. `frozen()` reads `.items()` once and
+  performs **no** subscript cross-check. So `proved_copy`'s divergence check at
+  `preparation.py:221` reconciles a dead copy with itself on that path and can refuse nothing —
+  structurally the same vacuity F103 named, relocated to ingress. Whether this is a bypass or
+  merely an inconsistency turns on whether any consumer subscripts the caller's live object rather
+  than the recorded copy. **This is unmeasured and must be measured, not argued.**
+- The accompanying RED (`tests/test_preparation.py`, `ReadBudgetMapping` and `sweep_every_budget`)
+  budgets `.items()`, `__iter__`, `__getitem__` and `.get` **together** and sweeps every budget up
+  to what validation spends, so it states the ordering defect rather than one read count. It is not
+  a strawman.
+
+**Status carried forward unchanged: P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint
+GREEN). **P1 repaired-unreviewed = 7. P2 = 29. P3 = 34** (F105). **No part of the 95-commit local
+range is push-eligible**, because push requires an independent P0=P1=P2=0 verdict that does not yet
+exist. RUNTIME remains **HOLD**.
