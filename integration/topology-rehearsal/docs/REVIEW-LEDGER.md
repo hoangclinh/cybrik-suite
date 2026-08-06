@@ -1440,8 +1440,13 @@ targets are exactly:
 - 8 × `scripts/prepare_topology_grant.py does not exist`
 - 1 × `scripts does not exist`
 
-**Unintended failures: zero.** By file the split is 49 in
-`tests/test_scripts_inert.py` and 9 in `tests/test_surface_contract.py`. This is
+**Unintended failures: zero.** By file the split is 51 in
+`tests/test_scripts_inert.py` and 7 in `tests/test_surface_contract.py`.
+(Corrected in place: this line first read "49 … and 9 …", which wrongly reused the
+by-missing-target counts above as if they were per-file counts. The two
+breakdowns partition the same 58 differently and only the per-target one was
+measured; the per-file split was asserted without being run. It is now measured.)
+This is
 the whole intended absent-entrypoint RED chain and nothing else; no test fails for
 a reason other than the two entrypoints being unwritten.
 
@@ -1462,6 +1467,55 @@ where the F33 seam has to land.
 uncontaminated; it does not discharge any open finding. The blocking set recorded
 above — F5, F22, F23, F29 and the newly-opened F33 at P1 — is unchanged by it, so
 `73ec822..3ec75c1` remains **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
+### `0953b9f..77eb7e1` — the F33 repair's measured evidence
+
+`attempt_id_for(pinned_observed_at: str) -> str` is now exported from `runner`
+and `_attempt_names` delegates to it. The formula is sited once.
+
+RED first, before any `src/` edit: `pytest tests/test_runner.py -q` gave
+**18 failed / 77 passed**, on `AttributeError: … has no attribute
+'attempt_id_for'` and on `assert functions_reading("strftime") ==
+{"attempt_id_for"}` returning `{'_attempt_names'}`. GREEN: **95 passed / 0
+failed**.
+
+Broad census **58 failed / 1417 passed**, against the 58/1400 baseline. The
+counts alone would not have shown this: the sorted `FAILED` node-id lists were
+captured before and after and diffed — **identical 58-line sets**. No intended
+RED became a pass; the +17 is exactly the new items.
+
+Behaviour is unchanged, verified rather than asserted. The rendered id was
+captured from the pre-change source for four instants
+(`20260805T000000Z-c8`, `20260805T000059Z-c8`, `19991231T235959Z-c8`,
+`20261205T000001Z-c8`) and is byte-identical after. The refusal message is also
+byte-identical — the line re-wrap concatenates to the same string, compared
+literally. Independently re-measured by the coordinator: the seam is pure in its
+argument, and `''` — the F30 default — `'not-an-instant'` and a
+space-for-`T` near miss all raise `PrecheckAbort`.
+
+Controls held. `runner.py` 739 → **756** against the `>= 800` bound at
+`tests/test_surface_contract.py:95`, so 44 lines of headroom and no unrelated
+reflow — the F31 pattern was not repeated. The anti-self-witnessing guard passes
+unchanged and is not made vacuous: the new function reads no `.grant`, no
+`selected_image_identity`, and adds no bare `"grant"` literal or 64-hex string.
+`ruff` was already on `PATH`; `ruff check src tests` reports the same **two
+pre-existing I001** findings before and after, and nothing was installed or
+auto-fixed.
+
+One control was deliberately widened, not silently admitted: `runner.__all__`
+goes from two names to three. The pin at `tests/test_runner.py:313` is an exact
+set rather than a superset, so it failed until re-pinned, and it now carries the
+reason for the third name in its docstring.
+
+**F33 is only half discharged, and the ledger should not claim more.** What is
+proved is that the library side renders the identity in exactly one exported
+place reachable with exactly what the composition root holds. What is *not*
+proved is that `build_runtime_wiring` calls it rather than re-rendering the
+format — the entrypoints do not exist yet, and that half is discharged only by
+the GREEN. F33 therefore stays **OPEN, narrowed** rather than closed.
+
+No independent verdict was obtained on this repair before the cycle ended, so
+`73ec822..77eb7e1` remains **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
 
 ## Open non-technical items for the Founder
 
