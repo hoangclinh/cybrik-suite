@@ -2046,3 +2046,72 @@ does not follow taint across the call-argument-to-parameter edge,
 these repairs have not been independently reviewed.
 
 RUNTIME remains **HOLD**. No entrypoint script exists and none was executed.
+
+## Cycle 19 — F39 repaired test-first
+
+### F39 — REPAIRED. `tests/test_scripts_inert.py`, commit `5bef003`
+
+The module-wide root-derivation guard followed taint only to names the *module*
+binds. A parameter never acquires a module name, so a helper that returns its own
+parameter carried the grant to the sink across an edge `grant_derived_names` could
+not see. The four-line shape independent review measured is now pinned in
+`EVADING_WIRING_SHAPES` as `parameter-laundered-root`:
+
+```python
+def _declared(authorization):
+    return authorization.grant["repositories"]
+
+
+def _wire(values):
+    return plan.build_plan(repository_roots=values)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return _wire(_declared(authorization))
+```
+
+**Intended RED, measured before the repair, not assumed.** At `25aadc0` this shape
+cleared the guard's own floor — `len(root_sinks(module)) >= 2` passed — and then
+`module_wide_offences(module)` returned `[]`. The failure was
+`AssertionError: parameter-laundered-root: this evasion is not flagged`, raised at the
+offence assertion rather than at the floor. That ordering matters: a shape flagged
+only because it is too small to reach the floor would have proved nothing about the
+derivation walk, and the guard's effectiveness proof asserts the floor first for
+exactly that reason.
+
+**The GREEN.** `call_parameter_bindings` pairs every parameter of a module-level `def`
+with the argument handed to it at each call whose callee is a literal `Name`;
+`argument_pairs` performs the matching, including `*args`/`**kwargs` call sites, which
+cannot be matched positionally and are therefore paired with *every* parameter of the
+callee rather than none. `grant_derived_names` now iterates its fixed point over
+`module_bindings(module) + call_parameter_bindings(module)`. In the shape above,
+`values` enters `derived` because `_declared` is already in it, and the sink — the bare
+name `values` — is then flagged.
+
+**Nothing was widened that could invent a sink.** The parameter edge feeds derivation
+only. `root_sinks`, `module_bindings`, `computed_attribute_reads` and
+`forbidden_origins` are unchanged; the diff against `25aadc0` touches only the new
+helpers, the `grant_derived_names` body line and docstring, and the new evasion entry.
+
+**Residual limits, stated rather than hidden.** Only a callee spelled as a literal
+`Name` matching a `def` in the same module is resolved — an aliased callee is caught by
+the module-name walk instead (`aliased-helper`), and a callee obtained at runtime is
+outside what any static walk over this file can claim. Parameters are pooled by bare
+name across the module, so one derived `values` argument derives every parameter named
+`values`. That is an over-approximation, which for a fail-closed guard is the safe
+direction, and it is recorded here so a future false positive is read as this decision
+rather than as a new defect.
+
+**Evidence:**
+
+| Gate | Command | Result |
+|---|---|---|
+| Intended RED (at `25aadc0`) | `pytest -q tests/test_scripts_inert.py -k "recorded_evasion or conforming_wiring_shape"` | **1 failed / 1 passed** — floor passed, `module_wide_offences == []` |
+| GREEN (at `5bef003`) | same command | **2 passed** — the evasion is flagged and the conforming shape is still not |
+| Broad census | `uv run --offline pytest -q` | **58 failed / 1418 passed** — count unchanged from `25aadc0` |
+| Failure distribution | `pytest -q \| grep ^FAILED \| sed 's/::.*//' \| uniq -c` | **51 `test_scripts_inert.py` + 7 `test_surface_contract.py`** — the recorded absent-script set, unchanged |
+| Lint | `uv run --offline ruff check .` | **2 errors**, both pre-existing `I001`; no `--fix` was run |
+| Compile | `uv run --offline python -m compileall -q src tests` | clean |
+| Lockfile | `git status --short` | `uv.lock` untracked and untouched |
+
+RUNTIME remains **HOLD**. No entrypoint script exists and none was executed.
