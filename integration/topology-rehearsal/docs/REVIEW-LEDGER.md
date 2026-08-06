@@ -5210,10 +5210,55 @@ absent-therefore-clean**:
 
 Both must be re-commissioned next cycle. **No finding is discharged by their absence.**
 
+### The register cross-check returned: **ACCURATE**, and it found one new defect
+
+The second owed lane landed after the cycle window and is recorded here rather than dropped. It
+audited the ledger content pinned at `721815b` (confirmed byte-identical: `git diff 721815b e0f6903`
+is a pure append, 0 deletions), recomputing every finding's last-recorded status independently.
+
+**The register at `:4716-4729` is ACCURATE.** Recomputed from the Cycle 44 four-band sweep:
+CLOSED 26, SUPERSEDED 2, UNASSIGNED 4, P1 OPEN 4, P1 repaired-unreviewed 2, P2 OPEN 27,
+P2 repaired-unreviewed 3, P3 OPEN 32, P3 repaired-unreviewed 2 = **102**, reconciling exactly with
+the register's own claimed total. After the F100 and F83/F86 amendments: P1 OPEN 2,
+P1 repaired-unreviewed 4, P2 OPEN 28, P3 OPEN 32 = **103 slots**, matching the complete ID set
+(F1..F100 plus F29-A/B/C). **No ID appears in the register and not the body, or in the body and not
+the register, in either direction.** After F98's discharge the register is a true view of the body.
+
+**F99 is confirmed by independent count.** F56-F59 appear nowhere except inside the sentences
+documenting the gap; they were never assigned. The audit also excluded 13 `F401` grep hits as the
+ruff rule code, not a finding ID — a trap worth recording for anyone re-running this count.
+
+**F16 is the only unreconciled severity**, P3 at `:1611` against P2 at `:1858`, `:4497`, `:4546`,
+and the ledger already self-flags it at `:4545-4547`. The apparent P1→P2/P3 shifts of F45, F46, F47
+and F65 are **not** inconsistencies: they were formally re-graded by the named second independent
+opinion landing at `:3245`. F60/F61's P1→CLOSED/SUPERSEDED is narrated at `:2462-2465`.
+
+### F102 — **P2** — `docs/REVIEW-LEDGER.md`, findings F95, F96, F97. **NEW, OPEN.**
+
+Nine findings carry REPAIRED-UNREVIEWED at EOF: F78, F79, F83, F84, F85, F86, F95, F96, F97. Each
+owes an independent verdict, and a verdict can only be commissioned against a diff. **F95, F96 and
+F97 name no commit at all** — `:3978`, `:4096` and `:4329` say only *"REPAIRED in this cycle"*, and
+no commit hash for their repair appears anywhere in the file. **Their independent review cannot be
+scoped from this ledger's own text.** F79 is a weaker instance of the same defect: its repair is
+recoverable only by inference from F78's `f2bb2c5` at `:3070`, and its own register row at `:4518`
+names no commit.
+
+This is the mechanism that has produced three lost reviews already. A finding recorded as repaired
+but not attributable to a diff is **indistinguishable from an unrepaired one** to the next reviewer,
+and the honest status of F95/F96/F97 is therefore not REPAIRED-UNREVIEWED but *unverifiable without
+a `git log -S` archaeology pass*. By contrast F83 and F86 are the only two carrying a true bracketed
+range (`3c58664..186c1a7`, `:4877`, `:4913`); F78, F84 and F85 name a single commit, which is
+functionally a one-commit range and is sufficient.
+
+**Repair:** every future REPAIRED-UNREVIEWED entry must carry the exact commit or range in its own
+register row at the moment it is written, not in surrounding prose. F95, F96 and F97 owe a
+`git log -S` recovery of their repair commits before their verdicts can be commissioned.
+
 ### Push gate at `721815b` / `3631431`
 
 **P0 = 0. P1 OPEN = 2** (F33 deferred to the GREEN; **F87, now escalated to a confirmed authority
-bypass**). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 28. P3 = 33** (F101 added).
+bypass**). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 29** (F102 added).
+**P3 = 33** (F101 added).
 The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays blocked. **None of the
 86-commit local range is push-eligible.** RUNTIME remains **HOLD**. PRODUCTION remains
 **Founder-only**.
