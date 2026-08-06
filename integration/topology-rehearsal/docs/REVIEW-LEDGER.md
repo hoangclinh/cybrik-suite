@@ -9667,7 +9667,7 @@ its complaint was that the discarded divergence tuple hid the real route — the
 - No control weakened, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
 
-## Cycle 12 — `VERDICT-a31f54d` NO-GO: interrogation, not just rendering (F0052 P1, F0053 P2)
+## Cycle 16 (V2) — `VERDICT-a31f54d` NO-GO: interrogation, not just rendering (F0052 P1, F0053 P2)
 
 The verdict on `a31f54d` returned the two rows that are the entire remaining gate distance. Both
 are recorded here with their repair, before any further lane was started.
@@ -9731,5 +9731,95 @@ unrelated reviewed code, for a P3. **F0054 (P3)** likewise remains open.
 - F0052 and F0053 are **repaired-unreviewed**, not retired: retirement is the reviewer's, per
   finding. They are the only two gating rows, so a GO on this scope takes distance to **0**.
 - `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
+- No control weakened, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 17 (V2) — `VERDICT-8aef3da` NO-GO: **two gating rows retired in one verdict**
+
+The verdict on `8aef3da` landed at 20:12:06Z after two lost reviewer attempts on this same SHA
+(one `124` timeout, one `exit=1` *connection closed mid-response*). **Those losses were
+infrastructure and are recorded as such — never as a NO-GO.** No product commit was made while
+the freeze was in force, so the reviewed set and the pushable set never diverged.
+
+`verdict=NO-GO  P0=0 P1=1 P2=0 P3=5  covers_head=true  findings_enumerated=true`
+`base=a31f54d  sha=8aef3da  diff_sha256=ddd9c686…4ac8d`
+Execution evidence **COMPLETE**: pytest 1724 passed / 59 failed with `unintended_failures=0` and
+`matches_baseline=true`; ruff 12 = baseline; `compileall` rc 0. All `--frozen --offline`; the
+untracked `uv.lock` was neither read into the resolver nor regenerated.
+
+### Retired by this verdict
+
+- **F0052 (P1, `runner.py`)** — both interrogation slots closed as prescribed: identity comparison
+  at `:689` with precedence preserved, `issubclass(type(...))` at `:493` per the package's own
+  sanctioned spelling at `views.py:102-110`. Each a strict 1:1 line replacement with a behavioural
+  test. **Retired.**
+- **F0053 (P2, `test_runner.py`)** — the six-literal substring denylist is replaced by the
+  prescribed fail-closed allowlist over `ast.FormattedValue` built on `runner_tree()`; the reviewer
+  checked every entry against its site. **Retired.**
+
+This is the first verdict in this deployment to retire more than one row. The cause was scoping the
+request at the **driver-injected open set** rather than at the newest blocking defect: both gating
+rows were repaired in one commit and judged in one packet.
+
+### New
+
+- **F0056 (P1, `runner.py:495`, `_observed_names`)** — *the one gating row.* The narrowed guard
+  still admits a **real** `Sequence` subclass; the member walk at `:495` then has no handler, so a
+  raising `__iter__` escapes `_observed_names`, escapes `_teardown` at `:576/:577` and escapes
+  `run_topology_rehearsal` **after consumption**, burning the attempt with no result and no
+  evidence. Same orphaning class as F0052 (container, network, volume, on-disk credential), one
+  layer further in: F0052 closed how the value is *classified*, F0056 is how it is *walked*.
+- **F0057 (P3, `test_runner.py:1745`)** — `PROVED_RENDERINGS` is keyed by unparsed expression text
+  with no enclosing-function scope, so its seven bare lowercase entries bless any future site that
+  reuses the identifier whatever it then holds. The allowlist that retired F0053 is now itself the
+  load-bearing surface.
+- **F0058 (P3, `REVIEW-LEDGER.md:9670`)** — the appended section was headed `Cycle 12`, duplicating
+  `:9541` and landing after `Cycle 15 (V2)` at `:9597`, so the append-only record no longer ordered.
+  **Repaired in this commit**: that heading is now `Cycle 16 (V2)` and this section is `Cycle 17`.
+
+### Carried, unrepaired
+
+- **F0054 (P3)** — `teardown.credential_residual` remains the one live foreign object published in
+  the evidence bundle without `frozen`/`safe_repr`/reduction. Untouched by this range.
+- **F0055 (P3)** — the `_observed_names` docstring still documents only the string/sequence guard
+  and not the dual `str.__str__`/`safe_repr` spelling. Declared unrepaired against the 799/800 bound.
+- **F0029 (P3)** — discharged below.
+
+### F0029 — the one-exact-finding-per-cycle directive is **superseded** under Scheduler V2
+
+Recorded here, in the section that edits this file, as the finding twice asked. The directive at
+`:4130` ("repair one exact finding per cycle") is a **legacy** rule written when work was selected
+at the newest blocking defect. Scheduler V2 selects work at the **driver-injected open set** and
+measures the exit against those rows, and it injects the explicit instruction to *"prefer a scope
+that retires several carried rows in one cut over one that opens new ground."* The two rules are in
+direct conflict, and the observed cost of the legacy one is on the record: P2 counts of 4 → 6 → 8 →
+9 across four verdicts with a single finding ever retired.
+
+**`:4130` is superseded for V2 cycles.** `VERDICT-8aef3da` is the evidence: a deliberate two-row
+commit retired both gating rows at once, which no single-row cycle had achieved. This supersession
+is recorded, not assumed — the directive text at `:4130` is left in place as history.
+
+### The 799/800 bound is now load-bearing on the gating repair
+
+`runner.py` is at **exactly 799** lines against a `>= 800` refusal, i.e. **zero slack**, and F0056's
+correction wants an exception handler around the member walk. `views.py`, `preparation.py` and
+`adapter.py` are each pinned at 799 too. This is F16/F70 ("Booby trap"), still undischarged, and it
+has already cost one real repair (F0055). The F0056 repair must therefore be **net-zero on lines**,
+and raising the limit is forbidden.
+
+### Gate state after this verdict
+
+`distance = 1` = **0 uncovered paths** + 1 open gating row. All three previously-uncovered paths
+(`runner.py`, `test_runner.py`, `REVIEW-LEDGER.md`) are now covered at the content the verdict saw.
+Open backlog: 1 × P1 (F0056) and P3s that do not gate.
+
+**Trap restated for the next cycle, because it is the one that wastes a GO:** the push predicate
+requires `gate_sha == HEAD` *and* a `VERDICT-<HEAD>.json`. **Any commit after a GO — including the
+ledger append this very policy asks for — moves HEAD off the reviewed SHA and makes the GO
+unpushable.** On a GO, the correct action is *zero* product commits: let the driver push, and defer
+all recording until after the push receipt.
+
+- `P0=P1=P2=0` is **NOT** met (F0056 P1 open). Nothing ahead of `73ec822` is push-eligible; PR #55
+  stays draft.
 - No control weakened, no finding downgraded, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
