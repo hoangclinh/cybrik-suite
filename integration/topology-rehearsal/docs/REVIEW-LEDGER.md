@@ -1517,6 +1517,52 @@ the GREEN. F33 therefore stays **OPEN, narrowed** rather than closed.
 No independent verdict was obtained on this repair before the cycle ended, so
 `73ec822..77eb7e1` remains **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
 
+### `73ec822..c444fcb` — static gates re-measured at the full local range
+
+Measured by the coordinator at HEAD `c444fcb`, before any independent verdict
+on this range was sought. Nothing was installed, auto-fixed or reformatted.
+
+| Gate | Command | Result |
+|---|---|---|
+| Broad census | `uv run --offline python -m pytest -q` | **58 failed / 1417 passed** |
+| Lint | `ruff check src tests` | 2 findings, both `I001`, both pre-existing |
+| Compile | `python -m compileall -q src tests` | exit 0, no output |
+| Whitespace | `git diff --check 73ec822..HEAD` | exit 0, no output |
+
+The census matches the count recorded at `c444fcb` exactly, so the F33 repair
+introduced no drift. The two `I001` findings are the same import-order pair
+carried since before this range opened; `--fix` was **not** run, because
+running a formatter or auto-fixer is Founder-gated by repo-root `CLAUDE.md`.
+
+**A size-bound hazard the GREEN must plan around, recorded before it bites.**
+`tests/conftest.py:106-111` defines `source_paths()` over `roots = (SRC,
+SCRIPTS)`, and `tests/test_surface_contract.py:236-247` applies
+`MODULE_LINE_LIMIT = 800` to every path that helper returns. The bound is
+therefore **not** package-only: both entrypoint scripts, once they exist, are
+judged by it, and it is `>= 800` — strictly under, not up to.
+
+Measured line counts at this HEAD, worst first:
+
+| File | Lines | Headroom to 800 |
+|---|---|---|
+| `src/…/adapter.py` | 799 | **1** |
+| `src/…/preparation.py` | 798 | **2** |
+| `src/…/grant.py` | 794 | 6 |
+| `src/…/runner.py` | 756 | 44 |
+
+`adapter.py` is one authored line from breaching a control this slice is
+required not to weaken. The atomic entrypoint GREEN adds `build_runtime_wiring`
+and five command-adapter constructions; `tests/test_scripts_inert.py:115`,
+`:628`, `:1091` and `:1460` all resolve that symbol through
+`require_c8_attr(script, …)`, so the wiring belongs in
+`scripts/run_topology_rehearsal.py` and **not** in `adapter.py`. That is the
+shape the tests already pin, and it is also the only shape that does not
+breach the size bound on contact. Raising `MODULE_LINE_LIMIT` to make room
+would be weakening a control to obtain GREEN and is refused.
+
+RUNTIME remains **HOLD**. Neither entrypoint script was executed; neither
+exists.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
