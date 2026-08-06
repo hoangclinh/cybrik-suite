@@ -26,6 +26,7 @@ to be lost irrecoverably.
 | `a4dba72..d6c0d47` | Runner, second review + independent security verification | NO-GO / security FAIL | 0/3/1/0 | NO | HOLD |
 | `73ec822..69ed068` | Entrypoint wiring RED chain + adapter plan accessor (5 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
 | `73ec822..3cd9d77` | Same chain + mandatory root injection (6 commits) | NO-GO | 1/2/4/2 | NO | HOLD |
+| `73ec822..76553f4` | Entrypoint slice, full local range (11 commits) | NO-GO | 0/5/8/4 | NO | HOLD |
 
 ## Range detail
 
@@ -346,6 +347,192 @@ discharged is the independent reviewer's call, not this section's.
 
 RUNTIME remains **HOLD**. Neither entrypoint script was executed; nothing in this
 range was run beyond the static pytest suite.
+
+### `73ec822..76553f4` — Entrypoint slice, independent review
+
+Independent Opus review, adversarial, reviewer did not author the range.
+**VERDICT NO-GO. P0=0 P1=5 P2=8 P3=4. PUSH-ELIGIBLE NO. RUNTIME HOLD.**
+
+The reviewer independently reproduced the census above (1395/49, all absent-script
+class) and re-derived every src line count before judging.
+
+**Blocking set for GO: F1, F2, F3, F4.** F5 blocks any future runtime GREEN but
+does not block this static slice on its own.
+
+#### Disposition of the `73ec822..3cd9d77` findings
+
+| Prior finding | Status | Evidence |
+|---|---|---|
+| P0 composition root pinned to a call shape the real builder can never accept | **DISCHARGED** | `test_scripts_inert.py:287` fake is now `def build(*, authorization, repository_roots)`; `:351`/`:392` lambdas match; `:330-341` pins the mandatory keyword-only `repository_roots`; `:241` forwards from `main`. The set is satisfiable end to end; `015de49`'s central claim holds. |
+| P1 self-witnessing AST guard scoped to one function, bans the only implementable read | STILL OPEN | `:998-1016` unchanged — see F3 |
+| P1 `runner.py:299-300` attempt identity fixed from the grant pin | STILL OPEN | no commit in range touches `runner.py` — see F5 |
+| P2 `wiring.command_runner` publishes the raw executor | STILL OPEN | `:565`, `:603`, `:740`, `:1042` — see F9 |
+| P2 publication walk cannot see private names | STILL OPEN | `published_names` at `:653` still filters `_`-prefixed — see F8 |
+| P2 `test_entrypoint_surface_is_bounded` pins `__all__`, not the namespace | **STILL OPEN, WIDENED** | `:429`; new comment `:414-421` now rests the bound on unenforced privacy — see F10 |
+| P2 `CommandAdapterAccessors` sited in `observe.py` by line count | STILL OPEN | `observe.py:509-542` — see F11 |
+| P3 two refusal types for one operator mistake | **STILL OPEN, WORSENED** | now three sites — see F14 |
+| P3 `ruff` 2×I001 | STILL OPEN | out of range — see F15 |
+
+Note: the finding loss recorded in `2b864e3` was itself repaired by `42bc6f7`;
+the prior detail is recoverable in full from this file at `:212-296`.
+
+#### Findings
+
+**F1 — P1 — `tests/test_scripts_inert.py:1027-1042` — the single-shared-executor
+control was deleted on the default path and never replaced.** At `73ec822`,
+`test_runtime_wiring_defaults_to_the_single_subprocess_executor` ended with
+`assert wiring.command_adapters[name].runner is wiring.command_runner` for every
+name. `6bc0745` removed it; the body now asserts only `isinstance(...)`. Its
+stated replacement (`:580`) only ever exercises an *injected* `LedgerRunner`, as
+do `:565` and `:739`. Failure: `build_runtime_wiring(...)` with
+`command_runner=None` may construct `SubprocessCommandRunner()` five times, one
+per adapter, plus a sixth as `wiring.command_runner`, and every test still
+passes — the AST single-spawn-site control at `:432` counts spawn *sites* in one
+class's source, not executor *instances*. The file's own rationale at `:585-587`
+is unproven on the only path an operator runs. Fix: AST-walk
+`inspect.getsource(build_runtime_wiring)` and assert exactly one
+`SubprocessCommandRunner` call node.
+
+**F2 — P1 — `tests/test_scripts_inert.py` (whole file) — `015de49` delivers 1 of
+the 6 test additions its own adjudication owed; the argv-shape refusal band has
+zero tests.** `ENTRYPOINT-SLICE-SPEC.md:360-366` names six additions;
+`git diff 42bc6f7..015de49` adds exactly one. Missing: hold when roots are
+unstated, hold on each malformed token, a typed `PrecheckAbort` converted to
+`HOLD_EXIT`, and the single-validation-site property. Failure:
+`main(["--execute","--grant","/tmp/g","--signature","/tmp/g.sig"])` with no
+`--control-root` may legally fold to `{}` and reach `execute(...)`, which reads
+both artifact files before the refusal — precisely the ordering the docstring at
+`:326-327` claims is forbidden. Fix: add the unstated-roots test with a recording
+`execute=` asserted never called, plus a parametrized malformed-token test over
+`--control-root novalue`, `=/p`, `n=`, and a repeated name.
+
+**F3 — P1 — `tests/test_scripts_inert.py:998-1016` — the anti-self-witnessing
+guard forbids the only read that makes the wiring buildable, so the sole route to
+GREEN is a helper performing the banned read.** `:1006` bans `grant` in
+`inspect.getsource(build_runtime_wiring)` and `:1016` bans `getattr`, but `:567`
+requires `wiring.plan.commands == built_plan().commands` with
+`attempt_id="20260805T000000Z-c8"`. The reviewer exhausted the envelope:
+`observed_at` is `00:01:00Z` (`documents.py:216`), `recorded_at` is `00:00:30Z`
+(`documents.py:47`), the image carries no instant (`documents.py:143-144`). The
+string is reachable only via `grant["observed_image_identity"]["observed_at"]`
+(`fakes.py:85`) or `grant["window"]["not_before"]` (`documents.py:44`), and
+`SYNTHETIC_ATTEMPT_ID` is in `fakes.SYNTHETIC_VALUES` (`fakes.py:233`) so it
+cannot be inlined. The implementation is *forced* into a module-level helper the
+guard cannot see, while the guard's docstring claims the derivation is wholly
+inside `build_runtime_wiring`. Fix: narrow `:1006` to the host-observation set
+and replace the blanket `grant` ban with a whole-module AST walk asserting no
+*root* value derives from `grant` — the ban has nothing to do with roots.
+
+**F4 — P1 — `docs/ENTRYPOINT-SLICE-SPEC.md:53-78` — the normative contract
+section still states the exact shape its own later sections refuted.** Five
+disagreements with the tests the file claims derivation from: `:55` omits
+`--control-root`; `:57-58` says `main` calls `execute(args.grant,
+args.signature)` positionally; `:60-61` omits the mandatory `repository_roots`;
+`:64` is the literal call shape `42bc6f7` adjudicated unsatisfiable; `:73` omits
+`repository_roots` from `build_runtime_wiring`. `76553f4` corrected the owed-edit
+list but left the section an implementer reads first. The "tests win" clause at
+`:9-10` is a disclaimer, not a control. Fix: rewrite `:53-78` to the argv-boundary
+shape, or move it under a `SUPERSEDED` banner.
+
+**F5 — P1 — `src/…/runner.py:299-300` vs `tests/test_scripts_inert.py:567` — the
+composition root is pinned to build a plan whose resource names no real run can
+match.** `_attempt_names` computes `attempt_id` from the *live*
+`prepared.image[OBSERVED_AT_KEY]`, which `preparation.py` requires to be at or
+after the grant pin; `build_runtime_wiring` must build the whole plan before any
+observation exists, so the names embed the grant's pinned instant. Failure: on any
+real host observed even one second later, `require_exact` rejects the create and
+the attempt returns `"creation: raised …"` — fails closed, but on *every* real
+execution. Green today only because `fakes.IMAGE_OBSERVED_AT` equals the grant
+pin. Out of range, but this range re-affirms the pin at `:567`. Fix: two-stage
+plan construction or a plan factory the runner completes with `names.attempt_id`;
+add a strictly-later `observed_at` case to `test_runner.py`.
+
+**F6 — P2 — `tests/test_scripts_inert.py:356-362` — the behavioural half of the
+new mandatory-roots test cannot fail.** Given `:333` keyword-only, `:334` no
+default and `:341` no variadic already passed, CPython raises during argument
+binding before the body runs, so the trailing `assert loaded == []` is guaranteed
+by the language while the docstring presents it as a fail-before-read control.
+Fix: delete the vacuous half; state the property at the argv band (F2).
+
+**F7 — P2 — `docs/ENTRYPOINT-SLICE-SPEC.md:473-475` — owed-path item 4 is
+materially incomplete and its "nothing else in that file weakens" is wrong.**
+`FRONT_DOOR_ABSENT_MODULES = ()` already (`:77`), so once the scripts land
+nothing in the component is absent — yet `:176` requires
+`FRONT_DOOR_ABSENCE_CLAIM` to appear and `:226` requires exactly one sentence to
+carry it, a sentence `:229` forbids from naming any present module and `:231`'s
+move forbids from naming the scripts. The only satisfying docstring carries a
+sentence about nothing. Removing a front-door absence control *is* a weakening the
+list denies. Fix: extend item 4 to name `FRONT_DOOR_ABSENCE_CLAIM` (`:73`), `:176`
+and `:226-231`, and state what replaces the absence sentence.
+
+**F8 — P2 — `tests/test_scripts_inert.py:709-753` + `:636-653` — the "no public
+path to the executor" claim is absolute but checked only over public names.**
+`wiring.command_adapters["docker"]._executor._runner.run(argv, …)` stays reachable
+while the test reports zero publications. Fix: state it as "no *public* path", or
+walk private names and allow-list `_executor._runner`.
+
+**F9 — P2 — `tests/test_scripts_inert.py:565, 603, 740, 1042` —
+`wiring.command_runner` still publishes the raw executor.** Any wiring holder
+calls it with arbitrary argv, bypassing `ExactCommandAdapter.run_effect`.
+Contained only because `execute_authorized_attempt` passes `wiring.adapters`,
+never the wiring — and that containment is unpinned. Fix: assert the object handed
+to `runner` is `wiring.adapters` and that no argument is the wiring itself.
+
+**F10 — P2 — `tests/test_scripts_inert.py:414-421` — the new `__all__` comment
+rests the surface bound on privacy no test enforces.** The comment asserts as
+contract that `_control_root_pair`/`_control_roots` "are private and observe
+nothing"; neither half is checked, and the spec at `:378-380` records they sit
+outside the AST guard. Failure: a public `resolve_control_roots` reading
+`os.environ` ships, absent from `__all__`, unseen. Fix: assert the public
+namespace is a subset of the expected set, and extend the AST guard to every
+module-level `_control_root*` function.
+
+**F11 — P2 — `src/…/observe.py:509-542` — `CommandAdapterAccessors` is sited by
+line count, not cohesion.** The docstring still gives the 800-line bound as the
+reason; `observe.py:6-7` declares pure decoders/reducers, and the class is kept
+out of `__all__` to paper over the mismatch. Fix: move to `adapter.py` and reclaim
+lines by extracting a cohesive block.
+
+**F12 — P2 — `docs/ENTRYPOINT-SLICE-SPEC.md:80-89` — obstacle 1 still describes
+the withdrawn `.runner` accessor as required**, false since `6bc0745`/`69ed068`;
+`tests/test_adapter.py:151` now asserts `not hasattr(instance, "runner")`. The
+heading "Three obstacles found" stands while four are documented.
+
+**F13 — P2 — `tests/test_scripts_inert.py` — no negative case pins that `main`
+refuses to execute when `--execute` is absent.** An implementation ignoring
+`args.execute` and always calling the executor passes every test in the file; the
+`execute_requested=True` literal at `:292` is asserted *inside* the execute path,
+never as a gate on entering it. Pre-existing, but this range restructured `main`'s
+argv handling without adding it.
+
+**F14 — P3 — `tests/test_scripts_inert.py:356`, `:852`, `:939` — one operator
+mistake, three refusal spellings** (`TypeError`, `TypeError`, `PrecheckAbort`)
+against the file's own principle at `:924`.
+
+**F15 — P3 — `.venv/bin/` has no `ruff`, so the lint gate did not run as
+claimed.** `015de49`'s message claims `ruff check … clean` without naming the
+binary; only an unpinned system `ruff` exists. The two `I001` remain, out of
+range, Founder-gated to repair.
+
+**F16 — P3 — `src/…/adapter.py` is 799 against a strict `< 800` bound**
+(`test_surface_contract.py:95, 246`). Nothing breaches, but that one line of
+headroom is what decided F11's siting, and the spec notes
+`scripts/run_topology_rehearsal.py` must also land under the bound.
+
+**F17 — P3 — `ENTRYPOINT-SLICE-SPEC.md:328-329` says `argparse-required
+--control-root`** while `tests/test_scripts_inert.py:199-205` explicitly declines
+to pin required-ness at the parser and permits either spelling.
+
+#### What the review confirmed as sound
+
+The RED is honest (49 failures, all absent-script, zero assertion failures). No
+synthetic fixture value can reach `src/`; the prior P0's structural cause is gone.
+`6bc0745` + `69ed068` are a net **strengthening** — the executor publication is
+fully withdrawn and `test_adapter.py:151` pins its absence across the whole MRO.
+No status-honesty violation; every banner is correctly hedged. The diff touches
+nothing outside `integration/topology-rehearsal/`, weakens no src file, and leaves
+the size bound, inventory, single-spawn-site AST control and `forbid_real_io`
+tripwire intact.
 
 ## Open non-technical items for the Founder
 
