@@ -871,6 +871,120 @@ def test_the_pin_and_the_signed_identity_it_was_drawn_from_may_not_disagree(
 
 
 # ---------------------------------------------------------------------------
+# The third accessor: `Mapping.get`, which nothing in this package reconciles
+# ---------------------------------------------------------------------------
+# Both instants `__post_init__` relates were bound through `Mapping.get`. That is a third
+# protocol no reader here cross-checks: `keyed` iterates, and `views.stored_entries` reconciles
+# `.items()` against `__getitem__` only. `MappingProxyType` over a `dict` *subclass* is exactly
+# a `MappingProxyType` by `type()`, so it passes the read-only-mapping gate and the deep
+# immutability proof, and `mappingproxy.get` delegates to the underlying mapping's own `get`
+# while `dict.items` and `dict.__getitem__` are resolved in C and do not. A `dict` subclass
+# overriding `get` alone therefore stores and subscripts one instant while answering this one
+# comparison with another. Every consumer — `frozen`, `runner`'s attempt names, an auditor
+# reading the field — records the instant it stores; the comparison saw the other one and found
+# nothing to say. This is the same hole `observe.signed_identity_findings` closed on the
+# bindings of both operands, left behind on the two instants.
+
+# The instant the ledger measured this hole with: a pin the authorization never signed, out of
+# which `runner.attempt_id_for` renders the one authorized attempt's whole name.
+EPOCH_INSTANT = "1970-01-01T00:00:00Z"
+
+
+def gets_another_instant(mapping: Mapping[str, Any], forged: str) -> MappingProxyType:
+    """A mapping that *stores and subscripts* `forged` while its `.get` answers genuinely.
+
+    The genuine answer is taken from the mapping the case starts from, so a refusal below is
+    the control under test rather than a hand-built mapping that had drifted on some other key.
+    """
+    genuine = dict(mapping)
+
+    class StoresOneInstantGetsAnother(dict):
+        def get(self, key: str, default: Any = None) -> Any:
+            if key == OBSERVED_AT:
+                return genuine[OBSERVED_AT]
+            return super().get(key, default)
+
+    return MappingProxyType(StoresOneInstantGetsAnother({**genuine, OBSERVED_AT: forged}))
+
+
+@pytest.mark.parametrize(
+    ("field", "forged"),
+    [
+        pytest.param("granted_image_identity", EPOCH_INSTANT, id="signed-identity"),
+        pytest.param("image", STALE_OBSERVED_AT, id="live-reading"),
+    ],
+)
+def test_a_mapping_that_gets_one_instant_and_stores_another_passes_every_other_gate(
+    preparation, field, forged
+) -> None:
+    """The premise of the two refusals below, asserted rather than assumed.
+
+    If the construction did not pass the read-only-mapping gate, the deep immutability proof
+    and the two views `stored_entries` reconciles, the refusals below would prove nothing about
+    which accessor the instants are read through.
+    """
+    liar = gets_another_instant(result_fields()[field], forged)
+    assert type(liar) is MappingProxyType
+    assert dict(liar.items())[OBSERVED_AT] == forged
+    assert liar[OBSERVED_AT] == forged
+    assert liar.get(OBSERVED_AT) == fakes.IMAGE_OBSERVED_AT, (
+        "premise: `.get` must answer the genuine instant, or the case is vacuous"
+    )
+    assert require_c8_attr(preparation, "immutability_findings")(liar, field) == ()
+    _, divergence = require_c8_attr(load_c8("views"), "stored_entries")(liar, field)
+    assert divergence == (), (
+        "premise: the two cross-checked views agree, so only the third protocol admits this"
+    )
+
+
+def test_the_pin_is_judged_against_the_instant_the_signed_identity_stores(
+    preparation,
+) -> None:
+    """The pin must agree with what the identity holds, not with what it answers one caller.
+
+    An identity that stores and subscripts the epoch while its `.get` answers the signed
+    instant was accepted whole: the pin comparison passed, `signed_identity_findings` had
+    nothing to say — `observed_at` is excluded from the binding keys, being two events — and
+    the satisfied result then carried a `granted_observed_at` its own signed observation does
+    not state. `runner.attempt_id_for` renders the attempt name from the pin while every
+    auditor reading the identity sees the epoch.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    identity = gets_another_instant(result_fields()["granted_image_identity"], EPOCH_INSTANT)
+    with pytest.raises(ValueError):
+        recorded = result_type(**{**result_fields(), "granted_image_identity": identity})
+        raise AssertionError(
+            "a satisfied result bound granted_observed_at "
+            f"{recorded.granted_observed_at!r} to a signed identity that stores "
+            f"{dict(recorded.granted_image_identity.items())[OBSERVED_AT]!r}"
+        )
+
+
+def test_the_ordering_is_judged_against_the_instant_the_live_reading_stores(
+    preparation,
+) -> None:
+    """The freshness ordering must judge the reading the result records, not a third answer.
+
+    The mirror of the case above on the other operand. A reading that stores and subscripts an
+    instant *before* the signed observation, while its `.get` answers one at it, satisfied the
+    ordering check and was then recorded — so a satisfied result described a host nobody
+    re-checked after the grant was signed, which is exactly what this comparison exists to
+    refuse.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    reading = gets_another_instant(result_fields()["image"], STALE_OBSERVED_AT)
+    # The control is vacuous unless the stored reading really is older than the pin.
+    assert STALE_OBSERVED_AT < fakes.IMAGE_OBSERVED_AT
+    with pytest.raises(ValueError):
+        recorded = result_type(**{**result_fields(), "image": reading})
+        raise AssertionError(
+            "a satisfied result pinned to "
+            f"{recorded.granted_observed_at!r} recorded a live reading that stores the older "
+            f"{dict(recorded.image.items())[OBSERVED_AT]!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # What a copy of a proved result can, and cannot, establish about the signed observation
 # ---------------------------------------------------------------------------
 # The pin check above relates two caller-supplied fields to each other, so a copy that moves
