@@ -1299,3 +1299,44 @@ def test_the_attempt_identity_format_is_rendered_in_exactly_one_place(runner) ->
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
     assert "attempt_id_for" in called
+
+
+def test_created_names_carry_the_granted_pin_not_this_host_s_live_observation(
+    runner,
+) -> None:
+    """The seam is fed the instant the authorization pinned, never the one this host read.
+
+    The two tests above can only see *that* every name routes through the one renderer; they
+    cannot see *which* instant is handed to it, because in the default fixtures the grant pin
+    and the live host reading are the same string. That equality is the whole hazard: the
+    drift `_attempt_names` exists to prevent is invisible until a host answers with a later
+    observation, and by then the single authorized attempt has been spent creating names its
+    own plan-bound ports refuse. So this drives a host that reports a *different* admitted
+    observation — later than the pin, which preparation accepts — and pins the created names
+    to the pin's identity. Feeding the live reading to the seam instead moves every one of
+    them, which is exactly the regression that must not be silent.
+    """
+    # Arrange. An admitted host reading strictly after the grant pin, so the two instants
+    # render two different identities and only one of them can be the created names'.
+    live_observed_at = "2026-08-05T00:01:00Z"
+    live_attempt_id = "20260805T000100Z-c8"
+    assert live_observed_at != fakes.IMAGE_OBSERVED_AT
+    assert live_attempt_id != fakes.SYNTHETIC_ATTEMPT_ID
+    adapters = fakes.passing_adapters(
+        image=fakes.host_image(observed_at=live_observed_at)
+    )
+
+    # Act.
+    result = run(runner, adapters)
+
+    # Assert. Every created name is the pin's identity; none carries the live reading's.
+    created = tuple(adapters.log.calls(call)[0]["name"] for call in CREATE_CALLS)
+    assert result.outcome == fakes.TOPOLOGY_PASS
+    assert created == (
+        fakes.NETWORK_NAME,
+        fakes.VOLUME_NAME,
+        fakes.CREDENTIAL_NAME,
+        fakes.CONTAINER_NAME,
+        fakes.CONTAINER_NAME,
+    )
+    assert not any(live_attempt_id in name for name in created)

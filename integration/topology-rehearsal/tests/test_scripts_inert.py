@@ -1477,8 +1477,14 @@ def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() 
 # entrypoint it is waiting for. Its purpose is the other half of an AST control's honesty: a
 # walk is only worth its false-negative reach if it is also known not to refuse the design it
 # guards, and a guard that blocks the reviewed shape is a false blocker, not a control.
+# The identity it hands the plan is rendered by `runner.attempt_id_for`, the package's one
+# renderer of that string, and never spelled out here: `plan.build_plan` takes the rendered
+# `attempt_id`, an `exact_token` that may not carry the `:` characters a raw ISO instant does,
+# so a shape that forwarded the grant's instant verbatim would be a reference design whose
+# first plan build refuses — and refuses after the single authorized attempt is already spent.
 CONFORMING_WIRING_SHAPE = '''
 import plan
+from runner import attempt_id_for
 
 
 def _control_root_pair(token):
@@ -1493,7 +1499,9 @@ def _control_roots(tokens):
 def build_runtime_wiring(*, authorization, repository_roots):
     return plan.build_plan(
         repository_roots=repository_roots,
-        attempt=authorization.grant["observed_image_identity"]["observed_at"],
+        attempt_id=attempt_id_for(
+            authorization.grant["observed_image_identity"]["observed_at"]
+        ),
     )
 
 

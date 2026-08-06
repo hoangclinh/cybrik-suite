@@ -1923,3 +1923,95 @@ Append new rows/sections above rather than editing prior ones, except to
 fix factual errors. Do not relabel any past verdict as IMPLEMENTED,
 VERIFIED, or GA — this ledger records review verdicts on code, not
 runtime or production status.
+
+---
+
+## Cycle-18 repair record — F36 refuted by measurement, F43 repaired
+
+Measured in this worktree at `9f8bfa7` plus the working-tree edits described below.
+Nothing was executed: no entrypoint script exists and none was run. `uv.lock`
+untouched.
+
+### F36 — REFUTED. The claim it rests on is false under measurement.
+
+F36 asserts that "reverting `attempt_id_for(prepared.granted_observed_at)` to
+`attempt_id_for(prepared.image[OBSERVED_AT_KEY])` leaves the suite green", and
+concludes that the F5/F29 discharge is silently revertible. The revert was performed
+and measured; it is not.
+
+Two spellings of that revert exist and they measure differently:
+
+| Revert spelling | `pytest -q tests/test_runner.py` | What it measures |
+|---|---|---|
+| `prepared.image[OBSERVED_AT_KEY]` — the review's literal text | **62 failed / 34 passed** | Nothing about coverage. `OBSERVED_AT_KEY` is defined in `preparation.py:86` and is *not* imported into `runner.py`; the revert is a `NameError` on every run. |
+| `prepared.image["observed_at"]` — the honest revert | **3 failed / 93 passed** | The real drift. |
+
+The three honest-revert failures are:
+
+- `test_a_host_observed_after_the_grant_pin_still_creates_names_the_plan_accepts[one-second-later]`
+- `test_a_host_observed_after_the_grant_pin_still_creates_names_the_plan_accepts[fifty-nine-seconds-later]`
+- the new witness added below.
+
+The first two are **pre-existing at `9f8bfa7`** (`tests/test_runner.py:1013`, present
+in `git show HEAD:` before any edit this cycle). They drive
+`plan_bound_adapters(observed_at)` with an admitted observation strictly later than
+the grant pin, assert `plan.attempt_id == fakes.SYNTHETIC_ATTEMPT_ID` first so the
+comparison cannot be vacuous, and then assert each created name equals the
+plan-carried name. That is exactly the separating property F36 says nothing states.
+The review reached its conclusion from the fixture equality
+`fakes.IMAGE_OBSERVED_AT == documents` grant pin without performing the revert; the
+equality holds, but `plan_bound_adapters` overrides the live reading, so the
+inference does not.
+
+**F36 status: REFUTED — no repair owed.** The F5/F29 discharge is durable, and was
+durable before this cycle.
+
+### One witness added anyway — `tests/test_runner.py:1304`
+
+`test_created_names_carry_the_granted_pin_not_this_host_s_live_observation` is kept
+as a second, independent witness of the same property. It is not a repair and is not
+claimed as one. It differs from the pre-existing pair in what it depends on: it uses
+plain `fakes.passing_adapters(image=fakes.host_image(observed_at=...))` and compares
+the created names against the `fakes` name constants directly, so it states the
+naming property without routing through `plan_bound_adapters` or the plan builder.
+If a future edit changes how the plan-bound fixture derives its own expectations, the
+property survives in a test that does not use it.
+
+- RED against the honest revert (third failure above); GREEN against shipped source.
+- `src/` is byte-identical to `9f8bfa7` after the experiment: `git diff -- src/` is
+  empty. The revert existed only in the working tree during measurement.
+
+### F43 — REPAIRED. `tests/test_scripts_inert.py:1486`
+
+`CONFORMING_WIRING_SHAPE` — the reference design the entrypoint guards are pinned
+*not* to refuse — now renders the attempt identity through the exported seam instead
+of forwarding the grant's raw ISO instant:
+
+- added `from runner import attempt_id_for`;
+- `attempt=authorization.grant[...]["observed_at"]` became
+  `attempt_id=attempt_id_for(authorization.grant[...]["observed_at"])`.
+
+Both halves were wrong, and the keyword name is the second half F43 did not name:
+`plan.build_plan` (`plan.py:437-441`) takes `attempt_id`, not `attempt`, and passes
+it through `exact_token`, which refuses the `:` characters a raw ISO instant carries.
+An implementer following the old shape would have re-rendered the identity by hand at
+a site `test_the_attempt_identity_format_is_rendered_in_exactly_one_place` cannot see,
+*and* handed the plan a keyword it does not accept.
+
+The shape's leading comment now states why the identity is not spelled out there.
+
+**Evidence:**
+
+| Gate | Command | Result |
+|---|---|---|
+| Conforming-shape guard | `pytest -q …::test_the_spec_conforming_wiring_shape_is_not_flagged_by_the_module_wide_guard` | **1 passed** — the repaired shape is still not flagged; `root_sinks >= 2` and `module_wide_offences == []` both hold |
+| Runner suite | `uv run --offline python -m pytest -q tests/test_runner.py` | **96 passed / 0 failed** |
+| Broad census | `uv run --offline python -m pytest -q tests/` | **58 failed / 1418 passed** — failure count unchanged from `9f8bfa7`; passed count is +1, the witness above |
+
+No control was weakened to obtain this: the repair adds a call to the single renderer
+and corrects a keyword; it removes no assertion and relaxes no guard.
+
+### Open P1 set after this cycle
+
+**F30, F39** remain open and unrepaired. **F36** is refuted. **F43** is discharged.
+**F44** is addressed in the entry that follows this one.
