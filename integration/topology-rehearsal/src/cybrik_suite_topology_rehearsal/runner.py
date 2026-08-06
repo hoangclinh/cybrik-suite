@@ -78,7 +78,7 @@ from .protocols import (
     require_port,
 )
 
-__all__ = ["RehearsalResult", "run_topology_rehearsal"]
+__all__ = ["RehearsalResult", "attempt_id_for", "run_topology_rehearsal"]
 
 # The four ports preparation does not check for itself. Each is checked before the attempt
 # begins rather than where it is first reached: a bundle missing its ledger discovered after
@@ -283,6 +283,30 @@ def _grant_facts(
     }
 
 
+def attempt_id_for(pinned_observed_at: str) -> str:
+    """Render the one attempt identity from the instant the authorization pinned.
+
+    This is the only rendering of that identity in the package, and it is exported because
+    two callers need it: the composition root, which names the attempt before any host is
+    read and holds nothing but the pinned instant, and `_attempt_names` below, which names it
+    again once preparation has answered. A second formula spelled out at either site would be
+    two renderings of one identity with nothing structural holding them together; the
+    disagreement would surface only after the single authorized attempt had already been
+    spent creating names its own plan-bound ports then refuse.
+
+    It is a function of its argument alone — no clock, no host reading and no snapshot — so
+    every caller holding the same pinned instant renders the same string wherever and whenever
+    it runs. Anything that is not exactly the reviewed UTC shape names no attempt at all.
+    """
+    moment = instant(pinned_observed_at)
+    if moment is None:
+        raise PrecheckAbort(
+            f"attempt identity: the pinned host observation {pinned_observed_at!r} is not an "
+            "exact UTC instant, so no attempt can be named after it"
+        )
+    return f"{moment.strftime(ATTEMPT_INSTANT_FORMAT)}-{ATTEMPT_SLICE}"
+
+
 def _attempt_names(prepared: PreparationResult) -> AttemptNames:
     """Derive every resource name from the one pinned attempt identity.
 
@@ -304,14 +328,7 @@ def _attempt_names(prepared: PreparationResult) -> AttemptNames:
     can only consume the exact material preparation proved present; a tag would name whatever
     the host happens to hold later.
     """
-    pinned_at = prepared.granted_observed_at
-    moment = instant(pinned_at)
-    if moment is None:
-        raise PrecheckAbort(
-            f"attempt identity: the pinned host observation {pinned_at!r} is not an exact "
-            "UTC instant, so no attempt can be named after it"
-        )
-    attempt_id = f"{moment.strftime(ATTEMPT_INSTANT_FORMAT)}-{ATTEMPT_SLICE}"
+    attempt_id = attempt_id_for(prepared.granted_observed_at)
     selected = prepared.image
     return AttemptNames(
         attempt_id=attempt_id,

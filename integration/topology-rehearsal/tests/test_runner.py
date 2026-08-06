@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import inspect
 import re
 
 import pytest
@@ -298,9 +299,20 @@ def test_any_residual_resource_upgrades_the_outcome_to_stop_control(runner) -> N
     assert result.residuals == (fakes.NETWORK_NAME,)
 
 
-def test_runner_exports_only_the_result_and_single_entrypoint(runner) -> None:
+def test_runner_exports_the_result_the_entrypoint_and_the_attempt_identity_seam(
+    runner,
+) -> None:
+    """Three names, and the third is a seam rather than a second way in.
+
+    `attempt_id_for` is exported because the composition root has to name the same attempt
+    the runner will name, and it holds no `PreparationResult` to reach `_attempt_names`
+    with. An unexported formula leaves the wiring re-rendering the same identity from the
+    same field, which is agreement by convention across a module boundary rather than by
+    construction — the defect class that already cost one repair.
+    """
     assert set(require_c8_attr(runner, "__all__")) == {
         "RehearsalResult",
+        "attempt_id_for",
         "run_topology_rehearsal",
     }
 
@@ -1074,3 +1086,216 @@ def test_the_plan_bound_ports_pass_at_the_one_instant_the_grant_pinned(runner) -
     assert result.teardown_complete is True
     assert adapters.log.calls("docker.create_network")[0]["name"] == plan.network_name
     assert adapters.log.calls("docker.create_container")[0]["name"] == plan.container_name
+
+
+# The attempt identity has exactly one renderer. Every one of the tests below states some
+# part of that single property, because the defect it closes is not a wrong id: it is two
+# independent renderings of one id, which drift silently and are discovered only by spending
+# the single authorized attempt on a name the enforcing ports refuse.
+
+# The exact strings HEAD renders for these instants, transcribed from the runner as it stands
+# before this seam exists. They are the byte-identity control: exporting the formula may not
+# change one character of the identity any reviewed plan already carries.
+RENDERED_ATTEMPT_IDS = (
+    pytest.param(fakes.IMAGE_OBSERVED_AT, fakes.SYNTHETIC_ATTEMPT_ID, id="the-pinned-instant"),
+    pytest.param("2026-08-05T00:00:59Z", "20260805T000059Z-c8", id="the-last-admitted-second"),
+    pytest.param("1999-12-31T23:59:59Z", "19991231T235959Z-c8", id="a-two-digit-free-instant"),
+    pytest.param("2026-12-05T00:00:01Z", "20261205T000001Z-c8", id="a-day-month-swap-guard"),
+)
+
+# Everything that is not an exact UTC instant of the reviewed shape. A seam that answered any
+# of these would hand the composition root a name no signed document authorized, so each is a
+# refusal rather than a best effort.
+UNUSABLE_INSTANTS = (
+    pytest.param("", id="empty"),
+    pytest.param("not-an-instant", id="prose"),
+    pytest.param("2026-08-05T00:00:00+00:00", id="offset-instead-of-z"),
+    pytest.param("2026-13-05T00:00:00Z", id="impossible-month"),
+    pytest.param("2026-08-05 00:00:00Z", id="space-instead-of-t"),
+    pytest.param("2026-8-5T00:00:00Z", id="unpadded-fields"),
+    pytest.param("20260805T000000Z", id="already-rendered"),
+    pytest.param(None, id="never-observed"),
+    pytest.param(20260805000000, id="not-a-string"),
+)
+
+# Names that would mean the seam consulted something other than its argument. A renderer that
+# reads a clock, an environment or a preparation snapshot is not a function of the pinned
+# instant, and two callers of it would agree only by luck.
+FORBIDDEN_SEAM_READS = frozenset(
+    {
+        "clock",
+        "datetime",
+        "environ",
+        "getenv",
+        "granted_observed_at",
+        "monotonic",
+        "now",
+        "prepare",
+        "prepared",
+        "PreparationResult",
+        "time",
+        "today",
+        "utcnow",
+    }
+)
+
+
+def runner_tree() -> ast.Module:
+    return ast.parse(require_c8_path(SRC / PACKAGE / "runner.py").read_text(encoding="utf-8"))
+
+
+def runner_function(name: str) -> ast.FunctionDef:
+    """The one module-level function of this name, or a RED failure naming its absence."""
+    defined = [
+        node
+        for node in runner_tree().body
+        if isinstance(node, ast.FunctionDef) and node.name == name
+    ]
+    if len(defined) != 1:
+        pytest.fail(
+            f"runner.py must define exactly one module-level {name}, found {len(defined)}",
+            pytrace=False,
+        )
+    return defined[0]
+
+
+def names_read_in(node: ast.AST) -> set[str]:
+    """Every bare name and attribute name reached anywhere inside one node."""
+    read: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name):
+            read.add(child.id)
+        elif isinstance(child, ast.Attribute):
+            read.add(child.attr)
+    return read
+
+
+def functions_reading(name: str) -> set[str]:
+    """Every module-level function of runner.py whose body reaches for one name."""
+    return {
+        node.name
+        for node in runner_tree().body
+        if isinstance(node, ast.FunctionDef) and name in names_read_in(node)
+    }
+
+
+@pytest.mark.parametrize(("pinned", "expected"), RENDERED_ATTEMPT_IDS)
+def test_the_attempt_identity_seam_renders_exactly_the_id_the_runner_already_creates(
+    runner, pinned, expected
+) -> None:
+    """Exporting the formula is a move, not an edit: the identity is byte-identical.
+
+    The reviewed plan, the resource names, the argv the operator reads and the enforcing
+    ports all carry this string. A seam that rendered it differently would not be a repair of
+    the drift risk; it would be the drift, landed deliberately.
+    """
+    assert require_c8_attr(runner, "attempt_id_for")(pinned) == expected
+
+
+def test_the_attempt_identity_seam_is_the_one_the_composition_root_can_reach(runner) -> None:
+    """The wiring holds a pinned instant and nothing else, so that must be the whole input.
+
+    `build_runtime_wiring(*, authorization, repository_roots)` is handed no host observation,
+    no preparation snapshot and no adapters. A seam it cannot call with what it holds is not
+    a seam, and the wiring would be back to re-implementing the format against the same field.
+    """
+    seam = require_c8_attr(runner, "attempt_id_for")
+    signature = inspect.signature(seam)
+    parameters = list(signature.parameters.values())
+    assert [parameter.name for parameter in parameters] == ["pinned_observed_at"]
+    assert parameters[0].default is inspect.Parameter.empty
+    assert parameters[0].kind in (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    )
+    assert isinstance(seam(fakes.IMAGE_OBSERVED_AT), str)
+
+
+def test_the_attempt_identity_seam_is_a_pure_function_of_the_instant_it_is_handed(
+    runner,
+) -> None:
+    """Same instant, same id; different instant, different id; nothing else consulted.
+
+    Two callers agree by construction only if the renderer has no second input. A seam that
+    read a clock, the host or the authorization would produce agreement that depends on when
+    and where each caller ran, which is the convention this repair exists to remove.
+    """
+    # Arrange.
+    seam = require_c8_attr(runner, "attempt_id_for")
+    instants = [pinned for pinned, _ in (case.values for case in RENDERED_ATTEMPT_IDS)]
+
+    # Act.
+    first = [seam(pinned) for pinned in instants]
+    second = [seam(pinned) for pinned in reversed(instants)]
+
+    # Assert. Determinism, injectivity, and a body that reaches for nothing but its argument.
+    assert first == list(reversed(second))
+    assert len(set(first)) == len(first)
+    assert names_read_in(runner_function("attempt_id_for")) & FORBIDDEN_SEAM_READS == set()
+
+
+@pytest.mark.parametrize("pinned", UNUSABLE_INSTANTS)
+def test_the_attempt_identity_seam_fails_closed_on_anything_but_an_exact_instant(
+    runner, pinned
+) -> None:
+    """An unreadable pin names no attempt at all, and never a salvaged one."""
+    abort = require_c8_attr(load_c8("errors"), "PrecheckAbort")
+    with pytest.raises(abort) as raised:
+        require_c8_attr(runner, "attempt_id_for")(pinned)
+    assert repr(pinned) in str(raised.value)
+
+
+def test_every_created_name_is_derived_from_the_one_exported_attempt_identity_seam(
+    runner, monkeypatch
+) -> None:
+    """`_attempt_names` must call the seam, not re-render the same format beside it.
+
+    Exporting a second renderer that agrees with the private one today would leave two
+    formulas where there is one identity — exactly the shape that has to drift before anyone
+    notices. Replacing the exported seam therefore has to move every name the attempt creates;
+    if any of them still carries the format-rendered id, the private copy is still there.
+    """
+    # Arrange. A sentinel no format could render, so an unmoved name is unmistakable.
+    sentinel = "seam-sentinel"
+    monkeypatch.setattr(runner, "attempt_id_for", lambda pinned_observed_at: sentinel)
+    adapters = fakes.passing_adapters()
+
+    # Act.
+    run(runner, adapters)
+
+    # Assert. Every mutating create was named through the seam.
+    created = (
+        adapters.log.calls("docker.create_network")[0]["name"],
+        adapters.log.calls("docker.create_volume")[0]["name"],
+        adapters.log.calls("credential.create")[0]["name"],
+        adapters.log.calls("docker.create_container")[0]["name"],
+        adapters.log.calls("docker.start_container")[0]["name"],
+    )
+    assert created == (
+        f"cybrik-topology-net-{sentinel}",
+        f"cybrik-topology-vol-{sentinel}",
+        f"cybrik-topology-credential-{sentinel}",
+        f"cybrik-topology-{sentinel}",
+        f"cybrik-topology-{sentinel}",
+    )
+    assert not any(fakes.SYNTHETIC_ATTEMPT_ID in name for name in created)
+
+
+def test_the_attempt_identity_format_is_rendered_in_exactly_one_place(runner) -> None:
+    """One identity, one renderer, and the private namer is a caller of it like any other.
+
+    This is the structural half of the property: the behavioural test above can only see the
+    names the runner creates, so a second rendering sited anywhere the attempt does not reach
+    would still satisfy it. The format and its slice label are reachable from exactly one
+    function, and `_attempt_names` reaches the identity only by calling that function.
+    """
+    assert functions_reading("strftime") == {"attempt_id_for"}
+    assert functions_reading("ATTEMPT_INSTANT_FORMAT") == {"attempt_id_for"}
+    assert functions_reading("ATTEMPT_SLICE") == {"attempt_id_for"}
+    namer = runner_function("_attempt_names")
+    called = {
+        node.func.id
+        for node in ast.walk(namer)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert "attempt_id_for" in called
