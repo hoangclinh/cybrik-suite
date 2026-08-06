@@ -1011,6 +1011,76 @@ def test_a_two_field_copy_may_not_invent_the_signed_observation_it_pins_itself_t
         )
 
 
+# The key under which the live reading answers whether the reviewed material is on this host.
+PRESENT = "present"
+
+# Live readings that are not a whole host observation of material this host holds. Each one
+# still states the reviewed instant and still agrees with the signed identity on every one of
+# the six binding keys, so what refuses the copy is the reading's own inventory or its own
+# presence answer — nothing that would have fired anyway.
+INCOMPLETE_READINGS = (
+    pytest.param({PRESENT: False}, id="present-false"),
+    pytest.param({PRESENT: None}, id="present-unread"),
+    pytest.param({PRESENT: 1}, id="present-truthy-not-true"),
+    pytest.param({PRESENT: "yes"}, id="present-truthy-string"),
+    pytest.param({"signer": "cybrik"}, id="unreviewed-extra-key"),
+)
+
+
+@pytest.mark.parametrize("patch", INCOMPLETE_READINGS)
+def test_a_proved_result_may_not_carry_a_reading_that_denies_its_own_material(
+    preparation, patch
+) -> None:
+    """The record must not assert a proof its own reading contradicts.
+
+    `image_findings` requires the reading to carry exactly the reviewed inventory and to say
+    `present is True`, but that judgement lives in `prepare`, which no copy goes through. A
+    copy that flips `present` to False keeps every binding key agreeing, so the signed-identity
+    comparison saw nothing wrong, and `runner` strips `present` before recording — so a
+    satisfied result could state that the reviewed image is not on the host it rehearsed on and
+    the evidence record would never carry the contradiction.
+    """
+    result = prepare(preparation)
+    reading = MappingProxyType({**dict(result.image), **patch})
+    # The control is vacuous unless the patch really changed the reading. Equality would not
+    # say so: `1 == True`, and a truthy stand-in for a flag is exactly one of the cases here.
+    assert any(
+        key not in result.image or reading[key] is not result.image[key] for key in patch
+    )
+    with pytest.raises(ValueError):
+        replace(result, image=reading)
+
+
+def test_a_proved_result_may_not_carry_a_reading_with_no_presence_answer(
+    preparation,
+) -> None:
+    """Dropping the key must refuse exactly as answering it wrongly does.
+
+    A reading that never answers is not a reading that answered yes. Checking only the value
+    would leave the whole control bypassable by deleting one key.
+    """
+    result = prepare(preparation)
+    assert PRESENT in result.image
+    reading = MappingProxyType(
+        {key: value for key, value in result.image.items() if key != PRESENT}
+    )
+    with pytest.raises(ValueError):
+        replace(result, image=reading)
+
+
+def test_a_genuine_proved_result_is_still_copyable_unchanged(preparation) -> None:
+    """The positive control: the reading `prepare` proved must survive being copied.
+
+    Without this, a check that refused every reading would look exactly as green as one that
+    refuses only the readings that contradict themselves.
+    """
+    result = prepare(preparation)
+    copied = replace(result, image=MappingProxyType(dict(result.image)))
+    assert copied.satisfied is True
+    assert copied.image[PRESENT] is True
+    assert dict(copied.image) == dict(result.image)
+
+
 @pytest.mark.parametrize(
     "identity",
     [

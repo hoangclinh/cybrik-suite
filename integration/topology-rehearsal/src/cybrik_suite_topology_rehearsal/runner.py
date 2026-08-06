@@ -51,6 +51,7 @@ from .constants import (
 from .errors import PrecheckAbort, resolve_outcome
 from .grant import INSTANT_FORMAT, REVIEWED_TOPOLOGY, TOOL_KEYS, instant
 from .observe import (
+    PRESENT_KEY,
     validate_internal_ingress,
     validate_internal_network,
     validate_publication,
@@ -65,7 +66,6 @@ from .plan import (
 )
 from .preparation import (
     POLICY_KEY,
-    PRESENT_KEY,
     PreparationResult,
     frozen,
     prepare,

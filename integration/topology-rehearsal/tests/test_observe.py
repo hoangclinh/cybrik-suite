@@ -9,7 +9,7 @@ from types import MappingProxyType
 import documents
 import fakes
 import pytest
-from conftest import PACKAGE, SRC, load_c8, require_c8_attr
+from conftest import C8_MODULES, PACKAGE, SRC, load_c8, require_c8_attr
 
 # The names of the one decoded listener record's keys. They are read off the protocol
 # boundary rather than spelled here, so this suite cannot itself become the second place a
@@ -659,3 +659,110 @@ def test_the_signed_identity_inventory_is_the_grant_inventory_itself(observe) ->
     assert require_c8_attr(observe, "OBSERVED_IDENTITY_KEYS") is require_c8_attr(
         grant, "OBSERVED_IDENTITY_KEYS"
     )
+
+
+# The names of the host reading's own inventory. They are the third inventory the signed
+# identity reduction reads, and unlike the two grant-owned ones they were declared in
+# `preparation`, which `observe` cannot import from without a cycle. Each consumer below must
+# receive the one declared object rather than re-type an agreeing copy of it.
+HOST_READING_KEY_NAMES = ("PRESENT_KEY", "HOST_IMAGE_KEYS")
+
+# Every module that reads one of those names, and the name it reads.
+HOST_READING_CONSUMERS = (
+    ("preparation", "PRESENT_KEY"),
+    ("preparation", "HOST_IMAGE_KEYS"),
+    ("runner", "PRESENT_KEY"),
+)
+
+
+def test_the_host_reading_inventory_is_declared_in_exactly_one_module() -> None:
+    """One name, one meaning, for the host reading's keys as much as the identity's.
+
+    The signed identity reduction must judge the live reading's own inventory, and the module
+    that does the judging cannot import from `preparation` — `preparation` imports from it. A
+    second local declaration would be the same collision the test above pins, so the single
+    declaration site is what this pins, together with each consumer reading that one object.
+    """
+    declaring = sorted(
+        module
+        for module in C8_MODULES
+        if module_level_assignments(module) & frozenset(HOST_READING_KEY_NAMES)
+    )
+    assert declaring == ["observe"], (
+        f"the host reading keys are declared in {declaring}; exactly one module may type them"
+    )
+    observe = load_c8("observe")
+    for module, name in HOST_READING_CONSUMERS:
+        assert require_c8_attr(load_c8(module), name) is require_c8_attr(observe, name), (
+            f"{module}.{name} must be observe's own object, not an agreeing copy"
+        )
+
+
+def signed_pair(**image_overrides):
+    """The grant's signed host observation and the agreeing live reading it names.
+
+    Both sides are written once from the shared documents, so a case below is refused by the
+    control under test rather than by a baseline that had quietly drifted out of agreement.
+    """
+    identity = MappingProxyType(
+        dict(documents.grant_document()["observed_image_identity"])
+    )
+    return identity, MappingProxyType(fakes.host_image(**image_overrides))
+
+
+def test_a_signed_identity_agreeing_with_a_whole_host_reading_is_accepted(observe) -> None:
+    """The positive control: a genuine pair must still reduce to no findings at all."""
+    identity, image = signed_pair()
+    assert call(observe, "signed_identity_findings", identity, image) == ()
+
+
+# Live readings that are not a whole host observation of material this host holds. Every one
+# of them agrees with the signed identity on all six binding keys, so what refuses them is the
+# reading's own inventory or its own `present` flag and nothing else.
+INCOMPLETE_HOST_READINGS = (
+    pytest.param({"present": False}, id="present-false"),
+    pytest.param({"present": None}, id="present-unread"),
+    pytest.param({"present": 1}, id="present-truthy-not-true"),
+    pytest.param({"present": "yes"}, id="present-truthy-string"),
+)
+
+
+@pytest.mark.parametrize("override", INCOMPLETE_HOST_READINGS)
+def test_a_signed_identity_is_refused_against_a_reading_that_denies_the_material(
+    observe, override
+) -> None:
+    """A reading that does not say the material is here cannot prove an identity of it.
+
+    The reduction compared the six binding keys but never read `present`, so a reading whose
+    own answer was "not on this host" still agreed on every key it was asked about. The result
+    then asserted a satisfied proof of an image its own reading said it did not hold.
+    """
+    identity, image = signed_pair(**override)
+    findings = call(observe, "signed_identity_findings", identity, image)
+    assert findings, "a reading that denies the material must be refused"
+
+
+def test_a_signed_identity_is_refused_against_a_reading_missing_its_presence_answer(
+    observe,
+) -> None:
+    """Dropping the key is the same failure as answering it wrongly, not a way around it."""
+    identity, image = signed_pair()
+    partial = MappingProxyType(
+        {key: value for key, value in image.items() if key != "present"}
+    )
+    findings = call(observe, "signed_identity_findings", identity, partial)
+    assert findings, "a reading with no presence answer must be refused"
+
+
+def test_a_signed_identity_is_refused_against_a_reading_carrying_an_unreviewed_key(
+    observe,
+) -> None:
+    """The reading's whole inventory is reviewed, so an extra claim is refused as well.
+
+    An unreviewed key is a claim nobody read. Accepting it here while `image_findings` refuses
+    it at `prepare()` time would make the two judgements of the same field disagree.
+    """
+    identity, image = signed_pair()
+    extended = MappingProxyType({**dict(image), "signer": "cybrik"})
+    findings = call(observe, "signed_identity_findings", identity, extended)
+    assert findings, "an unreviewed key in the reading must be refused"

@@ -48,8 +48,11 @@ from .grant import (
     registry_digest,
 )
 from .observe import (
+    HOST_IMAGE_KEYS,
     IMMUTABLE_LEAVES,
+    PRESENT_KEY,
     immutability_findings,
+    local_presence_findings,
     signed_identity_findings,
 )
 from .protocols import (
@@ -82,9 +85,10 @@ GRANT_SECTIONS = (
     "tools",
 )
 
-# The observed identity plus whether the reviewed image is already local.
-PRESENT_KEY = "present"
-HOST_IMAGE_KEYS = (PRESENT_KEY, *OBSERVED_IDENTITY_KEYS)
+# The observed identity plus whether the reviewed image is already local is `HOST_IMAGE_KEYS`,
+# imported above and never re-typed here. It is declared in `observe` because the signed
+# identity reduction there judges the same reading, and this module imports from `observe`, so
+# only that direction is available to both readers without closing an import cycle.
 PLATFORM_KEY = "platform"
 POLICY_KEY = "pull_policy"
 LOCAL_IMAGE_KEY = "local_image_id"
@@ -569,11 +573,7 @@ def image_findings(
     if refusals:
         return refusals
     findings: list[str] = []
-    if image[PRESENT_KEY] is not True:
-        findings.append(
-            f"image: present is {image[PRESENT_KEY]!r}, not exactly True, so the reviewed "
-            "material is not already on this host"
-        )
+    findings.extend(local_presence_findings(image, "image"))
     unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if image[key] is None)
     if unread:
         findings.append(

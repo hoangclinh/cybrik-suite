@@ -92,6 +92,21 @@ NO_VIEWS: Mapping[str, str | None] = MappingProxyType({})
 # a registry digest. `OBSERVED_IDENTITY_KEYS` is the whole signed reading, host-only fields
 # included. Typing either of them again here would give one name two meanings across the
 # package, which is exactly the collision that once refused every genuine identity.
+#
+# The third inventory is the live host reading's own, and it is declared here rather than
+# imported because there is nowhere else it can live: it is read both by the signed-identity
+# reduction below and by `preparation`, which imports from this module, so declaring it there
+# and importing it here would close an import cycle. It is the grant's observed identity plus
+# the one thing only a host can answer — whether the reviewed material is already local — so
+# it is derived from the grant's tuple rather than spelled out beside it. `preparation` and
+# `runner` read these two names from here for the same one-name-one-meaning reason as above:
+# a second agreeing declaration would drift the moment either side gained a key.
+PRESENT_KEY = "present"
+HOST_IMAGE_KEYS = (PRESENT_KEY, *OBSERVED_IDENTITY_KEYS)
+
+# The field name this module reports a refusal about the live reading under. A finding names
+# the field a caller can go and look at, which for the reading is never the identity's name.
+READING_LABEL = "image"
 
 # The exact keys of the two container projections carrying a publication view. The listener
 # record's own keys are not re-typed here: they are the shape `protocols.decoded_listener`
@@ -260,6 +275,28 @@ def immutability_findings(
     return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
 
 
+def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, ...]:
+    """Refuse a host reading that does not answer that the reviewed material is already local.
+
+    Written once and read by both judgements of the same field — this module's signed-identity
+    reduction and `preparation.image_findings` — so the two can never come to differ about what
+    a reading has to say. `present` must be exactly `True`: a truthy stand-in such as `1` is
+    not an answer a host gave, and an unread `None` is not an answer at all.
+
+    The caller names the field, because the same reading is reached through two different field
+    names and a finding is only useful if it names the one the caller can look at.
+
+    The inventory itself is checked by `keyed` against `HOST_IMAGE_KEYS` before this is reached;
+    calling this on an unchecked mapping would raise rather than report.
+    """
+    if image[PRESENT_KEY] is True:
+        return ()
+    return (
+        f"{label}: present is {image[PRESENT_KEY]!r}, not exactly True, so the reviewed "
+        "material is not already on this host",
+    )
+
+
 def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     """Refuse a pinned identity that is not a whole, resolved, agreeing host observation.
 
@@ -268,11 +305,25 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     that an invented identity is not cheap: it must carry the entire reviewed inventory, every
     value resolved and well formed, and it must state the same binding as the live reading on
     every key. Only `observed_at` may differ, because two readings are two separate events.
+
+    The live reading is held to being a whole host observation as well, and for the same
+    reason: comparing against only the keys this function happens to want left a reading that
+    answered "not on this host", or that never answered, agreeing on every key it was asked
+    about. An identity of material the host says it does not hold proves nothing, and a
+    consumer that drops `present` before recording would not carry the contradiction either.
+
+    Residual, so this is not read as a wider closure than it is: only `granted_image_identity`
+    and `image` are judged here. The *selected* registry identity a result also carries is not
+    validated by this reducer at all — a copy may still replace it with an empty mapping — and
+    neither is any other field. That gap is out of scope for this reading and remains open.
     """
     label = "granted_image_identity"
     refusals = keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)
     if refusals:
         return refusals
+    reading = keyed(image, HOST_IMAGE_KEYS, READING_LABEL, ordered=False)
+    if reading:
+        return reading
     unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if identity[key] is None)
     if unread:
         return (
@@ -285,6 +336,7 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
         if not registry_digest(identity[key])
     ]
     findings.extend(platform_findings(identity["platform"], label))
+    findings.extend(local_presence_findings(image, READING_LABEL))
     findings.extend(
         f"{label}: {key} {identity[key]!r} is not the {key} {image.get(key)!r} the live"
         " reading states, so this result names two images and proves neither"
