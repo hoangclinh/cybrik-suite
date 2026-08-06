@@ -1240,14 +1240,28 @@ def test_a_subscript_equal_in_one_direction_only_is_refused(observe) -> None:
     assert findings, "an asymmetric equality claim must be refused"
 
 
-def test_a_subscript_whose_comparison_raises_is_reported_rather_than_escaping(
+def test_a_subscript_whose_comparison_raises_is_refused_without_being_consulted(
     observe,
 ) -> None:
-    """A reducer contracted to return findings may not raise out of a comparison."""
+    """A reducer contracted to return findings may not raise out of a comparison.
+
+    **Strengthened by the F135 repair, and the change is deliberate.** This test used to assert
+    the finding named `RuntimeError`, i.e. that the raise was caught and reported. Agreement is
+    no longer decided by an `__eq__` the judged object defines, so a non-leaf value is refused on
+    the spot and its comparison is never invoked at all. The guarantee this test exists for — a
+    reducer must return findings rather than raise — holds strictly more firmly than before: the
+    hostile object is not given the opportunity to raise.
+
+    The premise assertion below keeps the case non-vacuous. Were `RefusesToBeCompared` to stop
+    raising, this would silently become a test about an ordinary object.
+    """
+    with pytest.raises(RuntimeError):
+        RefusesToBeCompared() == RefusesToBeCompared()  # noqa: B015 -- premise
+
     mapping = subscripting({"tag": RefusesToBeCompared()}, {"tag": RefusesToBeCompared()})
     _, findings = call(observe, "stored_entries", mapping, "probe")
     assert len(findings) == 1
-    assert "RuntimeError" in findings[0], findings[0]
+    assert "do not compare exactly equal in both directions" in findings[0], findings[0]
 
 
 def test_a_subscript_that_refuses_to_answer_at_all_is_still_refused(observe) -> None:

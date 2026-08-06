@@ -97,18 +97,39 @@ def _states_the_same_value(stored: object, other: object) -> bool:
     """Whether a second view's answer is the value the one `.items()` read stored.
 
     Identity is the fast path; a mapping that rebuilds its values on each read states the same
-    value through both views and is honest. Bare `==` is not the fallback, because `__eq__` is
-    defined by the object being judged, so the exact same type and a literal `True` are demanded
-    in both directions. Raising propagates to the caller, which records it as a refusal: an
-    object that will not be compared has not agreed.
+    value through both views and is honest, so refusing it outright was a defect.
+
+    The fallback used to demand the exact same type and a literal `True` in both directions, and
+    argued that this defeated a lying comparison. **It did not, and that was F135.** Every term of
+    that conjunction is supplied by the hostile reading itself: both operands come from the same
+    mapping and so does the type they share, so an object answering `True` to every comparison
+    satisfied the whole test while its two views stated different values — measured, one network
+    attachment against two, cleared with no divergence and carried to `TOPOLOGY_PASS`. A control
+    adjudicated by the code it is judging is not a control.
+
+    Agreement is therefore never decided by an `__eq__` the judged object defines. Equality is
+    consulted only where the comparison belongs to the interpreter rather than to the reading:
+    the exact builtin leaf types, which cannot carry an overriding `__eq__` because `type(x) is`
+    excludes their subclasses. Every other value must be the *same object* through both views.
+
+    This is deliberately strict. A mapping that rebuilds a non-leaf value on each read is now
+    refused rather than trusted, because there is no way to distinguish it from a two-faced one
+    without asking the object to grade itself. The honest rebuilding case this fallback was
+    written for (`RebuildsEachSubscript`, which rebuilds `str`) is a leaf and is still accepted.
+    Widening this to structural recursion over `MappingProxyType`/`tuple`/`frozenset` is a real
+    option, but it is a *separate* decision that must be reviewed on its own evidence; a
+    fail-closed refusal is the safe default in the meantime.
+
+    Raising propagates to the caller, which records it as a refusal: an object that will not be
+    compared has not agreed.
     """
     if other is stored:
         return True
-    return (
-        type(other) is type(stored)
-        and (other == stored) is True
-        and (stored == other) is True
-    )
+    if type(other) is not type(stored):
+        return False
+    if type(stored) in IMMUTABLE_LEAVES:
+        return (other == stored) is True and (stored == other) is True
+    return False
 
 
 def stored_entries(
