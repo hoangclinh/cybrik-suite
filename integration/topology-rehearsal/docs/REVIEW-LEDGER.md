@@ -5356,10 +5356,53 @@ fail-closed false-positive hazards were identified and are **not yet measured**:
 Both are **open questions against the repair**, not against HEAD, and either one turns this repair
 from a fix into a new fail-closed defect. Neither may be assumed benign.
 
+### F103 — **P1** — `preparation.py:219`. **NEW, OPEN. The F87 repair as specified weakens a fail-closed control.**
+
+The repair was applied exactly as `:5145` specified and **measured**, not assumed. It does not hold.
+
+Baseline at `e4fc29c` is 58 failed / 1539 passed, all 58 absent-script. With the one line applied and
+the F87 RED added, the census is **60 failed / 1538 passed** — **two new failures, neither of them
+absent-script**:
+
+```
+FAILED tests/test_observe.py::test_a_proved_result_refuses_an_unreadable_reading_as_a_value_error
+FAILED tests/test_observe.py::test_a_proved_result_refuses_an_unreadable_signed_identity_as_a_value_error
+E       Failed: DID NOT RAISE ValueError
+tests/test_observe.py:893
+```
+
+**Mechanism.** `:5145` argued the line must sit at `:219` *"before the `stored_entries` calls at
+`:246`/`:251`, so those reconcile a dead copy"*. That is precisely the defect. `frozen()` rebuilds a
+mapping from `.items()` into a fresh plain `dict` under `MappingProxyType`, which **discards the
+caller's `__getitem__`**. By the time `stored_entries` runs, the two views it exists to reconcile are
+the same object's, so they can never disagree. A `SubscriptRefuser` — a mapping that stores honest
+values and refuses to be subscripted — was refused with `ValueError` at HEAD and is now **silently
+accepted**.
+
+The divergence cross-check built by F78, F83 and F86 is therefore **not repaired but rendered
+vacuous**: it becomes unreachable code that can no longer refuse anything. Normalizing a hostile
+mapping to its `.items()` answer is not the same as refusing it, and these two tests state that the
+refusal must arrive as `ValueError` so a caller catching it around a copy still catches it.
+
+**This is a control-weakening obtained in exchange for GREEN and is barred outright.** The repair is
+**not** committed as a fix and **must not** be pushed.
+
+**Why the obvious re-placement also fails.** Moving the line to the *end* of `__post_init__` does not
+work either: the freeze itself performs one further `.items()` read, and an F87 mapping straddling
+its read budget answers that read hostilely, so validation would judge honest values while the
+recorded copy carried attacker content — the original bypass, relocated. F87 needs the dead copy
+taken **and** the divergence of the live object still detected, which is two reads that must be bound
+to each other. **The one-line repair `:5199` called sufficient is refuted; F87's real repair is not
+one line.**
+
+**Status:** F87 stays **P1 OPEN**, its specified repair withdrawn. F103 is **P1 OPEN** against that
+specification. Both owe an independent Opus verdict on the corrected design before any code lands.
+
 ### Push gate at `e4fc29c`
 
-**P0 = 0. P1 OPEN = 2** (F33 deferred to the GREEN; F87, an escalated authority bypass whose repair
-is in progress). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 29.** **P3 = 33.**
+**P0 = 0. P1 OPEN = 3** — F33 (deferred to the GREEN); F87 (an escalated authority bypass whose
+specified one-line repair this cycle **refuted by measurement**); and **F103** (that specification's
+control-weakening). **P1 repaired-unreviewed = 4** (F78, F85, F83, F86). **P2 = 29.** **P3 = 33.**
 The gate `P0 = P1 = P2 = 0` is **not met**. The atomic entrypoint GREEN stays blocked. **None of the
 88-commit local range is push-eligible.** Origin/PR #55 remains at `73ec822`, OPEN, draft, `CLEAN`,
 four rendered hosted checks SUCCESS. RUNTIME remains **HOLD**. PRODUCTION remains **Founder-only**.
