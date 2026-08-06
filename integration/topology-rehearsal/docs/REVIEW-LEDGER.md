@@ -6108,3 +6108,36 @@ explicitly adversarial reviewer instructed to *refute* the unreachability claim 
 "not proved" under uncertainty, with F109 (`stored_entries` key-set gating) and F110
 (`views.nested`) named as specific hunting grounds. **Until it returns, F108 remains
 repaired-unreviewed. The push gate is unchanged.**
+
+### The evidence cross-check returned CLEAN — the first fully clean audit of this ledger
+
+An independent read-only lane re-derived every factual claim in the cycle-51-continued section and
+the push-gate tally from live source and live measurement. **Every claim matched. No new
+discrepancy was found.** It reproduced, independently of the coordinator: the 3-passed RED-now-GREEN
+set, **1147 passed** across the six focused suites, the 58/1545 census with all 58 tracebacks
+inspected (not merely grepped) and reducing to the absent-script message, the 12 ruff errors at the
+exact pinned sites, `compileall` exit 0, max module 799 and total 6160, and `f40c5a9`'s 9/9 numstat
+with `preparation.py` at 798 lines and the size test passing.
+
+It also **re-derived the push-gate tally from scratch**, tracing every status-changing `### F<n>`
+heading forward from the `9439bd0` register baseline through each OPEN/REPAIRED/CLOSED transition,
+and independently recomputed **P1 OPEN = 1, P1 repaired-unreviewed = 8, P2 = 32, P3 = 37**. After
+eleven cycles in which this ledger's own indices drifted from its own findings (F97, F98, F101,
+F102), the tally is now independently reproduced rather than asserted.
+
+Two pre-existing self-criticisms were reconfirmed as still-open and still-correct, and neither moves
+the tally: **F112** (F103/F104 are bucketed *repaired-unreviewed* where *superseded* would be the
+precise word) and **F107** (F16 is recorded P3 at `:1611` and P2 at `:1858`).
+
+### What did NOT return this cycle
+
+Both Opus lanes — the adversarial F108 sufficiency reviewer and the full-range independent reviewer
+of `73ec822..HEAD` — were still running when the cycle timebox expired. **Neither verdict is
+recorded, and neither may be assumed.** This is the second consecutive cycle in which the F108
+sufficiency lane has failed to return inside a 600-second budget; the next cycle should commission
+it as the *first* action rather than alongside other lanes, and should narrow it to the single
+question of residual straddles at `views.nested` and `stored_entries`.
+
+**Push gate at `0efcdaa`, unchanged: P0 = 0. P1 OPEN = 1** (F33). **P1 repaired-unreviewed = 8**
+(F78, F85, F83, F86, F87, F103, F104, F108). **P2 = 32. P3 = 37.** No part of the local range is
+push-eligible. RUNTIME **HOLD**. Production **Founder-only**.
