@@ -1678,6 +1678,35 @@ all against the strict `>= 800` bound at `tests/test_surface_contract.py:236-247
 
 RUNTIME remains **HOLD**. Neither entrypoint script was executed; neither exists.
 
+### `73ec822..0a50a4a` — full-range independent review sought and NOT obtained
+
+Two independent read-only Opus reviews of the complete local range were launched
+in this cycle — one on the authority / control-surface / fail-closed lens, one on
+test effectiveness and vacuity — and **neither returned before the cycle's
+timebox expired**. No verdict was reached, so none is recorded.
+
+This section exists because an unrecorded attempt is indistinguishable from an
+attempt never made, and this component has already lost finding detail twice that
+way. The state it pins:
+
+- The range `73ec822..0a50a4a` (36 commits) remains **PUSH-ELIGIBLE NO / RUNTIME
+  HOLD**, unchanged.
+- The last recorded verdict is still `817227b..a1a97f6` — NO-GO, 0/2/3/2.
+- The four P1s the register at `c444fcb` lists as repaired-in-source but
+  never independently reviewed — **F5/F29, F22, F23**, plus **F33** at
+  NARROWED/PARTIAL — are still unreviewed. Nothing in this cycle discharged any
+  of them, and the measured-gates section above must not be read as if it had.
+  Green gates are not a verdict.
+- **F3 remains AMBIGUOUS.** Its fate is tracked only through F22/F23, which have
+  no verdict, so it cannot be resolved either way yet.
+
+The next unused finding number is still **F36**; this cycle assigned none.
+
+**Exact next action:** obtain the full-range independent verdict on
+`73ec822..0a50a4a` and append it here with per-finding P0-P3 detail *before* any
+repair or any GREEN. The atomic entrypoint GREEN stays blocked behind
+P0=P1=P2=0, which the open P1 set alone currently forbids.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
