@@ -8586,3 +8586,112 @@ does not exist. ruff 0.16.0 **12 at baseline**; `compileall` rc=0; PR #55 **draf
 
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, release dates **unchanged**. Neither entrypoint script was written or run.
+
+## Cycle 71 — the counting rule is proved unfixable by text extraction; the ledger format is the defect
+
+Cycle 70 handed forward the instruction "fix the counting rule FIRST". This cycle attempted that
+fix mechanically and **the attempt failed in an informative way**. The result is not a fifth tally;
+it is a proof that no tally derived from this ledger's prose can be trusted, **including the one
+produced this cycle**.
+
+### What was attempted
+
+A deliberately conservative last-wins extractor over the full ledger text. The rule: the ledger is
+append-only and chronological, so for each finding ID the *last* line binding it to a state token
+wins, and likewise for its grade. To avoid mis-attribution, any line naming **more than one**
+finding ID was refused as unattributable. That guard is stricter than either prior sweep.
+
+### The counterexample that kills the method
+
+The extractor reported **P0 OPEN = 2 (F33, F123)**. Every prior derivation, and the ledger's own
+gate lines, report **P0 = 0**. The extractor is the one that is wrong, and the mechanism is exact:
+
+- `REVIEW-LEDGER.md:6784` — `> **P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint GREEN)`
+- `REVIEW-LEDGER.md:7228` — `**`P0 = P1 = P2 = 0` is NOT met.** P1 OPEN is 3 ... the F123 re-grade moved the`
+
+Both lines name exactly one finding, so the multi-ID guard does not fire. Both lines carry the token
+`P0` — belonging to the **gate summary**, not to the finding. The finding's real grade (`P1`) appears
+later in the same line. Proximity, ordering and single-ID isolation all fail simultaneously.
+
+This is not a bug to be patched with a better regex. In this ledger a grade token adjacent to a
+finding ID may belong to **the finding, the gate summary, a transition arrow (`P2 OPEN → P1 OPEN`),
+a historical quote, or a refutation of an earlier grade**, and the prose does not mark which. The
+information required to disambiguate is **absent from the text**, so no extractor can recover it.
+
+### Consequence — the disputed number is not merely disputed, it is unrecoverable
+
+Four derivations now exist for open-P2: **15 / 31 / 47 / 31**. The agreement between derivation two
+and this one is **coincidental, not corroborating** — this run is demonstrably wrong on P0, so its
+P2 figure carries no more authority than the others. **No open-P2 figure in this ledger is
+evidence.** Any future cycle quoting one, including from this entry, is quoting an artifact.
+
+### What remains robust, and why the gate conclusion never depended on the tally
+
+Every derivation, including this one, finds **P1 OPEN > 0** (6 / ~7 / 8 / 11). `P0 = P1 = P2 = 0`
+is **NOT** met under any counting rule. The push conclusion is unchanged and was never at risk;
+only the *cost* estimate ever depended on the disputed figure.
+
+### The actual fix, and why it was NOT executed this cycle
+
+The defect is the **format**: state is recorded in narrative deltas rather than in a normative
+per-finding row. The fix is a machine-readable register carrying exactly one row per finding
+(`id | grade | state | evidence-path:line | verdict-sha`), with a test asserting every ID mentioned
+in the ledger appears exactly once in the register and that the gate line is *recomputed from* the
+register rather than written by hand.
+
+**The register was deliberately not auto-populated.** Populating it from prose would use the same
+extraction that was just proved unsound, and would freeze its errors into what becomes the
+normative source of truth — strictly worse than having no register. Population must be done
+finding-by-finding **against live source**, which is reviewer-scale adjudication and is precisely
+the authority this lane does not hold. Writing the schema while refusing to fill it is the correct
+stopping point, not an incomplete one.
+
+Recorded as an **evidence correction, not a new finding**, on the precedent set for F143: nothing
+about the product changed, and the open set must not grow for a bookkeeping result.
+
+### Live state re-measured at `5a6a635`, nothing quoted from the previous cycle
+
+Census **1582 passed / 59 failed, 0 unintended** — 58 REDs are the two absent entrypoint scripts and
+`scripts/` does not exist. `ruff check .` = **12**, exactly baseline, not re-based. `compileall src
+tests` rc=0. PR #55 **draft / OPEN / MERGEABLE**, 4 rendered checks SUCCESS (2 `secret-scan`, 2
+`contract standards validation`) at unchanged pushed tip `73ec822`. Untracked `uv.lock` present,
+MD5 `ff29c06c…` unchanged, verified by absolute path — the F143 cwd-drift trap fired again this
+cycle and was caught. Local branch is **131 commits ahead** of origin.
+
+Live tool surface is exactly `Read, Grep, Glob, Bash, Edit, Write` — **no `Agent` tool**, confirmed
+from this runtime's own function list, and `~/.claude/agents` does not exist. **Tenth consecutive
+confirmation** that `Agent(cybrik-readonly-worker)` is unavailable despite the manifest advertising
+it, so anti-self-witnessing continues to bar this lane from reviewing the 131 commits it authored.
+
+### Gate at the close of cycle 71 — unchanged; no count moved
+
+- **P0 = 0** (the extractor's `P0 = 2` is refuted above and must not be propagated).
+- **P1 OPEN > 0 on every derivation** (6 / ~7 / 8 / 11).
+- **Open P2 is unrecoverable from this ledger.** Do not quote 15, 31 or 47.
+- **~24 findings repaired-unreviewed** — still the true bottleneck, still unreachable in-lane.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, release dates **unchanged**. Neither entrypoint script was written or run.
+
+### Addendum — a second `REVIEW-LEDGER.md` exists, and relative paths read the wrong one
+
+While producing the evidence above, the cwd-drift trap fired a **third** time in this single cycle
+and exposed a hazard worth stating plainly for whoever reviews next:
+
+- `integration/topology-rehearsal/docs/REVIEW-LEDGER.md` — **8674 lines, 150 finding IDs** (this file)
+- `docs/REVIEW-LEDGER.md` at the **worktree root** — **146 lines, 17 finding IDs** (a different file)
+
+A run of the extractor against the relative path `docs/REVIEW-LEDGER.md`, after an earlier `cd` had
+moved the shell to the worktree root, silently produced `P1 OPEN = 3, P2 OPEN = 2` from the **wrong
+ledger** — a plausible-looking, entirely fictitious tally with no error raised. It was caught only
+because the `distinct ids` count fell from 150 to 17.
+
+**Any review packet, extractor or agent instruction that names this ledger by relative path is
+unsound.** Absolute paths are mandatory. This is the same class as F143 and is recorded here as
+reinforcing evidence rather than as a new finding, per the standing precedent that the open set
+must not grow for bookkeeping results.
+
+The corrected extractor output against the absolute path is retained at
+`roles/security/artifacts/counting-rule-extractor-output-5a6a635.txt`, alongside the extractor
+itself, so the counterexample is reproducible by a third party. **Both are retained as evidence of
+a refuted method, not as a tool to be reused.**
