@@ -1110,6 +1110,87 @@ rather than by building the `/tmp` scratch variant, for budget.
 GO on `73ec822..HEAD`, and F29 (P1) is now added as an open unrepaired defect.
 `73ec822..HEAD` remains **NO-GO / PUSH-ELIGIBLE NO / RUNTIME HOLD**.
 
+### `a976c6d..e3d6116` — F22/F23 repair, measured evidence
+
+One commit, one file, `tests/test_scripts_inert.py`, 400 insertions / 20
+deletions. It repairs the two P1 findings the F3-repair review raised against the
+module-wide root-derivation guard, and it adds the guard's missing effectiveness
+proof. It creates no entrypoint and touches no `src/` module.
+
+**F22 (P1) — claimed repaired.** The computed-attribute refusal now runs over the
+whole module. `module_wide_offences(module)` folds
+`computed_attribute_reads(module)` into the offence list before walking the sinks,
+so `FIELD = "grant"` with `getattr(authorization, FIELD)` in a module helper — the
+exact source the review recorded as verified-passing — is refused at the `getattr`
+itself rather than needing an attribute read that `literal_getattr_name` never
+records. The repair is stated as a function, not inline in the test, so the
+effectiveness proof below runs the identical path the assertion runs; a proof that
+restated the walk would drift from it silently.
+
+**F23 (P1) — claimed repaired.** `root_sinks` now returns four shapes, not two:
+the literal `repository_roots=` keyword, any `keyword.arg is None` (`**`) value,
+any `ast.Dict` carrying the constant key `repository_roots`, and the root-shaped
+bindings it already held. The recorded evasion
+`arguments = {"repository_roots": authorization.grant[...]}` /
+`plan.build_plan(**arguments)` is now caught twice over. The breadth is not free
+and is disclosed in the helper's docstring: a splat carrying a grant-derived
+mapping is refused even when the root inside it is honest, because from outside the
+call the walk cannot tell the two apart. The honest spelling is the named keyword,
+which the spec's conforming shape already uses.
+
+**The guard is now exercised, not merely asserted.** This was the gap that let
+independent review, rather than this file, find F22 and F23.
+`EVADING_WIRING_SHAPES` carries nine sources — the two evasions above plus the
+seven reaches the guard was claimed to have (module-level helper, two-hop chain,
+grant bytes handle, host-observing helper, tuple unpacking, alias, comprehension
+target) — and each is run through `module_wide_offences` and must be flagged.
+`CONFORMING_WIRING_SHAPE` carries the shape
+`docs/ENTRYPOINT-SLICE-SPEC.md:377-388` adjudicated and must **not** be flagged,
+so a walk that refused the reviewed design fails here as a false blocker instead
+of reading like a genuine finding. Every shape asserts the anti-vacuity floor
+before the offence, so a source flagged only for being too small cannot be
+mistaken for one the derivation walk caught.
+
+**Two false claims withdrawn in place.** The claim that the module-wide guard was
+*strictly stronger* than the withdrawn blanket `grant` ban was false — F23 is a
+case the ban caught and the replacement admitted — and it is withdrawn rather than
+quietly corrected, with the reason stated: a walk over bound names cannot be a
+superset of a ban on bytes by construction. The claim that the two narrower
+`getattr` controls *between them lose nothing* was false as stated; it held only
+inside the reviewed function, which is F22.
+
+**Remaining losses are named, not claimed away.** `getattr_calls` matches only a
+bare `getattr`, so `builtins.getattr(x, name)` yields no computed refusal;
+`operator.attrgetter` and `vars(x)["grant"]` are not seen at all; taint that
+leaves the set of bound names — mutated into an existing container in place, or
+returned from a method and read as an attribute rather than a bare `Name` — still
+passes. These are F24's class and stay open.
+
+**F26 (P2) is NOT repaired by this commit, and this commit makes it easier to
+satisfy.** The review's exact fix was to require `len(named) >= 2` on the *named
+keyword* sinks specifically and keep the other shapes uncounted. This commit
+instead widened `root_sinks` while leaving the floor counting every shape, so the
+floor is now satisfiable by more sources than before, not fewer. That is a real
+regression against F26's severity and is recorded here rather than left for the
+next reviewer to rediscover. F24, F25, F27 and F28 are likewise untouched.
+
+**Measured census at `e3d6116`** (`.venv/bin/python -m pytest -q`, read-only, no
+runtime and no Docker): **60 failed, 1398 passed**. The failure count is unchanged
+in kind and in number from `a976c6d`: **58** carry the absent-entrypoint marker
+(51 in `test_scripts_inert.py`, 7 in `test_surface_contract.py`) and **2** are the
+intended F29 REDs in `test_runner.py`. Passes rose 1396 → 1398, exactly the two
+new tests. `python -m compileall` on the changed file is clean. No lint or type
+checker is installed in this venv and none was installed, so lint and typecheck
+are **not measured** at this commit.
+
+No control was weakened, no assertion deleted and no guard narrowed: the 20
+deletions are the two withdrawn-claim paragraphs, the inlined offence loop now
+folded into `module_wide_offences`, and the two-shape `root_sinks` return.
+
+**This range has NOT yet received an independent verdict**; the entry above is the
+implementer's own measured evidence and its claims are unverified until a reviewer
+records a verdict below.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
