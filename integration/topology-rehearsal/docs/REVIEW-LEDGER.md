@@ -5566,3 +5566,54 @@ gate `P0 = P1 = P2 = 0` is **not met** and is not met by a repair that has not b
 atomic entrypoint GREEN stays blocked. **None of the local range is push-eligible.** Origin/PR #55
 remains at `73ec822`, OPEN, draft, `CLEAN`, four rendered hosted checks SUCCESS. RUNTIME remains
 **HOLD**. PRODUCTION remains **Founder-only**.
+
+## Cycle 48 — the F87 repair's independent review, and the gates it was reviewed against
+
+Heading numbering follows F101 (**P3, OPEN**): the `## Cycle` headings in this file are not in
+monotonic order and this heading does not assert one.
+
+### Live identity, re-read rather than carried forward
+
+The checkpoint this cycle opened from named local HEAD `76553f4` and "11 commits ahead of origin".
+Live git says otherwise and live git is authoritative: local HEAD is
+`31d4d59f355decf27b747e66d83072bf15ba4862`, branch `codex/uat-browser-g-u2b-db-red-gate-r1`,
+**93 commits ahead** of origin. The working tree carries no modified tracked file — the F87 repair
+that the previous cycle left uncommitted is now commit `31d4d59` — and the untracked
+`integration/topology-rehearsal/uv.lock` is preserved, unmodified. Origin/PR #55 remains at
+`73ec822`, OPEN, draft, `CLEAN`, with all four rendered hosted checks SUCCESS (two `secret-scan`,
+two `contract standards validation`, workflow `contracts`).
+
+### Static gates re-measured at live HEAD `31d4d59`, by a lane that did not write the repair
+
+| Gate | Result |
+|---|---|
+| Broad census | **58 failed / 1542 passed** |
+| RED classification | **all 58 absent-script**: 51 in `tests/test_scripts_inert.py`, 7 in `tests/test_surface_contract.py`, every one carrying `missing C8 implementation ... does not exist` |
+| Unintended regressions | **zero** — no failure outside those two files |
+| Lint | `uv run --frozen ruff check src tests` — **exactly 12**, every code and file matching the pinned baseline |
+| Compile | `uv run --frozen python -m compileall -q src tests` clean, exit 0 |
+| Size | all 12 authored modules under the strict `< 800`; `adapter.py` **799** (zero headroom), `preparation.py` **798**, `views.py` **246** |
+| Diff-check | `git diff --check` clean; `git status --short` shows only the untracked `uv.lock` |
+
+The census figure the repair commit `31d4d59` claims in its own message — 58 failed / 1542 passed,
+every RED absent-script, zero regressions, lint 12, compile clean — is **confirmed by independent
+measurement at HEAD**, not merely restated.
+
+Two claims in that commit message are **false in detail, and are recorded here rather than left to
+be inherited**:
+
+1. `preparation.py` is 798, as claimed — but `views.py` measures **246**, not the claimed 245.
+   Both remain under the bound; the claim is wrong by one line. **Opened as F105 below.**
+2. The two `preparation.py` ISC004 lint anchors now measure **`:655` and `:689`**, against the
+   `:656` / `:690` this file pinned one cycle earlier and `:662` / `:696` the cycle before that.
+   The lint *count* (12), codes and files are unchanged; only the anchors moved, because the
+   repair shortened the file. This is **F91 recurring a sixth time**, and it is now the single
+   most-repeated defect class in this ledger.
+
+### F105 — **P3** — `docs/REVIEW-LEDGER.md` cycle 47, and commit `31d4d59`'s message. **NEW, OPEN.**
+
+Both state `views.py` at **245** lines. Measured at live HEAD it is **246**. The failure scenario is
+not a control breach — the file is 553 lines under the bound — but this ledger's size table is the
+only evidence the `< 800` control is not being approached silently, and a size table that is wrong
+by one line on the file the cycle actually created is a table that was transcribed rather than
+measured. Repair is to re-measure at write time, not to edit the number.
