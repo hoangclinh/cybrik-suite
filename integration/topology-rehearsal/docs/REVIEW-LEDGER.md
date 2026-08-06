@@ -2241,3 +2241,66 @@ after both land. The GREEN remains blocked.
 
 RUNTIME remains **HOLD**. No entrypoint script exists and none was executed. Nothing was pushed;
 PR #55 stays draft at `73ec822`.
+
+### F39 independent verdict — NO-GO. `5bef003`. P0=0 P1=4 P2=3 P3=3
+
+The adversarial Opus review commissioned this cycle returned **after** the cycle-21 entry above
+was written. Its verdict is recorded here verbatim in substance rather than left in a transcript,
+which is how the F43/F44 and cycle-19 verdicts were previously lost.
+
+**What the review confirmed by measurement, not by reading the ledger:**
+
+- The intended RED reproduces at `25aadc0` **at the offence assertion**, not at the floor:
+  `AssertionError: parameter-laundered-root: this evasion is not flagged`, `assert [] != []`,
+  raised at `tests/test_scripts_inert.py:1776`, with the floor passing at `sinks=3`. `1 failed,
+  1 passed`. Reproduced in `/tmp/f39red` from `git show` plus only the new `EVADING_WIRING_SHAPES`
+  entry — no checkout, no stash, no revert.
+- GREEN at `5bef003`: `2 passed, 51 deselected`.
+- **Nothing that can invent a sink was widened.** Nine guard functions are AST-identical across
+  `25aadc0`→`5bef003`: `root_sinks`, `module_bindings`, `computed_attribute_reads`,
+  `forbidden_origins`, `name_reads`, `attribute_reads`, `getattr_calls`, `literal_getattr_name`,
+  `module_wide_offences`.
+- **No crash.** 17 call/def binding forms through `call_parameter_bindings` and
+  `grant_derived_names` produced no traceback, so the crash-hunt P1 hypothesis is refuted.
+- Census measured `58 failed / 1433 passed`, failures identical to the recorded split; the +15
+  passes are this cycle's `test_preparation.py` additions, not a discrepancy in `5bef003`.
+
+**Why NO-GO despite that.** The verdict is not against the mechanism. It is against the *claim of
+closure*: the `call_parameter_bindings` docstring asserts a compensating control that measurement
+contradicts, and the commit introduces two false positives the parent guard did not have.
+
+| ID | Sev | Location | Defect | Reproducing shape |
+|---|---|---|---|---|
+| F45 | **P1** | `argument_pairs`, 1342-1371 | Parameter **defaults** are a binding edge and are not modelled | `def _wire(values=os.environ["CONTROL_ROOT"]): return plan.build_plan(repository_roots=values)` + `_wire()` → `sinks=3`, MISSED |
+| F46 | **P1** | `call_parameter_bindings`, 1332-1334; disclosure 1320-1324 | Attribute-spelled callees skipped, and the docstring's claim they are "caught by the module-name walk instead" is **false for methods** | `_Wiring().wire(_declared(authorization))` MISSED; `@staticmethod` `_Wiring.wire(...)` MISSED |
+| F47 | **P1** | same | Aliased callee **compounded with** parameter laundering; the pinned `aliased-helper` shape aliases a *grant-reading* helper and does not cover this | `_alias = _wire` then `_alias(_declared(authorization))` → MISSED |
+| F48 | **P1** | `functions = {...}`, 1326-1330 | `functions` is a last-wins dict over `ast.walk`, so any later def or method of the same name replaces the signature and the new edge is silently disabled | working `_wire(values)` + `class _Other: def _wire(self, ignored)` → MISSED (CAUGHT without the class) |
+| F49 | P2 | 1326-1330 | `lambda` helpers not collected (`FunctionDef`/`AsyncFunctionDef` only) | `_wire = lambda values: plan.build_plan(repository_roots=values)` → MISSED |
+| F51 | P2 | 1357-1363 | A positional argument **after** a `*splat` is paired by syntactic index, which is not where Python binds it | `def _wire(first, second, values)` + `_wire(*prefix, _declared(authorization))` → taint pairs to `second`, MISSED |
+| F52 | P2 | 1358-1359 | **New false positive vs parent.** `*splat` pairs every parameter, so an honest tuple carrying both roots and a legitimate grant-derived attempt id taints the root parameter | `_wire(*arguments)` → FLAGGED at `5bef003`, **clean** at `25aadc0` |
+| F53 | P2 | 1331-1339 | **New false positive vs parent.** Bare-name parameter pooling: an honest helper reusing a generic parameter name for the attempt id taints an unrelated helper's root parameter | `_identity(value)` + `_wire(value)` → FLAGGED at `5bef003`, **clean** at `25aadc0` |
+| F50 | P3 | 1332-1334 | Indirect callee unresolved; arguably outside static reach | `functools.partial(_wire)(...)` → MISSED |
+| F54 | P3 | 1347-1351 | Dead condition: `if argument is not None` over `positional + kwonlyargs`; `ast.arg` is never `None` | static read |
+| F55 | P3 | 1299-1300, 1381-1385 | Docstrings say "module-level `def`" but `ast.walk` also registers nested and class-scoped defs; over-approximating (safe) but inaccurate, and it is the mechanism behind F48 | `def f(a): def f(b): return b; return f(a)` binds `b` |
+
+**The correction this ledger owes.** Cycle 19's "Residual limits" paragraph above states that an
+aliased callee "is caught by the module-name walk instead (`aliased-helper`)" and presents the
+bare-name pooling as a *hypothetical* future false positive. F46/F47 measure the first claim false
+for methods and for the alias-plus-parameter composition, and F52/F53 measure the second as an
+actual regression against `25aadc0`. That paragraph and the `call_parameter_bindings` docstring at
+1320-1324 both overclaim and must be corrected.
+
+**Minimum to reach GO on F39:** pin F45, F46 and F48 into `EVADING_WIRING_SHAPES` (they fail there
+now), or explicitly defer them *and* correct the two overclaiming disclosures. F52/F53 need either
+narrowing or an explicit statement that the repair regressed two honest shapes.
+
+**Limits of the review, as stated by the reviewer.** The guard is today exercised only through the
+pinned source strings — the real `run_topology_rehearsal.py` does not exist, so
+`test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant` is one of the 51
+absent-script failures. The census was taken on the dirty tree before this cycle's commits. No
+entrypoint, Docker, install or `ruff --fix` was run; F1-F44 were not re-audited; no coverage was
+taken.
+
+**Consequence for the GREEN gate.** The open P1 set is now **F45, F46, F47, F48** (F39's repair) plus
+whatever the F30 review returns. P1 ≠ 0, so the GREEN stays blocked and nothing is pushable.
+RUNTIME remains **HOLD**.
