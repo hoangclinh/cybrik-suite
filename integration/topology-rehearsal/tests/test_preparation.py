@@ -956,16 +956,23 @@ def test_a_mapping_that_gets_one_instant_and_stores_another_passes_every_other_g
     )
     assert require_c8_attr(load_c8("views"), "immutability_findings")(liar, field) == ()
     _, divergence = require_c8_attr(load_c8("views"), "stored_entries")(liar, field)
-    assert divergence == (), (
-        "premise: the two cross-checked views agree, so only the third protocol admits this"
+    assert divergence, (
+        "F134: `.get` is a cross-checked view. This mapping stores and subscripts the forged "
+        "instant while answering `.get` genuinely, so its three views no longer agree and the "
+        "cross-check refuses it. Before F134 was repaired this asserted `divergence == ()`."
     )
-    # The reader `__post_init__` actually runs, asserted rather than inferred from the two
-    # above: it too must accept this mapping whole, and record what it *stores*.
-    copied, proof_findings, proof_divergence = require_c8_attr(
+    # The reader `__post_init__` actually runs, asserted rather than inferred from the above.
+    # F134 moved this: `proved_copy` now refuses this mapping at ingress instead of accepting
+    # it whole and recording what it stores. See F145 — the two refusals below are therefore no
+    # longer proved to come from the pin and ordering comparisons they were written for.
+    _, proof_findings, proof_divergence = require_c8_attr(
         load_c8("views"), "proved_copy"
     )(liar, field)
-    assert (proof_findings, proof_divergence) == ((), ())
-    assert dict(copied)[OBSERVED_AT] == forged
+    assert proof_findings == ()
+    assert proof_divergence, (
+        "F134: the ingress cross-check consults `.get`, so this reading is refused before any "
+        "comparison downstream of it runs"
+    )
 
 
 def test_the_pin_is_judged_against_the_instant_the_signed_identity_stores(

@@ -93,10 +93,28 @@ def immutability_findings(
     return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
 
 
+def _states_the_same_value(stored: object, other: object) -> bool:
+    """Whether a second view's answer is the value the one `.items()` read stored.
+
+    Identity is the fast path; a mapping that rebuilds its values on each read states the same
+    value through both views and is honest. Bare `==` is not the fallback, because `__eq__` is
+    defined by the object being judged, so the exact same type and a literal `True` are demanded
+    in both directions. Raising propagates to the caller, which records it as a refusal: an
+    object that will not be compared has not agreed.
+    """
+    if other is stored:
+        return True
+    return (
+        type(other) is type(stored)
+        and (other == stored) is True
+        and (stored == other) is True
+    )
+
+
 def stored_entries(
     mapping: Mapping[str, Any], label: str
 ) -> tuple[dict[str, Any], tuple[str, ...]]:
-    """What a mapping *stores*, and every entry whose subscript disagrees with it.
+    """What a mapping *stores*, and every entry whose subscript or `.get` disagrees with it.
 
     The same shape of hole `local_presence_findings` closed, written once for a whole
     inventory instead of one field. A mapping is validated here by iterating it — `keyed`
@@ -122,6 +140,18 @@ def stored_entries(
     `keyed` does not make a mapping subscriptable, and the callers here are reducers contracted
     to return findings and a `__post_init__` documented to raise `ValueError`.
 
+    `.get` is cross-checked for the same reason and is not a lesser accessor than `__getitem__`
+    — it is the *primary* one. Every verdict this package reaches over a live projection is read
+    through it: `observe.validate_internal_network` reads `projection.get(NETWORK_INTERNAL_KEY)`
+    and `projection.get(NETWORK_ATTACHMENT_KEY)`, `validate_publication`'s reducers read
+    `bindings.get`, `entry.get` and `listener.get`, and `nested` above walks every path by
+    `current.get(key)`. Cross-checking iteration against the subscript alone therefore proved
+    agreement between two views that no validator consults, while the view every validator does
+    consult was free to answer differently — a reading honest to `.items()` and `__getitem__` and
+    hostile only to `.get` cleared the whole cross-check and was then copied on its stored face,
+    so the receipt attested an isolation the same live object denied. A third accessor is a third
+    view of one entry, and disagreement in any of them is a refusal.
+
     Agreement is the *value*, not the object. Identity is the fast path; a mapping that
     rebuilds its values on subscript states the same value through both views and is honest,
     so refusing it was a defect. Bare `==` is not the fallback, because `__eq__` is defined by
@@ -145,14 +175,8 @@ def stored_entries(
                 f"this mapping stores {value!r}, so its two views of one entry disagree"
             )
             continue
-        if subscripted is value:
-            continue
         try:
-            agreed = (
-                type(subscripted) is type(value)
-                and (subscripted == value) is True
-                and (value == subscripted) is True
-            )
+            agreed = _states_the_same_value(value, subscripted)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
@@ -166,6 +190,35 @@ def stored_entries(
             findings.append(
                 f"{label}: {key} reads by subscript as the {type(subscripted).__name__} "
                 f"{subscripted!r} while this mapping stores the {type(value).__name__} "
+                f"{value!r}, which are distinct objects that do not compare exactly equal in "
+                "both directions, so its two views of one entry disagree"
+            )
+            continue
+        try:
+            fetched = mapping.get(key)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
+            findings.append(
+                f"{label}: {key} raised {type(error).__name__} when read by `.get` while this "
+                f"mapping stores {value!r}, so its two views of one entry disagree"
+            )
+            continue
+        try:
+            agreed = _states_the_same_value(value, fetched)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
+            findings.append(
+                f"{label}: {key} raised {type(error).__name__} when the object its `.get` "
+                f"returned was compared with the {value!r} this mapping stores, so its two "
+                "views of one entry cannot be shown to agree"
+            )
+            continue
+        if not agreed:
+            findings.append(
+                f"{label}: {key} reads by `.get` as the {type(fetched).__name__} "
+                f"{fetched!r} while this mapping stores the {type(value).__name__} "
                 f"{value!r}, which are distinct objects that do not compare exactly equal in "
                 "both directions, so its two views of one entry disagree"
             )

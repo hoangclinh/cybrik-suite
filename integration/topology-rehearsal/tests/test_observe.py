@@ -1480,8 +1480,10 @@ def test_a_reading_that_gets_one_binding_and_stores_another_passes_every_gate(
     assert call(observe, "keyed", liar, keys, "image", ordered=False) == ()
     assert call(observe, "local_presence_findings", liar, "image") == ()
     _, divergence = call(observe, "stored_entries", liar, "image")
-    assert divergence == (), (
-        "premise: the two cross-checked views agree, so only the third protocol admits this"
+    assert divergence, (
+        "F134: `.get` is a cross-checked view. This reading stores and subscripts the forged "
+        "binding while answering `.get` genuinely, so its three views no longer agree and the "
+        "cross-check refuses it. Before F134 was repaired this asserted `divergence == ()`."
     )
 
 
