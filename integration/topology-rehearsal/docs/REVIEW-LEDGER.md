@@ -8799,3 +8799,96 @@ execution** (F131 RED restored at HEAD). `P0 = P1 = P2 = 0` is **NOT** met; noth
 **unchanged**. Neither entrypoint script was written or run. Reviewer identity remains structurally
 unavailable (F143) — the live tool surface is exactly `Read, Grep, Glob, Bash, Edit, Write`, with no
 `Agent`/`Task` tool and no `.claude/agents` definition, re-confirmed this cycle.
+
+---
+
+## Cycle 69 (V2 security lane) — F132's reclamation is blocked by the module import DAG; the previous NEXT is refuted
+
+### Live state re-derived, not inherited
+
+HEAD at entry `5625971`, branch **134 ahead** of `origin`, only untracked file `uv.lock`
+(unchanged). Census re-measured first-hand before any edit by this cycle's own execution:
+**1582 passed / 59 failed** = 58 pre-existing absent-script REDs + F131's intended RED,
+**0 unintended**. `runner.py` measured at **799** lines against `MODULE_LINE_LIMIT = 800`,
+which `tests/test_surface_contract.py:247` enforces as `>= MODULE_LINE_LIMIT` → **799 is the
+maximum**, i.e. **zero** usable headroom.
+
+### The prior cycle's NEXT was attempted and is refuted as specified
+
+Cycle 68 closed with `NEXT = reclaim >=2 lines of runner.py budget (F132) without weakening a
+control`. That instruction assumes such a reclamation exists in-lane. **It does not, in either
+form the instruction admits.**
+
+#### Form 1 — formatting compression: available, but it is metric-gaming and was rejected
+
+An AST-equivalence search over every multi-line statement in `runner.py` found **15 reclaimable
+lines** that collapse to a single line inside the 88-character limit while parsing to an
+identical AST. The largest single item is the six-line `from .preparation import (...)` block at
+`:67-72`, worth 5 lines on its own — more than F131's repair needs.
+
+**This was measured and deliberately not applied.** Collapsing formatting leaves the module's
+reviewable content exactly as it was and buys budget the module did not earn; F131's repair would
+then add 2 lines of *real* branching logic while the metric still reads green. The size control
+exists to bound per-module complexity for review, so satisfying it by re-wrapping lines
+**weakens the control in substance while preserving it in form**. The engineering gate forbids
+weakening a file-size control to obtain GREEN, and that ban is not escaped by making the
+weakening cosmetic. **F132 may not be discharged this way, and a later cycle must not "rediscover"
+these 15 lines as free budget.**
+
+#### Form 2 — genuine relocation: correct in principle, blocked by the import DAG
+
+The honest discharge is to move real content out of `runner.py`, exactly as commit `c06a81b`
+did when it extracted the mapping-view machinery into `views.py` and earned an independent GO.
+The natural candidate is `_proved_reading` (`runner.py:374-394`, ~21 lines), a thin wrapper whose
+cohesive home is beside `proved_copy`.
+
+**It cannot move there.** The internal import DAG, read from source this cycle, is strictly:
+
+`views` (imports **nothing** internal) ← `observe` ← `preparation` ← `runner`
+
+`_proved_reading` needs **both** `proved_copy` (defined in `views`) and `frozen` (defined in
+`preparation:129`). Therefore:
+
+- → `views`: **cycle.** `views` would import `preparation`, which reaches `views` via `observe`.
+- → `observe`: **cycle.** `observe` would import `preparation`, which imports `observe`.
+- → `preparation`: **legal DAG-wise, and impossible on size.** `preparation.py` is at **798/800**
+  — one line of headroom, less than the ~21 the move costs.
+- → a new module: forbidden by `test_the_module_inventory_is_exactly_the_reviewed_inventory`,
+  which pins the authored module set to the reviewed `C8_MODULES` inventory. Editing that
+  inventory is itself a control change and is not self-grantable by this lane.
+
+`runner` is the **lowest module in the DAG that can see both names**, so `_proved_reading` is
+where it has to be until the DAG changes.
+
+### F150 (P2, NEW, OPEN) — F132 is not a line-reclamation task; it is a dependency-graph task
+
+F132 has been carried for eleven cycles as though ">=2 lines" were the whole problem. The measured
+constraint is structural: **no legal, non-gaming reclamation of `runner.py` exists that does not
+first move `frozen` out of `preparation`**, because `frozen` is the single name that pins
+`_proved_reading` above `views`. `frozen` is a pure value-transform with no internal dependencies
+and belongs in `views` on cohesion grounds, but it is called throughout `preparation`, `runner`
+and the observation path, so relocating it is a **multi-module refactor requiring independent
+review** — not a bounded in-lane slice, and explicitly not something to start in the same cycle
+as a repair.
+
+**Consequence recorded before the next writer starts:** F131 is blocked behind F132, F132 is now
+blocked behind a `frozen` relocation, and that relocation is blocked behind the same missing
+reviewer identity as everything else (F143). The in-lane repair queue is therefore **empty**, not
+merely slow. Cycle 68's claim that "one bounded in-lane task (F132) is now available" is
+**withdrawn by this cycle's measurement**.
+
+### Gates re-measured at this commit
+
+- Broad census **1582 passed / 59 failed**, **0 unintended** — unchanged; this cycle mutated
+  **no source file**. Only this ledger changed.
+- `runner.py` unchanged at **799/800**; `preparation.py` **798/800**; `views.py` **425**.
+- Neither entrypoint script was written or run.
+
+### Gate at the close of cycle 69
+
+- **P0 = 0**; **P1 OPEN = 7** (F33, F123, F128, F131, F134, F135, F143); **P2 OPEN = 45**
+  (44 + **F150**). `P0 = P1 = P2 = 0` is **NOT** met.
+- Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**, production **Founder-only**,
+  published release dates **unchanged**.
+- Reviewer identity remains structurally unavailable (F143): the live tool surface is exactly
+  `Read, Grep, Glob, Bash, Edit, Write`, with no `Agent`/`Task` tool, re-confirmed this cycle.
