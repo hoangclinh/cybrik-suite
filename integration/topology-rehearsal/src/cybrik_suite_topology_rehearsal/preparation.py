@@ -54,6 +54,7 @@ from .observe import (
     immutability_findings,
     local_presence_findings,
     signed_identity_findings,
+    stored_entries,
 )
 from .protocols import (
     ControlIdentitySource,
@@ -230,7 +231,27 @@ class PreparationResult:
             raise ValueError(
                 "a satisfied preparation observed no listener and no publication on the "
                 "reviewed port, so neither may be recorded as one")
-        signed = self.granted_image_identity.get(OBSERVED_AT_KEY)
+        # Both instants below are read from what the mapping *stores*, by `stored_entries`,
+        # never through `Mapping.get`: that accessor is a third protocol nothing here
+        # reconciles, since `keyed` iterates and `stored_entries` reconciles `.items()` against
+        # `__getitem__` only. `mappingproxy.get` delegates to the underlying mapping's own
+        # `get` while `dict.items` and `dict.__getitem__` are resolved in C and do not, so a
+        # `dict` subclass overriding `get` alone passed every gate above while storing and
+        # subscripting one instant and answering these comparisons with another. The pin was
+        # then bound to an instant the signed observation does not state, and `frozen`,
+        # `runner`'s attempt names and any auditor recorded the one it stores. This is the hole
+        # `signed_identity_findings` closed on the bindings of both operands, left behind on
+        # the two instants. A mapping whose own two views diverge is refused before either
+        # instant is compared rather than read past.
+        signed_entries, signed_divergence = stored_entries(
+            self.granted_image_identity, "granted_image_identity"
+        )
+        if signed_divergence:
+            raise ValueError("; ".join(signed_divergence))
+        read_entries, read_divergence = stored_entries(self.image, "image")
+        if read_divergence:
+            raise ValueError("; ".join(read_divergence))
+        signed = signed_entries.get(OBSERVED_AT_KEY)
         if type(self.granted_observed_at) is not str or self.granted_observed_at != signed:
             raise ValueError(f"granted_observed_at {self.granted_observed_at!r} is not the exact"
                              f" UTC instant {signed!r} the authorization signed for the host"
@@ -239,9 +260,10 @@ class PreparationResult:
         if drift:
             raise ValueError("; ".join(drift))
         pinned = instant(signed)
-        read = instant(self.image.get(OBSERVED_AT_KEY))
+        observed = read_entries.get(OBSERVED_AT_KEY)
+        read = instant(observed)
         if pinned is None or read is None or read < pinned:
-            raise ValueError(f"image {OBSERVED_AT_KEY} {self.image.get(OBSERVED_AT_KEY)!r} is not"
+            raise ValueError(f"image {OBSERVED_AT_KEY} {observed!r} is not"
                              f" a reading at or after the signed {signed!r}, so this is no host"
                              " anybody re-checked at a nameable instant")
 
