@@ -83,6 +83,13 @@ IMAGE_PLATFORM = {"os": "linux", "architecture": "arm64", "variant": None}
 # A resolved host platform that is not the selected one, for host image drift cases.
 OTHER_IMAGE_PLATFORM = {"os": "linux", "architecture": "amd64", "variant": None}
 IMAGE_OBSERVED_AT = "2026-08-05T00:00:00Z"
+# A live host reading strictly later than the instant the grant signed, and the second
+# `observed_at` these fakes carry. While `host_image()` was the only source of one, the grant
+# pin and the live host reading were the same string everywhere, so no test could state which
+# of the two a recorded value came from: a mutation swapping them changed nothing observable.
+# It is admitted by preparation, which accepts a reading at or after the pin, and it is inside
+# the authorization window, so a test may use it without also becoming a window case.
+LATER_HOST_OBSERVED_AT = "2026-08-05T00:00:30Z"
 # The resolution state a selected image observation carries once its registry identity is
 # pinned. The proposed record carries `UNRESOLVED` and no host identity claim at all.
 IMAGE_RESOLVED = "RESOLVED"

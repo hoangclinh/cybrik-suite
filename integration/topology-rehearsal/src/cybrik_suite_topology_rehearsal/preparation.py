@@ -102,6 +102,7 @@ FROZEN_MAPPING_FIELDS = (
     "control_identities",
     "docker_executable",
     "docker_platform",
+    "granted_image_identity",
     "image",
     "probe_executable",
     "selected_image_identity",
@@ -213,8 +214,12 @@ class PreparationResult:
     ephemeral_range: tuple[int, ...]
     pre_consumption_listeners: tuple[Any, ...]
     docker_publications: tuple[str, ...]
-    # The instant the grant signed for its host observation: never a fact — `image[observed_at]`
-    # stays the live reading — but the one instant this phase and a pre-host plan can both name.
+    # The signed host observation this result is pinned from, and the instant taken out of it:
+    # never a fact — `image[observed_at]` stays the live reading — but the one instant this
+    # phase and a pre-host plan can both name. The identity travels with the pin so agreement
+    # is provable *here*, in every copy of a result, rather than only in `snapshot()`'s wiring,
+    # which no copy goes through and which a forged pin therefore never has to satisfy.
+    granted_image_identity: Mapping[str, Any]
     granted_observed_at: str
 
     def __post_init__(self) -> None:
@@ -227,14 +232,12 @@ class PreparationResult:
             value = getattr(self, name)
             if type(value) is not MappingProxyType:
                 raise ValueError(
-                    f"{name} must be a read-only mapping, not {type(value).__name__}"
-                )
+                    f"{name} must be a read-only mapping, not {type(value).__name__}")
         for name in FROZEN_SEQUENCE_FIELDS:
             value = getattr(self, name)
             if type(value) is not tuple:
                 raise ValueError(
-                    f"{name} must be an immutable tuple, not {type(value).__name__}"
-                )
+                    f"{name} must be an immutable tuple, not {type(value).__name__}")
         for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
             nested = immutability_findings(getattr(self, name), name)
             if nested:
@@ -244,22 +247,27 @@ class PreparationResult:
             raise ValueError(
                 f"control_identities {sorted(repr(key) for key in self.control_identities)}"
                 f" are not the four reviewed control repositories "
-                f"{sorted(CONTROL_REPOSITORIES)}"
-            )
+                f"{sorted(CONTROL_REPOSITORIES)}")
         if len(self.ephemeral_range) != EPHEMERAL_RANGE_BOUNDS or any(
             type(bound) is not int for bound in self.ephemeral_range
         ):
             raise ValueError(
-                f"ephemeral_range {self.ephemeral_range!r} is not two observed ports"
-            )
+                f"ephemeral_range {self.ephemeral_range!r} is not two observed ports")
         if self.pre_consumption_listeners or self.docker_publications:
             raise ValueError(
                 "a satisfied preparation observed no listener and no publication on the "
-                "reviewed port, so neither may be recorded as one"
-            )
-        if type(self.granted_observed_at) is not str or instant(self.granted_observed_at) is None:
+                "reviewed port, so neither may be recorded as one")
+        signed = self.granted_image_identity.get(OBSERVED_AT_KEY)
+        if type(self.granted_observed_at) is not str or self.granted_observed_at != signed:
             raise ValueError(f"granted_observed_at {self.granted_observed_at!r} is not the exact"
-                             " UTC instant the authorization signed, so it names no attempt")
+                             f" UTC instant {signed!r} the authorization signed for the host"
+                             " observation it names, so it names no attempt")
+        pinned = instant(signed)
+        read = instant(self.image.get(OBSERVED_AT_KEY))
+        if pinned is None or read is None or read < pinned:
+            raise ValueError(f"image {OBSERVED_AT_KEY} {self.image.get(OBSERVED_AT_KEY)!r} is not"
+                             f" a reading at or after the signed {signed!r}, so this is no host"
+                             " anybody re-checked at a nameable instant")
 
 
 def refusal(findings: Sequence[str]) -> PrecheckAbort:
@@ -274,10 +282,8 @@ def guarded(label: str, read: Any) -> Any:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- every ordinary seam error fails closed
-        finding = (
-            f"{label}: raised {type(error).__name__} out of a seam whose only stated "
-            "failure value is None"
-        )
+        finding = (f"{label}: raised {type(error).__name__} out of a seam whose only stated "
+                   "failure value is None")
         raise refusal((finding,)) from None
 
 
@@ -303,10 +309,8 @@ def projected(label: str, read: Any) -> Any:
     except (KeyboardInterrupt, SystemExit):
         raise
     except Exception as error:  # noqa: BLE001 -- an uncopyable projection fails closed
-        finding = (
-            f"{label}: raised {type(error).__name__} while being copied, so no dead copy "
-            "of it exists to prove anything against"
-        )
+        finding = (f"{label}: raised {type(error).__name__} while being copied, so no dead copy "
+                   "of it exists to prove anything against")
         raise refusal((finding,)) from None
 
 
@@ -612,10 +616,9 @@ def image_findings(
         )
     elif signed_at is None or observed_at < signed_at:
         findings.append(
-            f"image: {OBSERVED_AT_KEY} {image[OBSERVED_AT_KEY]!r} is not at or after the "
-            f"granted host observation {pinned[OBSERVED_AT_KEY]!r}, so it describes a host "
-            "nobody re-checked"
-        )
+            f"image: {OBSERVED_AT_KEY} {image[OBSERVED_AT_KEY]!r} is not at or after the granted"
+            f" host observation {pinned[OBSERVED_AT_KEY]!r}, so it describes a host nobody"
+            " re-checked")
     findings.extend(
         f"image: {key} {image[key]!r} is not the granted host identity {pinned[key]!r}"
         for key in OBSERVED_BINDING_KEYS
@@ -650,10 +653,8 @@ def ephemeral_findings(observed: object) -> tuple[str, ...]:
         return (f"ephemeral_range: {(low, high)!r} does not increase",)
     if low <= HOST_PORT <= high:
         return (
-            (
-                f"ephemeral_range: the reviewed host port {HOST_PORT} lies inside the "
-                f"observed ephemeral range {(low, high)!r}"
-            ),
+            f"ephemeral_range: the reviewed host port {HOST_PORT} lies inside the "
+            f"observed ephemeral range {(low, high)!r}",
         )
     return ()
 
@@ -686,10 +687,8 @@ def platform_evidence_findings(observed: object, version: object) -> tuple[str, 
     engine = observed[ENGINE_VERSION_KEY]
     if engine != version:
         return (
-            (
-                f"docker_platform: {ENGINE_VERSION_KEY} {engine!r} is not the granted "
-                f"Docker version {version!r}"
-            ),
+            f"docker_platform: {ENGINE_VERSION_KEY} {engine!r} is not the granted "
+            f"Docker version {version!r}",
         )
     return ()
 
@@ -757,6 +756,7 @@ def snapshot(observed: Observations, document: Mapping[str, Any]) -> Preparation
         ephemeral_range=frozen(observed.ephemeral_range),
         pre_consumption_listeners=frozen(observed.listeners),
         docker_publications=frozen(observed.publications),
+        granted_image_identity=frozen(document["observed_image_identity"]),
         granted_observed_at=document["observed_image_identity"][OBSERVED_AT_KEY],
     )
 

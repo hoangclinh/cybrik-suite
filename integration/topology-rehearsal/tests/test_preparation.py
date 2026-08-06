@@ -80,6 +80,9 @@ IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
 STALE_OBSERVED_AT = "2026-08-04T23:59:59Z"
 FRESH_OBSERVED_AT = "2026-08-05T00:01:00Z"
 
+# The key under which both the live host reading and the signed observation state an instant.
+OBSERVED_AT = "observed_at"
+
 # Hostile edits an injected adapter could make to the caller-owned authorization *after* it
 # was validated and *before* it is compared against the host or recorded. Every value here is
 # well formed: the attack is not a malformed document but a live alias, so a phase that
@@ -368,6 +371,14 @@ def result_fields() -> dict[str, Any]:
         "ephemeral_range": fakes.EPHEMERAL_RANGE,
         "pre_consumption_listeners": (),
         "docker_publications": (),
+        "granted_image_identity": MappingProxyType(
+            {
+                key: MappingProxyType(value) if isinstance(value, dict) else value
+                for key, value in documents.grant_document()[
+                    "observed_image_identity"
+                ].items()
+            }
+        ),
         "granted_observed_at": fakes.IMAGE_OBSERVED_AT,
     }
 
@@ -438,6 +449,7 @@ def test_the_whole_snapshot_is_deeply_immutable_not_only_its_outer_containers(
         for name in (
             "control_identities",
             "image",
+            "granted_image_identity",
             "selected_image_identity",
             "docker_platform",
             "docker_executable",
@@ -774,9 +786,88 @@ def test_the_result_field_inventory_is_exactly_the_proved_field_set(preparation)
 def test_the_pinned_instant_reaches_the_snapshot_from_the_signed_document(
     preparation,
 ) -> None:
-    """The proved path must produce the instant the grant signed, not a live host reading."""
-    result = prepare(preparation, fakes.passing_adapters())
+    """The proved path must produce the instant the grant signed, not a live host reading.
+
+    Driven through a host that answers *later* than the grant signed, which preparation
+    admits. While the fakes carried a single `observed_at` the two candidate sources were the
+    same string, so this test could not tell them apart and sourcing the pin from the live
+    observation changed nothing it asserted. The divergence is the whole control: only one of
+    the two instants below can be the recorded pin, and it must be the signed one.
+    """
+    adapters = fakes.passing_adapters(
+        image=fakes.host_image(observed_at=fakes.LATER_HOST_OBSERVED_AT)
+    )
+    assert fakes.LATER_HOST_OBSERVED_AT != fakes.IMAGE_OBSERVED_AT
+    result = prepare(preparation, adapters)
+    assert result.image[OBSERVED_AT] == fakes.LATER_HOST_OBSERVED_AT
     assert result.granted_observed_at == fakes.IMAGE_OBSERVED_AT
+
+
+# Well-formed UTC instants that the authorization never signed. Each is exactly the forgery
+# the shape-only pin admitted: a copy of a *proved* result carrying a pin the grant does not
+# state, which `runner.attempt_id_for` then renders the one authorized attempt's name out of,
+# and from which every container, network, volume and credential name derives. The near
+# misses matter as much as the epoch: a pin one second off the signed instant is the shape a
+# clock skew or a re-render produces, and it names a different attempt just as completely.
+FORGED_INSTANTS = (
+    pytest.param("1970-01-01T00:00:00Z", id="epoch"),
+    pytest.param("0001-01-01T00:00:00Z", id="year-one"),
+    pytest.param("2026-08-04T23:59:59Z", id="one-second-before"),
+    pytest.param("2026-08-05T00:00:01Z", id="one-second-after"),
+    pytest.param("9999-12-31T23:59:59Z", id="far-future"),
+)
+
+
+@pytest.mark.parametrize("forged", FORGED_INSTANTS)
+def test_a_proved_result_may_not_be_copied_with_a_pin_the_authorization_never_signed(
+    preparation, forged
+) -> None:
+    """The pin must *agree* with the signed observation, not merely parse as an instant.
+
+    A result is the record of what was proved, and it is copied — by `dataclasses.replace`
+    and by anything that reconstructs one — outside the one function that wired it. Validating
+    only the pin's shape leaves agreement resting on `snapshot()`'s literal wiring, which no
+    copy goes through, so a satisfied "complete proof" can name an attempt nobody authorized.
+    """
+    result = prepare(preparation)
+    # The control is vacuous unless the forgery really is a different instant.
+    assert result.granted_observed_at != forged
+    with pytest.raises(ValueError):
+        replace(result, granted_observed_at=forged)
+
+
+def test_a_proved_result_may_not_be_copied_with_a_reading_older_than_its_own_pin(
+    preparation,
+) -> None:
+    """The ordering `prepare` proved must hold in the record, not only during the check.
+
+    `image_findings` refuses a host read before the grant signed, but that judgement lives in
+    `prepare`. A copy that keeps the signed pin and substitutes an older reading describes a
+    host nobody re-checked, and nothing in the result said so.
+    """
+    result = prepare(preparation)
+    stale = MappingProxyType({**dict(result.image), OBSERVED_AT: STALE_OBSERVED_AT})
+    assert STALE_OBSERVED_AT < result.granted_observed_at
+    with pytest.raises(ValueError):
+        replace(result, image=stale)
+
+
+@pytest.mark.parametrize("forged", FORGED_INSTANTS)
+def test_the_pin_and_the_signed_identity_it_was_drawn_from_may_not_disagree(
+    preparation, forged
+) -> None:
+    """Agreement is one property, so moving either side of it must refuse just the same.
+
+    Rewriting the carried identity rather than the pin is the same forgery approached from
+    the other end: it would leave a result whose pin is not the instant its own signed host
+    observation states. A check that only read the pin would not see it at all.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    identity = MappingProxyType(
+        {**dict(result_fields()["granted_image_identity"]), OBSERVED_AT: forged}
+    )
+    with pytest.raises(ValueError):
+        result_type(**{**result_fields(), "granted_image_identity": identity})
 
 
 @pytest.mark.parametrize(
