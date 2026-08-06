@@ -77,6 +77,7 @@ from .protocols import (
     SignatureVerifier,
     require_port,
 )
+from .views import proved_copy
 
 __all__ = ["RehearsalResult", "attempt_id_for", "run_topology_rehearsal"]
 
@@ -370,6 +371,27 @@ def _create_resources(adapters: Any, names: AttemptNames) -> str | None:
     return None
 
 
+def _proved_reading(reading: object, label: str) -> Any:
+    """One dead copy of a live reading, refused where the reading's own two views disagree.
+
+    `frozen` rebuilds a mapping from one `.items()` read and never consults its subscript, so
+    a reading that stores the isolation the verdict wants while subscripting a network with a
+    route off the host was copied to the stored side: the verdict was satisfied, the receipt
+    recorded that flag, and the same object judged live is a stop control — so admitting it
+    converted a stop control into a pass. `proved_copy` cross-checks the live subscript
+    against that same one read, at every depth it walks, so a divergent reading is refused
+    rather than taken one way. The read-only view is taken first because it keeps the caller's
+    live `__getitem__`; freezing first discards it and reconciles a dead copy with itself.
+    `frozen` then copies deep out of that read and is itself the immutability refusal, a live
+    reading being a `dict`. Both raise the `ValueError` the guard below reads as a control.
+    """
+    view = MappingProxyType(reading) if isinstance(reading, Mapping) else reading
+    copied, _, divergence = proved_copy(view, label)
+    if divergence:
+        raise ValueError("; ".join(divergence))
+    return frozen(copied)
+
+
 def _observe_attempt(
     adapters: Any, names: AttemptNames, deadline: float
 ) -> AttemptObservation:
@@ -415,7 +437,9 @@ def _observe_attempt(
         container=names.container, container_port=CONTAINER_PORT_KEY
     )
     listeners = adapters.host.observe_listeners(port=HOST_PORT)
-    network = frozen(adapters.docker.observe_network(name=names.network))
+    network = _proved_reading(
+        adapters.docker.observe_network(name=names.network), "network"
+    )
     probe_result = frozen(
         adapters.probe.run(executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV)
     )

@@ -7,6 +7,7 @@ import dataclasses
 import inspect
 import re
 from collections.abc import Mapping
+from types import MappingProxyType
 
 import pytest
 
@@ -241,6 +242,111 @@ def test_the_recorded_network_projection_is_the_reading_the_verdict_judged(
     result = run(runner, fakes.passing_adapters(network=network))
     recorded = result.evidence["network_attachment"]
     assert revalidate(recorded).satisfied is (result.outcome == fakes.TOPOLOGY_PASS)
+
+
+class SubscriptLiar(dict):
+    """A `dict` subclass that stores one entry and subscripts a different one.
+
+    `.items()` — the read every copy in this package is built from — yields what the
+    mapping stores, while `__getitem__` and `get`, the protocols `validate_internal_network`
+    and every other live reader use, answer with the attacker's value. Neither view is
+    reached through the other: `dict.items` and `dict.get` are resolved in C, so overriding
+    the two accessors leaves the stored entry untouched.
+    """
+
+    def __init__(self, entries: dict, *, key: str, subscripted: object) -> None:
+        super().__init__(entries)
+        self._key = key
+        self._subscripted = subscripted
+
+    def __getitem__(self, key: str):
+        return self._subscripted if key == self._key else dict.__getitem__(self, key)
+
+    def get(self, key: str, default=None):
+        return self._subscripted if key == self._key else dict.get(self, key, default)
+
+
+def two_faced_network(*, stored: bool, subscripted: bool) -> Mapping:
+    """A network reading whose isolation flag differs across its own two views.
+
+    It is a `MappingProxyType` over a `dict` subclass, so it is exactly a
+    `MappingProxyType` by `type()` and clears every declared read-only-mapping gate while
+    still overloading the subscript the verdict reads.
+    """
+    observe = load_c8("observe")
+    key = require_c8_attr(observe, "NETWORK_INTERNAL_KEY")
+    return MappingProxyType(
+        SubscriptLiar(
+            fakes.network_projection(internal=stored),
+            key=key,
+            subscripted=subscripted,
+        )
+    )
+
+
+def test_a_network_reading_whose_two_views_disagree_is_refused_not_taken_one_way(
+    runner,
+) -> None:
+    """A copy taken from one `.items()` read is self-consistent, not trustworthy.
+
+    The reading below stores the isolation the verdict wants while subscripting a network
+    with a route off the host. Rebuilding it from `.items()` alone silently picks the
+    stored side: the verdict is satisfied, the receipt records `Internal: True` and the
+    live object's own answer to `Internal` — the one every reader outside this copy gets —
+    is never reconciled with it at all. The same object refuses when it is judged live, so
+    admitting it here would convert a stop control into a pass.
+    """
+    observe = load_c8("observe")
+    revalidate = require_c8_attr(observe, "validate_internal_network")
+    network = two_faced_network(stored=True, subscripted=False)
+    assert revalidate(network).satisfied is False
+    result = run(runner, fakes.passing_adapters(network=network))
+    assert result.outcome == fakes.STOP_CONTROL
+    assert result.attempt_consumed is True
+    assert result.teardown_complete is True
+    assert any(
+        "Internal" in finding and "disagree" in finding for finding in result.findings
+    ), result.findings
+
+
+def test_the_refusal_is_of_divergence_itself_and_not_of_one_view_being_the_hostile_one(
+    runner,
+) -> None:
+    """The mirror reading, which the copy would have refused for the wrong reason.
+
+    Here the live object answers the verdict with the isolation it does *not* store, so a
+    copy rebuilt from `.items()` refuses it as a non-internal network while the object every
+    other reader holds still says it is isolated. That refusal is right by accident and says
+    nothing about the two views; only a reading reconciled against its own subscript reports
+    what is actually wrong with it, whichever side the hostile value is on.
+    """
+    observe = load_c8("observe")
+    revalidate = require_c8_attr(observe, "validate_internal_network")
+    network = two_faced_network(stored=False, subscripted=True)
+    assert revalidate(network).satisfied is True
+    result = run(runner, fakes.passing_adapters(network=network))
+    assert result.outcome == fakes.STOP_CONTROL
+    assert result.attempt_consumed is True
+    assert result.teardown_complete is True
+    assert any(
+        "Internal" in finding and "disagree" in finding for finding in result.findings
+    ), result.findings
+
+
+def test_a_network_reading_whose_two_views_agree_still_passes_and_is_recorded_dead(
+    runner,
+) -> None:
+    """The refusal is of divergence alone: an honest reading is admitted and copied."""
+    observe = load_c8("observe")
+    revalidate = require_c8_attr(observe, "validate_internal_network")
+    key = require_c8_attr(observe, "NETWORK_INTERNAL_KEY")
+    result = run(runner, fakes.passing_adapters())
+    recorded = result.evidence["network_attachment"]
+    assert result.outcome == fakes.TOPOLOGY_PASS
+    assert type(recorded) is MappingProxyType
+    assert recorded[key] is True
+    assert revalidate(recorded).satisfied is True
+    assert recorded == fakes.network_projection()
 
 
 class DriftingProbeResult:

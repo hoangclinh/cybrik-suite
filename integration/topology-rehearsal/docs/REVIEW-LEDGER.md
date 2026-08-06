@@ -7242,3 +7242,103 @@ current gate.
 **Nothing was downgraded, softened or deleted by this work.** F130 is the only finding removed from
 the open counts, and it is removed because it was **refuted on evidence**, not because it was
 graded down.
+
+## Cycle 57 (V2 security lane) — the F128 network repair measured, and its two residual findings
+
+*2026-08-06. `CYBRIK_RUN_ID=fc80b339-039b-4aae-994c-0f5776ea06bc`. Coordinator
+`cybrik-security-coordinator`, writer identity. Pre-cycle HEAD `fe8bf20`. The F128 repair was found
+**uncommitted in the working tree**, left there by cycle 56, carrying no measured evidence. This
+cycle measures it and commits it as a recoverable checkpoint. It is **NOT** reviewed and **NOT**
+push-eligible.*
+
+### What the repair is
+
+`_observe_attempt` copied the network reading with `frozen()` (landed by `f25bc97`). `frozen`
+rebuilds a mapping from one `.items()` read and **never consults the live `__getitem__`**, while
+`validate_internal_network` judges through `.get`. A reading that *stores* `Internal: True` and
+*subscripts* `Internal: False` is therefore copied to its stored side: the verdict is satisfied, the
+receipt records `Internal: True`, and the object every other reader holds says the network has a
+route off the host. The working-tree patch routes the network reading through `views.proved_copy`
+via a new `runner._proved_reading`, which cross-checks the live subscript against the same one read
+at every depth and **refuses divergence itself** rather than silently taking one side.
+
+### Measured evidence — reproduced, not accepted on report
+
+The RED was reproduced **independently against committed pre-patch source**, not taken on the
+previous cycle's word. Method: `git archive HEAD` into `/tmp/cybrik-f128-red-fc80b339`, overlay only
+the post-patch `tests/test_runner.py`, run there. The scratch tree was confirmed pre-patch by grep
+(no `proved_copy` in its `runner.py`). The live worktree was never mutated to obtain the RED — no
+stash, no checkout, no revert.
+
+| gate | result |
+|---|---|
+| **F128 RED at pre-patch `fe8bf20`** | **2 failed, 1 passed.** Primary attack (`stored=True, subscripted=False`) produced `AssertionError: assert 'TOPOLOGY_PASS' == 'STOP_CONTROL'` — **a measured authority bypass: a stop control converted into a pass.** Mirror attack refused only *by accident*, on the wrong reason (`internal_network: Internal is False, not exactly True`), never naming the divergence. |
+| **Control test in the same RED run** | The honest-reading test **passed pre-patch and post-patch**, so the patch is a refusal of divergence alone and not a blanket refusal that fails everything. |
+| **Focused `tests/test_runner.py` (patched)** | **102 passed.** |
+| **Broad static census (patched)** | **1551 passed / 58 failed.** All 58 classified by file: 51 `test_scripts_inert.py` + 7 `test_surface_contract.py` — the intended absent-entrypoint-script REDs. **0 unintended failures.** Passed count moved 1548 → 1551, exactly the three tests this slice adds. |
+| **compile** | `compileall src tests` exit 0. |
+| **lint** | ruff 0.16.0: **12 findings, unchanged from the F120 baseline.** No auto-fixer, no `--fix`, no `--unsafe-fixes` run. |
+| **`uv.lock`** | Untouched and still untracked; md5 `ff29c06c8a4247c27f68dac52c14d02d`. No dependency was added, updated or regenerated. |
+
+No control was relaxed, and no surface, inertness, single-spawn-site, anti-self-witnessing or
+fail-closed control was weakened to obtain GREEN.
+
+### F131 (P1, NEW, OPEN) — the F128 repair is *partial*; container and probe keep the blind spot
+
+**The repair was applied to the network reading only.** At the patched worktree,
+`runner.py:434` is still `container = frozen(adapters.docker.observe_container(...))` and
+`runner.py:443` still wraps the probe result in `frozen(...)`. `frozen` is precisely the
+`.items()`-only accessor whose blind spot F128 exists to name, so the two readings `80b2f70`
+repaired for F121/F122 are repaired **against re-reading**, not against **two-faced reading**.
+
+This matters most for the container, because F122 already established that `binding_publication`
+checks the whole key inventory by *iterating* the bindings and then reads the reviewed entry by
+*subscript* — the exact iterate-versus-subscript straddle, inside a single judgement.
+
+**Grading discipline:** this finding is **derived from source, not yet proved by execution.** No
+container or probe divergence RED was run this cycle. It is filed P1 because it is the same class as
+a bypass already measured one reading over, and it is **OWED an executed RED** before any repair.
+Do not treat it as discharged by F128's evidence.
+
+### F132 (P2, NEW, OPEN) — the size control has one line of headroom left
+
+`runner.py` is now **799 lines against the `MODULE_LINE_LIMIT = 800`** enforced at
+`tests/test_surface_contract.py:96`. The limit is **not violated** and was **not** raised. But the
+F128 repair consumed 26 lines and left **one line**, so F131's repair — which must touch the same
+function for two more readings — **cannot** be written inline in `runner.py` without breaching the
+control. This is the F113 failure mode recurring. The extraction seam (`views.py`, 246 lines) is the
+place for it. Filed so the next writer plans the extraction *before* the repair, not after a RED.
+
+### Review status — the debt this cycle could not discharge
+
+The patch is **repaired-unreviewed**. It received **no independent verdict** this cycle. The writer
+identity that authored it may not witness it, and this session advertises **no agent-spawn tool**,
+so no fresh reviewer distinct from the writer could be commissioned. This is recorded as an
+unpaid debt, not papered over, and is the lane's escalated blocker.
+
+### Gate at the close of cycle 57
+
+Cycle 56's buckets, plus this cycle's two new findings, minus nothing:
+
+- **P0 = 0**
+- **P1 OPEN = 4** — F33, F123, F128 (**repair applied and measured this cycle, unreviewed**), **F131**
+- **P1 repaired-unreviewed = 10** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122)
+- **P2 OPEN = 39** (38 + **F132**)
+- **P2 repaired-unreviewed = 3** (F79, F84, F95)
+- **P3 OPEN = 41**
+- **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30**, **SUPERSEDED = 2**, **PHANTOM = 4** (F56-F59)
+
+```
+CLOSED 30 + P1 OPEN 4 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 10
+  + P2 OPEN 39 + P2 r-u 3 + P3 OPEN 41 + P3 r-u 2 = 135
+```
+
+`135` = F1..F132 (132) + F29-A/B/C (3). Exact. Highest ID defined is now **F132**.
+
+F128 is deliberately **left in P1 OPEN, not moved to repaired-unreviewed**, because its repair is
+proved **partial** by F131. It closes only when the divergence refusal covers every reading
+`_observe_attempt` takes.
+
+**`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible. The atomic
+entrypoint GREEN remains blocked. RUNTIME **HOLD**. Production **Founder-only**.
