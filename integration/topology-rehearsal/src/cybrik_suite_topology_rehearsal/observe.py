@@ -330,6 +330,50 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
     return ()
 
 
+def stored_entries(
+    mapping: Mapping[str, Any], label: str
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    """What a mapping *stores*, and every entry whose subscript disagrees with it.
+
+    The same shape of hole `local_presence_findings` closed, written once for a whole
+    inventory instead of one field. A mapping is validated here by iterating it — `keyed`
+    iterates, `preparation.frozen` rebuilds from `.items()`, and every recorded copy carries
+    exactly what `.items()` yielded — so a judgement that reads the values back through
+    `__getitem__` is judging something no consumer records. `MappingProxyType` over a `dict`
+    *subclass* is exactly a `MappingProxyType` by `type()`, so such a mapping passes every
+    declared read-only-mapping gate and the deep immutability proof while overloading its
+    subscript.
+
+    The subscript is kept as a cross-check rather than dropped, because `__getitem__` is a
+    live protocol on these mappings elsewhere in the package — `runner._selected_identity`
+    and `grant`'s own reductions read `mapping[key]`. A disagreement in either direction is a
+    refusal, so the two views cannot diverge whichever one a later reader happens to use.
+
+    A subscript that refuses to answer at all is a disagreement too, not an exception: passing
+    `keyed` does not make a mapping subscriptable, and the callers here are reducers contracted
+    to return findings and a `__post_init__` documented to raise `ValueError`.
+    """
+    stored = dict(mapping.items())
+    findings: list[str] = []
+    for key, value in stored.items():
+        try:
+            subscripted = mapping[key]
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
+            findings.append(
+                f"{label}: {key} raised {type(error).__name__} when read by subscript while "
+                f"this mapping stores {value!r}, so its two views of one entry disagree"
+            )
+            continue
+        if subscripted is not value:
+            findings.append(
+                f"{label}: {key} reads as {subscripted!r} by subscript while this mapping "
+                f"stores {value!r}, so its two views of one entry disagree"
+            )
+    return stored, tuple(findings)
+
+
 def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     """Refuse a pinned identity that is not a whole, resolved, agreeing host observation.
 
@@ -349,6 +393,12 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     and `image` are judged here. The *selected* registry identity a result also carries is not
     validated by this reducer at all — a copy may still replace it with an empty mapping — and
     neither is any other field. That gap is out of scope for this reading and remains open.
+
+    Every binding below is read from what the identity *stores*, by `stored_entries`, and not
+    back through its subscript: the mirror of the same hole `local_presence_findings` closed
+    on the live reading. An identity that stored a forged tag while subscripting as the
+    genuine one satisfied every check here and was then recorded, by `preparation.frozen` and
+    by `runner`, as the forged pin it stored.
     """
     label = "granted_image_identity"
     refusals = keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)
@@ -357,24 +407,27 @@ def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
     reading = keyed(image, HOST_IMAGE_KEYS, READING_LABEL, ordered=False)
     if reading:
         return reading
-    unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if identity[key] is None)
+    signed, divergence = stored_entries(identity, label)
+    if divergence:
+        return divergence
+    unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if signed[key] is None)
     if unread:
         return (
             f"{label}: unresolved — {list(unread)} were never read, so the host never said "
             "what it holds",
         )
     findings = [
-        f"{label}: {key} {identity[key]!r} is not a registry digest"
+        f"{label}: {key} {signed[key]!r} is not a registry digest"
         for key in (*REGISTRY_DIGEST_KEYS, "local_image_id")
-        if not registry_digest(identity[key])
+        if not registry_digest(signed[key])
     ]
-    findings.extend(platform_findings(identity["platform"], label))
+    findings.extend(platform_findings(signed["platform"], label))
     findings.extend(local_presence_findings(image, READING_LABEL))
     findings.extend(
-        f"{label}: {key} {identity[key]!r} is not the {key} {image.get(key)!r} the live"
+        f"{label}: {key} {signed[key]!r} is not the {key} {image.get(key)!r} the live"
         " reading states, so this result names two images and proves neither"
         for key in OBSERVED_BINDING_KEYS
-        if identity[key] != image.get(key)
+        if signed[key] != image.get(key)
     )
     return tuple(findings)
 

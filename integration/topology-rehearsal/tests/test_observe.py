@@ -892,3 +892,203 @@ def test_a_proved_result_refuses_an_unreadable_reading_as_a_value_error() -> Non
     refuser = MappingProxyType(SubscriptRefuser(dict(result.image)))
     with pytest.raises(ValueError):
         dataclasses.replace(result, image=refuser)
+
+
+# ---------------------------------------------------------------------------
+# The same hole on the other operand: a signed identity may not answer the reduction one
+# binding and store another
+# ---------------------------------------------------------------------------
+# `local_presence_findings` was closed against a *reading* whose subscript disagreed with
+# what it stored. The pinned identity it is compared against was read the same way and left
+# open: `signed_identity_findings` reads `identity[key]` at the unresolved check, at the
+# registry-digest loop, at the platform check and at the binding comparison, while `keyed`
+# validates that same mapping by iterating it and `preparation.__post_init__` reads its
+# `observed_at` through `.get`. A `MappingProxyType` over a `dict` subclass is exactly a
+# `MappingProxyType` by `type()`, so it passes the field's type gate and the deep
+# immutability proof while overloading `__getitem__` — and an identity that *stores* a
+# forged tag could answer the reduction the genuine one and be recorded as a proved pin.
+#
+# The subscript is kept as a cross-check rather than dropped, because `__getitem__` is a
+# live protocol on this field elsewhere in the package: `runner._selected_identity` and
+# `grant`'s own reductions read `mapping[key]`. Judging by iteration alone would accept a
+# mapping whose subscript states something else entirely, which is a case this reduction
+# already refuses today.
+
+
+def lying_identity(identity, **forged):
+    """A signed identity that *stores* `forged` while its subscript answers the genuine value.
+
+    The forged entries are written once here rather than per case, so a case below is refused
+    by the control under test and not by a hand-built mapping that had drifted.
+    """
+    genuine = dict(identity)
+
+    class StoresOneBindingSubscriptsAnother(dict):
+        def __getitem__(self, key: str):
+            if key in forged:
+                return genuine[key]
+            return super().__getitem__(key)
+
+    return MappingProxyType(
+        StoresOneBindingSubscriptsAnother({**genuine, **forged})
+    )
+
+
+def unreadable_identity(identity, name: str):
+    """A signed identity storing every genuine binding that refuses to be subscripted for one.
+
+    `dict.get` and `dict.items` are resolved in C and do not route through an overridden
+    `__getitem__`, so this stores and yields exactly what the grant signed while the one
+    accessor the reduction used raises.
+    """
+
+    class RefusesToBeSubscripted(dict):
+        def __getitem__(self, key: str):
+            if key == name:
+                raise KeyError(key)
+            return super().__getitem__(key)
+
+    return MappingProxyType(RefusesToBeSubscripted(dict(identity)))
+
+
+class PlainIdentitySubclass(dict):
+    """A `dict` subclass that overrides nothing at all.
+
+    The positive control for the construction itself: if a proxy over a mapping *subclass*
+    were refused outright, the refusals below would prove nothing about the subscript.
+    """
+
+
+def test_a_lying_signed_identity_satisfies_every_declared_type_gate(observe) -> None:
+    """The premise of the refusals below, asserted rather than assumed."""
+    identity, _ = signed_pair()
+    liar = lying_identity(identity, tag="FORGED")
+    assert type(liar) is MappingProxyType
+    assert dict(liar.items())["tag"] == "FORGED"
+    assert liar.get("tag") == "FORGED"
+    assert liar["tag"] == dict(identity)["tag"]
+    keys = require_c8_attr(observe, "OBSERVED_IDENTITY_KEYS")
+    assert call(observe, "keyed", liar, keys, "granted_image_identity", ordered=False) == ()
+
+
+# Forged bindings a signed identity may store while subscripting as the genuine one. Each is
+# a value this reduction already refuses when it is read honestly, so what would admit it is
+# the second accessor and nothing else.
+FORGED_SIGNED_BINDINGS = (
+    pytest.param({"tag": "FORGED"}, id="tag-forged"),
+    pytest.param({"repository": "evil/repo"}, id="repository-forged"),
+    pytest.param({"index_digest": "not-a-digest"}, id="index-digest-forged"),
+    pytest.param({"manifest_digest": "not-a-digest"}, id="manifest-digest-forged"),
+    pytest.param({"local_image_id": "junk"}, id="local-image-id-forged"),
+    pytest.param({"platform": "junk"}, id="platform-forged"),
+    pytest.param({"tag": None}, id="tag-unread"),
+    pytest.param({"platform": None}, id="platform-unread"),
+    pytest.param({"index_digest": None}, id="index-digest-unread"),
+)
+
+
+@pytest.mark.parametrize("forged", FORGED_SIGNED_BINDINGS)
+def test_a_signed_identity_is_refused_by_what_it_stores_however_it_subscripts(
+    observe, forged
+) -> None:
+    """The stored binding is the binding: it is what every consumer of this field records."""
+    identity, image = signed_pair()
+    findings = call(
+        observe, "signed_identity_findings", lying_identity(identity, **forged), image
+    )
+    assert findings, (
+        f"a signed identity storing {forged!r} must be refused whatever it subscripts as"
+    )
+
+
+def test_a_signed_identity_whose_subscript_states_another_binding_is_still_refused(
+    observe,
+) -> None:
+    """The inverse case, which this reduction refused before and must go on refusing.
+
+    `__getitem__` is a live protocol on this field elsewhere in the package, so an identity
+    whose subscript answers something other than what it stores is a refusal in *either*
+    direction. Reading by iteration alone would have re-admitted this one.
+    """
+    identity, image = signed_pair()
+    genuine = dict(identity)
+
+    class SubscriptsAForgedTag(dict):
+        def __getitem__(self, key: str):
+            if key == "tag":
+                return "FORGED"
+            return super().__getitem__(key)
+
+    inverted = MappingProxyType(SubscriptsAForgedTag(genuine))
+    findings = call(observe, "signed_identity_findings", inverted, image)
+    assert findings, "an identity whose subscript states another binding must be refused"
+
+
+def test_a_signed_identity_whose_subscript_refuses_a_binding_reports_rather_than_raises(
+    observe,
+) -> None:
+    """A reducer contracted to *return findings* may not throw an unbounded `KeyError`.
+
+    `keyed` only iterates, so passing it does not make a mapping subscriptable and this
+    reduction cannot rest on it.
+    """
+    identity, image = signed_pair()
+    findings = call(
+        observe, "signed_identity_findings", unreadable_identity(identity, "tag"), image
+    )
+    assert findings, "an identity that will not answer must still be refused"
+
+
+def test_a_signed_identity_agreeing_through_both_of_its_views_is_accepted(observe) -> None:
+    """The positive control: a check that refuses every identity has proved nothing."""
+    identity, image = signed_pair()
+    assert call(observe, "signed_identity_findings", identity, image) == ()
+    unchanged = MappingProxyType(dict(identity))
+    assert call(observe, "signed_identity_findings", unchanged, image) == ()
+    subclassed = MappingProxyType(PlainIdentitySubclass(dict(identity)))
+    assert call(observe, "signed_identity_findings", subclassed, image) == ()
+
+
+def test_a_proved_result_may_not_be_copied_with_an_identity_that_stores_a_forged_binding(
+) -> None:
+    """The copy path the pin exists for: `dataclasses.replace` on a proved result.
+
+    A result asserting `satisfied is True` while *recording* a forged tag is the exact
+    forgery this pin was added to refuse, and it must not be reachable by handing the field
+    a mapping subclass that answers one accessor differently.
+    """
+    result = proved_result()
+    liar = lying_identity(result.granted_image_identity, tag="FORGED")
+    with pytest.raises(ValueError):
+        dataclasses.replace(result, granted_image_identity=liar)
+
+
+def test_an_unchanged_signed_identity_may_still_be_copied_onto_a_proved_result() -> None:
+    """Positive control: the genuine pin must still copy and still be satisfied."""
+    result = proved_result()
+    unchanged = MappingProxyType(dict(result.granted_image_identity))
+    copied = dataclasses.replace(result, granted_image_identity=unchanged)
+    assert copied.satisfied is True
+    assert dict(copied.granted_image_identity) == dict(result.granted_image_identity)
+
+
+def test_a_signed_identity_in_a_plain_mapping_subclass_may_still_be_copied() -> None:
+    """Positive control: the refusal is the disagreement, never the subclass by itself."""
+    result = proved_result()
+    subclassed = MappingProxyType(
+        PlainIdentitySubclass(dict(result.granted_image_identity))
+    )
+    copied = dataclasses.replace(result, granted_image_identity=subclassed)
+    assert copied.satisfied is True
+    assert dict(copied.granted_image_identity) == dict(result.granted_image_identity)
+
+
+def test_a_proved_result_refuses_an_unreadable_signed_identity_as_a_value_error() -> None:
+    """`__post_init__` is documented and tested to refuse with `ValueError`.
+
+    A caller catching `ValueError` around a copy would not catch a `KeyError`.
+    """
+    result = proved_result()
+    refuser = unreadable_identity(result.granted_image_identity, "tag")
+    with pytest.raises(ValueError):
+        dataclasses.replace(result, granted_image_identity=refuser)
