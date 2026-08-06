@@ -128,7 +128,19 @@ the stale gate above.
 - RUNTIME: **HOLD**
 - PRODUCTION: **Founder-only**
 
-A documentation/evidence cross-check of these carried-forward tallies against the package ledger's
-underlying commit and finding records is in flight this cycle. Until that cross-check completes and
-is recorded, these counts should be treated as **carried-forward, not independently verified** by
-this file — consult the package ledger directly for the reviewed, primary record.
+**Update, same cycle (2026-08-06):** that cross-check **has now completed and returned ACCURATE**.
+The tallies above were independently re-derived from the package ledger's own per-finding records —
+not carried forward — and they reconcile exactly (129 tracked slots = F1..F126 plus F29-A/B/C;
+defined-ID count 125; closed 28, superseded 2, phantom 4). The 108-commit range was independently
+re-confirmed. The re-derivation did surface **classification** defects that a carried-forward sum
+cannot detect — a duplicate finding inflating P3 by one, and five omitted or imprecisely classified
+buckets — all recorded in the package ledger's cycle-54 addendum. **None of them changes the gate
+direction.** Consult the package ledger directly for the reviewed, primary record.
+
+**The independent adversarial verdict on the applied F114/F121/F122 ingress repairs has also now
+landed, and it is NO-GO.** The three filed defects are confirmed repaired, but the repair's accessor
+choice introduced a **new P1 control weakening** (F128): for the `network` reading, `frozen` silently
+accepts one side of a two-view disagreement that this package declares disqualifying, converting a
+pre-repair `STOP_CONTROL` into a `TOPOLOGY_PASS` — proved by execution against live source. The gate
+has moved **further** from being met, not closer. See the package ledger's cycle-54 second addendum.
+The range remains non-push-eligible; RUNTIME **HOLD**; PRODUCTION **Founder-only**.

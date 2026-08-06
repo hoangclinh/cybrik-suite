@@ -6705,3 +6705,180 @@ when this cycle closed:**
 Recording this plainly matters more than closing the cycle cleanly: two consecutive cycles have now
 claimed these lanes and neither has produced a verdict. The next cycle must run the adversarial
 review as its **sole** blocking lane rather than one of four, so it cannot again be crowded out.
+
+### Cycle 54 addendum — the oldest evidence debt is DISCHARGED, and it was not carrying an error
+
+**This addendum corrects the lane accounting written immediately above.** That text recorded the
+documentation/evidence cross-check as "still not discharged" for a third consecutive cycle. The lane
+returned after that paragraph was committed. The paragraph above is preserved as written, per this
+ledger's practice of not rewriting its own history, and is corrected here.
+
+**Verdict: ACCURATE.** The cycle-53 closing tally was **independently re-derived from this ledger's
+own per-finding records** — not trusted from any summary line — and it reconciles exactly:
+
+- **P0 open = 0.** No P0 identifier exists anywhere in this ledger. The `:382` "P0" row predates
+  F-numbering and is pre-DISCHARGED (confirmed `:5878`).
+- **P1 open = 1** (F33). **P1 repaired-unreviewed = 10.**
+- **P2 open = 39. P3 open = 40.**
+- **Closed = 28. Superseded = 2** (F61→F65, F62→F71). **Phantom = 4** (F56-F59, never declared).
+- Reconciliation: 28 + 2 + 4 + 1 + 10 + 39 + 3 + 40 + 2 = **129 slots** = F1..F126 plus F29-A/B/C.
+  **Defined-ID count = 125.**
+- Range independently re-confirmed: **108** commits; origin resolves to `73ec822`.
+
+The three-cycle carry-forward was **correct arithmetic**. That is worth stating plainly: the debt
+was real and had to be discharged, but discharging it vindicated the numbers rather than overturning
+them.
+
+### What the re-derivation found that the tally did not show
+
+The five headline numbers reconcile. The defects are **classification and completeness**, not
+arithmetic — which is exactly the class a carried-forward sum cannot detect.
+
+**F127 — P3 — `docs/REVIEW-LEDGER.md:6386` (F120) vs `:4793` (F100). NEW, OPEN.**
+**F120 is a duplicate of F100 and inflates the P3 count by one.** F120's own justification — that no
+prior cycle recorded the ruff RED — is **false**: F100 recorded the identical 12-error ruff finding
+site-by-site at `:4802-4809`, and `:5297-5306` pinned the identical baseline. Both are currently
+counted, F100 as P2 and F120 as P3. One of them must be withdrawn. This is filed rather than
+silently corrected because withdrawing a finding changes a gate number and must itself be reviewable.
+
+**Five further defects recorded, each already owned by an open finding where one exists:**
+
+1. **The cycle-53 gate paragraph (`:6580-6585`) silently omits five findings.** `P2
+   repaired-unreviewed = 3` (F79, F84, F95) and `P3 repaired-unreviewed = 2` (F96, F97) appear in no
+   bucket of the closing paragraph, although `:4726` and `:4728` tracked them separately. The gate
+   text is incomplete, not wrong.
+2. **F110 (`:5847`, `observe.py:462-463`) may be moot and was never re-examined.** This ledger's own
+   F122 repair rationale at `:6547` states both `nested()` traversals at `observe.py:462-463` now
+   read a dead copy. F110 is still counted P2 OPEN. It must be re-judged against the applied repair.
+3. **F16 is counted P2 on one ruling at `:4547` while `:1611` still reads P3.** Already owned by
+   **F107**, still OPEN. If F16 is P3, the tally becomes **P2 = 38 / P3 = 41**.
+4. **F103 and F104 are counted P1 repaired-unreviewed where "superseded" is the precise word.**
+   Already owned by **F112**, still OPEN. Under the precise classification **P1 repaired-unreviewed
+   = 8**, not 10.
+5. Cycle 44's partial recap at `:4600` and `:4603` carries internal count typos. Non-load-bearing;
+   the `:4716` register replaced it. Recorded only so a future reader does not re-derive from it.
+
+**Consequence for the gate: none in direction.** P2 stands at 39 (or 38 under the F107 reading);
+either way `P0 = P1 = P2 = 0` is **not met**, no part of the 108-commit range is push-eligible,
+RUNTIME **HOLD**, Production **Founder-only**.
+
+**The corrected gate text this ledger should carry forward** adds only the omitted buckets and the
+traceability statement; the five headline numbers are unchanged:
+
+> **P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint GREEN). **P1 repaired-unreviewed =
+> 10** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122). **P2 OPEN = 39. P2
+> repaired-unreviewed = 3** (F79, F84, F95). **P3 OPEN = 40. P3 repaired-unreviewed = 2** (F96, F97).
+> CLOSED = 28, SUPERSEDED = 2, PHANTOM = 4 (F56-F59). Reconciliation: 28+2+4+1+10+39+3+40+2 = **129
+> slots** = F1..F126 plus F29-A/B/C; defined-ID count **125**. **Independently re-derived from the
+> body's own finding records, not carried forward.** The gate is **not met**. RUNTIME **HOLD**.
+> Production **Founder-only**.
+
+### Still owed after this addendum
+
+**The independent adversarial verdict on F114/F121/F122 remains the one blocking debt.** It has now
+failed to land in two consecutive cycles. The coordinator diagnosed the cause as scope: the reviewer
+was asked to audit the whole range while a 6,707-line ledger read ran beside it, and neither
+finished inside the budget. A **narrowed** adversarial lane — five specific questions, four cited
+source regions, ledger reading explicitly forbidden — was commissioned at the close of this cycle
+and had not returned when this addendum was written. Its verdict is the next cycle's first
+collection, not a new commission.
+
+The coordinator did **not** perform this review itself. It authored the cycle-53 and cycle-54
+reasoning that `frozen` is the sufficient accessor, so reviewing that reasoning would be
+self-witnessing — the precise control this package bans elsewhere. F114, F121 and F122 therefore
+remain **repaired-unreviewed** and no part of the range is push-eligible.
+
+### Cycle 54 second addendum — the adversarial verdict landed: **NO-GO**. The coordinator's accessor reasoning was WRONG.
+
+**This corrects the paragraph above, which recorded this verdict as not returned.** The narrowed
+adversarial lane returned after that text was written. Both preserved and corrected here.
+
+**Verdict: NO-GO. P0=0 P1=1 P2=1 P3=1** for findings this review raises.
+
+The three filed defects (F114, F121, F122) are **CONFIRMED-REPAIRED as filed**. But the repair's
+accessor choice **opened a new pass-path on a control invariant**. The gate stays RED, and it stays
+RED for a *new* reason rather than an old one.
+
+**The coordinator was wrong, and the record must say so.** Cycles 53 and 54 argued that `frozen` is
+sufficient because the copy is taken at the single first read, so no later read remains for a hostile
+object to answer differently. **That half is correct and survived attack**: `preparation.py:149-152`
+reads a `Mapping` exactly once per depth via `.items()`, so the copy is internally self-consistent and
+the verdict and receipt cannot contradict each other. **The other half was wrong.** `frozen` does not
+merely *discard* the `__getitem__` view — it **silently picks a side** in a disagreement this package
+declares disqualifying. `views.py:16-21` states in its own words that *"a projection is only
+trustworthy where those two agree."* `frozen` accepts the `.items()` side unconditionally;
+`proved_copy` refuses. Being self-consistent is not the same as being trustworthy, and the
+coordinator conflated them.
+
+**F128 — P1 — `runner.py:418`; `preparation.py:149-152`; `observe.py:496-518`. NEW, OPEN.**
+**The F114 network repair converted a pre-repair `STOP_CONTROL` into a `TOPOLOGY_PASS`.**
+Pre-repair (`f25bc97^`), `validate_internal_network` read the live object through `.get`
+(= `__getitem__`), so `Internal → False` produced `internal_network: Internal is False, not exactly
+True` → `STOP_CONTROL`. At HEAD the subscript view is discarded and the `.items()` view is judged.
+**Executed at HEAD, verbatim:** a `MappingProxyType` over a `dict` *subclass* storing
+`Internal: True` while `__getitem__` returns `False` for `Internal` yields
+`satisfied=True, outcome=None, findings=()` — a network that states through the subscript protocol
+that it has a route off the host is **admitted**, and the receipt records `Internal: True`.
+`proved_copy(proxy,'network')` on the same object returns the divergence finding. This is precisely
+the type `views.py:18-21` names as the package's threat: *"a `MappingProxyType` over a `dict`
+subclass is exactly a `MappingProxyType` by `type()`."*
+**Remedy:** `proved_copy(..., "network")` at `runner.py:418`, raising on any divergence or nested
+finding — `_guarded_observation` already converts that to `STOP_CONTROL`. The same weakening
+direction applies to `container` via `observe.py:411-412`, at lower impact.
+
+**This is a control weakening introduced by an applied repair.** It is the exact class this package
+bans, and it was introduced while closing a different defect. It must be repaired before anything
+else in this range advances.
+
+**F129 — P2 — `runner.py:594`, `:599`, `:606-621`. NEW, OPEN.** Two of the eleven evidence entries
+are plain mutable `dict`s inside the "read-only" bundle: `probe = {...}` (`:594`) and
+`teardown_record = {...}` (`:599`) go verbatim into `recorded` (`:615`, `:617`) and are wrapped only
+by the shallow outer `MappingProxyType` at `:620`. Any holder can execute
+`evidence["probe"][PROBE_RESULT_KEY] = "refused"` and rewrite the receipt after the verdict resolved.
+The reviewer read only the last 250 ledger lines plus targeted greps, so "new" is **probable, not
+certain** — recorded as reported.
+
+**F130 — P3 — this ledger, cycle 52. NEW, OPEN.** F114's repair is attributed to `f40c5a9`, which
+touched **`preparation.py` only** (`git show --stat f40c5a9`; it converted `preparation.observe`'s
+eight `guarded(` calls to `projected(`). The actual `runner.py` network repair is **`f25bc97`**. A
+reader bisecting on `f40c5a9` finds no runner change. This ledger's own cycle-53 text carries the
+same misattribution.
+
+### Ruling on the accessor, recorded as binding
+
+- **`network`: `proved_copy` is REQUIRED.** `frozen` is a control weakening here (F128).
+- **`probe_result`: `frozen` is CORRECT.** The value is an exact scalar; refusal *is* the mechanism.
+  Verified by execution: `frozen(S('nope'))` raises `ValueError`, `frozen('reachable')` returns the
+  identical exact `str`. `ProbeCommandAdapter.run` (`adapter.py:486-501`) returns only
+  `PROBE_REACHABLE` / `PROBE_REFUSED` / `None`.
+- **`container`: `frozen` is adequate but weaker** than `proved_copy` in the same direction as F128.
+
+### Two corrections to previously recorded grades
+
+1. **F123 is under-graded at P2 and belongs at P1.** The reviewer confirmed it exploitable
+   end-to-end by execution: a live `str` subclass reaches `publication_views` and thence the
+   evidence bundle — `v.views['daemon_event'] is h → True`, `type → Hostile`. Entries 1 and 4 of
+   `observe.py:456-470` are the caller's own object *by identity*. Re-grade owed.
+2. **F125's P2 grade is CORRECT and is confirmed, not merely assumed.** `health` is judged twice
+   (`runner.py:406`, `observe.py:534-537`) and is absent from `EVIDENCE_KEYS`, but **both directions
+   of an inconsistent `__eq__` fail closed** — either `STOP_CONTROL` at `:411` or a
+   `FAIL_INTERNAL_INGRESS` finding. It is not a false-pass path.
+
+### Structural controls: none weakened by the two lines themselves
+
+Surface unchanged (no `__all__` edit), no new spawn site, no new seam, `frozen` already imported
+(`runner.py:70`), `frozen` is pure, fail-closed moves earlier as claimed. `runner.py` **775**/800.
+Reviewer's focused run: **697 passed, 7 failed**, all 7 the intended absent-`scripts/` RED.
+**The one control weakened is semantic, not structural, and is F128.**
+
+### Push gate after both addenda
+
+**P0 = 0. P1 OPEN = 2** — F33 (deferred) and **F128 (new, blocking)**; **F123 re-grade to P1 owed**,
+which would make it 3. **P1 repaired-unreviewed = 10.** **P2 = 40** (+F129, −0; F127 is P3).
+**P3 = 42** (+F127, +F130). The gate `P0 = P1 = P2 = 0` is **not met** and has moved **further** from
+being met. **No part of the 108-commit local range is push-eligible.** RUNTIME **HOLD**. Production
+**Founder-only**.
+
+**Next cycle's single outcome: repair F128 test-first** — RED proving the hostile subscript-divergent
+network is admitted at HEAD, then `proved_copy` at `runner.py:418`, then GREEN, then an independent
+verdict. Do not attempt the entrypoint GREEN; a control weakening outranks it.
