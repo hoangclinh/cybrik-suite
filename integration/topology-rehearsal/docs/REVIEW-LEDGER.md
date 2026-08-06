@@ -8534,3 +8534,55 @@ F149 needs `git config`/history authority outside `owned_write_prefixes`.
 
 `P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
 production **Founder-only**, release dates **unchanged**. Neither entrypoint script was written or run.
+
+## Cycle 70 — the gate tally is not reproducible; evidence correction, no repair, no new finding
+
+**The substantive result is a correction to the number this lane has been handing outward.**
+Cycle 69's recorded gate says **P2 OPEN = 47** (total 152). Cycle 69's *successor* re-derived the
+queue mechanically and reported **~7 open P1 + 15 open P2 (~23)** — and handed that figure to the
+driver as the basis for the pending scope decision. Those two cannot both be right, and the gap is
+not marginal: it is the exact quantity the "accept / re-scope / halt" decision turns on.
+
+**Third independent derivation, run this cycle over full ledger text (not headings):**
+144 distinct finding IDs; **P1 OPEN = 8, P1 r-u = 16; P2 OPEN = 31, P2 r-u = 8; P3 OPEN = 28**,
+plus **34 IDs whose latest state no mechanical rule resolves** (P1 6, P2 16, P3 12).
+
+So open-P2 reads **15**, **31**, or **47** depending on who counts. No two agree.
+
+**Why the predecessor's figure was unsafe.** It keyed state on finding *headings*. Measured here:
+of 107 IDs appearing in any heading, **33 carry no grade in any heading at all** — their grade
+exists only in body prose. A heading-keyed sweep cannot see them, which biases the count *downward*.
+Its stated caveat was "±2"; the true sensitivity is an order of magnitude larger. The driver was
+therefore given a queue roughly **half** its likely size while being asked to choose a scope.
+
+**What is robust.** Every derivation agrees **P1 OPEN > 0**. `P0 = P1 = P2 = 0` is **NOT** met on
+any counting rule, so the push conclusion never depended on the disputed number. Only the *cost*
+estimate did.
+
+**Why no repair was attempted, restated as arithmetic rather than as fatigue.** A repair moves a
+finding `OPEN → repaired-unreviewed`. That does **not** decrement the gate. **24 findings (16 P1 +
+8 P2) already sit repaired-unreviewed**, awaiting a verdict that cannot be obtained in-lane. A
+twenty-fifth would consume the cycle and move the gate by zero. Every path to `P0 = P1 = P2 = 0`
+runs through an external reviewer — including the paths through repair. The blocker is structural,
+not a matter of effort, and repeating `HUMAN_REQUIRED` is the correct output, not a stall.
+
+**Recorded as an evidence correction, not a new finding**, on the precedent cycle 69 set for F143:
+nothing about the product changed, and the open set must not grow for a bookkeeping fix.
+
+**Live state re-measured at `23e2824`, never quoted:** census **1582 passed / 59 failed**, **0
+unintended** — 58 of the 59 REDs are the absence of the two owed entrypoint scripts, and `scripts/`
+does not exist. ruff 0.16.0 **12 at baseline**; `compileall` rc=0; PR #55 **draft/OPEN/MERGEABLE**,
+4 rendered checks SUCCESS at unchanged pushed tip `73ec822`; untracked `uv.lock` present, MD5
+`ff29c06c…` unchanged. Live tool surface is exactly `Read, Grep, Glob, Bash, Edit, Write` —
+**no `Agent` tool**, and `~/.claude/agents` does not exist. Ninth consecutive confirmation that
+`Agent(cybrik-readonly-worker)` is unavailable in this runtime despite the manifest advertising it.
+
+### Gate at the close of cycle 70 — unchanged; tally disputed and now known to be unreliable
+
+- **P0 = 0**; **P1 OPEN > 0 on every derivation** (ledger 6 / heading-sweep ~7 / full-text 8).
+- Open P2 is **not established**: 15, 31 or 47 by counting rule. Treat prior single figures as
+  unverified until a reviewer fixes the counting rule.
+- **24 findings repaired-unreviewed** — the true bottleneck, and unreachable from inside this lane.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, release dates **unchanged**. Neither entrypoint script was written or run.
