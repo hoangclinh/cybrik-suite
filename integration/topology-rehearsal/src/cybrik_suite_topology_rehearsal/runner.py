@@ -378,6 +378,15 @@ def _observe_attempt(
     The readiness wait is the one bounded wait, and it is bounded by the shared envelope
     rather than by a bound of its own. A container that never reports readiness inside that
     envelope is a timeout — a stop control — and not merely an ingress that was not reached.
+
+    The network reading is copied dead at ingress, at the one read, before any verdict sees
+    it — the same idiom `observe` uses for every preparation reading. Judging the live
+    adapter value and copying it again afterwards is two readings of something outside this
+    package's trust boundary: a projection that answers the verdict's `.get` and the
+    receipt's iteration differently, or that changes between them, was admitted as isolated
+    while the receipt recorded a network with a route off the host. Copying first makes the
+    judged reading and the recorded reading one value, so no receipt can disagree with the
+    verdict printed beside it.
     """
     findings: list[str] = []
     candidates: list[str] = []
@@ -396,7 +405,7 @@ def _observe_attempt(
         container=names.container, container_port=CONTAINER_PORT_KEY
     )
     listeners = adapters.host.observe_listeners(port=HOST_PORT)
-    network = adapters.docker.observe_network(name=names.network)
+    network = frozen(adapters.docker.observe_network(name=names.network))
     probe_result = adapters.probe.run(
         executable=PROBE_EXECUTABLE_PATH, argv=PROBE_ARGV
     )
@@ -415,7 +424,7 @@ def _observe_attempt(
     return AttemptObservation(
         health=health,
         probe_result=probe_result,
-        network_projection=frozen(network),
+        network_projection=network,
         publication_views=publication.views,
         findings=tuple(findings),
         candidates=tuple(candidates),

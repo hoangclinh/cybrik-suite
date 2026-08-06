@@ -6,6 +6,7 @@ import ast
 import dataclasses
 import inspect
 import re
+from collections.abc import Mapping
 
 import pytest
 
@@ -198,6 +199,48 @@ def test_health_scope_network_or_teardown_invariant_failure_is_stop_control(
     result = run(runner, adapters())
     assert result.outcome == fakes.STOP_CONTROL
     assert result.attempt_consumed
+
+
+class TwoFacedNetwork(Mapping):
+    """A network projection that answers `.get()` and its own iteration differently.
+
+    An adapter is outside this package's trust boundary, so a projection it hands back may
+    answer the reads the verdict makes and the reads the receipt makes with two different
+    networks. This is the smallest such value: `.get()` reports the isolated network the
+    verdict would admit, while iteration — what any copy of it is built from — reports a
+    network with a route off the host.
+    """
+
+    def __init__(self, judged: dict, recorded: dict) -> None:
+        self._judged = dict(judged)
+        self._recorded = dict(recorded)
+
+    def __getitem__(self, key: str):
+        return self._recorded[key]
+
+    def __iter__(self):
+        return iter(self._recorded)
+
+    def __len__(self) -> int:
+        return len(self._recorded)
+
+    def get(self, key: str, default=None):
+        return self._judged.get(key, default)
+
+
+def test_the_recorded_network_projection_is_the_reading_the_verdict_judged(
+    runner,
+) -> None:
+    """One reading is judged and recorded, so no receipt can contradict its own verdict."""
+    observe = load_c8("observe")
+    revalidate = require_c8_attr(observe, "validate_internal_network")
+    network = TwoFacedNetwork(
+        judged=fakes.network_projection(),
+        recorded=fakes.network_projection(internal=False),
+    )
+    result = run(runner, fakes.passing_adapters(network=network))
+    recorded = result.evidence["network_attachment"]
+    assert revalidate(recorded).satisfied is (result.outcome == fakes.TOPOLOGY_PASS)
 
 
 def test_publication_failure_outranks_internal_ingress_failure(runner) -> None:

@@ -6332,3 +6332,174 @@ and not `.runner`. Anti-self-witnessing holds in `_grant_facts` (`runner.py:265-
 `_selected_identity` (`:246-257`). Fail-closed construction holds: `ObservationVerdict.__post_init__`
 (`observe.py:186-213`) makes an incoherent verdict unconstructible, and `guarded`
 (`preparation.py:281-290`) bounds ordinary raises without swallowing `KeyboardInterrupt`/`SystemExit`.
+
+## Cycle 52 — F114 repaired against a coordinator-witnessed RED, and the lint gate found RED
+
+Measured at live HEAD `0730e5a7b8844ae549058aa8d416c5213cf37c58`, branch
+`codex/uat-browser-g-u2b-db-red-gate-r1`, 106 commits ahead of origin. Origin/PR #55 remains at
+`73ec822`, **OPEN, draft, `CLEAN`**, four rendered hosted checks SUCCESS (two `secret-scan`, two
+`contract standards validation`). Working tree carried only the untracked
+`integration/topology-rehearsal/uv.lock`, preserved untouched. No entrypoint script was run;
+`scripts/` still does not exist.
+
+### F114 — **P1** — **REPAIRED. RED independently reproduced by the coordinator, not merely reported.**
+
+The repair is the one the finding contracted: dead-copy the network reading at ingress, at its single
+read, so the judged value and the recorded value are one value.
+
+    -    network = adapters.docker.observe_network(name=names.network)
+    +    network = frozen(adapters.docker.observe_network(name=names.network))
+    ...
+    -        network_projection=frozen(network),
+    +        network_projection=network,
+
+**The RED was witnessed, not accepted on report.** The coordinator copied the repaired file aside,
+restored `runner.py` from HEAD, ran the new test against the unrepaired source, and restored the
+repair byte-for-byte (`cmp` exact). Against pre-repair source the new test fails exactly as F114
+predicted — a satisfied `TOPOLOGY_PASS` beside a receipt the validator refuses:
+
+    assert False is ('TOPOLOGY_PASS' == 'TOPOLOGY_PASS')
+      where False = ObservationVerdict(satisfied=False, outcome='STOP_CONTROL',
+        findings=('internal_network: Internal is False, not exactly True',)).satisfied
+      = validate_internal_network(mappingproxy({'Name': 'cybrik-topology-net-…',
+        'Internal': False, 'Containers': mappingproxy({…})}))
+
+The test's oracle is the finding's own invariant rather than a restatement of the fix: it re-validates
+the **recorded** projection and asserts the verdict it yields agrees with the outcome the run
+reported. The reproduction value is a `Mapping` whose `.get()` answers with an isolated network and
+whose iteration answers with `Internal: False`.
+
+**Fail-closed is preserved, and moved earlier rather than weakened.** `frozen()` raises on a value it
+cannot copy. It now raises before validation instead of after, and `_guarded_observation`
+(`runner.py:432-447`) already converts any raise out of `_observe_attempt` into a `STOP_CONTROL`
+observation. An uncopyable network was a stop control before the repair and is a stop control after
+it. `frozen()` returns `MappingProxyType`, which `validate_internal_network` accepts unchanged
+(`observe.py:496` requires only `Mapping`), so no reduction was relaxed to obtain GREEN.
+
+**Citation correction:** F114's entry cites the recording site as `runner.py:419`. At the pre-repair
+HEAD it is `runner.py:418`. The defect and the two protocols named are exact; only the one anchor was
+off by one.
+
+**F114 moves to repaired-unreviewed.** It is not closed: no independent reviewer has yet seen the
+repair.
+
+### F120 — **P3** — **NEW, OPEN. The lint gate is RED and no prior cycle recorded it.**
+
+`ruff check src tests` (ruff `0.16.0`, configured in `pyproject.toml`, run check-only) exits **1**
+with **12 findings**. Every prior cycle recorded compile and diff-check but never recorded a lint
+result, so a RED gate has been standing unmeasured. Inspected site by site by the coordinator:
+
+- **7 × `ISC004`** (`observe.py:266`, `:272`, `:281`, `:286`, `:345`; `preparation.py:655`, `:689`).
+  This is the dangerous class in principle — adjacent strings inside a collection silently merge into
+  one element. **All seven were opened and read: every one is a single-element tuple whose trailing
+  comma is intact and whose concatenation is the intended one long message.** No control's value set
+  is corrupted and no finding string is malformed.
+- **1 × `F401`, genuinely dead**: `preparation.py:53` imports `PRESENT_KEY` from `.observe`, unused.
+- **2 × `F401`, deliberate re-export**: `observe.py:84-85` imports `IMMUTABLE_LEAVES` and
+  `immutability_findings` from `.views`. `observe.py:78` documents this as intentional, and
+  `preparation.py:52` really does read `IMMUTABLE_LEAVES` **through** `observe`. But
+  `immutability_findings` is re-exported to **no reader at all** — grep finds no consumer outside the
+  import itself. The re-export is declared by a comment rather than by `__all__` or an
+  `import … as …` redundant alias, which is why the linter cannot see the intent.
+- **2 × `I001`** import-block ordering (`tests/test_errors.py:12`, `tests/test_runner.py:3`).
+
+Graded **P3**: no control is weakened, no message is wrong, no authority gate is affected. It is a
+gate-hygiene defect — the standing instruction requires lint among the gates, and its RED status was
+never carried into this ledger. **No fix is applied here.** `ruff --fix` is an auto-fixer, and
+running a formatter or auto-fixer in any repository requires explicit Founder approval under
+`CLAUDE.md`; the repair must be hand-written in a later bounded cycle.
+
+### Gates re-measured after the repair
+
+- Broad static census: **`58 failed, 1546 passed`**. The 58 are the intended absent-script REDs,
+  every one terminating in `conftest.py` `pytest.Failed: missing C8 implementation` — **0 unintended
+  failures**, verified by an independent census lane at `0730e5a` (`58 failed, 1545 passed` before
+  this repair added its test).
+- Focused suites: `test_adapter.py` 366, `test_observe.py` 157, `test_preparation.py` 361,
+  `test_runner.py` **97** (96 before this repair). All pass.
+- `python -m compileall -q src tests` exit **0**. `git diff --check` exit **0**.
+- `ruff check src tests` exit **1** — see F120.
+- File-size control intact: `runner.py` is **765** lines against the `MODULE_LINE_LIMIT = 800`
+  asserted at `tests/test_surface_contract.py:96`.
+
+### Push gate at this working tree
+
+**P0 = 0. P1 OPEN = 1** — F33 alone, and F33 is genuinely deferred to the atomic entrypoint GREEN
+because its second caller cannot exist until `scripts/` does. **P1 repaired-unreviewed = 8**
+(F78, F85, F83, F86, F87, F103, F104, **F114**). **P2 = 35.** **P3 = 40** (+F120). The gate
+`P0 = P1 = P2 = 0` is **not met**: 35 P2 findings stand. **No part of the 106-commit local range is
+push-eligible**, and the atomic entrypoint GREEN stays blocked. RUNTIME **HOLD**. Production
+**Founder-only**.
+
+### F114's repair closes one of seven siblings — F121-F125 open the other six
+
+An adversarial lane traced every one of the seven post-creation readings `_observe_attempt` takes
+(`health`, `container`, `daemon_event`, `docker_port`, `listeners`, `network`, `probe_result`) and
+asked one bounded question: is the F114 straddle class alive on the other six? **Result: zero
+dead-copied, zero read-only-once. All six siblings are alive.** F114's repair treats `network` alone.
+The coordinator spot-verified the strongest claim at source before filing.
+
+**F121 — P1 — `runner.py:400`, `:417`, `:587`; `observe.py:537`. NEW, OPEN.**
+`probe_result` is judged by `__eq__` (`observe.py:537`, `if observed != expected`) and recorded by
+handing the **live object** into the evidence dict — `PROBE_RESULT_KEY: observation.probe_result`
+(coordinator-verified at `runner.py:587`), which `runner.py:601` wraps in a **shallow**
+`MappingProxyType`. A probe result equal to `PROBE_REACHABLE` at judgement and rendering as
+unreachable in the bundle passes `FAIL_INTERNAL_INGRESS` while the receipt contradicts it. **Strictly
+worse than F114**: `network` was at least `frozen()` on the way out; `probe_result` is not, so the
+evidence bundle keeps a live handle and is not deeply immutable.
+
+**F122 — P1 — `observe.py:406`, `:408`, `:462-463`. NEW, OPEN.**
+`binding_publication` judges the reviewed-key inventory through `__iter__` (`set(bindings) !=
+REVIEWED_BINDING_KEYS`) and reads the recorded value through `.get` — F114's exact protocol pair, one
+frame deeper, on the un-copied `container` reading. A `PortBindings` mapping iterating as exactly
+`{"8000/tcp"}` while also publishing another port defeats the control `observe.py:394-399` states in
+its own words; verdict and receipt agree with each other and both disagree with the container.
+
+**F123 — P2 — `observe.py:387`, `:389`, `:456-476`; `runner.py:419`, `:594`. NEW, OPEN.**
+`reported_publication` gates by subclass-permissive `isinstance(value, str)` and takes its value from
+an overridable `value.strip()`; the result is judged by `__eq__` and recorded verbatim into
+`publication_views`, which is never `frozen()`. One function, so it covers both `daemon_event` and
+`docker_port`. `preparation.frozen` (`preparation.py:132-138`) **explicitly refuses scalar
+subclasses for exactly this reason** — the post-creation path has no equivalent.
+
+**F124 — P2 — `observe.py:380`, `:382`, `:429-437`. NEW, OPEN.**
+`listener_publication` judges "exactly one claim" through `__len__` and takes the claim through
+`__getitem__`, then reads the listener mapping three further live times by `.get` and renders the
+recorded string through `__format__`. A sequence reporting `len 1` while holding two binders on the
+reviewed port vacates the invariant at `observe.py:140-142`. **Distinct from F115**, which has no
+cardinality check at all; here the check exists and is defeated by protocol divergence.
+
+**F125 — P2 — `runner.py:387`, `:389`; `observe.py:532`, `:537`. NEW, OPEN.**
+`health` is judged by two independent `__eq__` calls on one live object and rendered by `__repr__`
+into the findings text. A mutating reading makes the two verdicts disagree and makes the finding name
+a value neither judgement produced. Bounded, and the bound is itself a gap: `health` is absent from
+`EVIDENCE_KEYS` (coordinator-verified, `constants.py:252-264`), so it is judged twice and recorded in
+**no receipt**, which is what prevents a reader from ever detecting the disagreement.
+
+**Repair guidance carried forward.** The same one-line ingress treatment closes F121-F125 together,
+and filing them as one bounded repair is cheaper than five. **Caveat recorded verbatim from the
+lane, and it must not be lost:** `frozen()` copies but does **not** reconcile a live object's two
+views — it discards the caller's `__getitem__` rather than cross-checking it. `views.py:199-203`
+states explicitly that freezing first is not the repair for divergence; `proved_copy`
+(`views.py:189-246`) is the accessor that both copies and cross-checks. **F114's applied repair
+therefore makes the judged and recorded values one value, which is what F114 filed, but a future
+reviewer must not read it as proof that a two-view adapter object is now reconciled.**
+
+### Corrected push gate at this working tree
+
+This supersedes the gate recorded earlier in this cycle 52 section, which was written before the
+adversarial sweep returned.
+
+**P0 = 0. P1 OPEN = 3** — F33 (deferred to the atomic entrypoint GREEN), **F121**, **F122**.
+**P1 repaired-unreviewed = 8** (F78, F85, F83, F86, F87, F103, F104, F114).
+**P2 = 38** (+F123, F124, F125). **P3 = 40** (+F120).
+The gate `P0 = P1 = P2 = 0` is **not met**. **No part of the 106-commit local range is push-eligible**,
+and the atomic entrypoint GREEN stays blocked. RUNTIME **HOLD**. Production **Founder-only**.
+
+**Lane accounting for honesty.** Four lanes ran this cycle: the exact-path writer (returned, F114
+repaired), the census verifier (returned, `58 failed / 1545 passed`, 0 unintended), the adversarial
+straddle sweep (returned, F121-F125), and a documentation/evidence cross-checker commissioned to
+re-derive the ledger's own P0-P3 tallies and resolve the F114-F119 citations. **The cross-checker had
+not returned when this cycle closed.** The tallies above are therefore carried forward arithmetically
+from the previous cycle's claimed counts plus this cycle's deltas; they are **not** independently
+re-derived. That verification is owed and is re-commissioned as the next cycle's parallel lane.
