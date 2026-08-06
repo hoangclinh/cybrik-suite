@@ -1427,6 +1427,42 @@ Until that verdict reads P0=P1=P2=0 across the whole local range,
 `73ec822..HEAD` stays **PUSH-ELIGIBLE NO / RUNTIME HOLD**. The next cycle's first
 action is to obtain that review of `e3d6116..8cc85de`.
 
+### `73ec822..3ec75c1` — measured census, every failure classified
+
+Measured at `3ec75c1` with `uv run --frozen pytest -q` from the package root:
+**58 failed / 1400 passed.** Every one of the 58 was classified, not assumed. All
+58 route through the fail-closed guard at `tests/conftest.py:93`
+(`Failed: missing C8 implementation — this RED test states the final runner
+behaviour and fails closed until it exists`), and the three distinct missing
+targets are exactly:
+
+- 49 × `scripts/run_topology_rehearsal.py does not exist`
+- 8 × `scripts/prepare_topology_grant.py does not exist`
+- 1 × `scripts does not exist`
+
+**Unintended failures: zero.** By file the split is 49 in
+`tests/test_scripts_inert.py` and 9 in `tests/test_surface_contract.py`. This is
+the whole intended absent-entrypoint RED chain and nothing else; no test fails for
+a reason other than the two entrypoints being unwritten.
+
+The owed-path list for the atomic GREEN was re-checked against the live tree
+rather than against the spec's prose. Only `scripts/` and its two scripts are
+absent. `src/…/__init__.py`, `tests/test_surface_contract.py`, `pyproject.toml`
+and `tests/conftest.py` all already exist, so the GREEN amends them and creates
+only the two scripts.
+
+File-size headroom, measured, against the strict `< 800` bound `authored_sources()`
+enforces: `adapter.py` 799, `preparation.py` 798, `grant.py` 794, `runner.py` 739,
+`admission.py` 725. `adapter.py` and `preparation.py` have one and two lines of
+headroom respectively — this is F16 and F31 measured, and it means the GREEN
+cannot relocate anything into either module. `runner.py` has 61 lines, which is
+where the F33 seam has to land.
+
+**This census is not a verdict.** It states that the RED chain is honest and
+uncontaminated; it does not discharge any open finding. The blocking set recorded
+above — F5, F22, F23, F29 and the newly-opened F33 at P1 — is unchanged by it, so
+`73ec822..3ec75c1` remains **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
