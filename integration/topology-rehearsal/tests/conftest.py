@@ -33,6 +33,7 @@ C8_MODULES = (
     "protocols",
     "adapter",
     "plan",
+    "views",
     "observe",
     "grant",
     "preparation",

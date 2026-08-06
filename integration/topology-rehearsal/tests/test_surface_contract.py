@@ -84,6 +84,7 @@ FRONT_DOOR_PRESENT_MODULES = (
     "protocols",
     "adapter",
     "plan",
+    "views",
     "observe",
     "grant",
     "preparation",

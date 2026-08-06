@@ -3,7 +3,7 @@
 Status: `SCAFFOLD — LIBRARY ONLY — NO RUNTIME AUTHORITY`.
 
 Only part of the bounded C8 library core is present: `constants`, `errors`, `protocols`,
-`adapter`, `plan`, `observe`, `grant`, `preparation`, `admission`, and `runner`. The scripts
+`adapter`, `plan`, `views`, `observe`, `grant`, `preparation`, `admission`, and `runner`. The scripts
 root is still empty: both entrypoint scripts remain absent, and their tests stay RED.
 
 Importing this package performs no I/O and authorizes no Docker effect, listener,
