@@ -3585,3 +3585,55 @@ rebuild the validator owns — apply `preparation.frozen` (or an equivalent snap
 `__post_init__` seam so that what is judged and what is recorded are the same object — and to judge
 that snapshot rather than the caller's mapping. That is authority-sensitive and must be designed
 before it is written. **`observe.py`'s 9 remaining lines mean the extraction comes first.**
+
+## Cycle 40 — census reconfirmed at `5626339`; the F85/F86/F87 repair designed before it is written
+
+### Measured census at the exact live HEAD
+
+Measured by the coordinator on the live tree at `5626339cc1a5f04308b6d187c2d0948ff4f938b`, with
+the untracked `uv.lock` preserved and nothing staged:
+
+```
+uv run --frozen python -m pytest tests -q
+58 failed, 1517 passed in 0.71s
+```
+
+**Every one of the 58 is the intended absent-script RED, and none is a regression.** The failures
+fall in exactly two files — 51 in `tests/test_scripts_inert.py` and 7 in
+`tests/test_surface_contract.py` — and every one of them is raised by the shared fail-closed gate at
+`tests/conftest.py:93`:
+
+> `missing C8 implementation — this RED test states the final runner behaviour and fails closed
+> until it exists: .../scripts/prepare_topology_grant.py does not exist`
+
+`integration/topology-rehearsal/scripts/` does not exist on disk. The two entrypoints are still
+unwritten, which is the state the spec intends until the P1 set is discharged. The count is
+unchanged from `0a50a4a`'s classification, so no test began failing for a new reason across the
+intervening 40-odd commits.
+
+### The file-size control, measured rather than quoted
+
+`tests/test_surface_contract.py:95` sets `MODULE_LINE_LIMIT = 800`. Live counts under
+`src/cybrik_suite_topology_rehearsal/`:
+
+| module | lines | headroom |
+|---|---|---|
+| `adapter.py` | 799 | 1 |
+| `grant.py` | 794 | 6 |
+| `observe.py` | 791 | 9 |
+| `preparation.py` | 771 | 29 |
+| `runner.py` | 756 | 44 |
+| `admission.py` | 725 | 75 |
+
+The ledger's standing claim that `observe.py` has 9 lines of headroom is **confirmed by
+measurement**, not inherited. `adapter.py` at 799 has one line and remains the sharpest hazard.
+
+### Open set carried into this cycle, unchanged
+
+**P1: F83 (repaired at `4b25214`, independently NO-GO), F85, F86, F87.**
+**P2: F45, F46, F65, F88.** **P3: F47, F80, F81, F82, F89.**
+F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`, unreviewed.
+
+P1 = 4, so nothing is pushable and the atomic entrypoint GREEN stays blocked. Origin/PR #55 remains
+at `73ec822` with four SUCCESS hosted checks; the local branch is 69 commits ahead and none of that
+range is push-eligible.
