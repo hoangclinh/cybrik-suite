@@ -5903,3 +5903,52 @@ content. RUNTIME remains **HOLD**. Production remains **Founder-only**.
 
 Heading numbering follows F101 (**P3, OPEN**): the `## Cycle` headings in this file are not in
 one-to-one correspondence with driver cycle indices.
+
+## Cycle 51 — every static gate re-measured at a new HEAD, and F108's blind spot proved from source
+
+Measured at live HEAD `f1421292bd877848abfb8e3224e3311a8e0ad421`, branch
+`codex/uat-browser-g-u2b-db-red-gate-r1`, **98 commits ahead of origin**. Origin/PR #55 remains at
+`73ec822e02383b38d7fe61be4f646304f297ea18`, **OPEN, draft, `MERGEABLE`**, four rendered hosted checks
+SUCCESS (two `secret-scan`, two `contract standards validation`, workflow `contracts`). The working
+tree carries only the untracked `integration/topology-rehearsal/uv.lock`, preserved untouched and
+byte-identical.
+
+### Gates re-measured at this HEAD, not carried forward
+
+- Broad static census: **`58 failed, 1542 passed in 0.77s`** — unchanged from cycle 50 across the one
+  intervening commit `f142129`.
+- Census classified by traceback terminus, re-run rather than quoted: **58 of 58 terminate in
+  `missing C8 implementation`**, i.e. **58 ABSENT-SCRIPT, 0 UNINTENDED**. By file:
+  `tests/test_scripts_inert.py` 51, `tests/test_surface_contract.py` 7. `scripts/` does not exist.
+- `git diff --check 73ec822..HEAD`: clean.
+- `python3 -m compileall -q src tests`: exit 0, no output.
+- `ruff check .`: **12 errors**, exactly the pinned pre-existing baseline; no delta.
+- Size bound: **no file over 800**. `adapter.py` 799, `preparation.py` 798, `grant.py` 794,
+  `runner.py` 756, `admission.py` 725, `observe.py` 693, `plan.py` 533, `protocols.py` 382,
+  `constants.py` 264, `views.py` 246, `errors.py` 159, `__init__.py` 11. Total **6160**.
+  **`preparation.py` has two lines of headroom**, which constrains any F108 repair landing there:
+  the repair must not grow the file, and no control may be deleted to make room.
+
+### F108's blind-spot claim is confirmed from source, independently of the reproduction
+
+Cycle 50 asserted that the existing F87 read-budget sweeps missed F108 because they drive
+`PreparationResult` rather than `prepare()`. That is now verified by reading the test source rather
+than by trusting the claim. `tests/test_preparation.py:1078-1092` defines `build_with_budgets`, which
+constructs `result_type(**fields)` directly; `sweep_every_budget` at `:1101` consumes only that
+constructor. `tests/test_preparation.py` names `prepare(` 46 times, and **none of those call sites is
+inside a read-budget sweep** — every budgeted construction goes through `build_with_budgets`. The
+control that F87 installed is therefore exercised only at the `PreparationResult` boundary, one frame
+below the `observe()`/`snapshot()` straddle F108 reproduces. **The green suite is confirmed to be
+green through the bypass**, and that is a property of the tests, not an accident of the run.
+
+### Push gate at the end of cycle 51 — unchanged, and unchanged for a measured reason
+
+**P0 = 0. P1 OPEN = 2** — F33 (deferred to the atomic entrypoint GREEN) and **F108 (a confirmed,
+reproduced authority bypass, still unrepaired at this HEAD: `observe()` at
+`preparation.py:490-524` still wraps all eight observations in `guarded(...)`)**. **P1
+repaired-unreviewed = 7** (F78, F85, F83, F86, F87, F103, F104). **P2 = 32. P3 = 37.** Defined-ID
+count **111**.
+
+**No part of the 98-commit local range is push-eligible.** The P0=P1=P2=0 gate fails on measurement.
+**The atomic entrypoint GREEN must not begin** while F108 stands. RUNTIME remains **HOLD**.
+Production remains **Founder-only**.
