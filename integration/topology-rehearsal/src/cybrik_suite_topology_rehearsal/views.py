@@ -331,8 +331,18 @@ def _dead_copy(
     """
     if _is_immutable_leaf(value):
         return value, ()
-    if isinstance(value, bytearray):
-        return bytes(value), ()
+    if issubclass(type(value), bytearray):
+        # Two defects lived on this line, and `VERDICT-af0d227` traced only the first. `isinstance`
+        # admitted an imposter publishing `__class__ = bytearray`, and `bytes()` then raised
+        # `TypeError` out of this seam (P2-10, vector 1); `issubclass(type(value), ...)` closes that
+        # the same way it closed P2-2 below. But `bytes(value)` also dispatches to a `__bytes__`
+        # that an *ordinary* `bytearray` subclass owns — no forgery, so the repaired guard still
+        # admits it — and that made attacker code choose the recorded dead copy while this arm
+        # returned no divergence finding at all (vector 2, this lane's, silent where vector 1 was
+        # loud). The copy is therefore taken through the builtin slot, which resolves on the real
+        # type; it yields an *exact* `bytearray`, which has no `__bytes__`, so the `bytes()` that
+        # makes the result immutable has nothing left to consult.
+        return bytes(bytearray.__getitem__(value, slice(None))), ()
     if isinstance(value, Mapping):
         return _dead_mapping(value, path, trail)
     if issubclass(type(value), str):

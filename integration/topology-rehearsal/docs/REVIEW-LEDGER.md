@@ -9482,3 +9482,114 @@ recorded in the `_dead_copy` docstring, discharging the previous verdict's P3-2 
   needs no evidence to be safe.
 - No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
   production **Founder-only**, release dates **unchanged**.
+
+---
+
+## Cycle 11 (V2) — `VERDICT-af0d227`: NO-GO, P0=0 P1=0 **P2=9** P3=6
+
+First verdict in this lane backed by driver execution evidence. `REVIEW-EVIDENCE.json`
+`status: COMPLETE`, bound to `af0d227`, isolated checkout, worktree hash identical before and
+after: **1631 passed / 59 failed** against declared baseline **59** (`unintended_failures: 0`),
+ruff **12** against baseline **12**, compileall **0**. Census, lint and compile are therefore
+**witnessed**, not claimed. `diff_sha256=b7aca38d7225f8c60b1db8717da5b21e158ddc40243dab1ea7eecf78cfc8096a`.
+
+**P2-2 is genuinely repaired** — the reviewer confirms `issubclass(type(value), X)` is
+identity-grade and could not forge it three ways (`type()` never consults `__class__`;
+`issubclass` dispatches on `type(B).__subclasscheck__` where `B` is `str`, so a metaclass on the
+*forging* class is the wrong operand; `mro_check`'s solid-base rule refuses a forged `tp_mro`).
+The `NO-GO` is **not** a rejection of the repair. But nothing is retired: **P2-2 stays
+`repaired-unreviewed`**, and the range is not push-eligible.
+
+### P2-9 (NEW) — `views.py:329-330` claims a fall-through the imposter never reaches
+
+The docstring this lane added says an imposter "falls through to the uncopied return". **False.**
+`Sequence.register(str)` / `ByteString.register(bytes)` mean the `AbstractSet`/`Sequence` arm asks
+`ABCMeta.__instancecheck__`, which reads `__class__` *before* the real type, so the imposter is
+admitted **there**; `iter()` then fails on the real type and the `TypeError` is caught, yielding a
+divergence finding the pre-repair line did not produce. The seam is total, but by that arm's
+`try`, not by the fall-through the docstring credits. **Substance:** the repair converted two of
+the four `__class__`-trusting guards; the third — the one the imposter now lands on — still asks
+the object. An imposter that is *also* iterable is walked and rebuilt from a **second live read**,
+with **no divergence finding at all**. Still fails closed at `proved_copy`, so not graded P1.
+
+### P2-10 (RE-GRADE of this lane's `S10-1`, P3 → **P2**) — the `bytearray` arm
+
+The reviewer **confirms this lane's scope judgement** (leaving it out of the P2-2 range was
+correct under the one-finding directive; its presence in a scoped file is not an omission) and
+**rejects only the grade**: the same failure mode graded P2 last cycle cannot be P3 this cycle.
+Prescribed correction: `issubclass(type(value), bytearray)`.
+
+### P3-6 (NEW) — "every case reaches `_dead_copy`" is false for 7 of 13
+
+`test_exact_leaves_are_untouched_by_the_repair`'s seven exact leaves all return at `proved_copy`
+on `_is_immutable_leaf` and never enter `_dead_copy`. Prose, not a dead control — but it is the
+same shape of unchecked claim P2-1 was filed against. Ledger `:9452-9453` repeats it.
+
+### P3-7 (NEW) — every line reference in the new file and docstring is stale at this sha
+
+`:329`→`:338`, `:333`→`:342`, `:334`→`:343`, `:337`→`:346`, `:415-416`→`:423-424`,
+`proved_copy:465`→`:474`. Cite names, or mark pre-repair numbers as such.
+
+### Carried, re-derived against these bytes and all still open
+
+P2-1 (unreachable leaf test, now `:332`), P2-3, P2-4, P2-5, P2-6, P2-7, P2-8; P3-2, P3-3, P3-4,
+P3-5. **P3-1 is out of the pinned scope** and still open, uncounted. `S10-2`'s 12 ruff violations
+match the declared baseline and are **not a finding**.
+
+---
+
+## Cycle 12 (V2) — P2-10 repaired test-first, and the prescribed correction was **insufficient**
+
+Freeze integrity: `FREEZE` pinned `af0d227`, HEAD was `af0d227` at cycle start, **no
+`freeze_breach`**. The verdict landed mid-cycle and the driver lifted the freeze; product bytes
+moved only afterwards.
+
+**This lane executed the site before repairing it and found P2-10 to be two defects, not one.**
+The verdict traced only the first. The prescribed `issubclass(type(value), bytearray)` closes that
+one and **does not see the second at all**.
+
+- **Vector 1 (the verdict's, loud).** `isinstance` admits an imposter publishing
+  `__class__ = bytearray`; `bytes(value)` finds no `__bytes__` and no buffer on the real type and
+  raises `TypeError` out of a seam promising totality. Reproduced exactly:
+  `TypeError: cannot convert 'ForgedBytearrayClass' object to bytes` at `views.py:335`.
+- **Vector 2 (this lane's, NEW, silent, and worse).** `bytes(value)` dispatches to a `__bytes__`
+  that an **ordinary `bytearray` subclass** owns. No forgery, `__class__` untouched — so
+  `issubclass(type(value), bytearray)` answers `True` and admits it exactly as `isinstance` did.
+  Measured: `proved_copy` returned the recorded dead copy as `b'ATTACKER_CHOSE_THIS'` with a
+  **divergence tuple of `()`**. The seam reported no disagreement while handing back a value the
+  judged object chose. Vector 1 at least failed closed into a stop control; vector 2 does not fail
+  at all. Same "the object graded itself" shape as F135, F153 and P1-1.
+
+**Repair (wider than prescribed, and the extra width is declared):** guard with
+`issubclass(type(value), bytearray)` **and** take the copy through
+`bytes(bytearray.__getitem__(value, slice(None)))` — the builtin slot resolves on the real type
+and cannot be intercepted by a Python-level subclass; it yields an *exact* `bytearray`, which has
+no `__bytes__`, so the `bytes()` that makes the result immutable has nothing left to consult. Same
+reasoning the `str`/`bytes` arms already use, applied to the arm left behind.
+
+**P2-9 independently reconfirmed at a third site, by measurement.** This lane first asserted that
+the forged `bytearray` falls through to the uncopied return; **the test caught that as false.**
+`MutableSequence.register(bytearray)` routes the imposter to the `Sequence` arm exactly as
+`Sequence.register(str)` does, and it is that arm's `try` that keeps the promise. The assertion
+was corrected to what the code does, and the divergence tuple is asserted rather than discarded —
+P2-9's explicit lesson. **P2-9 remains OPEN and unrepaired**; one finding per cycle.
+
+- **Intended RED before any source change**: 2 failed / 8 passed — exactly the two defect tests.
+  Every positive, mechanism and vacuity control passed **before** the repair, so the RED was
+  non-vacuous. A control pins `bytes(HostileBytesSubclass(...)) == b"ATTACKER_CHOSE_THIS"` against
+  the builtins, so if CPython changed the dispatch the control fails loudly instead of rotting.
+- **Vacuity guarded explicitly (P3-6's lesson)**: every case asserts `not _is_immutable_leaf`
+  before calling, so none can short-circuit at `proved_copy` before the arm under test, and all
+  reach it through the public seam.
+- **GREEN**: 10/10 focused. **Broad census 1641 passed / 59 failed** — failure delta **zero**
+  against the declared baseline of 59; the `+10` passes are exactly the 10 new tests.
+- **Lint** clean on both scoped paths (one `ISC004` introduced and fixed before commit).
+  **compileall** rc=0. **`git diff --check`** clean. `uv.lock` untouched and still untracked;
+  every command `--frozen --offline`.
+
+### Gate after this cycle
+
+- **P2 OPEN = 9** (P2-1, P2-3…P2-8, P2-9, P2-10-repaired-unreviewed). P0=0, P1=0.
+- `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible; PR #55 stays draft.
+- No control weakened, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
