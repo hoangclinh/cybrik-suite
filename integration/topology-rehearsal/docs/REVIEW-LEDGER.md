@@ -4410,3 +4410,351 @@ against live source and publishing one complete register, in the shape of the `:
 this ledger already knows how to write. Repairing F86 while the gate is unevaluable spends a cycle on
 a finding that cannot be counted. F98 is cheap — it is read-only verification against a body of
 evidence that already exists in this file — and it restores the only instrument the push gate has.
+
+## Cycle 44 — F98's discharge begun: the pre-F45 and post-F77 bands re-verified against live source
+
+### What this cycle did, and what it deliberately did not do
+
+F98 (`:4293`) recorded that the open-set recap has not been a view of this ledger's body since
+`:3348`, and made the push gate unevaluable in either direction. Its stated discharge (`:4408`) is to
+re-verify **every** finding against live source and publish one complete register. This cycle
+commissioned four **disjoint, read-only** independent verifiers, one per band — F1..F21, F22..F44,
+F45..F77, F78..F99 — each required to re-read the live file and line before ruling, and to return
+`UNVERIFIABLE` rather than infer. **Two bands (F1..F21 and F78..F99) returned within this cycle and
+are published below. The F22..F44 and F45..F77 bands were commissioned and had not returned when the
+cycle closed; they are OWED and F98 therefore remains OPEN, partially discharged.**
+
+No repair was attempted this cycle. No source file was edited. `scripts/` was not created and neither
+entrypoint was run. RUNTIME remains **HOLD**; PRODUCTION remains **Founder-only**.
+
+### Gates re-measured by the coordinator at live HEAD `9439bd0`, on a tree carrying no modification
+
+```
+git status --short                      only ?? integration/topology-rehearsal/uv.lock  (preserved, untouched)
+git status --short --branch             79 ahead of origin/codex/uat-browser-g-u2b-db-red-gate-r1
+python3 -m pytest -q                    58 failed, 1535 passed in 0.77s
+python3 -m compileall -q src tests       exit=0
+ruff check --no-fix src tests           12 errors   (/opt/homebrew/bin/ruff 0.16.0; .venv/bin/ruff still absent — F15 stands)
+```
+
+Every figure is identical to cycle 43's at `671c8e6`. The five commits since then changed no gate.
+
+**All 58 failures are absent-`scripts/` REDs, proved by enumeration, not assumed.** `ls scripts`
+reports no such directory. Grouping every `FAILED` line by test function yields 33 distinct
+functions, **51 in `tests/test_scripts_inert.py` and 7 in `tests/test_surface_contract.py`**, and no
+failure in any other file. The largest single group is
+`test_a_roots_argument_that_does_not_name_four_control_roots_is_refused` at 13 parametrisations.
+
+**A focused set named exactly, so this figure is reproducible — the defect F97 recorded.** The command
+`python3 -m pytest -q tests/test_adapter.py tests/test_runner.py tests/test_admission.py
+tests/test_preparation.py tests/test_plan.py` reports **980 passed**. The complementary set
+`tests/test_observe.py tests/test_surface_contract.py tests/test_scripts_inert.py` reports **58
+failed, 239 passed**.
+
+**The 12 ruff errors were independently reproduced and are exactly the set F90/F94/F15 already hold —
+no new lint finding.** But F94's `observe.py` anchors are stale: it records the `ISC004` sites as
+`observe.py:265,271,280,285,330`, and live ruff reports **`observe.py:266,272,281,286,345`**. The
+first four are off by one — the recorded lines are the `return (` openers, the diagnostic lands on the
+f-string beneath — and the fifth is wrong outright: live `:330` is
+`refusals = keyed(identity, OBSERVED_IDENTITY_KEYS, label, ordered=False)`, an unrelated statement.
+`preparation.py:628,662` are exact. This is the fourth independent confirmation that **a re-anchor is
+only true until the next commit that moves the code**, which is F91's substance.
+
+### Size bound re-measured — F16 confirmed, and the `:1858` measurement corrected
+
+`tests/test_surface_contract.py:96` sets `MODULE_LINE_LIMIT = 800` and `:247` tests `>=`, so 799 is
+the last legal length.
+
+| module | lines | free |
+|---|---|---|
+| `adapter.py` | **799** | **0** |
+| `grant.py` | 794 | 5 |
+| `preparation.py` | 771 | 28 |
+| `runner.py` | 756 | 43 |
+| `admission.py` | 725 | 74 |
+| `observe.py` | 693 | 106 |
+
+**F16 stands at P2 with zero headroom in `adapter.py`.** The re-measurement recorded at `:1858` and
+echoed at `:1690` — *"`adapter.py` 799, `preparation.py` **798**, `grant.py` 794"* — is **stale**:
+`preparation.py` is 771, not 798, and has 28 free lines, agreeing with F96's corrected table at
+`:4118`. Only the `adapter.py` 799 figure survives from that measurement.
+
+### Band 1 of 4 — F1..F21 re-verified against live source. **8 CLOSED, 13 OPEN, 0 unverifiable.**
+
+| ID | Sev | Subject | Live-source verdict | Evidence |
+|---|---|---|---|---|
+| F1 | P1 | Single-shared-executor control deleted from default path | **CLOSED** | `tests/test_scripts_inert.py:2077-2097` — AST walk asserts exactly one `SubprocessCommandRunner` call node |
+| F2 | P1 | Argv-shape refusal band had zero tests | **CLOSED** | `tests/test_scripts_inert.py:270,317,372,438` — all four owed bands exist; `:301`/`:355` assert `calls == []` |
+| F3 | P1 | Anti-self-witnessing guard bans the only buildable read | **CLOSED** | `tests/test_scripts_inert.py:1498-1520` — guard is the whole-module walk F3 prescribed |
+| F4 | P1 | Spec's normative contract states a refuted shape | **CLOSED** | `ENTRYPOINT-SLICE-SPEC.md:59-114` — argv-boundary shape, `repository_roots` keyword-only mandatory |
+| F5 | P1 | Attempt identity fixed from grant pin | **CLOSED** | `runner.py:331` — `attempt_id_for(prepared.granted_observed_at)`; no `OBSERVED_AT_KEY` read in the naming path |
+| F6 | P2 | Behavioural half of the mandatory-roots test cannot fail | **OPEN** | `tests/test_scripts_inert.py:611-617` — `pytest.raises(TypeError)` then `assert loaded == []`, guaranteed by CPython binding |
+| F8 | P2 | Publication walk cannot see private names | **OPEN** | `tests/test_scripts_inert.py:907` — `not name.startswith("_")`; `_executor._runner` still invisible |
+| F9 | P2 | `wiring.command_runner` publishes the raw executor | **OPEN** | `tests/test_scripts_inert.py:995` — `assert wiring.command_runner is command_runner`; spec `:106` mandates it |
+| F10 | P2 | Surface bound pins `__all__`, not the public namespace | **OPEN** | `tests/test_scripts_inert.py:684` — bound rests on unenforced privacy per its own comment `:667-676` |
+| F11 | P2 | Mixin sited by line count, not cohesion | **OPEN** | `observe.py:682-684` — *"this is the one place the accessor can be added"* |
+| F13 | P2 | No negative case pins refusal when `--execute` is absent | **OPEN** | `tests/test_scripts_inert.py:210` asserts `args.execute is True` positively only; `:565` never gates |
+| F16 | **P2** | `adapter.py` at 799 against a strict `< 800` bound | **OPEN** | `adapter.py` = 799 vs `test_surface_contract.py:96,:247` — zero headroom |
+| F7 | P2 | Owed-path item 4 incomplete; false "nothing weakens" claim | **CLOSED** | `ENTRYPOINT-SLICE-SPEC.md:531-559` — the false claim is explicitly withdrawn at `:553` |
+| F12 | P2 | Obstacle 1 describes the withdrawn `.runner` accessor as required | **CLOSED** | `ENTRYPOINT-SLICE-SPEC.md:116,121-122` — `.runner` half recorded *"refuted and gone"* |
+| F14 | P3 | One operator mistake, three refusal spellings | **OPEN** | `tests/test_scripts_inert.py:611,1107` (`TypeError`) vs `:397,1192` (`PrecheckAbort`) |
+| F15 | P3 | `.venv/bin/ruff` absent; the pinned lint gate never ran | **OPEN** | `.venv/bin/` holds only `pytest, python, python3, python3.12` |
+| F17 | P3 | Spec claims an argparse-required `--control-root` | **CLOSED** | `ENTRYPOINT-SLICE-SPEC.md:383-386` — pinned as a returned `HOLD_EXIT`, *"deliberately not as `required=True`"* |
+| F18 | P3 | Spec names a test that does not exist | **OPEN** | `ENTRYPOINT-SLICE-SPEC.md:167` names `test_runtime_wiring_injects_the_one_executor_into_every_command_adapter`; zero hits under `tests/` |
+| F19 | P3 | Spec says "amend six", lists five | **OPEN** | `ENTRYPOINT-SLICE-SPEC.md:418-419` lists `:154, :171, :201, :265` and a comment at `:285` — five |
+| F20 | P3 | Spec calls the mixin uncommitted while supplying `.runner` | **OPEN** | `ENTRYPOINT-SLICE-SPEC.md:239-240` — both halves still false |
+| F21 | P3 | Adjudication section's line numbers no longer resolve | **OPEN** | `ENTRYPOINT-SLICE-SPEC.md:372-440` — `:272`, `:247` blank; `:265` is `return 0`; `:285` a docstring; none is what the spec claims |
+
+**The verifier attached a caveat that must not be dropped: F1, F2 and F3 are closed as *authored*
+controls whose assertions live in `tests/test_scripts_inert.py`, which supplies 51 of the 58
+absent-script REDs. Those three controls have never executed. Only F5 is closed against source that
+runs today.** This is exactly why a green static census is not runtime-UAT proof.
+
+### Band 4 of 4 — F78..F99 re-verified. **0 CLOSED, 7 REPAIRED-UNREVIEWED, 15 OPEN.**
+
+| ID | Sev | Subject | Live-source verdict | Evidence |
+|---|---|---|---|---|
+| F78 | P1 | Presence read through a third protocol | REPAIRED-UNREVIEWED | `observe.py:263` builds `stored` from `.items()`; `:276-288` cross-checks the subscript. No verdict on `f2bb2c5` exists (`:3099`) |
+| F79 | P2 | Unbounded `KeyError` out of the findings reducer | REPAIRED-UNREVIEWED | `observe.py:275-283` converts a refusing subscript into a finding |
+| F80 | P3 | Dead `PRESENT_KEY` import pinned by a test | **OPEN** | `preparation.py:53` is the sole occurrence; `tests/test_observe.py:671-673` still pins it |
+| F81 | P3 | Pinned `__all__` hides six cross-module imports | **OPEN** | `observe.py:90-96` names five; `preparation.py:50-57` imports six outside it |
+| F82 | P3 | Image-inventory check masks the identity defect | **OPEN** | `observe.py:333-335` returns before the `unread` identity check at `:342` |
+| F83 | **P1** | Pinned identity's three-protocol hazard (`.get`) | **OPEN — defect stands** | `observe.py:336` reconciles `.items()`/`__getitem__` only; `.get` is live at `preparation.py:233`; the NO-GO was never superseded |
+| F84 | P2 | Object-identity refusal of honest rebuilt values | REPAIRED-UNREVIEWED | `views.py:139-156`; no verdict on `6c684df` anywhere |
+| F85 | P1 | Live reading's operand read via `.get` | REPAIRED-UNREVIEWED | `observe.py:339` snapshots with `stored_entries`; `:357,:361` now read a plain `dict` |
+| F86 | **P1** | Pin binding bound through an unreconciled `.get` | **OPEN — defect stands** | `preparation.py:233`, five lines before `signed_identity_findings` at `:238`, which never reconciles `.get` |
+| F87 | **P1** | Validate-then-record TOCTOU on the copy seam | **OPEN — defect stands** | `views.py:126` `stored = dict(mapping.items())` is one read; `preparation.py:198-246` records the caller's object and never calls `frozen()` — `frozen` appears only in `prepare()` at `:710-731` |
+| F88 | **P2** | `signed[key]` raises on iterate-vs-`.items()` divergence | **OPEN — anchors confirmed exact** | `keyed` iterates (`grant.py:315`) while `stored` is built from `.items()` (`views.py:126`); the six live sites are exactly `observe.py:342,349,351,353,357,361` |
+| F89 | P3 | Subscript cross-check rationale names no real reader | **OPEN (narrowed)** | No `granted_image_identity` subscript reader in `src/`; but `runner.py:254` subscripts `image`, which `observe.py:339` made a `stored_entries` subject |
+| F90 | P3 | Re-export seam ruff reads as dead code | **OPEN — anchors exact** | `observe.py:84,85` uncalled locally, load-bearing for `preparation.py:52,54` |
+| F91 | **P2** | The extraction invalidated the ledger's own anchors | **OPEN** | Its own F88 re-anchor at `:3748` is wrong at live HEAD; no commit records F91 repaired |
+| F92 | P3 | `views.py` has no exact-`__all__` test file | **OPEN** | No `tests/test_views.py`; only the generic check at `test_surface_contract.py:309-315` |
+| F93 | P3 | The new module is inaccurate at birth | **OPEN** | `views.py:98` names `local_presence_findings`, now in another file; `:100`'s claim is falsified by F87 |
+| F94 | P3 | Unparenthesized implicit concatenation in finding tuples | **OPEN — observe anchors stale** | live sites `observe.py:266,272,281,286,345`; `preparation.py:628,662` exact |
+| F95 | P2 | Verdict-history table indexed only half the reviews | REPAIRED-UNREVIEWED | `:23-38` now carries 16 rows |
+| F96 | P3 | Size-headroom figures off by one | REPAIRED-UNREVIEWED | corrected table at `:4113-4122` is right |
+| F97 | P3 | The "focused six-file set" figure named no files | REPAIRED-UNREVIEWED | `:4253-4255` names the set; this cycle also names one and measures it (980 passed) |
+| F98 | **P2** | The open-set recap is not a view of the body | **OPEN** | Its own discharge is only half-performed by this cycle |
+| F99 | P3 | Finding IDs F56-F59 were never assigned | **OPEN** | `grep` returns only F99's own two lines — the gap is real |
+
+### Six ledger self-contradictions the two bands found, each quoted from both sides
+
+1. **F3 has two irreconcilable verdicts, both still standing.** `:865` — *"F3 is NOT discharged."*
+   `:1763` — *"F3 — AMBIGUOUS → CLOSED."* The later line is chronologically authoritative and live
+   source supports it, but `:865` was never withdrawn in place.
+2. **F16's severity is stated two ways and never reconciled.** `:1611` — *"| F16 | P3 | … | OPEN |"*
+   versus `:1858` — *"| F16 | P2 | CONFIRMED …"*. `:4396` restored F16 at P2 without noting that the
+   `:1594` register still reads P3. **This cycle rules F16 P2.**
+3. **F11's anchor is wrong in the ledger and in the spec, differently.** `:1243` says
+   `observe.py:510-542`; spec `:132` says `observe.py:510-543`; live
+   `class CommandAdapterAccessors` is at **`observe.py:661`**. Neither recorded anchor resolves.
+4. **F88 carries two mutually exclusive anchor sets.** `:3748` lists
+   `observe.py:327,334,336,338,341,344`; `:4352` lists `observe.py:342,349,351,353,357,361`. Live
+   source resolves for `:4352`; `:3748` is stale and unmarked.
+5. **F96/F97 are simultaneously recorded repaired and open.** `:4096` — *"REPAIRED in this cycle"* —
+   versus the recap at `:4276`, which lists both as open P3. F98(c) diagnoses this and correctly
+   leaves `:4276` standing as its subject.
+6. **F81's `__all__` pin anchor is wrong.** F81 cites `tests/test_observe.py:604`; F92 at `:3850`
+   cites `:606`; live `:606` is the assertion. F81's anchor is off by two.
+
+### Corrected anchors published in one place, all verified against live source
+
+| finding | recorded anchor | corrected anchor |
+|---|---|---|
+| F1 | `test_scripts_inert.py:1027-1042` | `tests/test_scripts_inert.py:2056-2100` |
+| F3 | `test_scripts_inert.py:998-1016` | `tests/test_scripts_inert.py:1498-1560` (module-wide); `:1945` (function-scoped) |
+| F5 | `runner.py:299-300` | `runner.py:286-307` (`attempt_id_for`), `:331` (sole naming call) |
+| F6 | `:356-362` | `tests/test_scripts_inert.py:611-617` |
+| F8 | `:709-753`, `:636-653` | `tests/test_scripts_inert.py:940-961`, `:891-907` |
+| F9 | `:565, 603, 740, 1042` | `tests/test_scripts_inert.py:821, 858, 995` |
+| F10 | `:414-421` | `tests/test_scripts_inert.py:667-684` |
+| F11 | `observe.py:510-542` | `observe.py:661-693`; rationale at `:682-684` |
+| F13 | `:292` | `tests/test_scripts_inert.py:210`, `:565` |
+| F14 | `:356, 852, 939` | `tests/test_scripts_inert.py:611, 1107, 397` |
+| F16 | `test_surface_contract.py:95, 246` | `tests/test_surface_contract.py:96`, `:247` |
+| F18 | spec `:162` | `ENTRYPOINT-SLICE-SPEC.md:167` |
+| F19 | spec `:413-414` | `ENTRYPOINT-SLICE-SPEC.md:418-419` |
+| F20 | spec `:213-214` | `ENTRYPOINT-SLICE-SPEC.md:239-240` |
+| F21 | spec `:377-435` | `ENTRYPOINT-SLICE-SPEC.md:372-440` |
+| F4/F7/F12/F17 | ledger `:676-679` | spec `:59-114`, `:531-559`, `:116-138`, `:383-386` |
+| F78 | `observe.py:278-330` | `observe.py:263-289` |
+| F79 | `observe.py:289` | `observe.py:275-283`; docstring `:258-261` |
+| F81 | `observe.py:76`; `test_observe.py:604` | `observe.py:90-96`; `tests/test_observe.py:606` |
+| F82 | `observe.py:324-326` | `observe.py:333-335` against `:342` |
+| F84 | `observe.py:369`, `:376-401` | `views.py:139-156` |
+| F85 | `observe.py:430`, `:341,344` | `observe.py:339, 357, 361` |
+| F87 | `observe.py:356` | `views.py:126` with `preparation.py:198-246` |
+| F89 | `views.py:108,119` | `views.py:107-110, 118-121` |
+| F93 | `views.py:99-100` | `views.py:98-100` |
+| F94 | `observe.py:265,271,280,285,330` | `observe.py:266,272,281,286,345` |
+| F86, F88, F90, F80 | as recorded | **confirmed exact**, no change |
+
+### Open set at this cycle's close — partial, and honestly labelled as partial
+
+**Verified this cycle (bands F1..F21 and F78..F99):**
+
+- **P1 open (3): F83, F86, F87.**
+- **P1 repaired-but-unreviewed, not discharged (2): F78, F85.**
+- **P2 open (9): F6, F8, F9, F10, F11, F13, F16, F88, F91, F98** — ten IDs; F16 is the escalation the
+  recap dropped for eleven cycles, and F6/F8/F9/F10/F11/F13 are the pre-F45 P2s F98(a) predicted
+  would still be live. **Every one of them is confirmed still live by direct reading.**
+- **P2 repaired-but-unreviewed (3): F79, F84, F95.**
+- **P3 open (10): F14, F15, F18, F19, F20, F21, F80, F81, F82, F89, F90, F92, F93, F94, F99** —
+  fifteen IDs.
+- **CLOSED (8): F1, F2, F3, F4, F5, F7, F12, F17** — with the standing caveat that F1/F2/F3 close
+  authored controls that have never executed.
+
+**NOT YET VERIFIED — F22..F44 (including F29-A/B/C) and F45..F77.** The `:1581` register last
+recorded F22-F35 with F22/F23/F29 repaired-unreviewed and F24, F25, F26 (*"OPEN, WIDENED"*), F27,
+F28, F30, F31, F32, F34, F35 open, and F33 *NARROWED/PARTIAL*; F37 is recorded *"surface WEAKENED,
+not repaired"* and F45, F46, F49, F51, F52, F53, F62, F65, F68, F74 last recorded open at P2. **None
+of those is re-verified here and none may be counted or discharged until it is.**
+
+**The push gate is NOT met and remains NOT fully evaluable.** P1 >= 3 with three P1 defects confirmed
+standing in live source, and P2 >= 10. `P0 = P1 = P2 = 0` is far out of reach, so the atomic
+entrypoint GREEN stays blocked and none of the 79-commit local range is push-eligible. Origin/PR #55
+remains at `73ec822`, draft, CLEAN, four rendered hosted checks SUCCESS.
+
+### The exact next action
+
+Complete F98's discharge by re-verifying the two owed bands **F22..F44** and **F45..F77** against
+live source, on the same read-only method and into the same register shape. Only then is the true
+P2 count known and the gate evaluable. **Do not begin the F86 repair before that**, and when it
+begins it must be designed against **F86 + F83 + F87 + F65 together** — F83's uncovered `.get`
+protocol and F86's `.get` hole are the same call at `preparation.py:233`, F87's TOCTOU is the
+recording seam five lines below it, and F65's accepted three-field forgery moves through the same
+comparison. `preparation.py` has **28 free lines**; if the four do not fit, the extraction must be
+planned first as its own reviewed commit.
+
+## Cycle 44 (addendum) — the two owed bands returned. **F98 is fully discharged; the gate is evaluable for the first time since `:3348`.**
+
+> **The section above is superseded on one point only.** It records bands F22..F44 and F45..F77 as
+> commissioned-and-owed, because they had not returned when it was written. **Both returned within the
+> same cycle.** Their results are published here. Every other figure, table and corrected anchor in
+> that section stands as measured. It is left standing rather than rewritten, because the correction
+> is the evidence that this ledger now records what it measured at the time it measured it.
+
+### Band 2 of 4 — F22..F44 including F29-A/B/C. **9 CLOSED, 17 OPEN.**
+
+**CLOSED (9):** F22 (`test_scripts_inert.py:1487-1490` folds `computed_attribute_reads` over the whole
+module), F23 (`:1450-1460` — splatted and dict-keyed both sinks), F29 (`runner.py:331` +
+`attempt_id_for` pure at `:286-307`), **F30** (`preparation.py:196` has no default and `:233-235`
+requires both `type(...) is str` and agreement — F61's shape-only gap is gone live), **F32**
+(`tests/test_preparation.py:382` now returns all eleven fields and `:774-783` pins the inventory),
+F36 (REFUTED — the revert it claimed leaves the suite green in fact raises `NameError`), F39
+(`:1299-1385` + fixed point `:1401`), F43 (`:1597` routes through the exported seam), F44
+(spec `:147-151` names `runner.attempt_id_for`, not the private `_attempt_names`).
+
+**OPEN P1 (1):** **F33** — OPEN-DEFERRED. The seam exists and is exported (`runner.py:81`), with one
+renderer at `:307` and one caller at `:331`. The *second* caller cannot exist until `scripts/` does.
+
+**OPEN P2 (8):** F24 (`test_scripts_inert.py:1283-1296` has no `ast.Expr` branch; `:1492` never
+intersects `attribute_reads`), F25 (`:1213` still omits `getenv`; function-scoped set at `:2012`
+likewise), **F26** (`:1561-1562` floor is still `len(root_sinks(module)) >= 2` over all four shapes —
+the file's own docstring at `:1550-1551` concedes it), F29-A (`tests/test_runner.py:904-905` and
+`:1198` state unshipped wiring in the present tense), F31 (the three collapsed statements persist at
+`preparation.py:217, :510, :538/:550`), **F37** (`observe.py:661` `class CommandAdapterAccessors` is
+absent from `__all__` at `:90-96`, and `test_surface_contract.py:312-315` never asserts that every
+public name is listed — *no test names the class at all*), F40 (`:1450-1452` makes every
+`keyword.arg is None` a sink regardless of contents), F41 (`:1444-1467` has no positional-argument
+branch).
+
+**OPEN P3 (8):** F27, F28, F29-B (**now worse** — since the F5/F29 repair the paired test at
+`tests/test_runner.py:1042-1064` also asserts PASS, so nothing anywhere proves `PlanBoundDocker`
+refuses any name), F29-C, F34, F35, F38 (`observe.py:5-6` claims every function is pure while
+`:691-693` answers from `self._executor`), F42.
+
+### Band 3 of 4 — F45..F77. **9 CLOSED, 2 SUPERSEDED, 4 UNASSIGNED, 18 OPEN.**
+
+This band's verifier did not stop at reading: it **probed the shipped guard with constructed inputs**
+and reported what it caught and missed. That is the strongest evidence in this ledger.
+
+**CLOSED (9):** F48 (`:1346` `setdefault(...).append` — probe with a shadowing class still CAUGHT),
+F55, F60 (`fakes.py:85,92` genuinely diverge), F66 (probe: one-key stub REFUSED), F67 (probe:
+`image.repository='attacker/exfil'` alone REFUSED), F68 (`tests/test_preparation.py:1102-1113` pins
+the tuple membership — **the recap at `:4313` was wrong to re-raise it**), F70 (`preparation.py` is
+771 against the 800 bound — 29 free, no hand-collapse dependency), F72, F73.
+
+**SUPERSEDED (2):** F61 → **F65** (probe: single-field `replace` REFUSED with the exact-instant
+message; only the multi-field move survives). F62 → **F71** (`:2458` explicitly made F71 the standing
+statement four cycles ago — **the recap at `:4313` was wrong to re-raise F62 as an open P2**).
+
+**UNASSIGNED (4):** F56, F57, F58, F59 — zero occurrences anywhere in the body. F99 confirmed.
+
+**OPEN P2 (9), each with a probe result:** **F45** (default-value binding edge: probe MISSED, the
+argument control CAUGHT), **F46** (`:1349` skips non-`Name` callees: `_Wiring().wire(_declared(a))`
+MISSED), F49 (`:1344-1346` collects `FunctionDef` only: `_wire = lambda ...` MISSED), F51 (`:1371-1377`
+index unchanged after a `Starred`), F52 (false positive, disclosed at `:1314-1316`, not fixed), F53
+(bare-name pooling flags an honest call), **F65** (probe: **two-field epoch forgery ACCEPTED,
+`satisfied=True`; `1970`, `0001` and `2026-08-04T23:59:59Z` all ACCEPTED**), F74 (probe:
+`grant.RECORD_KEYS`(2) vs `admission.RECORD_KEYS`(10), `constants.EVIDENCE_KEYS`(11) vs
+`admission.EVIDENCE_KEYS`(5) still unequal — the "package-wide" claim checks one pair), F75 (residual
+limb only: `replace(r, selected_image_identity=MappingProxyType({}))` still ACCEPTED, exactly as
+`observe.py:306-310` discloses).
+
+**OPEN P3 (9):** F47 (aliased callee: `_alias=_wire` MISSED, byte-identical direct call CAUGHT), F50,
+F54, F63, F64, F69 (probe: moving both sides is refused by the *ordering* check at
+`preparation.py:242-245`, so those two params never exercise the equality control they name), F71
+(probe: `object.__setattr__` SUCCEEDS), F76 (probe: reversed seven-key identity ACCEPTED here,
+REFUSED by `grant.keyed`), F77 (widened 3→6 by F81).
+
+### Three further ledger self-contradictions, bringing this cycle's total to nine
+
+7. **F33 left the P1 set without discharge.** `:1385` — *"This finding must be discharged by the
+   entrypoint GREEN, not after it"* — and `:1857` — *"'Both callers reach it' is false"* — against
+   `:2057` — *"The open P1 set is now F30 … and F39"*. F33 vanishes in the same cycle F43/F44 are
+   repaired, with no line discharging it. Live source confirms the second caller still does not exist.
+8. **The `:1581` register carries a wrong self-pointer.** `:1630` gives F35's location as `:1386`,
+   which is the closing sentence of the **F33** entry; F35 is defined at `:1401-1412`. The register
+   shape F98 asked to have re-published was already wrong about one of its own rows.
+9. **F36 was graded CONFIRMED P1, named the "Exact next action" at `:1901` and the "highest-value
+   next repair" at `:1920`, on a claim the ledger itself later measured false** (`:1961`: the literal
+   revert raises *"a `NameError` on every run"*; `:1970`: the separating tests were pre-existing). A
+   cycle of direction was issued on an unmeasured claim. This is the exact failure mode probe-based
+   verification exists to prevent, and is why band 3's probes are recorded above.
+
+### The complete register at `9439bd0` — all 102 IDs, F1..F99 plus F29-A/B/C
+
+| bucket | count | IDs |
+|---|---|---|
+| **CLOSED** | **26** | F1, F2, F3, F4, F5, F7, F12, F17, F22, F23, F29, F30, F32, F36, F39, F43, F44, F48, F55, F60, F66, F67, F68, F70, F72, F73 |
+| **SUPERSEDED** | **2** | F61→F65, F62→F71 |
+| **UNASSIGNED** | **4** | F56, F57, F58, F59 |
+| **P1 OPEN** | **4** | **F33** (deferred to the GREEN), **F83, F86, F87** |
+| **P1 repaired, unreviewed** | **2** | F78, F85 |
+| **P2 OPEN** | **27** | F6, F8, F9, F10, F11, F13, F16, F24, F25, F26, F29-A, F31, F37, F40, F41, F45, F46, F49, F51, F52, F53, F65, F74, F75, F88, F91, F98 |
+| **P2 repaired, unreviewed** | **3** | F79, F84, F95 |
+| **P3 OPEN** | **32** | F14, F15, F18, F19, F20, F21, F27, F28, F29-B, F29-C, F34, F35, F38, F42, F47, F50, F54, F63, F64, F69, F71, F76, F77, F80, F81, F82, F89, F90, F92, F93, F94, F99 |
+| **P3 repaired, unreviewed** | **2** | F96, F97 |
+| | **102** | reconciles exactly against F1..F99 + F29-A/B/C |
+
+**F98 is DISCHARGED by this register** — every ID is now traced to live source by an independent
+read-only verifier, and the recap is a view of the body rather than a hand-maintained list. F98
+itself remains counted OPEN above until an independent verdict confirms this discharge.
+
+**The true P2 count is 27, not the 5 the recap has been asserting.** F98(a) predicted the recap was
+under-reporting; it under-reported by a factor of five. F98(a) was also wrong in two places, both
+corrected here by live source: **F62 was legitimately superseded by F71**, and **F68 was legitimately
+pinned** — the recap was right to drop those two and wrong about the rest.
+
+### Push gate
+
+**P0 = 0. P1 = 4. P2 = 27. P3 = 32.** The gate `P0 = P1 = P2 = 0` is **not met**, and for the first
+time since `:3348` that statement rests on a complete, source-verified register rather than on an
+unevaluable list. The atomic entrypoint GREEN stays blocked. **None of the 79-commit local range is
+push-eligible.** Origin/PR #55 remains at `73ec822`, draft, CLEAN, four rendered hosted checks
+SUCCESS. RUNTIME remains **HOLD**. PRODUCTION remains **Founder-only**.
+
+### The exact next action, now that the gate is evaluable
+
+**Repair the `preparation.py:233-234` cluster as one commit: F86 + F83 + F87 + F65.** They are not
+neighbouring defects; they are four readings of one pair of lines and one recording seam five lines
+below it, and band 3 has now *demonstrated* F65 by probe — a two-field `replace` carrying a 1970
+epoch is **accepted with `satisfied=True`**. That is the single highest-value defect in the register.
+`preparation.py` has **28 free lines**; if the four repairs plus their tests do not fit, plan the
+extraction first as its own reviewed commit, which is the mistake cycle 40 made by discovering the
+size wall mid-repair.
+
+Second priority, and cheaper: **F16 and F37 both live in the same seam.** `adapter.py` has **zero**
+free lines, and `CommandAdapterAccessors` is public at `observe.py:661` but absent from `__all__`.
+Any repair touching either module must budget for both.
