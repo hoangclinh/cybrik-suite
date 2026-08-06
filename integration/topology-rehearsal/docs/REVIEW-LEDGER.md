@@ -5995,3 +5995,76 @@ two new tests are of unproved RED provenance. F108 stays **OPEN**.
 
 **Push gate unchanged: P0 = 0, P1 OPEN = 3** (F33, F108, F113). RUNTIME **HOLD**. Production
 **Founder-only**.
+
+## Cycle 51 continued — F108 repaired test-first, F113 closed, and the repair still unreviewed
+
+### F113 is CLOSED by measurement
+
+The size breach was transient. It came from an expanded `observe()` docstring added on top of the
+eight swaps; that docstring was reverted to one line before the file was committed. `preparation.py`
+is **798** lines and `test_no_authored_module_exceeds_the_reviewed_size_bound` **passes**. No
+`MODULE_LINE_LIMIT` was raised and no control was deleted to achieve it — verified by reading the
+committed diff, which is 9 insertions / 9 deletions on that file: the eight `guarded` -> `projected`
+swaps plus one line-neutral docstring correction, and nothing else.
+
+### F108's RED was proved independently by the coordinator, not accepted on report
+
+The writer's RED-before-GREEN claim was **not** taken on trust. The coordinator reproduced it
+directly: `preparation.py` was reversibly replaced with its committed pre-repair content, the new
+test was run, and the file was restored and diffed byte-identical afterwards. Exact pre-repair
+output:
+
+    AssertionError: budget 10: platform answered every read the findings spent honestly and turned
+    hostile afterwards, and a satisfied preparation recorded
+    ["docker_platform['engine_version'] = '0.0.0-attacker'",
+     "docker_executable['version'] = '0.0.0-attacker'"]
+    FAILED ...[observe_controls]
+    FAILED ...[observe_platform]
+    2 failed, 1 passed
+
+**The RED fails for exactly the right reason.** `assert result.satisfied is True` passes first; it is
+`assert recorded == ()` that fires. A *satisfied* preparation recorded attacker content. The writer
+independently measured the same shape one budget earlier for controls (K=9, all four control
+repositories carrying attacker commit and tree). **`observe_image` passed at every budget both times**,
+confirming from two independent measurements the cycle-50 claim that `signed_identity_findings`
+re-judges the dead copy against the grant-derived pin and is the shape the repair should take.
+
+### The repair, committed at `f40c5a9`
+
+All eight observations in `observe()` (`preparation.py:490-524`) are taken through `projected(...)`,
+which guards and then `frozen(...)`s at ingress. The hostile object is now read exactly once, before
+any decision, so the reading that validation judges and the reading that `snapshot()` records are one
+reading. Every straddle F108 reproduced is unreachable by construction.
+
+### Gates measured on the committed tree
+
+- New RED, now GREEN: **3 passed** (`observe_controls`, `observe_image`, `observe_platform`).
+- Focused adapter/runner/admission/preparation/plan/observe suites: **1147 passed**.
+- Full suite: **`58 failed, 1545 passed`** — back to the absent-script baseline, **58/58 terminating
+  in `missing C8 implementation`, 0 UNINTENDED**. `1545 = 1542 + 3` new tests.
+- `ruff check .`: 12 errors, **delta 0** against the pinned baseline.
+- `python3 -m compileall -q src tests`: exit 0. Size bound: max 799 (`adapter.py`), total 6160.
+
+### An independent blast-radius survey found no existing test flips
+
+A separate read-only lane enumerated every seam the swap could disturb — refusal-message shape,
+refusal ordering between `observation_findings` and a copy failure, identity-vs-equality passthrough,
+field types, `src/` consumers of `observed.<field>`, and whether `frozen()` at ingress could refuse a
+shape a *passing* test relies on. **Zero existing tests flip**, confirmed both from source and by
+running 863 tests against the swapped `observe()`. It recorded one latent, currently-unexercised
+consequence: a future test feeding `passing_adapters` a value `frozen()` cannot copy will now refuse
+at ingress with a `"while being copied"` message rather than later at `snapshot()`. That is a
+behaviour change, not a control weakening, and nothing today exercises it.
+
+### F108 is repaired-unreviewed, NOT closed
+
+The commissioned adversarial sufficiency lane — the one asked to *refute* the claim that the swap
+makes all straddles unreachable, and to hunt residual holes at `views.nested` (F110),
+`stored_entries` key-set gating (F109), and the grant re-reads in `snapshot()` — **did not return
+within the timebox**. A repair measured by its own author and its own RED is not an independent
+verdict. **F108 moves from OPEN to repaired-unreviewed and must not be recorded as discharged.**
+
+**Push gate: P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint GREEN). **P1
+repaired-unreviewed = 8** (F78, F85, F83, F86, F87, F103, F104, **F108**). **P2 = 32. P3 = 37.**
+F113 CLOSED. **No part of the 101-commit local range is push-eligible**: the P0=P1=P2=0 gate requires
+an independent verdict that does not exist for F108. RUNTIME **HOLD**. Production **Founder-only**.
