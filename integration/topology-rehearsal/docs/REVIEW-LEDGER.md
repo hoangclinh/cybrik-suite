@@ -534,6 +534,52 @@ nothing outside `integration/topology-rehearsal/`, weakens no src file, and leav
 the size bound, inventory, single-spawn-site AST control and `forbid_real_io`
 tripwire intact.
 
+### `bef383c..f6622d4` — F1 repair, measured evidence
+
+One commit, tests only, repairing exactly one recorded finding: **F1 (P1)**, the
+single-shared-executor control deleted from the default path by `6bc0745`. F2,
+F3 and F4 are deliberately untouched and the `73ec822..bef383c` range remains
+**NO-GO / PUSH-ELIGIBLE NO**. Repairing one finding per cycle keeps each repair
+independently reviewable; it is not a claim that the others are discharged.
+
+What landed, in `tests/test_scripts_inert.py` only:
+
+- `test_the_default_execute_path_constructs_exactly_one_process_executor` states
+  the missing half structurally rather than by identity, so it republishes
+  nothing: exactly one `SubprocessCommandRunner` call node in the whole script,
+  that node owned by `build_runtime_wiring` rather than a private helper, and not
+  nested in a loop, comprehension or inner `def`.
+- the docstring of `test_runtime_wiring_defaults_to_the_single_subprocess_executor`
+  no longer claims the injected-runner routing test proves the default path; it
+  now names which test proves which path.
+
+Effectiveness evidence — the control is not vacuous. It was run offline against
+four synthetic composition roots in `/tmp` (scratch only; nothing was added to
+the repository for it). It **admits** the one-shared-executor shape and
+**refuses** all three defect shapes:
+
+| Synthetic composition root | Control | Refused by |
+|---|---|---|
+| one executor, shared by all five adapters | passes | — |
+| five built in a loop (F1's exact scenario) | refused | module count |
+| built in a private helper, called twice | refused | builder count |
+| two construction sites in one function | refused | module count |
+
+Static evidence at `f6622d4`:
+
+- Broad census: **1395 passed / 50 failed**, moved from 49 by exactly this one
+  new test. All 50 are the intended absent-script class — `pytest --tb=line`
+  yields `does not exist` for every one, with zero assertion failures and zero
+  errors of any other kind.
+- `python -m compileall tests/test_scripts_inert.py` — OK.
+- `git diff --check` — clean.
+- `ruff check tests/test_scripts_inert.py` — clean. The binary is still the
+  unpinned system one, so **F15 stands unchanged**; this is not a claim that the
+  pinned lint gate ran.
+
+Neither entrypoint script was executed. No `src/`, docs, dependency or lockfile
+change. RUNTIME remains **HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
