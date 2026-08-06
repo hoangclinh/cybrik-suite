@@ -1,4 +1,15 @@
 
+> **AUTHORITATIVE LEDGER POINTER (added 2026-08-06, HEAD `80b2f70`, status: `SCAFFOLD` repair note).**
+> For the `topology-rehearsal` package, the current, authoritative review ledger is
+> `integration/topology-rehearsal/docs/REVIEW-LEDGER.md`. The tallies and push-gate conclusion
+> recorded in **this** suite-root file for that package are **SUPERSEDED as of HEAD `80b2f70`** — see
+> the "Push gate, corrected" section below, which is now marked superseded rather than deleted. The
+> individual finding records above and below that section (F104–F110, the independent Opus verdict,
+> etc.) are **not** superseded by this note; they remain part of this repository's history and are not
+> known to be duplicated verbatim in the package ledger. Do not treat this suite-root file as the
+> current push-gate source for `topology-rehearsal`; treat it as historical record plus whatever it
+> uniquely captures.
+
 ## Independent Opus verdict on the candidate F87 repair — **NO-GO** (P1=3, P2=3, P3=2)
 
 Commissioned against the uncommitted working tree and returned after `7cc9b7b` was written. Its
@@ -88,9 +99,36 @@ recursively at every depth. The current three-pass shape (judge, reconcile, then
 defeated at whatever budget the last read lands on. This is the single design decision the next cycle
 owes, and it must carry its own independent verdict before code lands.
 
-### Push gate, corrected
+### Push gate, corrected — **SUPERSEDED 2026-08-06 at HEAD `80b2f70`**
+
+> This paragraph is preserved as written; it is not deleted or rewritten. It is superseded because
+> the package ledger has since moved to a later, larger commit range with additional review passes
+> and different tallies. Do not use the numbers below as the current gate.
 
 **P0 = 0. P1 OPEN = 7** — F33, F87, F103, F104 (widened), **F105**, **F106**, and the F87 design
 itself. **P2 = 32** (adds F107, F108, F109). **P3 = 34** (adds F110). The gate `P0 = P1 = P2 = 0` is
 **not met** and moved further from being met. **None of the 91-commit local range is push-eligible.**
 RUNTIME remains **HOLD**. PRODUCTION remains **Founder-only**.
+
+### Corrected live facts as of HEAD `80b2f70` (2026-08-06) — carried forward from the package ledger, not independently re-derived here
+
+The following supersede the paragraph immediately above. **Source of truth:**
+`integration/topology-rehearsal/docs/REVIEW-LEDGER.md`. This suite-root file does not re-derive or
+independently verify these numbers — they are restated here only to prevent a reader from acting on
+the stale gate above.
+
+- Commits ahead of origin: **108**
+- **P0 = 0**
+- **P1 OPEN = 1** (F33)
+- **P1 repaired-unreviewed = 10**
+- **P2 = 39**
+- **P3 = 40**
+- Gate `P0 = P1 = P2 = 0`: **NOT met**
+- **No part of the range is push-eligible.**
+- RUNTIME: **HOLD**
+- PRODUCTION: **Founder-only**
+
+A documentation/evidence cross-check of these carried-forward tallies against the package ledger's
+underlying commit and finding records is in flight this cycle. Until that cross-check completes and
+is recorded, these counts should be treated as **carried-forward, not independently verified** by
+this file — consult the package ledger directly for the reviewed, primary record.

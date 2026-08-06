@@ -6605,3 +6605,103 @@ not the writer's report. **Two lanes had not returned when this cycle closed:**
    **repaired-unreviewed**, exactly like F114 before them.
 
 Both are re-commissioned as the next cycle's first two parallel lanes.
+
+## Cycle 54 — F126 repaired; every static gate re-measured at `80b2f70`
+
+### Live identity re-established, and the driver checkpoint was stale
+
+The supplied checkpoint named HEAD `76553f4` and an 11-commit range. **Both were wrong.** Live HEAD
+is `80b2f70ddd8de3f34076c82e1eba151cd6afbe49` and the branch is **108 commits** ahead of
+`origin/codex/uat-browser-g-u2b-db-red-gate-r1` (`git rev-list --count`, coordinator-run). Draft PR
+#55 is **OPEN**, **MERGEABLE**, still pointing at `73ec822`, with all four rendered hosted checks
+**SUCCESS** (two `secret-scan`, two `contract standards validation`). Nothing was pushed this cycle.
+
+### F126 — **REPAIRED** this cycle. The two ledgers no longer state two different gates.
+
+The suite-root `docs/REVIEW-LEDGER.md` went from 96 to **134 lines** (39 insertions, 1 deletion; the
+single deletion is the heading relabel, not a content removal). The repair was verified by the
+coordinator at diff level, not accepted on report:
+
+- A pointer at the top names `integration/topology-rehearsal/docs/REVIEW-LEDGER.md` authoritative
+  for this package and marks the suite-root tallies superseded as of `80b2f70`.
+- The stale gate paragraph (P1 OPEN = 7, P2 = 32, P3 = 34, "91-commit local range") is **preserved
+  verbatim** and labelled `SUPERSEDED 2026-08-06`. A review ledger's history is not rewritten.
+- The corrected numbers are restated **attributed to this package ledger as their source**, with an
+  explicit statement that the suite-root file does not re-derive or verify them.
+- No finding record was deleted. F104-F110 and the earlier Opus NO-GO remain intact.
+
+**F126 is closed.** The honesty caveat it carried is preserved rather than laundered: the corrected
+counts are labelled carried-forward in both files.
+
+### Gates measured at `80b2f70` (independent verifier, quoted from real command output)
+
+- Census: **1548 passed / 58 failed**, 1606 collected. All 58 are the intended absent-`scripts/`
+  RED guard — proved, not assumed: `grep -c "missing C8 implementation"` = 58 = `grep -c "^FAILED"`,
+  and no other assertion signature exists in the run. **Unintended failures: 0.**
+- Focused set (runner, observe, adapter, preparation): **983 passed / 0 failed**.
+- `python -m compileall -q src tests` exit **0**. `git diff --check` exit **0**.
+- Lint: **12 ruff findings** — `ISC004` x7, `F401` x3, `I001` x2. **Exactly the recorded baseline**;
+  F120 stands unchanged. No fixer was run; auto-fixers require Founder approval.
+- `scripts/` absent. `uv.lock` present, untracked, untouched. No dependency was touched.
+
+### The size control's scope was measured, not assumed — and one module has zero headroom
+
+The verifier flagged six **test** files over 800 lines. The coordinator read the control at source
+before filing anything: `MODULE_LINE_LIMIT = 800` (`tests/test_surface_contract.py:96`) applies only
+to the twelve `FRONT_DOOR_PRESENT_MODULES` (`:80-93`) — all under `src/`. **Tests are out of scope,
+so the six large test files are not a violation and no finding is opened.**
+
+The control's own comment reads "**strictly under, not up to**". Therefore:
+
+- `adapter.py` **799** — at the exact legal maximum. **Zero headroom. One added line breaks it.**
+- `preparation.py` **798** (1 line), `grant.py` **794** (5), `runner.py` **775** (24).
+
+Any future repair touching `adapter.py` must extract before it adds. This is recorded now so a
+later cycle does not discover it by breaking the gate.
+
+### Coordinator-verified at source this cycle (not accepted on any agent's report)
+
+- The three applied ingress repairs are present and are at the **single first read**:
+  `container = frozen(...)` (`runner.py:411`), `network = frozen(...)` (`runner.py:419`),
+  `probe_result = frozen(...)` (`runner.py:420-422`).
+- The four sibling readings remain **un-copied at HEAD**: `health` (`runner.py:403`),
+  `daemon_event` (`:412`), `docker_port` (`:413-415`), `listeners` (`:416`). **F123, F124 and F125
+  are confirmed alive**, exactly as filed.
+- F125's mechanism re-proved: `health` is judged by `!=` at `runner.py:387`, judged again by `!=` at
+  `observe.py:537`, and rendered by `!r` in that same comprehension — three protocol reads of one
+  live object. It is absent from `EVIDENCE_KEYS` (`constants.py:252-264`, coordinator-read), so the
+  disagreement it permits is recorded in **no receipt**.
+- `frozen`'s Mapping branch copies from a **single `.items()` read** (`preparation.py:149-152`),
+  refuses scalar subclasses (`:133-141`), refuses self-reference (`:142-145`) and refuses anything
+  it cannot prove (`:157-160`). This is consistent with the coordinator's cycle-53 argument that no
+  later read remains for a hostile object to answer differently. **It is not an independent verdict
+  and is not recorded as one.**
+
+### Push gate at this working tree
+
+Unchanged in direction. **P0 = 0. P1 OPEN = 1** (F33, deferred to the atomic entrypoint GREEN).
+**P1 repaired-unreviewed = 10** (F78, F85, F83, F86, F87, F103, F104, F114, F121, F122).
+**P2 = 38** (F126 closes). **P3 = 40.** The gate `P0 = P1 = P2 = 0` is **not met**. **No part of the
+108-commit local range is push-eligible.** RUNTIME **HOLD**. Production **Founder-only**.
+
+These counts remain **carried-forward arithmetic**. See the lane accounting below before quoting them.
+
+### Lane accounting — the oldest debt is now in its third cycle
+
+Four lanes ran. Two returned and their evidence is recorded above (the census verifier; the F126
+exact-path writer, whose work the coordinator re-verified at diff level). **Two had not returned
+when this cycle closed:**
+
+1. The **documentation/evidence cross-checker**, commissioned for the third consecutive cycle to
+   independently re-derive the P0-P3 tallies from this ledger's own per-finding records. **Still not
+   discharged.** Every tally in this file — including the one printed immediately above — is
+   carried-forward arithmetic and has never been independently re-derived. This remains the oldest
+   outstanding evidence debt in the project and no tally here may be quoted as fact until it lands.
+2. The **independent adversarial reviewer** commissioned to attack the applied F114/F121/F122
+   ingress repairs and to rule `frozen` vs `proved_copy`. **Still not obtained.** F114, F121 and
+   F122 stay **repaired-unreviewed**. The accessor reasoning in cycle 53 and the supporting source
+   reads above are the **coordinator's own** and are not a substitute for that verdict.
+
+Recording this plainly matters more than closing the cycle cleanly: two consecutive cycles have now
+claimed these lanes and neither has produced a verdict. The next cycle must run the adversarial
+review as its **sole** blocking lane rather than one of four, so it cannot again be crowded out.
