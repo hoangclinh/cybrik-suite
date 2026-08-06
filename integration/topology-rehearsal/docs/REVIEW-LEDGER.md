@@ -7957,3 +7957,92 @@ one per cycle cannot outpace the rate at which measurement opens new ones.
 
 Until such a session runs, the useful in-lane WIP is **fewer than one writer**, and further
 coordinator cycles should be expected to move the gate away from zero rather than toward it.
+
+## Cycle 63 — F131's owed RED executed; the container ingress bypass is PROVED
+
+Range unchanged at `73ec822..adc66a1` plus this cycle's one test-only commit. No repair was made,
+no finding was downgraded, no control weakened, neither entrypoint script was written or run.
+
+### Live state re-derived, not inherited
+
+- `HEAD=adc66a1`, 120 commits ahead of `origin`. `uv.lock` untracked, MD5 `ff29c06c…` unchanged.
+- Broad census before this cycle: **1568 passed / 58 failed / 0 unintended** — cycle 62's figure
+  re-derived by execution, not accepted from prose. All 58 are absent-entrypoint-script REDs.
+- The manifest's `Agent(cybrik-readonly-worker)` remains **unadvertised** by the running runtime
+  (live surface exactly `Read, Grep, Glob, Bash, Edit, Write`; `~/.claude/agents` absent, no
+  `.claude/agents` in the worktree). Cycle 62's capability finding is **confirmed independently**.
+
+### Why this cycle acted instead of only re-escalating
+
+Cycle 62 concluded every in-lane action is gate-neutral or gate-negative. That is true **for
+repairs and for surveys**, and this cycle does neither. It exercises the third mechanism the ledger
+already contains precedent for: **measurement that adjudicates an existing allegation** — the route
+by which F36 was REFUTED and F56–F59 became PHANTOM. Adjudicating a finding is not witnessing a
+patch, so anti-self-witnessing does not forbid it, and it adds no new findings.
+
+F131 was the correct target because the ledger itself grades it *"derived from source, not yet
+proved by execution … **OWED an executed RED** before any repair"* (`:7297`). That debt was
+blocking any legitimate future repair of F131 regardless of reviewer availability.
+
+### F131 — **PROVED BY EXECUTION.** Status P1 OPEN, owed-RED debt **DISCHARGED**
+
+New test module `tests/test_f131_ingress_guard.py` (115 lines), five cases:
+
+| case | result | role |
+| --- | --- | --- |
+| `test_the_double_is_genuinely_two_faced` | PASS | premise, anti-vacuity |
+| `test_frozen_takes_only_the_items_face` | PASS | the blind spot is real at the `frozen` boundary |
+| `test_proved_reading_refuses_the_same_reading` | PASS | the guard closes it **where applied** |
+| `test_the_honest_container_reading_still_passes` | PASS | **vacuity control** — shape reaches a pass |
+| `test_the_container_ingress_reading_is_cross_checked` | **RED** | the bypass itself |
+
+Measured outcomes, identical adapters except the subscript face of `HostConfig.PortBindings`:
+
+```
+honest  container_projection(bindings=BENIGN)    -> TOPOLOGY_PASS
+two-faced container_projection(bindings=TWOFACED) -> TOPOLOGY_PASS   <-- bypass
+  .items()  face -> HostIp 127.0.0.1   (the reviewed loopback publication)
+  __getitem__ face -> HostIp 0.0.0.0   (a FORBIDDEN_ADDRESS_LITERAL)
+```
+
+A container reading that **iterates loopback and subscripts `0.0.0.0`** reaches `TOPOLOGY_PASS`.
+`runner.py:434` wraps it in bare `frozen`, which rebuilds from one `.items()` read and never
+consults the subscript, so the receipt attests the reviewed loopback publication while the same
+live object publishes on every interface on the host. This is the exact class `_proved_reading`
+exists to refuse for `network`, left open for `container`. **F131 is no longer an inference.**
+
+**Anti-vacuity discipline, recorded because the first draft failed it.** An earlier draft built the
+double on an invented shape `{"Name": …}`. Its RED "passed" — but the *honest* reading of that same
+shape also failed, on `FAIL_PUBLICATION` shape validation rather than on divergence. The case
+proved nothing and was discarded. Every case above is built on the real
+`fakes.container_projection()` and paired with the honest control that must reach a pass. A future
+cycle must not delete that control.
+
+### Gates re-measured at this commit
+
+- Broad census **1572 passed / 59 failed** = the 58 pre-existing absent-script REDs **+ this one
+  intended RED**. **0 unintended failures**; no pre-existing test changed or deleted.
+- `ruff check .` = **12**, exactly the recorded baseline (the new module's single `I001` was fixed
+  in-file by ruff's own fix; the baseline was **not** re-based).
+- `compileall src tests` rc=0. `runner.py` unchanged at **799/800** — this cycle added no source
+  line, so F132's one line of headroom is untouched.
+
+### Gate at the close of cycle 63
+
+Unchanged in every bucket; this cycle deliberately moved no count:
+
+- **P0 = 0**; **P1 OPEN = 7** (F33, F123, F128, F131, F134, F135, F143); **P1 r-u = 11**;
+  **P2 OPEN = 44**; **P2 r-u = 4**; **P3 OPEN = 43**; **P3 r-u = 2**;
+  **CLOSED = 30** (eighth consecutive cycle), **SUPERSEDED = 2**, **PHANTOM = 4**. Total **147**.
+
+`P0 = P1 = P2 = 0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. RUNTIME **HOLD**,
+production **Founder-only**, published release dates **unchanged**.
+
+### What changed for the blocker
+
+Cycle 62's escalation stands and is confirmed: retiring the 15 `repaired-unreviewed` P1/P2 findings
+still requires a reviewer session this lane cannot commission. What this cycle changes is that
+**F131 is now repairable**: its owed executed RED exists, so the writer who closes it has a
+falsifiable target and a vacuity control, rather than a source-derived inference. That repair is
+the natural next in-lane slice — it remains gate-neutral until reviewed, and should not be
+attempted in the same cycle as the entrypoint GREEN.
