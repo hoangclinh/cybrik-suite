@@ -9274,3 +9274,71 @@ are measurements only. **This lane does not grade its own findings.**
   outstanding, and this entry was written only after the driver archived the request and cleared it.
 - No control weakened, no finding downgraded, no entrypoint script written or run. RUNTIME **HOLD**,
   production **Founder-only**, release dates **unchanged**.
+
+## Cycle 7/48 — P1-1 repaired test-first; `_dead_copy` checks the Mapping face before the leaf face
+
+Unfrozen at cycle start: no `FREEZE`, no open `REVIEW-REQUEST.json`, HEAD `1b4adea` exactly as the
+previous cycle left it. **No `freeze_breach`.** Branch B of `NEXT-SCOPE-PLAN-a703a45.md` applies —
+findings were recorded first (cycle 6), so this cycle repairs **exactly one** named finding.
+
+### What was repaired
+
+**P1-1 only.** `views.py` `_dead_copy`. No other finding was touched; the six P2s and four P3s from
+`VERDICT-a703a45` remain open and ungraded by this lane.
+
+- The leaf test at the old `:311` became `_is_immutable_leaf(value)` (identity, the F153 primitive)
+  instead of `isinstance(value, IMMUTABLE_LEAVES)`.
+- The **`Mapping` face is now tested before the scalar-subclass face**, so a class subclassing
+  `str` *and* `Mapping` reaches `_dead_mapping` and is cross-checked. This is the substance of the
+  finding: no forgery is required to reach it, only ordinary inheritance.
+- A `str`/`bytes` subclass is copied to its **exact** leaf type and still never walked into its own
+  characters. The copy is taken through the builtin slots — `str.__str__(value)` and
+  `bytes.__getitem__(value, slice(None))` — because `str(value)` dispatches to a `__str__` the
+  subclass owns and `bytes(value)` consults its `__bytes__`. **Executed this cycle:** both naive
+  forms returned `'FORGED'` for a hostile subclass; both slot forms returned exact-type copies.
+- A subclass of a non-`str`/`bytes` leaf that is neither `Mapping` nor `Sequence` returns exactly as
+  it did before. The repair narrows nothing else.
+
+### The false invariant is corrected, not restated
+
+`:298-299` claimed alignment with `preparation.frozen`. It is now stated truthfully: `frozen`
+**refuses** a scalar subclass (`preparation.py:133-141`) while `_dead_copy` accepts and copies one.
+They are opposites at this boundary, deliberately — this phase reports and leaves refusing to
+`PreparationResult.__post_init__`, so raising here would move the verdict.
+
+### An existing pinned assertion was CHANGED — declared, not self-cleared
+
+`tests/test_observe.py::test_a_string_subclass_is_a_leaf_rather_than_a_sequence_to_walk` asserted
+`copied is tagged`. The repair breaks it, and it was the **only** test in the whole suite it broke.
+
+That assertion pinned the caller's live object being handed back — which `VERDICT-a703a45` names as
+the P1-1 defect itself ("returns the caller's **live object, uncopied**"). Its docstring justifies
+only that a `str` subclass is a leaf *rather than a `Sequence` to walk*, and that property is
+asserted unchanged. It now also asserts `type(copied) is str` and `copied is not tagged`.
+
+**This lane does not grade that change.** A writer whose own patch broke a control, then edited the
+control, is exactly the pattern anti-self-witnessing exists for. It is flagged to the reviewer as
+the first thing to judge in the next request, and the request scope includes that file.
+
+### Evidence measured this cycle
+
+- Focused suite `tests/test_p1_1_dead_copy_leaf_subclass.py`: **intended RED 4 failed / 9 passed**
+  before the source change, for the exact reasons filed (no divergence finding; live object
+  returned; subclass not copied to exact type). **GREEN 13/13** after.
+- Adjacent regression `test_f153_metaclass_leaf` + `test_f135_eq_fallback` + `test_f134_get_accessor`
+  + `test_preparation`: **395 passed**.
+- Broad census: **1618 passed / 59 failed**, versus baseline `a703a45` 1605/59. The **failing-ID set
+  is byte-identical to the baseline by `diff`** — all 59 remain the intended absent-entrypoint REDs.
+  Artifacts `census-p1-1-repair-cycle7.txt`, `failing-ids-p1-1-repair-cycle7.txt`.
+- `ruff check` on the three changed paths: **All checks passed**. `compileall`: clean.
+- No dependency installed; untracked `integration/topology-rehearsal/uv.lock` untouched.
+
+### Gate after this cycle
+
+- **Nothing is retired.** P1-1 is `repaired-unreviewed`; a repair is not a verdict.
+- **P1 OPEN = 7** and **P2 OPEN = 7** stand exactly as cycle 6 recorded them. `P0=P1=P2=0` is **NOT**
+  met. Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft, tip unmoved at `73ec822`.
+- F153's fourth site `preparation.py:131` (P2-1) is **confirmed present by grep this cycle** and was
+  deliberately **not** repaired — one finding per cycle, and it is a different finding.
+- No control weakened to obtain GREEN, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.

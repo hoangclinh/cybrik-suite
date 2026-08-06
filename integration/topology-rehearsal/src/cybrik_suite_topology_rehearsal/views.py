@@ -296,7 +296,14 @@ def _dead_copy(
     recorded. `preparation.frozen` rebuilds every `bytearray`, `Mapping`, `AbstractSet` and
     `Sequence` from its own fresh read, so a value handed back uncopied here is read live a
     second time on the copy path, and a two-faced mapping nested below the top is never
-    cross-checked at all. This copies and cross-checks exactly as deep as `frozen` rebuilds.
+    cross-checked at all. This copies and cross-checks every type `frozen` rebuilds.
+
+    It is **not** aligned with `frozen` on scalar subclasses, and saying it was is what
+    `VERDICT-a703a45` filed P1-1 against. `preparation.frozen` *refuses* a subclass of a safe
+    scalar outright (`preparation.py:133-141`); this function accepts one and copies it. The two
+    are opposites at exactly that boundary, deliberately: this phase reports what it cannot prove
+    and leaves refusing to `PreparationResult.__post_init__`, so raising here would move the
+    verdict rather than copy a value.
 
     It reports nothing further about immutability, and that is deliberate. Widening the
     *verdict* to match this walk would make a nested plain `dict` proved rather than reported,
@@ -304,16 +311,30 @@ def _dead_copy(
     would have been weakened to close a finding. So the walk goes deep while the verdict stays
     where it was: what this phase refuses, and how it says so, does not move.
 
-    A safe scalar's subclass is a leaf here for the reason `frozen` refuses one rather than
-    taking it apart: `str` and `bytes` are `Sequence`s, and walking one yields its own
-    characters instead of anything nested.
+    A safe scalar's subclass is copied here rather than walked, for the reason `frozen` refuses
+    one rather than taking it apart: `str` and `bytes` are `Sequence`s, and walking one yields
+    its own characters instead of anything nested. That ground covers the `Sequence` face only,
+    so the `Mapping` face is checked *first*: a class subclassing `str` and `Mapping` needs no
+    forgery, and `isinstance(value, IMMUTABLE_LEAVES)` used to hand it back live and unchecked.
+    The leaf test is `_is_immutable_leaf` for the F153 reason — membership consults a metaclass's
+    `__eq__`, identity cannot be forged. A subclass of a non-`str`/`bytes` leaf that is neither a
+    `Mapping` nor a `Sequence` still falls through to the same uncopied return as before.
     """
-    if isinstance(value, IMMUTABLE_LEAVES):
+    if _is_immutable_leaf(value):
         return value, ()
     if isinstance(value, bytearray):
         return bytes(value), ()
     if isinstance(value, Mapping):
         return _dead_mapping(value, path, trail)
+    if isinstance(value, str):
+        # A `str` subclass is copied to its exact leaf type, never walked. `str(value)` would
+        # dispatch to a `__str__` the subclass owns; `str.__str__` is the builtin slot, and on a
+        # non-exact instance it returns a fresh exact `str`, so the recorded value is inert.
+        return str.__str__(value), ()
+    if isinstance(value, bytes):
+        # The same, for `bytes`. `bytes(value)` consults a `__bytes__` the subclass owns, so the
+        # whole-slice subscript of the builtin is taken instead; it yields an exact `bytes`.
+        return bytes.__getitem__(value, slice(None)), ()
     if isinstance(value, (AbstractSet, Sequence)):
         is_set = isinstance(value, AbstractSet)
         try:

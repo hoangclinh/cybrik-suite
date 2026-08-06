@@ -1435,10 +1435,18 @@ def test_a_string_subclass_is_a_leaf_rather_than_a_sequence_to_walk() -> None:
 
     `preparation.frozen` refuses a safe scalar's subclass for the same reason rather than
     taking it apart, so this walk may not take it apart either.
+
+    The identity assertion this test used to make (`copied is tagged`) was **changed** by the
+    P1-1 repair, and the change is declared rather than assumed: `VERDICT-a703a45` filed
+    `_dead_copy` returning "the caller's live object, uncopied" as the P1 defect itself, so
+    pinning that return was pinning the defect. What this test is *about* — a `str` subclass is
+    a leaf, not a `Sequence` to walk into its own characters — is asserted below and unchanged.
     """
     tagged = TaggedString("16-alpine")
     copied, findings, divergence = views_call("proved_copy", tagged, "field")
-    assert copied is tagged
+    assert copied == tagged
+    assert type(copied) is str, "copied to its exact leaf type, not walked and not left live"
+    assert copied is not tagged, "a dead copy is not the object the caller still owns"
     assert findings == ("field holds a TaggedString, which is not deeply immutable",)
     assert divergence == ()
 
