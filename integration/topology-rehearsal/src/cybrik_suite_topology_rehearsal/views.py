@@ -24,6 +24,7 @@ a later consumer records the other is exactly the hole these reconcile.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from types import MappingProxyType
 from typing import Any
 
@@ -186,6 +187,89 @@ def _proved_members(
     return build(copied), tuple(nested_findings), tuple(diverged)
 
 
+def _dead_copy(
+    value: Any, path: str, trail: tuple[int, ...]
+) -> tuple[Any, tuple[str, ...]]:
+    """A dead copy of a value already reported, and every divergence found below it.
+
+    The verdict on `value` is settled before this is called: it is not deeply immutable, and
+    `proved_copy` reports exactly that one finding, byte-identical to `immutability_findings`.
+    What is *not* settled is whether the value the caller still owns is the value that gets
+    recorded. `preparation.frozen` rebuilds every `bytearray`, `Mapping`, `AbstractSet` and
+    `Sequence` from its own fresh read, so a value handed back uncopied here is read live a
+    second time on the copy path, and a two-faced mapping nested below the top is never
+    cross-checked at all. This copies and cross-checks exactly as deep as `frozen` rebuilds.
+
+    It reports nothing further about immutability, and that is deliberate. Widening the
+    *verdict* to match this walk would make a nested plain `dict` proved rather than reported,
+    and `PreparationResult.__post_init__` refuses on exactly that finding today — a control
+    would have been weakened to close a finding. So the walk goes deep while the verdict stays
+    where it was: what this phase refuses, and how it says so, does not move.
+
+    A safe scalar's subclass is a leaf here for the reason `frozen` refuses one rather than
+    taking it apart: `str` and `bytes` are `Sequence`s, and walking one yields its own
+    characters instead of anything nested.
+    """
+    if isinstance(value, IMMUTABLE_LEAVES):
+        return value, ()
+    if isinstance(value, bytearray):
+        return bytes(value), ()
+    if isinstance(value, Mapping):
+        return _dead_mapping(value, path, trail)
+    if isinstance(value, (AbstractSet, Sequence)):
+        is_set = isinstance(value, AbstractSet)
+        try:
+            copied, _, diverged = _proved_members(
+                value,
+                f"{path}.<member>" if is_set else f"{path}.<item>",
+                trail,
+                frozenset if is_set else tuple,
+            )
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as error:  # noqa: BLE001 -- a container that will not be rebuilt is refused
+            return value, (
+                (
+                    f"{path}: this container raised {type(error).__name__} when a dead copy "
+                    "of it was built, so no copy of it exists to record"
+                ),
+            )
+        return copied, diverged
+    return value, ()
+
+
+def _dead_mapping(
+    value: Mapping[Any, Any], path: str, trail: tuple[int, ...]
+) -> tuple[Any, tuple[str, ...]]:
+    """One `.items()` read of a nested mapping, cross-checked and copied out of that read.
+
+    `stored_entries` is contracted to return findings and is called here on a caller's live
+    object one level below the top, so the read itself is held to answering: a mapping that
+    will not be iterated at all has shown its two views agree no more than one whose subscript
+    refuses. It is guarded here rather than inside `stored_entries`, because `observe` calls
+    that function on values whose refusals are already stated at their own seams.
+    """
+    try:
+        stored, divergence = stored_entries(value, path)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a mapping that will not be read is refused
+        return value, (
+            (
+                f"{path}: this mapping raised {type(error).__name__} when it was read by "
+                "iteration, so there is no reading of it to judge"
+            ),
+        )
+    copied: dict[Any, Any] = {}
+    diverged: list[str] = list(divergence)
+    for key, item in stored.items():
+        copied_key, _, key_diverged = proved_copy(key, f"{path}.<key>", trail)
+        copied_item, _, item_diverged = proved_copy(item, f"{path}.<value>", trail)
+        copied[copied_key] = copied_item
+        diverged.extend((*key_diverged, *item_diverged))
+    return MappingProxyType(copied), tuple(diverged)
+
+
 def proved_copy(
     value: object, path: str, seen: tuple[int, ...] = ()
 ) -> tuple[Any, tuple[str, ...], tuple[str, ...]]:
@@ -210,9 +294,15 @@ def proved_copy(
 
     Total and pure like the readers around it: handed one value, answering about that value
     only, reaching nothing and raising nothing out of a seam. A cycle is reported at the path
-    where it closes rather than followed. Only exact `MappingProxyType`, `tuple` and `frozenset`
-    are walked, and every other type is reported at its own path, so the immutability findings
-    are byte-identical to `immutability_findings` on the same value.
+    where it closes rather than followed.
+
+    The walk and the verdict are two answers, and they are deliberately not the same one. Every
+    type `preparation.frozen` rebuilds is walked, so the cross-check and the copy reach every
+    depth `frozen` reaches and nothing survives to be read live a second time. But a value
+    outside exact `MappingProxyType`, `tuple` and `frozenset` is still reported at its own path
+    and nothing below it is reported again, so the immutability findings stay byte-identical to
+    `immutability_findings` on the same value and `PreparationResult.__post_init__` refuses
+    exactly what it refuses today. See `_dead_copy`.
     """
     if type(value) in IMMUTABLE_LEAVES:
         return value, (), ()
@@ -239,8 +329,9 @@ def proved_copy(
         return _proved_members(value, f"{path}.<item>", trail, tuple)
     if type(value) is frozenset:
         return _proved_members(value, f"{path}.<member>", trail, frozenset)
+    copied_value, diverged = _dead_copy(value, path, trail)
     return (
-        value,
+        copied_value,
         (f"{path} holds a {type(value).__name__}, which is not deeply immutable",),
-        (),
+        diverged,
     )

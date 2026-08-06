@@ -1166,8 +1166,12 @@ class RefusesToBeCompared:
         return "RefusesToBeCompared()"
 
 
-def subscripting(stored: dict, answers: dict):
-    """A mapping storing `stored` whose subscript answers `answers` where it has one."""
+def subscripting_plainly(stored: dict, answers: dict):
+    """The same two-faced mapping, left as the plain `dict` a live reading nests it as.
+
+    A real Docker network reading nests plain `dict`s, so the nested cases below cannot be
+    built out of the read-only wrapper `subscripting` returns without changing the case.
+    """
 
     class SubscriptsItsOwnAnswer(dict):
         def __getitem__(self, key: str):
@@ -1175,7 +1179,12 @@ def subscripting(stored: dict, answers: dict):
                 return answers[key]
             return super().__getitem__(key)
 
-    return MappingProxyType(SubscriptsItsOwnAnswer(stored))
+    return SubscriptsItsOwnAnswer(stored)
+
+
+def subscripting(stored: dict, answers: dict):
+    """A mapping storing `stored` whose subscript answers `answers` where it has one."""
+    return MappingProxyType(subscripting_plainly(stored, answers))
 
 
 def test_a_mapping_that_rebuilds_its_values_on_subscript_is_accepted(observe) -> None:
@@ -1249,6 +1258,161 @@ def test_a_subscript_that_refuses_to_answer_at_all_is_still_refused(observe) -> 
     )
     assert len(findings) == 1
     assert "KeyError" in findings[0], findings[0]
+
+
+# ---------------------------------------------------------------------------
+# F136. `proved_copy` fuses the walk, the two-view reconciliation and the copy so that what is
+# judged and what is recorded are one read's answer — but it walked only exact
+# `MappingProxyType`, `tuple` and `frozenset`. Every other value was handed back *uncopied and
+# uncross-checked* with an immutability finding. A live Docker network reading nests plain
+# `dict`s and `runner._proved_reading` wraps only the top level, so the cross-check the fusion
+# docstring claims runs "at every depth" ran at depth 0: a nested mapping stating one set of
+# attachments by iteration and another by subscript was passed straight through, and
+# `preparation.frozen` then rebuilt it from a *second* live read — the two-pass hole the fusion
+# exists to close.
+#
+# What gets walked and what the immutability verdict says are two different answers, and only
+# the first is widened here. `PreparationResult.__post_init__` refuses on exactly the finding a
+# nested plain `dict` produces, so a walk that also widened the verdict — accepting everything
+# `preparation.frozen` accepts — would stop `preparation` refusing what it refuses today. The
+# walk therefore goes as deep as `frozen` rebuilds while the verdict stays byte-identical to
+# `immutability_findings` on the same value.
+
+
+def views_call(name: str, *args, **kwargs):
+    """Reach a `views` name directly: `proved_copy` is not re-exported through `observe`."""
+    return require_c8_attr(load_c8("views"), name)(*args, **kwargs)
+
+
+def nested_reading(containers):
+    """A network reading nesting `containers`, read-only at the top as the runner takes it."""
+    return MappingProxyType(fakes.network_projection(containers=containers))
+
+
+ATTACKER_ATTACHMENT = {"Name": "ATTACKER"}
+
+
+class TaggedString(str):
+    """A `str` subclass: a safe leaf's subclass, and also a `Sequence`."""
+
+
+class ItemsRefusesToAnswer(dict):
+    """A nested mapping that will not be iterated at all."""
+
+    def items(self):
+        raise RuntimeError("this mapping will not be read")
+
+
+def test_a_nested_plain_mapping_whose_two_views_disagree_is_refused() -> None:
+    """The F136 case: the liar one level below the top, where a real reading nests it."""
+    genuine = fakes.network_projection()["Containers"]
+    liar = subscripting_plainly(genuine, {fakes.CONTAINER_NAME: ATTACKER_ATTACHMENT})
+    assert dict(liar.items())[fakes.CONTAINER_NAME] != liar[fakes.CONTAINER_NAME], (
+        "premise: this mapping's two views must disagree, or the case is vacuous"
+    )
+    _, _, divergence = views_call("proved_copy", nested_reading(liar), "network")
+    assert divergence, (
+        "a nested mapping whose subscript states another attachment must be refused"
+    )
+
+
+def test_a_nested_read_only_mapping_whose_two_views_disagree_is_still_refused() -> None:
+    """The positive control that isolates the cause: the identical liar behind a proxy.
+
+    This one was already walked and already refused, so it names the exact type gate rather
+    than the liar as the defect, and it must keep refusing after the walk is deepened.
+    """
+    genuine = fakes.network_projection()["Containers"]
+    liar = subscripting(genuine, {fakes.CONTAINER_NAME: ATTACKER_ATTACHMENT})
+    _, _, divergence = views_call("proved_copy", nested_reading(liar), "network")
+    assert divergence, "the pre-repair positive control must not regress"
+
+
+def test_a_mapping_two_levels_below_the_top_is_cross_checked_as_well() -> None:
+    """Depth 1 is not a new special case: the walk either goes all the way down or it does not."""
+    liar = subscripting_plainly({"Name": fakes.CONTAINER_NAME}, {"Name": "ATTACKER"})
+    reading = nested_reading({fakes.CONTAINER_NAME: liar})
+    _, _, divergence = views_call("proved_copy", reading, "network")
+    assert divergence, "a disagreement two levels down must be refused too"
+
+
+def test_a_nested_sequence_hiding_a_two_faced_mapping_is_cross_checked() -> None:
+    """`preparation.frozen` rebuilds a `Sequence` too, so the walk may not stop at one."""
+    liar = subscripting_plainly({"Name": fakes.CONTAINER_NAME}, {"Name": "ATTACKER"})
+    reading = nested_reading({fakes.CONTAINER_NAME: [liar]})
+    _, _, divergence = views_call("proved_copy", reading, "network")
+    assert divergence, "a disagreement nested inside a list must be refused too"
+
+
+def test_the_copy_of_a_nested_mapping_is_a_dead_one_rather_than_the_live_object() -> None:
+    """A value handed back uncopied is a value `preparation.frozen` reads live a second time.
+
+    That is the two-pass hole in its original form: the read that was judged and the read that
+    was recorded are two reads of one object the caller still owns.
+    """
+    containers = fakes.network_projection()["Containers"]
+    copied, _, _ = views_call("proved_copy", nested_reading(containers), "network")
+    recorded = dict(copied)["Containers"]
+    assert recorded is not containers, (
+        "a nested container handed back uncopied is re-read live by `preparation.frozen`"
+    )
+    assert dict(recorded) == containers, "the dead copy must state what the reading stored"
+
+
+def test_a_nested_mapping_that_refuses_to_be_read_is_reported_rather_than_raising() -> None:
+    """A reducer contracted to return findings may not raise out of the deepened walk."""
+    _, _, divergence = views_call(
+        "proved_copy", nested_reading(ItemsRefusesToAnswer()), "network"
+    )
+    assert len(divergence) == 1, divergence
+    assert "RuntimeError" in divergence[0], divergence[0]
+
+
+def test_an_honest_nested_reading_is_still_accepted_by_the_deepened_walk() -> None:
+    """The positive control: a cross-check that refuses every reading has proved nothing."""
+    reading = nested_reading(fakes.network_projection()["Containers"])
+    copied, _, divergence = views_call("proved_copy", reading, "network")
+    assert divergence == (), f"an honest reading must be accepted, got {divergence}"
+    assert dict(copied)["Internal"] is True
+    assert dict(dict(copied)["Containers"]) == fakes.network_projection()["Containers"]
+
+
+DEEPLY_WALKED_VALUES = (
+    pytest.param(fakes.network_projection(), id="plain-nested-reading"),
+    pytest.param(MappingProxyType(fakes.network_projection()), id="read-only-reading"),
+    pytest.param(MappingProxyType({"ports": [5432, 5433]}), id="nested-list"),
+    pytest.param(MappingProxyType({"ports": {5432}}), id="nested-set"),
+    pytest.param((["attachment"],), id="tuple-holding-a-list"),
+    pytest.param(bytearray(b"digest"), id="bytearray"),
+    pytest.param(TaggedString("16-alpine"), id="string-subclass"),
+)
+
+
+@pytest.mark.parametrize("value", DEEPLY_WALKED_VALUES)
+def test_the_deepened_walk_reports_exactly_the_immutability_findings_it_reported_before(
+    value,
+) -> None:
+    """The verdict `PreparationResult.__post_init__` refuses on may not move.
+
+    `preparation` raises on these findings before it looks at anything else, so a walk that
+    stopped reporting a nested plain `dict` — or that started reporting the values *inside*
+    one it has already reported — would change what that phase refuses and how it says so.
+    """
+    findings = views_call("proved_copy", value, "field")[1]
+    assert findings == views_call("immutability_findings", value, "field")
+
+
+def test_a_string_subclass_is_a_leaf_rather_than_a_sequence_to_walk() -> None:
+    """`str` is a `Sequence`: walking one yields its own characters, not nested values.
+
+    `preparation.frozen` refuses a safe scalar's subclass for the same reason rather than
+    taking it apart, so this walk may not take it apart either.
+    """
+    tagged = TaggedString("16-alpine")
+    copied, findings, divergence = views_call("proved_copy", tagged, "field")
+    assert copied is tagged
+    assert findings == ("field holds a TaggedString, which is not deeply immutable",)
+    assert divergence == ()
 
 
 # ---------------------------------------------------------------------------

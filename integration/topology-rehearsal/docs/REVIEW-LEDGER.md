@@ -7652,3 +7652,94 @@ would convert **every** live reading into a `STOP_CONTROL`. **F137 must not be r
 F136.** This is recorded now because it is the exact trap the next writer would otherwise walk into,
 in the same shape as the one cycle 58 recorded for F131.
 
+---
+
+## Cycle 60 — the F136 repair written test-first, with the verdict pinned against the walk
+
+### Measured RED, before any implementation existed
+
+At `9059609` with the F136 tests present and `views.proved_copy` unchanged apart from one added
+import, `pytest tests/test_observe.py -k "nested or deepened or string_subclass or dead_one"` gave
+**4 failed / 10 passed**. The four are exactly the F136 class, and each failed for the stated cause:
+
+| RED test | Proved cause of failure |
+|---|---|
+| `..._nested_plain_mapping_whose_two_views_disagree_is_refused` | `divergence == ()` — the liar one level down was never cross-checked |
+| `..._nested_sequence_hiding_a_two_faced_mapping_is_cross_checked` | same, reached through a nested sequence |
+| `..._copy_of_a_nested_mapping_is_a_dead_one_rather_than_the_live_object` | `recorded is containers` — the caller's live object was handed back for `preparation.frozen` to re-read |
+| `..._nested_mapping_that_refuses_to_be_read_is_reported_rather_than_raising` | `len(divergence) == 0` |
+
+The **10 that passed before the repair are the controls that matter**: the read-only-proxy liar
+(already refused), the honest-reading positive control, the string-subclass leaf, and the seven
+parametrized `proved_copy(...)[1] == immutability_findings(...)` verdict-invariance cases. A repair
+that widened the verdict would have turned these green tests red, which is how the trap cycle 59
+predicted was kept out of the implementation rather than measured after it.
+
+### The applied repair
+
+`views.py` gains `_dead_copy` and `_dead_mapping`; `proved_copy`'s final branch now returns
+`_dead_copy`'s copy and divergence instead of the caller's own object and `()`.
+
+- **The walk** now reaches every type `preparation.frozen` rebuilds — `bytearray`, `Mapping`,
+  `AbstractSet`, `Sequence` by `isinstance`, in `frozen`'s own order, so a value that is both a
+  `Mapping` and a `Sequence` is treated as `frozen` treats it.
+- **The verdict is unmoved.** A value outside exact `MappingProxyType`/`tuple`/`frozenset` still
+  yields its one `holds a … which is not deeply immutable` finding and **nothing below it is
+  reported again**. `_dead_copy` discards the nested findings of the children it walks. This is why
+  `PreparationResult.__post_init__` still refuses a nested plain `dict`, byte-identically.
+- **A safe scalar's subclass is a leaf, not a `Sequence`** — matching `preparation.frozen:132-141`.
+  `proved_copy(TaggedString(...))` returns the object itself, so no `str` subclass is taken apart
+  into its own characters.
+- **`stored_entries` was not modified.** `observe.py:336-339` calls it on two other seams whose
+  refusals are already stated there. The `.items()` read is guarded inside `_dead_mapping` only.
+
+### Gates measured after the repair, on a tree whose only untracked file is `uv.lock`
+
+| Gate | Before (cycle 59, `5db202f`) | After |
+|---|---|---|
+| Broad census | 1551 passed / 58 failed | **1566 passed / 58 failed** (+15 new tests) |
+| Unintended failures | 0 | **0** — the 58 are the same absent-script REDs |
+| `test_observe.py` | 157 passed | **172 passed** |
+| Focused total | 986 passed | **1001 passed, 0 failed** |
+| ruff 0.16.0 | 12 findings | **12 findings**, same 12 sites, no `--fix` run |
+| `compileall` src + tests | exit 0 | **exit 0** |
+| `views.py` / `runner.py` | 246 / 799 | **337 / 799** — `runner.py` gained no line |
+| `uv.lock` MD5 | `ff29c06c8a4247c27f68dac52c14d02d` | **unchanged**, verified before and after every `uv` call |
+
+An intermediate ruff reading of 14 was caused by two `ISC004` implicit concatenations in the new
+code; both were parenthesized, returning the count to the F120 baseline of 12. **The baseline was
+restored by fixing the new code, not by re-baselining the gate.**
+
+### Owed, and explicitly not claimed
+
+1. **The repair is repaired-unreviewed.** No independent verdict has been obtained on it. F136 is
+   **not** closed by this entry.
+2. **An asymmetry this repair leaves standing.** `proved_copy`'s *top-level* exact-`MappingProxyType`
+   branch still calls `stored_entries` unguarded (`views.py:224`), so a top-level proxy whose
+   `.items()` raises still propagates that exception out of `PreparationResult.__post_init__` as
+   something other than the documented `ValueError`. The guard was deliberately confined to the new
+   nested path to keep this repair minimal. **Opened as F141 (P2).**
+3. **F137 remains blocked behind an independent verdict on this repair**, not merely behind its
+   existence. The cycle-59 reasoning stands: honouring the immutability findings in
+   `runner._proved_reading` is only safe once the deep walk is *reviewed*, not once it is written.
+
+### Gate at the close of cycle 60
+
+- **P0 = 0**
+- **P1 OPEN = 6** — F33, F123, F128, F131, F134, F135 (**F136 → P1 repaired-unreviewed**)
+- **P1 repaired-unreviewed = 11** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122, **F136**)
+- **P2 OPEN = 44** (43 + **F141**)
+- **P2 repaired-unreviewed = 3** (F79, F84, F95)
+- **P3 OPEN = 42**, **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30**, **SUPERSEDED = 2**, **PHANTOM = 4** (F56-F59)
+
+```
+CLOSED 30 + P1 OPEN 6 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 11
+  + P2 OPEN 44 + P2 r-u 3 + P3 OPEN 42 + P3 r-u 2 = 144
+```
+
+`144` = F1..F141 (141) + F29-A/B/C (3). Exact. Highest ID defined is now **F141**.
+
+**`P0 = P1 = P2 = 0` is NOT met.** Nothing ahead of `73ec822` is push-eligible, the atomic entrypoint
+GREEN remains blocked, RUNTIME **HOLD**, production **Founder-only**.
+
