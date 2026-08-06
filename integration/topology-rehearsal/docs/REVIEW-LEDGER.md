@@ -2148,3 +2148,96 @@ writer lane was already editing the tree. The cycle-19 split (51 `test_scripts_i
 here. It is re-measured in the cycle-20 closing entry below.
 
 RUNTIME remains **HOLD**. No entrypoint script exists and none was executed.
+
+## Cycle 21 — F30 repaired test-first; both owed reviews commissioned
+
+### Live state reconciliation at cycle open
+
+The checkpoint handed to this cycle named HEAD `76553f4` and a range of 11 commits. Live
+`git status --short --branch` reported **45 ahead** at HEAD `3bdc578`, with a *dirty* tree
+carrying an uncommitted, unmeasured F30 repair left in flight by cycle 20's timeout. Live
+state was taken as authoritative. PR #55 is unchanged: OPEN, **draft**, CLEAN, four rendered
+checks SUCCESS at the pushed tip `73ec822`.
+
+### F30 — REPAIRED. `preparation.py` + `tests/test_preparation.py`, commit `3e9bba6`
+
+`PreparationResult.granted_observed_at` was declared `str = ""`. The default made "no pin was
+proved" a constructible state of a class whose one documented state is a proof.
+`runner.attempt_id_for` (`runner.py:331`) renders the single authorized attempt's name out of
+this field, so a result carrying the default would have named no attempt, and the disagreement
+would have surfaced only once that one attempt had already been spent.
+
+**The repair.** The default is withdrawn, making the field mandatory. `__post_init__` now
+refuses anything that is not the exact UTC instant the grant signed:
+
+```python
+if type(self.granted_observed_at) is not str or instant(self.granted_observed_at) is None:
+    raise ValueError(...)
+```
+
+Eleven rejected values are pinned as `UNPINNED_INSTANTS`: empty, whitespace, trailing space,
+prose, `+00:00` in place of `Z`, an impossible month, unpadded fields, an already-rendered
+identity, `None`, an int, and a `str` subclass. The subclass case is included because
+`frozen()` refuses safe-scalar subclasses outright (`preparation.py:125-133`) while a subclass
+still parses as an instant — a snapshot documented as a complete immutable record may not hold
+one value the same module would refuse to copy.
+
+A **field-inventory pin** is added alongside, mirroring the one `tests/test_admission.py:803`
+holds over the independent fact record. Its absence is precisely what let `granted_observed_at`
+be added to the class earlier without `result_fields()` or any coherence parametrisation
+noticing.
+
+**Intended RED, measured against the parent's source rather than assumed.** The parent's
+`preparation.py` was read out with `git show cdb1f70:...` into a /tmp scratch tree — no
+checkout, stash or reset was used, and the working tree was never reverted — and the new tests
+were run against it: **12 failed / 296 passed**. The twelve are the eleven `UNPINNED_INSTANTS`
+parametrisations plus `test_the_pinned_instant_is_mandatory_rather_than_defaulted`.
+
+**Honestly stated limit of that RED.** `test_the_result_field_inventory_is_exactly_the_proved_field_set`
+and `test_the_pinned_instant_reaches_the_snapshot_from_the_signed_document` **passed** at the
+parent. They are controls, not RED evidence: the field already existed and `snapshot()` already
+copied the signed instant. They are recorded here as controls so a later reader does not count
+them as proof of the repair.
+
+**Single construction site.** `grep` over `src` and `tests` finds exactly one
+`PreparationResult(` construction, `preparation.py:737`, which sets the field at `:760` from
+`document["observed_image_identity"][OBSERVED_AT_KEY]`. No caller relied on the withdrawn
+default.
+
+**Evidence:**
+
+| Gate | Command | Result |
+|---|---|---|
+| Intended RED (parent source in /tmp) | `pytest -q tests/test_preparation.py` | **12 failed / 296 passed** |
+| GREEN (at `3e9bba6`) | `pytest -q tests/test_preparation.py` | **308 passed** |
+| Broad census | `uv run --offline python -m pytest -q` | **58 failed / 1433 passed** in 0.64s |
+| Failure distribution | `... \| grep ^FAILED \| sed 's/::.*//' \| sort \| uniq -c` | **51 `test_scripts_inert.py` + 7 `test_surface_contract.py`** — the recorded absent-script set, unchanged |
+| Lint | `uv run --offline ruff check .` | **2 errors**, both pre-existing `I001`, in `tests/test_errors.py:12` and `tests/test_runner.py:3` — neither file touched this cycle; `--fix` was NOT run |
+| Compile | `uv run --offline python -m compileall -q src tests` | clean |
+| Lockfile | `git status --short` | `uv.lock` untracked and untouched |
+
+The census total rose from 1418 to 1433 passed by exactly the 15 new tests. The failed count
+and its per-file split are unchanged, so nothing outside `test_preparation.py` moved.
+
+### Independent review status
+
+Both owed reviews were commissioned this cycle as separate, non-overlapping adversarial Opus
+lanes, each read-only and each forbidden from touching the working tree or the lockfile:
+
+- **F39** (`5bef003`, the call-argument-to-parameter taint edge) — carried over from cycle 19,
+  where it was commissioned but did not return before the cycle closed. Brief: reproduce the RED
+  at `25aadc0`, hunt further parameter-edge launderings, hunt false positives against honest
+  wirings, and crash-test `argument_pairs` against real Python binding forms. Findings are
+  numbered from **F45**.
+- **F30** (`3e9bba6`, this cycle's repair) — brief: hunt values that `instant()` accepts but that
+  are not the signed instant, test whether shape validation without *agreement* validation is a
+  real gap, verify the `frozen()` subclass claim, regression-hunt the withdrawn default, and
+  attack the new tests for vacuity against a deliberately broken implementation. Findings are
+  numbered from **F60**.
+
+Until both verdicts are recorded below, **F30 and F39 are measured but not independently
+reviewed**, exactly as F43/F44 were left. The open P1 set for the GREEN gate is judged only
+after both land. The GREEN remains blocked.
+
+RUNTIME remains **HOLD**. No entrypoint script exists and none was executed. Nothing was pushed;
+PR #55 stays draft at `73ec822`.
