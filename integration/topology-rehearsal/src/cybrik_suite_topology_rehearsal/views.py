@@ -35,7 +35,11 @@ __all__ = [
     "is_immutable_leaf",
     "nested",
     "proved_copy",
+    "read_items",
+    "safe_repr",
+    "safe_type_name",
     "stored_entries",
+    "subclasses_immutable_leaf",
 ]
 
 # How deep a projection may nest before the walk stops and reports it. The walk recurses once
@@ -69,7 +73,11 @@ def is_immutable_leaf(value: object) -> bool:
     *which* types those are. Reaching for the tuple to make the decision is the F153 defect
     itself: `type(value) in IMMUTABLE_LEAVES` and `isinstance(value, IMMUTABLE_LEAVES)` are both
     forgeable, the first through a metaclass `__eq__` and the second through `__class__`. Any
-    caller deciding leaf status must call this function instead of re-deriving the test.
+    caller deciding leaf status must call this function instead of re-deriving the test, and a
+    caller asking the *subclass* question must call `subclasses_immutable_leaf`. Both live here
+    so the decision has one definition: a guard re-derived at each call site is only as strong
+    as its weakest copy, and `preparation.frozen` re-derived both forms for four verdicts while
+    this sentence claimed otherwise (F0026).
 
     `type(value) in IMMUTABLE_LEAVES` was **not** this test, and that was F153. Membership is
     defined as `any(e is x or e == x)`, so it consults `__eq__` on the class object — which a
@@ -85,7 +93,29 @@ def is_immutable_leaf(value: object) -> bool:
     return any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)
 
 
-def _safe_repr(value: object) -> str:
+def subclasses_immutable_leaf(value: object) -> bool:
+    """Whether `value` inherits from a builtin leaf without being one exactly.
+
+    The companion to `is_immutable_leaf`, and the *only* sanctioned spelling of the subclass
+    question. `preparation.frozen` refuses such a value rather than walking it, because `str`
+    and `bytes` are `Sequence`s and a subclass reaching generic container handling would be
+    taken apart into its own characters while the caller kept a live handle on whatever mutable
+    state it carries.
+
+    This is decided by `issubclass(type(value), ...)` rather than `isinstance`, for the reason
+    `VERDICT-6d20929` filed as P2-2: `isinstance` falls back to the instance's `__class__`, so
+    an unrelated object publishing `__class__ = str` was admitted here. Both operands are
+    ordinary types under `issubclass(type(value), ...)`, so the check resolves to
+    `PyType_IsSubtype` — the interpreter's relation, which the judged object does not own.
+
+    Forging in the *opening* direction was never the exposure: a lie that makes this answer
+    `True` produces a spurious refusal, which is fail-closed. The exposure is a caller
+    re-deriving the test and getting a weaker answer than this one.
+    """
+    return issubclass(type(value), IMMUTABLE_LEAVES) and not is_immutable_leaf(value)
+
+
+def safe_repr(value: object) -> str:
     """`repr(value)`, or a stated placeholder when the value refuses to be represented.
 
     Every finding below interpolates the judged value, and the judged value arrived through an
@@ -99,10 +129,10 @@ def _safe_repr(value: object) -> str:
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException:  # noqa: BLE001 -- a value that will not be printed is still reported
-        return f"<unrepresentable {_safe_type_name(value)}>"
+        return f"<unrepresentable {safe_type_name(value)}>"
 
 
-def _safe_type_name(value: object) -> str:
+def safe_type_name(value: object) -> str:
     """`type(value).__name__`, which a hostile `__name__` descriptor can also refuse."""
     try:
         name = type(value).__name__
@@ -212,14 +242,70 @@ def _announced_keys(mapping: Mapping[str, Any]) -> tuple[Any, ...] | None:
         return None
 
 
+def read_items(mapping: Mapping[Any, Any]) -> tuple[tuple[Any, Any], ...] | None:
+    """One `.items()` read, or `None` if the mapping will not answer it.
+
+    The shared spelling of "hold the read to answering". `preparation.frozen` rebuilt a mapping
+    straight out of `value.items()`, so a mapping that raised mid-read — a `bytearray`+`Mapping`
+    hybrid raises `IndexError` out of `_collections_abc` — escaped as a type that function's
+    callers do not name, out of one contracted to raise `ValueError` (F0024).
+    """
+    try:
+        return tuple(mapping.items())
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:  # noqa: BLE001 -- a mapping that will not be read is refused by the caller
+        return None
+
+
+def _claimed_keys(mapping: Mapping[str, Any]) -> tuple[Any, ...] | None:
+    """Every key the mapping states through `keys()`, or `None` if it will not answer.
+
+    A second announcing view, and a distinct one: `keys()` is an ordinary method a mapping is
+    free to answer differently from `__iter__`, and a validator reaching for it would meet the
+    entries this cross-check never saw.
+    """
+    try:
+        return tuple(mapping.keys())
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:  # noqa: BLE001 -- an unreadable announcement is handled by the caller
+        return None
+
+
+def _is_stored(key: Any, stored: dict[str, Any]) -> bool | None:
+    """Whether `key` is a key of `stored`, or `None` if the key refuses to be hashed.
+
+    Membership hashes the key, and the key arrived through an injected port. `__hash__` is
+    attacker-controlled code — and an unhashable key needs no code at all, since `__hash__ =
+    None` is enough — so `key not in stored` raised `TypeError` out of a seam contracted to
+    return findings. `VERDICT` row F0022 filed that: the announced-key reconciliation was the
+    one place a hostile key was touched before any handler existed. A key that will not be
+    hashed cannot be shown to be stored, which is a finding, not an exception.
+    """
+    try:
+        return key in stored
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:  # noqa: BLE001 -- a key that will not be hashed is reported below
+        return None
+
+
 def _key_set_findings(
-    mapping: Mapping[str, Any], stored: dict[str, Any], label: str
+    mapping: Mapping[str, Any], stored: dict[str, Any], label: str, yielded: int
 ) -> tuple[str, ...]:
     """Whether the keys a mapping announces are the keys it stored under one `.items()` read.
 
-    `stored` is one read's answer. A mapping whose `__iter__`, `keys()` or `__len__` answers for
-    an entry that read never yielded has a view no part of this cross-check would otherwise
-    reach, and `.get`/`__getitem__` are exactly where a later validator would meet it.
+    `stored` is one read's answer and `yielded` is how many pairs that read produced. A mapping
+    whose `__iter__`, `keys()` or `__len__` answers for an entry that read never yielded has a
+    view no part of this cross-check would otherwise reach, and `.get`/`__getitem__` are exactly
+    where a later validator would meet it.
+
+    All three announcing views are read, and reading only `__iter__` was F0025: `keys()` is a
+    distinct method a mapping may answer differently, and `stored_entries`' docstring claimed it
+    was reconciled while nothing consulted it. The count `.items()` *yielded* is checked as well
+    as the count it *stored*, because duplicate keys collapse into `stored` silently — two
+    entries in, one entry judged, and the loser never seen by anything (F0015).
     """
     findings: list[str] = []
     announced = _announced_keys(mapping)
@@ -231,18 +317,40 @@ def _key_set_findings(
                 "announces"
             ),
         )
-    unstored = [key for key in announced if key not in stored]
-    for key in unstored:
+    claimed = _claimed_keys(mapping)
+    if claimed is None:
         findings.append(
-            f"{label}: {_safe_repr(key)} is announced by iteration but was never yielded by "
-            "`.items()`, "
-            "so this entry is answered by the accessors validators read while being absent "
-            "from the one read this cross-check judges"
+            f"{label}: this mapping raised when it was asked for `keys()`, so the entries it "
+            "stores cannot be shown to be the entries it announces"
         )
+        claimed = ()
+    unstored: list[Any] = []
+    for key in (*announced, *claimed):
+        is_stored = _is_stored(key, stored)
+        if is_stored is None:
+            findings.append(
+                f"{label}: {safe_repr(key)} is announced as a key but refuses to be hashed, so "
+                "it cannot be shown to be one of the entries this cross-check judges"
+            )
+            unstored.append(key)
+            continue
+        if not is_stored:
+            unstored.append(key)
+            findings.append(
+                f"{label}: {safe_repr(key)} is announced by iteration or `keys()` but was never "
+                "yielded by `.items()`, "
+                "so this entry is answered by the accessors validators read while being absent "
+                "from the one read this cross-check judges"
+            )
     if len(announced) != len(stored) and not unstored:
         findings.append(
             f"{label}: iteration announces {len(announced)} keys while `.items()` yielded "
             f"{len(stored)} distinct entries, so at least one key collapsed silently"
+        )
+    if yielded != len(stored):
+        findings.append(
+            f"{label}: `.items()` yielded {yielded} pairs but only {len(stored)} distinct "
+            "entries, so at least one key was yielded twice and collapsed silently"
         )
     try:
         declared_length = len(mapping)
@@ -318,17 +426,33 @@ def stored_entries(
     The cross-checked key set is **not** taken from `.items()` alone. `stored` is what `.items()`
     yielded, but a mapping is free to announce keys through `__iter__`, `keys()` and `__len__`
     that its `.items()` never yields — and those are precisely the entries a `.get`-based
-    validator would read while this cross-check looked away. Every key the mapping announces is
-    therefore reconciled against the keys it actually stored, and a discrepancy in either
-    direction is a refusal. Duplicate keys yielded by `.items()` collapse into `stored` silently,
-    so the yielded count is checked against the stored count as well.
+    validator would read while this cross-check looked away. Every key the mapping announces
+    through `__iter__` *or* `keys()` is therefore reconciled against the keys it actually
+    stored, and a key announced by either view that `.items()` never yielded is a refusal.
+    Reading `__iter__` alone was F0025: this paragraph claimed `keys()` was reconciled while
+    `_announced_keys` consulted iteration only, so a mapping needed only to keep its `__iter__`
+    honest. `__len__` is cross-checked separately, below.
 
-    Every value interpolated into a finding is formatted through `_safe_repr`: `repr()` is
-    attacker-controlled code, and a `__repr__` that raises must not let a hostile reading
-    suppress the report of its own divergence.
+    Duplicate keys yielded by `.items()` collapse into `stored` silently — two pairs in, one
+    entry judged — so the count `.items()` *yielded* is checked against the count it *stored*,
+    not merely the announced count against the stored count. That check did not exist while this
+    paragraph claimed it did (F0025, F0015), and the two counts it did compare could not see a
+    duplicate at all, because collapsing leaves both sides equal.
+
+    Every value interpolated into a finding is formatted through `safe_repr`, **including the
+    key**: `repr()` is attacker-controlled code, and a `__repr__` that raises must not let a
+    hostile reading suppress the report of its own divergence. Six findings interpolated the key
+    bare through `f"{key}"` — which calls `__format__`, equally attacker-controlled — outside
+    every `try`, so a key that refused to be printed suppressed the very divergence it caused
+    (F0006). Membership is likewise taken through `_is_stored`, because hashing an announced key
+    runs `__hash__` on an object that is free to have none (F0022).
     """
-    stored = dict(mapping.items())
-    findings: list[str] = list(_key_set_findings(mapping, stored, label))
+    yielded = 0
+    stored: dict[str, Any] = {}
+    for entry_key, entry_value in mapping.items():
+        yielded += 1
+        stored[entry_key] = entry_value
+    findings: list[str] = list(_key_set_findings(mapping, stored, label, yielded))
     for key, value in stored.items():
         try:
             subscripted = mapping[key]
@@ -336,8 +460,8 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
             findings.append(
-                f"{label}: {key} raised {type(error).__name__} when read by subscript while "
-                f"this mapping stores {_safe_repr(value)}, so its two views of one entry disagree"
+                f"{label}: {safe_repr(key)} raised {type(error).__name__} when read by subscript while "
+                f"this mapping stores {safe_repr(value)}, so its two views of one entry disagree"
             )
             continue
         try:
@@ -346,16 +470,16 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
-                f"{label}: {key} raised {type(error).__name__} when the object its subscript "
-                f"returned was compared with the {_safe_repr(value)} this mapping stores, so its two "
+                f"{label}: {safe_repr(key)} raised {type(error).__name__} when the object its subscript "
+                f"returned was compared with the {safe_repr(value)} this mapping stores, so its two "
                 "views of one entry cannot be shown to agree"
             )
             continue
         if not agreed:
             findings.append(
-                f"{label}: {key} reads by subscript as the {_safe_type_name(subscripted)} "
-                f"{_safe_repr(subscripted)} while this mapping stores the "
-                f"{_safe_type_name(value)} {_safe_repr(value)}, which are distinct objects "
+                f"{label}: {safe_repr(key)} reads by subscript as the {safe_type_name(subscripted)} "
+                f"{safe_repr(subscripted)} while this mapping stores the "
+                f"{safe_type_name(value)} {safe_repr(value)}, which are distinct objects "
                 "that do not compare exactly equal in "
                 "both directions, so its two views of one entry disagree"
             )
@@ -366,8 +490,8 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a mapping that will not answer is refused
             findings.append(
-                f"{label}: {key} raised {type(error).__name__} when read by `.get` while this "
-                f"mapping stores {_safe_repr(value)}, so its two views of one entry disagree"
+                f"{label}: {safe_repr(key)} raised {type(error).__name__} when read by `.get` while this "
+                f"mapping stores {safe_repr(value)}, so its two views of one entry disagree"
             )
             continue
         try:
@@ -376,16 +500,16 @@ def stored_entries(
             raise
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
-                f"{label}: {key} raised {type(error).__name__} when the object its `.get` "
-                f"returned was compared with the {_safe_repr(value)} this mapping stores, so its two "
+                f"{label}: {safe_repr(key)} raised {type(error).__name__} when the object its `.get` "
+                f"returned was compared with the {safe_repr(value)} this mapping stores, so its two "
                 "views of one entry cannot be shown to agree"
             )
             continue
         if not agreed:
             findings.append(
-                f"{label}: {key} reads by `.get` as the {_safe_type_name(fetched)} "
-                f"{_safe_repr(fetched)} while this mapping stores the "
-                f"{_safe_type_name(value)} {_safe_repr(value)}, which are distinct objects "
+                f"{label}: {safe_repr(key)} reads by `.get` as the {safe_type_name(fetched)} "
+                f"{safe_repr(fetched)} while this mapping stores the "
+                f"{safe_type_name(value)} {safe_repr(value)}, which are distinct objects "
                 "that do not compare exactly equal in "
                 "both directions, so its two views of one entry disagree"
             )
@@ -591,15 +715,23 @@ def proved_copy(
     the projections this package reads nest a handful of levels — it is the difference between an
     unbounded reading being a finding and it being a crash.
 
-    Depth exhaustion is reported in the **divergence** channel, not the immutability one, and the
-    choice is forced rather than stylistic. `_dead_mapping` deliberately discards the nested
-    immutability findings of the values below it, so that the verdict this phase reaches stays
-    byte-identical to `immutability_findings` and `PreparationResult.__post_init__` refuses
-    exactly what it refuses today. A depth report placed in that channel is therefore silently
-    dropped on precisely the path that needs it — a bound that stops the crash and says nothing
-    is a bound that converts a loud failure into a quiet one. Divergence findings propagate from
-    every depth on every path, and an unterminating reading is in any case a refusal to be
-    reconciled rather than a statement about immutability.
+    Depth exhaustion is reported in the **divergence** channel, and the choice is forced rather
+    than stylistic. `_dead_mapping` deliberately discards the nested immutability findings of the
+    values below it, so a depth report placed in that channel alone is silently dropped on
+    precisely the path that needs it — a bound that stops the crash and says nothing is a bound
+    that converts a loud failure into a quiet one. Divergence findings propagate from every depth
+    on every path, and an unterminating reading is in any case a refusal to be reconciled rather
+    than a statement about immutability.
+
+    But it is **not reported there instead of** the immutability channel, and saying so was
+    F0023. The immutability channel was returned empty at the bound while `immutability_findings`
+    reports `"... is nested deeper than N levels"` at that same depth, which broke the
+    byte-identity this docstring asserts two paragraphs below and, far worse, handed
+    `PreparationResult.__post_init__` — which refuses on exactly that channel — nothing at all
+    about a projection too deep to read. A hostile projection needed only to nest past the bound
+    to be admitted in silence. The bound now answers on both channels: `immutability_findings` is
+    consulted at the exhausted depth so the verdict stays byte-identical, and the divergence
+    report states why the walk stopped.
 
     The walk and the verdict are two answers, and they are deliberately not the same one. Every
     type `preparation.frozen` rebuilds is walked, so the cross-check and the copy reach every
@@ -616,7 +748,7 @@ def proved_copy(
     if len(seen) >= MAX_PROJECTION_DEPTH:
         return (
             value,
-            (),
+            immutability_findings(value, path, seen),
             (
                 (
                     f"{path}: this projection nests deeper than {MAX_PROJECTION_DEPTH} levels, "

@@ -49,7 +49,6 @@ from .grant import (
 )
 from .observe import (
     HOST_IMAGE_KEYS,
-    IMMUTABLE_LEAVES,
     PRESENT_KEY,
     local_presence_findings,
     signed_identity_findings,
@@ -61,7 +60,13 @@ from .protocols import (
     HostObservationSource,
     ProbePort,
 )
-from .views import proved_copy
+from .views import (
+    is_immutable_leaf,
+    proved_copy,
+    read_items,
+    safe_repr,
+    subclasses_immutable_leaf,
+)
 
 __all__ = ["PreparationResult", "prepare"]
 
@@ -128,28 +133,24 @@ REFUSAL_PREFIX = "preparation refused before consumption"
 
 def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     """Return a recursively immutable dead copy; reject cycles and unknown types."""
-    if type(value) in IMMUTABLE_LEAVES:
+    if is_immutable_leaf(value):
         return value
-    if isinstance(value, IMMUTABLE_LEAVES):
-        # A safe leaf is an exact type, never a subclass of one. `str` and `bytes` are also
-        # `Sequence`s, so a subclass reaching the generic container handling below would be
-        # taken apart into a tuple of its own characters or bytes rather than refused, and
-        # the caller would keep a live handle on whatever mutable state it carries.
-        raise ValueError(  # noqa: TRY004 -- every unprovable value refuses the one same way
+    if subclasses_immutable_leaf(value):
+        raise ValueError(
             f"a {type(value).__name__} subclasses a safe scalar but may carry mutable state "
             "of its own, so it is not one of the leaves this phase can prove"
         )
     if id(value) in seen:
-        raise ValueError(
-            f"a {type(value).__name__} refers to itself, so no dead copy of it exists"
-        )
+        raise ValueError(f"a {type(value).__name__} refers to itself, so no dead copy of it exists")
     trail = (*seen, id(value))
+    # The `Mapping` face precedes every buffer arm, matching `views._dead_copy` (F0024).
+    if isinstance(value, Mapping):
+        items = read_items(value)
+        if items is None:
+            raise ValueError(f"a {type(value).__name__} raised when read by `.items()`")
+        return MappingProxyType({frozen(k, trail): frozen(i, trail) for k, i in items})
     if isinstance(value, bytearray):
         return bytes(value)
-    if isinstance(value, Mapping):
-        return MappingProxyType(
-            {frozen(key, trail): frozen(item, trail) for key, item in value.items()}
-        )
     if isinstance(value, AbstractSet):
         return frozenset(frozen(item, trail) for item in value)
     if isinstance(value, Sequence):
@@ -320,7 +321,7 @@ def projected(label: str, read: Any) -> Any:
 def adapter_findings(adapters: object) -> tuple[str, ...]:
     """Refuse an injected surface that cannot answer one of the four reviewed ports."""
     return tuple(
-        f"adapters: {name} {getattr(adapters, name, None)!r} does not implement "
+        f"adapters: {name} {safe_repr(getattr(adapters, name, None))} does not implement "
         f"{port.__name__}"
         for name, port in ADAPTER_PORTS
         if not isinstance(getattr(adapters, name, None), port)
@@ -330,7 +331,7 @@ def adapter_findings(adapters: object) -> tuple[str, ...]:
 def expected_control_findings(expected: object) -> tuple[str, ...]:
     """The authorization must name a commit for each of the four control repositories."""
     if not isinstance(expected, Mapping):
-        label = f"authorization: expected_controls {expected!r} is not an inventory"
+        label = f"authorization: expected_controls {safe_repr(expected)} is not an inventory"
         return (label,)
     refusals = keyed(
         expected, CONTROL_REPOSITORIES, "authorization expected_controls", ordered=False
@@ -338,7 +339,7 @@ def expected_control_findings(expected: object) -> tuple[str, ...]:
     if refusals:
         return refusals
     return tuple(
-        f"authorization expected_controls: {name} commit {expected[name]!r} is not a "
+        f"authorization expected_controls: {name} commit {safe_repr(expected[name])} is not a "
         "Git object id"
         for name in CONTROL_REPOSITORIES
         if not hex_string(expected[name], OBJECT_HEX_LENGTH)
