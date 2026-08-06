@@ -1259,6 +1259,92 @@ the one defect that would spend the single authorized runtime attempt proving on
 that the names disagree. No amount of test-guard repair makes a runtime GREEN
 reachable while it stands.
 
+### `e3d6116..HEAD` — F5/F29 repair, measured evidence
+
+One commit, **shipped `src/` only, no test file touched**, repairing exactly the
+one distinct unrepaired P1 defect the prior audit named as the highest-value next
+repair: **F5/F29**, the attempt identity that agreed with the composition-time
+plan on exactly one host in the world.
+
+**The repair.** `PreparationResult` gains `granted_observed_at`
+(`preparation.py:220`), populated in `snapshot()` from
+`document["observed_image_identity"][OBSERVED_AT_KEY]` (`preparation.py:759`) —
+the grant's *pinned* instant. `runner._attempt_names` now reads
+`prepared.granted_observed_at` (`runner.py:307`) instead of the *live*
+`prepared.image[OBSERVED_AT_KEY]`, and `OBSERVED_AT_KEY` is dropped from
+`runner.py`'s `preparation` import because the runner no longer reads the live
+instant at all. The live reading is untouched everywhere else: `_grant_facts`
+still submits the live host identity to admission (`runner.py:280`), and
+preparation's at-or-after check (`preparation.py:606-615`) still refuses any
+observation before the pin, so a host that has not yet reached the pinned instant
+still cannot name an attempt.
+
+**Why this is the shape F29 owed.** F29 stated that a repair keeping one
+composition-time plan "must make the attempt identity nameable before the host is
+read". The pinned instant is carried by the signed authorization document, which
+is exactly what `build_runtime_wiring(*, authorization, repository_roots)` holds
+before any host is read. The created names and the enforced names are therefore
+the same names for **every** observation the authorization admits, not for one.
+
+**Measured evidence** (`.venv/bin/python -m pytest -q`, read-only, no runtime and
+no Docker):
+
+| Measurement | At `e3d6116` | At this commit |
+|---|---|---|
+| `tests/test_runner.py` alone | 76 passed / 2 failed | **78 passed / 0 failed** |
+| Broad census | 60 failed / 1396 passed | **58 failed / 1400 passed** |
+| Failures carrying `missing C8 implementation …` | 58 | **58** (51 `test_scripts_inert.py` + 7 `test_surface_contract.py`) |
+| Unintended failures | 2 (the F29 REDs) | **0** |
+
+Every remaining failure carries the known absent-entrypoint marker; the count was
+measured by `grep -c`, not asserted.
+
+**Anti-vacuity.** The two REDs
+(`…_still_creates_names_the_plan_accepts[one-second-later]` and
+`[fifty-nine-seconds-later]`) turned GREEN with **no test file in the diff** —
+`git diff --stat` is `preparation.py` and `runner.py` only. This is the discharge
+F29 demanded and not the one it forbade: the fixture was *not* pinned back to the
+grant instant. The anti-vacuity control
+`…_the_plan_bound_ports_pass_at_the_one_instant_the_grant_pinned` still passes, so
+the plan-bound ports still accept something and have not become refuse-everything.
+
+**F30 — P2 — `src/…/preparation.py:220` — the authority-bearing pinned instant is
+a defaulted field.** `granted_observed_at: str = ""` is the only field on
+`PreparationResult` with a default. Today only one construction site exists
+(`preparation.py:736`, inside `snapshot()`, which does pass it) and `grep` finds
+no `PreparationResult(` in `tests/`, so nothing currently receives the default.
+The exposure is forward-looking: a future construction site that omits it gets
+`""`, and `instant("")` returns `None`, which raises `PrecheckAbort` — fail-closed
+today, but the value that fixes every created resource name should be mandatory
+rather than defaulted, so the refusal is a type error at the construction site
+instead of a runtime abort deep inside `_attempt_names`. Smallest honest repair:
+make the field mandatory and keyword-only like its neighbours.
+
+**F31 — P2 — `src/…/preparation.py` — the repair bought its file-size headroom by
+reflowing unrelated statements.** `preparation` is under the strict
+`MODULE_LINE_LIMIT = 800` ("strictly under, not up to",
+`tests/test_surface_contract.py:95`). The file measured 798 lines at `e3d6116`
+and measures 798 now, but the repair *added* seven lines; it stayed under the
+bound only because the same diff joined three unrelated multi-line statements onto
+single lines (the `is not a deep proof` raise, the `are not control repositories`
+append, and the `is not a Git object id` append). The reflows are semantically
+inert — same expressions, same messages — and they are **load-bearing**: reverting
+them puts the file at 804 and fails the surface contract. This is recorded rather
+than reverted for that reason, but the module now has two lines of headroom and
+the next change to it must extract, not reflow. Note also that repo-root
+`CLAUDE.md` Founder-gates running formatters/auto-fixers; these three edits are
+hand-scoped and inert, not a formatter run over the file, but the pattern is one
+line away from that gate.
+
+**Not yet discharged by this commit.** F22, F23, F26 and the whole open P2/P3 set
+are untouched by design. This commit is one finding, test-first, as the cycle
+contract requires.
+
+**Independent review status.** An independent Opus review of exactly this
+working-tree diff was commissioned in the same cycle; its verdict is recorded in
+the section below. Until that verdict reads P0=P1=P2=0 across the whole local
+range, `73ec822..HEAD` stays **PUSH-ELIGIBLE NO / RUNTIME HOLD**.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in

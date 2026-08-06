@@ -213,6 +213,11 @@ class PreparationResult:
     ephemeral_range: tuple[int, ...]
     pre_consumption_listeners: tuple[Any, ...]
     docker_publications: tuple[str, ...]
+    # The instant the grant signed for its host observation. It is not an observation and
+    # never a fact — `image[observed_at]` stays the live reading — but it is the one instant
+    # both this phase and a plan built before any host was read can name. The default is what
+    # a snapshot that proved no pin holds: not an instant, so it names nothing.
+    granted_observed_at: str = ""
 
     def __post_init__(self) -> None:
         if self.satisfied is not True:
@@ -235,9 +240,7 @@ class PreparationResult:
         for name in (*FROZEN_MAPPING_FIELDS, *FROZEN_SEQUENCE_FIELDS):
             nested = immutability_findings(getattr(self, name), name)
             if nested:
-                raise ValueError(
-                    f"{name} is not a deep proof: " + "; ".join(nested)
-                )
+                raise ValueError(f"{name} is not a deep proof: " + "; ".join(nested))
         # Sort representations so mixed key types remain a bounded refusal.
         if set(self.control_identities) != set(CONTROL_REPOSITORIES):
             raise ValueError(
@@ -523,9 +526,7 @@ def control_findings(
     # Sort representations so mixed key types cannot escape as TypeError.
     unexpected = tuple(sorted(repr(key) for key in set(observed) - set(CONTROL_REPOSITORIES)))
     if unexpected:
-        findings.append(
-            f"control_identities: {list(unexpected)} are not control repositories"
-        )
+        findings.append(f"control_identities: {list(unexpected)} are not control repositories")
     for name in CONTROL_REPOSITORIES:
         if name not in observed:
             findings.append(f"control_identities: {name} was never observed")
@@ -553,9 +554,7 @@ def control_identity_findings(
     findings: list[str] = []
     commit = identity["commit"]
     if not hex_string(commit, OBJECT_HEX_LENGTH):
-        findings.append(
-            f"control_identities: {name} commit {commit!r} is not a Git object id"
-        )
+        findings.append(f"control_identities: {name} commit {commit!r} is not a Git object id")
     else:
         findings.extend(
             f"control_identities: {name} is on commit {commit!r}, not the {source} {pin!r}"
@@ -757,6 +756,7 @@ def snapshot(observed: Observations, document: Mapping[str, Any]) -> Preparation
         ephemeral_range=frozen(observed.ephemeral_range),
         pre_consumption_listeners=frozen(observed.listeners),
         docker_publications=frozen(observed.publications),
+        granted_observed_at=document["observed_image_identity"][OBSERVED_AT_KEY],
     )
 
 

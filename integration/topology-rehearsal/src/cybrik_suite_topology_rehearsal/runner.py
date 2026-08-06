@@ -64,7 +64,6 @@ from .plan import (
     VOLUME_INFIX,
 )
 from .preparation import (
-    OBSERVED_AT_KEY,
     POLICY_KEY,
     PRESENT_KEY,
     PreparationResult,
@@ -109,10 +108,11 @@ REPOSITORIES_FACT = "repositories"
 TOOLS_FACT = "tools"
 FACTS_KEY = "facts"
 
-# The attempt identity. It is the exact instant of the host observation that admitted the
-# attempt, rendered without the separators an argv token may not carry, plus the reviewed
-# slice label. Deriving it from an observation rather than inventing it keeps every resource
-# name traceable to the one reading that authorized creating it.
+# The attempt identity. It is the exact instant the grant signed for its host observation,
+# rendered without the separators an argv token may not carry, plus the reviewed slice label.
+# Deriving it from the pinned instant rather than inventing it keeps every resource name
+# traceable to the one document that authorized creating it, and keeps it nameable before any
+# host is read — which is the only way it can be the same name a composition-time plan holds.
 ATTEMPT_INSTANT_FORMAT = INSTANT_FORMAT.replace("-", "").replace(":", "")
 ATTEMPT_SLICE = "c8"
 
@@ -284,18 +284,32 @@ def _grant_facts(
 
 
 def _attempt_names(prepared: PreparationResult) -> AttemptNames:
-    """Derive every resource name from the one observed attempt identity.
+    """Derive every resource name from the one pinned attempt identity.
+
+    The identity is the instant the authorization pinned for its host observation, not the
+    live instant preparation read off this host. Both are admitted readings — preparation
+    takes any observation at or after the pin — so the live one is a different value on every
+    host, while the command plan is built by the composition root before any host is read and
+    can only ever carry the pin. Naming the attempt from the live reading agreed with that
+    plan on exactly one host in the world, the one reporting the second the authorization was
+    signed on; on every other host the first create was refused by the attempt's own
+    plan-bound ports, which spends the single authorized attempt proving that the created
+    names and the enforced names disagree. The pinned instant is the honest source because it
+    is what the one attempt is *about*: a name the signed document is entitled to fix, unlike
+    a control root or an admission fact. It is neither observed nor submitted as a fact here —
+    `_grant_facts` still hands admission the live host identity, and that live reading must
+    still be at or after the pin for anything to be named at all.
 
     The image reference is digest-pinned from what the host reported it holds, so the attempt
     can only consume the exact material preparation proved present; a tag would name whatever
     the host happens to hold later.
     """
-    observed_at = prepared.image[OBSERVED_AT_KEY]
-    moment = instant(observed_at)
+    pinned_at = prepared.granted_observed_at
+    moment = instant(pinned_at)
     if moment is None:
         raise PrecheckAbort(
-            f"attempt identity: the host observation {observed_at!r} is not an exact UTC "
-            "instant, so no attempt can be named after it"
+            f"attempt identity: the pinned host observation {pinned_at!r} is not an exact "
+            "UTC instant, so no attempt can be named after it"
         )
     attempt_id = f"{moment.strftime(ATTEMPT_INSTANT_FORMAT)}-{ATTEMPT_SLICE}"
     selected = prepared.image
