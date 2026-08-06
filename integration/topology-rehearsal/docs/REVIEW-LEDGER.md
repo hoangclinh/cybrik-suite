@@ -7432,3 +7432,141 @@ all 51 `test_scripts_inert.py` REDs **absent-script by traceback** at this HEAD 
 `scripts/prepare_topology_grant.py` and 46 naming `scripts/run_topology_rehearsal.py`, both "does
 not exist". Focused suites at `4a3d9d7`: `test_runner` 102, `test_observe` 157, `test_preparation`
 361, `test_adapter` 366 — **986 passed, 0 failed.**
+
+### Cycle 58 addendum B — the F128 repair's independent verdict: **NO-GO**, P0=0 P1=3 P2=3 P3=1
+
+*An independent Opus reviewer, an identity distinct from the writer of `4a3d9d7`, reviewed the F128
+repair as committed. It ran its attacks in `/tmp/f128rev`, a `git archive 4a3d9d7` scratch tree, and
+left the worktree unmodified (`git status --porcelain` showed only the untracked `uv.lock`). It
+reproduced this cycle's census exactly: 1551 passed / 58 failed, 51 + 7.*
+
+**The verdict overturns this ledger's own account of F128.** Cycle 57 recorded the network reading as
+repaired and F131 as the remaining gap. That framing is now refuted by execution: the network reading
+is **still bypassable**, three separate ways, each converting a live `STOP_CONTROL` into
+`TOPOLOGY_PASS`.
+
+#### F134 (P1, NEW, OPEN) — `stored_entries` cross-checks `__getitem__`, but the validator judges through `.get`. **PROVED-BY-EXECUTION**
+
+`views.py:138` cross-checks `mapping[key]` and nothing else. `validate_internal_network` judges via
+`projection.get(...)` at `observe.py:502` and `:507`, and `views.nested` (`views.py:49`) also uses
+`.get`. **The F128 commit message names `.get` as the victim accessor and then cross-checks a
+different accessor.** Attack: a reading whose `items()` and `__getitem__` are honest and only `.get`
+lies. Measured: `validate_internal_network(live).satisfied is False` — the package's own validator
+refuses the live reading — yet the run returned **`TOPOLOGY_PASS`** with `findings: ()` and recorded
+`Internal: True`. This is the identical bypass F128 was filed for, unrepaired.
+
+#### F135 (P1, NEW, OPEN) — the value-agreement fallback is decided by an `__eq__` the attacker owns on both sides. **PROVED-BY-EXECUTION**
+
+`views.py:150-154` clears an entry when `type(subscripted) is type(value)` and equality holds in both
+directions. The docstring argues type-identity plus bidirectionality defeats a lying comparison. It
+does not: **both operands and the shared type come from the same hostile reading.** Attack: an
+`EqLiar` stored with one attachment, subscripted with two, `__eq__` returning `True`. Measured:
+`stored_entries findings: ()`, `proved_copy divergence: ()`, while `len(m["Containers"]) == 2` and
+`len(stored["Containers"]) == 1`. The subscript was consulted and was cleared. End to end:
+validator refuses live, run returned **`TOPOLOGY_PASS`**. This defeats `proved_copy` on its own
+declared terms.
+
+#### F136 (P1, NEW, OPEN) — `proved_copy` walks only exact `MappingProxyType`/`tuple`/`frozenset`; every nested `dict`/`list` passes through unchecked. **PROVED-BY-EXECUTION**
+
+`views.py:222`, `:238`, `:240` fall through to `:242-246`, which returns the value **uncopied and
+uncross-checked**. A real Docker network reading nests plain `dict`s (`Containers`), and
+`runner.py:388` wraps only the top level, **so in practice the cross-check is depth-0 only.**
+Measured: a `LenLiar` `Containers` (`items()` yields 1, `__len__` returns 2) defeated the
+`len(attachments) != 1` control at `observe.py:513` — validator refused live, run returned
+**`TOPOLOGY_PASS`**, receipt recorded 1 attachment. A depth-1 `SubLiar` whose subscript returns
+`{"Name": "ATTACKER"}` produced no divergence and no refusal. **Positive control isolating the
+cause:** the *same* liar wrapped in a nested `MappingProxyType` **is** walked and **is** refused
+(`STOP_CONTROL`, "its two views of one entry disagree") — so the defect is the
+`type(value) is MappingProxyType` gate, not the liar.
+
+**The phrase "at every depth" in `views.py:205-213`, in `runner.py:381-382` and in this ledger's
+cycle-57 entry is refuted by measurement.**
+
+#### F137 (P2, NEW, OPEN) — `_proved_reading` discards `proved_copy`'s immutability findings and delegates to a strictly more permissive checker
+
+`runner.py:389` binds them to `_`. The docstring justifies this by "`frozen` … is itself the
+immutability refusal", but `proved_copy` classifies with `type(x) is …` while `preparation.frozen`
+(`preparation.py:149-156`) accepts with `isinstance(x, Mapping/AbstractSet/Sequence)`. Every value
+`proved_copy` reports as not-immutable-and-therefore-unwalked is exactly the set `frozen` rebuilds
+happily. **This discard is what converts F136 from a report into a silent pass** — the reviewer's
+probe printed `network.<value> holds a EqLiar, which is not deeply immutable`, a finding the runner
+throws away.
+
+#### F138 (P2, NEW, OPEN) — keys present by subscript but absent from `.items()` are dropped silently. **PROVED-BY-EXECUTION**
+
+`views.py:134-136` iterates `stored` only. A ghost key answering `__getitem__` but omitted from
+`items()` produced `div = ()`, `copied = {'a': 1}`. Only the iteration→subscript direction is ever
+examined, so the docstring's "a disagreement in either direction is a refusal" is false. Currently
+fail-safe on the network path by luck; **the container and probe paths do not have that luck.**
+
+#### F139 (P2, NEW, OPEN) — the commit message, the `_proved_reading` docstring and cycle 57's ledger entry all overstate the repair
+
+All three assert the network reading is closed against two-faced reading. F134-F136 refute that by
+execution. Under this repository's status-honesty rule these three texts must be corrected before the
+entry is relied on. **This is an owed repair against `docs/REVIEW-LEDGER.md` itself.**
+
+#### F140 (P3, NEW, OPEN) — `dict(mapping.items())` collapses duplicate keys silently. **PROVED-BY-EXECUTION**
+
+`views.py:134`. `items()` yielding `[("a",1),("a",2)]` gives `stored = {"a": 2}`; the cross-check then
+refuses — but **by accident**. Had the subscript agreed with the last duplicate, the first would have
+vanished with no finding. Duplicate-yielding iteration is never itself reported.
+
+#### What the reviewer cleared
+
+- **Fail-closed plumbing is sound.** `runner.py:390-391` raises `ValueError`; `_guarded_observation`
+  (`runner.py:472-484`) catches it and returns `candidates=(STOP_CONTROL,)` with the divergence text.
+  Nothing swallows it. Confirmed by execution. **The failure mode is not "raises and is swallowed" —
+  it is "never raises at all".**
+- **Boundary placement is correct.** `adapters.docker.observe_network` is called once
+  (`runner.py:441`), its sole consumer is `_proved_reading`, and `network_projection` reaches
+  evidence only via `observation.network_projection` (`runner.py:638`). No live-reading escape path.
+  **The defect is inside `proved_copy`, not around it.**
+- **No control was weakened.** `__all__` unchanged; inertness, single-spawn-site,
+  anti-self-witnessing and fail-closed intact; sizes 799/246; census matches; no test relaxed.
+
+#### Consequence for F131 — its implied remedy is now known to be insufficient
+
+The reviewer was asked explicitly whether the container/probe gap is worse or different than F131
+describes. **Different.** F131 frames the network reading as repaired and the other two as awaiting
+the same treatment. F134-F136 show that routing container and probe through `_proved_reading` would
+**not** close the class for them either — `.get` divergence, attacker-owned `__eq__`, and any nesting
+below depth 0 all survive it.
+
+> **Do not schedule F131's repair as "apply `_proved_reading` to two more call sites."**
+> `views.proved_copy` must be fixed first, or the fix will measure GREEN while still bypassable.
+
+This is the exact trap F132/F133 were about to walk the next writer into, from the other direction:
+the cheap two-call-site edit would have been *both* over the size bound *and* ineffective.
+
+#### Gate at the close of cycle 58
+
+F128 stays **P1 OPEN** — its repair is now proved partial in the network reading itself, not only in
+the readings it never touched.
+
+- **P0 = 0**
+- **P1 OPEN = 7** — F33, F123, F128, F131, **F134**, **F135**, **F136**
+- **P1 repaired-unreviewed = 10** (F78, F83, F85, F86, F87, F103, F104, F114, F121, F122)
+- **P2 OPEN = 44** (39 + **F133**, **F137**, **F138**, **F139**) — *44 = 39 + 4 ... see the tally note*
+- **P2 repaired-unreviewed = 3** (F79, F84, F95)
+- **P3 OPEN = 42** (41 + **F140**)
+- **P3 repaired-unreviewed = 2** (F96, F97)
+- **CLOSED = 30**, **SUPERSEDED = 2**, **PHANTOM = 4** (F56-F59)
+
+```
+CLOSED 30 + P1 OPEN 7 + PHANTOM 4 + SUPERSEDED 2 + P1 r-u 10
+  + P2 OPEN 43 + P2 r-u 3 + P3 OPEN 42 + P3 r-u 2 = 143
+```
+
+`143` = F1..F140 (140) + F29-A/B/C (3). Exact. **P2 OPEN is 43, not 44** — 39 + F133 + F137 + F138 +
+F139 = 43. The bulleted line above is corrected to 43 by this arithmetic; it is left visible rather
+than silently overwritten, because this ledger has twice mis-stated a bucket it had just computed.
+Highest ID defined is now **F140**.
+
+**`P0 = P1 = P2 = 0` is NOT met, and moved further away by measurement.** Nothing ahead of `73ec822`
+is push-eligible. The atomic entrypoint GREEN remains blocked. RUNTIME **HOLD**. Production
+**Founder-only**.
+
+**Debt carried out of this cycle:** the adversarial verifier commissioned to discharge F131's owed
+executed RED had not returned when the cycle closed. F131 therefore remains **DERIVED-FROM-SOURCE
+and still owed an executed RED** — though F134-F136 have overtaken it in priority, since they must be
+repaired first.
