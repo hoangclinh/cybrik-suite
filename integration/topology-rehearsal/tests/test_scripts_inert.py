@@ -245,6 +245,261 @@ def test_exact_execute_path_calls_one_injected_executor_with_external_paths() ->
     ]
 
 
+def recording_executor(calls: list[tuple[object, ...]]):
+    """An executor that records every call it receives and answers the success code.
+
+    `0` rather than the hold exit, deliberately. An implementation that entered the executor
+    where it should have refused would otherwise hand back the very code the refusal is
+    asserted against, and the refusal assertion would pass for the wrong reason. Answering
+    the success code keeps the two outcomes distinguishable from the return value alone, and
+    the recorded list then names the call that should never have happened.
+
+    The call shape is the one
+    `test_exact_execute_path_calls_one_injected_executor_with_external_paths` already pins,
+    so a `main` that forwards correctly is accepted here and only a `main` that forwards when
+    it owed a refusal is recorded.
+    """
+
+    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
+        calls.append((grant_path, signature_path, repository_roots))
+        return 0
+
+    return execute
+
+
+def test_an_invocation_that_names_no_control_root_holds_without_calling_the_executor() -> None:
+    """An unstated `--control-root` is refused in `main`, before either artifact is opened.
+
+    This is the test `test_runner_entrypoint_requires_exact_execute_plus_external_artifact_paths`
+    forward-references at `:199-205`: required-ness is pinned where the operator observes it,
+    as a returned `HOLD_EXIT`, rather than as a `SystemExit` off the bare parser. Its absence
+    left the contract satisfiable by a `main` that folds an unstated flag to `{}` and forwards
+    it, because `{}` is a *well-shaped* mapping and its refusal therefore belongs to the other
+    band — `build_runtime_wiring`, which the real `execute_authorized_attempt` reaches only
+    after `load_authorization` has already opened the grant and the signature. The operator
+    would then be told the worktrees were unnamed by a path that had first read two artifacts
+    it had no authority to read, which is exactly the ordering
+    `test_the_control_roots_are_mandatory_at_the_composition_root_as_well` forbids one frame
+    up and which `:265-269` carries as a named residual risk on the authorized path only.
+
+    The empty ledger is the load-bearing half. A returned code alone cannot separate a refusal
+    taken in `main` from one taken after the executor was entered, so the recording executor
+    answers `0` and a `main` that called it fails both assertions rather than accidentally
+    agreeing with the expected one.
+
+    One spelling, not a fourth: the refusal is a *returned* `HOLD_EXIT`, the same spelling
+    `test_no_arguments_returns_the_fixed_hold_exit` and `test_unknown_arguments_fail_closed`
+    already use for every other argv-shape mistake.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    calls: list[tuple[object, ...]] = []
+    exit_code = require_c8_attr(script, "main")(
+        ["--execute", "--grant", GRANT_PATH, "--signature", SIGNATURE_PATH],
+        execute=recording_executor(calls),
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT")
+    assert calls == [], "an invocation that named no worktree may not reach the executor"
+
+
+# Every way one `--control-root` token can be malformed in *shape*, which is the band `main`
+# owns. None of these is a question about which repositories exist — that is the key space,
+# validated at exactly one site and never restated here — so each is decidable from the token
+# alone, or from the token together with what was already typed.
+MALFORMED_CONTROL_ROOT_TOKENS = [
+    pytest.param("novalue", id="no-separator"),
+    pytest.param(f"=/synthetic/{fakes.SUITE_CONTROL}", id="empty-name"),
+    pytest.param(f"{fakes.SUITE_CONTROL}=", id="empty-path"),
+    pytest.param(f"{fakes.SUITE_CONTROL}=/synthetic/elsewhere", id="repeated-name"),
+]
+
+
+@pytest.mark.parametrize("token", MALFORMED_CONTROL_ROOT_TOKENS)
+def test_a_malformed_control_root_token_holds_without_calling_the_executor(
+    token: str,
+) -> None:
+    """A token that cannot be read as `NAME=PATH` ends the invocation in `main`.
+
+    Each token is appended to an otherwise *complete and authorized* invocation, so the
+    refusal cannot be attributed to anything else that was typed: the four worktrees are
+    already named, the two artifact paths are already given, and the only difference between
+    this argv and the one
+    `test_exact_execute_path_calls_one_injected_executor_with_external_paths` executes is the
+    one token under test. A `main` that silently discarded what it could not parse would be
+    left holding four well-formed roots and would execute, which is the defect each case is
+    aimed at rather than a hypothetical one.
+
+    The four cases are the four shape mistakes the slice specification enumerates. `novalue`
+    has no separator at all and so names nothing. `=/synthetic/...` has an empty name, which
+    would otherwise fold into a mapping keyed by `""`. `cybrik-suite=` has an empty path,
+    which would plan `git -C ''` against the operator's own working directory. The repeated
+    name is malformed only in relation to what was already typed — the token is well formed
+    read alone — and it is the one case a per-token check cannot see: an accumulating parser
+    that let the last occurrence win would quietly answer the operator's *first* declaration
+    with their second, and both are absolute, `str` and separator-free, so the semantics band
+    downstream would accept the result without complaint.
+
+    The empty ledger carries the same weight it carries above. It is what distinguishes the
+    shape band from the semantics band: an implementation that merged the two — folding a
+    malformed token into the mapping and letting `build_runtime_wiring` object — would enter
+    the executor and be recorded here even though its final exit code could still be a hold.
+
+    One spelling, as above: a returned `HOLD_EXIT`, never a raise.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    calls: list[tuple[object, ...]] = []
+    exit_code = require_c8_attr(script, "main")(
+        [*execute_argv(), "--control-root", token],
+        execute=recording_executor(calls),
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT")
+    assert calls == [], f"a malformed token {token!r} may not reach the executor"
+
+
+def wrong_repositories() -> dict[str, str]:
+    """Four roots that are well formed in every way except which repositories they name.
+
+    Each key is a non-empty `str`, each value is an absolute separator-free path, and there
+    are four of them, so nothing in the argv-shape band has anything to say about this
+    mapping. The only thing wrong with it is the key space — and the key space belongs to
+    `plan`, which is the one site that validates it.
+    """
+    return {
+        f"{name}-mirror": f"{root}-mirror"
+        for name, root in fakes.SYNTHETIC_REPOSITORY_ROOTS.items()
+    }
+
+
+def test_a_typed_precheck_abort_from_the_wiring_is_returned_as_the_hold_exit() -> None:
+    """The wrong repositories pass through `main` verbatim and come back as a hold.
+
+    Both halves of the semantics band are stated here because they are one invocation. The
+    forwarding half is the single-validation-site contract observed behaviourally: `main` is
+    handed four well-shaped roots naming a repository space the contract does not own, and it
+    must forward that mapping *unmodified* rather than judge it. A `main` that carried its own
+    copy of the key space would refuse before the executor was entered and leave the recorded
+    mapping empty, which is the defect this half exists to catch;
+    `test_the_script_does_not_restate_the_control_repository_key_space` states the same
+    property structurally, and the two are meant to be read together for the reason `:983`
+    gives — a duplicated check taken only on some path satisfies a behavioural test and is
+    still a duplicated check.
+
+    The conversion half is what keeps the operator's experience honest. The refusal that
+    really occurs downstream is a typed `errors.PrecheckAbort` naming `repository_roots`, the
+    exact refusal `test_a_roots_argument_that_does_not_name_four_control_roots_is_refused`
+    pins at the wiring. `main` is the process boundary, so it owes the operator an exit code
+    rather than a traceback: an escaping exception would be a fourth spelling of one operator
+    mistake, and this file's own principle at `:924` — and the third refusal spelling already
+    recorded against it — is that one mistake gets one answer. The injected executor raises
+    the real reviewed type, not a stand-in, so a `main` that caught something narrower or
+    broader than `PrecheckAbort` is not accepted here.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    abort = require_c8_attr(load_c8("errors"), "PrecheckAbort")
+    wrong = wrong_repositories()
+    forwarded: list[object] = []
+
+    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
+        forwarded.append(repository_roots)
+        raise abort(
+            "repository_roots must be exactly the reviewed control repositories"
+        )
+
+    exit_code = require_c8_attr(script, "main")(execute_argv(wrong), execute=execute)
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT")
+    assert forwarded == [dict(wrong)], (
+        "main must forward a well-shaped mapping verbatim, never judge the key space itself"
+    )
+
+
+def docstring_constants(tree: ast.AST) -> set[int]:
+    """The identity of every string constant that is a module, class or function docstring.
+
+    Documentation is exempt from the literal walk below and executable code is not, because
+    the two cannot decide anything alike: a usage example in a help text or a docstring is
+    read by an operator, while a literal in an expression is read by the parser and can
+    branch. Identity is used rather than the string itself so that an identical string
+    appearing in both positions is still caught in the position that matters.
+    """
+    holders = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, holders):
+            continue
+        first = node.body[0] if node.body else None
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            found.add(id(first.value))
+    return found
+
+
+def test_the_script_does_not_restate_the_control_repository_key_space() -> None:
+    """Which four repositories exist is validated at one site, and the script is not it.
+
+    `plan` owns the key space: `plan.py:175-176` is the single place the declared roots are
+    differenced against `constants.CONTROL_REPOSITORIES`, and `build_runtime_wiring` re-raises
+    that refusal as the typed `PrecheckAbort` the operator is owed. A second copy inside the
+    entrypoint would not merely be duplication — it would be a second answer to the same
+    question, free to drift from the first, and the drift would surface as an entrypoint that
+    accepts or refuses a set of worktrees the library disagrees about. The script's whole job
+    at this boundary is to read what was typed, not to know what may be typed.
+
+    This is asserted over the source for the reason `:983` gives about the other AST guard: a
+    duplicated check taken only on some path — say, only when four tokens were supplied —
+    satisfies every behavioural test above, including
+    `test_a_typed_precheck_abort_from_the_wiring_is_returned_as_the_hold_exit`, and is still
+    a duplicated check. The behavioural test states what the script did on one invocation;
+    this states what the script is able to do on any.
+
+    Two spellings are refused. Reaching the constant by name is the direct one, and it is
+    caught wherever it enters — an import alias, a bare `Name`, or an attribute read off a
+    module handle — because all three end at the same tuple. `plan.SUITE_REPOSITORY` is
+    refused alongside it: it is the same key space narrowed to one member, and the Suite root
+    is the one that selects the allowed-signers file and the detached signature path, so a
+    script that picked it out itself would be re-deciding the trust anchor that
+    `test_the_injected_control_roots_are_the_exact_argv_tokens_the_plan_carries` binds to the
+    plan. Restating the names as literals is the indirect spelling. At most one may appear,
+    which is the deliberate width of this bound: a single name is what an honest `--help`
+    example costs, while a key-space check needs the whole set and cannot be written with one.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    repositories = set(require_c8_attr(load_c8("constants"), "CONTROL_REPOSITORIES"))
+    module = ast.parse(inspect.getsource(script))
+
+    reached = (
+        {node.id for node in ast.walk(module) if isinstance(node, ast.Name)}
+        | {node.attr for node in ast.walk(module) if isinstance(node, ast.Attribute)}
+        | {
+            name
+            for node in ast.walk(module)
+            if isinstance(node, ast.Import | ast.ImportFrom)
+            for alias in node.names
+            for name in (alias.name.rsplit(".", 1)[-1], alias.asname)
+            if name
+        }
+    )
+    assert not reached & {"CONTROL_REPOSITORIES", "SUITE_REPOSITORY"}, (
+        "the entrypoint may not reach for the key space the plan already validates"
+    )
+
+    documentation = docstring_constants(module)
+    restated = sorted(
+        {
+            node.value
+            for node in ast.walk(module)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value in repositories
+            and id(node) not in documentation
+        }
+    )
+    assert len(restated) <= 1, (
+        f"the entrypoint enumerates the control key space in code: {restated}"
+    )
+
+
 def test_main_default_execute_is_the_reviewed_composition_root() -> None:
     script = load_c8_script("run_topology_rehearsal.py")
     signature = inspect.signature(require_c8_attr(script, "main"))
