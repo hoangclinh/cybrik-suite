@@ -6141,3 +6141,65 @@ question of residual straddles at `views.nested` and `stored_entries`.
 **Push gate at `0efcdaa`, unchanged: P0 = 0. P1 OPEN = 1** (F33). **P1 repaired-unreviewed = 8**
 (F78, F85, F83, F86, F87, F103, F104, F108). **P2 = 32. P3 = 37.** No part of the local range is
 push-eligible. RUNTIME **HOLD**. Production **Founder-only**.
+
+## Cycle 53 — every gate re-measured at `9c1c4d2`, and the F108 verdict commissioned first
+
+### The coordinator re-measured the gates before commissioning anything, again
+
+Cycle 52's figures were taken at `b15a226`/`0efcdaa`. They are not evidence about live HEAD
+`9c1c4d21bc0c307863822a329a9edb0dbc2d1dbd`. Re-measured at that HEAD by a lane that wrote nothing,
+with the diff-check and size figures independently reproduced by the coordinator:
+
+| Gate | Cycle-52 record | Measured at `9c1c4d2` | Result |
+|---|---|---|---|
+| Full suite | 58 failed, 1545 passed | **58 failed, 1545 passed** | MATCH |
+| RED reason | 58/58 absent-script | **58/58**, 0 UNINTENDED | MATCH |
+| Focused six suites | 1147 passed | **1147 passed** | MATCH |
+| `ruff check .` | 12 errors, delta 0 | **12 errors**, same 12 sites, delta 0 | MATCH |
+| `python3 -m compileall -q src tests` | exit 0 | **exit 0** | MATCH |
+| Largest authored `src` module | 799 (`adapter.py`) | **799** (`adapter.py`); total **6160** | MATCH |
+| `git diff --check 73ec822..HEAD` | clean | **clean** | MATCH |
+
+The 58 REDs were again proved absent-*root*: `scripts/` does not exist at HEAD. The failures are
+confined to `tests/test_scripts_inert.py` (52) and `tests/test_surface_contract.py` (6), and every
+one of the 58 was classified from its own traceback rather than by grepping a count. **No entrypoint
+script was run, and none exists to run.** The 12 ruff errors are the pinned baseline sites in
+`observe.py`, `preparation.py`, `tests/test_errors.py` and `tests/test_runner.py`; none is new.
+
+### The local range is 104 commits, not the 11 the stale checkpoint carried
+
+Live HEAD is `9c1c4d2` and the branch is **104 commits ahead** of `origin`. The driver checkpoint
+still named `76553f4` at 11 ahead. **Live git is authoritative**; the checkpoint prose was stale and
+was not allowed to override it. Origin/PR #55 remains at `73ec822`, OPEN, **draft**, CLEAN, with all
+four rendered hosted checks SUCCESS (two `secret-scan`, two `contract standards validation`).
+
+### F33 reconfirmed OPEN from source by the coordinator
+
+`attempt_id_for` is exported at `runner.py:81` and AST-pinned as the sole rendering site
+(`tests/test_runner.py:1292-1294`). It has exactly **one** caller: `_attempt_names`
+(`runner.py:310`), reached once at `runner.py:743`. The second caller is the entrypoint script that
+does not exist. F33's "both callers reach it" therefore remains **false by absence**, and F33 stays
+the single P1 OPEN, correctly deferred to the atomic entrypoint GREEN. It was not re-graded.
+
+### F107 and F112 reconfirmed from source, and neither moves the tally
+
+- **F107** is real: F16 is carried **P3** at `docs/REVIEW-LEDGER.md:1611` and **P2** at `:1858`. The
+  same finding holds two severities in one ledger. Still **OPEN**.
+- **F112** is real and precisely stated: `:5709-5720` already records that F103 and F104 are
+  "**superseded** than patched — each was a finding against a *candidate* whose code path does not
+  exist in the committed mechanism", while the push-gate tallies bucket them under
+  *repaired-unreviewed*. Accurate in effect, imprecise in kind. Still **OPEN**.
+
+### F108's owed verdict was commissioned as the first action of this cycle
+
+Cycle 52 recorded that the F108 sufficiency lane had failed to return inside the timebox twice, and
+directed that it be commissioned **first** and **narrowed**. That was done: it was launched as the
+opening action, framed adversarially (instructed to *refute* the unreachability claim and to default
+to "NOT PROVED" under uncertainty), and pointed at exactly the named hunting grounds — `views.nested`
+(F110), `stored_entries` key-set gating (F109), the grant re-reads in `snapshot()`, any observation
+in `observe()` outside the swapped eight, and whether `frozen()` passes any live type through by
+identity. **Until that verdict is recorded here, F108 remains repaired-unreviewed.**
+
+**Push gate at `9c1c4d2`, unchanged by measurement: P0 = 0. P1 OPEN = 1** (F33). **P1
+repaired-unreviewed = 8** (F78, F85, F83, F86, F87, F103, F104, F108). **P2 = 32. P3 = 37.** No part
+of the 104-commit local range is push-eligible. RUNTIME **HOLD**. Production **Founder-only**.
