@@ -2485,3 +2485,75 @@ F60 is closed. P1 ≠ 0, so the atomic entrypoint GREEN stays blocked and nothin
 
 Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
 script exists and none was executed.
+
+## Cycle 26 — F65/F66/F67 repaired test-first; the independent review is **NOT YET OBTAINED**
+
+### Live state reconciliation at cycle open
+
+HEAD `09da45d`, branch 52 commits ahead of `origin`. PR #55 is OPEN, draft, `MERGEABLE` at
+`73ec822`, four rendered hosted checks SUCCESS (two `secret-scan`, two `contract standards
+validation`). The working tree carried an uncommitted F65/F66/F67 RED plus a move of
+`IMMUTABLE_LEAVES`/`immutability_findings` out of `preparation.py` into `observe.py`. The
+untracked `integration/topology-rehearsal/uv.lock` was preserved untouched.
+
+### The measured RED
+
+Against the shipped parent, `tests/test_preparation.py` was **20 failed / 324 passed**: the six
+reading-drift copies, the six identity-drift copies, five of the six bare-stub identities and the
+three two-field invented-identity copies all DID NOT RAISE. The `empty` stub param and both
+`..._deep_frozen_by_the_validator...` params passed already — the first via the existing pin
+check, the latter two via `FROZEN_MAPPING_FIELDS`, which is what F68 asked to have pinned.
+
+### The repair
+
+`signed_identity_findings(identity, image)` refuses a pinned identity that is not a whole,
+resolved, agreeing host observation: exact key inventory (F66), no unresolved value, registry
+digest shape on both registry digests and `local_image_id`, platform shape, and equality with the
+live reading on every one of the six `OBSERVED_BINDING_KEYS` (F67). `observed_at` is deliberately
+excluded — two readings are two events. `__post_init__` calls it, so every copy of a result goes
+through it, not only `snapshot()`'s wiring.
+
+**The residual is unchanged and is stated, not implied.** A copy holds no authorization, so
+nothing here proves the identity is the one a grant signed. F65's two-field forgery is made
+**expensive**, not impossible: the invented identity must now carry the whole reviewed inventory,
+well formed, and match the live reading on every binding. F65 is therefore **NARROWED**, and any
+claim that it is closed would be false.
+
+### Measured GREEN
+
+- Focused `test_preparation.py test_runner.py test_adapter.py`: **806 passed**.
+- Broad census at this commit: **58 failed / 1469 passed in 0.67s**. The 58 are the unchanged
+  absent-entrypoint REDs; passed rose 1444 → 1469 on this cycle's 25 new tests.
+- `compileall -q src tests` clean. `ruff` remains **absent** from `.venv/bin`; it was not run and
+  was not installed.
+
+### F70 (the 799-line booby trap) discharged by measurement, not by collapsing lines
+
+Adding the validator to `preparation.py` took it to **801** — over the strictly-under-800 bound,
+exactly as F70 predicted. It was **not** paid for by hand-collapsing more calls. The function was
+moved to `observe.py`, which owns the findings-reader family and had headroom. `preparation.py` is
+now **771** and `observe.py` **626**, so both sit well clear of the bound.
+
+### F72 — a real symbol collision the move exposed. **P2. Repaired in the same commit.**
+
+`observe.py` already defines its own `OBSERVED_IDENTITY_KEYS` — **five** keys — while `grant.py`
+exports a **seven**-key tuple of the same name. Importing grant's into `observe.py` silently
+rebound it to the local five-key meaning, and the validator then refused every genuine identity:
+measured **99 failed** in `test_runner.py`, with `prepare()` aborting at `snapshot`. The import is
+now explicitly aliased `OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS`. The suite does detect a
+regression here — dropping the alias reproduces the 99 failures — but no test *names* the hazard,
+so a future reader sees a cascade rather than a collision. Recorded as owed.
+
+### What this cycle did NOT do
+
+No independent Opus review of this repair was obtained — the cycle's measurement and the F72
+detour consumed the budget. **The repair is therefore unreviewed and unpushable.** Commissioning
+it is the next cycle's first action, before any further repair.
+
+### Open P1 set after this cycle
+
+**F45, F46, F47** (F39's repair) and **F65** (narrowed, not closed). P1 ≠ 0, so the atomic
+entrypoint GREEN stays blocked and nothing is pushable.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
+script exists and none was executed.

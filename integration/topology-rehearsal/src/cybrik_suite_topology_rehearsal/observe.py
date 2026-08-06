@@ -57,6 +57,14 @@ from .constants import (
     STOP_CONTROL,
 )
 from .errors import TERMINAL_ERRORS
+from .grant import (
+    OBSERVED_BINDING_KEYS,
+    OBSERVED_IDENTITY_KEYS as SIGNED_IDENTITY_KEYS,
+    REGISTRY_DIGEST_KEYS,
+    keyed,
+    platform_findings,
+    registry_digest,
+)
 from .plan import TopologyPlan
 from .protocols import (
     ADDRESS_SEPARATOR,
@@ -210,6 +218,82 @@ def nested(value: object, path: Sequence[str]) -> Any:
             return None
         current = current.get(key)
     return current
+
+
+# Safe immutable leaves; every other type is a container to walk or a value to report.
+IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
+
+
+def immutability_findings(
+    value: object, path: str, seen: tuple[int, ...] = ()
+) -> tuple[str, ...]:
+    """Report every nested value that is not already deeply immutable.
+
+    Total and pure like the readers around it: it is handed one value and answers about that
+    value only, reaching nothing and raising nothing. A cycle is reported at the path where it
+    closes rather than followed, so an unbounded projection is a finding, not a recursion.
+    """
+    if type(value) in IMMUTABLE_LEAVES:
+        return ()
+    if id(value) in seen:
+        return (f"{path} refers to itself",)
+    trail = (*seen, id(value))
+    if type(value) is MappingProxyType:
+        return tuple(
+            finding
+            for key, item in value.items()
+            for finding in (
+                *immutability_findings(key, f"{path}.<key>", trail),
+                *immutability_findings(item, f"{path}.<value>", trail),
+            )
+        )
+    if type(value) is tuple:
+        return tuple(
+            finding
+            for item in value
+            for finding in immutability_findings(item, f"{path}.<item>", trail)
+        )
+    if type(value) is frozenset:
+        return tuple(
+            finding
+            for item in value
+            for finding in immutability_findings(item, f"{path}.<member>", trail)
+        )
+    return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
+
+
+def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:
+    """Refuse a pinned identity that is not a whole, resolved, agreeing host observation.
+
+    A copy of a result carries no authorization, so nothing here can prove this identity is
+    the one a grant signed; that residual is stated on the field itself. What is provable is
+    that an invented identity is not cheap: it must carry the entire reviewed inventory, every
+    value resolved and well formed, and it must state the same binding as the live reading on
+    every key. Only `observed_at` may differ, because two readings are two separate events.
+    """
+    label = "granted_image_identity"
+    refusals = keyed(identity, SIGNED_IDENTITY_KEYS, label, ordered=False)
+    if refusals:
+        return refusals
+    unread = tuple(key for key in SIGNED_IDENTITY_KEYS if identity[key] is None)
+    if unread:
+        return (
+            f"{label}: unresolved — {list(unread)} were never read, so the host never said "
+            "what it holds",
+        )
+    findings = [
+        f"{label}: {key} {identity[key]!r} is not a registry digest"
+        for key in (*REGISTRY_DIGEST_KEYS, "local_image_id")
+        if not registry_digest(identity[key])
+    ]
+    findings.extend(platform_findings(identity["platform"], label))
+    findings.extend(
+        f"{label}: {key} {identity[key]!r} is not the {key} {image.get(key)!r} the live"
+        " reading states, so this result names two images and proves neither"
+        for key in OBSERVED_BINDING_KEYS
+        if identity[key] != image.get(key)
+    )
+    return tuple(findings)
 
 
 def entry_sequence(value: object) -> Sequence[Any] | None:

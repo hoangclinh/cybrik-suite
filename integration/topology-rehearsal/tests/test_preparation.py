@@ -870,6 +870,179 @@ def test_the_pin_and_the_signed_identity_it_was_drawn_from_may_not_disagree(
         result_type(**{**result_fields(), "granted_image_identity": identity})
 
 
+# ---------------------------------------------------------------------------
+# What a copy of a proved result can, and cannot, establish about the signed observation
+# ---------------------------------------------------------------------------
+# The pin check above relates two caller-supplied fields to each other, so a copy that moves
+# both sides at once satisfies it. The controls below raise the price of an invented signed
+# observation: it must carry the whole reviewed identity inventory, every value resolved and
+# well formed, and it must reproduce the live reading's binding on every key. None of them
+# establishes that the identity is the one an authorization actually signed — no copy holds
+# that document — and that residual is stated in the module comment on the field, not implied.
+
+# Well-formed values that are simply not the ones the fakes observed, so a copy carrying one
+# is refused by the comparison under test rather than by a shape check that would fire anyway.
+UNOBSERVED_INDEX_DIGEST = "sha256:" + "9" * 64
+UNOBSERVED_MANIFEST_DIGEST = "sha256:" + "a" * 64
+UNOBSERVED_IMAGE_ID = "sha256:" + "b" * 64
+
+# Every key on which the signed host observation and the live reading state one same binding.
+# `observed_at` is deliberately absent: the two instants are two different events.
+FORGED_BINDINGS = (
+    pytest.param("repository", "postgres-forged", id="repository"),
+    pytest.param("tag", "16-alpine-forged", id="tag"),
+    pytest.param(
+        "platform", MappingProxyType(dict(fakes.OTHER_IMAGE_PLATFORM)), id="platform"
+    ),
+    pytest.param("index_digest", UNOBSERVED_INDEX_DIGEST, id="index_digest"),
+    pytest.param("manifest_digest", UNOBSERVED_MANIFEST_DIGEST, id="manifest_digest"),
+    pytest.param("local_image_id", UNOBSERVED_IMAGE_ID, id="local_image_id"),
+)
+
+
+@pytest.mark.parametrize(("key", "forged"), FORGED_BINDINGS)
+def test_a_proved_result_may_not_carry_a_reading_that_drifts_from_the_signed_binding(
+    preparation, key, forged
+) -> None:
+    """The record must state one image, not two that merely sit in the same object.
+
+    `image_findings` compares the live reading against the granted host identity, but that
+    judgement lives in `prepare`, which no copy goes through. A result whose reading and whose
+    signed identity name different material is a satisfied proof of nothing: `runner`'s attempt
+    names render the image reference out of `image`, while the pin is drawn from the identity.
+    """
+    result = prepare(preparation)
+    # The control is vacuous unless the forgery really is a different binding.
+    assert result.image[key] != forged
+    with pytest.raises(ValueError):
+        replace(result, image=MappingProxyType({**dict(result.image), key: forged}))
+
+
+@pytest.mark.parametrize(("key", "forged"), FORGED_BINDINGS)
+def test_a_proved_result_may_not_carry_a_signed_identity_that_drifts_from_the_reading(
+    preparation, key, forged
+) -> None:
+    """Agreement is one property, so moving the identity's side of it must refuse too."""
+    result = prepare(preparation)
+    assert result.granted_image_identity[key] != forged
+    with pytest.raises(ValueError):
+        replace(
+            result,
+            granted_image_identity=MappingProxyType(
+                {**dict(result.granted_image_identity), key: forged}
+            ),
+        )
+
+
+# Mappings that are not a signed host observation of the reviewed image, each still deeply
+# immutable and each still stating the exact instant the pin names, so what refuses them is
+# the identity's own shape and nothing else.
+STUB_IDENTITIES = (
+    pytest.param(
+        MappingProxyType({OBSERVED_AT: fakes.IMAGE_OBSERVED_AT}), id="one-key-stub"
+    ),
+    pytest.param(MappingProxyType({}), id="empty"),
+    pytest.param(
+        MappingProxyType(
+            {
+                key: value
+                for key, value in result_fields()["granted_image_identity"].items()
+                if key != "local_image_id"
+            }
+        ),
+        id="missing-local-image-id",
+    ),
+    pytest.param(
+        MappingProxyType(
+            {**dict(result_fields()["granted_image_identity"]), "signer": "cybrik"}
+        ),
+        id="unreviewed-extra-key",
+    ),
+    pytest.param(
+        MappingProxyType(
+            {**dict(result_fields()["granted_image_identity"]), "local_image_id": None}
+        ),
+        id="unresolved-image-id",
+    ),
+    pytest.param(
+        MappingProxyType(
+            {
+                **dict(result_fields()["granted_image_identity"]),
+                "index_digest": "not-a-digest",
+            }
+        ),
+        id="malformed-digest",
+    ),
+)
+
+
+@pytest.mark.parametrize("identity", STUB_IDENTITIES)
+def test_a_satisfied_result_may_not_call_a_bare_stub_a_signed_host_observation(
+    preparation, identity
+) -> None:
+    """A field documented as the signed observation must carry one, or carry nothing.
+
+    Reading only `observed_at` out of it made every other key optional, so a "signed host
+    observation" could name no repository, no digest and no host image id at all. That is not
+    evidence anyone could compare anything against; it is a container for one instant.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    with pytest.raises(ValueError):
+        result_type(**{**result_fields(), "granted_image_identity": identity})
+
+
+@pytest.mark.parametrize("forged", FORGED_INSTANTS)
+def test_a_two_field_copy_may_not_invent_the_signed_observation_it_pins_itself_to(
+    preparation, forged
+) -> None:
+    """Moving both sides of an agreement is how an agreement between two fields is defeated.
+
+    This is the exact shape the previous pin check missed: the copy rewrites the identity and
+    the pin together, so they still agree with each other while agreeing with nothing that was
+    proved. It cannot be closed here — `__post_init__` holds no authorization to compare
+    against — but an invented identity must at least fail to be a reviewed observation.
+    """
+    result = prepare(preparation)
+    with pytest.raises(ValueError):
+        replace(
+            result,
+            granted_image_identity=MappingProxyType({OBSERVED_AT: forged}),
+            granted_observed_at=forged,
+        )
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        pytest.param(
+            dict(result_fields()["granted_image_identity"]), id="live-mapping"
+        ),
+        pytest.param(
+            MappingProxyType(
+                {
+                    **dict(result_fields()["granted_image_identity"]),
+                    "platform": dict(fakes.IMAGE_PLATFORM),
+                }
+            ),
+            id="nested-live-mapping",
+        ),
+    ],
+)
+def test_the_signed_identity_is_deep_frozen_by_the_validator_not_only_by_the_snapshot(
+    preparation, identity
+) -> None:
+    """Pin the enforcement, not the artefact `snapshot()` already froze.
+
+    Asserting that a `prepare()` result is immutable proves `frozen()` works; it says nothing
+    about whether the field is in `FROZEN_MAPPING_FIELDS`. Every value here is a coherent
+    signed observation in every other respect, so only the field's presence in that inventory
+    refuses it — dropping the name from the tuple makes both of these construct.
+    """
+    result_type = require_c8_attr(preparation, "PreparationResult")
+    with pytest.raises(ValueError):
+        result_type(**{**result_fields(), "granted_image_identity": identity})
+
+
 @pytest.mark.parametrize(
     "platform",
     [

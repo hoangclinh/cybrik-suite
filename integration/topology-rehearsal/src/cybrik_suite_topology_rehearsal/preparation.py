@@ -47,6 +47,11 @@ from .grant import (
     platform_findings,
     registry_digest,
 )
+from .observe import (
+    IMMUTABLE_LEAVES,
+    immutability_findings,
+    signed_identity_findings,
+)
 from .protocols import (
     ControlIdentitySource,
     DockerPort,
@@ -115,9 +120,6 @@ FROZEN_SEQUENCE_FIELDS = (
 
 REFUSAL_PREFIX = "preparation refused before consumption"
 
-# Safe immutable leaves; known containers are converted and all other types refused.
-IMMUTABLE_LEAVES = (bool, int, float, complex, str, bytes, type(None))
-
 
 def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
     """Return a recursively immutable dead copy; reject cycles and unknown types."""
@@ -151,39 +153,6 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
         f"a {type(value).__name__} cannot be proved deeply immutable, so it may not be "
         "recorded as something this phase proved"
     )
-
-
-def immutability_findings(
-    value: object, path: str, seen: tuple[int, ...] = ()
-) -> tuple[str, ...]:
-    """Report every nested value that is not already deeply immutable."""
-    if type(value) in IMMUTABLE_LEAVES:
-        return ()
-    if id(value) in seen:
-        return (f"{path} refers to itself",)
-    trail = (*seen, id(value))
-    if type(value) is MappingProxyType:
-        return tuple(
-            finding
-            for key, item in value.items()
-            for finding in (
-                *immutability_findings(key, f"{path}.<key>", trail),
-                *immutability_findings(item, f"{path}.<value>", trail),
-            )
-        )
-    if type(value) is tuple:
-        return tuple(
-            finding
-            for item in value
-            for finding in immutability_findings(item, f"{path}.<item>", trail)
-        )
-    if type(value) is frozenset:
-        return tuple(
-            finding
-            for item in value
-            for finding in immutability_findings(item, f"{path}.<member>", trail)
-        )
-    return (f"{path} holds a {type(value).__name__}, which is not deeply immutable",)
 
 
 @dataclass(frozen=True)
@@ -262,6 +231,9 @@ class PreparationResult:
             raise ValueError(f"granted_observed_at {self.granted_observed_at!r} is not the exact"
                              f" UTC instant {signed!r} the authorization signed for the host"
                              " observation it names, so it names no attempt")
+        drift = signed_identity_findings(self.granted_image_identity, self.image)
+        if drift:
+            raise ValueError("; ".join(drift))
         pinned = instant(signed)
         read = instant(self.image.get(OBSERVED_AT_KEY))
         if pinned is None or read is None or read < pinned:
