@@ -2304,3 +2304,86 @@ taken.
 **Consequence for the GREEN gate.** The open P1 set is now **F45, F46, F47, F48** (F39's repair) plus
 whatever the F30 review returns. P1 ≠ 0, so the GREEN stays blocked and nothing is pushable.
 RUNTIME remains **HOLD**.
+
+## Cycle 22 — F48 repaired test-first; the owed F30 verdict landed **NO-GO**
+
+### Live state reconciliation at cycle open
+
+HEAD `8529f9a`, branch 48 commits ahead of `origin`. PR #55 is OPEN, draft, MERGEABLE at
+`73ec822`, four rendered hosted checks SUCCESS (two `secret-scan`, two `contract standards
+validation`). The untracked `integration/topology-rehearsal/uv.lock` was preserved untouched.
+
+Broad census measured on the clean tree at `8529f9a` before any edit:
+**58 failed / 1433 passed in 0.65s** — 51 in `test_scripts_inert.py`, 7 in
+`test_surface_contract.py`, all of them the intended absent-entrypoint-script REDs.
+Re-measured after this cycle's edit: **58 failed / 1433 passed**, unchanged.
+
+### F48 — REPAIRED. `tests/test_scripts_inert.py`, commit `c56518f`
+
+The signature table in `call_parameter_bindings` was a last-wins dict over `ast.walk`, so any
+later `def` or method sharing a name replaced the real signature and disabled the
+call-argument-to-parameter taint edge for that name entirely.
+
+- **RED, at the offence assertion and not at the floor**:
+  `AssertionError: shadowed-helper-signature: this evasion is not flagged`, `assert [] != []`,
+  `tests/test_scripts_inert.py:1891`. `1 failed, 52 deselected`. The `root_sinks(module) >= 2`
+  floor passed for the shape, so the shape is judged by the derivation walk.
+- **GREEN**: `1 passed, 52 deselected` after collecting *every* signature registered under a name
+  and unioning the resulting pairs — the fail-closed over-approximation direction, matching the
+  function's existing deliberate conservatism.
+- **Non-vacuity proved**: the entry FAILS against the pre-fix dict and PASSES after, with the
+  anti-vacuity floor satisfied in both runs.
+- **Collateral**: `test_runner.py test_adapter.py test_preparation.py` → **770 passed**.
+  Whole file → 51 failed / 2 passed, all 51 carrying the absent-script message. `compileall` clean.
+  `ruff` is **absent** from `.venv/bin`; it was not run and was not installed.
+- **Nothing widened**: the nine AST-pinned guard functions (`root_sinks`, `module_bindings`,
+  `computed_attribute_reads`, `forbidden_origins`, `name_reads`, `attribute_reads`,
+  `getattr_calls`, `literal_getattr_name`, `module_wide_offences`) are untouched.
+
+### The overclaiming disclosure F39's review demanded — CORRECTED
+
+The `call_parameter_bindings` docstring claimed an aliased or attribute-spelled callee "is caught
+by the module-name walk instead (`aliased-helper`)". Independent review measured that FALSE for
+methods and for the alias-plus-parameter composition. The paragraph now states the measured limit
+and names **F45** (parameter defaults), **F46** (attribute/method callees) and **F47** (aliased
+callee compounded with parameter laundering) as OPEN and explicitly NOT closed here.
+
+### F30 independent verdict — NO-GO. `3e9bba6`. P0=0 P1=2 P2=1 P3=2
+
+The review commissioned in cycle 21 returned this cycle. Recorded here in substance, verbatim in
+its findings, so it cannot be lost the way the cycle-19 and F43/F44 verdicts were.
+
+| ID | Sev | Location | Defect | Reproducing shape |
+|---|---|---|---|---|
+| F60 | **P1** | `tests/test_preparation.py:773-779` | `test_the_pinned_instant_reaches_the_snapshot_from_the_signed_document` is **VACUOUS** for its stated purpose. Its docstring says "the instant the grant signed, not a live host reading", but `tests/fakes.py:356` is the single `observed_at` in the fakes, so grant pin and live host reading are the same string | Mutation M7 — `snapshot()` sourcing `observed.image[OBSERVED_AT_KEY]` instead of `document["observed_image_identity"][OBSERVED_AT_KEY]` — **survives all five new tests**; only 3 pre-existing `test_runner.py` tests fail |
+| F61 | **P1** | `src/.../preparation.py:260-262` | The validator is **shape-only, not agreement**. The commit claims it "refuses anything that is not the exact UTC instant the grant signed"; measured, it accepts *any* well-formed instant. Nothing checks the pin against the instant the authorization carries outside `snapshot()`'s own literal wiring | `dataclasses.replace(result, granted_observed_at="1970-01-01T00:00:00Z")` yields a `satisfied=True` "complete proof"; `runner.attempt_id_for` then renders `19700101T000000Z-c8`, and every container/network/volume/credential name derives from it. Also accepted: `0001-01-01T00:00:00Z`, `9999-12-31T23:59:59Z`, `2026-08-05T00:00:01Z` |
+| F62 | P2 | `src/.../preparation.py:202-203` | The "complete immutable snapshot" docstring is refuted for this field by three routes; `frozen=True` blocks only plain `setattr` | `object.__setattr__(r, "granted_observed_at", ...)` SUCCEEDS; `r.__dict__[...] = ...` SUCCEEDS; `class Sub(PreparationResult): def __post_init__(self): pass` constructs with `granted_observed_at=""` |
+| F63 | P3 | `tests/test_preparation.py:700-707` | The new comment attributes the `str`-subclass refusal to `frozen()` at `preparation.py:125-133`, but `granted_observed_at` never passes through `frozen()`; the refusal comes solely from `type(...) is not str` at line 260 | Mutation M4 (`is not str` → `not isinstance`) is killed by the `str-subclass` param, proving the type check is the control |
+| F64 | P3 | `tests/test_preparation.py:709-721` | `UNPINNED_INSTANTS` holds only shape-invalid values and no accepted-but-wrong control, so it cannot detect widening from "the signed instant" to "any instant" (the F61 gap); it also duplicates the corpus at `tests/test_runner.py:~1100-1118` | Adding `pytest.param("1970-01-01T00:00:00Z")` makes the test fail against the shipped implementation |
+
+**What the F30 repair genuinely does close, measured fairly.** Mandatory-ness is real and tested
+(M3, restoring the `= ""` default, is killed by `test_the_pinned_instant_is_mandatory_rather_than_defaulted`
+and 10 pre-existing tests). Shape validation is real (M1 validator deleted, M2 no-op validator,
+M5 `instant()` check dropped, M6 type check dropped — all killed). Subclass refusal is real (M4
+killed). The field-inventory pin is not decoration: adding a twelfth defaulted field fails
+`test_the_result_field_inventory_is_exactly_the_proved_field_set`.
+
+**Hypotheses the reviewer REFUTED rather than dropped**: the withdrawn default broke no caller —
+`PreparationResult(` appears exactly once in `src/` and the only same-commit test change is a
+legitimate fixture extension; unicode digits, leap seconds, `+00:00`, lowercase `z` and whitespace
+are all rejected by the strftime round-trip; the census claim of 58/1433 was independently confirmed.
+
+**Reviewer-stated limits.** No `admission.py` or entrypoint measurement; no runtime, Docker,
+listener or network action; `ATTEMPT_SLICE` and plan-bound port derivation not audited for their
+own agreement check; strftime `%Y` below year 1000 probed only at four boundaries; the ledger was
+treated as untested claim throughout.
+
+### Open P1 set after this cycle
+
+**F45, F46, F47** (F39's repair, F48 now closed) and **F60, F61** (F30's repair). P1 ≠ 0, so the
+atomic entrypoint GREEN stays blocked and nothing is pushable. F61 is the most consequential open
+item: a shape-only pin lets a forged instant name the attempt that every container, network,
+volume and credential name derives from.
+
+Nothing was pushed. PR #55 stays draft at `73ec822`. RUNTIME remains **HOLD** — no entrypoint
+script exists and none was executed.
