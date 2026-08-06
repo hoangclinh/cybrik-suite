@@ -9916,3 +9916,106 @@ retired two rows last cycle; the same discipline here targets **F0056 (P1), F005
 - `P0=P1=P2=0` is **not yet** established — it is the reviewer's to say, not this lane's.
 - No control weakened, no finding downgraded, no limit raised, no entrypoint script written or run.
   RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
+
+## Cycle 20 (V2) — `VERDICT-93e1140` NO-GO: **four rows retired**, and the packet that starved its own review
+
+Driver cycle 20 (ledger sections run one behind the driver; disclosed at Cycle 16, not renumbered).
+
+### The verdict
+
+`VERDICT-93e1140ab8325619aebe8d845ca99946eba0d3ac.json`, personal pool, `claude-opus-5`,
+ladder step 1, `covers_head=true`, `diff_sha256=aaaea587…3a9898`, observed 2026-08-06T20:32:16Z.
+
+| field | value |
+| --- | --- |
+| verdict | **NO-GO** |
+| findings | p0=0 p1=0 p2=0 **p3=4** |
+| execution evidence | **COMPLETE** — pytest 1725 passed / 59 failed, `unintended_failures=0`, ruff 12, compileall rc 0, all matching baseline |
+
+**Retired — four rows in one verdict:**
+
+- **F0056 (P1, `runner.py`)** — the sole gating row. The member walk now sits under the house
+  pattern at `:496-501`, `KeyboardInterrupt`/`SystemExit` re-raised, `Exception` refused closed to
+  `None`; both call sites convert `None` to a finding plus `STOP_CONTROL`; a behavioural witness on
+  a real `Sequence` subclass is present; no other unguarded foreign-object contact remains in
+  `_teardown`.
+- **F0055 (P3, `runner.py`)** — docstring now states the dual `str.__str__`/`safe_repr` spelling and
+  that passing the type guard never implies walkability. Net zero lines.
+- **F0058 (P3, ledger)** — headings order 11 → 12 → 15 → 16 → 17 → 18; off-by-one disclosed.
+- **F0029 (P3, ledger)** — the one-exact-finding-per-cycle supersession is recorded at `:9788-9800`.
+
+**New — both P3, both non-gating:**
+
+- **F0059 (P3, `test_runner.py:1921`)** — the F0056 witness asserts only `names is None`, the same
+  assertion the non-sequence witness at `:1903` makes, so it cannot distinguish *the walk being
+  caught* from *the guard rejecting the value*; and no test drives an unwalkable inventory through
+  `run_topology_rehearsal` to the `STOP_CONTROL` result the finding named.
+- **F0060 (P3, `runner.py:500`)** — the walk's bare `except Exception: return None` discards the
+  cause, so all three routes into `None` share one message and the operator loses the
+  `safe_type_name(error)` diagnostic that `_guarded_removal :517`, `_guarded_reading :535` and
+  `_guarded_clock :690` each report.
+
+**Carried, untouched by the range and not claimed:** F0054 (P3, `runner.py`), F0057 (P3,
+`test_runner.py`).
+
+This is the best retirement rate the lane has recorded — four rows against a history of roughly one
+per verdict — and it came from scoping at the open set rather than at the newest defect.
+
+### The finding this lane must own: the packet starved its own review
+
+The reviewer's `unverified_claims` states plainly that **"the bounded diff body was exhausted by
+`REVIEW-LEDGER.md` and contained no byte of the `runner.py` or `test_runner.py` change, so nothing
+of the change under review was witnessed."**
+
+Measured at `73ec822..93e1140` for the requested scope:
+
+| path | diff lines | share |
+| --- | --- | --- |
+| `docs/REVIEW-LEDGER.md` | 9,771 | **87.0%** |
+| `tests/test_runner.py` | 1,090 | 9.7% |
+| `src/…/runner.py` | 365 | 3.3% |
+| **total** | **11,226** | |
+
+The ledger is 87% of the packet. Because the diff is taken from the **range base** `73ec822` and not
+from the previous verdict, every ledger byte written across 155 commits is re-sent on every request
+that names the ledger. The security-relevant code — the entire reason the review exists — is 13% of
+the packet and arrived after the body was spent.
+
+The Cycle 18 reasoning quoted above ("a request that omits the ledger can never reach distance 0")
+was **correct about coverage and wrong about consequence**. It bought a ledger coverage credit by
+spending the reviewer's whole diff body, and so obtained a *coverage* credit for `runner.py` and
+`test_runner.py` that no human or model ever read. A coverage credit for unwitnessed code is worth
+less than no credit at all, because it silently satisfies the gate.
+
+**Correction adopted:** the ledger is never scoped together with source or tests again. Code packets
+and ledger packets alternate. The ledger's own review is the cheap one to defer, because it is
+documentation and gates nothing; the code review is the one that must actually land.
+
+### The push predicate does not read the verdict
+
+Recorded as an observation about the harness, not a product finding, and **not acted on** — the
+driver's scripts are driver-owned and this lane does not edit them.
+
+`push-when-clean-v2.zsh` computes `gating_reported` as `.findings.p0 + .findings.p1 + .findings.p2`
+and refuses only when that sum is non-zero. It never reads `.verdict`. This verdict reports
+`p0=p1=p2=0` **and the word `NO-GO`**. Every other push precondition is currently satisfied:
+`covers_head=true`, evidence `COMPLETE`, `PUSH-AUTHORIZED` present and naming this exact branch,
+freeze lifted, worktree clean apart from the preserved lockfile.
+
+So an explicit reviewer refusal, on code that same reviewer says it never saw, is one clean gate
+computation away from being pushed automatically.
+
+This lane does not resolve that by editing a driver script or by arguing the counts outrank the
+word. It resolves it the documented way: **a review request is opened**, which is itself a refusal
+condition in the push predicate, and the range stays unpushed until a reviewer that has actually
+read the code says so. Raised for the Founder as a harness question, not a blocker.
+
+### Cycle action
+
+No product code changed. This ledger entry is the only edit. The next request is scoped to
+`runner.py` + `test_runner.py` **only** — 1,455 diff lines, comfortably inside the body — so the
+reviewer reaches the code for the first time.
+
+- `P0=P1=P2=0` is **not** established: the standing verdict is NO-GO and the code is unwitnessed.
+- No control weakened, no limit raised, no finding downgraded, no entrypoint script written or run.
+  RUNTIME **HOLD**, production **Founder-only**, release dates **unchanged**.
