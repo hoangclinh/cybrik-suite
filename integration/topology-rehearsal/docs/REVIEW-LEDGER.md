@@ -1707,6 +1707,210 @@ The next unused finding number is still **F36**; this cycle assigned none.
 repair or any GREEN. The atomic entrypoint GREEN stays blocked behind
 P0=P1=P2=0, which the open P1 set alone currently forbids.
 
+### `73ec822..c47bd86` — full-range independent review OBTAINED — **NO-GO**
+
+The verdict the two previous cycles sought and did not obtain. Three independent
+read-only Opus reviewers ran on disjoint scopes, plus one measurement verifier.
+Each returned; none was assumed. Scopes were bounded deliberately, because two
+prior single-reviewer attempts at "the whole range" exceeded their timebox and
+lost their findings — the same failure mode this ledger already records twice.
+
+| Lane | Scope | Verdict |
+|---|---|---|
+| A | F5/F29 repair (`8cc85de`, `77eb7e1`) | **GO** on F5/F29; P1 residual on F33 |
+| B | F22/F23 repair (`e3d6116`) | **NO-GO** — both discharged, new P1 of same class |
+| C | Production-source diff `73ec822..c47bd86` (127 lines, 4 files) | **NO-GO** — new P1 |
+| D | Gate measurement at HEAD (verifier, not a verdict) | see table below |
+
+**Range verdict: NO-GO. PUSH-ELIGIBLE NO. RUNTIME HOLD.**
+
+#### Findings closed by this review
+
+- **F5 / F29 — P1 — DISCHARGED (independently).** Shipped `src/` has exactly one
+  attempt-identity derivation and it is grant-pinned on every path:
+  `runner.py:331` calls `attempt_id_for(prepared.granted_observed_at)`, and
+  `attempt_id_for` (`runner.py:286-307`) is a pure function of its argument.
+  `granted_observed_at` is populated at `preparation.py:759` from the signed pin.
+  Reviewer A searched for a surviving host read (`strftime`, `datetime.now`,
+  `utcnow`, `time.time`, `gethostname`, `uname`, `getpid`, `uuid`, `socket.`) and
+  found only the monotonic clock port and `grant.py:254`, neither of which names.
+  `_attempt_names` has one call site (`runner.py:743`). The discharge is
+  non-vacuous by measurement, not analysis: `8cc85de` contains no test file and
+  flipped the two REDs 76p/2f → 78p/0f.
+- **F22 — P1 — DISCHARGED.** `module_wide_offences`
+  (`tests/test_scripts_inert.py:1391-1400`) folds `computed_attribute_reads(module)`
+  over the whole module at `:1392-1395`, before the sink walk; the test calls that
+  exact function at `:1469`, so assertion and effectiveness proof (`:1742`) run one
+  path. Reviewer B re-ran the original recorded evasion and measured it flagged.
+- **F23 — P1 — DISCHARGED.** `root_sinks:1355-1357` adds every `keyword.arg is None`
+  value and `:1358-1365` every `ast.Dict` with constant key `repository_roots`.
+  The recorded `**` splat evasion is now flagged twice, measured.
+- **F3 — AMBIGUOUS → CLOSED.** F3's fate was tracked only through F22/F23
+  (`:963-964`). Both are now independently discharged, so F3 closes with them.
+  This is the explicit re-closure `:1247-1249` recorded as owed.
+- **No control was weakened by `e3d6116`.** Its 20 deletions are the inline walk
+  relocated verbatim plus two false docstring claims withdrawn in place
+  (`:1806-1809`). No assertion removed, no floor lowered. The file is
+  byte-identical from `e3d6116` to HEAD.
+
+#### New findings — numbering continues at F36, no restart
+
+- **F36 — P1 — CONFIRMED — `runner.py:331` vs `tests/test_runner.py:1246-1301`.**
+  The entire semantic content of the F5/F29 repair is untested. Reverting
+  `attempt_id_for(prepared.granted_observed_at)` to
+  `attempt_id_for(prepared.image[OBSERVED_AT_KEY])` leaves the suite green.
+  The sentinel test at `:1246` proves every created name *routes through* the seam
+  but asserts nothing about *which field is fed to it*, and in the runner fixtures
+  the two instants are equal — `fakes.IMAGE_OBSERVED_AT` (`fakes.py:85`) is both
+  the grant pin (`documents.py:81`) and the default live host reading
+  (`fakes.py:356`). Failure scenario: the exact drift `runner.py:295-305` says it
+  exists to prevent regresses silently on the next edit, and is discovered only
+  after the single authorized attempt is spent. The separating fixture already
+  exists — `FRESH_OBSERVED_AT`, used at `tests/test_preparation.py:1400-1409` —
+  and no runner test uses it. **Fix: one runner test driving**
+  `passing_adapters(image=host_image(observed_at=FRESH_OBSERVED_AT))` **asserting
+  created names carry** `SYNTHETIC_ATTEMPT_ID`. This is the highest-value next
+  repair: it is small, test-only, and it is the difference between F5/F29 being
+  discharged and F5/F29 being *durably* discharged.
+- **F39 — P1 — CONFIRMED — `tests/test_scripts_inert.py:1299-1317`, false claim at
+  `:1302-1304`.** `grant_derived_names` follows taint through module bindings only,
+  never through the call-argument-to-parameter edge, so a grant-derived root
+  laundered through a helper's parameter reaches `build_plan` with the guard
+  silent. Reviewer B measured `sinks=3 / offences=[]` on a four-line source in
+  which `_forward(authorization, _declared(authorization))` passes the root as
+  `values`, a parameter, which is never a bound name and so never enters `derived`.
+  This is F22/F23's class respelled in one extra line, and it directly refutes the
+  docstring claim that "a helper calling a helper calling the envelope has to be
+  followed to its end."
+- **F43 — P1 — CONFIRMED — `tests/test_scripts_inert.py:1491-1495`.** The reviewed
+  `CONFORMING_WIRING_SHAPE` — the design the entrypoint guards are pinned *not* to
+  refuse — renders the attempt identity itself and bypasses the new seam. It hands
+  `build_plan` the raw ISO instant `"2026-08-05T00:00:00Z"` while the runner
+  renders `"20260805T000000Z-c8"` (`runner.py:307`). Failure scenario: an
+  implementer follows the pinned reference design; the `:` characters are exactly
+  what `ATTEMPT_INSTANT_FORMAT` strips because an argv token may not carry them, so
+  either `exact_token` refuses at plan-build time or the plan carries
+  `cybrik-topology-net-2026-08-05T00:00:00Z` against created
+  `cybrik-topology-net-20260805T000000Z-c8` — and the single authorized attempt is
+  spent on the exact refusal F29 was repaired to prevent. `77eb7e1` created the
+  seam and did not update this shape.
+- **F44 — P1 — CONFIRMED — `docs/ENTRYPOINT-SLICE-SPEC.md:146`.** The spec governing
+  the absent entrypoint still says `attempt_id` is derivable "using the existing
+  `runner._attempt_names` formula" — the *private* helper, taking a
+  `PreparationResult` the wiring does not hold. `grep` for `attempt_id_for` across
+  the spec and `tests/test_scripts_inert.py` returns **zero hits**. Failure
+  scenario: the entrypoint GREEN is written against the spec, re-implements the
+  formula, and `test_the_attempt_identity_format_is_rendered_in_exactly_one_place`
+  cannot see it because `runner_tree()` (`tests/test_runner.py:1141`) parses
+  `runner.py` only.
+- **F40 — P2 — CONFIRMED — `tests/test_scripts_inert.py:1355-1357`.** The new splat
+  shape refuses a splat carrying *no root at all*, only the attempt identity the
+  grant is explicitly entitled to fix (`:1432-1438`, `:1754-1757`). Measured:
+  `build_plan(repository_roots=dict(repository_roots), **identity)` is flagged.
+  The `root_sinks` docstring (`:1343-1346`) discloses the honest-root-inside-a-splat
+  cost but not this one — it forbids a spelling the reviewed design permits.
+- **F41 — P2 — CONFIRMED — `tests/test_scripts_inert.py:1348-1372`.** `root_sinks`
+  has no positional-argument shape; combined with F24's mutation hole, two honest
+  decoy sinks satisfy the floor while the real root launders (measured
+  `sinks=2 / offences=[]`). Held at P2 rather than P1 only because
+  `plan.build_plan` is keyword-only (`plan.py:437-441`); any intermediate helper
+  is unconstrained.
+- **F37 — P2 — CONFIRMED — `observe.py:510` vs `tests/test_surface_contract.py:308-316`.**
+  `CommandAdapterAccessors` is a new public module-level name, absent from
+  `observe.__all__` and pinned by no test, because the `__all__` control is
+  one-directional: it asserts every listed name resolves, never that every public
+  name is listed. Contrast `attempt_id_for`, which is exhaustively pinned.
+- **F42 — P3 — CONFIRMED — `tests/test_scripts_inert.py:1463-1467`.** The
+  anti-vacuity comment claims the floor is met because "`main` names the roots to
+  the wiring and the wiring names them to `plan.build_plan`", but the floor no
+  longer counts named keywords specifically; the comment describes a stricter check
+  than the code performs.
+- **F38 — P3 — CONFIRMED — `observe.py:1-10` vs `:510-542`.** The module docstring
+  still claims "Every function here is total and pure … holds nothing between calls
+  and answers only from what it was handed", but the new `plan` property answers
+  from `self._executor`, an attribute the class never defines and only `adapter.py`
+  sets. The mixin is untyped against it, so no type checker can see the contract.
+
+**F35 remains the last previously-assigned number. This review assigned F36-F44.
+There are no gaps in F1..F44. The next unused finding number is `F45`.**
+
+#### Existing findings re-measured against live source
+
+| ID | Was | Now | Evidence |
+|---|---|---|---|
+| F30 | P2 | **P1 — escalated** | `preparation.py:220` `granted_observed_at: str = ""` is still the only `PreparationResult` field `__post_init__` (`:222-260`) does not validate. Escalated because the field is now load-bearing for the single authorized attempt's *name*, which it was not when F30 was filed. System still fails closed via `PrecheckAbort`, but the invariant "a satisfied snapshot names its authorization" is not enforced where it is stated. |
+| F33 | NARROWED | **PARTIALLY DISCHARGED** | `77eb7e1` creates and exports the seam (`runner.py:81`) and AST-pins single-rendering *inside* `runner.py` (`tests/test_runner.py:1292-1294`). "Both callers reach it" is false: the second caller does not exist, and both artifacts that will author it (F43, F44) still direct the implementer to re-render by hand. |
+| F16 | P2 | **CONFIRMED, counts re-measured** | `adapter.py` **799**, `preparation.py` **798**, `grant.py` **794**, against `MODULE_LINE_LIMIT = 800` with a strict `>=` at `tests/test_surface_contract.py:236-247`. `adapter.py` has **zero** lines of headroom. Consequence for entrypoint GREEN below. |
+| F31 | P2 | **CONFIRMED — hid nothing** | Three multi-line statements in `preparation.py` were collapsed to one line each (`:243`, `:529`, `:557`), buying 6 lines against 7 added. Reviewer C verified each reflowed string is byte-identical in behaviour; nothing was smuggled in. The durable defect is not the reflow but module placement chosen by size bound rather than cohesion — `observe.py:530-533` states this outright. |
+| F26 | P2 OPEN/WIDENED | **MEASURABLY WORSE** | `plan.build_plan(**{}, **{})` alone scores `sinks=2` and clears the `>= 2` floor at `:1467` with zero real root sinks. The two new shapes are the cheapest yet; any unrelated `**kwargs` call in the module now counts. |
+| F24 | P2 | CONFIRMED-STILL-OPEN | `:1275-1296` — `.update()` is an `ast.Expr`; `module_bindings` has no branch for it, so the container never enters `derived`. Measured offences `[]`. |
+| F25 | P2 | CONFIRMED-STILL-OPEN | `:1213` — `os.getenv("SUITE_ROOT")` and `os.path.dirname(sys.argv[0])` both reach a named `repository_roots=` sink with offences `[]`. |
+| F27 | P3 | CONFIRMED-STILL-OPEN | `:1366-1371` — the `held` shape makes a whole `FunctionDef` the sink, so an honest `_control_roots` helper that also reads the grant for the permitted identity is flagged. Measured: a **false blocker**, two offences on honest source. |
+| F28 | P3 | CONFIRMED-STILL-OPEN | `:1225-1232` — `builtins.getattr(authorization, FIELD)` and `operator.attrgetter("grant")(authorization)` both reach a named sink with offences `[]`. |
+| F34 | P3 | unchanged | Denylist-coverage gap for `granted_observed_at`; not widened by these commits. |
+
+#### Control properties over the production-source diff
+
+| Property | Verdict | Evidence |
+|---|---|---|
+| Fail-closed | **UPHELD** | `runner.py:300-306` refuses every non-exact-UTC pin incl. `""`, `None`, non-`str`; `preparation.py:797` wraps `snapshot` in `guarded(...)`, so the unguarded subscript at `:759` degrades to a bounded refusal, not a raw `KeyError`. |
+| Single spawn site | **UPHELD** | `adapter.py:222-251` remains the sole argv→runner site; the new mixin (`observe.py:510-542`) publishes only `.plan` and deliberately no `.runner`, pinned across the whole MRO by `tests/test_adapter.py:150-152`. |
+| Anti-self-witnessing | **WEAKENED (structural only)** | `observe.py:60` now imports `.plan`, and `adapter.py:254,284,342,474,509` make all five command adapters inherit from a class defined in the *observation* module. The evidence-reduction layer is now an ancestor of the seam-holding layer. No behavioural bypass found, but **no control pins intra-package import direction** — `tests/test_surface_contract.py:36-50` has only `FORBIDDEN_LIBRARY_IMPORTS`. |
+| Surface / inertness | **Inertness UPHELD, surface WEAKENED** | No import side effect, no cycle. Surface: F37. |
+| Composition-root discipline | **UPHELD in-diff** | Nothing in the four files derives a control root or reads the environment; `attempt_id_for` is structurally pinned against clock/env/snapshot reads by `tests/test_runner.py:1123-1140`, `:1234`. System-wide it is **unassertable today** — the wiring module does not exist; that property is one of the 58 REDs. |
+| Authority fields not defaulted | **WEAKENED** | F30, escalated above. |
+
+**P0 band is empty across all three review lanes.** No permit-by-default path, no
+second spawn site, no environment read, no removed assertion.
+
+#### Gates measured at HEAD `c47bd86` (lane D, verifier)
+
+Nothing was installed, auto-fixed or reformatted. `uv.lock` untouched.
+
+| Gate | Command | Result |
+|---|---|---|
+| Broad census | `uv run --offline python -m pytest -q` | **58 failed / 1417 passed** in 0.64s |
+| Failure classification | grouped by file | 51 `tests/test_scripts_inert.py` + 7 `tests/test_surface_contract.py` = 58 |
+| Absent-script proof | `ls -la scripts/` | `No such file or directory` — the whole directory is absent |
+| Focused suites | `… tests/test_{adapter,runner,admission,preparation,plan}.py` | **921 passed / 0 failed** |
+| Lint | `ruff check src tests` | 2 findings, both `I001`, both pre-existing (`test_errors.py:12`, `test_runner.py:3`); `--fix` NOT run — Founder-gated |
+| Compile | `python -m compileall -q src tests` | exit 0, no output |
+| Whitespace | `git diff --check 73ec822..HEAD` | exit 0, no output |
+| Worktree | `git status --short --branch` | ahead 37; sole untracked entry is `uv.lock` |
+
+**Zero unintended failures.** All 58 are the absent-script class, measured by
+exhaustive file breakdown summing to exactly 58, not assumed.
+
+#### Consequence for the atomic entrypoint GREEN
+
+The GREEN stays **blocked**: P1 ≠ 0. The open P1 set is **F30, F36, F39, F43, F44**.
+
+Two further constraints the GREEN must respect when it is unblocked:
+
+1. **Treat `adapter.py` as frozen.** At 799 lines against a strict `>= 800` bound it
+   has zero headroom — one added line, comment or import fails the gate. The wiring
+   contract `tests/test_scripts_inert.py:830,1005` asserts
+   (`wiring.command_adapters[name].plan is wiring.plan`) is already satisfied by the
+   mixin, so the GREEN should not *require* touching `adapter.py`. If
+   `test_runtime_wiring_completes_the_injected_adapter_surface` or
+   `test_the_default_execute_path_constructs_exactly_one_process_executor` forces an
+   `adapter.py` edit, the size gate converts the GREEN into an immediate RED
+   clearable only by relocating code — the same pressure that produced F31.
+2. **F43 and F44 must be repaired before the GREEN, not by it.** They are the two
+   artifacts that will author the second caller, and both currently instruct the
+   implementer to re-render the identity formula by hand. Landing the GREEN against
+   them reintroduces F5/F29 in the script, where
+   `test_the_attempt_identity_format_is_rendered_in_exactly_one_place` cannot see it.
+
+**Exact next action:** repair **F36** test-first — one runner test driving
+`passing_adapters(image=host_image(observed_at=FRESH_OBSERVED_AT))` and asserting
+the created names carry `SYNTHETIC_ATTEMPT_ID`. It must be RED against a runner
+reverted to the live reading and GREEN against shipped source. It is the smallest
+open P1, it is test-only, and until it lands the independently-granted F5/F29
+discharge is silently revertible.
+
+RUNTIME remains **HOLD**. Neither entrypoint script was executed; neither exists.
+
 ## Open non-technical items for the Founder
 
 - `integration/topology-rehearsal/uv.lock` is untracked and un-ignored in
