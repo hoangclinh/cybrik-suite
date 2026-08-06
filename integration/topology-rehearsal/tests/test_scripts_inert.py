@@ -1327,17 +1327,41 @@ def forbidden_origins(node: ast.AST) -> set[str]:
 def root_sinks(module: ast.AST) -> list[ast.AST]:
     """Every expression through which a value becomes a control root.
 
-    Two shapes, because a root can be named or it can be held. The keyword is the one the
-    plan actually reads; the root-shaped binding catches the value one step earlier, so a
+    Four shapes, because a root can be named, splatted, keyed or held. The keyword is the one
+    the plan actually reads; the root-shaped binding catches the value one step earlier, so a
     helper named `_control_roots` whose body reads the grant is an offence at its `def`
     rather than only at whatever eventually calls it.
+
+    The two middle shapes are here because a literal keyword is not the only way to hand a
+    plan its roots, and reading only the literal spelling lost a defect the withdrawn blanket
+    `grant` ban had caught. `plan.build_plan(**arguments)` carries `keyword.arg is None`, so
+    the sink disappears from a walk keyed on `ROOT_KEYWORD`, and the mapping that built it is
+    bound to a name like `arguments` that no root-shaped test recognises either — the value
+    launders in the gap between the two. A `**` value is therefore a sink wherever it appears,
+    and so is any dict literal that keys `repository_roots`.
+
+    That breadth is deliberate and it is not free: a splat carrying a grant-derived mapping is
+    refused even when the root inside it is honest, because from outside the call this walk
+    cannot tell the two apart. The honest spelling is to name the keyword, which the spec's
+    own conforming shape already does.
     """
+    calls = [node for node in ast.walk(module) if isinstance(node, ast.Call)]
     named = [
         keyword.value
-        for node in ast.walk(module)
-        if isinstance(node, ast.Call)
+        for node in calls
         for keyword in node.keywords
         if keyword.arg == ROOT_KEYWORD
+    ]
+    splatted = [
+        keyword.value for node in calls for keyword in node.keywords if keyword.arg is None
+    ]
+    keyed = [
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.Dict)
+        and any(
+            isinstance(key, ast.Constant) and key.value == ROOT_KEYWORD for key in node.keys
+        )
     ]
     held = [
         value
@@ -1345,7 +1369,35 @@ def root_sinks(module: ast.AST) -> list[ast.AST]:
         for name in bound
         if name in ROOT_NAMES or name.endswith(ROOT_NAME_SUFFIXES)
     ]
-    return named + held
+    return named + splatted + keyed + held
+
+
+def module_wide_offences(module: ast.AST) -> list[str]:
+    """Every offence the module-wide root-derivation guard states over one wiring module.
+
+    Stated as a function rather than inline in the test below so that the guard's own
+    effectiveness proof runs the exact path the test runs. A proof that restated the walk
+    would drift away from the walk silently, and a drifted proof is worse than none: it
+    reports a control as exercised while exercising something else.
+
+    Two offence classes, not one. A computed attribute name is refused outright wherever it
+    sits — inside `build_runtime_wiring` or in any module helper it calls — because
+    `literal_getattr_name` returns `None` for it, so `attribute_reads` records no read and
+    the helper holding it never enters `derived`. Scoping that refusal to one function left
+    `FIELD = "grant"` with `getattr(authorization, FIELD)` in a helper reaching a root with no
+    read recorded anywhere, which is this file's own recorded evasion respelled in one extra
+    line.
+    """
+    derived = grant_derived_names(module)
+    offences = [
+        f"line {line}: a control root may be reached under an unreadable attribute name"
+        for line in computed_attribute_reads(module)
+    ]
+    for sink in root_sinks(module):
+        reached = forbidden_origins(sink) | (name_reads(sink) & derived)
+        if reached:
+            offences.append(f"line {sink.lineno}: a control root derives from {sorted(reached)}")
+    return sorted(offences)
 
 
 def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() -> None:
@@ -1388,6 +1440,21 @@ def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() 
     `argv` is deliberately not a forbidden origin here. The operator's `--control-root`
     tokens *are* argv, so argv is the one honest source of a root; the wiring's own freedom
     from argv stays where it belongs, in the function-scoped guard below.
+
+    Two respellings of the same defect were found passing this test after it first landed and
+    are closed by `module_wide_offences` and `root_sinks` above: a computed `getattr` in a
+    module helper, which recorded no attribute read at all, and a `**` splat, which erased the
+    keyword the sink walk was keyed on. Neither is closed on assertion alone —
+    `test_the_module_wide_root_derivation_guard_flags_each_recorded_evasion` runs both, and
+    every other shape this walk claims to follow, through the exact path asserted here.
+
+    What this test does *not* state is worth naming, because a guard trusted past its reach is
+    worse than a narrow one. It follows taint through names that are *bound*, so a value
+    mutated into an existing container in place, or returned from a method and read as an
+    attribute rather than as a bare name, still passes; `HOST_ROOT_SOURCES` is an enumerated
+    set, not the whole of host observation; and the anti-vacuity floor counts every sink shape
+    rather than the named keyword specifically. Those are recorded as open findings against
+    this file, not as properties it holds.
     """
     script = load_c8_script("run_topology_rehearsal.py")
     require_c8_attr(script, "build_runtime_wiring")
@@ -1399,13 +1466,299 @@ def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() 
     sinks = root_sinks(module)
     assert len(sinks) >= 2, "the injected roots must reach the plan through a named argument"
 
-    derived = grant_derived_names(module)
-    offences: list[str] = []
-    for sink in sinks:
-        reached = forbidden_origins(sink) | (name_reads(sink) & derived)
-        if reached:
-            offences.append(f"line {sink.lineno}: a control root derives from {sorted(reached)}")
-    assert sorted(offences) == []
+    assert module_wide_offences(module) == []
+
+
+# The wiring shape the spec's obstacle-4 adjudication actually decided
+# (`docs/ENTRYPOINT-SLICE-SPEC.md:377-388`): a repeatable `--control-root NAME=PATH` folded by
+# two private helpers and forwarded as a mandatory keyword through to `build_runtime_wiring`,
+# which reads the grant only for the attempt identity it is entitled to read. It is carried
+# here as source rather than written to disk because nothing in this file may create the
+# entrypoint it is waiting for. Its purpose is the other half of an AST control's honesty: a
+# walk is only worth its false-negative reach if it is also known not to refuse the design it
+# guards, and a guard that blocks the reviewed shape is a false blocker, not a control.
+CONFORMING_WIRING_SHAPE = '''
+import plan
+
+
+def _control_root_pair(token):
+    name, _, path = token.partition("=")
+    return name, path
+
+
+def _control_roots(tokens):
+    return dict(_control_root_pair(token) for token in tokens)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(
+        repository_roots=repository_roots,
+        attempt=authorization.grant["observed_image_identity"]["observed_at"],
+    )
+
+
+def main(argv=None):
+    parsed = parse_arguments(argv)
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parsed.control_root),
+    )
+'''
+
+# Every root-derivation shape the guard above claims to catch, each one written into the same
+# module skeleton as the conforming shape so its honest sinks satisfy the anti-vacuity floor
+# and the verdict is about the derivation rather than about the count. The first two were
+# found passing this file's own guard by independent review after the guard landed; the rest
+# are the reaches the guard was claimed to have, pinned so that a later narrowing of any
+# helper cannot quietly give them back.
+EVADING_WIRING_SHAPES = {
+    # A computed attribute name, so `literal_getattr_name` yields nothing and the helper is
+    # never recorded as reading anything at all.
+    "computed-getattr-in-a-module-helper": '''
+import plan
+
+FIELD = "grant"
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _roots(authorization):
+    return getattr(authorization, FIELD)["repositories"]
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(repository_roots=_roots(authorization))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # A `**` splat, so the literal keyword the sink walk was keyed on is not written anywhere,
+    # and the mapping holding it is bound to a name that is not root-shaped.
+    "splat-launders-the-keyword": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    arguments = {"repository_roots": authorization.grant["repositories"]}
+    return plan.build_plan(**arguments)
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # The recorded F3 evasion itself: the read moved one level out of the reviewed function.
+    "module-level-grant-helper": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _roots(authorization):
+    return authorization.grant["repositories"]
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(repository_roots=_roots(authorization))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # One level is not a bound, so the fixed point is pinned against two.
+    "two-hop-helper-chain": '''
+import plan
+
+
+def _envelope(authorization):
+    return authorization.grant
+
+
+def _roots(authorization):
+    return _envelope(authorization)["repositories"]
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(repository_roots=_roots(authorization))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # The serialized handle is the same document, so it is the same defect.
+    "grant-bytes-handle": '''
+import json
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    parsed = json.loads(authorization.grant_bytes)
+    return plan.build_plan(repository_roots=parsed["repositories"])
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # The host is the other forbidden origin, and it hides behind a helper just as well.
+    "host-observing-helper": '''
+import os
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _here():
+    return os.environ["CYBRIK_SUITE_ROOT"]
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(repository_roots=_here())
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # Tuple unpacking, so the binding that carries the taint is not a bare assignment.
+    "tuple-unpacked-binding": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _split(authorization):
+    return authorization.grant["repositories"], authorization.observed_at
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    declared, _instant = _split(authorization)
+    return plan.build_plan(repository_roots=declared)
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # An alias renames the helper but not what it reads.
+    "aliased-helper": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def _declared(authorization):
+    return authorization.grant["repositories"]
+
+
+_resolve = _declared
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    return plan.build_plan(repository_roots=_resolve(authorization))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+    # A comprehension binds its target too, so taint may not launder through iteration.
+    "comprehension-bound-root": '''
+import plan
+
+
+def _control_roots(tokens):
+    return dict(token.partition("=")[::2] for token in tokens)
+
+
+def build_runtime_wiring(*, authorization, repository_roots):
+    declared_roots = [entry for entry in authorization.grant["repositories"]]
+    return plan.build_plan(repository_roots=dict(declared_roots))
+
+
+def main(argv=None):
+    return execute_authorized_attempt(
+        repository_roots=_control_roots(parse_arguments(argv).control_root),
+    )
+''',
+}
+
+
+def test_the_module_wide_root_derivation_guard_flags_each_recorded_evasion() -> None:
+    """The guard is exercised against the shapes it claims to catch, not merely asserted.
+
+    An AST control over a file that does not exist yet asserts nothing until that file is
+    written, so between now and then its only evidence of reach is the set of shapes it has
+    actually been run over. That evidence was missing when the guard landed, and two evasions
+    of exactly the class it was written to close — a computed `getattr` in a module helper and
+    a `**` splat around the sink keyword — were found passing it by independent review rather
+    than by this file. Both are in the set below, so a repair that ever narrows `root_sinks`,
+    `module_bindings`, `grant_derived_names` or `computed_attribute_reads` back to where they
+    were fails here immediately instead of at the next review.
+
+    The floor is asserted per shape before the offence is, so that a source which happens to
+    be flagged only because it is too small to reach `len(sinks) >= 2` cannot be mistaken for
+    a source the derivation walk caught. That mistake is easy to make and it inflates the
+    guard's apparent reach, which is the failure this test exists to prevent.
+    """
+    for name, source in EVADING_WIRING_SHAPES.items():
+        module = ast.parse(source)
+        assert len(root_sinks(module)) >= 2, (
+            f"{name}: this shape must be judged by the derivation walk, not by the floor"
+        )
+        assert module_wide_offences(module) != [], f"{name}: this evasion is not flagged"
+
+
+def test_the_spec_conforming_wiring_shape_is_not_flagged_by_the_module_wide_guard() -> None:
+    """The reviewed design must survive its own guard, or the guard is a false blocker.
+
+    `docs/ENTRYPOINT-SLICE-SPEC.md:377-388` adjudicated the roots to the argv boundary and
+    named the two private helpers that fold them. If the walk above refused that shape, this
+    file would be demanding an implementation that cannot be written, and the demand would
+    read exactly like a genuine finding — which is why the conforming shape is pinned here
+    beside the evasions rather than left to a reviewer to re-derive.
+
+    The grant read this shape *does* make is deliberate and must stay unflagged. The attempt
+    identity is a name the signed document is entitled to fix; only a root may not come from
+    it. A repair that flagged this source would have re-imposed the blanket ban the module
+    docstring above withdraws, under a different name.
+    """
+    module = ast.parse(CONFORMING_WIRING_SHAPE)
+    assert len(root_sinks(module)) >= 2
+    assert module_wide_offences(module) == []
 
 
 class RecordingAuthorization:
@@ -1444,17 +1797,44 @@ def test_the_wiring_never_reads_the_grant_or_the_host_for_a_control_root() -> No
 
     Two enforcements this test used to carry have moved rather than gone. The blanket ban on
     the name `grant` is withdrawn and replaced by
-    `test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant`, which is
-    strictly stronger: this walk saw one function, that one walks the whole module and
-    follows helpers to a fixed point, and it states the property that was actually at stake —
-    no *root* derives from the grant — rather than banning a read the plan genuinely needs
-    for the attempt identity and can obtain from nowhere else. The blanket ban on `getattr`
-    is withdrawn for the same reason it was too broad — it forbade the reviewed idiom
-    `preparation` uses to read `expected_controls` off the envelope — and is replaced by two
-    narrower controls that between them lose nothing: `attribute_reads` normalises
+    `test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant`, which walks
+    the whole module instead of this one function, follows helpers to a fixed point, and
+    states the property that was actually at stake — no *root* derives from the grant —
+    rather than banning a read the plan genuinely needs for the attempt identity and can
+    obtain from nowhere else.
+
+    That replacement was claimed here to be *strictly stronger*. The claim was false and is
+    withdrawn. Independent review found one genuine defect the blanket ban caught and the
+    replacement admitted: `arguments = {"repository_roots": authorization.grant[...]}`
+    followed by `plan.build_plan(**arguments)`, where the literal keyword is never written and
+    the mapping is bound to a name no root-shaped test recognises. `root_sinks` now reads a
+    `**` value and a dict literal keying `repository_roots` as sinks, which closes that case
+    and is pinned by `EVADING_WIRING_SHAPES["splat-launders-the-keyword"]`. It is still not
+    restated as strictly stronger, because a walk over names and bindings cannot be a superset
+    of a ban on bytes by construction: taint that leaves the set of bound names — mutated into
+    an existing container in place, or returned from a method and read as an attribute rather
+    than a bare `Name` — passes the replacement and did not pass the ban. Those are open
+    findings against this file, not properties it holds.
+
+    The blanket ban on `getattr` is withdrawn for the same reason it was too broad — it
+    forbade the reviewed idiom `preparation` uses to read `expected_controls` off the
+    envelope — and is replaced by two narrower controls: `attribute_reads` normalises
     `getattr(x, "n")` into an ordinary read of `n`, so every forbidden name below is now
     checked against the dynamic spelling too, and `computed_attribute_reads` refuses outright
     any `getattr` whose attribute name is not a literal a reviewer can read.
+
+    Those two were claimed here to *between them lose nothing*. That claim was false as
+    stated, and is withdrawn. It held inside this function only: the module-wide test never
+    applied `computed_attribute_reads` at all, so `FIELD = "grant"` with
+    `getattr(authorization, FIELD)` in a module helper reached a root with no read recorded
+    anywhere, the dotted ban having been withdrawn and the dynamic one never reaching that
+    far. `module_wide_offences` now states the same refusal over the whole module, pinned by
+    `EVADING_WIRING_SHAPES["computed-getattr-in-a-module-helper"]`. What remains lost is
+    narrower, and is named here rather than claimed away: `getattr_calls` matches only a bare
+    `getattr`, so `builtins.getattr(x, name)` normalises to a read of `getattr` itself and
+    yields no computed refusal, while `operator.attrgetter` and `vars(x)["grant"]` are not
+    seen at all. The withdrawn ban did catch the first of those, textually. That is a real
+    remaining loss, open against this file, and not a property either control holds.
 
     The recording envelope closes the last gap. The AST names what may not be written; the
     recording proves what was actually read, so a root reached through some third attribute
