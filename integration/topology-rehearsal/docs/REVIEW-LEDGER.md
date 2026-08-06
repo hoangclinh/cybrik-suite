@@ -3637,3 +3637,85 @@ F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`, unreviewed.
 P1 = 4, so nothing is pushable and the atomic entrypoint GREEN stays blocked. Origin/PR #55 remains
 at `73ec822` with four SUCCESS hosted checks; the local branch is 69 commits ahead and none of that
 range is push-eligible.
+
+## Cycle 41 — the `observe.py` size blocker is cleared by a registered extraction at `c06a81b`
+
+### What this cycle did and why
+
+Cycle 40 designed the F85/F86/F87 repair and closed on an exact obstacle: *"`observe.py`'s 9
+remaining lines mean the extraction comes first."* The repair needs room in a module that had 791
+of its 800 permitted lines. This cycle performed only that extraction, so the repair itself can be
+written and reviewed as a judgement rather than tangled with a move.
+
+The four mapping-view reducers `observe` was authored around — `nested`, `IMMUTABLE_LEAVES`,
+`immutability_findings` and `stored_entries` — now live in
+`src/cybrik_suite_topology_rehearsal/views.py` (163 lines). Their bodies are unchanged. `observe`
+re-imports all four, so every name a caller already reached for through `observe` still resolves
+there, and `preparation` (`preparation.py:52,54`) keeps reading the same objects it always did.
+
+`observe.py` falls **791 → 676 lines**, from 9 lines of headroom to 124. The pending repair has
+room. `adapter.py` at 799 is untouched and remains the sharpest remaining size hazard.
+
+### Measured, in three states, on the live tree with the untracked `uv.lock` preserved
+
+```
+committed HEAD 14f0784        58 failed, 1517 passed
+extraction, unregistered      59 failed, 1516 passed
+after registration (c06a81b)  58 failed, 1523 passed
+```
+
+The middle state matters more than the last one. The single new failure was
+`test_the_module_inventory_is_exactly_the_reviewed_inventory` (`test_surface_contract.py:260`),
+failing with `Left contains one more item: 'views'`. **The inventory control detected the new module
+on its own and refused it.** That is the control working, and it is recorded here as a measured
+effectiveness proof rather than as an inconvenience.
+
+The response was to *register* `views` in the reviewed inventory, not to exempt it:
+`C8_MODULES` (`tests/conftest.py:30`), the front door's present sentence
+(`src/cybrik_suite_topology_rehearsal/__init__.py`) and `FRONT_DOOR_PRESENT_MODULES`
+(`test_surface_contract.py:81`). Registration is what *subjects* the module to controls — it is now
+covered by every parametrized per-module gate: import, docstring, the exact `LIBRARY_STATUS` line,
+the unevidenced-status-claim ban, sorted non-repeating resolvable `__all__`, the
+process/socket/network import ban, and the mutable-module-level-global ban. The six additional
+passes are exactly those gates. A `views.py` left unregistered would have been an unreviewed file
+inside the package, which is the state the inventory control exists to prevent.
+
+All 58 remaining failures carry the shared fail-closed message from `tests/conftest.py:93`
+(`missing C8 implementation — ... does not exist`); `grep -c` returns exactly 58, and no failure
+has any other cause. `scripts/` still does not exist. **No test moved from pass to fail across this
+cycle, and no control was weakened to obtain the result.**
+
+### Static gates at `c06a81b`
+
+`python -m compileall src tests` exits 0. `ruff` is **present in this environment and was run**,
+correcting the standing ledger claim that it was absent. It reports 12 errors, of which **10 are
+pre-existing** on this branch and untouched by this cycle (`observe.py` ISC004 ×5,
+`preparation.py:53` F401 and ISC004 ×2, `test_errors.py:12` and `test_runner.py:3` I001) and **2 are
+new**, recorded as F90 below. `mypy` is genuinely absent (`Failed to spawn: mypy`) and was not run;
+no dependency was installed to obtain it. **No formatter or auto-fixer was run**, and `--fix` was
+not used, per the standing prohibition.
+
+### F90 — **P3** — `observe.py:84,85`. **NEW, OPEN.** A re-export seam ruff reads as dead code.
+
+`ruff` reports `F401 .views.IMMUTABLE_LEAVES imported but unused` and the same for
+`immutability_findings`. Measured: both names are genuinely uncalled inside `observe.py`, but the
+import is **load-bearing** — `preparation.py:52,54` imports both `from .observe`, so deleting the
+re-export breaks `preparation` at import time. Ruff is right about this module and wrong about the
+package.
+
+This is P3, not a defect of behaviour: it is a lint signal on a seam the extraction created. Note
+the identical pre-existing case at `preparation.py:53` (`PRESENT_KEY` re-exported from `observe`),
+so the pattern predates this cycle and ruff had simply never been run against it.
+
+Two candidate repairs, neither taken here because both widen blast radius mid-review: point
+`preparation` at `.views` directly and drop the two names from `observe`'s import (cleanest, and
+object identity is preserved either way because `views` is the single declaration site); or keep
+the re-export with an explicit `# noqa: F401` stating why. The first is preferred. **Deciding this
+belongs with the F85/F86/F87 repair, which will touch both modules anyway.**
+
+### What this cycle explicitly did NOT do
+
+It did not begin the F85/F86/F87 repair, write either entrypoint script, run either entrypoint,
+push, or touch `uv.lock`. It is an enabling refactor and its registration, nothing more. **The
+extraction's independent review was commissioned in this cycle and its verdict is recorded below;
+until that verdict is recorded, `c06a81b` is a recoverable checkpoint and not push-eligible.**
