@@ -2340,3 +2340,37 @@ def test_unresolved_selected_image_identity_aborts_without_host_mutation(
     with pytest.raises(abort):
         prepare(preparation, adapters, auth)
     assert not set(adapters.log.names()) & set(FORBIDDEN_EFFECTS)
+
+
+class NonIterableSequence:
+    """A `Sequence` face over an object that will not iterate.
+
+    `collections.abc.Sequence` is registered, not proved: the registration is a claim about the
+    type, and nothing checks that `__iter__`/`__getitem__` answer. Iterating this raises
+    `TypeError` from inside `frozen`'s Sequence arm.
+    """
+
+    def __len__(self) -> int:
+        return 1
+
+    def __getitem__(self, index: object) -> Any:
+        raise TypeError("this sequence face will not be subscripted")
+
+
+Sequence.register(NonIterableSequence)
+
+
+def test_a_nested_non_iterable_sequence_is_not_reported_as_an_unhashable_set_member(
+    preparation,
+) -> None:
+    """INTENDED RED (F0043): the set arm's guard wraps the whole generator, so a `TypeError`
+    raised by an *inner* arm is re-labelled as this arm's own hash channel.
+
+    The member below is perfectly hashable; it is the Sequence arm underneath that fails. The
+    set arm must not claim the member could not be hashed, because a reader acting on that
+    message would look for a forged `__hash__` that is not there.
+    """
+    frozen = require_c8_attr(preparation, "frozen")
+    with pytest.raises(Exception) as caught:
+        frozen({NonIterableSequence()})
+    assert "unhashable dead copy member" not in str(caught.value)

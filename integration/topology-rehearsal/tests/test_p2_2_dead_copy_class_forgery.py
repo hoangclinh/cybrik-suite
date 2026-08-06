@@ -206,6 +206,18 @@ def test_the_forged_value_is_refused_by_the_container_arm_not_returned_clean(pro
     with pytest.raises(TypeError):
         iter(forged)
 
+    # F0044: the three assertions above pin CPython's registration semantics, not this repair.
+    # Without driving the value through `proved_copy` the control cannot fail on any change to
+    # the container arm, which is the only thing its name and docstring promise.
+    value, findings, diverged = _walk(proved_copy, forged)
+    assert value is forged, "the container arm must refuse the forgery, not return a copy of it"
+    assert any("not deeply immutable" in finding for finding in findings)
+    assert len(diverged) == 1
+    assert diverged[0] == (
+        "top.<value>: this container raised TypeError when a dead copy of it was built, "
+        "so no copy of it exists to record"
+    )
+
 
 def test_honest_str_subclass_is_still_copied_to_its_exact_leaf(proved_copy):
     """Vacuity control: the repair must not stop copying genuine subclasses."""

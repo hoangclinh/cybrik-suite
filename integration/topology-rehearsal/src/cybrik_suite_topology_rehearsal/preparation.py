@@ -145,16 +145,18 @@ def frozen(value: object, seen: tuple[int, ...] = ()) -> Any:
         items = read_items(value)
         if items is None:
             raise ValueError(f"a {safe_type_name(value)} would not be read as `.items()` pairs")
-        try:
-            return MappingProxyType({frozen(k, trail): frozen(i, trail) for k, i in items})
-        except TypeError as error:  # F0035 key channel: a dead copy key that will not be hashed
+        pairs = tuple((frozen(k, trail), frozen(i, trail)) for k, i in items)
+        try:  # F0035/F0043 key channel: only the hash, never the recursion that built the pairs
+            return MappingProxyType(dict(pairs))
+        except TypeError as error:
             raise ValueError(f"a {safe_type_name(value)} has an unhashable dead copy key") from error
     if isinstance(value, bytearray):
         return bytes(value)
     if isinstance(value, AbstractSet):
-        try:
-            return frozenset(frozen(item, trail) for item in value)
-        except TypeError as error:  # F0042 member channel: a dead copy member that will not be hashed
+        members = tuple(frozen(item, trail) for item in value)
+        try:  # F0042/F0043 member channel: only the hash, never the recursion that built members
+            return frozenset(members)
+        except TypeError as error:
             raise ValueError(f"a {safe_type_name(value)} has an unhashable dead copy member") from error
     if isinstance(value, Sequence):
         return tuple(frozen(item, trail) for item in value)
@@ -294,18 +296,16 @@ def guarded(label: str, read: Any) -> Any:
 def projected(label: str, read: Any) -> Any:
     """Read one caller-owned projection through a guard and copy it dead at ingress.
 
-    The copy is taken before any validation and before any observation, so the value that is
-    checked, the value the observed host is compared against and the value that is recorded
-    are one value. Neither the caller nor anything the injected surface reaches can edit an
-    already-validated authorization between the check and the snapshot. The read itself is
-    never repeated, so this costs no additional adapter call and mutates no input.
+    The copy is taken before any validation and before any observation, so the value checked, the
+    value the observed host is compared against and the value recorded are one value. Neither the
+    caller nor anything the injected surface reaches can edit an already-validated authorization
+    between the check and the snapshot. The read is never repeated: no extra call, no input edited.
 
     The copy covers the whole projection, not only the part this phase compares: `prepare`
-    semantically checks the four `GRANT_SECTIONS` and nothing else, but the entire grant is
-    what later phases receive, so the entire grant must be provably copyable here. A value
-    with no dead copy — anywhere in it, including a section preparation never reads — is
-    refused rather than passed on, which is what keeps later phases from sharing mutable
-    authorization bytes or state with the caller or an adapter.
+    checks the four `GRANT_SECTIONS` and nothing else, but later phases receive the entire
+    grant, so all of it must be provably copyable here. A value with no dead copy anywhere in
+    it — including a section preparation never reads — is refused rather than passed on, which
+    keeps later phases from sharing mutable authorization bytes or state with a caller or adapter.
     """
     value = guarded(label, read)
     try:
