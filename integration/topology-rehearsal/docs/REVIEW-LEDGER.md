@@ -8972,3 +8972,140 @@ only this ledger. `P0 = P1 = P2 = 0` is **NOT** met and nothing ahead of `73ec82
 RUNTIME **HOLD**, production **Founder-only**, published release dates **unchanged**. Neither
 entrypoint script was written or run. From the moment the request lands, the range is **frozen**: the
 next cycle must not commit product code until a verdict is bound or the request is withdrawn.
+
+---
+
+## Cycle 3 (V2) — the verdict on `abf4d5f` landed: **NO-GO**, and one of its clearances is wrong
+
+### The binding facts
+
+`roles/reviewer/artifacts/VERDICT-abf4d5f4c55ff887728dbc907a03a652bd21de3a.json`, issued by
+`cybrik-reviewer-coordinator` (pool `personal`, `claude-opus-5`, session `6e191269`, ladder step 1)
+— an identity, account and session distinct from this writer, so anti-self-witnessing holds.
+
+- `sha` = `abf4d5f…`, `base` = `73ec822…`, `covers_head` = true.
+- `diff_sha256` = `f8d3e4e5bd771522ef849924eafdd2f714c89ea35862da70137aba3f1f5be3ec`, which this lane
+  measured **independently** by the driver's `REVIEW-DIFF-SHA256/v1` recipe before opening the
+  verdict, and which matches. The verdict is bound.
+- **`verdict` = NO-GO. P0=0, P1=0, P2=4, P3=3.** `GO` requires `P0=P1=P2=0`, so nothing is retired.
+- No freeze breach: HEAD never moved off the `FREEZE` SHA for the whole tenure of the request.
+
+**F134, F135 and F136 all remain `repaired-unreviewed`.** The reviewer judged the whole of
+`views.py`, so F136's deep walk *was* reached (this settles F152's worry about silence) — but a
+NO-GO retires none of the three. F137's precondition is still unmet; F131 stays blocked.
+
+### F153 (P1, NEW, OPEN) — **PROVED BY EXECUTION.** The leaf test is `==`, not `is`, and a hostile metaclass defeats it — the F135 attack class is still live, and the verdict cleared it in error
+
+The verdict's second bullet in favour of the range reads: *"`_states_the_same_value` reaches `==`
+only when `type(stored) in IMMUTABLE_LEAVES` — **an exact-type test that subclasses cannot
+satisfy** — so `EqLiar.__eq__` is never invoked."* Both the code's own docstring (`views.py:110-113`,
+"Agreement is therefore never decided by an `__eq__` the judged object defines … the exact builtin
+leaf types, **which cannot carry an overriding `__eq__` because `type(x) is` excludes their
+subclasses**") and the reviewer make the same claim. **The claim is false, and the reason is that
+the code does not do what its own docstring says it does.**
+
+The docstring argues from `type(x) is`. The code at `views.py:130` is `type(stored) in
+IMMUTABLE_LEAVES`. `in` on a tuple is not identity — it is `e is x or e == x` per element, so it
+consults `type.__eq__`, which a **metaclass may override**. A subclass of `int` whose metaclass
+answers `True` to `cls == bool` therefore satisfies the leaf test, and the two `==` comparisons that
+follow are then answered by the attacker's own instance `__eq__` in both directions — precisely the
+F135 conjunction that this repair was written to defeat.
+
+Executed against the pinned bytes at `abf4d5f`
+(`roles/security/artifacts/f153-metaclass-leaf-probe.py`, run on the package's own `.venv`):
+
+```
+int(stored)=1 int(other)=2  DIFFERENT VALUES=True
+type(other) is type(stored) -> True
+type(stored) in IMMUTABLE_LEAVES -> True
+_states_the_same_value(stored, other) -> True      <-- two views stating 1 and 2 AGREE
+immutability_findings(stored, "probe") -> ()        <-- and it is graded a deeply immutable leaf
+```
+
+**Blast radius — three sites, one root cause.** The same `in IMMUTABLE_LEAVES` membership appears at
+`views.py:67` (`immutability_findings`), `:130` (`_states_the_same_value`) and `:381`
+(`proved_copy`). So the defect reaches **all three** repairs currently claimed:
+
+- **F135** — the value-agreement fallback is again attacker-adjudicated.
+- **F134** — the `.get` cross-check at `views.py:219` decides divergence *through*
+  `_states_the_same_value`, so the new accessor is reconciled by the same defeatable comparison.
+- **F136** — `proved_copy:381` short-circuits the deep walk on the same lie, and
+  `immutability_findings` returns `()` for the hostile object, so a two-faced value is copied out
+  and graded immutable.
+
+This is why the verdict's P1=0 must **not** be read as "the two named repairs are effective". They
+are effective against the doubles the range's own tests use (`EqLiar`, `LiesOnlyToGet`) and
+ineffective against a metaclass, which no test in the range constructs.
+
+**Smallest correction (next cycle, test-first):** one total helper, `def _is_leaf(value) -> bool:
+return any(t is type(value) for t in IMMUTABLE_LEAVES)`, used at all three sites. Identity only; no
+control is widened, no refusal is relaxed, and every currently-refused input stays refused.
+
+**This lane does not self-witness this repair either.** F153 is recorded here as OPEN; its fix will
+need its own bound verdict, and this entry is not a verdict.
+
+### The four P2 blockers, recorded verbatim in substance before any repair
+
+- **P2-1 — `stored_entries` renders attacker-controlled `repr()` outside every guard.**
+  `views.py:196, :206, :212-215, :225, :235, :241-244`. Each `try` guards the accessor and the
+  comparison, but the refusal f-string is built outside it, so a value whose `__repr__` raises makes
+  the seam raise — and `observe.py:336/:339` call `stored_entries` unguarded. The F141 class through
+  a different door. Correction: render through a total `_shown()` helper at all six sites.
+- **P2-2 — `proved_copy` recursion is unbounded and its cycle guard is defeatable.**
+  `views.py:383-385`, `:405-414`, same shape at `:340-341`, `:257`. `id(value) in seen` is a fixed
+  point only if the hostile mapping returns the *same* wrapper; one that builds a fresh proxy per
+  level never repeats an `id`, so recursion runs to `RecursionError`, which escapes into
+  `preparation.py:218` as something other than `ValueError`. Reviewer marks this **derived from
+  source, not executed**. Correction: a depth bound returning one divergence finding; keep the
+  `id()` guard.
+- **P2-3 — F138 is still live in these bytes and the file asserts the opposite.** Defect at
+  `views.py:186-188` (`dict(mapping.items())` takes the key set from one view); false claims at
+  `:157-158` and `:173-174` ("disagreement in either direction is a refusal … in any of them").
+  Keys answered by `__getitem__`/`.get` but omitted from `.items()` are never cross-checked. F139
+  class on top of an un-retired P2. Correction: report subscript-reachable keys absent from
+  `.items()`, or at minimum restate the two absolute claims truthfully.
+- **P2-4 — F148 is an open, undecided behaviour change inside the pinned bytes.** `views.py:130-132`,
+  documented `:115-121`. This ledger itself files it P2 NEW OPEN "requiring its own review
+  evidence"; an explicitly undecided P2 cannot sit inside a range seeking GO. Correction: adjudicate
+  in scope — evidence it to P3 accepted-by-design, or widen to structural recursion.
+
+### The three P3s
+
+- **P3-1 (F140)** — `views.py:186`, duplicate-key collapse via `dict(mapping.items())` unreported;
+  count yielded pairs against `len(stored)`.
+- **P3-2 (F147)** — `views.py:228-238`, `:199-209`, the comparison-raise handlers are unreachable
+  after the F135 repair; keep them as defence in depth and say so, or unit-test them directly.
+  **Note:** F153 above shows they are *not* unreachable — a metaclass-leaf object reaches `==`, and
+  an attacker `__eq__` that raises reaches these handlers. Re-grade when F153 is repaired.
+- **P3-3** — both test modules still advertise "INTENDED RED" for tests now GREEN
+  (`test_f134_get_accessor.py:104, :120`; `test_f135_eq_fallback.py:151, :167`), corrupting the
+  census reconciliation prose. Restate as "was RED before `<fix commit>`; must stay GREEN".
+
+### Out-of-scope pointers the reviewer filed no finding on (recorded as owed, not as findings)
+
+- `observe.py:321` still says `stored_entries` reconciles `.items()` against `__getitem__` **only** —
+  falsified by the F134 repair in this range. F139 class.
+- `observe.py:623` judges through a two-argument `server.get(KEY, default)` — a fourth view that
+  `views.py:219` never reconciles. Pointer for the next scope cut.
+
+### What the reviewer could not witness (never to be restated as observed)
+
+Census 1582/59/0-unintended; GREEN of the two pinned test files; ruff-12 baseline; `compileall`
+rc=0; the size-bound gate; F131's RED; PR #55 state; that the worktree bytes equal commit `abf4d5f`
+(no `git` in that lane); the diff hash is **echoed, not recomputed**; and P2-2's `RecursionError`
+consequence is **derived, not executed**. This lane owns re-deriving each before any push.
+
+### Gate after this cycle
+
+- **P0 = 0**; **P1 OPEN = 7** (F33, F123, F128, F131, F143, F149, **F153**); **P1 r-u = 13**
+  (F134, F135, F136 stay `repaired-unreviewed` — a NO-GO retires nothing).
+- **P2 OPEN = 47 + P2-1/P2-2 (new, unnumbered pending renumber) **; F148 and F138 confirmed still
+  open by an independent reader. **P3 OPEN = 44 + P3-3.**
+- `P0=P1=P2=0` is **NOT** met. Nothing ahead of `73ec822` is push-eligible. PR #55 stays draft.
+- No finding retired, none downgraded, no control weakened. **No source file mutated this cycle** —
+  only this ledger and role artifacts. Neither entrypoint script was written or run.
+- RUNTIME **HOLD**, production **Founder-only**, published release dates **unchanged**.
+
+**Next cycle repairs exactly one finding, test-first: F153**, because it is the only P1 among them,
+because it silently undermines all three repairs the last review was convened to retire, and because
+its correction is three identity comparisons that widen nothing.
