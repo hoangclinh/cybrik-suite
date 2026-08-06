@@ -4278,3 +4278,135 @@ The untracked `integration/topology-rehearsal/uv.lock` was neither added, regene
 P1 = 3 and P2 = 5. The push gate of P0 = P1 = P2 = 0 is **not** met, the atomic entrypoint GREEN
 stays blocked, and none of the 77-commit local range is push-eligible. Origin/PR #55 remains at
 `73ec822`, draft, CLEAN, four rendered hosted checks SUCCESS.
+
+> **CORRECTED IMMEDIATELY BELOW.** The open set as written in this section is wrong in three ways —
+> it lists two findings this ledger repaired in-cycle, it silently drops three others, and it
+> inherits an index that has tracked only a *subset* of open findings since line 3348. It is left
+> standing verbatim so the correction has a subject. See *Cycle 43 (addendum)*.
+
+## Cycle 43 (addendum) — the open-set index has been tracking a subset for eleven cycles
+
+An independent read-only cross-check traced **every** finding ID in this file to its highest-line
+mention and compared that against the `**P1: … P2: … P3: …**` recap lines. The recap is not a view of
+the ledger. It is a separate, hand-maintained list that has drifted from the evidence beneath it.
+
+### F98 — **P2** — `docs/REVIEW-LEDGER.md`, every open-set recap from `:3348` to `:4276`. **NEW, OPEN.**
+
+**Three distinct defects, all confirmed against this file's own text.**
+
+**(a) The recap has listed only F45-and-later since `:3348`.** Every recap line in the file is:
+
+```
+:3348  P2: F45, F46, F65.                 P3: F47, F80, F81, F82.
+:3444  P2: F45, F46, F65, F84.            P3: F47, F80, F81, F82.
+:3589  P2: F45, F46, F65, F88.            P3: F47, F80, F81, F82, F89.
+ …
+:4139  P2: F45, F46, F65, F88, F91.       P3: F47, F80, F81, F82, F89, F90, F92, F93, F94.
+```
+
+**No recap since `:3348` names a single finding below F45.** But this ledger's own register attests
+at `:1633` *"There are no gaps in F1..F35"* and at `:1850` *"There are no gaps in F1..F44"*, and the
+last recorded status of many of those is **OPEN**. The flagship case is **F16**, which at `:1858` was
+**escalated from P3 to P2** and recorded *"CONFIRMED, counts re-measured … `adapter.py` has zero
+lines of headroom"* — the exact constraint cycle 42 rediscovered from scratch as F96 and this cycle
+reconfirmed. **F16 was never discharged and appears in no recap for eleven cycles.** F24, F25, F26
+(*"measurably worse"*), F31, F32, F37 (*"surface WEAKENED, not repaired"*), F49, F51, F52, F53, F62,
+F68 and F74 are likewise last recorded OPEN at P2 and absent from every recap; F6, F8-F11, F13, F29-A
+are the same at P2 below F16. This is stated as a **pointer defect, not a re-grading**: none of those
+findings is re-verified here, and some may be genuinely stale or superseded. That is precisely the
+problem — **the ledger cannot currently tell which**, and the recap asserts a P2 count of 5 that its
+own body does not support.
+
+**(b) Cycle 42 silently dropped F78, F79 and F84.** Every recap from `:3445` through `:3885` carried
+an explicit trailing sentence — *"F78, F79 repaired-but-unreviewed. F84 repaired at `6c684df`,
+unreviewed."* — at `:3445`, `:3590`, `:3650`, `:3795` and `:3885`. At `:4137` **that sentence is
+simply gone**, with no discharge, no review, and no statement anywhere between `:3885` and `:4152`
+that resolves them. Three repaired-but-unreviewed findings left the ledger by omission.
+
+**(c) Cycle 43 reproduced the drop and added two false entries.** The recap at `:4276` inherited the
+F78/F79/F84 omission unchanged, and additionally listed **F96 and F97 as open P3** when both are
+recorded in their own sections as **repaired in the cycle that opened them** — F96 at `:4096-4126`
+(the corrected headroom table, published in the same commit) and F97 in this cycle (the six-file set,
+named in the same commit). Neither is open. That error is the author's own and is corrected here
+rather than silently overwritten.
+
+This is P2 and not P3 because the recap is the artifact the push gate is read from. `P0 = P1 = P2 = 0`
+is evaluated against a list that is **demonstrably not the set of open findings**, so the gate is
+currently unevaluable in either direction — it cannot be trusted to block, and it cannot be trusted
+to pass.
+
+### F99 — **P3** — `docs/REVIEW-LEDGER.md`, finding IDs F56-F59. **NEW, OPEN.**
+
+The F39-repair review numbered its findings *"from F45"* (`:2252`) and ran F45-F55. The next review
+is numbered *"from F60"* (`:2257`). **F56, F57, F58 and F59 were never assigned to anything**, and no
+line explains the skip. The ledger attests explicitly that there are no gaps in `F1..F35` (`:1633`)
+and `F1..F44` (`:1850`); **no equivalent attestation was ever made for the F45+ range**, and this is
+the gap it would have caught. Recorded rather than renumbered: renumbering would invalidate every
+existing cross-reference.
+
+### Corrected anchors — two findings drifted, both verified against live source
+
+| finding | recorded anchor | what is actually at that anchor now | corrected anchor |
+|---|---|---|---|
+| **F65** (P2) | `preparation.py:260-263` | `guarded()`'s `except Exception` seam-refusal block — unrelated code | **`preparation.py:233-234`** |
+| **F88** (P2) | `observe.py:327,334,336,338,341,344` (re-anchored once by F91) | the `keyed`/`stored_entries` guard prologue, not the subscripts | **`observe.py:342,349,351,353,357,361`** |
+
+Both verified by reading live source, not inferred. F88 had already been re-anchored once by F91 —
+but that re-anchor was made *before* `fa47e91`, which inserted the live-reading snapshot and shifted
+every subscript below it. **A re-anchor is only true until the next commit that moves the code; F91's
+correction was itself invalidated within one cycle.** The live `signed[key]` sites are exactly:
+
+```
+342:    unread = tuple(key for key in OBSERVED_IDENTITY_KEYS if signed[key] is None)
+349:        f"{label}: {key} {signed[key]!r} is not a registry digest"
+351:        if not registry_digest(signed[key])
+353:    findings.extend(platform_findings(signed["platform"], label))
+357:            f"{label}: {key} {signed[key]!r} is not the {key} {live.get(key)!r} the live"
+361:        if signed[key] != live.get(key)
+```
+
+`:353` is a **sixth site F91's re-anchor never listed at all** — `signed["platform"]`, a literal-key
+subscript on the same snapshot, subject to the same `keyed`-iterates-vs-`.items()`-builds divergence
+F88 describes.
+
+### The consequence for the F86 repair, which changes its design
+
+**F65's corrected anchor `preparation.py:233-234` is the same site as F86.** They are not neighbouring
+defects; they are two readings of one pair of lines:
+
+```python
+233:  signed = self.granted_image_identity.get(OBSERVED_AT_KEY)
+234:  if type(self.granted_observed_at) is not str or self.granted_observed_at != signed:
+```
+
+F86 is the third-protocol hole in the `.get` at `:233`. F65 is the accepted three-field forgery that
+moves `granted_image_identity` and `image` together through this same comparison. **A repair that
+closes `:233` against F86 without accounting for F65 will have rewritten F65's site while leaving
+F65 open** — and the next cycle will find F65's freshly-corrected anchor already stale again.
+
+The F86 repair must therefore be designed against **F86 + F65 + the `:242,:244` mirrors together**,
+inside `preparation.py`'s **28 free lines**. If that does not fit, the extraction must be planned
+*first*, as a separate reviewed commit — the mistake cycle 40 made was discovering the size wall
+mid-repair and losing the whole cycle to it.
+
+### Corrected open set at cycle 43's close
+
+**P1 (3): F83** (repaired at `4b25214`, independently NO-GO), **F86, F87.**
+**Repaired-but-unreviewed (4), none discharged: F78, F79, F84, F85.**
+**P2 (8, named): F45, F46, F65, F88, F91, F98, plus F16 and F37 restored from the body.**
+**P3 (11): F47, F80, F81, F82, F89, F90, F92, F93, F94, F99, and F71.**
+**Not counted, repaired in-cycle: F95, F96, F97.**
+**UNRESOLVED COUNT:** the pre-F45 findings named in F98(a) are last recorded OPEN and are **not**
+included in the counts above pending individual re-verification. **The true P2 count is at least 8
+and is not currently known.**
+
+P1 = 3 and P2 >= 8. The push gate is **not** met — and per F98 it is **not currently evaluable**.
+None of the local range is push-eligible. Origin/PR #55 remains at `73ec822`, draft, CLEAN.
+
+### The exact next action, revised
+
+Before any further repair: **discharge F98** by re-verifying each pre-F45 finding last recorded OPEN
+against live source and publishing one complete register, in the shape of the `:1581` register that
+this ledger already knows how to write. Repairing F86 while the gate is unevaluable spends a cycle on
+a finding that cannot be counted. F98 is cheap — it is read-only verification against a body of
+evidence that already exists in this file — and it restores the only instrument the push gate has.
