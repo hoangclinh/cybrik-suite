@@ -5696,3 +5696,66 @@ the next reviewer has a starting point rather than a conclusion to ratify:
 GREEN). **P1 repaired-unreviewed = 7. P2 = 29. P3 = 34** (F105). **No part of the 95-commit local
 range is push-eligible**, because push requires an independent P0=P1=P2=0 verdict that does not yet
 exist. RUNTIME remains **HOLD**.
+
+### The ledger cross-check lane returned after the timebox, and its evidence is recorded here
+
+This lane was commissioned in this cycle and returned late. Its results are transcribed rather than
+discarded. It verified every claim against live source, not against this file's prose.
+
+**All seven repaired-unreviewed P1s are genuinely present in live source.** Each was opened at the
+anchor the ledger names and the described mechanism was found:
+
+| Finding | Live status | Anchor |
+|---|---|---|
+| F78 | PRESENT, anchor exact | `observe.py:263` stored read, subscript cross-check `:276-288` |
+| F85 | PRESENT, anchor exact | `observe.py:339` `stored_entries`; the `.get` at `:357,:361` now reads the dead copy |
+| F83 | PRESENT, **anchor stale** | mechanism at `preparation.py:251-268`, not the `:233` this file names |
+| F86 | PRESENT, **anchor stale** | same site, `read_entries.get(OBSERVED_AT_KEY)` at `:268` |
+| F87 | PRESENT | `preparation.py:217-223` over `views.py:189-244` and `:95-171` |
+| F103 | defect **absent** from live source | the pre-freeze reconciliation runs on the live object at `views.py:134-171` |
+| F104 | defect **absent** from live source | one `.items()` read per mapping; copy built from it at `views.py:227-237` |
+
+F103 and F104 are more precisely **superseded than patched** — each was a finding against a
+*candidate* whose code path does not exist in the committed mechanism. Recording them as "repaired"
+is accurate in effect but imprecise in kind.
+
+**This does not discharge the independent verdict.** Confirming that a repair is present is not
+confirming that it is correct. The refutation lane and the full GO/NO-GO lane are still owed.
+
+### F106 — **P3** — `docs/REVIEW-LEDGER.md`, findings F83 and F86. **NEW, OPEN.**
+
+Both anchor their root cause at `preparation.py:233`. That line today is an unrelated
+`ephemeral_range` refusal; the repaired site is `preparation.py:251-268`. The mechanism is present,
+so this is not a control breach — but an anchor that points at unrelated code is an anchor that
+cannot be audited, and a future reviewer following it would read the wrong refusal and conclude the
+repair is missing. **This is F91 recurring a seventh time**, now the most-repeated defect class in
+this ledger by a clear margin. Repair is to re-derive anchors at write time.
+
+### F107 — **P2** — `docs/REVIEW-LEDGER.md:1611` and `:1858`, finding F16. **NEW, OPEN.**
+
+F16's severity is stated as **P3** in the band-1 register at `:1611` and as **P2** at `:1858`
+("CONFIRMED, counts re-measured"). The two were never reconciled. This is a P2 rather than a P3
+because the push gate is stated in terms of P2 = 0: if F16 is a P2, the P2 count is wrong wherever
+it was taken from the P3 reading, and a gate computed from that count is computed from a number the
+document contradicts elsewhere. Repair is to adjudicate F16's severity once and restate it in both
+places.
+
+### The push-gate block was never restated after F105
+
+Cycle 48 opened F105 as a new P3 and then ended without restating the `P0/P1/P2/P3` block, so this
+file's most recent *stated* status said `P3 = 33` while its own last addition made it 34. No reader
+could get the right number without recomputing it. **This cycle states it: P3 = 34** (and P3 = 35
+once F106 is counted, P2 = 30 once F107 is). The lane also re-confirmed that `F56`–`F59` remain
+phantom slots never assigned to anything, exactly as F99 records, so the true defined-ID count is
+**104**, not the 108 that F1..F105 plus F29-A/B/C would suggest.
+
+### F33 and the spec's owed paths are accurate and current
+
+F33 requires `attempt_id_for` to be an exported seam called by both `runner._attempt_names` and the
+future composition root. Live source confirms it: `runner.py:81` exports it, `runner.py:286-307`
+defines it, and `runner.py:331` is its sole existing caller. `scripts/` does not exist, so the
+second caller genuinely cannot exist yet — **F33's "deferred to the entrypoint GREEN" status is
+correct, not an excuse**. `docs/ENTRYPOINT-SLICE-SPEC.md:525-563` names exactly six owed paths (the
+two entrypoint scripts, `__init__.py`, `tests/test_surface_contract.py`, `pyproject.toml`, and
+`tests/conftest.py` only if `PROJECT_STATUS` is retired), agreeing with the ledger. **No spec/ledger
+drift on the owed set.**
