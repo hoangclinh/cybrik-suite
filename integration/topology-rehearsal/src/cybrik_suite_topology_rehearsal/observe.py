@@ -286,15 +286,48 @@ def local_presence_findings(image: Mapping[str, Any], label: str) -> tuple[str, 
     The caller names the field, because the same reading is reached through two different field
     names and a finding is only useful if it names the one the caller can look at.
 
-    The inventory itself is checked by `keyed` against `HOST_IMAGE_KEYS` before this is reached;
-    calling this on an unchecked mapping would raise rather than report.
+    The answer is taken from what the reading *stores* — the entry its own iteration yields —
+    because that is the answer every other consumer of this field records: `keyed` checks the
+    inventory by iterating, the binding comparison below reads through `.get`, `preparation.frozen`
+    rebuilds the mapping from `.items()`, and `runner._observed_identity` carries forward exactly
+    what `.items()` yielded. Reading this one field through a third protocol was a hole rather
+    than a style point: `MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType`
+    by `type()`, so it passes every declared read-only-mapping gate while overloading
+    `__getitem__`, and a reading that stored "not on this host" could answer this control `True`.
+
+    A subscript that disagrees with the stored entry — including one that refuses to answer at
+    all — is itself a refusal rather than an accepted reading, because `__getitem__` is a live
+    protocol on this field elsewhere in the package and the two views must not diverge. Passing
+    `keyed` does not make a mapping subscriptable, so this reducer, which is contracted to return
+    findings, converts that disagreement into one rather than raising out of the reduction.
     """
-    if image[PRESENT_KEY] is True:
-        return ()
-    return (
-        f"{label}: present is {image[PRESENT_KEY]!r}, not exactly True, so the reviewed "
-        "material is not already on this host",
-    )
+    stored = {key: value for key, value in image.items() if key == PRESENT_KEY}
+    if PRESENT_KEY not in stored:
+        return (
+            f"{label}: present is stated by no entry of this reading, so the reviewed "
+            "material is not already on this host",
+        )
+    answer = stored[PRESENT_KEY]
+    if answer is not True:
+        return (
+            f"{label}: present is {answer!r}, not exactly True, so the reviewed "
+            "material is not already on this host",
+        )
+    try:
+        subscripted = image[PRESENT_KEY]
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as error:  # noqa: BLE001 -- a reading that will not answer is refused
+        return (
+            f"{label}: present raised {type(error).__name__} when read by subscript while "
+            "this reading stores True, so its two views of one answer disagree",
+        )
+    if subscripted is not True:
+        return (
+            f"{label}: present reads as {subscripted!r} by subscript while this reading "
+            "stores True, so its two views of one answer disagree",
+        )
+    return ()
 
 
 def signed_identity_findings(identity: Any, image: Any) -> tuple[str, ...]:

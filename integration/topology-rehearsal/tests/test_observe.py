@@ -766,3 +766,129 @@ def test_a_signed_identity_is_refused_against_a_reading_carrying_an_unreviewed_k
     extended = MappingProxyType({**dict(image), "signer": "cybrik"})
     findings = call(observe, "signed_identity_findings", identity, extended)
     assert findings, "an unreviewed key in the reading must be refused"
+
+
+# ---------------------------------------------------------------------------
+# One field, one protocol: a reading may not answer the presence control one thing and
+# store another
+# ---------------------------------------------------------------------------
+# `MappingProxyType` over a `dict` *subclass* is exactly a `MappingProxyType` by `type()`, so
+# it satisfies every declared read-only-mapping gate without going near the sanctioned
+# `object.__setattr__` hatch. The subclass may still overload `__getitem__`, and the presence
+# control read the answer through that one accessor while the inventory check reads by
+# iteration, the binding comparison reads through `.get`, and `runner._observed_identity`
+# records what `.items()` yields. Three protocols over one field is a hole: the reading that
+# every consumer stores as "not on this host" answered the control "yes".
+
+
+class SubscriptLiar(dict):
+    """A reading that stores one presence answer and subscripts as another."""
+
+    def __getitem__(self, key: str):
+        if key == "present":
+            return True
+        return super().__getitem__(key)
+
+
+class SubscriptRefuser(dict):
+    """A reading that stores a whole presence answer but refuses to be subscripted for it.
+
+    `dict.get` and `dict.items` are resolved in C and do not route through an overridden
+    `__getitem__`, so this stores and yields exactly what the fakes state while the one
+    accessor the control used raises.
+    """
+
+    def __getitem__(self, key: str):
+        if key == "present":
+            raise KeyError(key)
+        return super().__getitem__(key)
+
+
+def proved_result():
+    """One genuinely proved `PreparationResult`, wired by `prepare` and not by hand."""
+    preparation = load_c8("preparation")
+    return require_c8_attr(preparation, "prepare")(
+        documents.authorization(), fakes.passing_adapters()
+    )
+
+
+def test_a_lying_reading_satisfies_every_declared_type_gate(observe) -> None:
+    """The premise of the two tests below, asserted rather than assumed.
+
+    If the construction did not pass the type gate, the inventory check and the deep
+    immutability proof, the refusals below would prove nothing about the presence control.
+    """
+    liar = MappingProxyType(SubscriptLiar(fakes.host_image(present=False)))
+    assert type(liar) is MappingProxyType
+    assert dict(liar.items())["present"] is False
+    assert liar.get("present") is False
+    assert liar["present"] is True
+    keys = require_c8_attr(observe, "HOST_IMAGE_KEYS")
+    assert call(observe, "keyed", liar, keys, "image", ordered=False) == ()
+
+
+def test_a_reading_that_stores_a_denial_is_refused_however_it_subscripts(observe) -> None:
+    """The stored answer is the answer: every consumer of the reading records that one."""
+    liar = MappingProxyType(SubscriptLiar(fakes.host_image(present=False)))
+    findings = call(observe, "local_presence_findings", liar, "image")
+    assert findings, (
+        "a reading storing present False must be refused whatever it answers a subscript"
+    )
+
+
+def test_a_signed_identity_is_refused_against_a_reading_that_stores_a_denial(
+    observe,
+) -> None:
+    """The same hole through the reduction that judges the pinned identity."""
+    identity, _ = signed_pair()
+    liar = MappingProxyType(SubscriptLiar(fakes.host_image(present=False)))
+    findings = call(observe, "signed_identity_findings", identity, liar)
+    assert findings, "a reading that denies the material must be refused"
+
+
+def test_a_proved_result_may_not_be_copied_with_a_reading_that_stores_a_denial() -> None:
+    """The copy path the whole control exists for: `dataclasses.replace` on a proved result.
+
+    A result asserting `satisfied is True` over a reading that *stores* "not on this host" is
+    the exact forgery the presence control was added to refuse, and it must not be reachable
+    by handing the same field a mapping subclass that answers one accessor differently.
+    """
+    result = proved_result()
+    liar = MappingProxyType(SubscriptLiar({**dict(result.image), "present": False}))
+    with pytest.raises(ValueError):
+        dataclasses.replace(result, image=liar)
+
+
+def test_an_unchanged_reading_may_still_be_copied_onto_a_proved_result() -> None:
+    """The positive control: a check that refuses every copy has proved nothing."""
+    result = proved_result()
+    unchanged = MappingProxyType(dict(result.image))
+    copied = dataclasses.replace(result, image=unchanged)
+    assert copied.satisfied is True
+    assert dict(copied.image) == dict(result.image)
+
+
+def test_a_reading_whose_subscript_refuses_the_answer_reports_rather_than_raises(
+    observe,
+) -> None:
+    """A reducer contracted to *return findings* may not throw an unbounded `KeyError`.
+
+    Passing the inventory check does not make a mapping subscriptable — `keyed` only
+    iterates — so the presence control cannot rest on it. The refusal is right; the
+    unbounded exception class escaping a total reducer is not.
+    """
+    refuser = MappingProxyType(SubscriptRefuser(fakes.host_image()))
+    findings = call(observe, "local_presence_findings", refuser, "image")
+    assert findings, "a reading that will not answer the control must still be refused"
+
+
+def test_a_proved_result_refuses_an_unreadable_reading_as_a_value_error() -> None:
+    """`__post_init__` is documented and tested to refuse with `ValueError`.
+
+    A caller catching `ValueError` around a copy would not catch a `KeyError`, so the
+    refusal has to arrive as the class the constructor states.
+    """
+    result = proved_result()
+    refuser = MappingProxyType(SubscriptRefuser(dict(result.image)))
+    with pytest.raises(ValueError):
+        dataclasses.replace(result, image=refuser)
