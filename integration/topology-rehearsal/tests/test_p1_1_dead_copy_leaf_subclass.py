@@ -90,6 +90,28 @@ def _walk(proved_copy, value):
     return copied[FIELD], findings, diverged
 
 
+class ForgedContainer:
+    """Not two-faced at all: it forges `__class__` so the container arm reads it and raises.
+
+    This exists only to witness that a bare `assert diverged` is satisfiable without any
+    mapping face ever being read (F0011).
+    """
+
+    @property
+    def __class__(self):  # type: ignore[override]
+        return bytearray
+
+
+def _mapping_face_divergence(diverged):
+    """The subset of `diverged` that only the mapping-face cross-check can emit.
+
+    A finding naming *both* faces of one entry can be written only after the mapping view and
+    the subscript view were each read to completion and compared against each other. Routes
+    that merely report a value which *raised* when read cannot name either face.
+    """
+    return tuple(finding for finding in diverged if STORED in finding and ATTACKER in finding)
+
+
 def test_the_double_really_is_two_faced(views):
     """Positive control: without this, every refusal below could pass vacuously."""
     double = TwoFacedStrMapping("plain-text-face")
@@ -106,9 +128,33 @@ def test_the_double_really_is_two_faced(views):
 def test_a_two_faced_leaf_subclass_is_reported_as_diverging(proved_copy):
     """P1-1 RED: the mapping face must be reconciled, not waved through by the `str` face."""
     _, _, diverged = _walk(proved_copy, TwoFacedStrMapping("plain-text-face"))
-    assert diverged, (
+    # Pin the cross-check itself, not merely that *something* diverged (F0011). The withdrawn
+    # `assert diverged` was satisfied before and after the repair alike: any route that merely
+    # reports a value which *raised* when read populates the same tuple without the mapping
+    # face ever being consulted. `test_the_withdrawn_bare_assertion_was_vacuous` witnesses that
+    # by construction. Naming both faces of one entry is possible only once both views were
+    # read to completion and compared, which is the property this control exists to hold.
+    assert _mapping_face_divergence(diverged), (
         "a value that is both a str subclass and a two-faced Mapping reached _dead_copy and "
-        "produced no divergence finding, so its second face was never cross-checked"
+        "produced no finding naming both of its faces, so its second face was never "
+        f"cross-checked against the first; divergence findings were {diverged!r}"
+    )
+
+
+def test_the_withdrawn_bare_assertion_was_vacuous(proved_copy):
+    """Witness for F0011: `assert diverged` passes on a value with no mapping face at all.
+
+    `ForgedContainer` is read by the container arm, which raises and reports that it raised.
+    That populates `diverged` while proving the *opposite* of what the refusal above claims,
+    so the withdrawn assertion could be satisfied without the cross-check ever running --
+    it could not fail either way. The narrowed predicate correctly refuses this same input,
+    which is what makes it a real RED rather than a restatement.
+    """
+    _, _, diverged = proved_copy(ForgedContainer(), "top")
+    assert diverged, "the witness is a strawman unless this route really does populate diverged"
+    assert not _mapping_face_divergence(diverged), (
+        "the narrowed predicate must reject a route that never read a mapping face, or it is "
+        f"no narrower than the bare assertion it replaced; findings were {diverged!r}"
     )
 
 

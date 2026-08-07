@@ -46,7 +46,7 @@ from cybrik_suite_topology_rehearsal.views import proved_copy
 class HostileBytesSubclass(bytearray):
     """An ordinary `bytearray` subclass. No forgery: `__class__` is untouched."""
 
-    def __bytes__(self) -> bytes:  # pragma: no cover - the defect is that this DOES run
+    def __bytes__(self) -> bytes:
         return b"ATTACKER_CHOSE_THIS"
 
 
@@ -78,9 +78,21 @@ def test_the_prescribed_correction_alone_would_not_see_vector_two() -> None:
 
 
 def test_bytes_genuinely_consults_a_subclass_dunder_bytes() -> None:
-    """Pins the CPython mechanism directly, so the control fails loudly instead of rotting."""
+    """Pins the CPython mechanism directly, so the control fails loudly instead of rotting.
+
+    The second assertion pins *exactness*, not equality (F0019). The repair's safety rests on
+    the whole-slice subscript yielding an object whose type is `bytearray` itself, because only
+    an exact `bytearray` is guaranteed to have no `__bytes__` for the following `bytes()` call
+    to consult. An `==` comparison is blind to a subclass being returned, which is precisely
+    the property that would break the repair, so equality cannot stand in for it.
+    """
     assert bytes(HostileBytesSubclass(b"honest")) == b"ATTACKER_CHOSE_THIS"
-    assert bytearray.__getitem__(HostileBytesSubclass(b"honest"), slice(None)) == bytearray(b"honest")
+    whole_slice = bytearray.__getitem__(HostileBytesSubclass(b"honest"), slice(None))
+    assert type(whole_slice) is bytearray, (
+        "the whole-slice subscript returned a subclass, so the following bytes() call could "
+        f"consult an attacker-owned __bytes__; got {type(whole_slice).__name__}"
+    )
+    assert whole_slice == bytearray(b"honest")
 
 
 # --- vacuity controls: these values must actually reach the arm under test ---
@@ -91,12 +103,39 @@ def test_bytes_genuinely_consults_a_subclass_dunder_bytes() -> None:
     [HostileBytesSubclass(b"honest"), HonestBytesSubclass(b"plain"), bytearray(b"exact")],
 )
 def test_the_bytearray_arm_is_genuinely_entered(value: object) -> None:
-    """None of these is an immutable leaf, so none short-circuits before the arm (P3-6)."""
+    """None of these is an immutable leaf, so none short-circuits before the arm (P3-6).
+
+    This control covers vector 2 only. `ForgedBytearrayClass` is deliberately absent: after the
+    repair it no longer reaches this arm at all, so asserting it here would fail. Its actual
+    disposition is pinned by `test_the_forged_vector_no_longer_reaches_the_bytearray_arm`
+    (F0018), and the two together are what make the seam-coverage claim exact.
+    """
     from cybrik_suite_topology_rehearsal.views import IMMUTABLE_LEAVES
 
     assert not any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)
     copied, _immutability, _divergence = proved_copy(value, "top")
     assert type(copied) is bytes
+
+
+def test_the_forged_vector_no_longer_reaches_the_bytearray_arm() -> None:
+    """F0018: vector 1's disposition after the repair, asserted rather than left implied.
+
+    `issubclass(type(value), bytearray)` is `False` for the forged class, so it no longer
+    enters the `bytearray` arm. Its forged `__class__` still makes `isinstance` answer for
+    `bytearray`, so the broad container arm reads it, fails to iterate it, and reports that it
+    raised. That is a fail-closed disposition with a divergence finding, not silent admission,
+    and it is the one route the parametrized vacuity control above cannot cover.
+    """
+    forged = ForgedBytearrayClass()
+    assert issubclass(type(forged), bytearray) is False
+
+    copied, _immutability, divergence = proved_copy(forged, "top")
+
+    assert type(copied) is not bytes, "the forged value must not be copied on the bytearray arm"
+    assert divergence, (
+        "the forged value produced no divergence finding, so the seam admitted a value it "
+        "could not copy without saying so"
+    )
 
 
 # --- the defect itself ---
