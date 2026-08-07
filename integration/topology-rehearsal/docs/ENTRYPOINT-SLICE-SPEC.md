@@ -109,10 +109,17 @@ rather than judging the key space:
   (and so separator-freedom), absoluteness **and normal form**; one lying inside a control
   worktree holds by the *containment* rule, which is a distinct check — the roots' own rules
   are exact key set, absolute, separator-free and normal-form, and no root is refused for
-  lying inside another. Normal form is refused rather than canonicalised on **both** sides, so
-  neither a root nor the ledger token can spell its way past the containment comparison
+  lying inside another. **PATH** normal form is refused rather than canonicalised on **both**
+  argv sides, so neither a root nor the ledger token can spell its way past the token rule
   (`test_a_non_normal_ledger_worktree_cannot_spell_its_way_inside_a_control_worktree`,
-  `test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root`). The token is
+  `test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root`). Case and
+  Unicode-normalization aliases are a different mechanism: they are **not** refused at the
+  token — a case-variant or NFD-spelled path is an admissible token — but are folded on both
+  operands *inside* the containment comparison, so they cannot alias one worktree into another
+  (`test_a_case_variant_ledger_worktree_cannot_alias_into_a_control_worktree`,
+  `test_a_case_variant_control_worktree_cannot_hide_a_plainly_spelled_ledger_root`,
+  `test_a_normalization_variant_ledger_worktree_cannot_alias_into_a_control_worktree`,
+  `test_the_containment_fold_is_canonical_and_not_merely_case_insensitive`). The token is
   never rewritten: it is forwarded exactly as typed
   (`test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree`,
   `test_an_attempt_ledger_root_inside_a_control_worktree_holds`,

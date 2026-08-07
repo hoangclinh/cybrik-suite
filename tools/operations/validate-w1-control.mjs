@@ -3583,9 +3583,25 @@ export function validateW1CiWiring({
   // `composition` is still read and `declared_reds` is still referenced by the
   // `if declared_failures and not declared_reds` guard, so nothing dangles and
   // nothing lints that workflow. The two set differences are therefore pinned as
-  // EXPRESSIONS rather than as names: unlike a name, an expression cannot be
-  // retained while the behaviour it performs is removed, which terminates the
-  // regress here instead of moving it one hop further out.
+  // EXPRESSIONS rather than as names, which closes the one-level deletion
+  // demonstrated above.
+  //
+  // F0158 correction. That is ALL it does. It does not terminate the regress, and
+  // no text pattern can: `assertIncludes` is `pattern.test` over the raw YAML slice,
+  // so it matches text in comments and in dead code and cannot observe behaviour.
+  // Two mutations survive every pattern in this block. (1) Delete the reporting and
+  // exit path at the end of the baseline-comparison step — the `if problems:` block
+  // that prints each `::error::` and calls `sys.exit(1)`. Every pattern below still
+  // matches, because each name and expression they pin lives in the code above that
+  // block, so the step computes a genuine count regression and both identity
+  // mismatches, prints the counts line, and exits 0 while this control stays green.
+  // Nothing in this file pins that exit path. (2) Delete the loops and leave one of
+  // these expressions behind in a comment; `pattern.test` matches the comment.
+  // These are the same shape as F0143 and are recorded as open, not as closed.
+  //
+  // Deliberately NOT repaired by adding another pattern: pinning the exit path would
+  // close mutation (1) and move the regress to the next unpinned line. If that hop is
+  // ever taken it must be an acknowledged increment, not a second claim of termination.
   for (const pattern of [
     /REVIEW-BASELINE\.json/,
     /uv==0\.11\.16/,
