@@ -70,7 +70,11 @@ UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b
 # The exact sentences the package front door must carry. They are pinned rather than
 # paraphrased so a later edit cannot soften the absence back into an implied whole runner.
 FRONT_DOOR_BOUNDED_CLAIM = "Only part of the bounded C8 library core is present"
-FRONT_DOOR_ABSENCE_CLAIM = "remain absent, and their tests stay RED"
+# Renamed in meaning, not in identifier: the sentence this pins is still the one sentence
+# that states the present/absent split, but the scripts have landed so it now states the
+# landing. The identifier is kept so every reader of this control sees one history rather
+# than a constant that appears to have been introduced fresh alongside the claim it checks.
+FRONT_DOOR_ABSENCE_CLAIM = "have landed, and their tests are GREEN"
 FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
@@ -177,7 +181,11 @@ def test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder
     assert FRONT_DOOR_ABSENCE_CLAIM in docstring
     assert FRONT_DOOR_SCRIPT_CLAIM in docstring
     for name in C8_SCRIPT_NAMES:
-        assert not (SCRIPTS / name).exists()
+        # Both entrypoints have landed. The control is inverted rather than deleted: the
+        # front door must now be falsifiable in the other direction, so a later removal of
+        # a script would fail here instead of silently restoring a docstring that is true
+        # again by accident.
+        assert (SCRIPTS / name).exists()
     absent = tuple(
         module for module in C8_MODULES if not (package_dir / f"{module}.py").exists()
     )
