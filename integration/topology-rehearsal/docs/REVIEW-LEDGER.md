@@ -11,7 +11,10 @@ every range below, regardless of PUSH-ELIGIBLE outcome.
 
 **How to use this file:** before pushing any change in this component, the
 independent reviewer appends a new row/section below recording the commit
-range, verdict, P0/P1/P2/P3 counts, PUSH-ELIGIBLE decision, and any open
+range, verdict, P0/P1/P2/P3 counts, PUSH-ELIGIBLE decision (superseded for rows
+from `449b8dc` onward — see *What the Push-eligible cell asserts, and where it
+comes from*, which records that the reviewer issues no such decision and under
+Scheduler V2 cannot write this file at all), and any open
 findings — in that order, before the push happens. Do not push first and
 backfill later; that is exactly the gap that caused a prior cycle's six P3s
 to be lost irrecoverably.
@@ -87,6 +90,8 @@ to be lost irrecoverably.
 | `7e7bd3d` | 2 paths — identity half of the baseline comparison pinned (F0139/F0140) | GO | 0/0/0/2 | YES | HOLD |
 | `9bdb25c` | 1 path — `uv.lock` committed verbatim | GO | 0/0/0/1 | YES | HOLD |
 | `d679b69` | 2 paths — `--attempt-ledger-root` carried into the composition contract | GO | 0/0/0/5 | YES | HOLD |
+| `277a7bf` | 3 paths — five rows retired, ledger index backfilled | NO-GO | 0/0/2/2 | NO | HOLD |
+| `82715e9` | 1 path — backfill gap closed, push column sourced (F0149/F0150) | NO-GO | 0/0/1/2 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -102,10 +107,15 @@ count-cell marker rules below govern the `P0/P1/P2/P3` cell only and say nothing
 `GO` is not push eligibility, and the corpus says so in terms:
 `VERDICT-48284b428f0f4343cbbd65f4d035905cf7a1efc9.json` records that its `GO` "reports only that the
 pinned range carries no P0/P1/P2", that a P2 remained open out of scope, and that "the push
-predicate cannot be satisfied by this verdict". For the nine rows appended from `449b8dc` onward the
+predicate cannot be satisfied by this verdict". For the rows from `449b8dc` onward the
 cell therefore records whether the driver's push predicate was actually satisfied at that sha,
 witnessed by the driver-owned `roles/security/artifacts/PUSH-RECEIPT-<sha>.json`: `YES` where that
-receipt exists, `NO` where it does not. It exists for exactly `7e7bd3d`, `9bdb25c` and `d679b69`.
+receipt exists, `NO` where it does not. **Among the rows from `449b8dc` onward** it exists for
+exactly `7e7bd3d`, `9bdb25c` and `d679b69`. That restriction is load-bearing and the sentence was
+previously written without it (F0153): receipts also exist for `e62f038` and `e37409f`, two commits
+*above* this range, so as an unrestricted claim about the receipt directory it was false — five
+receipts exist, not three. Those two older cells read `NO` and are deliberately left standing,
+which is precisely why the claim cannot be stated over the whole table.
 The cells above `449b8dc` predate this rule and were derived under the older prose convention; they
 are not re-derived here, and this cut publishes no claim about them. This also supersedes, for these
 rows only, the preamble's description of the cell as a "PUSH-ELIGIBLE decision" recorded by the
@@ -169,11 +179,31 @@ correct reading (F0077).
 
 The four cases are mutually exclusive and jointly exhaustive because they are defined by the marker
 in a row's own count cell, and every row carries at most one. The invariant a reader can check
-mechanically, without any total appearing in this file, is a **bijection**: a row is unmarked if and
-only if `roles/reviewer/artifacts/` holds a `VERDICT-<sha>.json` for the sha ending its Range cell.
-Both directions were verified over every row of this table before this commit was written — no
-unmarked row lacks a corpus file, and no marked row has one. A new verdict adds one file and one
-unmarked row, so it preserves the bijection instead of falsifying a count.
+mechanically, without any total appearing in this file, is a **bijection up to the frontier**: a row
+is unmarked if and only if `roles/reviewer/artifacts/` holds a `VERDICT-<sha>.json` for the sha
+ending its Range cell — quantified over commits **up to and including the sha in this index's last
+row**, and over no others.
+
+The frontier qualifier is not a hedge; without it the claim is self-falsifying, which is how this
+row reached a third carry (F0150). A verdict for commit *N* can only be written after *N* exists,
+and the row recording it can only be written by a commit after *that* — so at the instant any
+version of this file is committed, the corpus already holds, or is about to hold, a verdict beyond
+the newest row. Three successive repairs appended the then-newest verdict and republished an
+unrestricted bijection, and each was falsified by the very next verdict rather than by any error in
+the append: `449b8dc` was orphaned by the cut that stopped at `083a468`, and `277a7bf` by the cut
+that stopped at `d679b69`. **Verdicts bound to commits beyond the frontier have no row by
+construction. That is the steady state of this file, not a gap in it**, and the two structural
+reasons are given in full in *Why this is a backfill, and the rule it deviates from* at the end of
+this file — chiefly that appending the row is itself a commit, which would move `HEAD` off the sha
+the outstanding verdict covers.
+
+The frontier is named by an **expression** — the sha in the last row — and never by a literal sha,
+for the same reason the line citations (F0068) and the cycle labels (F0072) were withdrawn as
+classes: a literal would be stale in the commit that wrote it, which is exactly the defect being
+repaired. Both directions were verified over every row at or below the frontier before this commit
+was written — no unmarked row lacks a corpus file, and no marked row has one. A new verdict now
+moves the frontier forward when its row is appended, and preserves the invariant in the interval
+before that, instead of breaking a claim that could never have been true.
 
 **No line-number citations appear in this index, deliberately (F0068).** The previous version cited
 each prose section by line number; all twelve were wrong, ten of them uniformly 26 lines short,
@@ -11359,8 +11389,10 @@ transcribed. They are recorded here, in commit order. The `sha`, `base`, `scope`
 column is not, for the reason given with the index above (F0149). An earlier version of this
 section said *eight* and began at `87da626`, omitting `449b8dc` — whose verdict is bound to exactly
 the commit the index stops at, `083a468`, which is how it fell through the gap (F0150). The nine
-rows are also appended to the index above, as the standing directive there requires; that append is
-what restores the index/corpus bijection this omission had broken in the corpus-to-row direction.
+rows are also appended to the index above, as the standing directive there requires; that append
+restored the index/corpus bijection **up to the frontier of that commit**, which is the only form
+the claim can take — the unrestricted form that cut published was falsified by `277a7bf`'s own
+verdict before the ink was dry, and is repaired at the class in the frontier paragraph above.
 
 This table is not the index, so the `unmarked`/`¶`/`†`/`n/a` count-cell taxonomy stated above
 governs the index table and not this one; every count cell here is corpus-transcribed without
@@ -11404,4 +11436,29 @@ than passed over, with the two structural reasons it was unavoidable:
    this section is.
 
 Neither reason is offered as permission to skip the row again. The owed correction is to the rule's
-wording, which is a decision for the ledger's owner rather than for this lane.
+wording, which is a decision for the ledger's owner rather than for this lane. A pointer to the
+superseding definition is now carried at the preamble itself (F0154), so a reader who stops after
+the how-to-use block no longer leaves with the withdrawn definition.
+
+## `277a7bf` and `82715e9` — the two verdicts beyond the last frontier
+
+Both are transcribed from the corpus and both are appended to the index above **in this commit**, as
+the standing directive requires. They are recorded here rather than in the backfill table above,
+because that table is a closed record of one specific nine-verdict gap and retitling it on every
+subsequent append would make its own heading the next stale total.
+
+| sha | base | scope | verdict | P0/P1/P2/P3 | evidence | PUSHED (receipt) | RUNTIME |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `277a7bf` | `d679b69` | `docs/ENTRYPOINT-SLICE-SPEC.md`, `tests/test_scripts_inert.py`, `docs/REVIEW-LEDGER.md` | **NO-GO** | 0/0/2/2 | COMPLETE | NO | HOLD |
+| `82715e9` | `277a7bf` | `docs/REVIEW-LEDGER.md` | **NO-GO** | 0/0/1/2 | COMPLETE | NO | HOLD |
+
+Both carry `covers_head=true` and execution evidence `COMPLETE` (1803 passed / 1 declared RED,
+`unintended_failures=0`, ruff 12 against a declared bar of 12, `compileall` exit 0), transcribed
+from the two verdict artifacts and not re-measured by this lane. Neither commit is pushed — the
+branch is ahead of `origin` at both — so the `PUSHED` cell reads `NO` under the receipt rule above,
+and no `PUSH-RECEIPT` exists for either sha. RUNTIME is **HOLD** for both, and no entrypoint script
+was executed for either.
+
+This section is the frontier rule's first application rather than another instance repair: the
+commit carrying it will itself receive a verdict that has no row here, and under the rule above that
+is the expected steady state and not a defect to be chased with a twelfth append.
