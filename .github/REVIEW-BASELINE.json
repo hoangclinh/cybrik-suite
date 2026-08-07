@@ -1,0 +1,32 @@
+{
+  "version": "REVIEW-BASELINE/v1",
+  "project": "integration/topology-rehearsal",
+  "declared_at": "2026-08-07",
+  "pytest": {
+    "expected_failures": 1,
+    "composition": "F131's single intentional ingress-guard RED: tests/test_f131_ingress_guard.py::test_the_container_ingress_reading_is_cross_checked"
+  },
+  "ruff": {
+    "expected_violations": 12,
+    "composition": "the F120 baseline, unchanged since it was recorded"
+  },
+  "rationale": "This suite is deliberately not green. F131's RED proves a container ingress bypass that is not yet repairable, so it stays red on purpose. A collector that simply reported red would be ignored within a day, and a baseline that silently followed whatever the suite currently does would not be a check at all \u2014 only the delta against these declared numbers is a signal. Update this file in the same change that legitimately retires one of these REDs, never afterwards to make a run look clean, and record the reason in revision_history. The 58 absent-entrypoint-script REDs were retired that way on 2026-08-07 once the scripts existed and were reviewed.",
+  "revision_history": [
+    {
+      "date": "2026-08-06",
+      "expected_failures": 59,
+      "composition": "58 absent-entrypoint-script REDs plus F131's intentional ingress-guard RED"
+    },
+    {
+      "date": "2026-08-07",
+      "expected_failures": 1,
+      "why": "the two entrypoint scripts were written and reviewed, so the 58 absent-script REDs are legitimately retired; measured 1783 passed / 1 failed on an isolated checkout of the pinned commit. Leaving the baseline at 59 would have let up to 58 real regressions pass unnoticed, because unintended_failures is clamped at zero."
+    }
+  ],
+  "home": ".github/, deliberately outside integration/topology-rehearsal/ \u2014 that path is the writing lane's owned write prefix, and a baseline the writer may edit is a writer lowering the bar for its own work. Here, any edit by the writing lane is an ownership breach the driver can detect.",
+  "consumed_by": [
+    ".github/workflows/contracts.yml \u2014 the hosted gate",
+    "cybrik-scheduler-v2 collect-review-evidence-v2.zsh \u2014 the local gate"
+  ],
+  "single_source": "both gates read this one file, so the hosted and local baselines cannot drift apart"
+}
