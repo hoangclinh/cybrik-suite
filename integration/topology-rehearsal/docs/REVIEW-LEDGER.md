@@ -90,7 +90,7 @@ to be lost irrecoverably.
 | `7e7bd3d` | 2 paths — identity half of the baseline comparison pinned (F0139/F0140) | GO | 0/0/0/2 | YES | HOLD |
 | `9bdb25c` | 1 path — `uv.lock` committed verbatim | GO | 0/0/0/1 | YES | HOLD |
 | `d679b69` | 2 paths — `--attempt-ledger-root` carried into the composition contract | GO | 0/0/0/5 | YES | HOLD |
-| `277a7bf` | 3 paths — five rows retired, ledger index backfilled | NO-GO | 0/0/2/2 | NO | HOLD |
+| `277a7bf` | 3 paths — five rows retired; ledger backfill section added, index left unextended (F0149/F0150 opened) | NO-GO | 0/0/2/2 | NO | HOLD |
 | `82715e9` | 1 path — backfill gap closed, push column sourced (F0149/F0150) | NO-GO | 0/0/1/2 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
@@ -113,8 +113,10 @@ witnessed by the driver-owned `roles/security/artifacts/PUSH-RECEIPT-<sha>.json`
 receipt exists, `NO` where it does not. **Among the rows from `449b8dc` onward** it exists for
 exactly `7e7bd3d`, `9bdb25c` and `d679b69`. That restriction is load-bearing and the sentence was
 previously written without it (F0153): receipts also exist for `e62f038` and `e37409f`, two commits
-*above* this range, so as an unrestricted claim about the receipt directory it was false — five
-receipts exist, not three. Those two older cells read `NO` and are deliberately left standing,
+*above* this range, so as an unrestricted claim about the receipt directory it was false — it swept
+in those two as well. No cardinality is stated for that directory here, for the reason given below:
+it is append-only, and the next push falsifies any total written about it. Those two older cells
+read `NO` and are deliberately left standing,
 which is precisely why the claim cannot be stated over the whole table.
 The cells above `449b8dc` predate this rule and were derived under the older prose convention; they
 are not re-derived here, and this cut publishes no claim about them. This also supersedes, for these
@@ -185,7 +187,10 @@ ending its Range cell — quantified over commits **up to and including the sha 
 row**, and over no others.
 
 The frontier qualifier is not a hedge; without it the claim is self-falsifying, which is how this
-row reached a third carry (F0150). A verdict for commit *N* can only be written after *N* exists,
+row survived a repair before the qualifier was found: `F0150` was minted against `277a7bf`, carried
+once against `82715e9`, and retired against `d07f6de`. That history is quoted rather than counted
+in the abstract because the row is now closed, so it can no longer move. A verdict for commit *N*
+can only be written after *N* exists,
 and the row recording it can only be written by a commit after *that* — so at the instant any
 version of this file is committed, the corpus already holds, or is about to hold, a verdict beyond
 the newest row. Three successive repairs appended the then-newest verdict and republished an

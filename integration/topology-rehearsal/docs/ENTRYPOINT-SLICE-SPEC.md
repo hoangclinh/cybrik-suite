@@ -4,8 +4,10 @@ Status: `SCRIPTS LANDED AND INERT — STATIC ONLY — NO RUNTIME AUTHORITY`.
 
 This file records the exact contract the two entrypoint scripts must satisfy, read off the
 committed tests rather than from intent. Both scripts landed inert at `8a41f29`; the
-`DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner this file previously carried was
-retired there, as the owed-edit list at the end of this file said it would be. Landing them
+`DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner this file carried was *not* retired
+there. It survived that landing and every commit up to and including `d679b69` — which is the
+defect `F0148` was raised against — and was retired at `277a7bf`, as the owed-edit list at the
+end of this file said it would be. Landing them
 is static library work: this file authorizes no Docker effect, no listener, no PostgreSQL
 attempt, no UAT, demo, merge, release or production action, and RUNTIME remains HOLD.
 
@@ -103,10 +105,15 @@ rather than judging the key space:
   (F0092): the containment check needs the folded roots, so it runs after they are
   known (`test_an_invocation_that_names_no_attempt_ledger_root_holds_without_calling_the_executor`);
 - a relative ledger root and one carrying an argv separator each hold by the same token rule
-  the control roots are held to (`plan.exact_token`, absoluteness and separator-freedom); one
-  lying inside a control worktree holds by the *containment* rule, which is a distinct check —
-  the roots' own rules are exact key set, absolute and separator-free, and no root is refused
-  for lying inside another. The token is never rewritten: it is forwarded exactly as typed
+  the control roots are held to — `plan.absolute_normal_path`, which is `plan.exact_token`
+  (and so separator-freedom), absoluteness **and normal form**; one lying inside a control
+  worktree holds by the *containment* rule, which is a distinct check — the roots' own rules
+  are exact key set, absolute, separator-free and normal-form, and no root is refused for
+  lying inside another. Normal form is refused rather than canonicalised on **both** sides, so
+  neither a root nor the ledger token can spell its way past the containment comparison
+  (`test_a_non_normal_ledger_worktree_cannot_spell_its_way_inside_a_control_worktree`,
+  `test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root`). The token is
+  never rewritten: it is forwarded exactly as typed
   (`test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree`,
   `test_an_attempt_ledger_root_inside_a_control_worktree_holds`,
   `test_the_attempt_ledger_root_is_held_to_the_argv_token_rule_the_control_roots_are`);
