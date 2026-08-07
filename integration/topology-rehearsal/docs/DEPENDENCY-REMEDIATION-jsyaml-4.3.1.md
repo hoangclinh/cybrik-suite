@@ -79,8 +79,11 @@ by `Cybrik Codex Worker <codex@cybrik.invalid>`, a different identity from the
 `codex-worker@local.invalid` that authored 157 of the commits in this range, landing after `3a0b66b`
 had taken an independent GO. Under which dependency authority a non-owning lane edited
 `tools/contract-validation/` is **not answered here, because this lane does not know and will not
-invent it.** It has been escalated for three cycles without a recorded answer. This paragraph is the
-disclosure that the question is open, not its resolution.
+invent it.** It has been open and unanswered from `df2b05c` through this commit, and re-escalated on
+every intervening lane cycle. No count of cycles is recorded here: a cycle counter is lane state, it
+would be wrong again on the next cycle, and this is the one file whose every edit re-invalidates its
+own `(path, blob)` coverage. This paragraph is the disclosure that the question is open, not its
+resolution.
 
 **Known residual.** A reader arriving at `package-lock.json:2339` has no pointer to this file, because
 such a pointer would have to live under `tools/`, outside this lane's write prefix. That half of the
