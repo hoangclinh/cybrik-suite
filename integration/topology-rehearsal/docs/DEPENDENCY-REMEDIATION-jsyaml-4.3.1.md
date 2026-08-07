@@ -10,13 +10,17 @@ any commit to that file re-invalidates its own `(path, blob)` coverage, while `d
 This lane did not author `df2b05c` and does not own `tools/contract-validation/`. What follows is
 measurement and disclosure, not a grade and not an authorisation.
 
-**The change.** `tools/contract-validation/package-lock.json:2336-2344` moves `node_modules/js-yaml`
+**The change.** `tools/contract-validation/package-lock.json:2339-2341` moves `node_modules/js-yaml`
 from `4.3.0` to `4.3.1`, with `resolved` and `integrity` updated to
 `sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==`.
-Three insertions, three deletions, one file. js-yaml is not named in `package.json` at all — it is a
-transitive dependency whose lone requirement is `^4.1.1` at `package-lock.json:45` with a single
-entry at `:2338`. A lockfile-only edit is therefore the only shape this remediation could take; no
-declared range existed to change.
+Those three lines are the whole change: three insertions, three deletions, one file. They sit inside
+the sole `node_modules/js-yaml` entry, which begins at `:2338` and runs to `:2359`; the surrounding
+`funding` and `license` keys are unchanged. (The wider `:2336-2344` span a reader may meet in the
+diff is the hunk header plus context — `:2336` is the preceding `isarray` entry's `license` line —
+and it is not the subject.) js-yaml is not named in `package.json` at all — it is a transitive
+dependency whose lone requirement is `^4.1.1` at `package-lock.json:45`, with that single entry at
+`:2338`. A lockfile-only edit is therefore the only shape this remediation could take; no declared
+range existed to change.
 
 **The advisory.** GHSA-5p4m-2wfm-xmqj, high severity, against the `!!omap` duplicate-key path in
 js-yaml 4.x, whose vulnerable form scans a growing array per key and is therefore quadratic. The
@@ -37,14 +41,33 @@ re-derived by the independent reviewer in `VERDICT-df2b05c`:
   installed tree never appears in `git status` or in a diff. Its absence from a diff is not evidence
   that it is absent from the worktree; an earlier review round drew that inference and it was wrong.
 
-**The verification actually run, and what was excluded from it.** The driver's measurement at
-`roles/reviewer/REVIEW-EVIDENCE.json` records `validate`, `test:w1-contracts` and `test:w1-control`
-as measured and passed on an isolated checkout of the pinned commit. It expressly **excludes**
-`npm audit` at `:40`, on the recorded ground that it queries the live advisory database and can turn
+**The verification actually run.** Figures are transcribed here rather than referenced, because the
+driver's evidence channel is rewritten every cycle and a pointer into it does not survive the commit
+it describes — the same durability defect this file exists to cure. Each measurement below was taken
+by the driver on an isolated checkout of the named commit, never on a working tree:
+
+- On `df2b05c`: pytest 1725 passed and 59 failed against a declared baseline of 59, so 0 unintended
+  failures; ruff 12 violations against a baseline of 12; `compileall` exit 0.
+- On `24a5c78`, the commit that added this file: the identical figures — 1725/59 with 0 unintended,
+  ruff 12, `compileall` 0 — plus the three scripts hosted CI runs, `validate`, `test:w1-contracts`
+  and `test:w1-control`, measured and passed.
+
+**What was excluded from it, and why that matters here.** The collector expressly excludes `npm
+audit`, on its own recorded ground that the command queries the live advisory database and can turn
 red with no change to the tree. Consequence, stated plainly: **the one control this commit exists to
-satisfy has not been measured by any lane.** Nothing in this record should be read as evidence that
-the hosted audit gate is green. The failure direction is fail-closed — if audit still reads red, the
-job fails — so the residual is a CI outcome, not an exposure.
+satisfy has been measured by no lane in this scheme.** The commit message of `df2b05c` does assert
+that `npm audit --audit-level=high` reported 0 vulnerabilities before it was committed, but that
+assertion arrives with the same unresolved provenance as the commit itself (see *Authority* below),
+no lane can corroborate it offline, and it is therefore recorded here as a claim and not as
+evidence. Nothing in this record should be read as evidence that the hosted audit gate is green. The
+failure direction is fail-closed — if audit still reads red, the job fails — so the residual is a CI
+outcome, not an exposure.
+
+**A stale in-repo claim about this same gate.** `docs/operations/W1-CI3-DEPENDENCY-REMEDIATION-R1.md`
+states at `:72` that `npm audit --audit-level=high` returns 0 vulnerabilities and at `:91-93` that
+the advisory database reports no vulnerability after that remediation. Both predate
+GHSA-5p4m-2wfm-xmqj and are **superseded on this point** by this record. That file lies outside this
+lane's write prefix and is therefore left unedited; this sentence is the supersession relation.
 
 **What this lane cannot witness.** Whether the registry still serves this exact tarball for 4.3.1,
 whether the installed tree is byte-identical to what npmjs.org publishes, and the current state of
