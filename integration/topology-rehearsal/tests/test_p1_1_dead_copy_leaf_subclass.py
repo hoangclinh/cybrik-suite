@@ -1,21 +1,22 @@
 """P1-1: `_dead_copy` hands back a leaf *subclass* live and uncopied, cross-checking nothing.
 
-Filed **P1** by `VERDICT-a703a45` (ledger `Cycle 6/48`), defect `views.py:311`, false invariant
-`views.py:298-299`. `isinstance(value, IMMUTABLE_LEAVES)` at `:311` returns the caller's live
+Filed **P1** by `VERDICT-a703a45` (ledger `Cycle 6/48`), defect and false invariant both in
+`views._dead_copy`. Its `isinstance(value, IMMUTABLE_LEAVES)` arm returns the caller's live
 object with zero divergence findings. A class subclassing `str` *and* `Mapping` passes that test
 **by ordinary inheritance — no metaclass forgery is required**, so `_dead_mapping` is never called
 and the mapping face of a two-faced value is never reconciled against itself.
 
-This is not F153 again. F153 was a forged *exact-type* answer at `:84`, `:154` and `:405`, and its
-repair (`_is_immutable_leaf`, identity) is sound at those three sites. `:311` was **deliberately
+This is not F153 again. F153 was a forged *exact-type* answer in `is_immutable_leaf`,
+`_states_the_same_value` and `proved_copy`, and its repair (identity) is sound at those three
+sites. The `_dead_copy` arm was **deliberately
 excluded** from that repair — `test_f153_metaclass_leaf`'s module docstring says so, on the stated
 ground that `str` and `bytes` are `Sequence`s and walking one yields its own characters. That
 ground is real and is preserved here: the repair must not take a scalar subclass apart into
 characters. What the ground does not justify is skipping the **Mapping** face, which is what these
 tests hold.
 
-`views.py:298-299` claims `_dead_copy` aligns with `preparation.frozen`. It does not:
-`preparation.py:133-141` *refuses* a scalar subclass outright. The two functions are opposites at
+`_dead_copy`'s own docstring claims it aligns with `preparation.frozen`. It does not:
+`preparation.frozen` *refuses* a scalar subclass outright. The two functions are opposites at
 exactly this boundary, and the docstring is corrected with the repair.
 
 Anti-vacuity discipline, inherited from `test_f134_get_accessor`, `test_f135_eq_fallback` and
@@ -130,7 +131,7 @@ def test_the_attacker_content_is_not_what_gets_recorded(proved_copy):
 
 
 def test_an_honest_str_subclass_is_not_taken_apart_into_characters(proved_copy):
-    """Vacuity control: the ground `:311` was excluded from F153 on is preserved."""
+    """Vacuity control: the ground `_dead_copy` was excluded from F153 on is preserved."""
     copied, _, diverged = _walk(proved_copy, HonestStrSubclass("abc"))
     assert copied == "abc"
     assert type(copied) is str, "a scalar subclass must be copied to its exact leaf type"

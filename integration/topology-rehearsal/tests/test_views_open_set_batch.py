@@ -280,3 +280,115 @@ def test_an_honest_shallow_mapping_still_clears():
     stored, findings = stored_entries(MappingProxyType({"k": "v"}), LABEL)
     assert stored == {"k": "v"}
     assert findings == ()
+
+
+# --------------------------------------------------------------------------------------
+# F0032 / F0033 -- the two announcing views are reconciled once each, and both of them
+#
+# `_key_set_findings` reads three announcing views: `__iter__`, `keys()` and `__len__`. Two
+# defects survived four verdicts each because they sit on opposite sides of the same loop:
+# the union of the first two is walked without deduplication (F0032), and only the first of
+# them is reconciled against a count (F0033). Both are pinned here by the exact finding text
+# they produce, not by a bare truthiness assertion -- F0028 filed that shape in this very
+# file, and F0027 filed a stray parameter that pytest silently read as a fixture request.
+# --------------------------------------------------------------------------------------
+
+
+class DoublyAnnouncedGhost(Mapping):
+    """Both announcing views state `ghost`, and `.items()` never yields it.
+
+    `__iter__` and `keys()` answer from one tuple, so the two views announce the *same key
+    objects* rather than equal copies. That is the honest shape of a mapping announcing a key
+    twice, and it is what the deduplication must collapse.
+    """
+
+    _KEYS = ("real", "ghost")
+
+    def __iter__(self):
+        return iter(self._KEYS)
+
+    def keys(self):
+        return self._KEYS
+
+    def __len__(self) -> int:
+        return 2
+
+    def __getitem__(self, key):
+        return "value"
+
+    def items(self):
+        return (("real", "value"),)
+
+
+def test_a_key_announced_by_both_views_is_reported_once():
+    """INTENDED RED (F0032): the union is walked undeduplicated, so `ghost` is filed twice."""
+    _, findings = stored_entries(DoublyAnnouncedGhost(), LABEL)
+    ghost_findings = [finding for finding in findings if "ghost" in finding]
+    assert len(ghost_findings) == 1, (
+        "a key announced by both `__iter__` and `keys()` must produce one finding, not one "
+        f"per announcing view; got {len(ghost_findings)}: {ghost_findings}"
+    )
+
+
+class KeysOmitsAStoredEntry(Mapping):
+    """`.items()` and `__iter__` state two entries while `keys()` states only one.
+
+    Every key `keys()` returns *is* stored, so the unstored-key loop clears it completely: the
+    entry is missing from the announcement rather than absent from the store, which is the
+    direction only a count can see.
+    """
+
+    def __iter__(self):
+        return iter(("a", "b"))
+
+    def keys(self):
+        return ("a",)
+
+    def __len__(self) -> int:
+        return 2
+
+    def __getitem__(self, key):
+        return "value"
+
+    def items(self):
+        return (("a", "value"), ("b", "value"))
+
+
+def test_a_keys_call_that_omits_a_stored_entry_is_reported():
+    """INTENDED RED (F0033): `len(claimed)` is reconciled against nothing at all."""
+    _, findings = stored_entries(KeysOmitsAStoredEntry(), LABEL)
+    assert any("`keys()` states 1" in finding for finding in findings), (
+        "a `keys()` under-reporting a stored entry must be reported against the entry count; "
+        f"got {findings}"
+    )
+
+
+def test_a_mapping_that_refuses_keys_is_not_also_charged_with_a_count():
+    """The `keys()` refusal path must file its own finding and no count finding on top of it.
+
+    `_claimed_keys` returns `None` and the caller substitutes `()`. An unguarded count check
+    would then read that empty substitute as an under-report and file a second, misleading
+    finding against a mapping whose only defect is that it would not answer `keys()`.
+    """
+
+    class RefusesKeys(Mapping):
+        def __iter__(self):
+            return iter(("a",))
+
+        def keys(self):
+            raise RuntimeError("no keys for you")
+
+        def __len__(self) -> int:
+            return 1
+
+        def __getitem__(self, key):
+            return "value"
+
+        def items(self):
+            return (("a", "value"),)
+
+    _, findings = stored_entries(RefusesKeys(), LABEL)
+    refusals = [finding for finding in findings if "asked for `keys()`" in finding]
+    counts = [finding for finding in findings if "`keys()` states" in finding]
+    assert len(refusals) == 1, f"the refusal itself must be filed once; got {findings}"
+    assert counts == [], f"a refusing mapping must not also be charged a count; got {counts}"

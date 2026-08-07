@@ -12,7 +12,7 @@ Citations here name **symbols, not line numbers** (F0017). The previous coordina
 The vector is not the F153 metaclass forgery and not the P1-1 inheritance case. It is CPython's
 `isinstance` fallback: when the direct `PyType_IsSubtype` check fails, `object_isinstance` reads
 the instance's `__class__` attribute and accepts the value if *that* answers a subtype. A class
-whose real type is unrelated to `str` can therefore publish `__class__ = str` and pass `:329`.
+whose real type is unrelated to `str` can therefore publish `__class__ = str` and pass it.
 The call the branch then makes is the unbound builtin slot `str.__str__`, chosen precisely
 because it does **not** consult the instance — so it rejects the imposter with
 `TypeError: descriptor '__str__' for 'str' objects doesn't apply to a '...' object`. The guard

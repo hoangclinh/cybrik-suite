@@ -77,16 +77,11 @@ def is_immutable_leaf(value: object) -> bool:
     as its weakest copy, and `preparation.frozen` re-derived both forms for four verdicts while
     this sentence claimed otherwise (F0026).
 
-    `type(value) in IMMUTABLE_LEAVES` was **not** this test, and that was F153. Membership is
-    `any(e is x or e == x)`, so it consults `__eq__` on the class object, which a metaclass owns.
-    A class whose metaclass answers `True` to every comparison was admitted as a builtin leaf,
-    and every control resting on that admission unfolded on a lie: the value skipped the
-    immutability walk and `proved_copy`'s deep walk, and reached the equality fallback that is
-    safe only because leaf types cannot override comparison.
-
-    Identity cannot be forged: `is` is the interpreter's, not the judged object's. Nothing is
-    widened — a leaf subclass without a lying metaclass was already excluded (`MySubclass == int`
-    is `False`).
+    `type(value) in IMMUTABLE_LEAVES` was **not** this test, and that was F153: membership is
+    `any(e is x or e == x)`, so a metaclass `__eq__` answering `True` was admitted as a builtin
+    leaf, skipping both walks and reaching a fallback safe only for real leaves. Identity cannot
+    be forged, and nothing widens — a leaf subclass without a lying metaclass was already
+    excluded (`MySubclass == int` is `False`).
     """
     return any(leaf is type(value) for leaf in IMMUTABLE_LEAVES)
 
@@ -102,10 +97,9 @@ def subclasses_immutable_leaf(value: object) -> bool:
     Decided by `issubclass(type(value), ...)` rather than `isinstance`, for the reason
     `VERDICT-6d20929` filed as P2-2: `isinstance` falls back to the instance's `__class__`, so an
     unrelated object publishing `__class__ = str` was admitted here. Both operands are ordinary
-    types here, so the check resolves to `PyType_IsSubtype` — the interpreter's relation.
-
-    Forging in the *opening* direction was never the exposure: a lie making this answer `True`
-    is a spurious refusal, which is fail-closed. The exposure is a caller re-deriving the test.
+    types, so the check resolves to `PyType_IsSubtype` — the interpreter's relation. Forging in
+    the *opening* direction is a spurious refusal and fail-closed; the exposure is a caller
+    re-deriving the test.
     """
     return issubclass(type(value), IMMUTABLE_LEAVES) and not is_immutable_leaf(value)
 
@@ -113,12 +107,11 @@ def subclasses_immutable_leaf(value: object) -> bool:
 def safe_repr(value: object) -> str:
     """`repr(value)` as an exact `str`, or a stated placeholder when the value refuses.
 
-    Every finding interpolates a value that arrived through an injected port, so `repr` is
-    attacker-controlled: a raising `__repr__` turned the *report* of a divergence into an
-    exception escaping a seam contracted to return findings. Catching that raise is not enough,
-    because `isinstance` accepts a `str` *subclass* whose `__format__` refuses and the caller's
-    f-string is outside this `try`; both helpers therefore return through the unbound
-    `str.__str__` slot, which ignores the instance and yields an exact copy (F0006)."""
+    Every finding interpolates a value from an injected port, so `repr` is attacker-controlled: a
+    raising `__repr__` turned the *report* of a divergence into an exception leaving a seam
+    contracted to return findings. Catching the raise is not enough, since `isinstance` accepts a
+    `str` *subclass* whose `__format__` refuses outside this `try`; both helpers return through
+    the unbound `str.__str__` slot, which yields an exact copy (F0006)."""
     try:
         return str.__str__(repr(value))
     except (KeyboardInterrupt, SystemExit):
@@ -184,39 +177,29 @@ def _states_the_same_value(stored: object, other: object) -> bool:
     Identity is the fast path; a mapping that rebuilds its values on each read states the same
     value through both views and is honest, so refusing it outright was a defect.
 
-    The fallback used to demand the exact same type and a literal `True` in both directions, and
-    argued that this defeated a lying comparison. **It did not, and that was F135.** Every term of
-    that conjunction is supplied by the hostile reading itself: both operands come from the same
-    mapping and so does the type they share, so an object answering `True` to every comparison
-    satisfied the whole test while its two views stated different values — measured, one network
-    attachment against two, cleared with no divergence and carried to `TOPOLOGY_PASS`. A control
-    adjudicated by the code it is judging is not a control.
+    Agreement is never decided by an `__eq__` the judged object defines. Demanding the same type
+    and a literal `True` in both directions does not defeat a lying comparison, because every
+    term of that conjunction is supplied by the hostile reading itself — that was F135, and it
+    cleared a real divergence to `TOPOLOGY_PASS`. Equality is consulted only where the comparison
+    belongs to the interpreter: the exact builtin leaves, whose leaf status `is_immutable_leaf`
+    decides by *identity*, since membership consults an `__eq__` a metaclass owns (F153). Every
+    other value must be the *same object* through both views.
 
-    Agreement is therefore never decided by an `__eq__` the judged object defines. Equality is
-    consulted only where the comparison belongs to the interpreter rather than to the reading:
-    the exact builtin leaf types, which cannot carry an overriding `__eq__` because their identity
-    is checked by `is_immutable_leaf`. Every other value must be the *same object* through both
-    views.
+    The strictness is **decided, not pending** (`VERDICT-e311f8b` filed the wording that shipped
+    it live while calling it open). A mapping rebuilding a non-leaf value on each read is refused,
+    because it cannot be told from a two-faced one without asking the object to grade itself; the
+    honest case this fallback was written for rebuilds `str`, a leaf, and is still accepted.
+    Widening to structural recursion would be a new change carrying its own evidence. The full
+    F135 and F153 incident narratives are in `docs/REVIEW-LEDGER.md`, which governs provenance.
 
-    That guard used to be spelled `type(stored) in IMMUTABLE_LEAVES`, and this docstring claimed it
-    excluded subclasses. **It did not, and that was F153.** Membership consults `__eq__` on the
-    class, which a metaclass owns, so a forged type reached this fallback and was then trusted to
-    grade itself — the same shape of defect as F135, one level up. The guard is now an identity
-    test, which the judged object cannot supply.
-
-    This is deliberately strict, and the strictness is **decided, not pending**. A mapping that
-    rebuilds a non-leaf value on each read is refused rather than trusted, because there is no
-    way to distinguish it from a two-faced one without asking the object to grade itself. The
-    honest rebuilding case this fallback was written for (`RebuildsEachSubscript`, which rebuilds
-    `str`) is a leaf and is still accepted. Structural recursion over
-    `MappingProxyType`/`tuple`/`frozenset` would widen it, and `VERDICT-e311f8b` filed the
-    earlier wording of this paragraph as a finding precisely because it shipped that strictness
-    live while describing the decision as still open. It is not open: the refusal stands, and
-    widening it would be a new change requiring its own evidence, not the resolution of a
-    deferral recorded here.
-
-    Raising propagates to the caller, which records it as a refusal: an object that will not be
-    compared has not agreed.
+    **This function does not raise; `stored_entries`' two comparison handlers are belts, not
+    live routes.** `is` and `type()` are interpreter operations, the leaf guard decides by
+    identity, and the only `==` compares two operands of the *same exact* scalar builtin, whose
+    comparison the interpreter owns. An earlier wording promised a raise "propagates to the
+    caller as a refusal" while nothing could reach it; that was F0014, and the promise is
+    withdrawn rather than made true, since making it true means admitting a comparison the judged
+    object owns. The handlers stay because adding a *container* leaf would make `==` recurse into
+    supplied elements and reach them in the same commit.
     """
     if other is stored:
         return True
@@ -315,6 +298,7 @@ def _key_set_findings(
             ),
         )
     claimed = _claimed_keys(mapping)
+    claimed_answered = claimed is not None
     if claimed is None:
         findings.append(
             f"{label}: this mapping raised when it was asked for `keys()`, so the entries it "
@@ -322,7 +306,15 @@ def _key_set_findings(
         )
         claimed = ()
     unstored: list[Any] = []
+    # One entry announced by both views is not two entries (F0032). Deduplication is keyed by
+    # `id()` and must never be keyed by the key: `__hash__` is attacker-controlled here, so a
+    # set of keys reintroduces the `TypeError` `_is_stored` exists to guard. Equal-but-distinct
+    # keys are two objects and are judged twice; over-reporting is the fail-closed direction.
+    seen_ids: set[int] = set()
     for key in (*announced, *claimed):
+        if id(key) in seen_ids:
+            continue
+        seen_ids.add(id(key))
         is_stored = _is_stored(key, stored)
         if is_stored is None:
             findings.append(
@@ -343,6 +335,12 @@ def _key_set_findings(
         findings.append(
             f"{label}: iteration announces {len(announced)} keys while `.items()` yielded "
             f"{len(stored)} distinct entries, so at least one key collapsed silently"
+        )
+    if claimed_answered and len(claimed) != len(stored) and not unstored:
+        findings.append(
+            f"{label}: `keys()` states {len(claimed)} keys while `.items()` yielded "
+            f"{len(stored)} distinct entries, so its two announcing views do not answer for "
+            "the same entries"
         )
     if yielded != len(stored):
         findings.append(
@@ -468,6 +466,7 @@ def stored_entries(
             agreed = _states_the_same_value(value, subscripted)
         except (KeyboardInterrupt, SystemExit):
             raise
+        # Unreachable belt: `_states_the_same_value` is total. See its docstring (F0014).
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
                 f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when the object its subscript "
@@ -498,6 +497,7 @@ def stored_entries(
             agreed = _states_the_same_value(value, fetched)
         except (KeyboardInterrupt, SystemExit):
             raise
+        # Unreachable belt, on the same terms as the subscript comparison above (F0014).
         except Exception as error:  # noqa: BLE001 -- a value that will not compare is refused
             findings.append(
                 f"{label}: {safe_repr(key)} raised {safe_type_name(error)} when the object its `.get` "

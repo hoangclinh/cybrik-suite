@@ -21,11 +21,11 @@ execution-backed suite is required rather than another reading of the source.
 
 One root cause reaches three sites, all of them controls this range was convened to establish:
 
-* `views.py:67`  `immutability_findings` — a forged leaf is graded deeply immutable, unwalked.
-* `views.py:130` `_states_the_same_value` — F135's repaired fallback, reached through the forgery.
-* `views.py:381` `proved_copy` — F136's deep walk short-circuits at the forged leaf.
+* `views.immutability_findings` — a forged leaf is graded deeply immutable, unwalked.
+* `views._states_the_same_value` — F135's repaired fallback, reached through the forgery.
+* `views.proved_copy` — F136's deep walk short-circuits at the forged leaf.
 
-`views.py:287`'s `isinstance(value, IMMUTABLE_LEAVES)` is **deliberately excluded**. Its docstring
+`views._dead_copy`'s `isinstance(value, IMMUTABLE_LEAVES)` arm is **deliberately excluded**. Its docstring
 states the opposite intent on purpose — "a safe scalar's subclass is a leaf here" — because `str`
 and `bytes` are `Sequence`s and walking one yields its own characters. That site is subclass-
 permitting by design; changing it would be a different decision on different evidence.
@@ -140,7 +140,7 @@ def test_the_two_faces_state_genuinely_different_values() -> None:
 
 
 def test_agreement_refuses_a_metaclass_forged_leaf(views) -> None:
-    """`views.py:130` — F135's repaired fallback, reached through a forged guard.
+    """`views._states_the_same_value` — F135's repaired fallback, reached through a forged guard.
 
     Two objects stating 1 and 2 must not be declared to state the same value.
     """
@@ -149,13 +149,13 @@ def test_agreement_refuses_a_metaclass_forged_leaf(views) -> None:
 
 
 def test_immutability_findings_reports_a_metaclass_forged_leaf(views) -> None:
-    """`views.py:67` — a forged leaf must not be graded deeply immutable and left unwalked."""
+    """`views.immutability_findings` — a forged leaf must not be graded deeply immutable."""
     findings = require_c8_attr(views, "immutability_findings")(TwoFacedLeaf(1), "probe")
     assert findings != ()
 
 
 def test_proved_copy_reports_a_metaclass_forged_leaf(views) -> None:
-    """`views.py:381` — F136's deep walk must not short-circuit at a forged leaf."""
+    """`views.proved_copy` — F136's deep walk must not short-circuit at a forged leaf."""
     _, findings, _ = require_c8_attr(views, "proved_copy")(TwoFacedLeaf(1), "probe")
     assert findings != ()
 

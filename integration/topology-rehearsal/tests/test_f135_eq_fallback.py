@@ -5,7 +5,7 @@ recorded it as the last standing prerequisite before F131's container repair can
 Like F134, the reviewer's reproduction lived in a `/tmp` scratch tree and did not survive into the
 repository, so it exists here only as prose. This module re-establishes it as a live executable RED.
 
-The defect, exactly: `views._states_the_same_value` (`views.py:96-111`) clears an entry when
+The defect, exactly: `views._states_the_same_value` clears an entry when
 
     type(other) is type(stored) and (other == stored) is True and (stored == other) is True
 

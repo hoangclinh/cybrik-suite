@@ -12,8 +12,8 @@ falsifiable target rather than a ledger quotation. The reviewer's own reproducti
 
 The defect, exactly: `views.stored_entries` reads `mapping.items()` once and cross-checks
 `mapping[key]`. It never consults `mapping.get(key)`. But `.get` is the accessor the package's
-validators actually judge through — `observe.py:502` (`projection.get("Internal")`),
-`observe.py:507` (`projection.get("Containers")`) and `views.nested` (`views.py:51`). So a reading
+validators actually judge through — `observe`'s `projection.get("Internal")` and
+`projection.get("Containers")` reads, and `views.nested`. So a reading
 that is honest to `items()` and to `__getitem__`, and lies only to `.get`, clears every declared
 cross-check while stating something else to every reader the cross-check exists to protect.
 
