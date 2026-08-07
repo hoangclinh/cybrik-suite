@@ -73,6 +73,8 @@ to be lost irrecoverably.
 | `632f8b1` | 6 paths — eight rows retired, the largest retirement in the corpus at this append | NO-GO | 0/0/4/6 | NO | HOLD |
 | `b5c97c6` | 4 paths — six rows retired (F0088, F0100, F0077, F0078, F0102, F0103); F0104/F0105/F0106 opened | NO-GO | 0/0/4/2 | NO | HOLD |
 | `7cb9f9a` | 4 paths — F0101/F0104/F0105 retired; F0092 carried, F0107 opened | NO-GO | 0/0/2/4 | NO | HOLD |
+| `d899bbd` | 3 paths — F0107/F0098/F0106/F0108/F0109 retired; F0110/F0111/F0112 opened; F0092 carried (5th) | NO-GO | 0/0/1/3 | NO | HOLD |
+| `bc2a233` | 3 paths — F0111/F0112 retired; F0113/F0114/F0115 opened; F0092 carried (6th) | NO-GO | 0/0/2/2 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -10883,8 +10885,16 @@ pre-empt the verdict.
 ## Verdict `d899bbd` (NO-GO, 0/0/1/3) and the repair at this cycle
 
 **Scope reviewed:** `scripts/run_topology_rehearsal.py`, `tests/test_scripts_inert.py`,
-`docs/REVIEW-LEDGER.md`. Base `7cb9f9a`, diff `ad88ca09…`, `covers_head` true, execution evidence
-COMPLETE (1790 passed / 1 declared RED, ruff 12=12, compileall 0, identical fingerprints).
+`docs/REVIEW-LEDGER.md`. Base `7cb9f9a`, diff `ad88ca09…`, `covers_head` true.
+
+**Execution evidence, stated as the bound artifact states it (F0114).** The verdict's own
+`unverified_claims` opens by declaring that **no driver-measured evidence block reached the
+reviewer** and that every execution figure it carries is unwitnessed. The figures the collector
+recorded — 1790 passed / 1 declared RED, ruff 12=12, compileall 0, identical fingerprints — are the
+*driver's* measurement and are quoted here as such. This section previously recorded "execution
+evidence COMPLETE" as a flat property of the verdict, which is precisely the field push
+eligibility turns on, and the `7cb9f9a` section above restates that same limit for its own verdict.
+The standard was set by this file and must not be dropped on the one field that decides GO.
 
 **Retired by this verdict:** `F0107` (P2), `F0098` (P3), `F0106` (P3), `F0108` (P3), `F0109` (P3).
 **Opened:** `F0110`, `F0111`, `F0112` (all P3). **Carried:** `F0092` (P2) — its fifth verdict, and
@@ -10966,3 +10976,80 @@ deliberately did **not** touch that file: it is outside the cut, P3 does not gat
 rows (`F0049`, `F0079`, `F0110`) already live in it, so folding a documentation rewrite into the cut
 that must retire the last gating row would trade a measured exit for new ground. It is the natural
 first item once the gate is clean.
+
+---
+
+## Verdict `bc2a233` (NO-GO, 0/0/2/2) and the repair at this cycle
+
+**Scope reviewed:** `scripts/run_topology_rehearsal.py`, `tests/test_scripts_inert.py`,
+`docs/REVIEW-LEDGER.md`. Base `d899bbd`, diff `65ff3f2a…`, `covers_head` true.
+
+**Execution evidence, stated as the bound artifact states it.** This verdict's
+`unverified_claims` again declares that no driver-measured evidence block reached the reviewer and
+that every execution figure it carries is unwitnessed. It ran no git, no pytest, no ruff and no
+entrypoint; every behavioural consequence it asserts was derived statically. This lane does not
+upgrade those words, and in particular does not record this verdict as carrying COMPLETE execution
+evidence as a property of its own.
+
+**Retired by this verdict:** `F0111` (P3), `F0112` (P3) — two rows in one cut.
+**Opened:** `F0113` (P2), `F0114` (P3), `F0115` (P3). **Carried:** `F0092` (P2), its sixth verdict.
+
+### `F0092` (P2) — the sixth carry, and the disclosure it defeated
+
+The reviewer accepted the separate `--attempt-ledger-root` declaration and the two validations
+added at `bc2a233`, then showed the row was still live by a **third** route neither had closed:
+containment was decided by comparing **raw argv strings with no normal form**. `plan.exact_token`
+refuses only the separator characters and the check asked only for a leading slash, so
+`/synthetic/./cybrik-suite/ledger`, `//synthetic/cybrik-suite/ledger` and
+`/synthetic/cybrik-soc-command-center/../cybrik-suite/ledger` were all accepted while each names a
+directory **inside** the suite control worktree. Symmetrically, `plan.control_commands` required
+only absoluteness, so a control root typed `/synthetic/./cybrik-suite` hid every plainly-spelled
+ledger root beneath it.
+
+This lane records plainly that the finding **defeated its own disclosure**. The previous cut
+disclosed a residual about an operator *deliberately re-pointing* the ledger on a second
+invocation. The bypass the reviewer found needs **one command line, typed once, with no
+re-pointing**. The disclosure did not cover it, and treating it as covered would have been the
+worst available error: a graded defect reclassified as an accepted limit by prose the writer wrote
+about its own patch.
+
+**The repair, and why it is on both sides.** `plan.absolute_normal_path` is added as the single
+definition of the path-token rule — `exact_token`, plus absoluteness, plus a required normal form —
+and is read by `control_commands` and by the entrypoint's `_attempt_ledger_root` alike, so the two
+sides of the containment comparison can no longer be validated to different standards. A non-normal
+token is **refused, never canonicalised**: rewriting the operator's token would make the entrypoint
+choose a directory nobody typed, which is the trust move this file exists not to make. `//foo` is
+excluded explicitly because POSIX reserves it and `posixpath.normpath` preserves exactly two leading
+slashes, making it a fixed point that a bare `normpath(v) == v` test admits.
+
+The entrypoint re-validates each control root at the comparison rather than assuming it, because
+`_control_roots` folds the typed tokens without validating them and `plan.control_commands` sees
+them only later — so an unexamined non-normal control root would otherwise reach the comparison.
+
+**The residual now disclosed is strictly narrower** and is stated as such in the module comment: a
+deliberate re-pointing to a different absolute, normal, non-contained worktree still yields a second
+budget, and closing that needs an anchor no argv-only entrypoint can supply. It does **not** cover a
+single command line spelling one directory two ways.
+
+### `F0113` (P2) and `F0114`, `F0115` (P3) — repaired in this same cut
+
+`F0113`: the index is extended in this commit with rows for both `d899bbd` and `bc2a233`, which is
+the standing directive at the head of this file. The newest row a reader meets at the top is now the
+newest verdict, and the third undisclosed bijection shape — corpus file plus prose with no row — is
+gone rather than documented.
+
+`F0114`: the `d899bbd` section above no longer records execution evidence as COMPLETE. It quotes the
+driver's figures as the driver's and restates the reviewer's declared limit, matching the standard
+the `7cb9f9a` section already set.
+
+`F0115`: `test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well` now pins each
+rejected value to `match=` on the reason it is rejected for, so it can no longer be satisfied by any
+of the four other `PrecheckAbort` sites in `build_runtime_wiring`, and the three values are
+distinguished from one another.
+
+**Measured at this cut** (driver-collector commands, this host): 1798 passed / 1 declared RED
+(`test_f131_ingress_guard.py`, the pre-existing F131 intended RED at `runner.py:434`, untouched by
+this cut); `ruff check src tests` 12 pre-existing errors, all in `observe.py`, `preparation.py`,
+`test_errors.py` and `test_runner.py` — **none in any file this cut touches**; `compileall` clean.
+These are this lane's own measurements on its own patch and are not a substitute for the
+independent verdict.

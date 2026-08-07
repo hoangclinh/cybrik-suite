@@ -2540,13 +2540,26 @@ def test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well() ->
     would be sited without complaint. The refusal is the typed `PrecheckAbort` this frame
     already owes for a bad `repository_roots`, so both callers above it answer the operator
     with the hold exit rather than a traceback.
+
+    Each rejected value is pinned to the reason it is rejected for (F0115). A bare
+    `pytest.raises(PrecheckAbort)` is satisfied by any of the four other abort sites in
+    `build_runtime_wiring`, so a change that made the synthetic roots or
+    `documents.authorization()` stop satisfying `build_plan` would leave this control green
+    while observing nothing at all about the siting rule.
     """
     from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
 
     script = load_c8_script("run_topology_rehearsal.py")
     suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
-    for rejected in ("relative/ledger", suite_root, f"{suite_root}/nested"):
-        with pytest.raises(PrecheckAbort):
+    rejected_for = (
+        ("relative/ledger", "must be absolute"),
+        (suite_root, "lies inside the .* control worktree"),
+        (f"{suite_root}/nested", "lies inside the .* control worktree"),
+        (f"{suite_root}/../other/ledger", "normal form"),
+        ("//synthetic/ledger", "normal form"),
+    )
+    for rejected, reason in rejected_for:
+        with pytest.raises(PrecheckAbort, match=reason):
             runtime_wiring(script, attempt_ledger_root=rejected)
 
 
@@ -2593,3 +2606,65 @@ def test_a_precheck_abort_from_the_authorization_loader_holds_like_one_from_the_
     assert exit_code == require_c8_attr(script, "HOLD_EXIT")
     assert exit_code != 0
     assert reached == [], "nothing below the loader may run once it has refused"
+
+
+def test_a_non_normal_ledger_worktree_cannot_spell_its_way_inside_a_control_worktree() -> None:
+    """INTENDED RED (F0092). Containment compared raw argv strings with no normal form.
+
+    The carried row survived the move to a separate declaration because the comparison was
+    textual on both sides while neither side was required to be in normal form. Three
+    spellings name a directory *inside* the suite control worktree and compare unequal to
+    every declared root, so all three were accepted on a single command line, typed once,
+    with no re-pointing — this is not the residual the module disclosed.
+
+    `//synthetic/...` is listed because `posixpath.normpath` preserves two leading slashes,
+    so it defeats a normal-form check that only compares against `normpath`.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    head, _, tail = suite_root.rpartition("/")
+    evasions = (
+        f"{head}/./{tail}/ledger",
+        f"/{suite_root}",
+        f"{head}/{tail}/../{tail}/ledger",
+        f"{head}//{tail}/ledger",
+    )
+    for evasion in evasions:
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=evasion),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"the ledger worktree {evasion!r} is a non-normal spelling of a directory inside "
+            "a declared control worktree, so a second checkout of that worktree presents an "
+            "unconsumed budget (F0092)"
+        )
+        assert calls == [], f"the evading ledger worktree {evasion!r} reached the executor"
+
+
+def test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root() -> None:
+    """INTENDED RED (F0092). The other side of the same comparison.
+
+    `control_commands` required only absoluteness, so an operator could type the *control*
+    root non-normally and leave the ledger root spelled plainly: the two strings then differ,
+    containment is not seen, and the budget again sits under a directory a re-checkout
+    replaces. Fixing only the ledger side would leave the row live through this route, which
+    is why the rule is enforced where control roots are validated as well.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    head, _, tail = suite_root.rpartition("/")
+    calls: list[tuple[object, ...]] = []
+    exit_code = require_c8_attr(script, "main")(
+        execute_argv(
+            {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: f"{head}/./{tail}"},
+            attempt_ledger_root=f"{suite_root}/ledger",
+        ),
+        execute=recording_executor(calls),
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+        "a non-normal control worktree must be refused where control roots are validated, or "
+        "it hides a plainly-spelled ledger root sited inside it (F0092)"
+    )
+    assert calls == [], "the non-normal control worktree reached the executor"

@@ -369,3 +369,60 @@ def test_every_command_group_argument_is_an_exact_string_token(built) -> None:
 
 def test_plan_exports_only_immutable_plan_construction(plan) -> None:
     assert set(require_c8_attr(plan, "__all__")) == {"TopologyPlan", "build_plan"}
+
+
+def test_a_control_root_must_be_typed_in_normal_form_not_merely_absolute(plan) -> None:
+    """INTENDED RED (F0092). Absoluteness alone lets one directory carry many spellings.
+
+    `control_commands` asked only for a leading slash, so `/synthetic/./cybrik-suite` and
+    `/synthetic/other/../cybrik-suite` name the same worktree as `/synthetic/cybrik-suite`
+    while comparing unequal to it as strings. Every downstream control that reasons about a
+    control root by *comparing* it — the attempt-ledger containment rule in
+    `run_topology_rehearsal.py` is the live one — is defeated by the spelling alone, with no
+    re-pointing and no second invocation.
+
+    A double leading slash is called out separately because it survives normalisation:
+    POSIX reserves `//foo` and `posixpath.normpath` preserves exactly two leading slashes,
+    so a normal-form check written as `normpath(root) == root` accepts it. It is refused
+    explicitly rather than normalised away.
+
+    The refusal is fail-closed and does not rewrite the operator's token: a non-normal
+    spelling is rejected, never silently canonicalised, because canonicalising would make
+    this module choose a path the operator did not type.
+    """
+    deviant = (
+        "/synthetic/./cybrik-suite",
+        "/synthetic/cybrik-soc-command-center/../cybrik-suite",
+        "//synthetic/cybrik-suite",
+        "/synthetic/cybrik-suite/",
+        "/synthetic//cybrik-suite",
+    )
+    for spelling in deviant:
+        roots = dict(fakes.SYNTHETIC_REPOSITORY_ROOTS)
+        roots[fakes.SUITE_CONTROL] = spelling
+        with pytest.raises(ValueError, match="normal form"):
+            require_c8_attr(plan, "control_commands")(roots)
+
+
+def test_the_normal_form_rule_has_exactly_one_definition_in_plan(plan) -> None:
+    """INTENDED RED (F0092). Two copies of a path rule are two rules that will diverge.
+
+    The ledger-root check in the entrypoint and the control-root check here must be the same
+    predicate, or the containment comparison is again made between values validated to
+    different standards. `plan` owns it and the script reads it, exactly as the script
+    already reads `exact_token`.
+
+    The plainly-spelled roots the rest of the suite uses must still be accepted, so the rule
+    is a control and not a blanket refusal.
+    """
+    absolute_normal_path = require_c8_attr(plan, "absolute_normal_path")
+    for good in ("/synthetic/cybrik-suite", "/a", "/a/b/c-notes"):
+        assert absolute_normal_path(good, label="t") == good, (
+            f"{good!r} is absolute and in normal form and must be accepted unchanged"
+        )
+    with pytest.raises(ValueError, match="absolute"):
+        absolute_normal_path("relative/path", label="t")
+    # The token discipline is inherited, not restated.
+    with pytest.raises(ValueError, match="separators"):
+        absolute_normal_path("/a;b", label="t")
+    require_c8_attr(plan, "control_commands")(dict(fakes.SYNTHETIC_REPOSITORY_ROOTS))

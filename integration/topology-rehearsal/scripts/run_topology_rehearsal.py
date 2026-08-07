@@ -53,19 +53,29 @@ CONTROL_ROOT_SEPARATOR = "="
 # refused rather than given one nobody named.
 #
 # Being an argv token, it is held to the argv token rule: `_attempt_ledger_root` puts it
-# through `plan.exact_token`, requires it to be absolute, and refuses a worktree contained in
-# any declared `--control-root`. Those two shapes are how F0092 returned after the move --
-# a relative token is answered by the process working directory, so one command line run from
-# two directories yields two budgets, and a token inside a control worktree is the original
-# per-checkout reset verbatim. Both checks came free with the old siting, because the budget
-# was derived from a path `plan` had already validated; taking the worktree off argv dropped
-# them, and this is where they are paid back.
+# through `plan.absolute_normal_path`, which is `plan.exact_token` plus absoluteness plus a
+# normal form, and then refuses a worktree contained in any declared `--control-root`. Three
+# shapes are how F0092 returned after the move -- a relative token is answered by the process
+# working directory, so one command line run from two directories yields two budgets; a token
+# inside a control worktree is the original per-checkout reset verbatim; and a *non-normal*
+# token was the third, because containment was decided by comparing raw argv strings.
 #
-# The residual is disclosed rather than claimed away: an operator who deliberately types a
-# different absolute, non-contained `--attempt-ledger-root` on a second invocation still
-# obtains a second budget.
-# That is a deliberate re-pointing by the holder of the grant, not the ordinary-checkout
-# reset above, and closing it needs an anchor no argv-only entrypoint can supply.
+# That third shape is why the normal form is required on both sides rather than on the ledger
+# root alone. For a control worktree `/ctl/suite`, the tokens `/ctl/./suite/ledger`,
+# `//ctl/suite/ledger` and `/ctl/other/../suite/ledger` each name a directory inside it while
+# comparing unequal to every declared root, and symmetrically a control root typed as
+# `/ctl/./suite` hid every plainly-spelled ledger root beneath it. One
+# command line, typed once, no re-pointing. The absoluteness and token checks came free with
+# the old siting because the budget was derived from a path `plan` had already validated;
+# normal form was never checked anywhere, and all three are paid back here.
+#
+# The residual that remains is narrower than the one this comment used to claim, and the
+# difference matters: an operator who deliberately types a *different* absolute, normal,
+# non-contained `--attempt-ledger-root` on a second invocation still obtains a second budget.
+# That is a deliberate re-pointing by the holder of the grant, and closing it needs an anchor
+# no argv-only entrypoint can supply. It does not cover a single command line that merely
+# spells one directory two ways -- that was a defect, it was graded as one, and it is fixed
+# above rather than disclosed away.
 ATTEMPT_LEDGER_NAME = "attempt-ledger"
 
 # One POSIX separator, joined here rather than through `os.path`: this module imports no
@@ -179,18 +189,18 @@ def _attempt_ledger_root(value: object, roots: Mapping[str, str]) -> str:
     not replace it. The rule is read from `plan` rather than restated, so the token discipline
     has exactly one definition.
     """
-    from cybrik_suite_topology_rehearsal.plan import exact_token
+    from cybrik_suite_topology_rehearsal.plan import absolute_normal_path
 
-    root = exact_token(value, label="attempt-ledger-root")
-    if not root.startswith(ATTEMPT_LEDGER_PATH_SEPARATOR):
-        raise ValueError(
-            "attempt-ledger-root: the ledger worktree must be absolute, or the process "
-            "working directory chooses where the one-attempt budget lives"
-        )
+    root = absolute_normal_path(value, label="attempt-ledger-root")
     for name, control in roots.items():
-        contained = root.rstrip(ATTEMPT_LEDGER_PATH_SEPARATOR)
-        enclosing = control.rstrip(ATTEMPT_LEDGER_PATH_SEPARATOR)
-        if contained == enclosing or contained.startswith(
+        # Both sides are held to the same normal form, so the textual comparison below is a
+        # comparison of directories and not of spellings. `control` is re-checked here rather
+        # than assumed: `_control_roots` folds the typed tokens without validating them, and
+        # `plan.control_commands` validates them only later, so a non-normal control root
+        # would otherwise reach this comparison unexamined and hide a plainly-spelled ledger
+        # root sited inside it.
+        enclosing = absolute_normal_path(control, label=f"control-root:{name}")
+        if root == enclosing or root.startswith(
             f"{enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
         ):
             raise ValueError(

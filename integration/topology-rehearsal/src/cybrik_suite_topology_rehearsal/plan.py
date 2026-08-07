@@ -23,6 +23,7 @@ credential reaches the container as a read-only bind mount, and only its path is
 
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -163,6 +164,35 @@ def exact_token(value: object, *, label: str) -> str:
     return value
 
 
+def absolute_normal_path(value: object, *, label: str) -> str:
+    """One argv path token: an exact token, absolute, and in normal form. Or a refusal.
+
+    Absoluteness alone is not enough for any control that reasons about a path by *comparing*
+    it, because one directory then has unboundedly many spellings: `/a/./b`, `/a/x/../b` and
+    `/a//b` all name `/a/b` and all compare unequal to it. The live consumer is the
+    attempt-ledger containment rule in `run_topology_rehearsal.py`, where a non-normal
+    spelling on either side put the one-attempt budget back inside a control worktree that a
+    re-checkout replaces (F0092).
+
+    A non-normal token is *refused*, never canonicalised. Rewriting the operator's token would
+    make this module choose a path nobody typed, which is the trust move the entrypoint exists
+    not to make; refusing asks the operator to type the directory they mean.
+
+    `//foo` is excluded explicitly because POSIX reserves a leading double slash for
+    implementation-defined resolution and `posixpath.normpath` therefore preserves exactly two
+    leading slashes -- it is a fixed point of normalisation, so `normpath(v) == v` admits it.
+    """
+    token = exact_token(value, label=label)
+    if not token.startswith("/"):
+        raise ValueError(f"{label}: a path must be absolute")
+    if token.startswith("//") or posixpath.normpath(token) != token:
+        raise ValueError(
+            f"{label}: a path must be typed in normal form, so that one directory has one "
+            f"spelling; {token!r} is not"
+        )
+    return token
+
+
 def control_commands(
     repository_roots: Mapping[str, str],
 ) -> dict[str, tuple[str, ...]]:
@@ -181,9 +211,9 @@ def control_commands(
         )
     commands: dict[str, tuple[str, ...]] = {}
     for repository in CONTROL_REPOSITORIES:
-        root = exact_token(repository_roots[repository], label=f"root:{repository}")
-        if not root.startswith("/"):
-            raise ValueError(f"root:{repository}: a control root must be absolute")
+        root = absolute_normal_path(
+            repository_roots[repository], label=f"root:{repository}"
+        )
         commands[f"control:{repository}:commit"] = (
             GIT_EXECUTABLE,
             "-C",
