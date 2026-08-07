@@ -78,6 +78,15 @@ to be lost irrecoverably.
 | `2fc18c6` | 5 paths — F0113/F0114 retired; F0116/F0117/F0118 opened; F0092 carried (7th) | NO-GO | 0/0/2/3 | NO | HOLD |
 | `d9933d1` | 3 paths — F0115/F0116/F0117 retired; F0119/F0120/F0121 opened; F0092 carried (8th) | NO-GO | 0/0/2/2 | NO | HOLD |
 | `083a468` | 3 paths — F0092 retired after eight carries; F0122/F0123/F0124 opened; F0119/F0120/F0121 carried | NO-GO | 0/0/3/3 | NO | HOLD |
+| `449b8dc` | 2 paths — `test_scripts_inert.py`, this ledger | NO-GO | 0/0/0/1 | NO | HOLD |
+| `87da626` | 1 path — `.github/REVIEW-BASELINE.json` | NO-GO | 0/0/1/2 | NO | HOLD |
+| `dd66db5` | 1 path — `docs/ENTRYPOINT-SLICE-SPEC.md` | GO | 0/0/0/5 | NO | HOLD |
+| `afe6d70` | 4 paths — `contracts.yml`, `validate-w1-control.mjs`, 2 control tests | NO-GO | 0/1/2/2 | NO | HOLD |
+| `0e84657` | 3 paths — hosted ruff bar and the permitted RED (F0130/F0131/F0132) | NO-GO | 0/0/1/6 | NO | HOLD |
+| `48284b4` | 2 paths — hosted baseline comparison fails for true reasons only | GO | 0/0/0/5 | NO | HOLD |
+| `7e7bd3d` | 2 paths — identity half of the baseline comparison pinned (F0139/F0140) | GO | 0/0/0/2 | YES | HOLD |
+| `9bdb25c` | 1 path — `uv.lock` committed verbatim | GO | 0/0/0/1 | YES | HOLD |
+| `d679b69` | 2 paths — `--attempt-ledger-root` carried into the composition contract | GO | 0/0/0/5 | YES | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -86,6 +95,22 @@ as the newest row. That is the identical defect this ledger graded P2 and repair
 F0065 was its **third** occurrence. (The line citation this sentence used to carry was itself stale
 by 60 lines while the paragraph below denied any citation existed — F0071. Locate F95 by searching
 for `F95`.)
+
+**What the Push-eligible cell asserts, and where it comes from (F0149).** No reviewer verdict
+artifact carries a push-eligibility field, so this cell is **never** corpus-transcribed — the
+count-cell marker rules below govern the `P0/P1/P2/P3` cell only and say nothing about this one. A
+`GO` is not push eligibility, and the corpus says so in terms:
+`VERDICT-48284b428f0f4343cbbd65f4d035905cf7a1efc9.json` records that its `GO` "reports only that the
+pinned range carries no P0/P1/P2", that a P2 remained open out of scope, and that "the push
+predicate cannot be satisfied by this verdict". For the nine rows appended from `449b8dc` onward the
+cell therefore records whether the driver's push predicate was actually satisfied at that sha,
+witnessed by the driver-owned `roles/security/artifacts/PUSH-RECEIPT-<sha>.json`: `YES` where that
+receipt exists, `NO` where it does not. It exists for exactly `7e7bd3d`, `9bdb25c` and `d679b69`.
+The cells above `449b8dc` predate this rule and were derived under the older prose convention; they
+are not re-derived here, and this cut publishes no claim about them. This also supersedes, for these
+rows only, the preamble's description of the cell as a "PUSH-ELIGIBLE decision" recorded by the
+reviewer: the reviewer issues no such decision and under Scheduler V2 cannot write this file at all.
+Correcting the preamble's wording is the ledger owner's to make, and is owed.
 
 **How the rows above were derived, and what that does and does not prove.** The previous repair
 reconciled the index against a list of prose sections a reviewer happened to cite, and inherited
@@ -11326,29 +11351,42 @@ defect and is the first candidate once the gate is clean.
 repair was proven by mutation before it was committed, not after: the mutant that deletes the inner
 `normalize` is killed by the new body and survived the old one.
 
-## Backfill — the eight verdicts from `87da626` through `d679b69`
+## Backfill — the nine verdicts from `449b8dc` through `d679b69`
 
-The index in this file stopped at `083a468`. Eight commits and their bound verdicts were never
-transcribed. They are recorded here, in commit order, from the verdict corpus itself.
+The index in this file stopped at `083a468`. **Nine** commits and their bound verdicts were never
+transcribed. They are recorded here, in commit order. The `sha`, `base`, `scope`, `verdict`,
+`P0/P1/P2/P3` and `evidence` columns are transcribed from the verdict corpus itself; the `PUSHED`
+column is not, for the reason given with the index above (F0149). An earlier version of this
+section said *eight* and began at `87da626`, omitting `449b8dc` — whose verdict is bound to exactly
+the commit the index stops at, `083a468`, which is how it fell through the gap (F0150). The nine
+rows are also appended to the index above, as the standing directive there requires; that append is
+what restores the index/corpus bijection this omission had broken in the corpus-to-row direction.
 
-| sha | base | scope | verdict | P0/P1/P2/P3 | evidence | PUSH-ELIGIBLE | RUNTIME |
+This table is not the index, so the `unmarked`/`¶`/`†`/`n/a` count-cell taxonomy stated above
+governs the index table and not this one; every count cell here is corpus-transcribed without
+exception.
+
+| sha | base | scope | verdict | P0/P1/P2/P3 | evidence | PUSHED (receipt) | RUNTIME |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `449b8dc` | `083a468` | `tests/test_scripts_inert.py`, `docs/REVIEW-LEDGER.md` | **NO-GO** | 0/0/0/1 | COMPLETE | NO | HOLD |
 | `87da626` | `73ec822` | `.github/REVIEW-BASELINE.json` | **NO-GO** | 0/0/1/2 | COMPLETE | NO | HOLD |
 | `dd66db5` | `73ec822` | `docs/ENTRYPOINT-SLICE-SPEC.md` | GO | 0/0/0/5 | COMPLETE | NO | HOLD |
 | `afe6d70` | `dd66db5` | `contracts.yml`, `validate-w1-control.mjs` (+2 tests) | **NO-GO** | 0/1/2/2 | COMPLETE | NO | HOLD |
 | `0e84657` | `afe6d70` | `contracts.yml`, `validate-w1-control.mjs`, resource-bounds test | **NO-GO** | 0/0/1/6 | COMPLETE | NO | HOLD |
-| `48284b4` | `449b8dc` | `.github/REVIEW-BASELINE.json`, `contracts.yml` | GO | 0/0/0/5 | COMPLETE | YES | HOLD |
+| `48284b4` | `449b8dc` | `.github/REVIEW-BASELINE.json`, `contracts.yml` | GO | 0/0/0/5 | COMPLETE | NO | HOLD |
 | `7e7bd3d` | `48284b4` | `validate-w1-control.mjs`, resource-bounds test | GO | 0/0/0/2 | COMPLETE | YES | HOLD |
 | `9bdb25c` | `7e7bd3d` | `uv.lock` | GO | 0/0/0/1 | COMPLETE | YES | HOLD |
 | `d679b69` | `9bdb25c` | `docs/ENTRYPOINT-SLICE-SPEC.md`, `tests/test_scripts_inert.py` | GO | 0/0/0/5 | COMPLETE | YES | HOLD |
 
-Every row above has `covers_head=true` and execution evidence `COMPLETE`. RUNTIME is **HOLD** for
-all eight regardless of PUSH-ELIGIBLE, and no entrypoint script was executed for any of them.
+Every row above has `covers_head=true` and execution evidence `COMPLETE`; unlike the earlier version
+of this sentence, that is now verified against all nine artifacts rather than asserted. RUNTIME is
+**HOLD** for all nine regardless of whether the commit was pushed, and no entrypoint script was
+executed for any of them.
 
 ### Why this is a backfill, and the rule it deviates from
 
 The preamble at `:12-17` requires the row to be appended *before* the push and says "do not push
-first and backfill later". That was not honoured for these eight. The deviation is recorded rather
+first and backfill later". That was not honoured for these nine. The deviation is recorded rather
 than passed over, with the two structural reasons it was unavoidable:
 
 1. **The rule names a party who cannot execute it.** It assigns the append to "the independent
