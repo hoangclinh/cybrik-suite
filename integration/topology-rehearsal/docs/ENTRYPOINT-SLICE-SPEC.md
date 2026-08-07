@@ -62,24 +62,48 @@ once under `015de49` and again under the commits after it — for example the an
 `test_default_composition_loads_builds_and_runs_the_same_authorization` read `:201`, was `:511`
 when F0079 was written, and is `:543` today. Only the five citations those two findings named
 have been converted to **test names**, which survive renumbering. Every remaining bare line range
-in this document is unverified and should be read as a hint toward a symbol, never as evidence.
-Convert one to a test name whenever you have independently confirmed what it points at.
+*into `tests/test_scripts_inert.py`* is unverified and should be read as a hint toward a symbol,
+never as evidence. Convert one to a test name whenever you have independently confirmed what it
+points at.
 
-Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>` and a repeatable
+That caveat is scoped to this section's citation basis and does **not** reach the bulleted
+citations under "The evidence:" below, which point into `src/` modules and other test files and
+stand on their own footing; they were not part of the `4230858` anchor set and are not disclaimed
+here. An earlier draft of this paragraph disclaimed "every remaining bare line range in this
+document", which retracted the evidentiary standing of this document's own security adjudication
+— the one that answers the signature-envelope question REFUTED.
+
+This section also predates `--attempt-ledger-root`. The signatures and the argv-shape band above
+have now been reconverted to carry it; if any statement below still shows a three-keyword
+composition root, the tests win and the statement is stale.
+
+Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>`, a repeatable
 `--control-root NAME=PATH` that *accumulates* into `args.control_root` in the order typed,
-never replaces (pinned by `tests/test_scripts_inert.py:207-215`). Required-ness of
-`--control-root` is deliberately not pinned at the parser — see the argv-shape band below.
+never replaces (pinned by `tests/test_scripts_inert.py:207-215`), and `--attempt-ledger-root
+<path>` (`dest="attempt_ledger_root"`). Required-ness of `--control-root` and of
+`--attempt-ledger-root` alike is deliberately not pinned at the parser — see the argv-shape
+band below.
 
 `main(argv, *, execute=execute_authorized_attempt) -> int` folds the `--control-root` tokens
-into a mapping equal to `dict(NAME=PATH, …)` and calls
-`execute(args.grant, args.signature, repository_roots=<mapping>)` — the two artifact paths
-positionally, the roots as a mandatory keyword — and returns its result (pinned by
-`:237-245`; the default of `execute` is pinned by `:503-508`).
+into a mapping equal to `dict(NAME=PATH, …)`, resolves the ledger worktree against those roots,
+and calls `execute(args.grant, args.signature, repository_roots=<mapping>,
+attempt_ledger_root=<path>)` — the two artifact paths positionally, the roots and the ledger
+worktree as mandatory keywords — and returns its result (pinned by `:237-245` and, for the
+ledger keyword, by `test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`;
+the default of `execute` is pinned by `:503-508`).
 
 `main` owns the argv-**shape** refusal band, and it forwards a well-shaped mapping verbatim
 rather than judging the key space:
 
 - unstated `--control-root` returns `HOLD_EXIT` with the executor never called (`:270-301`);
+- unstated `--attempt-ledger-root` does the same, and truthiness alone was not sufficient
+  (F0092): the token is resolved against the control roots, so the check runs after they are
+  known (`test_an_invocation_that_names_no_attempt_ledger_root_holds_without_calling_the_executor`);
+- a relative ledger root, one lying inside a control worktree, and one carrying an argv
+  separator each hold, by the same token rule the control roots are held to
+  (`test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree`,
+  `test_an_attempt_ledger_root_inside_a_control_worktree_holds`,
+  `test_the_attempt_ledger_root_is_held_to_the_argv_token_rule_the_control_roots_are`);
 - each malformed token — `novalue`, `=/path`, `name=`, and a repeated name — does the same
   (`:308-355`);
 - a typed `errors.PrecheckAbort` raised downstream is converted to a returned `HOLD_EXIT`,
@@ -87,13 +111,18 @@ rather than judging the key space:
 - the script may not restate `constants.CONTROL_REPOSITORIES` in its own code (`:438-500`).
 
 `execute_authorized_attempt(grant_path, signature_path, *, repository_roots,
-dependencies_loader=load_runtime_dependencies) -> int`. `repository_roots` is keyword-only
-with no default, no variadic may accept it unnamed, and an invocation that omits it must
-raise before the grant is opened (`:569-617`). It must then, in this exact order (`:538-566`):
+attempt_ledger_root, dependencies_loader=load_runtime_dependencies) -> int`.
+`repository_roots` and `attempt_ledger_root` are both keyword-only with no default, no
+variadic may accept either unnamed, and an invocation that omits `repository_roots` must
+raise before the grant is opened (`:569-617`). The ledger worktree is mandatory at this frame
+and at `build_runtime_wiring` alike, because a mandate stated at one frame only is satisfied
+by the other frame inventing a value
+(`test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`). It must then,
+in this exact order (`:538-566`):
 
 1. `authorization = dependencies.authorization_loader(grant_path, signature_path)`
 2. `wiring = dependencies.wiring_builder(authorization=authorization,
-   repository_roots=repository_roots)`
+   repository_roots=repository_roots, attempt_ledger_root=attempt_ledger_root)`
 3. `result = dependencies.runner(authorization, wiring.adapters, execute_requested=True)`
 
 `execute_requested` is the fixed literal `True`, not derived. Return `0` only when
@@ -103,9 +132,13 @@ raise before the grant is opened (`:569-617`). It must then, in this exact order
 `authorization_loader`, `wiring_builder` and `runner` attributes are identity-equal to
 `load_authorization`, `build_runtime_wiring` and `runner.run_topology_rehearsal` (`:620-630`).
 
-`build_runtime_wiring(*, authorization, repository_roots, command_runner=None)`.
-`repository_roots` is mandatory keyword-only with no default and no variadic widening, and a
-wiring built without it must fail to be built at all rather than fall back (`:1064-1108`).
+`build_runtime_wiring(*, authorization, repository_roots, attempt_ledger_root,
+command_runner=None)`. `repository_roots` and `attempt_ledger_root` are each mandatory
+keyword-only with no default and no variadic widening, and a wiring built without either must
+fail to be built at all rather than fall back (`:1064-1108`, and for the ledger worktree
+`test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`). Every malformed
+ledger root is refused with a typed `errors.PrecheckAbort` whose message is anchored on the
+`attempt_ledger_root: ` prefix, which only this frame emits.
 Every malformed roots argument is refused with a typed `errors.PrecheckAbort` naming
 `repository_roots`, before anything is built and with nothing spawned (`:1118-1202`). The
 injected roots must reach every planned observation as literal argv tokens (`:1011-1038`),
@@ -216,7 +249,9 @@ refuse exactly that, and following these bullets would land a signature bypass. 
 the correction; the paragraphs are retained, unedited, as the record of the answer that was
 tested — the same handling Obstacle 3 receives below.
 
-Two live sources refute it, and neither is a citation that can drift:
+Two live sources refute it. Both are behavioural and committed, so the refutation survives
+renumbering even where the anchors do not — the first is cited by test name and cannot drift at
+all; the second is a bare range that can, and was last confirmed exact at `9bdb25c`:
 
 - `tests/test_scripts_inert.py::test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`
   names the envelope answer and withdraws it by name in its docstring,
@@ -419,6 +454,17 @@ roots from its own argv/config"), not a rewrite. `main` is the only seam in this
 allowed to hold an operator-declared input; `--execute` already sits there at the same trust
 level.
 
+The same trade was later made a second time, for `--attempt-ledger-root`, and on the same
+ground: it is an operator declaration at the trust level of `--execute` and the choice of grant
+file. It differs from `--control-root` in what it buys — the roots decide the trust anchor of
+the `ssh-keygen -Y verify` that checks the grant, whereas the ledger worktree decides only where
+attempt budget is recorded — so the ledger root is refused when it lies *inside* any control
+worktree rather than being allowed to select one. The residual accepted there and not closed:
+a symlink or bind mount whose target is inside a control worktree still aliases past a textual
+containment comparison, and no textual rule can see it. That route requires an aliasing
+filesystem object to exist or be created for the purpose, which is itself an act at the trust
+level of typing the control root.
+
 No GREEN is push-eligible until that further RED lands and is independently reviewed.
 
 ### Obstacle 4 adjudicated: injection at the argv boundary
@@ -448,11 +494,14 @@ composition root now supplies both keywords. Two private helpers `_control_root_
 Rejected, recorded so they are not revisited:
 
 - A fourth field on the object `load_runtime_dependencies()` returns — that callable is pinned
-  zero-argument (`:247`), so the field could only come from host observation or a source
+  zero-argument (`test_default_dependency_loader_returns_the_reviewed_real_triple`), so the
+  field could only come from host observation or a source
   constant, both already refuted by `a5307cc`. It moves the dishonesty outside the AST guard
   instead of removing it.
 - `functools.partial` binding to keep the builder one-argument — a partial is not
-  `build_runtime_wiring` by identity, so `:244` forces the partial to be formed at the call site,
+  `build_runtime_wiring` by identity, so
+  `test_default_dependency_loader_returns_the_reviewed_real_triple` forces the partial to be
+  formed at the call site,
   which is the keyword pass anyway; and partial keywords stay caller-overridable, which is
   strictly worse for the property being protected.
 - Four fixed flags (`--suite-root` and siblings) — duplicates `constants.CONTROL_REPOSITORIES`

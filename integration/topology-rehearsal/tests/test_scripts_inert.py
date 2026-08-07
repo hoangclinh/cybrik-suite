@@ -1647,7 +1647,8 @@ def test_no_control_root_anywhere_in_the_wiring_module_derives_from_the_grant() 
 
 
 # The wiring shape the spec's obstacle-4 adjudication actually decided
-# (`docs/ENTRYPOINT-SLICE-SPEC.md:377-388`): a repeatable `--control-root NAME=PATH` folded by
+# (`docs/ENTRYPOINT-SLICE-SPEC.md`, section "Obstacle 4 adjudicated: injection at the argv
+# boundary"): a repeatable `--control-root NAME=PATH` folded by
 # two private helpers and forwarded as a mandatory keyword through to `build_runtime_wiring`,
 # which reads the grant only for the attempt identity it is entitled to read. It is carried
 # here as source rather than written to disk because nothing in this file may create the
@@ -1990,7 +1991,8 @@ def test_the_module_wide_root_derivation_guard_flags_each_recorded_evasion() -> 
 def test_the_spec_conforming_wiring_shape_is_not_flagged_by_the_module_wide_guard() -> None:
     """The reviewed design must survive its own guard, or the guard is a false blocker.
 
-    `docs/ENTRYPOINT-SLICE-SPEC.md:377-388` adjudicated the roots to the argv boundary and
+    `docs/ENTRYPOINT-SLICE-SPEC.md`, section "Obstacle 4 adjudicated: injection at the argv
+    boundary", adjudicated the roots to the argv boundary and
     named the two private helpers that fold them. If the walk above refused that shape, this
     file would be demanding an implementation that cannot be written, and the demand would
     read exactly like a genuine finding — which is why the conforming shape is pinned here
