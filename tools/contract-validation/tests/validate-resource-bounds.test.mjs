@@ -92,20 +92,20 @@ const createXorshift32 = (seed) => {
 // The allowlist stays an exact sorted deepEqual rather than a subset or prefix
 // test, so an unapproved name is still refused and a silent fourth job cannot
 // appear.
-const APPROVED_REQUIRED_CHECK_NAMES = Object.freeze([
+const APPROVED_RENDERED_JOB_NAMES = Object.freeze([
   'contract standards validation',
   'secret-scan',
   'topology rehearsal tests',
 ]);
-const assertApprovedRequiredCheckNames = (checkNames) =>
-  assert.deepEqual([...checkNames].sort(), APPROVED_REQUIRED_CHECK_NAMES);
+const assertApprovedRenderedJobNames = (jobNames) =>
+  assert.deepEqual([...jobNames].sort(), APPROVED_RENDERED_JOB_NAMES);
 
-test('required check names match the exact approved stable allowlist', () => {
+test('rendered job names match the exact approved allowlist', () => {
   const workflow = parseYaml(readText('.github/workflows/contracts.yml'));
-  const checkNames = Object.values(workflow.jobs)
+  const jobNames = Object.values(workflow.jobs)
     .map((job) => job.name);
 
-  assertApprovedRequiredCheckNames(checkNames);
+  assertApprovedRenderedJobNames(jobNames);
   for (const unapprovedName of [
     'secret-scan v8',
     'secret-scan gitleaks-8',
@@ -137,7 +137,7 @@ test('required check names match the exact approved stable allowlist', () => {
   ]) {
     assert.throws(
       () =>
-        assertApprovedRequiredCheckNames([
+        assertApprovedRenderedJobNames([
           'contract standards validation',
           unapprovedName,
         ]),

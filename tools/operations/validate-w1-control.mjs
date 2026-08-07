@@ -3564,6 +3564,16 @@ export function validateW1CiWiring({
   // are carried by the `uv sync --frozen` and `uv run --frozen --offline` patterns
   // on the two steps that DO use the project environment, and by the assertExcludes
   // below. ruff check resolves no dependencies and opens no socket.
+  // The identity half of the comparison is pinned separately from the file read.
+  // /REVIEW-BASELINE\.json/ above is satisfied by the surviving open() alone, so it
+  // does NOT hold the identity check in place: the composition read, the nodeid
+  // reconstruction and the two set differences could all be deleted and the bare
+  // count comparison restored — the exact defect the identity check was added to
+  // remove — while every pattern above still matched and the required check stayed
+  // green. A control that declares a behaviour it does not hold in place is the
+  // same shape as the defect this extension was written against, so the behaviour
+  // is pinned by the two names that cannot survive that deletion: the composition
+  // field is read from the baseline, and the declared set it produces is bound.
   for (const pattern of [
     /REVIEW-BASELINE\.json/,
     /uv==0\.11\.16/,
@@ -3572,6 +3582,8 @@ export function validateW1CiWiring({
     /uv run --frozen --offline --group test python -m pytest/,
     /ruff check --no-cache/,
     /uv run --frozen --offline python -m compileall/,
+    /baseline\["pytest"\]\["composition"\]/,
+    /declared_reds/,
   ]) {
     assertIncludes(
       rehearsalJob,
