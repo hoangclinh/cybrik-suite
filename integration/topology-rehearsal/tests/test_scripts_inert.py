@@ -731,6 +731,52 @@ def test_the_only_process_executor_is_argv_only_shell_false_and_timeout_bounded(
     }
 
 
+def test_the_declared_ceiling_is_clamped_at_the_spawn_site_and_not_merely_documented() -> None:
+    """The 120s bound must be enforced in code, not just asserted in the class docstring.
+
+    The single-spawn-site control above pins the spawn's `timeout` keyword to the *name*
+    `timeout_seconds`, which a clamp that rebinds that name satisfies either way. So that
+    control alone cannot tell an enforced ceiling from a deleted one: every adapter forwards
+    `EFFECT_TIMEOUT_SECONDS = RUNTIME_LIMIT_SECONDS = 180`, and removing the clamp would
+    silently restore the 180s effective bound with the whole file still green. This control
+    is what makes the deletion visible.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    executor = require_c8_attr(script, "SubprocessCommandRunner")
+    assert require_c8_attr(script, "COMMAND_TIMEOUT_SECONDS") == 120.0
+    tree = ast.parse(textwrap.dedent(inspect.getsource(executor.run)))
+    clamps = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "timeout_seconds"
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "min"
+    ]
+    assert len(clamps) == 1, "the ceiling must be applied exactly once, at the one spawn site"
+    clamp = clamps[0]
+    ceiling_names = {
+        node.id for node in ast.walk(clamp.value) if isinstance(node, ast.Name)
+    }
+    assert "COMMAND_TIMEOUT_SECONDS" in ceiling_names, (
+        "the clamp must bound against the declared per-executor ceiling, not a literal"
+    )
+    assert "timeout_seconds" in ceiling_names, "the caller's request must be the other bound"
+    spawn = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "subprocess"
+    )
+    assert clamp.lineno < spawn.lineno, "the clamp must precede the spawn it bounds"
+
+
 COMMAND_ADAPTER_NAMES = ("controls", "docker", "host", "probe", "signature")
 # The concrete adapters that are not command adapters, and the protocol each must satisfy.
 # Leaving any of them out of the wiring would let the runtime reach for a clock, a

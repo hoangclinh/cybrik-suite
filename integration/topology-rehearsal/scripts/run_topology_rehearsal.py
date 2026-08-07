@@ -36,7 +36,12 @@ COMMAND_TIMEOUT_SECONDS = 120.0
 CONTROL_ROOT_SEPARATOR = "="
 
 # The one attempt-ledger file name. It is appended to a path the plan already derived, so
-# this file names no worktree and re-decides no trust anchor.
+# this file names no worktree and re-decides no trust anchor. The consequence is disclosed
+# rather than removed: that derived path sits under the operator-supplied `--control-root`
+# for the suite, so the one-attempt budget is per control root and a second checkout carries
+# a second budget. That is the same root the grant's allowed-signers file is derived from,
+# so the budget's scope equals the authorization anchor's scope rather than being narrower;
+# re-siting it here would pick a trust anchor this file is controlled never to pick.
 ATTEMPT_LEDGER_SUFFIX = ".attempt-ledger"
 
 

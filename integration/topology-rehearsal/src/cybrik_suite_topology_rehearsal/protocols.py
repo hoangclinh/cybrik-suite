@@ -336,7 +336,21 @@ class SignatureVerifier(Protocol):
 
 @runtime_checkable
 class AttemptLedger(Protocol):
-    """The durable one-attempt budget: a consumed record may never be consumed twice."""
+    """The durable one-attempt budget for one ledger, at the root the caller names.
+
+    A consumed record may never be consumed twice through the same ledger. The ledger's
+    identity is the path the caller supplies, so the budget is exactly as wide as that
+    siting: a caller deriving the path from an operator-supplied control root binds the
+    budget to that root, and a second root carries a second budget.
+
+    This is deliberately not widened to root-independence. The allowed-signers file every
+    grant is verified against is derived from that same operator-supplied root (see
+    `ALLOWED_SIGNERS_PATH` in `plan`), so an actor able to vary the root to reset this
+    budget can by that same act install a signing key and mint fresh grants -- a strictly
+    greater power than replaying one. A replay budget anchored above its own authorization
+    anchor would buy nothing and would advertise a guarantee the gate admitting the attempt
+    does not have. This port promises no-replay, not root-independence.
+    """
 
     def is_consumed(self, *, record_id: str) -> bool: ...
 
