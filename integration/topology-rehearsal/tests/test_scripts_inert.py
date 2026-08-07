@@ -2546,20 +2546,29 @@ def test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well() ->
     `build_runtime_wiring`, so a change that made the synthetic roots or
     `documents.authorization()` stop satisfying `build_plan` would leave this control green
     while observing nothing at all about the siting rule.
+
+    Naming the reason is still not enough on its own, because the same commit that introduced
+    `plan.absolute_normal_path` made `build_runtime_wiring` render "must be absolute" and
+    "normal form" into the *`repository_roots`* abort as well. Three of the five rows below
+    could therefore be satisfied by a roots fault that observes nothing about the siting rule.
+    Every row is anchored on the `attempt_ledger_root: ` prefix, which only the ledger frame
+    emits, so the assertion pins both the frame that refused and what it refused for (F0115).
     """
     from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
 
     script = load_c8_script("run_topology_rehearsal.py")
     suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    head, _, tail = suite_root.rpartition("/")
     rejected_for = (
         ("relative/ledger", "must be absolute"),
         (suite_root, "lies inside the .* control worktree"),
         (f"{suite_root}/nested", "lies inside the .* control worktree"),
+        (f"{head}/{tail.upper()}/ledger", "lies inside the .* control worktree"),
         (f"{suite_root}/../other/ledger", "normal form"),
         ("//synthetic/ledger", "normal form"),
     )
     for rejected, reason in rejected_for:
-        with pytest.raises(PrecheckAbort, match=reason):
+        with pytest.raises(PrecheckAbort, match=f"attempt_ledger_root: .*{reason}"):
             runtime_wiring(script, attempt_ledger_root=rejected)
 
 
@@ -2668,3 +2677,105 @@ def test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root
         "it hides a plainly-spelled ledger root sited inside it (F0092)"
     )
     assert calls == [], "the non-normal control worktree reached the executor"
+
+
+def test_a_case_variant_ledger_worktree_cannot_alias_into_a_control_worktree() -> None:
+    """INTENDED RED (F0092). Normal form fixed the spelling, not the aliasing.
+
+    The seventh carry. Requiring a normal form on both sides made every *punctuation* respelling
+    of one directory compare equal, but the comparison stayed byte-exact, and byte-exactness is
+    not what "the same directory" means on the filesystems these worktrees actually live on.
+    macOS APFS is case-insensitive by default, so a ledger worktree whose only difference from a
+    declared control worktree is the case of a component names that directory at `os.open` while
+    comparing unequal to every declared root. Every token below passes `exact_token`, the
+    absoluteness check and the normal-form check untouched.
+
+    This is the shape the module disclosure does not cover and cannot be argued away as
+    deliberate re-pointing: one command line, typed once, with ordinary spellings and no
+    filesystem object created for the purpose. The budget lands back inside a worktree that a
+    re-checkout replaces, which is F0092 verbatim.
+
+    Case folding is refused in the *comparison* only. The operator's token is still forwarded
+    exactly as typed, because rewriting it would make this file choose a directory nobody named.
+    On a case-sensitive filesystem the fold refuses a handful of genuinely distinct worktrees;
+    that is the fail-closed direction and costs the operator one retype, whereas the converse
+    hands back the budget reset the control exists to prevent.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    head, _, tail = suite_root.rpartition("/")
+    aliases = (
+        f"{head}/{tail.upper()}/ledger",
+        f"{head}/{tail.capitalize()}/ledger",
+        f"{head}/{tail.upper()}",
+    )
+    for alias in aliases:
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=alias),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"the ledger worktree {alias!r} differs from a declared control worktree only in "
+            "case, so on a case-insensitive filesystem it names that worktree and a second "
+            "checkout of it presents an unconsumed budget (F0092)"
+        )
+        assert calls == [], f"the case-aliasing ledger worktree {alias!r} reached the executor"
+
+
+def test_a_case_variant_control_worktree_cannot_hide_a_plainly_spelled_ledger_root() -> None:
+    """INTENDED RED (F0092). The other side of the same aliasing.
+
+    Symmetric to `test_a_non_normal_control_worktree_cannot_hide_a_plainly_spelled_ledger_root`.
+    Folding only the ledger token would leave the row live through the control token, since the
+    operator chooses the spelling of both and the comparison is the same one.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    head, _, tail = suite_root.rpartition("/")
+    calls: list[tuple[object, ...]] = []
+    exit_code = require_c8_attr(script, "main")(
+        execute_argv(
+            {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: f"{head}/{tail.upper()}"},
+            attempt_ledger_root=f"{suite_root}/ledger",
+        ),
+        execute=recording_executor(calls),
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+        "a control worktree differing only in case must be refused where the containment is "
+        "decided, or it hides a plainly-spelled ledger root sited inside it (F0092)"
+    )
+    assert calls == [], "the case-aliasing control worktree reached the executor"
+
+
+def test_a_control_worktree_naming_the_filesystem_root_refuses_every_ledger_worktree() -> None:
+    """INTENDED RED (F0092). A fail-open regression introduced by the normal-form repair.
+
+    The containment test builds its prefix as `enclosing + "/"`. For every ordinary worktree
+    that is right, because a normal-form path never carries a trailing separator. `/` is the one
+    normal-form path that is itself the separator, so the prefix became `//` and matched nothing:
+    a control root of `/` accepted every absolute ledger worktree, when `/` encloses all of them
+    and must refuse all of them.
+
+    The superseded `rstrip`-based loop happened to answer this correctly -- it made `enclosing`
+    empty, and every absolute token starts with the empty string -- so the repair that closed the
+    non-normal spellings moved this case from fail-closed to fail-open. That direction is what
+    the ledger bans outright, independently of how reachable the case is, which is why it is
+    pinned here rather than disclosed.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    for ledger in (f"{suite_root}-notes", "/ledger", f"{suite_root}/ledger"):
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(
+                {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: "/"},
+                attempt_ledger_root=ledger,
+            ),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"a control worktree of '/' encloses the ledger worktree {ledger!r}, so it must be "
+            "refused; accepting it is the fail-open direction (F0092)"
+        )
+        assert calls == [], f"the ledger worktree {ledger!r} under a '/' control root ran"

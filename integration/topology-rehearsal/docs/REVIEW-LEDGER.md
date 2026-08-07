@@ -75,6 +75,7 @@ to be lost irrecoverably.
 | `7cb9f9a` | 4 paths — F0101/F0104/F0105 retired; F0092 carried, F0107 opened | NO-GO | 0/0/2/4 | NO | HOLD |
 | `d899bbd` | 3 paths — F0107/F0098/F0106/F0108/F0109 retired; F0110/F0111/F0112 opened; F0092 carried (5th) | NO-GO | 0/0/1/3 | NO | HOLD |
 | `bc2a233` | 3 paths — F0111/F0112 retired; F0113/F0114/F0115 opened; F0092 carried (6th) | NO-GO | 0/0/2/2 | NO | HOLD |
+| `2fc18c6` | 5 paths — F0113/F0114 retired, first multi-row retirement; F0116/F0117/F0118 opened; F0092 carried (7th) | NO-GO | 0/0/2/3 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -10982,7 +10983,21 @@ first item once the gate is clean.
 ## Verdict `bc2a233` (NO-GO, 0/0/2/2) and the repair at this cycle
 
 **Scope reviewed:** `scripts/run_topology_rehearsal.py`, `tests/test_scripts_inert.py`,
-`docs/REVIEW-LEDGER.md`. Base `d899bbd`, diff `65ff3f2a…`, `covers_head` true.
+`docs/REVIEW-LEDGER.md`. Base `d899bbd`, `covers_head` true. The bound diff digest is the one
+recorded in `VERDICT-bc2a233db8….json` under recipe `REVIEW-DIFF-SHA256/v1`; it is cited here by
+artifact and deliberately not transcribed (F0116).
+
+**Why this section no longer quotes a diff digest by hand.** The first draft of this section wrote
+`diff 65ff3f2a…`. The bound artifact records `92784cf7…`, and `65ff3f2a` appears nowhere in the
+autopilot state tree — it was a false transcription of the single field that binds a recorded
+verdict to the artifact it came from, in a document whose whole value is that it can be trusted
+against the corpus. The digest is measured by the driver over
+`git diff --no-color <base>..<sha> -- <scope>`, so a hand-copied hexadecimal is a claim this lane
+cannot check and a reader cannot use: it either matches the artifact, in which case the artifact is
+the better citation, or it does not, in which case the ledger silently disagrees with the record it
+is summarising. Every section from here on cites the verdict artifact by name and leaves the digest
+where it is measured. The `d899bbd` section above transcribed `ad88ca09…` correctly and is left as
+written, since the finding is against the false digest and not against the earlier accurate one.
 
 **Execution evidence, stated as the bound artifact states it.** This verdict's
 `unverified_claims` again declares that no driver-measured evidence block reached the reviewer and
@@ -11053,3 +11068,101 @@ this cut); `ruff check src tests` 12 pre-existing errors, all in `observe.py`, `
 `test_errors.py` and `test_runner.py` — **none in any file this cut touches**; `compileall` clean.
 These are this lane's own measurements on its own patch and are not a substitute for the
 independent verdict.
+
+---
+
+## Verdict `2fc18c6` (NO-GO, 0/0/2/3) and the repair at this cycle
+
+**Scope reviewed:** `scripts/run_topology_rehearsal.py`,
+`src/cybrik_suite_topology_rehearsal/plan.py`, `tests/test_plan.py`,
+`tests/test_scripts_inert.py`, `docs/REVIEW-LEDGER.md`. Base `bc2a233`, `covers_head` true. The
+bound diff digest is the one recorded in `VERDICT-2fc18c6ea02d….json` under recipe
+`REVIEW-DIFF-SHA256/v1`, cited by artifact and not transcribed (F0116).
+
+**Execution evidence.** This verdict is the first in the corpus whose artifact carries an
+`execution_evidence` object with `status: COMPLETE` — pytest 1798 passed / 1 failed with
+`unintended_failures: 0` and `matches_baseline: true`, ruff 12 = 12, `compileall_exit: 0`. The
+verdict's own `unverified_claims` is explicit that the reviewer *read* that block off disk rather
+than witnessing the run, and could not authenticate its author. This lane records it exactly at
+that strength: driver-measured, reviewer-read, not reviewer-witnessed.
+
+**Retired by this verdict:** `F0113` (P2), `F0114` (P3) — the first multi-row retirement in this
+deployment against a background of four verdicts that had retired one row in total. Coverage
+reached 39/39 paths and the distance fell from 7 to 2.
+**Opened:** `F0116` (P2), `F0117` (P3), `F0118` (P3). **Carried:** `F0092` (P2), its seventh
+verdict.
+
+### `F0092` — P2 — the seventh carry, and what closes it here
+
+The row survived the normal-form repair because a normal form gives one directory one
+*punctuation*, not one name. The comparison remained byte-exact, so
+`--attempt-ledger-root /synthetic/Cybrik-Suite/ledger` against
+`--control-root cybrik-suite=/synthetic/cybrik-suite` passed `exact_token`, the absoluteness check
+and the normal-form check, compared unequal to every declared root, and named that control worktree
+at `os.open` on a case-insensitive filesystem — the APFS default, which is where these worktrees
+live. One command line, typed once, ordinary spellings, no filesystem object created for the
+purpose. The disclosure the module carried was about deliberate re-pointing and did not cover it,
+which is why the module comment is restated rather than merely extended.
+
+**Second defect in the same row, and the more serious direction.** The reviewer found that the
+normal-form cut had *introduced* a fail-open regression. `_attempt_ledger_root` built its
+containment prefix as `enclosing + "/"`. Every normal-form path lacks a trailing separator except
+`/` itself, which *is* the separator, so a control root of `/` produced the prefix `//`, matched
+nothing, and accepted every absolute ledger worktree — while `/` encloses all of them. The
+superseded `rstrip`-based loop answered this correctly by accident (it made `enclosing` empty, and
+every absolute token starts with the empty string), so closing the spelling defect moved this case
+from fail-closed to fail-open. This ledger bans that direction outright at `:7015-7017`
+independently of reachability, and it is pinned by a test rather than disclosed. It was confirmed
+live before the repair: the RED returned exit 0 with the executor actually called.
+
+**Repair.** Containment moves into `_is_inside`, which folds case on both sides and appends the
+separator only when `enclosing` does not already end in one. Only the *comparison* folds; the
+caller returns and forwards the operator's token exactly as typed, because rewriting it would make
+the entrypoint choose a directory nobody named.
+
+**Why not resolve the paths, which would also close symlinks.** Resolution was considered and
+rejected on two independent grounds. It is not fail-closed: `realpath` returns a path that does not
+exist yet unchanged, handing the byte-exact comparison straight back to an operator whose ledger
+directory has not been created. And it makes a control that must be reviewable on the page depend
+on the state of the filesystem at the instant it ran, in a file that reads no host source and is
+held inert by `test_scripts_inert.py`. Trading a graded P2 for an ungraded weakening of a standing
+inertness control is not a trade this lane will make silently, so the over-approximation that
+refuses more was chosen instead. On a case-sensitive filesystem the fold refuses a genuinely
+distinct worktree; that costs one retype, where the converse hands back the budget reset.
+
+**Residual, stated narrowly and not closed.** A symlink or bind mount whose target lies inside a
+control worktree still aliases past a textual comparison, and no textual rule can see it. Unlike a
+case variant, that route is not one command line typed once: it requires an aliasing filesystem
+object to exist or be created, which is an act at the same trust level as declaring the control
+root itself — and `--attempt-ledger-root` is already an operator declaration at that level,
+alongside `--execute` and the choice of grant file. This is recorded as a residual in the module
+comment and in `_is_inside`, and is offered to the reviewer as the thing to attack.
+
+### `F0116` — P2 — repaired by citing the artifact instead of the digest
+
+See the `bc2a233` section above. The repair is not a corrected hexadecimal but a rule: the digest is
+measured by the driver, so the ledger cites the verdict artifact by name and leaves the digest where
+it is measured. A hand-copied hash is a claim this lane cannot check.
+
+### `F0115` and `F0117` — P3 — repaired in the same cut
+
+`F0115`: the composition-root siting control named a reason per rejected value, but the same commit
+that introduced `plan.absolute_normal_path` made `build_runtime_wiring` render "must be absolute"
+and "normal form" into the `repository_roots` abort as well, so three of five rows could be
+satisfied by a roots fault observing nothing about the siting rule. Every row is now anchored on the
+`attempt_ledger_root: ` prefix that only the ledger frame emits, and a case-variant row was added.
+
+`F0117`: the `_attempt_ledger_root` docstring still described the pre-repair rule — `exact_token`
+plus "`control_commands` then requires an absolute path", and two shapes — while the function
+called `absolute_normal_path`, enforced three shapes and re-validated every control root. It now
+states the rule the function implements, including the aliasing shape.
+
+`F0118` is **not** repaired here. It lives in `tests/test_plan.py`, which this cut does not touch;
+P3 does not gate, and widening the scope to reach it would trade a measured exit for new ground.
+
+**This lane's own measurements on its own patch, not a substitute for the verdict.** Test-first:
+all three new inertness assertions were observed RED before the fix, and the `/` control-root RED
+returned exit 0 with the executor called — the fail-open end to end. After: 1801 passed / 1 failed
+(the pre-existing F131 intended RED at `runner.py:434`, untouched), matching the declared baseline
+of 1; `ruff check src tests scripts` 12 pre-existing errors in `observe.py`, `preparation.py`,
+`test_errors.py` and `test_runner.py`, **none in any file this cut touches**; `compileall` exit 0.

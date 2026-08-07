@@ -69,6 +69,22 @@ CONTROL_ROOT_SEPARATOR = "="
 # the old siting because the budget was derived from a path `plan` had already validated;
 # normal form was never checked anywhere, and all three are paid back here.
 #
+# A normal form makes one directory have one *punctuation*, not one name. The comparison stayed
+# byte-exact, so `/ctl/SUITE/ledger` against `--control-root cybrik-suite=/ctl/suite` passed all
+# three checks and compared unequal to every root while naming that worktree at `os.open` on a
+# case-insensitive filesystem -- which is the default on the machines these worktrees live on.
+# That was also one command line typed once with ordinary spellings, so the paragraph above was
+# not a disclosure that covered it. `_is_inside` now folds case on both sides, and the same
+# repair fixed a fail-open regression the normal-form cut introduced: the prefix was built as
+# `enclosing + "/"`, which for a control root of `/` became `//` and matched nothing, so `/`
+# accepted every absolute ledger worktree it in fact encloses.
+#
+# What remains open is stated here rather than closed: a *symlink* or bind mount pointing inside
+# a control worktree still aliases past a textual comparison. No textual rule can see it, and
+# this file may not resolve paths -- it reads no host source, and `realpath` is not fail-closed
+# on a directory that does not exist yet. That route needs an aliasing filesystem object, not a
+# spelling, which is an act at the trust level of declaring the control root itself.
+#
 # The residual that remains is narrower than the one this comment used to claim, and the
 # difference matters: an operator who deliberately types a *different* absolute, normal,
 # non-contained `--attempt-ledger-root` on a second invocation still obtains a second budget.
@@ -170,11 +186,11 @@ def _attempt_ledger_root(value: object, roots: Mapping[str, str]) -> str:
     """The declared ledger worktree, or a refusal naming the shape that was wrong.
 
     The budget's worktree is an argv token like the four control roots, and it is held to the
-    same rule they are: `plan.exact_token` refuses a non-string, an empty token and one
-    carrying a separator, and `plan.control_commands` then requires an absolute path. Both
+    same rule they are: `plan.absolute_normal_path` — `plan.exact_token` (no non-string, no
+    empty token, no separator) plus absoluteness plus a normal form. The token and absoluteness
     checks were inherited by the old siting for free, because the budget was derived from a
     path the plan had already validated; taking the worktree off argv dropped them, and the
-    two shapes they exclude are the two ways F0092 comes back:
+    normal form was never checked anywhere. Three shapes are how F0092 comes back:
 
     * A *relative* token is answered by the process working directory, so the identical
       command line run from a second directory names a second file and yields a second
@@ -183,31 +199,73 @@ def _attempt_ledger_root(value: object, roots: Mapping[str, str]) -> str:
       re-checkout replaces, which is the original defect verbatim. Admission pins each control
       worktree to `clean is True` with an exact commit and tree, but the ledger file is
       untracked, so a clean tree and an absent ledger are the same observation downstream.
+    * A token that *aliases* into a control worktree without naming it byte-for-byte: a
+      non-normal spelling (`/ctl/./suite/ledger`), or a case variant (`/ctl/SUITE/ledger`) on
+      the case-insensitive filesystems these worktrees live on. Both reach the same directory
+      at `os.open` while comparing unequal to every declared root.
+
+    Every control root is re-validated here rather than assumed, because `_control_roots` folds
+    the typed tokens without validating them and `plan.control_commands` sees them only later,
+    so an aliasing *control* token would otherwise hide a plainly-spelled ledger root beneath
+    it. The rule is read from `plan` rather than restated, so the token discipline has exactly
+    one definition.
 
     Containment is refused, not a shared prefix: a sibling worktree whose path merely begins
     with the same characters is a different directory and a checkout of the control root does
-    not replace it. The rule is read from `plan` rather than restated, so the token discipline
-    has exactly one definition.
+    not replace it.
     """
     from cybrik_suite_topology_rehearsal.plan import absolute_normal_path
 
     root = absolute_normal_path(value, label="attempt-ledger-root")
     for name, control in roots.items():
-        # Both sides are held to the same normal form, so the textual comparison below is a
-        # comparison of directories and not of spellings. `control` is re-checked here rather
-        # than assumed: `_control_roots` folds the typed tokens without validating them, and
-        # `plan.control_commands` validates them only later, so a non-normal control root
-        # would otherwise reach this comparison unexamined and hide a plainly-spelled ledger
-        # root sited inside it.
         enclosing = absolute_normal_path(control, label=f"control-root:{name}")
-        if root == enclosing or root.startswith(
-            f"{enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
-        ):
+        if _is_inside(root, enclosing):
             raise ValueError(
                 f"attempt-ledger-root: the ledger worktree lies inside the {name!r} control "
                 "worktree, so a second checkout of it presents an unconsumed budget"
             )
     return root
+
+
+def _is_inside(root: str, enclosing: str) -> bool:
+    """Does `root` name `enclosing` or a directory beneath it? Both are absolute normal paths.
+
+    The question is about *directories*, and the only tool here is the two typed strings: this
+    file reads no host source, so it cannot resolve either side, and resolution would not be
+    fail-closed if it could — `realpath` returns a not-yet-created path unchanged, handing the
+    byte-exact comparison straight back to an operator whose ledger directory does not exist
+    yet, and it would make a control that must be reviewable on the page depend on the state of
+    the filesystem at the instant it ran.
+
+    So the comparison over-approximates instead, in the direction that refuses more:
+
+    * `casefold` on both sides, because a case variant of a component names the same directory
+      on a case-insensitive filesystem (APFS is, by default, and these worktrees live on one).
+      On a case-sensitive filesystem this refuses a worktree that is genuinely distinct; that
+      costs the operator one retype, where the converse hands back the budget reset the control
+      exists to prevent. Only the *comparison* folds — the caller returns and forwards the
+      operator's token exactly as typed, since rewriting it would make this file choose a
+      directory nobody named.
+    * The separator is appended only when `enclosing` does not already end in one. `/` is the
+      single normal-form path that is itself the separator; building `//` from it matched
+      nothing and made a control root of `/` accept every absolute ledger worktree, when `/`
+      encloses all of them.
+
+    Residual, stated narrowly and not closed: a *symlink* or bind mount whose target is inside a
+    control worktree still aliases past this comparison, and no textual rule can see it. Unlike
+    a case variant, that route is not one command line typed once — it requires an aliasing
+    filesystem object to exist or be created for the purpose, which is an act at the same trust
+    level as typing the control root itself, and `--attempt-ledger-root` is already an operator
+    declaration at that level alongside `--execute` and the choice of grant file.
+    """
+    if root.casefold() == enclosing.casefold():
+        return True
+    prefix = (
+        enclosing
+        if enclosing.endswith(ATTEMPT_LEDGER_PATH_SEPARATOR)
+        else f"{enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
+    )
+    return root.casefold().startswith(prefix.casefold())
 
 
 def load_authorization(grant_path: str, signature_path: str) -> Any:
