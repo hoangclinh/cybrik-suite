@@ -88,3 +88,92 @@ jobs:
       - name: Test W1 control validator fail-closed rules
         working-directory: tools/contract-validation
         run: npm run test:w1-control
+
+  topology-rehearsal-tests:
+    name: topology rehearsal tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout topology rehearsal suite
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)
+
+      # No new GitHub Action enters the reviewed supply chain here. uv is already a
+      # project dependency, so installing it from PyPI at a pinned version in a run:
+      # step adds no supplier the trusted set does not already carry. 0.11.16 is the
+      # version the local collector measures with.
+      - name: Install uv 0.11.16 (pinned, from PyPI — deliberately not an action)
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input "uv==0.11.16"
+          uv --version
+
+      # Install may reach the network; measurement may not. --frozen never rewrites
+      # the committed uv.lock, and the three measuring steps below add --offline so
+      # no measured command can resolve anything the lockfile did not already pin.
+      - name: Materialise the locked environment (--frozen never regenerates uv.lock)
+        working-directory: integration/topology-rehearsal
+        run: uv sync --frozen --group test
+
+      - name: Measure pytest, ruff and compileall (no network)
+        working-directory: integration/topology-rehearsal
+        run: |
+          set -euo pipefail
+          uv run --frozen --offline --group test python -m pytest -q \
+            --junit-xml="${RUNNER_TEMP}/pytest.xml" || true
+          uv run --frozen --offline ruff check --no-cache \
+            --output-format=json src tests > "${RUNNER_TEMP}/ruff.json" || true
+          uv run --frozen --offline python -m compileall -q src tests
+
+      # The bar is read from .github/REVIEW-BASELINE.json and is never written here.
+      # That file lives outside this lane's write prefix on purpose: a lane that can
+      # edit its own baseline is setting its own gate. A drift in EITHER direction
+      # fails — an over-run is a regression, and an under-run means a RED was retired
+      # without the baseline owner lowering the number and recording why.
+      - name: Compare against the declared baseline (fail-closed both directions)
+        working-directory: integration/topology-rehearsal
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys, xml.etree.ElementTree as ET
+
+          root = os.environ["GITHUB_WORKSPACE"]
+          tmp = os.environ["RUNNER_TEMP"]
+          with open(os.path.join(root, ".github", "REVIEW-BASELINE.json")) as handle:
+              baseline = json.load(handle)
+
+          suite = ET.parse(os.path.join(tmp, "pytest.xml")).getroot()
+          if suite.tag == "testsuites":
+              suite = suite.find("testsuite")
+          measured_failures = int(suite.get("failures", 0)) + int(suite.get("errors", 0))
+          declared_failures = baseline["pytest"]["expected_failures"]
+
+          with open(os.path.join(tmp, "ruff.json")) as handle:
+              measured_violations = len(json.load(handle))
+          declared_violations = baseline["ruff"]["expected_violations"]
+
+          problems = []
+          for label, measured, declared in (
+              ("pytest failures", measured_failures, declared_failures),
+              ("ruff violations", measured_violations, declared_violations),
+          ):
+              if measured > declared:
+                  problems.append(
+                      f"{label}: measured {measured} exceeds the declared {declared} — "
+                      "a regression against the bar."
+                  )
+              elif measured < declared:
+                  problems.append(
+                      f"{label}: measured {measured} is below the declared {declared}. "
+                      "If a RED was legitimately retired, the owner of "
+                      ".github/REVIEW-BASELINE.json lowers the number and records why "
+                      "in revision_history; this job may not."
+                  )
+
+          print(
+              f"pytest failures {measured_failures}/{declared_failures}; "
+              f"ruff violations {measured_violations}/{declared_violations}"
+          )
+          if problems:
+              for problem in problems:
+                  print(f"::error::{problem}")
+              sys.exit(1)
+          PY

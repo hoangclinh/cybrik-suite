@@ -159,10 +159,15 @@ const W1_RECONCILIATION_CI_PATHS = [
   "tools/contract-validation/validate.mjs",
 ];
 
+// Extension 1 of 4: the checkout pin rises from 2 to 3 because the added
+// `topology rehearsal tests` job checks the tree out. The count is raised, not
+// removed: the control still refuses any fourth use and any unpinned or
+// off-allowlist action, and the reviewed SHA is unchanged, so no new supplier
+// enters the trusted set.
 const CI_ACTION_PINS = new Map([
   [
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-    2,
+    3,
   ],
   [
     "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
@@ -3531,6 +3536,47 @@ export function validateW1CiWiring({
       "CI3 workflow must preserve the rendered secret-scan required-check name",
     );
   }
+  // Extension 3 of 4: pin the third job's rendered required-check name on the same
+  // footing as the other two, so it cannot be renamed out from under a branch
+  // protection rule that requires it.
+  const rehearsalJob = workflowJob("topology-rehearsal-tests");
+  const rehearsalJobDocument = workflowDocument.jobs["topology-rehearsal-tests"];
+  if (rehearsalJobDocument?.name !== "topology rehearsal tests") {
+    throw new Error(
+      "CI3 workflow must preserve the rendered topology-rehearsal required-check name",
+    );
+  }
+  // Extension 4 of 4: pin what the job DOES, not merely that it exists. A job that
+  // is present but no longer reads .github/REVIEW-BASELINE.json would restore
+  // exactly the defect this job was added to remove — a declared consumer that does
+  // not consume — while leaving the required check green. The lockfile and network
+  // protections are pinned here for the same reason.
+  for (const pattern of [
+    /REVIEW-BASELINE\.json/,
+    /uv==0\.11\.16/,
+    /uv sync --frozen --group test/,
+    /uv run --frozen --offline --group test python -m pytest/,
+    /uv run --frozen --offline ruff check/,
+    /uv run --frozen --offline python -m compileall/,
+  ]) {
+    assertIncludes(
+      rehearsalJob,
+      pattern,
+      `CI3 workflow topology-rehearsal job is missing ${pattern}`,
+    );
+  }
+  // The measuring lane must never regenerate the protected lockfile, and must never
+  // write the bar it is measured against.
+  assertExcludes(
+    rehearsalJob,
+    /uv (?:lock|sync)(?![^\n]*--frozen)/,
+    "CI3 topology-rehearsal job must not resolve dependencies without --frozen",
+  );
+  assertExcludes(
+    rehearsalJob,
+    /(?:>|>>|tee|sed -i|mv|cp)[^\n]*REVIEW-BASELINE\.json/,
+    "CI3 topology-rehearsal job must read the review baseline, never write it",
+  );
   for (const pattern of [
     /name: Checkout contract topology/,
     /fetch-depth: 0/,
@@ -3625,9 +3671,14 @@ export function validateW1CiWiring({
       );
     }
   }
-  if (actionUses.length !== 3) {
+  // Extension 2 of 4: the exact total rises from 3 to 4 for the added checkout in
+  // the `topology rehearsal tests` job. It stays an exact equality rather than a
+  // lower bound, so an additive action use is still refused. uv is installed from
+  // PyPI in a run: step and is deliberately not counted here, because it is not a
+  // GitHub Action and does not widen the action supply chain this rule governs.
+  if (actionUses.length !== 4) {
     throw new Error(
-      `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionUses.length}`,
+      `CI3 workflow must contain exactly 4 reviewed GitHub action uses; found ${actionUses.length}`,
     );
   }
   for (const [action, expectedCount] of CI_ACTION_PINS) {

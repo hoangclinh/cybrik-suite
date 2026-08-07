@@ -74,9 +74,15 @@ const createXorshift32 = (seed) => {
   };
 };
 
+// 'topology rehearsal tests' is admitted deliberately as a third stable required
+// check, for the job that runs the integration/topology-rehearsal pytest, ruff and
+// compileall gate against the declared baseline. The allowlist stays an exact
+// sorted deepEqual rather than a subset or prefix test, so an unapproved name is
+// still refused and a silent fourth check cannot appear.
 const APPROVED_REQUIRED_CHECK_NAMES = Object.freeze([
   'contract standards validation',
   'secret-scan',
+  'topology rehearsal tests',
 ]);
 const assertApprovedRequiredCheckNames = (checkNames) =>
   assert.deepEqual([...checkNames].sort(), APPROVED_REQUIRED_CHECK_NAMES);
