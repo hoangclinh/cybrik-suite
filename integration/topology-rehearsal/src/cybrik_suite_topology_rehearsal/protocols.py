@@ -343,13 +343,24 @@ class AttemptLedger(Protocol):
     siting: a caller deriving the path from an operator-supplied control root binds the
     budget to that root, and a second root carries a second budget.
 
-    This is deliberately not widened to root-independence. The allowed-signers file every
-    grant is verified against is derived from that same operator-supplied root (see
-    `ALLOWED_SIGNERS_PATH` in `plan`), so an actor able to vary the root to reset this
-    budget can by that same act install a signing key and mint fresh grants -- a strictly
-    greater power than replaying one. A replay budget anchored above its own authorization
-    anchor would buy nothing and would advertise a guarantee the gate admitting the attempt
-    does not have. This port promises no-replay, not root-independence.
+    This port promises no-replay through one ledger, not root-independence, and that gap is
+    an open defect rather than a design position.
+
+    An earlier version of this contract argued the gap was harmless, on the ground that an
+    actor able to vary the root could by that same act install a signing key and mint fresh
+    grants -- a strictly greater power than replaying one. That ground is refuted and has
+    been deleted rather than softened. Key installation is *not* available to that actor:
+    `control_identity_findings` (preparation) and `repository_findings` (grant) each require
+    every control worktree to report `clean is True` and to match the granted commit *and*
+    tree exactly, so a root carrying an installed key fails admission. Nothing pins the
+    attempt-ledger file, which is untracked. The two capabilities are therefore not
+    equivalent, and anchoring this budget does buy something the current siting does not.
+
+    The correct siting is an open question this port cannot settle, because choosing a
+    location independent of the operator-supplied root means choosing a trust anchor, which
+    is an authority decision. Until it is made, a caller deriving the ledger path from an
+    operator-supplied control root leaves a second clean checkout at the granted commit
+    holding a second one-attempt budget for the same record.
     """
 
     def is_consumed(self, *, record_id: str) -> bool: ...

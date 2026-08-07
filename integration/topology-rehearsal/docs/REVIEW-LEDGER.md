@@ -10625,17 +10625,30 @@ The difference was scope: the cut was aimed at the whole open set rather than at
   satisfies whether or not the clamp exists — so deleting the clamp line left every assertion in
   `test_scripts_inert.py` green and silently restored the 180s bound. An AST control now counts the
   clamp itself. It was **proved to discriminate** rather than asserted: 1 clamp against real source,
-  0 when the line is removed. The `:218` plan-label prefix test was pinned in the same cut.
-- **`F0092` (P2).** Qualified, **not** anchored, and the reason is an authority question this lane is
-  forbidden to answer alone. Re-derived from source under freeze rather than quoted from this lane's
-  own notes: `plan.py:465-466` sites `signature_path` under the operator-typed suite root, and
-  `plan.py:260` sites the **allowed-signers file** under that same root. So an operator who can vary
-  `--control-root` to reset the one-attempt replay budget can, by the identical act, install a
-  signing key and mint fresh grants — which strictly dominates replaying one grant. Re-anchoring the
-  budget above its own authorization anchor therefore buys nothing, and every alternative anchor
-  (`environ`, `getcwd`, `cwd`, `__file__`) is banned by a control that is correct. The contract is
-  qualified to state the scope honestly and **the choice of trust anchor is put to the reviewer**.
-  Inventing one to clear a row would be the writer setting its own trust anchor.
+  0 when the line is removed.
+
+  **Correction (F0105, this cut).** The final sentence of this record previously read "The `:218`
+  plan-label prefix test was pinned in the same cut." That was false: no such control existed in
+  `tests/`, the only refusal-text assertion being the pre-existing roots-label check at
+  `test_scripts_inert.py:1247`. The claim is withdrawn. A repair record asserting a control that does
+  not exist is the precise failure this ledger exists to prevent, and it is worse inside a repair
+  record than anywhere else, because that is where a later reader stops looking.
+- **`F0092` (P2). The qualification is withdrawn; the finding stands unrepaired.** This record
+  previously argued that re-anchoring "buys nothing", on the ground that an operator able to vary
+  `--control-root` could by the identical act install a signing key, strictly dominating a replay.
+  **That ground is refuted (F0104) and the argument is deleted rather than softened.** Key
+  installation is blocked: `preparation.control_identity_findings` and `grant.repository_findings`
+  each require every control worktree to report `clean is True` *and* to match the granted commit
+  and tree exactly, so a root carrying an installed key fails admission. The untracked
+  attempt-ledger file is pinned by nothing. The two capabilities are not equivalent, and anchoring
+  does buy something. What survives from the old record is only its conclusion about authority, and
+  it survives for a different and now-correct reason: choosing a location independent of the
+  operator-supplied root *is* choosing a trust anchor, and every candidate this lane could reach
+  (`environ`, `getcwd`, `cwd`, `__file__`) is banned by a control that is correct. So the row is
+  carried open and honestly disclosed at `protocols.py` and `run_topology_rehearsal.py:42`, and the
+  smallest exact decision is escalated rather than taken here. Being right that a decision was owed
+  did not make the argument for it right; the anti-self-witnessing rule caught that, and this lane
+  did not.
 
 ### `F0088` (P2) — the governing register, named
 

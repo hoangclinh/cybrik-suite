@@ -2180,3 +2180,82 @@ def test_runtime_wiring_completes_the_injected_adapter_surface() -> None:
         assert isinstance(concrete, require_c8_attr(adapter, adapter_name))
         assert isinstance(concrete, require_c8_attr(protocols, protocol_name))
         assert getattr(wiring.adapters, name) is concrete
+
+
+def test_the_ceiling_bounds_the_spawn_by_effect_not_by_syntactic_shape() -> None:
+    """The clamp must be pinned by what reaches `subprocess.run`, not by how it is written.
+
+    The sibling control above walks the AST for a single `timeout_seconds = min(...)`
+    assignment. That shape test is satisfied by mutations that destroy the bound: appending
+    `timeout_seconds *= 2` is an `AugAssign` and not an `Assign`, and
+    `timeout_seconds = max(timeout_seconds, COMMAND_TIMEOUT_SECONDS)` keeps a single `Assign`
+    whose call names both required identifiers. Either leaves `len(clamps) == 1` and the whole
+    file green while the effective bound becomes 360s or 180s. This control reads the value
+    the seam actually hands the operating system, so no rewriting of the clamp can satisfy it
+    without preserving the ceiling.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    executor = require_c8_attr(script, "SubprocessCommandRunner")()
+    ceiling = require_c8_attr(script, "COMMAND_TIMEOUT_SECONDS")
+    seen: list[float] = []
+
+    def fake_run(argv, **kwargs):
+        seen.append(kwargs["timeout"])
+        raise OSError("no process is spawned by this control")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(script.subprocess, "run", fake_run)
+        # The exact value every adapter forwards: RUNTIME_LIMIT_SECONDS = 180 > the 120s bound.
+        executor.run(("/usr/bin/true",), timeout_seconds=180.0)
+        # A request already under the ceiling must pass through unchanged, so this control
+        # pins a clamp and not a constant substitution.
+        executor.run(("/usr/bin/true",), timeout_seconds=5.0)
+
+    assert seen == [ceiling, 5.0], (
+        "the spawn must receive min(request, COMMAND_TIMEOUT_SECONDS); an over-ceiling "
+        "request must be bounded and an under-ceiling request must survive intact"
+    )
+
+
+def test_a_non_roots_plan_fault_keeps_the_boundary_it_came_from() -> None:
+    """The prefix dispatch must route each `build_plan` ValueError to its true boundary.
+
+    `build_plan` validates `attempt_id` and `image_reference` before it touches any root, so
+    labelling those faults `repository_roots` told the operator to correct four worktrees that
+    were correct. Deleting the `startswith` dispatch restores that misdirection with every
+    other assertion in this file still green: the only refusal-text control that existed
+    before this one is the roots-label check above, which the deleted branch still satisfies.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    abort = require_c8_attr(load_c8("errors"), "PrecheckAbort")
+    # `plan` is imported inside `build_runtime_wiring`, so the name the dispatch resolves is
+    # the package module's attribute rather than a script-level global.
+    plan_module = load_c8("plan")
+
+    def refuse(message: str):
+        def build_plan(**kwargs):
+            raise ValueError(message)
+
+        return build_plan
+
+    for detail in ("attempt_id: not a reviewed identifier", "image_reference: no digest"):
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(plan_module, "build_plan", refuse(detail))
+            with pytest.raises(abort) as refused:
+                runtime_wiring(script)
+        text = str(refused.value)
+        assert "plannable attempt" in text, (
+            f"a {detail.split(':')[0]!r} fault is not a roots fault and must not be "
+            "relabelled as one"
+        )
+        assert "repository_roots" not in text
+        assert detail in text, "the originating boundary's own words must survive"
+
+    # The complementary half: a fault that really is about the roots keeps the roots label.
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(
+            plan_module, "build_plan", refuse("repository_roots: missing suite")
+        )
+        with pytest.raises(abort) as refused:
+            runtime_wiring(script)
+    assert "the four control worktrees were not named" in str(refused.value)
