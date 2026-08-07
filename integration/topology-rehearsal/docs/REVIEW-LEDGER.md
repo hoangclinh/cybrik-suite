@@ -71,6 +71,8 @@ to be lost irrecoverably.
 | `e62f038` | 2 paths — the js-yaml remediation's open authority question bound to commits | GO | 0/0/0/1 | NO | HOLD |
 | `8a41f29` | 4 paths — the atomic entrypoint GREEN, both scripts inert | NO-GO | 0/1/9/3 | NO | HOLD |
 | `632f8b1` | 6 paths — eight rows retired, the largest retirement in the corpus at this append | NO-GO | 0/0/4/6 | NO | HOLD |
+| `b5c97c6` | 4 paths — six rows retired (F0088, F0100, F0077, F0078, F0102, F0103); F0104/F0105/F0106 opened | NO-GO | 0/0/4/2 | NO | HOLD |
+| `7cb9f9a` | 4 paths — F0101/F0104/F0105 retired; F0092 carried, F0107 opened | NO-GO | 0/0/2/4 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -10612,11 +10614,32 @@ P2=4 P3=6**, `findings_enumerated=true`, `unaccounted_rows=[]`. Execution eviden
 1783 passed / 1 failed with `unintended_failures: 0` and `matches_baseline`, ruff 12 `matches_baseline`,
 `compileall_exit=0`, `product_mutated: null`. PUSH-ELIGIBLE **NO**. RUNTIME **HOLD**.
 
-**Eight rows retired in one verdict — the largest retirement in this corpus at the time of writing,
-and the first cycle in this deployment where the gating count fell rather than grew.** `F0087` (the
-only P1), `F0089`, `F0090`, `F0091`, `F0093`, `F0094`, `F0095`, `F0096`. P1 went 1 → 0; P2 went 9 → 4.
-The prior four verdicts had carried P2 counts of 4, 6, 8 and 9 with a single finding ever retired.
-The difference was scope: the cut was aimed at the whole open set rather than at the newest defect.
+**Eight rows retired in one verdict — the largest retirement in this corpus at the time of writing.**
+`F0087` (the only P1), `F0089`, `F0090`, `F0091`, `F0093`, `F0094`, `F0095`, `F0096`. P1 went 1 → 0;
+P2 went 9 → 4. The difference was scope: the cut was aimed at the whole open set rather than at the
+newest defect.
+
+**Correction (F0106, this cut).** Two claims in the paragraph above were false as written and are
+withdrawn rather than softened.
+
+- "The prior four verdicts had carried P2 counts of 4, 6, 8 and 9 with a single finding ever
+  retired" is refuted by this file's own index rows immediately above: the four entries preceding
+  `632f8b1` are `24a5c78`, `cccd281`, `e62f038` and `8a41f29`, whose P2 counts read **1, 0, 0 and
+  9**, not 4, 6, 8 and 9. The
+  sequence 4/6/8/9 is a real measurement, but of the *driver-injected open-finding register* — the
+  cumulative open P2 backlog across the whole corpus — not of the per-verdict P2 counts this index
+  records. The two are different quantities and the sentence silently swapped one for the other.
+- "the first cycle in this deployment where the gating count fell rather than grew" is refuted by
+  the index rows for `55c9810` → `c7d8357`, where the P3 count fell 5 → 1 and five rows were
+  retired in one verdict, and by `e37409f` and `cccd281`, which retired rows and returned GO.
+
+**Which register is meant, named rather than implied.** Every cumulative count in this section
+refers to the open-finding register the driver folds from the reviewer verdict corpus
+(`compute-finding-register-v2.zsh`, injected into the lane prompt as a markdown table). That
+register is *derived*, is re-folded every cycle, and is **not** stored in this file — this lane
+holds `Bash`, and a register it could edit would be the writer keeping books on its own work. The
+per-verdict counts in the index above are a different, local quantity read from each bound
+`VERDICT-<sha>.json`. Any future sentence mixing the two is wrong by construction.
 
 **Carried, and repaired at `7fed9b3` — not retired, because this lane may not witness its own patch:**
 
@@ -10633,6 +10656,18 @@ The difference was scope: the cut was aimed at the whole open set rather than at
   `test_scripts_inert.py:1247`. The claim is withdrawn. A repair record asserting a control that does
   not exist is the precise failure this ledger exists to prevent, and it is worse inside a repair
   record than anywhere else, because that is where a later reader stops looking.
+
+  **Second correction (F0108, this cut) — the same failure, one commit later.** The record above,
+  including its own correction, still describes the tree as it stood *before* `7cb9f9a`: it says the
+  clamp is counted only by an AST control, and the F0105 paragraph says no plan-label prefix control
+  exists. Both were made obsolete by the very commit that wrote them. `7cb9f9a` added
+  `test_the_ceiling_bounds_the_spawn_by_effect_not_by_syntactic_shape`, which pins the clamp by the
+  value the seam actually hands the operating system rather than by AST shape, and
+  `test_a_non_roots_plan_fault_keeps_the_boundary_it_came_from`, which is exactly the plan-label
+  prefix control F0105 correctly said did not yet exist. Locate both by name; no line number is
+  cited, for the reason the index gives at F0068. This is the reader-stops-looking failure the
+  paragraph above names, committed inside the correction that names it, which is why it is recorded
+  here rather than quietly overwritten.
 - **`F0092` (P2). The qualification is withdrawn; the finding stands unrepaired.** This record
   previously argued that re-anchoring "buys nothing", on the ground that an operator able to vary
   `--control-root` could by the identical act install a signing key, strictly dominating a replay.
@@ -10738,3 +10773,99 @@ no row above is claimed retired by this file. The census figures quoted are this
 measurements, offered as measurement and never as coverage. Neither entrypoint script was executed.
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
+
+## `b5c97c6` (V2) — VERDICT-b5c97c6 NO-GO, the register named and the index extended
+
+**The bound verdict.** `roles/reviewer/artifacts/VERDICT-b5c97c6902a3ff32a65a00b89d55a436da02d121.json`,
+base `632f8b1`, scope `scripts/run_topology_rehearsal.py`,
+`src/cybrik_suite_topology_rehearsal/protocols.py`, `tests/test_scripts_inert.py`,
+`docs/REVIEW-LEDGER.md`; diff hash `REVIEW-DIFF-SHA256/v1 = d1db67a2…ed9e9`. Verdict **NO-GO**,
+counts **P0=0 P1=0 P2=4 P3=2**, `covers_head=true`, execution evidence **COMPLETE** (1784 passed /
+1 failed, `unintended_failures: 0`, ruff 12, both `matches_baseline`). RUNTIME **HOLD**.
+
+**A first draft of this section misreported the verdict it records, and the correction is kept
+visible rather than silently applied.** That draft gave the scope as `docs/REVIEW-LEDGER.md` alone
+and the counts as `P2=1 P3=1`, and graded `F0100` P3. All three are false against the bound
+artifact above: the scope was four paths, the counts are `P2=4 P3=2`, and `F0100` is a P2. The
+error was caught by reading the `VERDICT-<sha>.json` instead of reconstructing the verdict from the
+commit subject of `b5c97c6`, which touched only this file and so *looked* ledger-scoped. A commit's
+own diff is not its review's scope; only the bound artifact says what was judged. This is recorded
+because a section written to discharge F0107 — a finding about unrecorded verdicts — would
+otherwise have discharged it with a misdescription of the very verdict in question.
+
+**Recorded late, and that is itself the defect F0107 names.** This section and the one below were
+owed by the commits that produced them and were not written. The index rule three hundred lines
+above states the bijection plainly — a row is unmarked if and only if the corpus holds a
+`VERDICT-<sha>.json` for it — and for two commits this file violated it in the same direction each
+time: the corpus held the file, the index held no row, and the prose held no section. The
+consequence was not merely untidiness. `7cb9f9a` cited `F0104` and `F0105` as the authority for
+deleting a refuted argument, and because the verdict that minted those ids was never recorded, both
+citations resolved to nothing anywhere in this file. A repair record whose justification cannot be
+looked up is indistinguishable from one that invented it.
+
+**Six rows retired.**
+
+- **`F0088` (P2) — retired.** The governing register for the `P0=P1=P2=0` precondition was named,
+  and the contradiction between the V1-era in-file tally and the INCOMPLETE V2 register resolved.
+- **`F0100` (P2) — retired.** The index was extended in the same commit as the prose, covering the
+  eight corpus verdicts that had existed only as prose sections.
+- **`F0077` (P3) — retired.** The row-classification rule now reads off the marker in a row's own
+  count cell.
+- **`F0078` (P3) — retired.** Both present-tense totals were tensed and pinned to `c7d8357`.
+- **`F0102` (P3) — retired.** The local-time "bound at 11:01" was replaced by the artifact's own
+  recorded `observed_at`.
+- **`F0103` (P3) — retired.** The colliding `## Cycle 40` heading was retitled to the sha form.
+
+**Opened here:** `F0104` (P2, `protocols.py` — the refuted security-equivalence published in the
+`AttemptLedger` contract), `F0105` (P2, this file — a repair record stating a repair not present in
+the range) and `F0106` (P3, this file). All three were addressed at `7cb9f9a`; the first two were
+retired there and `F0106` was carried.
+
+**Carried out of this verdict:** `F0092` (P2), `F0101` (P2) and `F0098` (P3).
+
+## `7cb9f9a` (V2) — VERDICT-7cb9f9a NO-GO, three P2s retired in one cut
+
+**The bound verdict.** `roles/reviewer/artifacts/VERDICT-7cb9f9a37153ff2f4eb83bff12dc6de9e8ae7a6b.json`,
+base `b5c97c6`, scope `tests/test_scripts_inert.py`, `scripts/run_topology_rehearsal.py`,
+`src/cybrik_suite_topology_rehearsal/protocols.py`, `docs/REVIEW-LEDGER.md`; diff hash
+`REVIEW-DIFF-SHA256/v1 = 42d2f028…52139`. Verdict **NO-GO**, counts **P0=0 P1=0 P2=2 P3=4**,
+`covers_head=true`, execution evidence **COMPLETE** at the pinned sha. RUNTIME **HOLD**.
+
+**Retired: `F0101`, `F0104`, `F0105`.** Three P2s in one verdict. The cut was scoped at the whole
+open gating set rather than at the newest defect, which is the same scoping that produced the
+eight-row retirement at `632f8b1`.
+
+**The reviewer's declared limits, restated as limits and not as witness.** The verdict states that
+no driver-measured execution evidence block reached the reviewer's prompt; it read
+`roles/reviewer/REVIEW-EVIDENCE.json` off disk but did not witness that run and could not
+authenticate its author. Every behavioural consequence it asserts — that the five clamp mutations
+fail the new assertions, that deleting the dispatch fails only the new control, that the fake over
+the `forbid_real_io` tripwire spawns no process — was **derived statically and never executed**. It
+ran no git, no pytest, no ruff and no entrypoint. Those are the reviewer's own words and this lane
+does not upgrade them.
+
+**Opened here and carried into the next cut:**
+
+- **`F0107` (P2).** This file was edited by the cut while the verdict producing the edits was
+  recorded nowhere in it — the defect this section and the one above discharge.
+- **`F0106` (P3), `F0108` (P3), `F0109` (P3).** Corrected in the same commit as this record; see
+  the F0106 correction under `632f8b1`, the second correction inside the `F0101` record, and the
+  docstring of `test_the_ceiling_bounds_the_spawn_by_effect_not_by_syntactic_shape`.
+
+**`F0092` (P2) — carried four verdicts, repaired here, and not witnessed by this lane.** The
+argument that re-anchoring "buys nothing" was already withdrawn under `632f8b1` as refuted by
+`F0104`. What remained was the claim that *no* anchor was reachable, because every candidate
+(`environ`, `getcwd`, `cwd`, `__file__`) is banned. **That generalisation is false as applied and is
+withdrawn.** The module-wide guard in `test_scripts_inert.py` raises an offence only for a computed
+attribute read or for an expression through which a value becomes a control *root*; there is no
+blanket ban on host reads, and more to the point the repair needs no host read at all. The budget's
+worktree is now a fifth operator declaration on argv, `--attempt-ledger-root`, mandatory at both
+frames with no default. Naming it `attempt_ledger_root` brings it under the existing root-derivation
+guard automatically, so it is constrained by a control that already existed rather than by one
+written to bless it.
+
+**The residual is stated and deliberately not graded.** The repair closes the reset F0092 names — a
+second clean checkout at the granted commit no longer presents a fresh budget. It does **not** close
+a deliberate re-pointing by the holder of the grant, who can type a different ledger root. Whether
+that retires the row is the reviewer's call. This lane may not witness its own patch and does not
+pre-empt the verdict.
