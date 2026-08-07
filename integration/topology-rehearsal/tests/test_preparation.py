@@ -2363,14 +2363,23 @@ Sequence.register(NonIterableSequence)
 def test_a_nested_non_iterable_sequence_is_not_reported_as_an_unhashable_set_member(
     preparation,
 ) -> None:
-    """INTENDED RED (F0043): the set arm's guard wraps the whole generator, so a `TypeError`
-    raised by an *inner* arm is re-labelled as this arm's own hash channel.
+    """GREEN since the set arm's guard was narrowed to the hash channel; it was the INTENDED RED
+    that proved F0043. Before the repair the guard wrapped the whole generator, so a `TypeError`
+    raised by an *inner* arm was re-labelled as this arm's own hash channel.
 
     The member below is perfectly hashable; it is the Sequence arm underneath that fails. The
     set arm must not claim the member could not be hashed, because a reader acting on that
     message would look for a forged `__hash__` that is not there.
+
+    The route is pinned positively (F0048): the inner `TypeError` must propagate carrying the
+    Sequence face's own message. Asserting a bare `Exception` plus a negative substring passed
+    against any other failure — including one raised before the set arm was ever reached — so it
+    could not distinguish the repair from an unrelated error on the same call.
     """
     frozen = require_c8_attr(preparation, "frozen")
-    with pytest.raises(Exception) as caught:
+    with pytest.raises(TypeError) as caught:
         frozen({NonIterableSequence()})
+    assert "this sequence face will not be subscripted" in str(caught.value), (
+        "the inner Sequence failure must reach the caller unrelabelled"
+    )
     assert "unhashable dead copy member" not in str(caught.value)

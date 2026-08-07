@@ -148,9 +148,10 @@ def test_the_honest_network_reading_still_passes(runner) -> None:
 def test_an_attacker_owned_eq_does_not_decide_agreement(views) -> None:
     """F135's claim at the unit boundary.
 
-    INTENDED RED while the fallback consults `==` on objects the reading supplies. The stored face
-    and the read faces state different values, so the two views of one entry disagree and the
-    reading must be refused — not cleared because it asserted its own honesty.
+    GREEN since the attacker-owned comparison was removed from the agreement decision; it was the
+    INTENDED RED that proved F135 and is now a regression control. The stored face and the read
+    faces state different values, so the two views of one entry disagree and the reading must be
+    refused — not cleared because it asserted its own honesty.
     """
     _, _, divergence = require_c8_attr(views, "proved_copy")(
         MappingProxyType(eq_liar_projection()), "network"
@@ -164,10 +165,11 @@ def test_an_attacker_owned_eq_does_not_decide_agreement(views) -> None:
 def test_the_eq_fallback_bypass_does_not_reach_a_pass(runner) -> None:
     """F135's claim driven end to end, which is where it is a security defect rather than a gap.
 
-    INTENDED RED. The copy is rebuilt from the one-attachment `.items()` face, so the verdict is
-    satisfied and the receipt attests the reviewed isolation, while the same live object tells
-    `.get` — the accessor `observe.validate_internal_network` itself uses — that a second party is
-    attached to the network.
+    GREEN since the repair landed; it was the INTENDED RED that proved F135 end to end and is now
+    a regression control. Before the repair the copy was rebuilt from the one-attachment `.items()`
+    face, so the verdict was satisfied and the receipt attested the reviewed isolation, while the
+    same live object told `.get` — the accessor `observe.validate_internal_network` itself uses —
+    that a second party is attached to the network.
 
     This must turn GREEN only by removing the attacker-owned comparison from the agreement
     decision, never by weakening an isolation control or relaxing this assertion.

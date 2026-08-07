@@ -101,9 +101,10 @@ def test_the_honest_network_reading_still_passes(runner) -> None:
 def test_proved_copy_cross_checks_the_get_accessor(views) -> None:
     """F134's claim at the unit boundary.
 
-    INTENDED RED while `stored_entries` consults only `mapping[key]`. The `.get` face contradicts
-    the one `.items()` read this copy is built from, so the two views of one entry disagree and
-    the reading must be refused rather than taken on its stored face.
+    GREEN since `stored_entries` cross-checks `.get`; it was the INTENDED RED of the commit that
+    proved F134 and is now a regression control. The `.get` face contradicts the one `.items()`
+    read this copy is built from, so the two views of one entry disagree and the reading must be
+    refused rather than taken on its stored face.
     """
     _, _, divergence = require_c8_attr(views, "proved_copy")(
         MappingProxyType(get_liar()), "network"
@@ -117,9 +118,11 @@ def test_proved_copy_cross_checks_the_get_accessor(views) -> None:
 def test_the_get_accessor_bypass_does_not_reach_a_pass(runner) -> None:
     """F134's claim driven end to end, which is where it is a security defect rather than a gap.
 
-    INTENDED RED. The copy is rebuilt from the `.items()` face, so the verdict is satisfied and
-    the receipt attests `Internal: True`, while the same live object tells `.get` — the accessor
-    `observe.validate_internal_network` itself uses — that the network is not internal.
+    GREEN since the cross-check landed; it was the INTENDED RED that proved F134 end to end and
+    is now a regression control. Before the repair the copy was rebuilt from the `.items()` face,
+    so the verdict was satisfied and the receipt attested `Internal: True`, while the same live
+    object told `.get` — the accessor `observe.validate_internal_network` itself uses — that the
+    network is not internal.
 
     This must turn GREEN only by cross-checking `.get` in `views.stored_entries`, never by
     weakening an isolation control or relaxing this assertion.

@@ -77,11 +77,20 @@ def test_a_raising_repr_does_not_escape_stored_entries():
 
 
 def test_a_raising_repr_does_not_escape_proved_copy():
-    """INTENDED RED (F0006): the same escape reached through the fused walk."""
+    """GREEN since the `!r` interpolations moved inside the guards; it was the INTENDED RED that
+    proved F0006 reached through the fused walk.
+
+    The route is pinned (F0028): a bare `assert diverged` is satisfied by any divergence at all,
+    including a key-set finding, so it could not tell the hostile `repr` being contained from an
+    unrelated disagreement about the same object.
+    """
     _, _, diverged = proved_copy(
         MappingProxyType({"outer": DivergentHostileRepr()}), "root"
     )
-    assert diverged
+    assert any("k" in finding for finding in diverged), (
+        "the containment of a raising `repr` must be the reported divergence, not merely some "
+        "divergence on the same reading"
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -110,8 +119,14 @@ class RebuildsNestingEachRead(Mapping):
         return ((("deeper"), RebuildsNestingEachRead()),)
 
 
-def test_unbounded_rebuilt_nesting_is_reported_not_recursed(recursion_budget=None):
-    """INTENDED RED (F0005): recursion is unbounded and `RecursionError` leaves the seam."""
+def test_unbounded_rebuilt_nesting_is_reported_not_recursed():
+    """GREEN since the depth bound landed; it was the INTENDED RED that proved F0005, where
+    recursion was unbounded and `RecursionError` left the seam.
+
+    The signature takes no parameter (F0027). It previously read `recursion_budget=None`, which
+    pytest resolves as a fixture request rather than a default, so the name silently bound to
+    nothing and pinned no budget; the bound is asserted from `diverged` below instead.
+    """
     value = MappingProxyType({"top": RebuildsNestingEachRead()})
     _, findings, diverged = proved_copy(value, "root")
     assert any("nests deeper than" in finding for finding in diverged), (

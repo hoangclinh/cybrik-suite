@@ -99,7 +99,8 @@ def test_the_member_is_genuinely_hashable_and_its_copy_is_not(frozen):
 
 
 def test_a_set_member_whose_dead_copy_is_unhashable_is_refused_as_a_value_error(frozen):
-    """INTENDED RED until the set arm is guarded: the contract is `ValueError`, not `TypeError`."""
+    """GREEN since the set arm was guarded; this now pins the contract as `ValueError`, not
+    `TypeError`. It was the INTENDED RED of the commit that proved F0042."""
     with pytest.raises(ValueError) as refusal:
         frozen({HashableMapping({"a": 1})})
 
@@ -109,7 +110,9 @@ def test_a_set_member_whose_dead_copy_is_unhashable_is_refused_as_a_value_error(
 
 
 def test_the_mapping_arm_no_longer_misattributes_the_set_failure_to_a_key(frozen):
-    """INTENDED RED: the inner set failure was reported as an unhashable *key* of the outer dict.
+    """GREEN since the misattribution was repaired; it was the INTENDED RED that proved the half
+    of F0042 below. Before the repair the inner set failure was reported as an unhashable *key* of
+    the outer dict.
 
     This is the half that makes the finding P2 rather than cosmetic. Pinning the exact route
     matters here (F0028): asserting a bare `ValueError` would pass against the very
