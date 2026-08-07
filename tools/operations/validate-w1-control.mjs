@@ -3551,12 +3551,26 @@ export function validateW1CiWiring({
   // exactly the defect this job was added to remove — a declared consumer that does
   // not consume — while leaving the required check green. The lockfile and network
   // protections are pinned here for the same reason.
+  // The linter is pinned by version, not merely by name. The bar of 12 at
+  // .github/REVIEW-BASELINE.json was measured with ruff 0.16.0, so an unpinned or
+  // differently pinned ruff would let the measured number move with no change to
+  // the tree — precisely the drift the baseline asserts is impossible.
+  //
+  // The ruff pattern deliberately no longer requires `uv run --frozen --offline`.
+  // That is not a relaxation: ruff is absent from pyproject.toml and from the
+  // protected uv.lock, so `uv run --frozen --offline ruff` could never have
+  // supplied it, and pinning that shape pinned a command that does not run. The
+  // lockfile and network protections it was standing in for are unchanged — they
+  // are carried by the `uv sync --frozen` and `uv run --frozen --offline` patterns
+  // on the two steps that DO use the project environment, and by the assertExcludes
+  // below. ruff check resolves no dependencies and opens no socket.
   for (const pattern of [
     /REVIEW-BASELINE\.json/,
     /uv==0\.11\.16/,
+    /ruff==0\.16\.0/,
     /uv sync --frozen --group test/,
     /uv run --frozen --offline --group test python -m pytest/,
-    /uv run --frozen --offline ruff check/,
+    /ruff check --no-cache/,
     /uv run --frozen --offline python -m compileall/,
   ]) {
     assertIncludes(
