@@ -10630,8 +10630,13 @@ withdrawn rather than softened.
   cumulative open P2 backlog across the whole corpus — not of the per-verdict P2 counts this index
   records. The two are different quantities and the sentence silently swapped one for the other.
 - "the first cycle in this deployment where the gating count fell rather than grew" is refuted by
-  the index rows for `55c9810` → `c7d8357`, where the P3 count fell 5 → 1 and five rows were
-  retired in one verdict, and by `e37409f` and `cccd281`, which retired rows and returned GO.
+  ~~the index rows for `55c9810` → `c7d8357`, where the P3 count fell 5 → 1 and five rows were
+  retired in one verdict, and by~~ `e37409f` and `cccd281`, which retired rows and returned GO.
+  **The `55c9810` → `c7d8357` citation is withdrawn as false (`F0111`):** that is a *P3* fall, and
+  P3 does not gate, so it cannot refute a claim about *gating* counts — citing it here commits the
+  very register-mixing error this passage declares wrong by construction. The clean counterexample
+  this bullet should have led with is rows `:48`-`:50`, where the P2 count falls 10 → 8 → 3 across
+  consecutive verdicts. See the `d899bbd` section at the end of this file.
 
 **Which register is meant, named rather than implied.** Every cumulative count in this section
 refers to the open-finding register the driver folds from the reviewer verdict corpus
@@ -10860,12 +10865,104 @@ withdrawn.** The module-wide guard in `test_scripts_inert.py` raises an offence 
 attribute read or for an expression through which a value becomes a control *root*; there is no
 blanket ban on host reads, and more to the point the repair needs no host read at all. The budget's
 worktree is now a fifth operator declaration on argv, `--attempt-ledger-root`, mandatory at both
-frames with no default. Naming it `attempt_ledger_root` brings it under the existing root-derivation
-guard automatically, so it is constrained by a control that already existed rather than by one
-written to bless it.
+frames with no default. ~~Naming it `attempt_ledger_root` brings it under the existing
+root-derivation guard automatically, so it is constrained by a control that already existed rather
+than by one written to bless it.~~ **Withdrawn as false (`F0112`); see the `d899bbd` section at the
+end of this file.** The root-derivation guard derives sinks from module bindings, not function
+parameters, so it constrains this value not at all; the siting checks are written explicitly and
+pinned by their own tests instead.
 
 **The residual is stated and deliberately not graded.** The repair closes the reset F0092 names — a
 second clean checkout at the granted commit no longer presents a fresh budget. It does **not** close
 a deliberate re-pointing by the holder of the grant, who can type a different ledger root. Whether
 that retires the row is the reviewer's call. This lane may not witness its own patch and does not
 pre-empt the verdict.
+
+---
+
+## Verdict `d899bbd` (NO-GO, 0/0/1/3) and the repair at this cycle
+
+**Scope reviewed:** `scripts/run_topology_rehearsal.py`, `tests/test_scripts_inert.py`,
+`docs/REVIEW-LEDGER.md`. Base `7cb9f9a`, diff `ad88ca09…`, `covers_head` true, execution evidence
+COMPLETE (1790 passed / 1 declared RED, ruff 12=12, compileall 0, identical fingerprints).
+
+**Retired by this verdict:** `F0107` (P2), `F0098` (P3), `F0106` (P3), `F0108` (P3), `F0109` (P3).
+**Opened:** `F0110`, `F0111`, `F0112` (all P3). **Carried:** `F0092` (P2) — its fifth verdict, and
+after `F0107` fell it is the *only* row gating the `P0=P1=P2=0` exit.
+
+### `F0092` (P2) — the fifth carry, and what was actually wrong
+
+The reviewer did not restate the old objection. It granted that moving the budget off
+`plan.signature_path` onto an operator declaration was the right shape, and then showed the move had
+**dropped two validations the old siting inherited for free**, because the budget used to be derived
+from a path `plan` had already checked:
+
+1. `main` tested `parsed.attempt_ledger_root` for *truthiness only*. A **relative** token therefore
+   resolves against the process working directory, so the identical command line run from two
+   directories names two files and yields two unconsumed budgets inside one grant window. A checkout
+   no longer moved the budget, but `cd` did — the same reset F0092 names, by a different route.
+2. Nothing forbade naming a **declared control worktree** as the ledger root, which reproduces the
+   original per-checkout reset verbatim. Admission pins each control worktree to `clean is True`
+   with an exact commit and tree, but the ledger file is untracked, so a clean tree and an absent
+   ledger stay the same observation downstream — nothing below can see it.
+
+`plan.control_commands:185-186` forbids exactly these shapes for the other four roots. The
+observation that the range *dropped* a control is correct and is accepted without qualification.
+
+**Repair.** `_attempt_ledger_root` reads the rule from `plan` rather than restating it: the token
+goes through `plan.exact_token` (non-string, empty, or separator-carrying refused) and must be
+absolute, and a worktree equal to or contained in any declared `--control-root` is refused by name.
+Containment is refused, **not** a shared textual prefix — `/synthetic/suite-notes` is a different
+directory from `/synthetic/suite`, and refusing it would be a control that fires on a name rather
+than on the containment that does the harm. A test pins that distinction so the check cannot decay
+into a substring match.
+
+**Enforced at both frames.** The rule is applied in `main` *and* in `build_runtime_wiring`, for the
+reason the `F0098` loader guard recorded about this same file: `build_runtime_wiring` is exported and
+states a contract of its own, so a siting rule enforced only at the argv frame is satisfied by any
+other caller. At the composition root the refusal is the typed `PrecheckAbort` that frame already
+owes for a bad `repository_roots`, so both callers above it answer with the hold exit, not a
+traceback. `plan` has already refused any non-conforming `repository_roots` by that point, so the
+containment question is asked against a mapping known to be exactly the four control worktrees.
+
+**Tests (RED first, all four observed failing before the change):**
+`test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree`,
+`test_an_attempt_ledger_root_inside_a_control_worktree_holds`,
+`test_the_attempt_ledger_root_is_held_to_the_argv_token_rule_the_control_roots_are`,
+`test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well`.
+
+**Residual, restated unchanged and still not graded by this lane.** An operator who deliberately
+types a *different* absolute, non-contained ledger root on a second invocation still obtains a second
+budget. That is a re-pointing by the holder of the grant, not a side effect of checkout hygiene, and
+closing it needs an anchor no argv-only entrypoint can supply. Whether the remainder retires the row
+is the reviewer's call; this lane may not witness its own patch.
+
+### `F0111` (P3) — corrected in place
+
+The `F0106` correction refuted a gating-count claim with a **P3** fall (`55c9810` → `c7d8357`, 5 → 1),
+which does not gate, inside the passage that declares mixing the per-verdict and cumulative registers
+wrong by construction. The objection is accepted: a P3 movement cannot refute a claim about gating
+counts, and citing one there commits the error the passage itself names. **The P3 citation is
+withdrawn.** The surviving refutation is the P2 fall `e37409f` → `cccd281` (1 → 0), and the clean
+counterexample the passage should have led with is rows `:48`-`:50`, where P2 goes 10 → 8 → 3 across
+consecutive verdicts. Both are gating movements and both stand without the withdrawn citation.
+
+### `F0112` (P3) — the overstatement is withdrawn
+
+"Naming it `attempt_ledger_root` brings it under the existing root-derivation guard automatically"
+is **false as written and is withdrawn.** `root_sinks:1542-1547` derives held sinks from
+`module_bindings`, which does not include function parameters; the value as threaded — parameter,
+keyword, f-string — produces no sink, so the guard can report no offence about it. The suffix engages
+only on a future *binding*, would still miss a host-derived `default=` at `:122`, and in any case
+checks forbidden *origins* only, never absoluteness or containment. The correct statement is that the
+guard constrains nothing here today, which is precisely why the checks recorded under `F0092` above
+are written explicitly and pinned by their own tests rather than assumed from a naming convention.
+
+### `F0110` (P3) — open, not repaired here
+
+`docs/ENTRYPOINT-SLICE-SPEC.md` still states the pre-`--attempt-ledger-root` signatures at `:66`,
+`:80-87` and `:97`, and the trust-anchor trade at `:471-475` covers only `--control-root`. This cycle
+deliberately did **not** touch that file: it is outside the cut, P3 does not gate, and three open
+rows (`F0049`, `F0079`, `F0110`) already live in it, so folding a documentation rewrite into the cut
+that must retire the last gating row would trade a measured exit for new ground. It is the natural
+first item once the gate is clean.

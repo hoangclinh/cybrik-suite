@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 __all__ = [
@@ -52,8 +52,18 @@ CONTROL_ROOT_SEPARATOR = "="
 # what was typed, and there is no default, so an operator who declared no ledger worktree is
 # refused rather than given one nobody named.
 #
+# Being an argv token, it is held to the argv token rule: `_attempt_ledger_root` puts it
+# through `plan.exact_token`, requires it to be absolute, and refuses a worktree contained in
+# any declared `--control-root`. Those two shapes are how F0092 returned after the move --
+# a relative token is answered by the process working directory, so one command line run from
+# two directories yields two budgets, and a token inside a control worktree is the original
+# per-checkout reset verbatim. Both checks came free with the old siting, because the budget
+# was derived from a path `plan` had already validated; taking the worktree off argv dropped
+# them, and this is where they are paid back.
+#
 # The residual is disclosed rather than claimed away: an operator who deliberately types a
-# different `--attempt-ledger-root` on a second invocation still obtains a second budget.
+# different absolute, non-contained `--attempt-ledger-root` on a second invocation still
+# obtains a second budget.
 # That is a deliberate re-pointing by the holder of the grant, not the ordinary-checkout
 # reset above, and closing it needs an anchor no argv-only entrypoint can supply.
 ATTEMPT_LEDGER_NAME = "attempt-ledger"
@@ -144,6 +154,50 @@ def _control_roots(tokens: Sequence[object]) -> dict[str, str]:
     if not roots:
         raise ValueError("control-root: no worktree was declared")
     return roots
+
+
+def _attempt_ledger_root(value: object, roots: Mapping[str, str]) -> str:
+    """The declared ledger worktree, or a refusal naming the shape that was wrong.
+
+    The budget's worktree is an argv token like the four control roots, and it is held to the
+    same rule they are: `plan.exact_token` refuses a non-string, an empty token and one
+    carrying a separator, and `plan.control_commands` then requires an absolute path. Both
+    checks were inherited by the old siting for free, because the budget was derived from a
+    path the plan had already validated; taking the worktree off argv dropped them, and the
+    two shapes they exclude are the two ways F0092 comes back:
+
+    * A *relative* token is answered by the process working directory, so the identical
+      command line run from a second directory names a second file and yields a second
+      unconsumed budget inside one grant window.
+    * A token *inside a declared control worktree* puts the budget back under a directory a
+      re-checkout replaces, which is the original defect verbatim. Admission pins each control
+      worktree to `clean is True` with an exact commit and tree, but the ledger file is
+      untracked, so a clean tree and an absent ledger are the same observation downstream.
+
+    Containment is refused, not a shared prefix: a sibling worktree whose path merely begins
+    with the same characters is a different directory and a checkout of the control root does
+    not replace it. The rule is read from `plan` rather than restated, so the token discipline
+    has exactly one definition.
+    """
+    from cybrik_suite_topology_rehearsal.plan import exact_token
+
+    root = exact_token(value, label="attempt-ledger-root")
+    if not root.startswith(ATTEMPT_LEDGER_PATH_SEPARATOR):
+        raise ValueError(
+            "attempt-ledger-root: the ledger worktree must be absolute, or the process "
+            "working directory chooses where the one-attempt budget lives"
+        )
+    for name, control in roots.items():
+        contained = root.rstrip(ATTEMPT_LEDGER_PATH_SEPARATOR)
+        enclosing = control.rstrip(ATTEMPT_LEDGER_PATH_SEPARATOR)
+        if contained == enclosing or contained.startswith(
+            f"{enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
+        ):
+            raise ValueError(
+                f"attempt-ledger-root: the ledger worktree lies inside the {name!r} control "
+                "worktree, so a second checkout of it presents an unconsumed budget"
+            )
+    return root
 
 
 def load_authorization(grant_path: str, signature_path: str) -> Any:
@@ -268,8 +322,18 @@ def build_runtime_wiring(
         "signature": adapter.SshSignatureCommandAdapter(built, runner),
     }
     credential = adapter.CredentialFileAdapter(built)
+    # The composition root owes the same refusal `main` does, for the reason the loader guard
+    # records: this function is exported and states a contract of its own to every caller, so
+    # a siting rule enforced only at the argv frame is satisfied by any other caller supplying
+    # a relative or control-contained worktree. `plan` has already refused any
+    # `repository_roots` that is not exactly the four control worktrees by this point, so the
+    # containment question can be asked here against a mapping that is known good.
+    try:
+        ledger_root = _attempt_ledger_root(attempt_ledger_root, repository_roots)
+    except ValueError as error:
+        raise PrecheckAbort(f"attempt_ledger_root: {error}") from error
     ledger = adapter.AtomicFileAttemptLedger(
-        f"{attempt_ledger_root}{ATTEMPT_LEDGER_PATH_SEPARATOR}{ATTEMPT_LEDGER_NAME}"
+        f"{ledger_root}{ATTEMPT_LEDGER_PATH_SEPARATOR}{ATTEMPT_LEDGER_NAME}"
     )
     adapters = Adapters(
         identities=command_adapters["controls"],
@@ -342,11 +406,14 @@ def main(
         return HOLD_EXIT
     # The ledger worktree is required here, with the other typed declarations, and is never
     # folded to a default: an unstated budget location would otherwise be answered by
-    # whatever this file chose, which is the anchor nobody declared.
+    # whatever this file chose, which is the anchor nobody declared. Truthiness alone was not
+    # enough (F0092): the token is validated against the control roots it must stay outside
+    # of, so the fold below runs after they are known.
     if not parsed.attempt_ledger_root:
         return HOLD_EXIT
     try:
         roots = _control_roots(parsed.control_root)
+        attempt_ledger_root = _attempt_ledger_root(parsed.attempt_ledger_root, roots)
     except ValueError:
         return HOLD_EXIT
     from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
@@ -356,7 +423,7 @@ def main(
             parsed.grant,
             parsed.signature,
             repository_roots=roots,
-            attempt_ledger_root=parsed.attempt_ledger_root,
+            attempt_ledger_root=attempt_ledger_root,
         )
     except PrecheckAbort:
         # A typed refusal from below is the operator's answer, not a traceback: the key

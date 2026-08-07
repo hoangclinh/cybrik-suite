@@ -2425,6 +2425,131 @@ def test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default() -
         )
 
 
+def test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree() -> None:
+    """A ledger worktree that is not absolute is answered by the process working directory.
+
+    This is the first half of the carried F0092. Making the budget's worktree a fifth argv
+    declaration moved it off `plan.signature_path`, but `main` only tested the token for
+    truthiness, so a relative value resolved against whatever directory the operator happened
+    to be standing in. The *identical* command line, run twice from two directories, then
+    named two different files and produced two unconsumed budgets inside one grant window —
+    which is the same reset F0092 names, reached by a different route. A checkout no longer
+    moves the budget, but `cd` did.
+
+    The refusal is stated at `main`, before anything is opened, because that is the frame the
+    operator's typed token arrives at and the last one that can still answer with the hold
+    exit rather than a file. The empty call ledger is the load-bearing half: a `main` that
+    absolutised the value itself would pass on the return code alone, and choosing the base
+    directory is exactly the anchor nobody declared.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    for relative in ("cybrik-attempt-ledger", "./ledger", "../ledger", "sub/dir"):
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=relative),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"a relative ledger worktree {relative!r} resolves against the process working "
+            "directory, so the same command line run elsewhere gets a second budget (F0092)"
+        )
+        assert exit_code != 0
+        assert calls == [], (
+            f"the relative ledger worktree {relative!r} reached the executor"
+        )
+
+
+def test_an_attempt_ledger_root_inside_a_control_worktree_holds() -> None:
+    """Naming a control worktree as the ledger root reproduces F0092 verbatim.
+
+    The second half of the carried row. The separate declaration only buys anything while the
+    two are disjoint: an operator who points `--attempt-ledger-root` at a worktree that is
+    also under `--control-root` puts the budget straight back inside a directory a re-checkout
+    replaces. Admission pins every control worktree to `clean is True` plus an exact commit
+    and tree, and the ledger file is untracked, so a clean tree and an absent ledger remain
+    the same observation — nothing downstream can see the difference, which is why the refusal
+    has to be here.
+
+    Exact equality and containment are both refused, and a merely adjacent path that shares a
+    textual prefix is not: `/synthetic/suite-notes` is a different worktree from
+    `/synthetic/suite`, and refusing it would be a control that fails on a name rather than on
+    the containment that does the harm.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    for colliding in (suite_root, f"{suite_root}/ledger", f"{suite_root}/nested/deeper"):
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=colliding),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"the ledger worktree {colliding!r} lies inside a declared control worktree, so a "
+            "second checkout of that worktree presents an unconsumed budget (F0092)"
+        )
+        assert calls == [], f"the colliding ledger worktree {colliding!r} reached the executor"
+
+    # The control refuses containment, not a shared prefix. A sibling that merely starts with
+    # the same characters is a distinct worktree and must still be accepted, or the repair
+    # would be a string check wearing a siting control's name.
+    adjacent: list[tuple[object, ...]] = []
+    assert (
+        require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=f"{suite_root}-notes"),
+            execute=recording_executor(adjacent),
+        )
+        == 0
+    ), "a sibling worktree sharing a textual prefix is not inside the control worktree"
+    assert len(adjacent) == 1
+
+
+def test_the_attempt_ledger_root_is_held_to_the_argv_token_rule_the_control_roots_are() -> None:
+    """The fifth declaration inherits the token discipline the other four never lost.
+
+    `plan.control_commands` puts every control root through `plan.exact_token` and then
+    requires it to be absolute; the ledger root was forwarded to an f-string with neither
+    check, so the range *dropped* a validation the old siting inherited by construction from
+    the plan. A token carrying a separator is the shape `exact_token` exists to refuse, and
+    it must not become admissible merely by being typed after a different flag.
+
+    The rule is read from `plan` rather than restated here, so a future widening of
+    `FORBIDDEN_TOKEN_CHARACTERS` reaches this control without an edit.
+    """
+    from cybrik_suite_topology_rehearsal import plan
+
+    script = load_c8_script("run_topology_rehearsal.py")
+    for character in sorted(plan.FORBIDDEN_TOKEN_CHARACTERS):
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(attempt_ledger_root=f"/tmp/ledger{character}rest"),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"a ledger worktree carrying {character!r} is the shape exact_token refuses"
+        )
+        assert calls == [], f"a ledger worktree carrying {character!r} reached the executor"
+
+
+def test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well() -> None:
+    """A siting rule stated only at the argv frame is satisfied by any other caller.
+
+    The same argument `test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`
+    makes about mandatory-ness, and the one the loader guard inside
+    `execute_authorized_attempt` records about its own contract: `build_runtime_wiring` is
+    exported, so a relative or control-contained worktree that never passes through `main`
+    would be sited without complaint. The refusal is the typed `PrecheckAbort` this frame
+    already owes for a bad `repository_roots`, so both callers above it answer the operator
+    with the hold exit rather than a traceback.
+    """
+    from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
+
+    script = load_c8_script("run_topology_rehearsal.py")
+    suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
+    for rejected in ("relative/ledger", suite_root, f"{suite_root}/nested"):
+        with pytest.raises(PrecheckAbort):
+            runtime_wiring(script, attempt_ledger_root=rejected)
+
+
 def test_a_precheck_abort_from_the_authorization_loader_holds_like_one_from_the_wiring() -> None:
     """Both typed refusals inside the composition root answer the operator the same way.
 
