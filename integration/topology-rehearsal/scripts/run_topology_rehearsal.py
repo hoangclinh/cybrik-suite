@@ -74,10 +74,15 @@ CONTROL_ROOT_SEPARATOR = "="
 # three checks and compared unequal to every root while naming that worktree at `os.open` on a
 # case-insensitive filesystem -- which is the default on the machines these worktrees live on.
 # That was also one command line typed once with ordinary spellings, so the paragraph above was
-# not a disclosure that covered it. `_is_inside` now folds case on both sides, and the same
-# repair fixed a fail-open regression the normal-form cut introduced: the prefix was built as
-# `enclosing + "/"`, which for a control root of `/` became `//` and matched nothing, so `/`
-# accepted every absolute ledger worktree it in fact encloses.
+# not a disclosure that covered it. A previous cut answered it by folding case alone, which was
+# the same error one layer down: case is one way to spell a name twice and *normal form* is
+# another, so `/ctl/café-suite/ledger` (U+0065 U+0301) against
+# `--control-root cybrik-suite=/ctl/café-suite` (U+00E9) survived the case fold on exactly the
+# same argument. `_is_inside` now compares through `_canonical_caseless`, which folds case and
+# normal form together on both sides. The case cut also fixed a fail-open regression the
+# normal-form cut introduced: the prefix was built as `enclosing + "/"`, which for a control
+# root of `/` became `//` and matched nothing, so `/` accepted every absolute ledger worktree
+# it in fact encloses.
 #
 # What remains open is stated here rather than closed: a *symlink* or bind mount pointing inside
 # a control worktree still aliases past a textual comparison. No textual rule can see it, and
@@ -239,10 +244,12 @@ def _is_inside(root: str, enclosing: str) -> bool:
 
     So the comparison over-approximates instead, in the direction that refuses more:
 
-    * `casefold` on both sides, because a case variant of a component names the same directory
-      on a case-insensitive filesystem (APFS is, by default, and these worktrees live on one).
-      On a case-sensitive filesystem this refuses a worktree that is genuinely distinct; that
-      costs the operator one retype, where the converse hands back the budget reset the control
+    * `_canonical_caseless` on both sides, which folds case *and* Unicode normal form. Either
+      alone leaves the other live: a case variant and a normalization variant of a component
+      both name the same directory on a case-insensitive filesystem (APFS is, by default, and
+      these worktrees live on one), and neither compares equal byte-for-byte. On a
+      case-sensitive filesystem this refuses a worktree that is genuinely distinct; that costs
+      the operator one retype, where the converse hands back the budget reset the control
       exists to prevent. Only the *comparison* folds — the caller returns and forwards the
       operator's token exactly as typed, since rewriting it would make this file choose a
       directory nobody named.
@@ -253,19 +260,48 @@ def _is_inside(root: str, enclosing: str) -> bool:
 
     Residual, stated narrowly and not closed: a *symlink* or bind mount whose target is inside a
     control worktree still aliases past this comparison, and no textual rule can see it. Unlike
-    a case variant, that route is not one command line typed once — it requires an aliasing
+    a case or normalization variant, that route is not one command line typed once — an aliasing
     filesystem object to exist or be created for the purpose, which is an act at the same trust
     level as typing the control root itself, and `--attempt-ledger-root` is already an operator
     declaration at that level alongside `--execute` and the choice of grant file.
     """
-    if root.casefold() == enclosing.casefold():
+    folded_root = _canonical_caseless(root)
+    folded_enclosing = _canonical_caseless(enclosing)
+    if folded_root == folded_enclosing:
         return True
     prefix = (
-        enclosing
-        if enclosing.endswith(ATTEMPT_LEDGER_PATH_SEPARATOR)
-        else f"{enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
+        folded_enclosing
+        if folded_enclosing.endswith(ATTEMPT_LEDGER_PATH_SEPARATOR)
+        else f"{folded_enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
     )
-    return root.casefold().startswith(prefix.casefold())
+    return folded_root.startswith(prefix)
+
+
+def _canonical_caseless(value: str) -> str:
+    """One value for every spelling of a name that differs only by case or by normal form.
+
+    `casefold` alone answers case and not normal form: U+00E9 and U+0065 U+0301 are canonically
+    equivalent, casefold to themselves, and compare unequal, so a ledger worktree spelled in one
+    form aliased into a control worktree spelled in the other. Nothing upstream closed it --
+    `plan.exact_token` constrains separators and emptiness rather than the character repertoire,
+    and `os.path.normpath` normalizes path punctuation and never Unicode.
+
+    The normalization is applied on *both* sides of the fold, which is UAX#15 D145's shape and
+    not belt-and-braces. Casefolding is not closed under normalization: U+0345 casefolds into a
+    character that recomposes differently depending on whether its input was already normalized,
+    so normalizing only afterwards maps canonically-equivalent inputs to different results -- a
+    sweep to U+2FFFF puts that at 955 characters, so it is the common case for this repertoire
+    rather than a curiosity. The leading `normalize` is also what makes the guarantee provable
+    instead of measured: it renders canonically-equivalent inputs byte-identical before anything
+    else runs, so every later step is deterministic on them.
+
+    `unicodedata` is a pure table lookup in the standard library: it opens nothing, reads no
+    host source and is imported inside the function like every other library import here, so
+    the front door stays inert.
+    """
+    import unicodedata
+
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", value).casefold())
 
 
 def load_authorization(grant_path: str, signature_path: str) -> Any:

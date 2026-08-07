@@ -11079,15 +11079,14 @@ independent verdict.
 bound diff digest is the one recorded in `VERDICT-2fc18c6ea02d….json` under recipe
 `REVIEW-DIFF-SHA256/v1`, cited by artifact and not transcribed (F0116).
 
-**Execution evidence.** This verdict is the first in the corpus whose artifact carries an
-`execution_evidence` object with `status: COMPLETE` — pytest 1798 passed / 1 failed with
+**Execution evidence.** This verdict's artifact carries an `execution_evidence` object with
+`status: COMPLETE` — pytest 1798 passed / 1 failed with
 `unintended_failures: 0` and `matches_baseline: true`, ruff 12 = 12, `compileall_exit: 0`. The
 verdict's own `unverified_claims` is explicit that the reviewer *read* that block off disk rather
 than witnessing the run, and could not authenticate its author. This lane records it exactly at
 that strength: driver-measured, reviewer-read, not reviewer-witnessed.
 
-**Retired by this verdict:** `F0113` (P2), `F0114` (P3) — the first multi-row retirement in this
-deployment against a background of four verdicts that had retired one row in total. Coverage
+**Retired by this verdict:** `F0113` (P2), `F0114` (P3) — two rows. Coverage
 reached 39/39 paths and the distance fell from 7 to 2.
 **Opened:** `F0116` (P2), `F0117` (P3), `F0118` (P3). **Carried:** `F0092` (P2), its seventh
 verdict.
@@ -11166,3 +11165,71 @@ returned exit 0 with the executor called — the fail-open end to end. After: 18
 (the pre-existing F131 intended RED at `runner.py:434`, untouched), matching the declared baseline
 of 1; `ruff check src tests scripts` 12 pre-existing errors in `observe.py`, `preparation.py`,
 `test_errors.py` and `test_runner.py`, **none in any file this cut touches**; `compileall` exit 0.
+
+## `d9933d1..HEAD` — the eighth `F0092` carry, and a correction this lane owes against itself
+
+**Verdict on `d9933d1`: NO-GO**, `covers_head` true, base `2fc18c6`, scope the same three paths.
+Its `execution_evidence` is `COMPLETE` — pytest 1801 passed / 1 failed with `unintended_failures: 0`
+and `matches_baseline: true`, ruff 12 = 12, `compileall_exit: 0`. Read off disk by the reviewer,
+measured by the driver, not witnessed by either. **Retired:** `F0115`, `F0116`, `F0117`.
+**Opened:** `F0119` (P2), `F0120` (P3), `F0121` (P3). **Carried:** `F0092`, its eighth verdict.
+
+### `F0092` — P2 — case folding does not fold normal form
+
+The seventh cut folded case on both sides of the containment test. That was correct and
+insufficient for the reason the cut before it was insufficient: a normal form gives one directory
+one *punctuation*, `casefold` gives it one *case*, and neither gives it one **name**. U+00E9 and
+U+0065 U+0301 are canonically equivalent, casefold to themselves, and compare unequal, so
+`--attempt-ledger-root /synthetic/café-suite/ledger` against
+`--control-root cybrik-suite=/synthetic/café-suite` passed `exact_token`, absoluteness, the normal
+form and the case fold, and reached that control worktree at `os.open`. One command line, typed
+once, two ordinary spellings, no filesystem object — the same shape graded a defect twice before,
+so it is graded one again rather than disclosed away.
+
+Nothing upstream closed it, and this lane checked rather than assumed: `plan.exact_token`
+constrains separators and emptiness, not the character repertoire, and `os.path.normpath`
+normalizes path punctuation and never Unicode.
+
+Repair: `_is_inside` compares through a new `_canonical_caseless`, which is
+`NFC(casefold(NFC(x)))`. `unicodedata` is a pure table lookup, opens nothing, reads no host source
+and is imported inside the function like every other library import in the file, so inertness is
+untouched; it is constrained by no import control in this repository — the two that exist bind
+`os`/`subprocess` spawn names and the `CONTROL_REPOSITORIES` key space, and this lane re-derived
+that rather than accepting the finding's assertion of it.
+
+**The correction this lane owes against itself.** The previous cycle disclosed the NFD gap before
+any reviewer raised it, but prescribed `NFC` + `casefold` — normalizing on one side only — and
+justified it with a measurement reporting zero disagreements. That measurement was too narrow: it
+crossed 26 characters with combining marks and never reached U+0345. Re-measured here to U+2FFFF,
+`NFC(casefold(x))` and `NFC(casefold(NFC(x)))` disagree on **955** characters, exactly the
+non-closure of casefolding under normalization that UAX#15 D145 exists to answer. Had the
+prescribed form shipped, it would have been the fourth spelling patch in this row rather than the
+end of it. The leading normalization is also what makes the property provable instead of measured:
+it renders canonically-equivalent inputs byte-identical before anything else runs.
+`test_the_containment_fold_is_canonical_and_not_merely_case_insensitive` pins the order, which the
+aliasing rows cannot see.
+
+The module disclosure at the head of the file and the `_is_inside` docstring previously named
+symlinks as the only residual while the code had not yet closed normal form — the "comment broader
+than its code" class. Both now name case and normal form as closed and leave only the aliasing
+filesystem object open, which needs an object created for the purpose rather than a spelling.
+
+### `F0119` — P2 — two superlatives the corpus refutes
+
+Both deleted rather than qualified. The `execution_evidence` claim ("the first in the corpus") is
+false — 32 of 35 artifacts carry `status: COMPLETE`, and this file's own index row already calls
+`af0d227` the first backed by driver execution evidence. The retirement claim ("the first
+multi-row retirement … against four verdicts that had retired one row in total") is false against
+this file's own index at `:73-77`, which records eight, six, three, five and two rows retired. The
+sections now state the evidence object and the retirements plainly and claim no rank.
+
+`F0120` and `F0121` are **not** repaired here. Both are P3 and neither gates. `F0121` is a real
+composition defect and is the first candidate once the gate is clean.
+
+**This lane's own measurements on its own patch, not a substitute for the verdict.** Test-first:
+both new inertness tests observed RED before the fix, and the aliasing RED returned exit **0** with
+the executor called — the alias reached the runtime end to end, so this was a live fail-open and
+not a static argument. After: 1803 passed / 1 failed (the pre-existing F131 intended RED,
+untouched), matching the declared baseline of 1; the +2 are exactly the tests added here; `ruff
+check src tests scripts` 12 pre-existing errors, none in any file this cut touches; `compileall`
+exit 0.

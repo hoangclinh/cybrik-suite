@@ -6,6 +6,7 @@ import ast
 import inspect
 import sys
 import textwrap
+import unicodedata
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
@@ -2746,6 +2747,84 @@ def test_a_case_variant_control_worktree_cannot_hide_a_plainly_spelled_ledger_ro
         "decided, or it hides a plainly-spelled ledger root sited inside it (F0092)"
     )
     assert calls == [], "the case-aliasing control worktree reached the executor"
+
+
+def test_a_normalization_variant_ledger_worktree_cannot_alias_into_a_control_worktree() -> None:
+    """INTENDED RED (F0092, eighth carry). Case folding does not fold Unicode normalization.
+
+    `casefold` answers spelling-by-case. It does not answer spelling-by-*normal form*: U+00E9
+    (precomposed `e-acute`) and U+0065 U+0301 (`e` plus combining acute) are canonically
+    equivalent, casefold to themselves, and compare unequal. Nothing upstream closes the gap --
+    `plan.exact_token` constrains separators and emptiness rather than the character repertoire,
+    and `os.path.normpath`, which the plan's normal-form check rests on, normalizes *path
+    punctuation* and never Unicode. So an operator who declares
+    `--control-root cybrik-suite=/synthetic/café-suite` and
+    `--attempt-ledger-root /synthetic/café-suite/ledger` passes every existing check,
+    compares unequal to every declared root, and reaches that same control worktree at
+    `os.open` on the case-insensitive volumes the case repair's own argument depends on.
+
+    This is the identical shape as the case variant and not the disclosed residual: one command
+    line, typed once, two ordinary spellings, no filesystem object created for the purpose. It
+    is graded a defect for the same reason the case variant was.
+
+    Both directions are driven, because the operator chooses the spelling of both tokens, and
+    the fourth row crosses normalization with case: a fold applied in the wrong order, or on one
+    side only, leaves at least one row live.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    precomposed = "/synthetic/café-suite"
+    decomposed = "/synthetic/café-suite"
+    assert precomposed != decomposed, "the two spellings must differ as strings to prove anything"
+
+    rows = (
+        (precomposed, f"{decomposed}/ledger"),
+        (decomposed, f"{precomposed}/ledger"),
+        (precomposed, decomposed),
+        (precomposed, f"{decomposed.upper()}/ledger"),
+    )
+    for declared, alias in rows:
+        calls: list[tuple[object, ...]] = []
+        exit_code = require_c8_attr(script, "main")(
+            execute_argv(
+                {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: declared},
+                attempt_ledger_root=alias,
+            ),
+            execute=recording_executor(calls),
+        )
+        assert exit_code == require_c8_attr(script, "HOLD_EXIT"), (
+            f"the ledger worktree {alias!r} is a normalization variant of the declared control "
+            f"worktree {declared!r}, so it names that worktree at os.open and a second checkout "
+            "of it presents an unconsumed budget (F0092)"
+        )
+        assert calls == [], (
+            f"the normalization-aliasing ledger worktree {alias!r} reached the executor"
+        )
+
+
+def test_the_containment_fold_is_canonical_and_not_merely_case_insensitive() -> None:
+    """INTENDED RED (F0092). Pins the *order* of the fold, which the aliasing rows cannot see.
+
+    Normalizing only after folding is the plausible wrong cut and it is wrong for a documented
+    reason: casefolding is not closed under normalization. UAX#15 D145 defines the canonical
+    caseless form with a normalization on *both* sides of the fold precisely because U+0345
+    (combining Greek ypogegrammeni) casefolds into a character that then recomposes differently
+    depending on whether its input was already normalized. Folding first and normalizing once
+    therefore maps canonically-equivalent inputs to different results.
+
+    The inner normalization is what makes the guarantee provable rather than measured: it makes
+    canonically-equivalent inputs *byte-identical* before anything else runs, so every later
+    step is deterministic on them. Asserting that here stops a future simplification to the
+    one-sided form, which the four aliasing rows above would not catch.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    fold = require_c8_attr(script, "_canonical_caseless")
+    witness = "́ͅ"
+    assert fold(witness) == fold(unicodedata.normalize("NFC", witness)), (
+        "canonically equivalent tokens must fold to one value; normalizing only after the "
+        "casefold leaves U+0345 mapping equivalent inputs apart (UAX#15 D145)"
+    )
+    assert fold("café") == fold("café"), "the fold must answer normal form"
+    assert fold("CAFÉ") == fold("café"), "the fold must still answer case"
 
 
 def test_a_control_worktree_naming_the_filesystem_root_refuses_every_ledger_worktree() -> None:
