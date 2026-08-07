@@ -53,8 +53,17 @@ supplied is unspecified by the current RED.
 ## `run_topology_rehearsal.py`
 
 This section is restated from the live tests at the argv-boundary shape `42bc6f7` adjudicated
-and `015de49` landed. Every line-number citation below is into `tests/test_scripts_inert.py`
-as committed at `4230858`; where a citation and the file disagree, the file wins.
+and `015de49` landed. Line-number citations below are into `tests/test_scripts_inert.py` as
+committed at `4230858`; where a citation and the file disagree, **the file wins**.
+
+Those anchors have measurably drifted and most have not been reconverted. F0049 and F0079
+recorded the drift, and it has since compounded: the four citations named by those findings moved
+once under `015de49` and again under the commits after it — for example the anchor for
+`test_default_composition_loads_builds_and_runs_the_same_authorization` read `:201`, was `:511`
+when F0079 was written, and is `:543` today. Only the five citations those two findings named
+have been converted to **test names**, which survive renumbering. Every remaining bare line range
+in this document is unverified and should be read as a hint toward a symbol, never as evidence.
+Convert one to a test name whenever you have independently confirmed what it points at.
 
 Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>` and a repeatable
 `--control-root NAME=PATH` that *accumulates* into `args.control_root` in the order typed,
@@ -209,7 +218,8 @@ tested — the same handling Obstacle 3 receives below.
 
 Two live sources refute it, and neither is a citation that can drift:
 
-- `tests/test_scripts_inert.py:1067-1080` names the envelope answer and withdraws it by name,
+- `tests/test_scripts_inert.py::test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`
+  names the envelope answer and withdraws it by name in its docstring,
   then asserts the replacement behaviourally: `repository_roots` is `KEYWORD_ONLY` with
   `default is inspect.Parameter.empty`, no variadic may accept it unnamed, and
   `build(authorization=documents.authorization())` must raise `TypeError`. A wiring that read
@@ -360,10 +370,12 @@ from it.
 
 Consequences for the committed RED, to be discharged by a further RED commit rather than a rewrite:
 
-- `test_the_wiring_offers_no_second_way_to_supply_the_control_roots`
-  (`test_scripts_inert.py:562-581`), which asserts `"repository_roots" not in signature.parameters`,
-  is itself the incorrect RED. It must be retired and replaced by one requiring the parameter to be
-  **mandatory** — absent-argument construction must raise, not fall back.
+- `test_the_wiring_offers_no_second_way_to_supply_the_control_roots`, which asserted
+  `"repository_roots" not in signature.parameters`, is itself the incorrect RED. It must be retired
+  and replaced by one requiring the parameter to be **mandatory** — absent-argument construction
+  must raise, not fall back. *Discharged:* that test no longer exists in the file; its replacement
+  is `test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`, whose docstring
+  records both the host-observing default and the envelope field as withdrawn.
 - `documents.Authorization.repository_roots` and its default must be withdrawn; the wiring tests
   inject `fakes.SYNTHETIC_REPOSITORY_ROOTS` directly, as `test_plan.py` and `test_adapter.py` do.
 - The refusal test `test_an_envelope_that_does_not_name_four_control_roots_is_refused` keeps its
@@ -386,12 +398,12 @@ The two callers above it were left on their prior shape, and the pair is unsatis
 end to end:
 
 - `test_default_composition_loads_builds_and_runs_the_same_authorization`
-  (`test_scripts_inert.py:201`) pins `execute_authorized_attempt` to call its builder as
-  `build(authorization=authorization)`. The fake at `:216` is `def build(*, authorization)`
+  pins `execute_authorized_attempt` to call its builder as
+  `build(authorization=authorization)`. Its in-test fake is `def build(*, authorization)`
   and accepts no second keyword, so an implementation that passed `repository_roots` would
   raise `TypeError` against the fake.
 - `test_default_dependency_loader_returns_the_reviewed_real_triple`
-  (`test_scripts_inert.py:244`) pins `dependencies.wiring_builder is build_runtime_wiring` —
+  pins `dependencies.wiring_builder is build_runtime_wiring` —
   the real function, which `3cd9d77` made mandatory-keyword with no default.
 
 Each test passes on its own: the first never touches the real builder, the second never calls
@@ -414,8 +426,8 @@ No GREEN is push-eligible until that further RED lands and is independently revi
 Independent architecture review read all the binding sites rather than the summary above, and
 found the contradiction is **wider than this section first stated**. Three tests pin the builder
 call shape, not one — `test_every_non_pass_result_maps_to_the_fixed_nonzero_hold_exit` also pins
-`wiring_builder=lambda *, authorization` (`test_scripts_inert.py:272`) — and
-`test_exact_execute_path_calls_one_injected_executor_with_external_paths` (`:175`) pins
+`wiring_builder=lambda *, authorization` — and
+`test_exact_execute_path_calls_one_injected_executor_with_external_paths` pins
 `execute(grant_path, signature_path)` as exactly two positionals. Any correction must amend all
 three.
 
