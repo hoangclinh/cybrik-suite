@@ -2804,24 +2804,43 @@ def test_a_normalization_variant_ledger_worktree_cannot_alias_into_a_control_wor
 def test_the_containment_fold_is_canonical_and_not_merely_case_insensitive() -> None:
     """INTENDED RED (F0092). Pins the *order* of the fold, which the aliasing rows cannot see.
 
-    Normalizing only after folding is the plausible wrong cut and it is wrong for a documented
-    reason: casefolding is not closed under normalization. UAX#15 D145 defines the canonical
-    caseless form with a normalization on *both* sides of the fold precisely because U+0345
-    (combining Greek ypogegrammeni) casefolds into a character that then recomposes differently
-    depending on whether its input was already normalized. Folding first and normalizing once
-    therefore maps canonically-equivalent inputs to different results.
+    Normalizing only after folding is the plausible wrong cut, and it is wrong because casefolding
+    is not closed under normalization: U+0345 (combining Greek ypogegrammeni) casefolds to U+03B9,
+    which reorders and recomposes differently depending on whether its input was already in a
+    normal form. Folding first and normalizing once therefore maps canonically-equivalent inputs
+    to different results.
 
-    The inner normalization is what makes the guarantee provable rather than measured: it makes
-    canonically-equivalent inputs *byte-identical* before anything else runs, so every later
-    step is deterministic on them. Asserting that here stops a future simplification to the
-    one-sided form, which the four aliasing rows above would not catch.
+    The witness must be a *reordering* case, not merely a decomposition case. The previous witness
+    was U+0301 U+0345, which is already in canonical order -- ascending combining class, 230 then
+    240, no starter and no composition -- so `normalize("NFC", witness) == witness` and this
+    assertion reduced to `fold(w) == fold(w)`, true for every implementation including the
+    one-sided form it exists to refuse, and true for the identity function (F0122). The witness
+    below is U+0345 U+0301: classes 240 then 230, which canonical ordering must swap.
+
+    Two guards keep the row from going vacuous again. The first pins that the witness is genuinely
+    unnormalized. The second pins that it *discriminates* -- that the one-sided cut actually
+    disagrees on it -- so this test fails if a future edit weakens the witness back to a case the
+    wrong implementation would also pass.
     """
     script = load_c8_script("run_topology_rehearsal.py")
     fold = require_c8_attr(script, "_canonical_caseless")
-    witness = "́ͅ"
+    witness = "x́ͅ"
+    assert unicodedata.normalize("NFC", witness) != witness, (
+        "the witness must not already be in canonical order, or the assertion below reduces to "
+        "fold(w) == fold(w) and passes for the one-sided fold it exists to refuse (F0122)"
+    )
+
+    def one_sided(value: str) -> str:
+        """The plausible wrong cut: normalize only *after* the casefold."""
+        return unicodedata.normalize("NFC", value.casefold())
+
+    assert one_sided(witness) != one_sided(unicodedata.normalize("NFC", witness)), (
+        "the witness must discriminate: if the one-sided fold already agrees on it, this test "
+        "cannot detect the simplification it is here to stop (F0122)"
+    )
     assert fold(witness) == fold(unicodedata.normalize("NFC", witness)), (
         "canonically equivalent tokens must fold to one value; normalizing only after the "
-        "casefold leaves U+0345 mapping equivalent inputs apart (UAX#15 D145)"
+        "casefold leaves U+0345 mapping equivalent inputs apart"
     )
     assert fold("café") == fold("café"), "the fold must answer normal form"
     assert fold("CAFÉ") == fold("café"), "the fold must still answer case"

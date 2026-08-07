@@ -75,7 +75,9 @@ to be lost irrecoverably.
 | `7cb9f9a` | 4 paths — F0101/F0104/F0105 retired; F0092 carried, F0107 opened | NO-GO | 0/0/2/4 | NO | HOLD |
 | `d899bbd` | 3 paths — F0107/F0098/F0106/F0108/F0109 retired; F0110/F0111/F0112 opened; F0092 carried (5th) | NO-GO | 0/0/1/3 | NO | HOLD |
 | `bc2a233` | 3 paths — F0111/F0112 retired; F0113/F0114/F0115 opened; F0092 carried (6th) | NO-GO | 0/0/2/2 | NO | HOLD |
-| `2fc18c6` | 5 paths — F0113/F0114 retired, first multi-row retirement; F0116/F0117/F0118 opened; F0092 carried (7th) | NO-GO | 0/0/2/3 | NO | HOLD |
+| `2fc18c6` | 5 paths — F0113/F0114 retired; F0116/F0117/F0118 opened; F0092 carried (7th) | NO-GO | 0/0/2/3 | NO | HOLD |
+| `d9933d1` | 3 paths — F0115/F0116/F0117 retired; F0119/F0120/F0121 opened; F0092 carried (8th) | NO-GO | 0/0/2/2 | NO | HOLD |
+| `083a468` | 3 paths — F0092 retired after eight carries; F0122/F0123/F0124 opened; F0119/F0120/F0121 carried | NO-GO | 0/0/3/3 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -11166,7 +11168,7 @@ returned exit 0 with the executor called — the fail-open end to end. After: 18
 of 1; `ruff check src tests scripts` 12 pre-existing errors in `observe.py`, `preparation.py`,
 `test_errors.py` and `test_runner.py`, **none in any file this cut touches**; `compileall` exit 0.
 
-## `d9933d1..HEAD` — the eighth `F0092` carry, and a correction this lane owes against itself
+## `d9933d1` — the eighth `F0092` carry, and a correction this lane owes against itself
 
 **Verdict on `d9933d1`: NO-GO**, `covers_head` true, base `2fc18c6`, scope the same three paths.
 Its `execution_evidence` is `COMPLETE` — pytest 1801 passed / 1 failed with `unintended_failures: 0`
@@ -11200,9 +11202,14 @@ that rather than accepting the finding's assertion of it.
 **The correction this lane owes against itself.** The previous cycle disclosed the NFD gap before
 any reviewer raised it, but prescribed `NFC` + `casefold` — normalizing on one side only — and
 justified it with a measurement reporting zero disagreements. That measurement was too narrow: it
-crossed 26 characters with combining marks and never reached U+0345. Re-measured here to U+2FFFF,
-`NFC(casefold(x))` and `NFC(casefold(NFC(x)))` disagree on **955** characters, exactly the
-non-closure of casefolding under normalization that UAX#15 D145 exists to answer. Had the
+crossed 26 characters with combining marks and never reached U+0345. The replacement figure this
+section originally published — "955 characters disagreeing in a sweep to U+2FFFF" — **is also
+wrong, and this lane refuted it against itself** before any reviewer raised it: a re-run of that
+sweep over `{raw, NFC, NFD}` forms finds **zero** single-character disagreements, U+0345 included.
+The correct statement is not a count of characters but a class of inputs: casefolding is not closed
+under *canonical ordering*, so the disagreement needs a combining-mark **sequence**, not a
+character. The witness is U+0345 U+0301 (classes 240 then 230, which canonical ordering must swap)
+— see `F0122` below, where the reviewer supplied it and this lane reproduced the fail-open. Had the
 prescribed form shipped, it would have been the fourth spelling patch in this row rather than the
 end of it. The leading normalization is also what makes the property provable instead of measured:
 it renders canonically-equivalent inputs byte-identical before anything else runs.
@@ -11217,11 +11224,19 @@ filesystem object open, which needs an object created for the purpose rather tha
 ### `F0119` — P2 — two superlatives the corpus refutes
 
 Both deleted rather than qualified. The `execution_evidence` claim ("the first in the corpus") is
-false — 32 of 35 artifacts carry `status: COMPLETE`, and this file's own index row already calls
-`af0d227` the first backed by driver execution evidence. The retirement claim ("the first
-multi-row retirement … against four verdicts that had retired one row in total") is false against
-this file's own index at `:73-77`, which records eight, six, three, five and two rows retired. The
-sections now state the evidence object and the retirements plainly and claim no rank.
+false: the artifact corpus holds many verdicts carrying `status: COMPLETE`, and this file's own
+index row already calls `af0d227` the first backed by driver execution evidence. The retirement
+claim ("the first multi-row retirement … against four verdicts that had retired one row in total")
+is false against this file's own index, which records eight, six, three, five and two rows retired
+at `632f8b1`, `b5c97c6`, `7cb9f9a`, `d899bbd` and `bc2a233`. The sections now state the evidence
+object and the retirements plainly and claim no rank.
+
+The first repair of this row replaced one refuted figure with another: it published "32 of 35
+artifacts", a **file count**, which the rule above forbids outright and which was already stale in
+the commit that wrote it. A count over a growing directory is falsified by the next append, which
+is the whole reason this version publishes no denominators. It is restated above without one, and
+the index row at `2fc18c6` that still read "first multi-row retirement" — the same superlative,
+surviving in the index after the prose copies were deleted — is struck in this commit.
 
 `F0120` and `F0121` are **not** repaired here. Both are P3 and neither gates. `F0121` is a real
 composition defect and is the first candidate once the gate is clean.
@@ -11233,3 +11248,80 @@ not a static argument. After: 1803 passed / 1 failed (the pre-existing F131 inte
 untouched), matching the declared baseline of 1; the +2 are exactly the tests added here; `ruff
 check src tests scripts` 12 pre-existing errors, none in any file this cut touches; `compileall`
 exit 0.
+
+## `083a468` — `F0092` retired after eight verdicts, and three rows opened in the repair that closed it
+
+**Verdict on `083a468`: NO-GO**, `covers_head` true, base `d9933d1`, scope the three paths
+`scripts/run_topology_rehearsal.py`, `tests/test_scripts_inert.py` and this file.
+`execution_evidence` is `COMPLETE` — pytest 1803 passed / 1 failed with `unintended_failures: 0`
+and `matches_baseline: true`, ruff 12 against a baseline of 12, `compileall_exit: 0`. Measured by
+the driver on an isolated checkout, read off disk by the reviewer, witnessed by neither.
+**Retired:** `F0092`. **Opened:** `F0122` (P2), `F0123` (P2), `F0124` (P3).
+**Carried:** `F0119` (P2), `F0120` (P3), `F0121` (P3).
+
+`F0092` is closed after **eight** verdicts. The reviewer reproduced the closure independently
+rather than reading the patch: both token directions and the crossed case-by-normalization row
+driven through `main` with a recording executor, refused with `calls == []`, and inertness
+unaffected — `unicodedata` is bound by no import control here.
+
+### `F0122` — P2 — the control that pins the fold's order was a tautology
+
+Graded against this lane, in the repair this lane wrote to close the "control weaker than the
+claim it pins" class. It is the fourth instance of that class, and it was found inside the fix for
+the class.
+
+The witness was U+0301 U+0345 — combining classes 230 then 240, ascending, therefore **already in
+canonical order**, with no starter and no composition. So `normalize("NFC", witness) == witness`
+and the sole assertion reduced to `fold(w) == fold(w)`: true for the correct implementation, true
+for the one-sided `NFC(casefold(x))` the docstring exists to refuse, and true for the identity
+function. Deleting the inner `normalize` left the entire suite green.
+
+The consequence is not cosmetic. This lane reproduced it by mutation rather than argument: with the
+inner `normalize` removed, `--control-root cybrik-suite=/synthetic/x{U+0345}{U+0301}` and
+`--attempt-ledger-root /synthetic/x{U+0301}{U+0345}/ledger` fold to `/synthetic/xί` and
+`/synthetic/x́ι`, are not contained, and are **admitted** — two canonically-equivalent spellings
+of one directory, which is exactly the fail-open `F0092` spent eight verdicts closing.
+
+Repair: the witness becomes U+0345 U+0301 (classes 240 then 230, which canonical ordering must
+swap), plus **two** guards. The first asserts the witness is not already normalized. The second
+asserts the witness *discriminates* — that the one-sided fold genuinely disagrees on it — spelled
+as the wrong implementation inline, so the row fails if a future edit weakens the witness back to
+something the mutant would also pass. A guard on non-normality alone would not have caught the
+original defect class in general; a guard on discrimination does, because it pins the property the
+test exists to measure rather than a proxy for it.
+
+Mutation evidence, this lane's own and not a substitute for the verdict: the old body passes for
+the real fold, the one-sided mutant and the identity; the new body passes for the real fold and
+**fails** for the mutant.
+
+### `F0123` — P2 — the standing directive violated on its fourth occurrence
+
+The rule in bold at the head of this file requires the index to be extended by the same commit
+that records a verdict in prose. The previous commit appended the `d9933d1` verdict in prose while
+the index still ended at `2fc18c6`, breaking the bijection this file asserts of itself: the
+verdict had an artifact and no row. That is the defect graded P2 as F95 and re-graded as `F0065`
+on its third occurrence.
+
+Repaired in this commit, and repaired at the class rather than the instance: the `d9933d1` row and
+the `083a468` row are both appended **here**, in the same commit as this prose. The `d9933d1`
+section is also retitled from `d9933d1..HEAD` to the bare sha, because `HEAD` names a different
+range on every commit and so cannot title a durable record.
+
+### `F0119` — P2 — carried, and the second superlative struck
+
+See the corrected `F0119` section above. The prose copies went in the previous commit; the index
+row at `2fc18c6` still carried "first multi-row retirement", and the replacement text published a
+file count this file forbids. Both are struck in this commit.
+
+### Not repaired here, deliberately
+
+`F0120`, `F0121` and `F0124` are all P3 and none of them gates. `F0124` names a false "955
+characters" figure and an unverifiable "UAX#15 D145" citation in
+`scripts/run_topology_rehearsal.py`; the figure is corrected **in this file** above, where the rule
+on provenance already binds, but the docstring itself is left untouched so that this cut does not
+add a third path to a scope whose purpose is to reach `P0=P1=P2=0`. `F0121` is a real composition
+defect and is the first candidate once the gate is clean.
+
+**This lane's own measurements on its own patch, not a substitute for the verdict.** The `F0122`
+repair was proven by mutation before it was committed, not after: the mutant that deletes the inner
+`normalize` is killed by the new body and survived the old one.
