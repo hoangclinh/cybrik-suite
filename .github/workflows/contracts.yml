@@ -170,7 +170,17 @@ jobs:
           suite = measured(os.path.join(tmp, "pytest.xml"),
                            lambda handle: ET.parse(handle).getroot(), "pytest")
           if suite.tag == "testsuites":
+              # find() yields None for a <testsuites> root with no <testsuite>
+              # child. Every use below (.get here, .iter in the identity check)
+              # would then raise AttributeError — an uncaught traceback in the
+              # one step written so a failed measurement names itself. Guarded
+              # for the same reason measured() is: the gate must not read as
+              # broken when it is in fact reporting a true condition.
               suite = suite.find("testsuite")
+              if suite is None:
+                  print("::error::the pytest measurement produced no testsuite "
+                        "element — pytest.xml is present but carries no results")
+                  sys.exit(1)
           measured_failures = int(suite.get("failures", 0)) + int(suite.get("errors", 0))
           declared_failures = baseline["pytest"]["expected_failures"]
 
@@ -196,7 +206,24 @@ jobs:
                       return "::".join([path] + segments[cut:] + [case.get("name") or ""])
               return "::".join(segments + [case.get("name") or ""])
 
-          declared_reds = set(re.findall(r"\S+\.py::\S+", baseline["pytest"]["composition"]))
+          # `composition` is a PROSE field maintained by the baseline owner, so the
+          # nodeids are scraped out of a sentence. \S+ greedily swallows whatever
+          # punctuation ends that sentence, and a nodeid written as "...::test_x."
+          # or "(...::test_x)" would then never match a measured nodeid: the job
+          # would red a tree that has no regression, blaming the suite for the
+          # baseline's punctuation. That is fail-closed but misattributed, and a
+          # gate that reds for reasons the operator cannot act on is the one that
+          # gets called flaky. Sentence punctuation is therefore stripped from BOTH
+          # ends: a nodeid written parenthetically as "(pkg/test_a.py::test_b)," is
+          # bracketed, and stripping only the tail leaves a leading "(" that misses
+          # just as silently. Deliberately NOT stripped: "]", which terminates a
+          # parametrised nodeid such as ...::test_b[case-1] and is part of the
+          # identity. A path segment can never begin with ( " ' so this cannot eat
+          # a real nodeid.
+          declared_reds = {
+              red.lstrip("(\"'").rstrip(".,;:)\"'")
+              for red in re.findall(r"\S+\.py::\S+", baseline["pytest"]["composition"])
+          }
           measured_reds = {
               nodeid(case)
               for case in suite.iter("testcase")
@@ -218,18 +245,25 @@ jobs:
                   f"pytest: {red} failed but is not the RED the baseline declares — "
                   "a regression against the bar, even where the total still matches."
               )
-          for label, measured, declared in (
+          # The loop variable is `count`, NOT `measured`: `measured` is the guarded
+          # reader defined above, and binding an int to that name here would shadow
+          # it for the rest of the script. Nothing lints this file — ruff and
+          # compileall are pointed at src and tests only — so the first guarded read
+          # added below this loop would fail on a hosted runner with
+          # "TypeError: 'int' object is not callable", in the very step rewritten so
+          # that a failed measurement names itself.
+          for label, count, declared in (
               ("pytest failures", measured_failures, declared_failures),
               ("ruff violations", measured_violations, declared_violations),
           ):
-              if measured > declared:
+              if count > declared:
                   problems.append(
-                      f"{label}: measured {measured} exceeds the declared {declared} — "
+                      f"{label}: measured {count} exceeds the declared {declared} — "
                       "a regression against the bar."
                   )
-              elif measured < declared:
+              elif count < declared:
                   problems.append(
-                      f"{label}: measured {measured} is below the declared {declared}. "
+                      f"{label}: measured {count} is below the declared {declared}. "
                       "If a RED was legitimately retired, the owner of "
                       ".github/REVIEW-BASELINE.json lowers the number and records why "
                       "in revision_history; this job may not."
