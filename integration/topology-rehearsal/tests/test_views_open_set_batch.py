@@ -1,4 +1,10 @@
-"""INTENDED RED until the open-set batch lands: F0001-F0009 in `views.py`.
+"""Regression controls for the open-set batch F0001-F0009 in `views.py`, which has landed.
+
+Every test in this module is GREEN and is a control against re-entry, not a pending defect.
+`.github/REVIEW-BASELINE.json` declares exactly one intentional failure and it is not in this
+file, so no docstring here may announce an INTENDED RED: a reader reconciling this module
+against the declared bar would otherwise be misfed (F0162, the class of F0045 and F0048).
+Where a test began life as an INTENDED RED, that history is stated in the past tense.
 
 Every test here pins one row of the driver-injected open set. They are written as one module
 because the findings are not independent: they are four mechanisms, and repairing one without
@@ -60,7 +66,7 @@ class DivergentHostileRepr(Mapping):
         self._stored = HostileRepr()
 
     def __iter__(self):
-        return iter(("k",))
+        return iter(("entry",))
 
     def __len__(self) -> int:
         return 1
@@ -70,24 +76,36 @@ class DivergentHostileRepr(Mapping):
 
 
 def test_a_raising_repr_does_not_escape_stored_entries():
-    """INTENDED RED (F0006): the finding f-strings interpolate `!r` outside every `try`."""
+    """Control (F0006): the finding f-strings must interpolate `!r` inside every `try`.
+
+    Pinned on the placeholder rather than on the key (F0028). `<unrepresentable ` is written at
+    exactly one site, `views.safe_repr`'s `except BaseException` arm, so its presence is proof
+    that a value refused to be described *and the report survived it*. Matching the key instead
+    pinned the fixture's spelling: while this mapping announced `"k"`, `any("k" in finding)` was
+    satisfied by that literal, and renaming the key to `"entry"` turned it False with the
+    containment route byte-for-byte unchanged. That is measured, not argued.
+    """
     _stored, findings = stored_entries(DivergentHostileRepr(), LABEL)
     assert findings, "the two views disagree, so this must be reported at all"
-    assert any("k" in finding for finding in findings)
+    assert any("<unrepresentable " in finding for finding in findings), (
+        "the raising `repr` must be contained and reported as the placeholder, not merely "
+        "survived; matching the announced key pins a fixture spelling instead"
+    )
 
 
 def test_a_raising_repr_does_not_escape_proved_copy():
-    """GREEN since the `!r` interpolations moved inside the guards; it was the INTENDED RED that
-    proved F0006 reached through the fused walk.
+    """Control (F0006) reached through the fused walk; it was the INTENDED RED that proved the
+    `!r` interpolations escaped before they moved inside the guards.
 
-    The route is pinned (F0028): a bare `assert diverged` is satisfied by any divergence at all,
-    including a key-set finding, so it could not tell the hostile `repr` being contained from an
-    unrelated disagreement about the same object.
+    The route is pinned (F0028) on `views.safe_repr`'s placeholder. A bare `assert diverged` was
+    satisfied by any divergence at all, and matching the announced key was satisfied by the
+    fixture spelling `"k"`; neither could tell the hostile `repr` being *contained* from an
+    unrelated disagreement about the same object. Only the placeholder can.
     """
     _, _, diverged = proved_copy(
         MappingProxyType({"outer": DivergentHostileRepr()}), "root"
     )
-    assert any("k" in finding for finding in diverged), (
+    assert any("<unrepresentable " in finding for finding in diverged), (
         "the containment of a raising `repr` must be the reported divergence, not merely some "
         "divergence on the same reading"
     )
@@ -141,7 +159,10 @@ def test_unbounded_rebuilt_nesting_is_reported_not_recursed():
 def test_the_depth_bound_is_below_the_interpreter_limit():
     """The bound only protects the seam if it trips before CPython's own limit does."""
     bound = getattr(views, "MAX_PROJECTION_DEPTH", None)
-    assert bound is not None, "INTENDED RED (F0005): no declared depth bound exists"
+    assert bound is not None, (
+        "control (F0005): a declared depth bound must exist; withdrawing it returns the seam to "
+        "unbounded recursion"
+    )
     assert bound < sys.getrecursionlimit()
 
 
@@ -157,7 +178,8 @@ class ForgedStrClass:
 
 
 def test_the_forged_str_imposter_is_refused_by_the_container_handler():
-    """INTENDED RED (F0008/F0010): `:357` admits it as a `Sequence` via `__class__`.
+    """Control (F0008/F0010); it was the INTENDED RED that proved the imposter was admitted as a
+    `Sequence` via `__class__`.
 
     `_dead_copy`'s docstring claims the imposter "falls through to the uncopied return". It does
     not: `isinstance(value, (AbstractSet, Sequence))` consults `__class__`, `str` is registered
@@ -206,7 +228,8 @@ class ByteMappingHybrid(bytearray, Mapping):
 
 
 def test_a_bytearray_mapping_hybrid_is_cross_checked_as_a_mapping():
-    """INTENDED RED (F0009): the `bytearray` arm at `:334` wins before the `Mapping` arm."""
+    """Control (F0009); it was the INTENDED RED that proved the `bytearray` arm won before the
+    `Mapping` arm, so a hybrid was read as bytes and its mapping face never judged."""
     hybrid = ByteMappingHybrid(b"ab")
     _, _, diverged = proved_copy(MappingProxyType({"h": hybrid}), "root")
     assert diverged, (
@@ -236,7 +259,8 @@ class ShortItems(Mapping):
 
 
 def test_a_key_only_the_other_views_answer_is_reported():
-    """INTENDED RED (F0004): `stored` comes from `.items()`, so `hidden` is never compared."""
+    """Control (F0004); it was the INTENDED RED that proved `stored` came from `.items()` alone,
+    so an entry `hidden` from that face was never compared."""
     _, findings = stored_entries(ShortItems(), LABEL)
     assert any("hidden" in finding for finding in findings)
 
@@ -247,7 +271,8 @@ def test_a_key_only_the_other_views_answer_is_reported():
 
 
 def test_the_safe_leaf_predicate_is_public_and_exported():
-    """INTENDED RED (F0002): only the forgeable tuple is exported today."""
+    """Control (F0002); it was the INTENDED RED that proved only the forgeable tuple was
+    exported, with no callable predicate beside it."""
     assert "is_immutable_leaf" in views.__all__
     assert callable(views.is_immutable_leaf)
 
@@ -336,7 +361,8 @@ class DoublyAnnouncedGhost(Mapping):
 
 
 def test_a_key_announced_by_both_views_is_reported_once():
-    """INTENDED RED (F0032): the union is walked undeduplicated, so `ghost` is filed twice."""
+    """Control (F0032); it was the INTENDED RED that proved the union was walked undeduplicated,
+    so a single `ghost` was filed twice."""
     _, findings = stored_entries(DoublyAnnouncedGhost(), LABEL)
     ghost_findings = [finding for finding in findings if "ghost" in finding]
     assert len(ghost_findings) == 1, (
@@ -370,7 +396,8 @@ class KeysOmitsAStoredEntry(Mapping):
 
 
 def test_a_keys_call_that_omits_a_stored_entry_is_reported():
-    """INTENDED RED (F0033): `len(claimed)` is reconciled against nothing at all."""
+    """Control (F0033); it was the INTENDED RED that proved `len(claimed)` was reconciled against
+    nothing at all."""
     _, findings = stored_entries(KeysOmitsAStoredEntry(), LABEL)
     assert any("`keys()` states 1" in finding for finding in findings), (
         "a `keys()` under-reporting a stored entry must be reported against the entry count; "
