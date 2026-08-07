@@ -199,6 +199,46 @@ actually derive being supplied anyway. History is preserved, not rewritten — `
 committed record of the host-observing attempt, and the further RED that replaces it does not
 erase it.
 
+### The envelope answer below is WITHDRAWN — do not implement it
+
+Status: **SUPERSEDED AND REFUTED BY THE LIVE RED.** The bullets in this subsection instruct an
+implementer to read the roots off `authorization.repository_roots`. The committed tests now
+refuse exactly that, and following these bullets would land a signature bypass. This marker is
+the correction; the paragraphs are retained, unedited, as the record of the answer that was
+tested — the same handling Obstacle 3 receives below.
+
+Two live sources refute it, and neither is a citation that can drift:
+
+- `tests/test_scripts_inert.py:1067-1080` names the envelope answer and withdraws it by name,
+  then asserts the replacement behaviourally: `repository_roots` is `KEYWORD_ONLY` with
+  `default is inspect.Parameter.empty`, no variadic may accept it unnamed, and
+  `build(authorization=documents.authorization())` must raise `TypeError`. A wiring that read
+  the roots off the envelope would satisfy none of that — it would build successfully from an
+  authorization alone, which is the one outcome the test forbids.
+- `tests/documents.py:218-227` records the withdrawal at the fixture: "This envelope
+  deliberately carries no control-repository roots. A `repository_roots` field was drafted here
+  and is withdrawn."
+
+The security ground is the part worth carrying forward, because it is why this is not a matter
+of taste. The detached signature covers `grant_bytes` alone and `record_sha256` hashes nothing,
+so a root riding the envelope is an **unsigned** input. `plan` derives the allowed-signers file
+and the detached signature path from the Suite root — so an unsigned root selects the trust
+anchor of the very `ssh-keygen -Y verify` that checks the grant. The envelope answer does not
+merely pick the wrong source; it lets an unsigned value redirect the verification of the signed
+one. `expected_controls` is not a precedent for it: that field survives only because
+`preparation` forces it to agree with the signature-covered grant pin, and a root has no signed
+counterpart to be forced to agree with.
+
+The answer that stands is the one stated under "The corrected answer: mandatory caller
+injection, no default" further down this file: a mandatory keyword-only argument with no
+default, supplied by the entrypoint from its own argv (`--control-root NAME=PATH`) at the same
+operator-declared trust level as `execute_requested=True`.
+
+The closing sentence of this subsection — that no `build_runtime_wiring` change is push-eligible
+until "that further RED" lands — is withdrawn with it. The RED it waits on will never land,
+because the design it was to encode is refuted; the argv-boundary RED it was superseded by is
+already committed and failing. Nothing in this subsection gates the atomic entrypoint GREEN.
+
 The corrected answer mirrors the one field this envelope already uses for exactly this
 purpose. `documents.Authorization.expected_controls` (tests/documents.py:217) is consumed by
 `preparation.py` (lines 776-785) via `getattr(authorization, "expected_controls", None)`
