@@ -10,22 +10,29 @@ Every test here pins one row of the driver-injected open set. They are written a
 because the findings are not independent: they are four mechanisms, and repairing one without
 the others leaves the same seam raising through a different door.
 
-The four mechanisms, and which rows each carries:
+The four mechanisms, and which rows each carries. Each is stated as the defect it *was*: all
+four have landed, and the statements below describe what these controls hold shut, not open
+work (F0163, the class of F0045, F0048 and F0162).
 
 * **The seam must not raise.** `views` documents every reader as "raising nothing out of a seam
-  whose callers are reducers contracted to return findings". Two routes break that promise:
+  whose callers are reducers contracted to return findings". Two routes broke that promise:
   attacker-controlled `repr()` interpolated outside every `try` (F0006), and an `id()`-keyed
-  cycle guard that a mapping rebuilding its nesting on each read defeats outright, so the walk
-  recurses until CPython raises `RecursionError` (F0005).
+  cycle guard that a mapping rebuilding its nesting on each read defeated outright, so the walk
+  recursed until CPython raised `RecursionError` (F0005). Every interpolation in
+  `stored_entries` now goes through `safe_repr`, and `MAX_PROJECTION_DEPTH` (`views.py:46`)
+  bounds the walk.
 * **Ask the interpreter, not the object.** The F153/P2-2/P1-1/P2-10 line closed four forgery
   doors by replacing membership and `isinstance` with identity and `issubclass(type(...))`.
-  `:357` is *deliberately* left broad (F0008 is a false-claim finding, not a guard defect), the `bytearray` arm still precedes the `Mapping` arm so a
-  hybrid is copied on its buffer face without the mapping cross-check (F0009), and the forgeable
-  leaf tuple is still the exported name while the safe predicate stays private (F0002).
-* **The cross-check must cover the keys it claims to.** The key set is taken from `.items()`
-  alone, so a mapping whose `keys()`/`__iter__`/`__len__` answer for an entry `.items()` never
-  yields is cross-checked on a set that excludes exactly the hostile entry (F0004).
-* **A docstring is a control surface.** Three docstrings state contracts the code does not
+  `:357` is *deliberately* left broad (F0008 is a false-claim finding, not a guard defect); the
+  `bytearray` arm preceded the `Mapping` arm, so a hybrid was copied on its buffer face without
+  the mapping cross-check (F0009), and the forgeable leaf tuple was the exported name while the
+  safe predicate stayed private (F0002). `_dead_copy` now tests `Mapping` first (`views.py:605`)
+  and `is_immutable_leaf` is the exported name (`views.py:34`).
+* **The cross-check must cover the keys it claims to.** The key set was taken from `.items()`
+  alone, so a mapping whose `keys()`/`__iter__`/`__len__` answered for an entry `.items()` never
+  yielded was cross-checked on a set that excluded exactly the hostile entry (F0004).
+  `_key_set_findings` now reads all three views (`views.py:291`, `:300`, `:351`).
+* **A docstring is a control surface.** Three docstrings stated contracts the code did not
   perform (F0001, F0003, F0007).
 """
 
@@ -232,7 +239,15 @@ def test_a_bytearray_mapping_hybrid_is_cross_checked_as_a_mapping():
     `Mapping` arm, so a hybrid was read as bytes and its mapping face never judged."""
     hybrid = ByteMappingHybrid(b"ab")
     _, _, diverged = proved_copy(MappingProxyType({"h": hybrid}), "root")
-    assert diverged, (
+    # Pin the `.get` contradiction itself, not merely that *something* diverged (F0028).
+    # A bare `assert diverged` is satisfied by routes that prove the opposite of this
+    # control: `_dead_mapping` (views.py:665-671) and `stored_entries` (views.py:435-437)
+    # both report a mapping that *raised* when read, which is what a hybrid does when its
+    # `.items()` is not overridden -- so the mapping cross-check could fail to run at all
+    # and this test would still pass. `reads by `.get` as the` is written at exactly one
+    # site, views.py:508-515, and only after the subscript view has already agreed, so its
+    # presence proves the mapping face was read to completion and the two views compared.
+    assert any("reads by `.get` as the" in finding for finding in diverged), (
         "the hybrid's `.get` contradicts its `.items()`; taking the buffer face skips that"
     )
 
