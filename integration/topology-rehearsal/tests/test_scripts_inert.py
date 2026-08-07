@@ -2562,6 +2562,13 @@ def test_the_ledger_siting_rule_is_enforced_at_the_composition_root_as_well() ->
     script = load_c8_script("run_topology_rehearsal.py")
     suite_root = fakes.SYNTHETIC_REPOSITORY_ROOTS[fakes.SUITE_CONTROL]
     head, _, tail = suite_root.rpartition("/")
+    # The case-alias row below is derived as `tail.upper()`. A case-less fixture would make it
+    # the declared control root byte-for-byte, so it would be refused by plain equality and
+    # observe nothing about case folding (F0120).
+    assert tail.upper() != tail and tail.upper() != tail.casefold(), (
+        f"the control-root tail {tail!r} is case-less, so the case-alias row below collapses "
+        "into the exact-match row and stops witnessing the fold (F0120)"
+    )
     rejected_for = (
         ("relative/ledger", "must be absolute"),
         (suite_root, "lies inside the .* control worktree"),
@@ -2712,6 +2719,21 @@ def test_a_case_variant_ledger_worktree_cannot_alias_into_a_control_worktree() -
         f"{head}/{tail.capitalize()}/ledger",
         f"{head}/{tail.upper()}",
     )
+    for alias in aliases:
+        # Every alias is derived by case-mapping `tail`. If the fixture ever becomes case-less,
+        # `upper()` and `capitalize()` return it unchanged, each alias becomes the declared
+        # control root byte-for-byte, every row below passes through the plain equality branch
+        # already covered by the exact-match test, and this fold could be deleted with the
+        # control still green. These two comparisons are what make the fold load-bearing: the
+        # alias must not BE the declared root, and it must carry case that folds away (F0120).
+        assert alias != suite_root, (
+            f"the alias {alias!r} equals the declared control root, so it observes the "
+            "equality branch rather than the case fold (F0120)"
+        )
+        assert alias != alias.casefold(), (
+            f"the alias {alias!r} carries no case that folds away, so it cannot witness "
+            "case-insensitive containment (F0120)"
+        )
     for alias in aliases:
         calls: list[tuple[object, ...]] = []
         exit_code = require_c8_attr(script, "main")(

@@ -11325,3 +11325,45 @@ defect and is the first candidate once the gate is clean.
 **This lane's own measurements on its own patch, not a substitute for the verdict.** The `F0122`
 repair was proven by mutation before it was committed, not after: the mutant that deletes the inner
 `normalize` is killed by the new body and survived the old one.
+
+## Backfill — the eight verdicts from `87da626` through `d679b69`
+
+The index in this file stopped at `083a468`. Eight commits and their bound verdicts were never
+transcribed. They are recorded here, in commit order, from the verdict corpus itself.
+
+| sha | base | scope | verdict | P0/P1/P2/P3 | evidence | PUSH-ELIGIBLE | RUNTIME |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `87da626` | `73ec822` | `.github/REVIEW-BASELINE.json` | **NO-GO** | 0/0/1/2 | COMPLETE | NO | HOLD |
+| `dd66db5` | `73ec822` | `docs/ENTRYPOINT-SLICE-SPEC.md` | GO | 0/0/0/5 | COMPLETE | NO | HOLD |
+| `afe6d70` | `dd66db5` | `contracts.yml`, `validate-w1-control.mjs` (+2 tests) | **NO-GO** | 0/1/2/2 | COMPLETE | NO | HOLD |
+| `0e84657` | `afe6d70` | `contracts.yml`, `validate-w1-control.mjs`, resource-bounds test | **NO-GO** | 0/0/1/6 | COMPLETE | NO | HOLD |
+| `48284b4` | `449b8dc` | `.github/REVIEW-BASELINE.json`, `contracts.yml` | GO | 0/0/0/5 | COMPLETE | YES | HOLD |
+| `7e7bd3d` | `48284b4` | `validate-w1-control.mjs`, resource-bounds test | GO | 0/0/0/2 | COMPLETE | YES | HOLD |
+| `9bdb25c` | `7e7bd3d` | `uv.lock` | GO | 0/0/0/1 | COMPLETE | YES | HOLD |
+| `d679b69` | `9bdb25c` | `docs/ENTRYPOINT-SLICE-SPEC.md`, `tests/test_scripts_inert.py` | GO | 0/0/0/5 | COMPLETE | YES | HOLD |
+
+Every row above has `covers_head=true` and execution evidence `COMPLETE`. RUNTIME is **HOLD** for
+all eight regardless of PUSH-ELIGIBLE, and no entrypoint script was executed for any of them.
+
+### Why this is a backfill, and the rule it deviates from
+
+The preamble at `:12-17` requires the row to be appended *before* the push and says "do not push
+first and backfill later". That was not honoured for these eight. The deviation is recorded rather
+than passed over, with the two structural reasons it was unavoidable:
+
+1. **The rule names a party who cannot execute it.** It assigns the append to "the independent
+   reviewer". Under Scheduler V2 the reviewer lane holds `Read`/`Grep`/`Glob` only, with its `cwd`
+   outside the product worktree, so it *cannot* write this file. The transcription necessarily
+   falls to the writing lane, which makes it a writer summarising verdicts on its own work. That
+   is precisely why the driver-folded finding register, and not this file, is authoritative for
+   the gate. This file is a durable human-readable record; it is not evidence.
+2. **The rule predates the freeze mechanic.** A verdict binds to an exact sha. For a range whose
+   last commit is the one under review, "append before the push" and "never move HEAD while a
+   verdict is outstanding" cannot both hold: appending the row *is* a commit, and it would move
+   HEAD off the sha the verdict covers, falsifying every push-predicate clause at once. This is
+   the mechanism that produced the `repaired-unreviewed` findings this project has already paid
+   for. The honest reconciliation is a backfill cut immediately after each push, which is what
+   this section is.
+
+Neither reason is offered as permission to skip the row again. The owed correction is to the rule's
+wording, which is a decision for the ledger's owner rather than for this lane.

@@ -1,10 +1,13 @@
 # Entrypoint slice — implementation spec derived from the live RED
 
-Status: `DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED — NO RUNTIME AUTHORITY`.
+Status: `SCRIPTS LANDED AND INERT — STATIC ONLY — NO RUNTIME AUTHORITY`.
 
-This file records the exact contract the two absent entrypoint scripts must satisfy, read
-off the committed RED tests rather than from intent. It authorizes no Docker effect, no
-listener, no PostgreSQL attempt, no UAT, demo, merge, release or production action.
+This file records the exact contract the two entrypoint scripts must satisfy, read off the
+committed tests rather than from intent. Both scripts landed inert at `8a41f29`; the
+`DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner this file previously carried was
+retired there, as the owed-edit list at the end of this file said it would be. Landing them
+is static library work: this file authorizes no Docker effect, no listener, no PostgreSQL
+attempt, no UAT, demo, merge, release or production action, and RUNTIME remains HOLD.
 
 Source of truth remains the tests. Where this file and `tests/test_scripts_inert.py` or
 `tests/test_surface_contract.py` disagree, the tests win and this file is wrong.
@@ -73,9 +76,9 @@ here. An earlier draft of this paragraph disclaimed "every remaining bare line r
 document", which retracted the evidentiary standing of this document's own security adjudication
 — the one that answers the signature-envelope question REFUTED.
 
-This section also predates `--attempt-ledger-root`. The signatures and the argv-shape band above
-have now been reconverted to carry it; if any statement below still shows a three-keyword
-composition root, the tests win and the statement is stale.
+This section also predates `--attempt-ledger-root`. The signatures and the argv-shape band that
+follow have been reconverted to carry it; any composition root shown elsewhere in this file
+without `attempt_ledger_root` predates it, and the tests win.
 
 Parser requires `--execute` (bool), `--grant <path>`, `--signature <path>`, a repeatable
 `--control-root NAME=PATH` that *accumulates* into `args.control_root` in the order typed,
@@ -85,7 +88,7 @@ never replaces (pinned by `tests/test_scripts_inert.py:207-215`), and `--attempt
 band below.
 
 `main(argv, *, execute=execute_authorized_attempt) -> int` folds the `--control-root` tokens
-into a mapping equal to `dict(NAME=PATH, …)`, resolves the ledger worktree against those roots,
+into a mapping equal to `dict(NAME=PATH, …)`, validates the ledger worktree against those roots,
 and calls `execute(args.grant, args.signature, repository_roots=<mapping>,
 attempt_ledger_root=<path>)` — the two artifact paths positionally, the roots and the ledger
 worktree as mandatory keywords — and returns its result (pinned by `:237-245` and, for the
@@ -97,10 +100,13 @@ rather than judging the key space:
 
 - unstated `--control-root` returns `HOLD_EXIT` with the executor never called (`:270-301`);
 - unstated `--attempt-ledger-root` does the same, and truthiness alone was not sufficient
-  (F0092): the token is resolved against the control roots, so the check runs after they are
+  (F0092): the containment check needs the folded roots, so it runs after they are
   known (`test_an_invocation_that_names_no_attempt_ledger_root_holds_without_calling_the_executor`);
-- a relative ledger root, one lying inside a control worktree, and one carrying an argv
-  separator each hold, by the same token rule the control roots are held to
+- a relative ledger root and one carrying an argv separator each hold by the same token rule
+  the control roots are held to (`plan.exact_token`, absoluteness and separator-freedom); one
+  lying inside a control worktree holds by the *containment* rule, which is a distinct check —
+  the roots' own rules are exact key set, absolute and separator-free, and no root is refused
+  for lying inside another. The token is never rewritten: it is forwarded exactly as typed
   (`test_a_relative_attempt_ledger_root_holds_because_it_names_no_fixed_worktree`,
   `test_an_attempt_ledger_root_inside_a_control_worktree_holds`,
   `test_the_attempt_ledger_root_is_held_to_the_argv_token_rule_the_control_roots_are`);
@@ -135,8 +141,9 @@ in this exact order (`:538-566`):
 `build_runtime_wiring(*, authorization, repository_roots, attempt_ledger_root,
 command_runner=None)`. `repository_roots` and `attempt_ledger_root` are each mandatory
 keyword-only with no default and no variadic widening, and a wiring built without either must
-fail to be built at all rather than fall back (`:1064-1108`, and for the ledger worktree
-`test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`). Every malformed
+fail to be built at all rather than fall back
+(`test_the_control_roots_are_a_mandatory_keyword_argument_with_no_default`, and for the ledger
+worktree `test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default`). Every malformed
 ledger root is refused with a typed `errors.PrecheckAbort` whose message is anchored on the
 `attempt_ledger_root: ` prefix, which only this frame emits.
 Every malformed roots argument is refused with a typed `errors.PrecheckAbort` naming
@@ -193,11 +200,14 @@ the composition root, and is recorded in its own section below. The heading coun
    reach for `runner._attempt_names`, which is private and takes a `PreparationResult` the
    wiring does not hold.
 
-3. **The front door currently asserts the scripts are absent.**
-   `test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder` asserts
-   `not (SCRIPTS / name).exists()` for both names, so landing the scripts makes that control
-   contradict itself. It must move to the present side in the same change, the way the runner's
-   landing was handled in `244f9a4`, together with the `__init__.py` docstring.
+3. **Discharged: the front door asserted the scripts were absent.**
+   `test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder` asserted
+   `not (SCRIPTS / name).exists()` for both names, so landing the scripts made that control
+   contradict itself. It had to move to the present side in the same change, the way the
+   runner's landing was handled in `244f9a4`, together with the `__init__.py` docstring.
+   That happened at `8a41f29` ("the atomic entrypoint GREEN, both scripts inert"):
+   `tests/test_surface_contract.py` now asserts `(SCRIPTS / name).exists()` under the comment
+   "Both entrypoints have landed. The control is inverted rather than deleted."
 
 ## Obstacle 2 is a defect in the RED, not a gap in the design
 
@@ -517,7 +527,8 @@ be duplicated into the script; a test pins that `main` forwards a well-shaped ma
 wrong repositories verbatim.
 
 Test delta for the next RED, all in `tests/test_scripts_inert.py`: amend six
-(`:154`, `:171`, `:201`, `:265`, and the comment only at `:285`), add six (a mandatory
+(`:154`, `:171`, `test_default_composition_loads_builds_and_runs_the_same_authorization`,
+`:265`, and the comment only at `:285`), add six (a mandatory
 keyword-only assertion on `execute_authorized_attempt` mirroring `:682` one frame up — its
 absence is what let this contradiction land; argv→mapping parsing; hold when roots are unstated;
 hold on each malformed token; a typed `PrecheckAbort` converted to `HOLD_EXIT`; and the
@@ -526,7 +537,8 @@ this correction would have contradicted.
 
 Residual risks accepted, not fixed in code:
 
-- `:201` pins the loader *before* the builder, so the grant and signature files are read before
+- `test_default_composition_loads_builds_and_runs_the_same_authorization` pins the loader
+  *before* the builder, so the grant and signature files are read before
   the roots are validated. Nothing spawns and no trust decision happens in that window, but if
   `load_authorization` ever acquires a verification step this order must be revisited.
 - The trust anchor is now operator-typed: `--control-root cybrik-suite=<path>` selects the
@@ -581,8 +593,10 @@ Test-pinned edits owed, all inside the component:
    `test_project_and_harness_headers_state_the_mixed_c8a_lifecycle_truthfully`, so whether the
    "PARTIALLY PRESENT / LATER MODULES RED" framing survives is a decision, not free text.
 3. `docs/REVIEW-LEDGER.md` — a new appended row, never an edit to a prior verdict.
-4. This file's own `DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner becomes stale and the
-   file is reconciled or retired; the tests remain the source of truth either way.
+4. **Discharged:** this file's own `DRAFT — SPECIFICATION ONLY — NOT IMPLEMENTED` banner became
+   stale when the scripts landed at `8a41f29` and has been reconciled at the head of this file
+   to `SCRIPTS LANDED AND INERT — STATIC ONLY — NO RUNTIME AUTHORITY`; the tests remain the
+   source of truth either way.
 
 Over-claim check: none found. Every current banner is correctly hedged, `RUNTIME remains HOLD`
 throughout, and the prohibition is already machine-gated — `test_surface_contract.py` matches
