@@ -3574,6 +3574,18 @@ export function validateW1CiWiring({
   // same shape as the defect this extension was written against, so the behaviour
   // is pinned by the two names that cannot survive that deletion: the composition
   // field is read from the baseline, and the declared set it produces is bound.
+  //
+  // F0143 extension. Pinning those two NAMES pins how the declared set is BUILT,
+  // not the comparison that consumes it, so one level of the same mutation still
+  // survived: delete only the two `for red in sorted(...)` loops and identity
+  // enforcement is gone while the bare count comparison remains — the exact defect
+  // this block exists to remove. Both names above survive that deletion, because
+  // `composition` is still read and `declared_reds` is still referenced by the
+  // `if declared_failures and not declared_reds` guard, so nothing dangles and
+  // nothing lints that workflow. The two set differences are therefore pinned as
+  // EXPRESSIONS rather than as names: unlike a name, an expression cannot be
+  // retained while the behaviour it performs is removed, which terminates the
+  // regress here instead of moving it one hop further out.
   for (const pattern of [
     /REVIEW-BASELINE\.json/,
     /uv==0\.11\.16/,
@@ -3584,6 +3596,8 @@ export function validateW1CiWiring({
     /uv run --frozen --offline python -m compileall/,
     /baseline\["pytest"\]\["composition"\]/,
     /declared_reds/,
+    /declared_reds - measured_reds/,
+    /measured_reds - declared_reds/,
   ]) {
     assertIncludes(
       rehearsalJob,
@@ -4254,6 +4268,16 @@ const CONTROL_DOCUMENT_PATHS = {
     "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
   ],
   workflowText: [".github", "workflows", "contracts.yml"],
+  // F0145. The topology-rehearsal uv.lock became tracked at 9bdb25c and was the
+  // newest protection in the tree with no control holding it in place. Its absence
+  // is provably invisible to the local gate — every commit through 7e7bd3d lacked
+  // the file and still measured COMPLETE with `uv run --frozen --offline` — so a
+  // later deletion would take only the hosted job RED, at the same
+  // `Unable to find lockfile at uv.lock, but --frozen was provided` that took it
+  // RED twice before. Listing the path here is the pin: validateW1ControlFiles
+  // below readFile()s every entry eagerly, so a missing lockfile rejects the
+  // validator that `npm run validate` runs on every cycle.
+  rehearsalLockText: ["integration", "topology-rehearsal", "uv.lock"],
   packageText: ["tools", "contract-validation", "package.json"],
   orchestratorText: ["tools", "contract-validation", "validate.mjs"],
 };

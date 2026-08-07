@@ -106,8 +106,13 @@ jobs:
       # uv.lock does not pin ruff and may not be regenerated to add it. 0.16.0 is
       # the version the declared bar of 12 at .github/REVIEW-BASELINE.json was
       # measured with; pinning it is what makes that number mean the same thing on
-      # both sides. An unpinned ruff would let the measurement move with no change
-      # to the tree — the drift the baseline says is impossible.
+      # THIS side. Only the hosted side is pinned: ruff is absent from pyproject.toml
+      # and from the protected uv.lock, so the local collector resolves it from PATH
+      # and equal versions across the two gates is a convention, not a pin. An
+      # unpinned ruff would let the measurement move with no change to the tree — the
+      # drift the baseline says is impossible — and that remains reachable locally,
+      # so a disagreement between the two numbers should be diagnosed at the
+      # measuring host's ruff before it is diagnosed at the tree.
       - name: Install uv 0.11.16 and ruff 0.16.0 (pinned, from PyPI — deliberately not actions)
         run: |
           set -euo pipefail
