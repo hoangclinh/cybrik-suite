@@ -62,7 +62,15 @@ to be lost irrecoverably.
 | `fae019f` | ledger scope — F0062/F0063/F0064 retired, F0065 P2 opened | NO-GO | 0/0/1/2 | NO | HOLD |
 | `50d6be6` | ledger scope — F0066/F0067 retired, F0065 carried, F0068/F0069 opened | NO-GO | 0/0/1/2 | NO | HOLD |
 | `55c9810` | ledger scope — F0065 (3-cycle P2), F0068, F0069 retired; F0070 P2 + F0071-F0075 opened | NO-GO | 0/0/1/5 | NO | HOLD |
-| `c7d8357` | ledger scope — F0071-F0075 retired (five, the corpus's largest); F0070 carried, F0076 opened | NO-GO | 0/0/1/1 | NO | HOLD |
+| `c7d8357` | ledger scope — F0071-F0075 retired (five); F0070 carried, F0076 opened | NO-GO | 0/0/1/1 | NO | HOLD |
+| `e37409f` | ledger scope — two rows retired, two opened | GO | 0/0/0/2 | NO | HOLD |
+| `3a0b66b` | `docs/ENTRYPOINT-SLICE-SPEC.md` — withdrawn envelope-roots answer marked refuted | GO | 0/0/0/1 | NO | HOLD |
+| `df2b05c` | `tools/contract-validation/package-lock.json` — js-yaml 4.3.1 advisory resolved | NO-GO | 0/0/1/0 | NO | HOLD |
+| `24a5c78` | `docs/DEPENDENCY-REMEDIATION-jsyaml-4.3.1.md` — advisory evidence recorded in-repo | NO-GO | 0/0/1/2 | NO | HOLD |
+| `cccd281` | same doc — evidence transcribed inline, three rows retired | GO | 0/0/0/1 | NO | HOLD |
+| `e62f038` | 2 paths — the js-yaml remediation's open authority question bound to commits | GO | 0/0/0/1 | NO | HOLD |
+| `8a41f29` | 4 paths — the atomic entrypoint GREEN, both scripts inert | NO-GO | 0/1/9/3 | NO | HOLD |
+| `632f8b1` | 6 paths — eight rows retired, the largest retirement in the corpus at this append | NO-GO | 0/0/4/6 | NO | HOLD |
 
 **This index must be extended by the same commit that records a verdict in prose below (F0065).**
 It previously stopped at `9b96f49` while later verdicts — most of them NO-GO — existed only as
@@ -100,7 +108,11 @@ append-only table is falsified by the next append — the same reason the line c
 the cycle labels (F0072) were withdrawn as classes rather than re-transcribed. The rule below is
 per row and checkable one row at a time, with no denominator to go stale.
 
-Every row's count cell falls under exactly one case, identified by the marker the row carries:
+Every row's count cell falls under exactly one case, identified by **the marker in that row's own
+count cell** — never by a marker appearing elsewhere in the row. The two `§` marks in the SUBJECT
+cells of `3188cc5` and `9173473` are subject annotations meaning *no prose section exists here*, not
+count-provenance marks; both rows' count cells are unmarked and corpus-transcribed, which is the
+correct reading (F0077).
 
 > - **unmarked** — counts transcribed from that row's own corpus verdict `findings` object. This is
 >   the default case, and every row added from here on belongs to it by construction, since a row is
@@ -10462,15 +10474,17 @@ reviewer accepted withdrawing the class as the repair that cannot regress on the
 **Opened by this verdict, and repaired in this commit.**
 
 - **`F0070` (P2).** The provenance sentence asserted every figure was corpus-transcribed except the
-  † and § rows. False, and the exception named the wrong rows: the corpus holds 20 files against 41
-  rows; 16 rows have **no corpus verdict file at all** and were excluded from the caveat, while the
+  † and § rows. False, and the exception named the wrong rows: the corpus then held 20 files against
+  41 rows; 16 rows had **no corpus verdict file at all** and were excluded from the caveat, while the
   § rows `3188cc5`/`9173473` — which the caveat did exclude — are corpus-transcribed. The sentence
   upgraded the provenance of exactly the weakest, V1-era reconstructed rows. The repair attempted
   here — an explicit three-way split into corpus-backed, ¶ and † rows — **did not hold**, and the
   cardinalities it quoted are false; see the `c7d8357` section below, where `F0070` was carried and
-  repaired a second time by withdrawing row and file totals altogether. The figures once stated in
-  this bullet are deliberately not repeated, because restating a false property inside a repair
-  record is how it survived the first correction.
+  repaired a second time by withdrawing row and file totals altogether. **The three-way split's own
+  cardinalities are deliberately not repeated here**, because restating a false property inside a
+  repair record is how it survived the first correction. The two figures this bullet does state —
+  20 files, 41 rows — are the pinned quantities the defect was measured against, past-tense and
+  attributed, not live totals (F0078).
 - **`F0071` (P3).** The index denied any line citation existed while the paragraph above still cited
   F95 at `:3978-4003`, 60 lines short of its actual position. The citation is withdrawn.
 - **`F0072` (P3).** The fold's `Cycle N` labels contradicted this file's own `## Cycle N (V2)`
@@ -10511,8 +10525,10 @@ citation withdrawn as a class), `F0072` (all five cycle-label collisions gone fr
 
 **`F0070` (P2) carried, not repaired.** The three-way split was not a partition: `20 + 16 + 2 = 38`
 against a 42-row table, leaving `73ec822..c47bd86` and the two ‡ rows outside sets declared
-exhaustive. The corpus holds 21 verdict files, not 20, and the 42nd row is the `55c9810` row that
-same commit added — the stale figure and the new row were one event counted in one place only. The
+exhaustive. The corpus held 21 verdict files at that pin, not 20, and the 42nd row was the `55c9810`
+row that same commit added — the stale figure and the new row were one event counted in one place
+only. Both figures in this paragraph are pinned to `c7d8357` and are not claims about any later
+state; the corpus and the table have both grown since (F0078). The
 split also contradicted its own `F0073` repair by publishing a prose-derived `0/1/1/1` outside the
 enumeration whose purpose was to name prose-derived figures.
 
@@ -10543,10 +10559,10 @@ objects, so the gap is in the corpus, not here, and no lane on this side may rep
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
 
-## Cycle 40 — verdict `8a41f29` bound, nine of ten gating rows repaired
+## `8a41f29` (V2) — verdict bound, nine of ten gating rows repaired
 
-**The bound verdict.** `roles/reviewer/artifacts/VERDICT-8a41f290f41f17baa1c45289b4853da45310b5a0.json`
-bound at 11:01 with `covers_head=true`, `diff_sha256=c7a68c7f…`, base `e62f038`, scope the four paths
+**The bound verdict.** `roles/reviewer/artifacts/VERDICT-8a41f290f41f17baa1c45289b4853da45310b5a0.json`,
+`observed_at 2026-08-07T04:01:01Z`, with `covers_head=true`, `diff_sha256=c7a68c7f…`, base `e62f038`, scope the four paths
 of the atomic GREEN. **`NO-GO`, P0=0 P1=1 P2=9 P3=3**, `findings_enumerated=true`,
 `unaccounted_rows=[]`. Execution evidence `COMPLETE`: 1783 passed / 1 failed, `matches_baseline`,
 ruff 12 `matches_baseline`, `compileall_exit=0`.
@@ -10584,5 +10600,128 @@ failure and no new violation was introduced by any of the nine repairs.
 may not witness them; only a bound verdict retires a row. Neither script has been executed — the
 `__main__` guards were reasoned about and compiled, not run, because RUNTIME is HOLD and running
 this entrypoint is exactly what HOLD forbids.
+
+RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
+
+## `632f8b1` (V2) — VERDICT-632f8b1 NO-GO, **eight rows retired**, and the register question answered
+
+**The bound verdict.** `roles/reviewer/artifacts/VERDICT-632f8b10e1154982f432e97f3a3da899945300ae.json`,
+`observed_at 2026-08-07T04:19:40Z`, personal pool, `claude-opus-5`, ladder step 1. `covers_head=true`,
+`diff_sha256=78335111…`, base `8a41f29`, scope the six paths of the repair cut. **`NO-GO`, P0=0 P1=0
+P2=4 P3=6**, `findings_enumerated=true`, `unaccounted_rows=[]`. Execution evidence `COMPLETE`:
+1783 passed / 1 failed with `unintended_failures: 0` and `matches_baseline`, ruff 12 `matches_baseline`,
+`compileall_exit=0`, `product_mutated: null`. PUSH-ELIGIBLE **NO**. RUNTIME **HOLD**.
+
+**Eight rows retired in one verdict — the largest retirement in this corpus at the time of writing,
+and the first cycle in this deployment where the gating count fell rather than grew.** `F0087` (the
+only P1), `F0089`, `F0090`, `F0091`, `F0093`, `F0094`, `F0095`, `F0096`. P1 went 1 → 0; P2 went 9 → 4.
+The prior four verdicts had carried P2 counts of 4, 6, 8 and 9 with a single finding ever retired.
+The difference was scope: the cut was aimed at the whole open set rather than at the newest defect.
+
+**Carried, and repaired at `7fed9b3` — not retired, because this lane may not witness its own patch:**
+
+- **`F0101` (P2).** The reviewer took the weakness this lane disclosed about its own `F0089` patch and
+  minted it. The spawn-site control pinned the `timeout` keyword by *name*, which a rebinding clamp
+  satisfies whether or not the clamp exists — so deleting the clamp line left every assertion in
+  `test_scripts_inert.py` green and silently restored the 180s bound. An AST control now counts the
+  clamp itself. It was **proved to discriminate** rather than asserted: 1 clamp against real source,
+  0 when the line is removed. The `:218` plan-label prefix test was pinned in the same cut.
+- **`F0092` (P2).** Qualified, **not** anchored, and the reason is an authority question this lane is
+  forbidden to answer alone. Re-derived from source under freeze rather than quoted from this lane's
+  own notes: `plan.py:465-466` sites `signature_path` under the operator-typed suite root, and
+  `plan.py:260` sites the **allowed-signers file** under that same root. So an operator who can vary
+  `--control-root` to reset the one-attempt replay budget can, by the identical act, install a
+  signing key and mint fresh grants — which strictly dominates replaying one grant. Re-anchoring the
+  budget above its own authorization anchor therefore buys nothing, and every alternative anchor
+  (`environ`, `getcwd`, `cwd`, `__file__`) is banned by a control that is correct. The contract is
+  qualified to state the scope honestly and **the choice of trust anchor is put to the reviewer**.
+  Inventing one to clear a row would be the writer setting its own trust anchor.
+
+### `F0088` (P2) — the governing register, named
+
+The carried row is precise about what was still owed: the deviation was recorded, but *"the governing
+register for the `P0=P1=P2=0` precondition is still unnamed and the V1-era ledger tally and the
+INCOMPLETE V2 register remain both live and contradictory."* Answered here.
+
+**The governing register is the driver-folded V2 register**, computed by `compute-finding-register-v2.zsh`
+from the reviewer verdict corpus and re-folded every cycle. The reason is structural, not
+preferential: this writing lane holds `Bash`, so any register it can edit is the writer keeping books
+on its own work. The tally maintained *inside this file* is writer-maintained by construction. It
+therefore **cannot be the authority for a gate over the writer's own output**, and naming it as such
+would be self-witnessing in bookkeeping form.
+
+**The two registers are not in contradiction about the gate, and neither is withdrawn.** They are
+combined fail-closed, as a union of refusals:
+
+> Push requires the V2 register to be `complete` **and** report zero open P0/P1/P2 at the exact HEAD,
+> **and** requires no open P0/P1/P2 in this ledger's own V1-era tally. Either register may **refuse**;
+> neither may **grant**. A writer-maintained tally can only ever add a bar, never lift one.
+
+Under that rule the apparent contradiction dissolves without weakening anything. The V1-era tally at
+`:8494` records `P1 OPEN = 5` (`F33`, `F123`, `F128`, `F131`, `F143`) — those rows are **not**
+withdrawn, are **not** superseded, and continue to bar a push. The V2 register is declared
+**INCOMPLETE** (4 of 30 verdicts carried no structured findings), and the manifest is explicit that an
+incomplete fold renders as INCOMPLETE and never as a clean backlog. Both registers say the same
+thing: **not push-eligible**. The contradiction only ever existed for a reader who took the V2
+`gating_open` figure as a clean-gate signal while the fold was incomplete, which the fail-closed rule
+above forbids.
+
+**The deviation itself is not cured by naming the register.** The atomic entrypoint GREEN landed at
+`8a41f29` while the never-withdrawn `P0=P1=P2=0` precondition was unestablished. That happened; it is
+not retroactively satisfied by any repair in this section, and it is not being argued away. What has
+changed is that the precondition now has a named authority and a stated combination rule, so the next
+advance cannot repeat the deviation by ambiguity. **Reasserted: no further GREEN lands until a bound
+verdict reports zero gating rows at the exact HEAD and the fold is complete.**
+
+**What discharges the V1-era rows is out of this cut's scope and is not being quietly dropped.**
+`F131`'s ingress RED is the single intended failure in every census above, exactly as it must be while
+`F131` is open and unrepaired. Retiring those five is separate work with its own review, and this
+section makes no claim about them beyond that they remain open and remain binding.
+
+### `F0100` (P2) — the index extended, and the rule obeyed
+
+The `:67` rule (`F0065`'s own repair) requires the index be extended by the same commit that records a
+verdict in prose. The `8a41f29` section recorded a verdict while the table still ended at `c7d8357`.
+Repaired by appending **every corpus verdict missing from the index**, not merely the one the finding
+named: `e37409f`, `3a0b66b`, `df2b05c`, `24a5c78`, `cccd281`, `e62f038`, `8a41f29`, `632f8b1`. All
+eight have corpus verdict files, so all eight count cells are **unmarked**, and the bijection stated
+at the marker rule — a row is unmarked iff `roles/reviewer/artifacts/` holds a `VERDICT-<sha>.json`
+for the sha ending its Range cell — was re-verified across the eight new rows before this commit.
+
+Two rows outside `integration/topology-rehearsal/` are now indexed: `df2b05c` and `e62f038` cover
+`tools/contract-validation/package-lock.json`. They are recorded because the corpus holds them; the
+path lies outside this lane's write prefix and nothing here modifies it.
+
+### Also repaired in this commit (P3, same path, no behaviour change)
+
+- **`F0103`.** The `## Cycle 40` heading collided with the existing `## Cycle 40` at `:3737`, so
+  neither section could be cited by heading. The verdict section is retitled `` ## `8a41f29` (V2) ``,
+  matching the `` ## `c7d8357` (V2) `` form already in use and keyed to the sha, which cannot collide.
+- **`F0102`.** *"bound at 11:01"* was a local-time stamp irreconcilable with the artifact's
+  `observed_at 2026-08-07T04:01:01Z`, in a paragraph otherwise dating `GATE-STATE.json` in UTC.
+  Replaced with the artifact's own UTC field. No local time is published in this file.
+- **`F0077`.** The classification rule said *"the marker the row carries"* while its own restatement
+  said *"the marker in a row's own count cell"*; the two differ for `3188cc5` and `9173473`, whose
+  `§` sits in the SUBJECT cell while their count cells are unmarked and corpus-transcribed. The rule
+  now says count cell, and the overload of `§` — count-cell mark on `73ec822..c47bd86`, subject
+  annotation on the other two — is named where the rule is stated instead of only in a footnote.
+- **`F0078`.** Two present-tense totals inside repair records were false as written. Both are now
+  tensed and pinned to `c7d8357` (*"the corpus then held"*, *"held at that pin"*). The sentence
+  announcing that figures were withheld, while the same bullet stated two, is narrowed to the split
+  cardinalities it actually withholds. The `c7d8357` index row's *"the corpus's largest"* superlative
+  was removed in the same cut: `632f8b1` retired eight against its five, so leaving it would have
+  been a third instance of the same class.
+
+**Left open, deliberately, and recorded rather than silently skipped.** `F0098` (loader call outside
+the `try`, so a `PrecheckAbort` from `load_authorization` propagates while the identical abort from
+`wiring_builder` returns `HOLD_EXIT`) and `F0097` (identifier naming absence while holding a presence
+claim) are both true and both live on paths this lane has touched. They are P3, they do not gate, and
+each would add a behaviour change to a cut that is otherwise prose-only. Their repairs are recorded;
+they are not being denied.
+
+**What this lane cannot witness.** Whether the `F0101` control, the `F0092` qualification or any
+statement in this section is correct. This lane wrote them. Only a bound verdict retires a row, and
+no row above is claimed retired by this file. The census figures quoted are this lane's own
+measurements, offered as measurement and never as coverage. Neither entrypoint script was executed.
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
