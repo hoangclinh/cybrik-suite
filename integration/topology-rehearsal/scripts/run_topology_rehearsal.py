@@ -5,9 +5,11 @@ effect, listener, PostgreSQL attempt, UAT, demo, merge, release or production ac
 library import is taken inside the function that needs it, so the front door stays inert.
 
 Nothing runs without the exact `--execute` request together with the two external artifact
-paths and the four `--control-root NAME=PATH` worktrees. Any other argv returns the fixed
-non-zero hold exit. The control roots are the operator's own declaration: this file reads
-them off argv and forwards them unmodified, and there is no second way to obtain them.
+paths, the four `--control-root NAME=PATH` worktrees and the `--attempt-ledger-root` the
+durable one-attempt budget lives in. Any other argv returns the fixed non-zero hold exit.
+All five worktrees are the operator's own declaration: this file reads them off argv and
+forwards them unmodified, there is no default for any of them, and there is no second way to
+obtain them.
 """
 
 from __future__ import annotations
@@ -35,20 +37,31 @@ COMMAND_TIMEOUT_SECONDS = 120.0
 
 CONTROL_ROOT_SEPARATOR = "="
 
-# The one attempt-ledger file name. It is appended to a path the plan already derived, so
-# this file names no worktree and re-decides no trust anchor. The consequence is disclosed
-# rather than removed: that derived path sits under the operator-supplied `--control-root`
-# for the suite, so the one-attempt budget is per control root and a second clean checkout
-# at the granted commit carries a second budget inside the same grant window.
+# The one attempt-ledger file name, sited under the worktree the operator declares with
+# `--attempt-ledger-root`. It was previously appended to `plan.signature_path`, which the
+# plan derives from the `--control-root` for the suite, so the durable one-attempt budget was
+# per *checkout* rather than per grant: a second clean checkout at the granted commit
+# presented a fresh, unconsumed budget inside the same grant window. Admission pins every
+# control worktree to `clean is True` plus an exact commit and tree, which is why installing
+# a signing key there fails -- but the ledger file is untracked, so a clean tree and an
+# absent ledger are the same observation and nothing pinned it.
 #
-# This is a known open defect, not an accepted equivalence. The earlier claim here -- that
-# the budget's scope merely equals the authorization anchor's scope, because varying the root
-# also allows installing a signing key -- is refuted and has been deleted. Admission pins
-# every control worktree to `clean is True` plus an exact commit and tree, so an installed
-# key fails; the untracked ledger file is pinned by nothing. Anchoring the budget therefore
-# does buy something. Where to anchor it is an authority decision this file may not take, so
-# the defect stays disclosed here until that decision is made.
-ATTEMPT_LEDGER_SUFFIX = ".attempt-ledger"
+# The budget's worktree is therefore a fifth operator declaration on argv, at the same trust
+# level as `--execute`, the choice of grant file and the four control roots. This file still
+# reads no host source, invents no absolute path and re-decides no trust anchor; it forwards
+# what was typed, and there is no default, so an operator who declared no ledger worktree is
+# refused rather than given one nobody named.
+#
+# The residual is disclosed rather than claimed away: an operator who deliberately types a
+# different `--attempt-ledger-root` on a second invocation still obtains a second budget.
+# That is a deliberate re-pointing by the holder of the grant, not the ordinary-checkout
+# reset above, and closing it needs an anchor no argv-only entrypoint can supply.
+ATTEMPT_LEDGER_NAME = "attempt-ledger"
+
+# One POSIX separator, joined here rather than through `os.path`: this module imports no
+# host-observing surface, and the four control roots it already forwards are POSIX paths
+# handed to `git -C` by the same plan.
+ATTEMPT_LEDGER_PATH_SEPARATOR = "/"
 
 
 class SubprocessCommandRunner:
@@ -104,6 +117,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--signature")
     # Repeatable and accumulating: four declared worktrees must stay four.
     parser.add_argument("--control-root", dest="control_root", action="append", default=[])
+    # No default: the worktree the durable one-attempt budget lives in is the operator's own
+    # declaration, and a default here would be this file choosing the anchor.
+    parser.add_argument("--attempt-ledger-root", dest="attempt_ledger_root")
     return parser
 
 
@@ -178,6 +194,7 @@ def build_runtime_wiring(
     *,
     authorization: Any,
     repository_roots: Any,
+    attempt_ledger_root: Any,
     command_runner: Any = None,
 ) -> Any:
     """Compose the one plan, the one executor and the complete adapter surface.
@@ -252,7 +269,7 @@ def build_runtime_wiring(
     }
     credential = adapter.CredentialFileAdapter(built)
     ledger = adapter.AtomicFileAttemptLedger(
-        f"{built.signature_path}{ATTEMPT_LEDGER_SUFFIX}"
+        f"{attempt_ledger_root}{ATTEMPT_LEDGER_PATH_SEPARATOR}{ATTEMPT_LEDGER_NAME}"
     )
     adapters = Adapters(
         identities=command_adapters["controls"],
@@ -280,6 +297,7 @@ def execute_authorized_attempt(
     signature_path: str,
     *,
     repository_roots: Any,
+    attempt_ledger_root: Any,
     dependencies_loader: Any = load_runtime_dependencies,
 ) -> int:
     """Load once, build once, run once, and hold on anything that is not a pass."""
@@ -287,11 +305,18 @@ def execute_authorized_attempt(
     from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
 
     dependencies = dependencies_loader()
-    authorization = dependencies.authorization_loader(grant_path, signature_path)
+    # The loader is inside the guard with the builder. It was outside it, so a `PrecheckAbort`
+    # from `load_authorization` -- which is the default loader's only behaviour in this slice
+    # -- left this function as a traceback while the identical abort from `wiring_builder`
+    # two lines below returned the hold exit, contradicting the docstring above. `main`
+    # catches `PrecheckAbort` and so masked the difference at the outermost frame, but this
+    # function is exported and states a contract of its own to every other caller.
     try:
+        authorization = dependencies.authorization_loader(grant_path, signature_path)
         wiring = dependencies.wiring_builder(
             authorization=authorization,
             repository_roots=repository_roots,
+            attempt_ledger_root=attempt_ledger_root,
         )
     except PrecheckAbort:
         return HOLD_EXIT
@@ -315,6 +340,11 @@ def main(
         return HOLD_EXIT
     if not parsed.execute or not parsed.grant or not parsed.signature:
         return HOLD_EXIT
+    # The ledger worktree is required here, with the other typed declarations, and is never
+    # folded to a default: an unstated budget location would otherwise be answered by
+    # whatever this file chose, which is the anchor nobody declared.
+    if not parsed.attempt_ledger_root:
+        return HOLD_EXIT
     try:
         roots = _control_roots(parsed.control_root)
     except ValueError:
@@ -322,7 +352,12 @@ def main(
     from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
 
     try:
-        return execute(parsed.grant, parsed.signature, repository_roots=roots)
+        return execute(
+            parsed.grant,
+            parsed.signature,
+            repository_roots=roots,
+            attempt_ledger_root=parsed.attempt_ledger_root,
+        )
     except PrecheckAbort:
         # A typed refusal from below is the operator's answer, not a traceback: the key
         # space belongs to `plan`, and `main` only reports the hold it was handed.

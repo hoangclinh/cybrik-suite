@@ -56,6 +56,12 @@ def built_plan():
 GRANT_PATH = "/tmp/grant.json"
 SIGNATURE_PATH = "/tmp/grant.json.sig"
 
+# The durable one-attempt budget's own worktree, declared separately from the four control
+# roots. It is deliberately not a subpath of any of them: the whole point of the separate
+# declaration is that re-checking-out a control worktree cannot move the ledger, and a
+# fixture that nested the two would let a siting bug pass unseen.
+ATTEMPT_LEDGER_ROOT = "/tmp/cybrik-attempt-ledger"
+
 
 def control_root_flags(roots: Mapping[str, str]) -> list[str]:
     """The `--control-root NAME=PATH` tokens an operator types in order to name `roots`.
@@ -72,9 +78,21 @@ def control_root_flags(roots: Mapping[str, str]) -> list[str]:
     ]
 
 
-def execute_argv(roots: Mapping[str, str] | None = None) -> list[str]:
-    """One complete authorized invocation: the two artifact paths and the control roots."""
+def execute_argv(
+    roots: Mapping[str, str] | None = None,
+    *,
+    attempt_ledger_root: str | None = ATTEMPT_LEDGER_ROOT,
+) -> list[str]:
+    """One complete authorized invocation: the artifacts, the roots and the ledger worktree.
+
+    `attempt_ledger_root=None` builds the otherwise-complete invocation that omits the ledger
+    declaration, which is what the mandatory-ness control needs and what no other helper can
+    express.
+    """
     named = fakes.SYNTHETIC_REPOSITORY_ROOTS if roots is None else roots
+    ledger_flags = (
+        [] if attempt_ledger_root is None else ["--attempt-ledger-root", attempt_ledger_root]
+    )
     return [
         "--execute",
         "--grant",
@@ -82,6 +100,7 @@ def execute_argv(roots: Mapping[str, str] | None = None) -> list[str]:
         "--signature",
         SIGNATURE_PATH,
         *control_root_flags(named),
+        *ledger_flags,
     ]
 
 
@@ -112,6 +131,7 @@ def runtime_wiring(script, **overrides):
     """
     overrides.setdefault("authorization", documents.authorization())
     overrides.setdefault("repository_roots", fakes.SYNTHETIC_REPOSITORY_ROOTS)
+    overrides.setdefault("attempt_ledger_root", ATTEMPT_LEDGER_ROOT)
     return require_c8_attr(script, "build_runtime_wiring")(**overrides)
 
 
@@ -234,14 +254,21 @@ def test_exact_execute_path_calls_one_injected_executor_with_external_paths() ->
     script = load_c8_script("run_topology_rehearsal.py")
     calls: list[tuple[object, ...]] = []
 
-    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
-        calls.append((grant_path, signature_path, repository_roots))
+    def execute(
+        grant_path: str, signature_path: str, *, repository_roots, attempt_ledger_root
+    ) -> int:
+        calls.append((grant_path, signature_path, repository_roots, attempt_ledger_root))
         return 0
 
     exit_code = require_c8_attr(script, "main")(execute_argv(), execute=execute)
     assert exit_code == 0
     assert calls == [
-        (GRANT_PATH, SIGNATURE_PATH, dict(fakes.SYNTHETIC_REPOSITORY_ROOTS))
+        (
+            GRANT_PATH,
+            SIGNATURE_PATH,
+            dict(fakes.SYNTHETIC_REPOSITORY_ROOTS),
+            ATTEMPT_LEDGER_ROOT,
+        )
     ]
 
 
@@ -260,8 +287,10 @@ def recording_executor(calls: list[tuple[object, ...]]):
     it owed a refusal is recorded.
     """
 
-    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
-        calls.append((grant_path, signature_path, repository_roots))
+    def execute(
+        grant_path: str, signature_path: str, *, repository_roots, attempt_ledger_root
+    ) -> int:
+        calls.append((grant_path, signature_path, repository_roots, attempt_ledger_root))
         return 0
 
     return execute
@@ -398,7 +427,9 @@ def test_a_typed_precheck_abort_from_the_wiring_is_returned_as_the_hold_exit() -
     wrong = wrong_repositories()
     forwarded: list[object] = []
 
-    def execute(grant_path: str, signature_path: str, *, repository_roots) -> int:
+    def execute(
+        grant_path: str, signature_path: str, *, repository_roots, attempt_ledger_root
+    ) -> int:
         forwarded.append(repository_roots)
         raise abort(
             "repository_roots must be exactly the reviewed control repositories"
@@ -539,8 +570,8 @@ def test_default_composition_loads_builds_and_runs_the_same_authorization() -> N
         calls.append(("load", grant_path, signature_path))
         return authorization
 
-    def build(*, authorization, repository_roots):
-        calls.append(("build", authorization, repository_roots))
+    def build(*, authorization, repository_roots, attempt_ledger_root):
+        calls.append(("build", authorization, repository_roots, attempt_ledger_root))
         return wiring
 
     def run(authorization, received_adapters, *, execute_requested: bool):
@@ -556,12 +587,13 @@ def test_default_composition_loads_builds_and_runs_the_same_authorization() -> N
         GRANT_PATH,
         SIGNATURE_PATH,
         repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
+        attempt_ledger_root=ATTEMPT_LEDGER_ROOT,
         dependencies_loader=lambda: dependencies,
     )
     assert exit_code == 0
     assert calls == [
         ("load", GRANT_PATH, SIGNATURE_PATH),
-        ("build", authorization, fakes.SYNTHETIC_REPOSITORY_ROOTS),
+        ("build", authorization, fakes.SYNTHETIC_REPOSITORY_ROOTS, ATTEMPT_LEDGER_ROOT),
         ("run", authorization, adapters, True),
     ]
 
@@ -644,7 +676,9 @@ def test_every_non_pass_result_maps_to_the_fixed_nonzero_hold_exit(outcome: str)
     wiring = SimpleNamespace(adapters=object())
     dependencies = SimpleNamespace(
         authorization_loader=lambda _grant, _signature: authorization,
-        wiring_builder=lambda *, authorization, repository_roots: wiring,
+        wiring_builder=(
+            lambda *, authorization, repository_roots, attempt_ledger_root: wiring
+        ),
         runner=lambda _authorization, _adapters, *, execute_requested: SimpleNamespace(
             outcome=outcome
         ),
@@ -653,6 +687,7 @@ def test_every_non_pass_result_maps_to_the_fixed_nonzero_hold_exit(outcome: str)
         GRANT_PATH,
         SIGNATURE_PATH,
         repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
+        attempt_ledger_root=ATTEMPT_LEDGER_ROOT,
         dependencies_loader=lambda: dependencies,
     )
     assert exit_code == require_c8_attr(script, "HOLD_EXIT")
@@ -2186,13 +2221,16 @@ def test_the_ceiling_bounds_the_spawn_by_effect_not_by_syntactic_shape() -> None
     """The clamp must be pinned by what reaches `subprocess.run`, not by how it is written.
 
     The sibling control above walks the AST for a single `timeout_seconds = min(...)`
-    assignment. That shape test is satisfied by mutations that destroy the bound: appending
-    `timeout_seconds *= 2` is an `AugAssign` and not an `Assign`, and
-    `timeout_seconds = max(timeout_seconds, COMMAND_TIMEOUT_SECONDS)` keeps a single `Assign`
-    whose call names both required identifiers. Either leaves `len(clamps) == 1` and the whole
-    file green while the effective bound becomes 360s or 180s. This control reads the value
-    the seam actually hands the operating system, so no rewriting of the clamp can satisfy it
-    without preserving the ceiling.
+    assignment. That shape test is satisfied by mutations that destroy the bound, and both
+    are stated here as *appended* lines, because that is the reading in which they defeat it:
+    `timeout_seconds *= 2` written below the clamp is an `AugAssign` and not an `Assign`, and
+    `timeout_seconds = max(timeout_seconds, COMMAND_TIMEOUT_SECONDS)` written below it is an
+    `Assign` whose call is not a `min`. Either leaves `len(clamps) == 1` and the whole file
+    green while the effective bound becomes 240s -- the clamped 120s doubled, not the request
+    doubled -- or 180s. As *replacements* neither is a hole: the `min` call disappears,
+    `len(clamps)` becomes 0, and the sibling control catches them without help from this one.
+    This control reads the value the seam actually hands the operating system, so no
+    rewriting of the clamp can satisfy it without preserving the ceiling.
     """
     script = load_c8_script("run_topology_rehearsal.py")
     executor = require_c8_attr(script, "SubprocessCommandRunner")()
@@ -2205,8 +2243,15 @@ def test_the_ceiling_bounds_the_spawn_by_effect_not_by_syntactic_shape() -> None
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(script.subprocess, "run", fake_run)
-        # The exact value every adapter forwards: RUNTIME_LIMIT_SECONDS = 180 > the 120s bound.
-        executor.run(("/usr/bin/true",), timeout_seconds=180.0)
+        # The exact value every adapter forwards, read from the constant rather than
+        # transcribed: a hardcoded 180.0 asserted in prose that it equalled
+        # `RUNTIME_LIMIT_SECONDS` while being free to drift away from it, and the drift would
+        # have made this control pass against a request no adapter actually sends.
+        forwarded = float(require_c8_attr(load_c8("constants"), "RUNTIME_LIMIT_SECONDS"))
+        assert forwarded > ceiling, (
+            "this control only pins a clamp while the forwarded request exceeds the ceiling"
+        )
+        executor.run(("/usr/bin/true",), timeout_seconds=forwarded)
         # A request already under the ceiling must pass through unchanged, so this control
         # pins a clamp and not a constant substitution.
         executor.run(("/usr/bin/true",), timeout_seconds=5.0)
@@ -2259,3 +2304,167 @@ def test_a_non_roots_plan_fault_keeps_the_boundary_it_came_from() -> None:
         with pytest.raises(abort) as refused:
             runtime_wiring(script)
     assert "the four control worktrees were not named" in str(refused.value)
+
+
+def recorded_ledger_paths(script, patch, **overrides) -> list[str]:
+    """Every path the wiring hands the durable one-attempt ledger, in construction order.
+
+    The path is read by recording the constructor argument rather than by reaching into the
+    built object's private `_path`. A private attribute is not a contract: renaming it would
+    silently turn this control green while the siting it pins went unobserved, which is the
+    same reader-stops-looking failure the ledger already carries findings about.
+    """
+    adapter_module = load_c8("adapter")
+    real = require_c8_attr(adapter_module, "AtomicFileAttemptLedger")
+    seen: list[str] = []
+
+    def recording(path: str):
+        seen.append(path)
+        return real(path)
+
+    patch.setattr(adapter_module, "AtomicFileAttemptLedger", recording)
+    runtime_wiring(script, **overrides)
+    return seen
+
+
+def test_the_attempt_ledger_is_sited_under_its_own_operator_named_root() -> None:
+    """The one-attempt budget may not live under a worktree a re-checkout can replace.
+
+    This is finding F0092. The budget was sited at `f"{plan.signature_path}.attempt-ledger"`,
+    and `signature_path` is derived from the operator's `--control-root` for the suite, so
+    the durable one-attempt guarantee was per *checkout* rather than per grant: a second
+    clean checkout at the granted commit presented a fresh, unconsumed budget inside the same
+    grant window. Admission pins every control worktree to `clean is True` plus an exact
+    commit and tree, which is why an installed signing key fails there — but the ledger file
+    is untracked, so a clean tree and the absence of a ledger are the same observation and
+    nothing pinned it.
+
+    The repair does not invent an anchor and reads no host source. It takes the ledger's
+    worktree as a fifth operator declaration on argv, at the same trust level as `--execute`,
+    the choice of grant file and the four `--control-root` tokens, and sites the budget
+    there. What that buys is stated exactly by the second half of this test: moving the suite
+    control root no longer moves the budget.
+
+    The residual is disclosed rather than claimed away. An operator who deliberately types a
+    *different* `--attempt-ledger-root` on a second invocation still gets a second budget.
+    That is a different failure from the one F0092 names — it is a deliberate re-pointing by
+    the holder of the grant, not a budget that resets as a side effect of ordinary checkout
+    hygiene — and closing it needs an anchor no argv-only entrypoint can supply. Whether the
+    remainder retires the row is the reviewer's call and is not decided here.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    with pytest.MonkeyPatch.context() as patch:
+        sited = recorded_ledger_paths(script, patch)
+    assert len(sited) == 1, "exactly one durable attempt ledger is constructed"
+    ledger_path = sited[0]
+    assert ledger_path.startswith(ATTEMPT_LEDGER_ROOT), (
+        f"the budget must live under the declared ledger worktree, not at {ledger_path!r}"
+    )
+    for name, root in fakes.SYNTHETIC_REPOSITORY_ROOTS.items():
+        assert not ledger_path.startswith(root), (
+            f"the budget is sited under the {name!r} control root, so a second checkout of "
+            "that worktree presents an unconsumed budget for the same grant (F0092)"
+        )
+
+    # The load-bearing half: the same grant and the same ledger declaration must yield the
+    # same budget file even when the suite worktree is a different checkout entirely. A
+    # siting that still reads the plan would move here and the paths would differ.
+    moved = {**fakes.SYNTHETIC_REPOSITORY_ROOTS, fakes.SUITE_CONTROL: "/tmp/second-checkout"}
+    with pytest.MonkeyPatch.context() as patch:
+        resited = recorded_ledger_paths(script, patch, repository_roots=moved)
+    assert resited == sited, (
+        "re-checking-out the suite control worktree moved the one-attempt budget, which is "
+        "exactly the reset F0092 names"
+    )
+
+
+def test_an_invocation_that_names_no_attempt_ledger_root_holds_without_calling_the_executor() -> None:
+    """An unstated `--attempt-ledger-root` is refused in `main`, before anything is opened.
+
+    Mandatory-ness is pinned where the operator observes it — a returned `HOLD_EXIT` and an
+    empty call ledger — for the reason
+    `test_an_invocation_that_names_no_control_root_holds_without_calling_the_executor`
+    already gives about the four control roots: the shared-surface contract permits either
+    argparse spelling, so asserting a `SystemExit` off the bare parser would forbid an honest
+    implementation while proving nothing more about the exit code.
+
+    The empty ledger is the load-bearing half. Without it a `main` that folded the unstated
+    flag to a default of its own choosing and forwarded it would pass on the return code
+    alone, and a defaulted ledger root is precisely the invented anchor this repair refuses
+    to introduce.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    calls: list[tuple[object, ...]] = []
+    exit_code = require_c8_attr(script, "main")(
+        execute_argv(attempt_ledger_root=None), execute=recording_executor(calls)
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT")
+    assert exit_code != 0
+    assert calls == [], (
+        "an invocation that declared no ledger worktree may not reach the executor"
+    )
+
+
+def test_the_attempt_ledger_root_is_mandatory_at_both_frames_with_no_default() -> None:
+    """Neither frame between the operator and the ledger may supply the worktree itself.
+
+    Both frames, for the reason `test_the_control_roots_are_mandatory_at_the_composition_root_as_well`
+    records: a mandate stated at one frame only is satisfied by the other frame inventing a
+    value, and that is the defect being repaired rather than a new one.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    for name in ("build_runtime_wiring", "execute_authorized_attempt"):
+        parameter = inspect.signature(
+            require_c8_attr(script, name)
+        ).parameters["attempt_ledger_root"]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY, (
+            f"{name}: the ledger worktree must be named at the call site, not positional"
+        )
+        assert parameter.default is inspect.Parameter.empty, (
+            f"{name}: a default ledger worktree is an anchor nobody declared"
+        )
+
+
+def test_a_precheck_abort_from_the_authorization_loader_holds_like_one_from_the_wiring() -> None:
+    """Both typed refusals inside the composition root answer the operator the same way.
+
+    This is finding F0098. The loader call sat outside the `try`, so a `PrecheckAbort` raised
+    by `load_authorization` — which is the *default* loader's only behaviour in this slice —
+    propagated out of `execute_authorized_attempt` as an exception, while the identical abort
+    from `wiring_builder` two lines below returned `HOLD_EXIT`. The docstring promised to
+    "hold on anything that is not a pass" for both.
+
+    `main` catches `PrecheckAbort` and so masks the difference at the outermost frame, which
+    is why no existing control saw this. That masking is exactly why the test is written
+    against `execute_authorized_attempt` directly: the function states a contract of its own,
+    it is exported in `__all__`, and a caller other than `main` gets a traceback where it was
+    promised an exit code.
+    """
+    script = load_c8_script("run_topology_rehearsal.py")
+    abort = require_c8_attr(load_c8("errors"), "PrecheckAbort")
+    reached: list[str] = []
+
+    def refusing_loader(grant_path: str, signature_path: str):
+        raise abort("load_authorization: not authorized in this slice")
+
+    def build(*, authorization, repository_roots, attempt_ledger_root):
+        reached.append("build")
+        raise AssertionError("the wiring may not be reached after the loader refused")
+
+    def run(authorization, received_adapters, *, execute_requested: bool):
+        reached.append("run")
+        raise AssertionError("the runner may not be reached after the loader refused")
+
+    dependencies = SimpleNamespace(
+        authorization_loader=refusing_loader, wiring_builder=build, runner=run
+    )
+    exit_code = require_c8_attr(script, "execute_authorized_attempt")(
+        GRANT_PATH,
+        SIGNATURE_PATH,
+        repository_roots=fakes.SYNTHETIC_REPOSITORY_ROOTS,
+        attempt_ledger_root=ATTEMPT_LEDGER_ROOT,
+        dependencies_loader=lambda: dependencies,
+    )
+    assert exit_code == require_c8_attr(script, "HOLD_EXIT")
+    assert exit_code != 0
+    assert reached == [], "nothing below the loader may run once it has refused"
