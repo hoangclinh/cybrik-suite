@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from collections.abc import Sequence
 from typing import Any
 
@@ -54,6 +55,18 @@ class SubprocessCommandRunner:
         stdin: bytes | None = None,
     ) -> Any:
         from cybrik_suite_topology_rehearsal.protocols import CommandResult
+
+        # The ceiling is enforced here rather than trusted at the call sites. Every adapter
+        # forwards `EFFECT_TIMEOUT_SECONDS`, which is `RUNTIME_LIMIT_SECONDS = 180`, so an
+        # unclamped forward let each spawn run 180s under a seam whose own contract above
+        # declares a 120s bound. Clamping at the single spawn site is what makes that bound a
+        # property of the executor object, as the class docstring claims: no caller, and no
+        # future adapter, can widen it by passing a larger number.
+        # Clamped in place rather than into a new name: the single-spawn-site control at
+        # tests/test_scripts_inert.py:720 pins the spawn's `timeout` to the parameter name,
+        # and that control is correct and stays unmodified. Rebinding keeps the spawn reading
+        # `timeout_seconds` while making the value it holds the bounded one.
+        timeout_seconds = min(float(timeout_seconds), COMMAND_TIMEOUT_SECONDS)
 
         try:
             completed = subprocess.run(
@@ -172,19 +185,47 @@ def build_runtime_wiring(
     from cybrik_suite_topology_rehearsal.protocols import Adapters
     from cybrik_suite_topology_rehearsal.runner import attempt_id_for
 
-    identity = authorization.grant["observed_image_identity"]
+    # Read inside a guard: this is envelope content, not argv, and a grant missing the key
+    # or carrying a non-mapping under it used to raise a bare `KeyError`/`TypeError` that
+    # escaped both `PrecheckAbort` handlers and left `main` as a traceback rather than the
+    # hold exit the operator is owed.
+    try:
+        identity = authorization.grant["observed_image_identity"]
+        attempt_id = attempt_id_for(identity["observed_at"])
+        image_reference = (
+            f"{identity['repository']}{plan.DIGEST_MARKER}{identity['manifest_digest']}"
+        )
+    except (KeyError, IndexError, TypeError, AttributeError) as error:
+        raise PrecheckAbort(
+            "authorization.grant: observed_image_identity is not the reviewed shape "
+            f"({error})"
+        ) from error
+
     try:
         built = plan.build_plan(
-            attempt_id=attempt_id_for(identity["observed_at"]),
-            image_reference=(
-                f"{identity['repository']}{plan.DIGEST_MARKER}"
-                f"{identity['manifest_digest']}"
-            ),
+            attempt_id=attempt_id,
+            image_reference=image_reference,
             repository_roots=repository_roots,
         )
     except PrecheckAbort:
         raise
-    except Exception as error:
+    except ValueError as error:
+        # `plan` labels its own refusals. `attempt_id` and `image_reference` are validated at
+        # the top of `build_plan`, before any root is touched, so relabelling those as a
+        # roots-naming failure told the operator to correct four worktrees that were in fact
+        # correct. Each fault now carries the boundary it actually came from.
+        detail = str(error)
+        if detail.startswith(("attempt_id:", "image_reference:")):
+            raise PrecheckAbort(
+                f"authorization.grant: observed_image_identity did not yield a "
+                f"plannable attempt ({detail})"
+            ) from error
+        raise PrecheckAbort(
+            f"repository_roots: the four control worktrees were not named ({detail})"
+        ) from error
+    except (KeyError, IndexError, TypeError) as error:
+        # A roots argument that is not a mapping of the four names fails on subscript before
+        # it fails on content; that is a roots fault and keeps the roots label.
         raise PrecheckAbort(
             f"repository_roots: the four control worktrees were not named ({error})"
         ) from error
@@ -275,3 +316,18 @@ def main(
         # A typed refusal from below is the operator's answer, not a traceback: the key
         # space belongs to `plan`, and `main` only reports the hold it was handed.
         return HOLD_EXIT
+
+
+# Running the file must produce the exit `main` computed. Without this guard the module
+# defined its functions, called none of them, and fell off the end with status 0 — which is
+# this entrypoint's TOPOLOGY_PASS code — so an operator who ran the rehearsal was told it had
+# passed while nothing had been loaded, planned or spawned. That is the inverse of the
+# fail-closed contract the module docstring states, and it is why this is the blocking row.
+# The guard does not fire on import, so the front door stays inert exactly as advertised.
+#
+# No `[project.scripts]` table accompanies it: console entry points would install two
+# runnable commands onto the PATH of anything that installs this package, which widens the
+# runtime surface while RUNTIME is HOLD. Invocation by path is enough to make the exit code
+# honest, and it is the smaller change.
+if __name__ == "__main__":  # pragma: no cover - exercised by invocation, not by import
+    raise SystemExit(main(sys.argv[1:]))

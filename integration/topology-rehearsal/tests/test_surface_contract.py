@@ -70,11 +70,24 @@ UNEVIDENCED_STATUS_CLAIMS = r"\b(?:IMPLEMENTED|VERIFIED|PILOTED|GA|PRODUCTION)\b
 # The exact sentences the package front door must carry. They are pinned rather than
 # paraphrased so a later edit cannot soften the absence back into an implied whole runner.
 FRONT_DOOR_BOUNDED_CLAIM = "Only part of the bounded C8 library core is present"
-# Renamed in meaning, not in identifier: the sentence this pins is still the one sentence
-# that states the present/absent split, but the scripts have landed so it now states the
-# landing. The identifier is kept so every reader of this control sees one history rather
-# than a constant that appears to have been introduced fresh alongside the claim it checks.
-FRONT_DOOR_ABSENCE_CLAIM = "have landed, and their tests are GREEN"
+# RECORDED DELETION — `FRONT_DOOR_ABSENCE_CLAIM` is retired, not renamed.
+#
+# It pinned "remain absent, and their tests stay RED". When both scripts landed,
+# `FRONT_DOOR_ABSENT_MODULES` became `()`, so nothing in the component was absent and the
+# constant had no subject matter left. It was previously repointed at
+# "have landed, and their tests are GREEN" under the same identifier. That was wrong twice
+# over: an absence control was made to assert a presence, and the replacement string was a
+# self-certifying claim about the suite's own test results that no control in this file can
+# falsify — the front door asserting its own GREEN.
+#
+# ENTRYPOINT-SLICE-SPEC.md:577-599 adjudicated the honest form as a deletion reviewed and
+# recorded as one, not a move: retire the constant, the docstring requirement, and the
+# `absence_sentence` half of the placement control together, and keep the falsifiability
+# they carried in the halves that still have subject matter — `absent ==
+# FRONT_DOOR_ABSENT_MODULES`, `present == FRONT_DOOR_PRESENT_MODULES`, and the
+# present-sentence placement, extended below so both script names must sit on the present
+# side exactly as the modules do. This is a weakening in the strict sense: an assertion the
+# tree made today stops being made. No control over anything that still exists is weakened.
 FRONT_DOOR_SCRIPT_CLAIM = "both entrypoint scripts"
 # The modules still absent. Stated here so the front-door control fails if one lands without
 # the front door being brought back into line.
@@ -178,7 +191,6 @@ def test_the_package_front_door_states_the_bounded_core_and_the_absent_remainder
     ]
     assert unnamed == []
     assert FRONT_DOOR_BOUNDED_CLAIM in docstring
-    assert FRONT_DOOR_ABSENCE_CLAIM in docstring
     assert FRONT_DOOR_SCRIPT_CLAIM in docstring
     for name in C8_SCRIPT_NAMES:
         # Both entrypoints have landed. The control is inverted rather than deleted: the
@@ -232,12 +244,15 @@ def test_the_front_door_places_every_module_on_the_side_it_is_actually_on() -> N
     misplaced = [module for module in absent if f"`{module}`" in present_sentence]
     assert misplaced == [], "an absent module may not be listed among the present ones"
 
-    absence_sentence = sole_sentence_containing(docstring, FRONT_DOOR_ABSENCE_CLAIM)
-    unnamed = [module for module in absent if f"`{module}`" not in absence_sentence]
-    assert unnamed == [], "every absent module must be named in the absence sentence"
-    overclaimed = [module for module in present if f"`{module}`" in absence_sentence]
-    assert overclaimed == [], "a landed module may not still be described as absent"
-    assert FRONT_DOOR_SCRIPT_CLAIM in absence_sentence
+    # The absence half is retired with its subject: see the recorded deletion above. The
+    # script claim moves to the present sentence, where it now has to name both scripts by
+    # file name rather than gesture at "both entrypoint scripts" — so a script that is
+    # deleted, or one that lands unannounced, fails here.
+    assert FRONT_DOOR_SCRIPT_CLAIM in present_sentence
+    unplaced_scripts = [
+        name for name in C8_SCRIPT_NAMES if f"`{name}`" not in present_sentence
+    ]
+    assert unplaced_scripts == [], "every landed script must be named in the present sentence"
     # The front door may not quietly acquire a runtime claim while it is being corrected.
     assert re.findall(UNEVIDENCED_STATUS_CLAIMS, docstring) == []
     assert LIBRARY_STATUS in [line.strip() for line in docstring.splitlines() if line.strip()]

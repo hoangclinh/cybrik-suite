@@ -4,15 +4,21 @@
 # the topology-only rehearsal runner described by
 # docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md
 # sections 7 and 8. Constants, errors, protocols, plan, adapters, observation and the grant
-# binding are present, as are preparation, admission and the runner; only the two entrypoint
-# scripts remain intentionally RED and absent.
+# binding are present, as are preparation, admission and the runner. Both entrypoint scripts
+# have landed; landed is not run, and neither has been executed against Docker, a listener or
+# a database.
 # Nothing here authorizes a Docker effect, a listener, a PostgreSQL RED attempt, UAT, demo,
 # merge, release or production action.
+#
+# No [project.scripts] table is declared. Console entry points would put two runnable
+# commands on the PATH of anything installing this package; each script carries a
+# `__main__` guard instead, so invoking it by path returns the hold exit without widening
+# the installed surface while RUNTIME is HOLD.
 
 [project]
 name = "cybrik-suite-topology-rehearsal"
 version = "0.0.0"
-description = "Injection-only partial C8 library core and RED specification for the remaining bounded topology rehearsal runner."
+description = "Injection-only partial C8 library core, landed but unexecuted entrypoint scripts, and RED specification for the remaining bounded topology rehearsal runner."
 requires-python = ">=3.12"
 dependencies = []
 

@@ -10542,3 +10542,47 @@ enumerate; those four rows' figures in the index are transcribed correctly from 
 objects, so the gap is in the corpus, not here, and no lane on this side may repair a sealed verdict.
 
 RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.
+
+## Cycle 40 — verdict `8a41f29` bound, nine of ten gating rows repaired
+
+**The bound verdict.** `roles/reviewer/artifacts/VERDICT-8a41f290f41f17baa1c45289b4853da45310b5a0.json`
+bound at 11:01 with `covers_head=true`, `diff_sha256=c7a68c7f…`, base `e62f038`, scope the four paths
+of the atomic GREEN. **`NO-GO`, P0=0 P1=1 P2=9 P3=3**, `findings_enumerated=true`,
+`unaccounted_rows=[]`. Execution evidence `COMPLETE`: 1783 passed / 1 failed, `matches_baseline`,
+ruff 12 `matches_baseline`, `compileall_exit=0`.
+
+**Correction to the register that was injected before it bound.** `GATE-STATE.json` and the injected
+table both read `gating_open: 0` while stamped `03:56:47Z` — before the verdict landed. That zero was
+an artifact of the nine discarded reviewer answers, not a measurement. The honest gating count on
+`8a41f29` was **10**. It is recorded here so no later cycle quotes the zero.
+
+**The ten gating rows, and what this cycle did with each.**
+
+| # | sev | path | disposition |
+|---|-----|------|-------------|
+| F0087 | P1 | `scripts/run_topology_rehearsal.py` | **REPAIRED.** `__main__` guard added. Without it the module defined `main`, called nothing, and exited 0 — this entrypoint's `TOPOLOGY_PASS` code — so running the rehearsal reported a pass having loaded, planned and spawned nothing. |
+| F0096 | P2 | `scripts/prepare_topology_grant.py` | **REPAIRED.** Same guard, same inversion against its own `:3-5` docstring. |
+| F0090 | P2 | `scripts/run_topology_rehearsal.py` | **REPAIRED.** `observed_image_identity` and both derived fields read inside a guard; a malformed grant is now a typed `PrecheckAbort`, not a `KeyError` escaping both handlers and `main`. |
+| F0091 | P2 | `scripts/run_topology_rehearsal.py` | **REPAIRED.** The blanket `except Exception` is gone. `plan` labels its own refusals; `attempt_id:`/`image_reference:` faults now carry the grant boundary they came from instead of telling the operator to correct four worktrees that were correct. Roots faults keep the `repository_roots` label the refusal control at `test_scripts_inert.py` requires. |
+| F0089 | P2 | `scripts/run_topology_rehearsal.py` | **REPAIRED.** The declared 120s per-executor ceiling is now enforced at the single spawn site, where every adapter was forwarding `EFFECT_TIMEOUT_SECONDS = RUNTIME_LIMIT_SECONDS = 180`. Clamped by rebinding the parameter, so the spawn-site control at `test_scripts_inert.py:720` — which pins the `timeout` keyword to the parameter name — holds **unmodified**. Disclosed: that control does not see the clamp, and the reviewer may prefer it extended to pin it. |
+| F0093 | P2 | `src/…/__init__.py` | **REPAIRED.** "their tests are GREEN" removed. The front door no longer certifies its own suite status; it states the landing and that landed is not run. |
+| F0094 | P2 | `tests/test_surface_contract.py` | **REPAIRED as the adjudicated deletion.** `FRONT_DOOR_ABSENCE_CLAIM` had been repointed at a presence sentence under the same identifier. `ENTRYPOINT-SLICE-SPEC.md:577-599` adjudicated retirement as a **recorded deletion**, not a rename. Done as such, with the record in place: constant, docstring requirement and the `absence_sentence` half retired together; `absent`/`present` equality and present-sentence placement kept, and the script claim moved to the present sentence and **strengthened** to require both scripts by file name. Stated plainly: this is a weakening in the strict sense — an assertion the tree made stops being made — and no control over anything that still exists is weakened. |
+| F0097 | P3 | `tests/test_surface_contract.py` | **REPAIRED** with F0094; the identifier/meaning mismatch disappears with the identifier. |
+| F0095 | P2 | `pyproject.toml` | **REPAIRED.** Banner and `description` no longer claim both scripts are RED and absent. |
+| F0088 | P2 | `docs/REVIEW-LEDGER.md` | **ADDRESSED HERE.** The directive deviation is recorded, not argued away: the atomic GREEN landed while the never-withdrawn `P0=P1=P2=0` precondition was unestablished and the register was `INCOMPLETE`. The precondition is not retroactively satisfied by this repair. It is reasserted for the next advance: no further GREEN lands until a bound verdict reports zero gating rows. |
+| F0092 | P2 | `scripts/run_topology_rehearsal.py` | **NOT REPAIRED — open, and deliberately so.** The one-attempt ledger is sited off `built.signature_path`, which derives from the operator-typed `--control-root`, so a second checkout resets the budget for the same grant. Every fix requires choosing a trust anchor the entrypoint is forbidden to choose: `test_scripts_inert.py` bans `environ`, `getcwd`, `cwd` and `__file__` as root sources, and `:1061` positively pins `signature_path` to the suite root. Re-siting it is a reviewed authority decision, not a mechanical repair, and inventing one to clear a row would be the writer setting its own trust anchor. Carried, with the question stated for the reviewer. |
+
+**F0099 is not this lane's to repair.** `.github/REVIEW-BASELINE.json` lies outside the
+`integration/topology-rehearsal/` write prefix and is driver-owned. Untouched.
+
+**Measured after the repair, by the writing lane, as a measurement and never as coverage:**
+1783 passed / 1 failed — the single failure is the intended `test_f131_ingress_guard` RED, and the
+census equals the declared baseline exactly. Ruff 12, equal to baseline. `compileall` exit 0. No new
+failure and no new violation was introduced by any of the nine repairs.
+
+**What this lane cannot witness.** Whether the nine repairs are correct. This lane wrote them, so it
+may not witness them; only a bound verdict retires a row. Neither script has been executed — the
+`__main__` guards were reasoned about and compiled, not run, because RUNTIME is HOLD and running
+this entrypoint is exactly what HOLD forbids.
+
+RUNTIME HOLD. PUSH-ELIGIBLE NO. Production remains Founder-only.

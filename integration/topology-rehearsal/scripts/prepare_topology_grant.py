@@ -8,6 +8,7 @@ returns the fixed non-zero hold exit, because the preparation it names is not au
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
 
 __all__ = ["HOLD_EXIT", "build_parser", "main"]
@@ -28,3 +29,12 @@ def main(argv: Sequence[str]) -> int:
     except SystemExit:
         return HOLD_EXIT
     return HOLD_EXIT
+
+
+# Running the file must produce the hold exit the docstring promises. Without this guard the
+# module defined `main`, never called it, and fell off the end with status 0 — the success
+# code — so an operator who ran the script was told the preparation had succeeded when
+# nothing had been parsed at all. The guard does not fire on import, so the inertness the
+# front door advertises is unchanged.
+if __name__ == "__main__":  # pragma: no cover - exercised by invocation, not by import
+    raise SystemExit(main(sys.argv[1:]))
