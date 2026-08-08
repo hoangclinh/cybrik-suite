@@ -4042,13 +4042,15 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
     ),
   ]);
 
+  // 3, not 2: the topology-rehearsal tests job checks the tree out at the same
+  // reviewed SHA. The reviewed commit is unchanged; only the number of uses moved.
   assert.equal(
     (
       workflowText.match(
         /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/g,
       ) ?? []
     ).length,
-    2,
+    3,
   );
   assert.equal(
     (
@@ -4107,7 +4109,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /must contain exactly 3 reviewed GitHub action uses; found 4/,
+    /must contain exactly 4 reviewed GitHub action uses; found 5/,
   );
 
   const trailingWhitespaceBypass = workflowText.replace(
@@ -4138,7 +4140,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /checkout@.* must occur exactly 2 times; found 1/,
+    /checkout@.* must occur exactly 3 times; found 2/,
   );
 
   const renamedRequiredCheck = workflowText.replace(

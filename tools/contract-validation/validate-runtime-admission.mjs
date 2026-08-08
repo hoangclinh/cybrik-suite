@@ -1,14 +1,18 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import {
   existsSync,
   lstatSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,6 +22,12 @@ const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
+const WITHDRAWAL_SCHEMA_PATH = 'docs/uat/runtime-authorization-withdrawal.schema.json';
+const WITHDRAWAL_TRUST_PATH = 'docs/uat/runtime-authorization-withdrawal-trust.json';
+const MASTER_AUTHORIZATION_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
+const WITHDRAWAL_FILENAME = 'runtime-authorization-withdrawal.json';
+const WITHDRAWAL_NAMESPACE = 'cybrik-uat-runtime-withdrawal-v1';
 const CANDIDATE_ROOT = 'docs/uat/candidates';
 const SUITE_REFERENCE_PREFIX = 'cybrik-suite:';
 const FORBIDDEN_PROFILES = new Set([
@@ -57,6 +67,49 @@ const SEALED_LEGACY_CANDIDATES = [
     recorded_disposition: 'NO-GO',
   },
 ];
+const ALLOWED_LINEAGE_OBJECTIVES = [
+  {
+    capability_id: 'cybrik.ai.durable-postgres',
+    objective_id: 'bounded-postgres-runtime-v1',
+    allowed_series_ids: ['runtime-admission-ai-pg'],
+  },
+  {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    allowed_series_ids: [
+      'browser-integrated-uat-bridge',
+      'runtime-admission-soc-ai-lifecycle-mtls',
+    ],
+  },
+];
+const SEALED_PREDECESSORS = [
+  {
+    candidate_id: 'browser-integrated-uat-bridge-r1',
+    series_id: 'browser-integrated-uat-bridge',
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    record_path:
+      'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+    record_sha256: 'b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578',
+    recorded_disposition: 'HOLD',
+    recorded_current_attempt_status: 'not_run',
+  },
+];
+// The one topology rehearsal a runtime successor may cite. Both the identity and
+// the exact record bytes are sealed here so no rehearsal can be substituted.
+const SEALED_TOPOLOGY_RECORD_ID = 'postgres-loopback-internal-v1-r1';
+const SEALED_TOPOLOGY_RECORD_PATH =
+  `docs/uat/topology-rehearsals/${SEALED_TOPOLOGY_RECORD_ID}/topology-rehearsal.json`;
+// The single already-committed execution-authorized record, which predates the
+// sealed_predecessor/topology_prerequisite pair. It is exempt only as these
+// exact immutable bytes at this exact path; nothing else in its series inherits
+// that exemption.
+const GRANDFATHERED_AUTHORIZED_CANDIDATE = {
+  candidate_id: 'runtime-admission-soc-ai-lifecycle-mtls-r1',
+  record_path:
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
+  record_sha256: 'a59acf23125b4ffd912f59459faa4498c7441d00ca8f21b2c148b5d0b7780ba4',
+};
 
 const dependencyRequire = () => {
   const localRequire = createRequire(join(HERE, 'package.json'));
@@ -112,6 +165,53 @@ const parseJson = (root, path, overrides, errors) => {
 };
 
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const canonicalJson = (value) => {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (isPlainObject(value)) {
+    return `{${Object.keys(value).sort().map(
+      (key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`,
+    ).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+};
+const isImmutableLineageObjective = (lineage) =>
+  ALLOWED_LINEAGE_OBJECTIVES.some(
+    (entry) => entry.capability_id === lineage?.capability_id
+      && entry.objective_id === lineage?.objective_id,
+  );
+// Caller-supplied pins exist so a non-default root can be validated without the
+// validator trusting that root's own policy file. They may widen the objective
+// allowlist with test series, but they can never shrink the immutable seal in
+// either direction, and they can never enroll a sealed predecessor.
+const validateLineagePolicyPins = (pins) => {
+  const errors = [];
+  if (canonicalJson(pins?.sealed_predecessors) !== canonicalJson(SEALED_PREDECESSORS)) {
+    errors.push(
+      `${LINEAGE_POLICY_PATH}: sealed_predecessors must exactly match the validator-immutable sealed set regardless of supplied pins`,
+    );
+  }
+  const suppliedSeriesByObjective = new Map(
+    (Array.isArray(pins?.allowed_objectives) ? pins.allowed_objectives : [])
+      .filter((entry) => isPlainObject(entry))
+      .map((entry) => [
+        `${entry.capability_id}\u0000${entry.objective_id}`,
+        new Set(Array.isArray(entry.allowed_series_ids) ? entry.allowed_series_ids : []),
+      ]),
+  );
+  const preservesImmutableObjectives = ALLOWED_LINEAGE_OBJECTIVES.every((immutable) => {
+    const supplied = suppliedSeriesByObjective.get(
+      `${immutable.capability_id}\u0000${immutable.objective_id}`,
+    );
+    return Boolean(supplied)
+      && immutable.allowed_series_ids.every((seriesId) => supplied.has(seriesId));
+  });
+  if (!preservesImmutableObjectives) {
+    errors.push(
+      `${LINEAGE_POLICY_PATH}: lineage policy pins must preserve every validator-immutable allowed objective series`,
+    );
+  }
+  return errors;
+};
 const hasExactKeys = (value, expected) =>
   isPlainObject(value)
   && Object.keys(value).length === expected.length
@@ -130,6 +230,23 @@ const compileSchema = (root, overrides, errors) => {
     return ajv.compile(schema);
   } catch (error) {
     errors.push(`${SCHEMA_PATH}: schema compile failed: ${error.message}`);
+    return null;
+  }
+};
+
+const compileWithdrawalSchema = (root, overrides, errors) => {
+  const schema = parseJson(root, WITHDRAWAL_SCHEMA_PATH, overrides, errors);
+  if (!schema) return null;
+  try {
+    const ajv = new Ajv2020({
+      strict: true,
+      strictTypes: false,
+      allErrors: true,
+    });
+    addFormats(ajv);
+    return ajv.compile(schema);
+  } catch (error) {
+    errors.push(`${WITHDRAWAL_SCHEMA_PATH}: schema compile failed: ${error.message}`);
     return null;
   }
 };
@@ -161,6 +278,21 @@ const discoverCandidateFiles = (root) => {
   return discoverRuntimeAdmissionFiles(root)
     .filter((path) => path.split('/').length === 5)
     .sort();
+};
+
+const discoverWithdrawalFiles = (root, relativeDir = CANDIDATE_ROOT) => {
+  const absoluteDir = join(root, relativeDir);
+  if (!existsSync(absoluteDir)) return [];
+  const files = [];
+  for (const entry of readdirSync(absoluteDir, { withFileTypes: true })) {
+    const relativePath = join(relativeDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...discoverWithdrawalFiles(root, relativePath));
+    } else if (entry.name === WITHDRAWAL_FILENAME) {
+      files.push(relativePath);
+    }
+  }
+  return files.sort();
 };
 
 const evaluateSmokeChecks = (checks, label, path, errors) => {
@@ -225,7 +357,9 @@ const validateRecordedArtifact = ({
   errors,
   requireInsideEvidenceDir,
 }) => {
-  if (!artifactPath) {
+  // Malformed candidates are already reported by the schema pass; returning
+  // here keeps that finding authoritative instead of crashing node:path.
+  if (typeof artifactPath !== 'string' || artifactPath === '') {
     return;
   }
 
@@ -341,6 +475,235 @@ const validateEvidenceArtifacts = (root, candidate, path, errors) => {
       errors,
       requireInsideEvidenceDir: true,
     });
+  }
+};
+
+const readContainedRegularFile = (root, path, label, errors) => {
+  if (!path || isAbsolute(path)) {
+    errors.push(`${label} must be a repository-relative regular file`);
+    return null;
+  }
+  const resolvedPath = resolve(root, path);
+  if (isPathOutside(root, resolvedPath)) {
+    errors.push(`${label} must stay inside the repository root`);
+    return null;
+  }
+  try {
+    const linkStats = lstatSync(resolvedPath);
+    const canonicalRoot = realpathSync(root);
+    const canonicalPath = realpathSync(resolvedPath);
+    if (
+      linkStats.isSymbolicLink()
+      || !linkStats.isFile()
+      || isPathOutside(canonicalRoot, canonicalPath)
+    ) {
+      errors.push(`${label} must resolve to a contained non-symlink regular file`);
+      return null;
+    }
+    return readFileSync(resolvedPath);
+  } catch {
+    errors.push(`${label} must resolve to a contained non-symlink regular file`);
+    return null;
+  }
+};
+
+const readContainedJson = (root, path, label, errors) => {
+  const bytes = readContainedRegularFile(root, path, label, errors);
+  if (!bytes) return null;
+  try {
+    return {
+      bytes,
+      value: JSON.parse(bytes.toString('utf8')),
+    };
+  } catch (error) {
+    errors.push(`${label} must contain valid JSON: ${error.message}`);
+    return null;
+  }
+};
+
+const parseContainedJson = (root, path, label, errors) =>
+  readContainedJson(root, path, label, errors)?.value ?? null;
+
+// Binds a cited topology_prerequisite to the one sealed rehearsal record by
+// identity, committed path and exact bytes. Nothing parsed out of that record
+// may be trusted until this binding holds, so the caller must gate every
+// parsed-field check on `ok`.
+const evaluateTopologyBinding = (root, prerequisite) => {
+  const messages = [];
+  if (prerequisite.record_id !== SEALED_TOPOLOGY_RECORD_ID) {
+    messages.push(
+      `topology_prerequisite record_id must equal the sealed ${SEALED_TOPOLOGY_RECORD_ID} rehearsal`,
+    );
+  }
+  if (prerequisite.record_path !== SEALED_TOPOLOGY_RECORD_PATH) {
+    messages.push(
+      'topology_prerequisite record_path must equal the committed topology rehearsal record path',
+    );
+  }
+  if (messages.length > 0) return { ok: false, messages, record: null };
+  const readErrors = [];
+  const document = readContainedJson(
+    root,
+    SEALED_TOPOLOGY_RECORD_PATH,
+    'topology_prerequisite record',
+    readErrors,
+  );
+  if (!document) return { ok: false, messages: readErrors, record: null };
+  if (
+    createHash('sha256').update(document.bytes).digest('hex') !== prerequisite.record_sha256
+  ) {
+    return {
+      ok: false,
+      messages: [
+        'topology_prerequisite record_sha256 must match committed topology record bytes',
+      ],
+      record: null,
+    };
+  }
+  return { ok: true, messages: [], record: document.value };
+};
+
+const allowedSignerIdentity = (bytes, errors, path) => {
+  let line;
+  try {
+    line = bytes.toString('ascii');
+  } catch {
+    errors.push(`${path}: withdrawal allowed-signers bytes must be ASCII`);
+    return null;
+  }
+  const parts = line.endsWith('\n') ? line.slice(0, -1).split(' ') : [];
+  if (
+    parts.length !== 4
+    || parts[0] !== 'FOUNDER'
+    || parts[1] !== `namespaces="${WITHDRAWAL_NAMESPACE}"`
+    || parts[2] !== 'ssh-ed25519'
+    || line.slice(0, -1).includes('\n')
+  ) {
+    errors.push(`${path}: withdrawal allowed-signers identity must bind FOUNDER to the dedicated namespace`);
+    return null;
+  }
+  let keyBlob;
+  try {
+    keyBlob = Buffer.from(parts[3], 'base64');
+  } catch {
+    errors.push(`${path}: withdrawal allowed-signers key must be valid base64`);
+    return null;
+  }
+  if (keyBlob.length === 0 || keyBlob.toString('base64').replace(/=+$/u, '') !== parts[3].replace(/=+$/u, '')) {
+    errors.push(`${path}: withdrawal allowed-signers key must be canonical base64`);
+    return null;
+  }
+  return {
+    signer: parts[0],
+    keyType: parts[2],
+    fingerprint: `SHA256:${createHash('sha256').update(keyBlob).digest('base64').replace(/=+$/u, '')}`,
+  };
+};
+
+const validateWithdrawalSignature = ({
+  root,
+  path,
+  withdrawal,
+  recordBytes,
+  errors,
+}) => {
+  const closure = withdrawal.external_packet_closure;
+  const allowedBytes = readContainedRegularFile(
+    root,
+    closure.allowed_signers_path,
+    `${path}: withdrawal allowed-signers`,
+    errors,
+  );
+  const signatureBytes = readContainedRegularFile(
+    root,
+    closure.signature_path,
+    `${path}: withdrawal signature`,
+    errors,
+  );
+  const trust = parseContainedJson(
+    root,
+    WITHDRAWAL_TRUST_PATH,
+    `${path}: withdrawal trust descriptor`,
+    errors,
+  );
+  const masterTrust = parseContainedJson(
+    root,
+    MASTER_AUTHORIZATION_TRUST_PATH,
+    `${path}: tracked master UAT trust descriptor`,
+    errors,
+  );
+  if (!allowedBytes || !signatureBytes || !recordBytes || !trust || !masterTrust) {
+    errors.push(`${path}: withdrawal SSHSIG must verify against the pinned withdrawal trust`);
+    return;
+  }
+
+  const allowedDigest = createHash('sha256').update(allowedBytes).digest('hex');
+  const identity = allowedSignerIdentity(allowedBytes, errors, path);
+  if (!identity) return;
+  if (!hasExactKeys(trust, [
+    'schema',
+    'signer',
+    'namespace',
+    'key_type',
+    'key_fingerprint',
+    'allowed_signers_sha256',
+  ])) {
+    errors.push(`${WITHDRAWAL_TRUST_PATH}: withdrawal trust descriptor must have the exact field set`);
+    return;
+  }
+  if (
+    trust.schema !== 'CYBRIK-UAT-RUNTIME-WITHDRAWAL-TRUST/v1'
+    || trust.signer !== 'FOUNDER'
+    || trust.namespace !== WITHDRAWAL_NAMESPACE
+    || trust.key_type !== 'ssh-ed25519'
+    || trust.key_fingerprint !== identity.fingerprint
+    || trust.allowed_signers_sha256 !== allowedDigest
+    || closure.signer !== trust.signer
+    || closure.namespace !== trust.namespace
+    || closure.allowed_signers_sha256 !== allowedDigest
+  ) {
+    errors.push(`${path}: withdrawal trust descriptor, signer and allowed-signers identity must match exactly`);
+    return;
+  }
+  if (
+    masterTrust.schema !== 'CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1'
+    || masterTrust.signer !== trust.signer
+    || masterTrust.key_type !== trust.key_type
+    || masterTrust.key_fingerprint !== trust.key_fingerprint
+  ) {
+    errors.push(`${path}: withdrawal trust must retain the tracked master UAT signer identity`);
+    return;
+  }
+  if (closure.signature_path !== `${path}.sig`) {
+    errors.push(`${path}: withdrawal signature_path must be the adjacent detached SSHSIG`);
+    return;
+  }
+  const verifyRoot = mkdtempSync(join(tmpdir(), 'cybrik-withdrawal-verify-'));
+  try {
+    const allowedPath = join(verifyRoot, 'allowed_signers');
+    const signaturePath = join(verifyRoot, 'withdrawal.sig');
+    writeFileSync(allowedPath, allowedBytes, { mode: 0o600 });
+    writeFileSync(signaturePath, signatureBytes, { mode: 0o600 });
+    const verification = spawnSync(
+      '/usr/bin/ssh-keygen',
+      [
+        '-Y', 'verify',
+        '-f', allowedPath,
+        '-I', closure.signer,
+        '-n', closure.namespace,
+        '-s', signaturePath,
+      ],
+      {
+        input: recordBytes,
+        encoding: 'utf8',
+        env: { LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+      },
+    );
+    if (verification.status !== 0) {
+      errors.push(`${path}: withdrawal SSHSIG must verify against the pinned withdrawal trust`);
+    }
+  } finally {
+    rmSync(verifyRoot, { recursive: true, force: true });
   }
 };
 
@@ -713,37 +1076,67 @@ const validateLineagePolicy = ({
   overrides,
   policy,
   records,
+  allRecords,
+  pinnedPolicy,
 }) => {
   const findings = [];
   const addFinding = (path, message) => {
     findings.push({ path, message: `${path}: ${message}` });
   };
-  if (!hasExactKeys(policy, ['schema_version', 'allowed_objectives', 'legacy_candidates'])) {
+  if (!hasExactKeys(policy, [
+    'schema_version',
+    'allowed_objectives',
+    'legacy_candidates',
+    'sealed_predecessors',
+  ])) {
     addFinding(
       LINEAGE_POLICY_PATH,
-      'must contain exactly schema_version, allowed_objectives and legacy_candidates',
+      'must contain exactly schema_version, allowed_objectives, legacy_candidates and sealed_predecessors',
     );
     return findings;
   }
-  if (policy.schema_version !== '1.0.0') {
-    addFinding(LINEAGE_POLICY_PATH, 'schema_version must equal 1.0.0');
+  if (policy.schema_version !== '1.1.0') {
+    addFinding(LINEAGE_POLICY_PATH, 'schema_version must equal 1.1.0');
   }
   if (!Array.isArray(policy.allowed_objectives)) {
     addFinding(LINEAGE_POLICY_PATH, 'allowed_objectives must be an array');
     return findings;
   }
+  if (
+    JSON.stringify(policy.allowed_objectives)
+      !== JSON.stringify(pinnedPolicy.allowed_objectives)
+  ) {
+    addFinding(
+      LINEAGE_POLICY_PATH,
+      'allowed_objectives and allowed_series_ids must exactly match the validator-pinned policy',
+    );
+  }
   const allowedObjectiveKeys = new Set();
+  const allowedSeriesByObjective = new Map();
   for (const allowedObjective of policy.allowed_objectives) {
     if (
-      !hasExactKeys(allowedObjective, ['capability_id', 'objective_id'])
+      !hasExactKeys(allowedObjective, [
+        'capability_id',
+        'objective_id',
+        'allowed_series_ids',
+      ])
       || typeof allowedObjective.capability_id !== 'string'
       || allowedObjective.capability_id.length === 0
       || typeof allowedObjective.objective_id !== 'string'
       || allowedObjective.objective_id.length === 0
+      || !Array.isArray(allowedObjective.allowed_series_ids)
+      || allowedObjective.allowed_series_ids.length === 0
+      || allowedObjective.allowed_series_ids.some(
+        (seriesId) => typeof seriesId !== 'string' || seriesId.length === 0,
+      )
+      || new Set(allowedObjective.allowed_series_ids).size
+        !== allowedObjective.allowed_series_ids.length
+      || JSON.stringify([...allowedObjective.allowed_series_ids].sort())
+        !== JSON.stringify(allowedObjective.allowed_series_ids)
     ) {
       addFinding(
         LINEAGE_POLICY_PATH,
-        'allowed_objectives entries must contain non-empty capability_id and objective_id',
+        'allowed_objectives entries must contain non-empty identifiers and sorted unique allowed_series_ids',
       );
       continue;
     }
@@ -756,6 +1149,10 @@ const validateLineagePolicy = ({
       );
     }
     allowedObjectiveKeys.add(objectiveKey);
+    allowedSeriesByObjective.set(
+      objectiveKey,
+      new Set(allowedObjective.allowed_series_ids),
+    );
   }
   if (allowedObjectiveKeys.size === 0) {
     addFinding(LINEAGE_POLICY_PATH, 'allowed_objectives must not be empty');
@@ -930,6 +1327,133 @@ const validateLineagePolicy = ({
     }
   }
 
+  const sealedById = new Map();
+  if (!Array.isArray(policy.sealed_predecessors)) {
+    addFinding(LINEAGE_POLICY_PATH, 'sealed_predecessors must be an array');
+    return findings;
+  }
+  if (
+    JSON.stringify(policy.sealed_predecessors)
+      !== JSON.stringify(pinnedPolicy.sealed_predecessors)
+  ) {
+    addFinding(
+      LINEAGE_POLICY_PATH,
+      'sealed_predecessors must exactly match the validator-pinned policy',
+    );
+  }
+  const sealedFields = [
+    'candidate_id',
+    'series_id',
+    'capability_id',
+    'objective_id',
+    'record_path',
+    'record_sha256',
+    'recorded_disposition',
+    'recorded_current_attempt_status',
+  ];
+  for (const entry of policy.sealed_predecessors) {
+    if (
+      !hasExactKeys(entry, sealedFields)
+      || typeof entry.candidate_id !== 'string'
+      || entry.candidate_id.length === 0
+      || typeof entry.series_id !== 'string'
+      || entry.series_id.length === 0
+      || typeof entry.capability_id !== 'string'
+      || entry.capability_id.length === 0
+      || typeof entry.objective_id !== 'string'
+      || entry.objective_id.length === 0
+      || typeof entry.record_path !== 'string'
+      || entry.record_path.length === 0
+      || !sha256Pattern.test(entry.record_sha256)
+      || entry.recorded_disposition !== 'HOLD'
+      || entry.recorded_current_attempt_status !== 'not_run'
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        'sealed predecessor entries must use exact HOLD/not_run identity, path and SHA-256 fields',
+      );
+      continue;
+    }
+    const objectiveKey = `${entry.capability_id}\u0000${entry.objective_id}`;
+    if (!allowedSeriesByObjective.get(objectiveKey)?.has(entry.series_id)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} must use an allowlisted objective series`,
+      );
+    }
+    if (sealedById.has(entry.candidate_id)) {
+      addFinding(LINEAGE_POLICY_PATH, 'sealed predecessor candidate_id values must be unique');
+      continue;
+    }
+    if (isAbsolute(entry.record_path)) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} record_path must be relative to the repository root`,
+      );
+      continue;
+    }
+    const resolvedRecordPath = resolve(root, entry.record_path);
+    let canonicalRoot;
+    let canonicalRecordPath;
+    let recordLinkStats;
+    try {
+      canonicalRoot = realpathSync(root);
+      recordLinkStats = lstatSync(resolvedRecordPath);
+      canonicalRecordPath = realpathSync(resolvedRecordPath);
+    } catch {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} record_path must resolve to a readable regular file`,
+      );
+      continue;
+    }
+    if (
+      isPathOutside(root, resolvedRecordPath)
+      || recordLinkStats.isSymbolicLink()
+      || !recordLinkStats.isFile()
+      || isPathOutside(canonicalRoot, canonicalRecordPath)
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} record_path must be a contained non-symlink regular file`,
+      );
+      continue;
+    }
+    const record = recordsById.get(entry.candidate_id);
+    if (
+      !record
+      || record.path !== entry.record_path
+      || record.candidate.attempt_accounting.series_id !== entry.series_id
+      || record.candidate.disposition.profile !== entry.recorded_disposition
+      || record.candidate.attempt_accounting.current_attempt.status
+        !== entry.recorded_current_attempt_status
+      || record.candidate.attempt_accounting.current_attempt.execution_authorized !== false
+    ) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} must resolve to the exact HOLD/not_run unauthorized registry record`,
+      );
+      continue;
+    }
+    let recordBytes;
+    try {
+      recordBytes = readText(root, entry.record_path, overrides);
+    } catch (error) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} bytes are unreadable: ${error.message}`,
+      );
+      continue;
+    }
+    if (createHash('sha256').update(recordBytes).digest('hex') !== entry.record_sha256) {
+      addFinding(
+        LINEAGE_POLICY_PATH,
+        `sealed predecessor ${entry.candidate_id} record_sha256 must match immutable record bytes`,
+      );
+    }
+    sealedById.set(entry.candidate_id, entry);
+  }
+
   const evidenceOwnersBySha = new Map();
   const evidenceDigestsByCandidateId = new Map();
   for (const record of records) {
@@ -1024,6 +1548,14 @@ const validateLineagePolicy = ({
       addFinding(
         record.path,
         'objective_lineage capability_id/objective_id must be registered in allowed_objectives',
+      );
+    }
+    if (!allowedSeriesByObjective.get(objectiveKey)?.has(
+      candidate.attempt_accounting.series_id,
+    )) {
+      addFinding(
+        record.path,
+        'objective_lineage series_id must be explicitly allowlisted for its capability/objective',
       );
     }
     const terminalSeries = terminalObjectives.get(objectiveKey) ?? new Set();
@@ -1136,6 +1668,250 @@ const validateLineagePolicy = ({
         addFinding(
           record.path,
           'failure history must not reuse cross-series historical prerequisite bytes',
+        );
+      }
+    }
+
+  }
+
+  // Runtime lineage gates. These run over every parsed record, including records
+  // the schema rejected, so a candidate cannot dodge a gate by also being
+  // malformed in some unrelated way.
+  for (const record of allRecords) {
+    const candidate = record.candidate;
+    const accounting = isPlainObject(candidate?.attempt_accounting)
+      ? candidate.attempt_accounting
+      : null;
+    const lineage = isPlainObject(accounting?.objective_lineage)
+      ? accounting.objective_lineage
+      : null;
+    const currentAttempt = isPlainObject(accounting?.current_attempt)
+      ? accounting.current_attempt
+      : {};
+    const evidenceDirectory = candidate?.evidence?.directory;
+    const evidenceArtifacts = Array.isArray(candidate?.evidence?.artifacts)
+      ? candidate.evidence.artifacts
+      : [];
+    const failureHistory = Array.isArray(accounting?.failure_history)
+      ? accounting.failure_history
+      : [];
+    const sealedPredecessor = isPlainObject(lineage?.sealed_predecessor)
+      ? lineage.sealed_predecessor
+      : null;
+    const topologyPrerequisite = isPlainObject(lineage?.topology_prerequisite)
+      ? lineage.topology_prerequisite
+      : null;
+
+    if (currentAttempt.execution_authorized === true) {
+      if (
+        record.path === GRANDFATHERED_AUTHORIZED_CANDIDATE.record_path
+        && candidate?.candidate_id === GRANDFATHERED_AUTHORIZED_CANDIDATE.candidate_id
+      ) {
+        let recordBytes = null;
+        try {
+          recordBytes = readText(root, record.path, overrides);
+        } catch {
+          recordBytes = null;
+        }
+        if (
+          recordBytes === null
+          || createHash('sha256').update(recordBytes).digest('hex')
+            !== GRANDFATHERED_AUTHORIZED_CANDIDATE.record_sha256
+        ) {
+          addFinding(
+            record.path,
+            'grandfathered runtime authorization applies only to the exact immutable candidate bytes',
+          );
+        }
+      } else if (
+        isImmutableLineageObjective(lineage)
+        && !(sealedPredecessor && topologyPrerequisite)
+      ) {
+        addFinding(
+          record.path,
+          'runtime execution authorization requires both sealed_predecessor and topology_prerequisite',
+        );
+      }
+    }
+
+    if (!lineage) continue;
+    if (
+      (lineage.sealed_predecessor === undefined)
+      !== (lineage.topology_prerequisite === undefined)
+    ) {
+      addFinding(
+        record.path,
+        'sealed_predecessor and topology_prerequisite must be carried together',
+      );
+    }
+    if (sealedPredecessor) {
+      const sealed = sealedById.get(sealedPredecessor.candidate_id);
+      const priorRecord = recordsById.get(sealedPredecessor.candidate_id);
+      if (!sealed || !priorRecord) {
+        addFinding(
+          record.path,
+          'sealed_predecessor must resolve to an immutable sealed predecessor',
+        );
+      } else {
+        if (
+          sealedPredecessor.record_path !== sealed.record_path
+          || sealedPredecessor.record_sha256 !== sealed.record_sha256
+        ) {
+          addFinding(
+            record.path,
+            'sealed_predecessor record path and digest must match the immutable lineage policy',
+          );
+        }
+        const priorAttempt = priorRecord.candidate.attempt_accounting.current_attempt;
+        if (
+          priorRecord.candidate.disposition.profile !== 'HOLD'
+          || priorAttempt.status !== 'not_run'
+          || priorAttempt.execution_authorized !== false
+          || sealedPredecessor.evidence_path !== priorAttempt.evidence_path
+          || sealedPredecessor.evidence_sha256 !== priorAttempt.evidence_sha256
+        ) {
+          addFinding(
+            record.path,
+            'sealed_predecessor must preserve the exact HOLD/not_run predecessor evidence',
+          );
+        }
+        if (accounting.series_id === sealed.series_id) {
+          addFinding(record.path, 'sealed_predecessor cannot reopen its sealed series_id');
+        }
+        const artifactErrors = [];
+        validateRecordedArtifact({
+          root,
+          recordPath: `${record.path}: attempt_accounting.objective_lineage.sealed_predecessor`,
+          evidenceDir: evidenceDirectory,
+          artifactPath: sealedPredecessor.evidence_path,
+          artifactSha256: sealedPredecessor.evidence_sha256,
+          errors: artifactErrors,
+          requireInsideEvidenceDir: false,
+        });
+        for (const message of artifactErrors) findings.push({ path: record.path, message });
+      }
+      const sealedDigest = sealedPredecessor.evidence_sha256;
+      if (
+        currentAttempt.evidence_sha256 === sealedDigest
+        || evidenceArtifacts.some(
+          (artifact) => isPlainObject(artifact) && artifact.sha256 === sealedDigest,
+        )
+        || failureHistory.some(
+          (historyRow) => isPlainObject(historyRow)
+            && historyRow.evidence_sha256 === sealedDigest,
+        )
+      ) {
+        addFinding(
+          record.path,
+          'sealed_predecessor bytes must never be reused as runtime execution evidence',
+        );
+      }
+    }
+
+    if (topologyPrerequisite) {
+      // Bind the sealed rehearsal record first; only then may fields parsed out
+      // of that record be used to check the cited artifacts.
+      const binding = evaluateTopologyBinding(root, topologyPrerequisite);
+      for (const message of binding.messages) addFinding(record.path, message);
+      if (binding.ok) {
+        // The binding proves only that these are the pinned bytes, not that they
+        // carry the expected shape, so the record and its artifact list are
+        // untrusted structure until proven otherwise.
+        const topologyRecord = isPlainObject(binding.record) ? binding.record : null;
+        const topologyArtifacts = Array.isArray(topologyRecord?.evidence?.artifacts)
+          ? topologyRecord.evidence.artifacts
+          : null;
+        if (
+          !topologyArtifacts
+          || topologyRecord?.identity?.capability_id !== topologyPrerequisite.capability_id
+          || topologyRecord?.identity?.objective_id !== topologyPrerequisite.objective_id
+          || topologyRecord?.attempt?.phase !== 'closed'
+          || topologyRecord?.attempt?.outcome !== 'TOPOLOGY_PASS'
+          || topologyRecord?.attempt?.execution_authorized !== false
+          || topologyRecord?.evidence?.external_bytes_ci_verified !== false
+          || topologyRecord?.evidence?.result_controls?.external_manifest_locally_verified !== true
+        ) {
+          addFinding(
+            record.path,
+            'topology_prerequisite must resolve to a closed non-authorizing TOPOLOGY_PASS record',
+          );
+        }
+        // A record with no readable artifact list has already been reported
+        // above; re-reporting each cited artifact against it adds no signal.
+        if (topologyArtifacts) {
+          const resultArtifact = topologyArtifacts.find(
+            (artifact) => isPlainObject(artifact) && artifact.kind === 'result',
+          );
+          const manifestArtifact = topologyArtifacts.find(
+            (artifact) => isPlainObject(artifact) && artifact.kind === 'evidence_manifest',
+          );
+          if (
+            resultArtifact?.path !== topologyPrerequisite.result_path
+            || resultArtifact?.sha256 !== topologyPrerequisite.result_sha256
+          ) {
+            addFinding(
+              record.path,
+              'topology_prerequisite result path and digest must match the committed topology record',
+            );
+          }
+          if (
+            manifestArtifact?.path !== topologyPrerequisite.evidence_manifest_path
+            || manifestArtifact?.sha256 !== topologyPrerequisite.evidence_manifest_sha256
+          ) {
+            addFinding(
+              record.path,
+              'topology_prerequisite evidence manifest must match the committed topology record',
+            );
+          }
+        }
+      }
+      for (const [artifactPath, artifactSha256, label] of [
+        [
+          topologyPrerequisite.result_path,
+          topologyPrerequisite.result_sha256,
+          'result',
+        ],
+        [
+          topologyPrerequisite.evidence_manifest_path,
+          topologyPrerequisite.evidence_manifest_sha256,
+          'evidence manifest',
+        ],
+      ]) {
+        const artifactErrors = [];
+        validateRecordedArtifact({
+          root,
+          recordPath: `${record.path}: topology_prerequisite ${label}`,
+          evidenceDir: evidenceDirectory,
+          artifactPath,
+          artifactSha256,
+          errors: artifactErrors,
+          requireInsideEvidenceDir: false,
+        });
+        if (artifactErrors.some((message) => message.includes('sha256 must match'))) {
+          addFinding(
+            record.path,
+            `topology_prerequisite ${label} SHA-256 must match committed ${label} bytes`,
+          );
+        }
+        for (const message of artifactErrors) findings.push({ path: record.path, message });
+      }
+      const topologyDigests = new Set([
+        topologyPrerequisite.result_sha256,
+        topologyPrerequisite.evidence_manifest_sha256,
+      ]);
+      if (
+        topologyDigests.has(currentAttempt.evidence_sha256)
+        || evidenceArtifacts.some(
+          (artifact) => isPlainObject(artifact) && topologyDigests.has(artifact.sha256),
+        )
+        || failureHistory.some(
+          (historyRow) => isPlainObject(historyRow)
+            && topologyDigests.has(historyRow.evidence_sha256),
+        )
+      ) {
+        addFinding(
+          record.path,
+          'topology_prerequisite bytes must never be reused as runtime execution evidence',
         );
       }
     }
@@ -1300,15 +2076,118 @@ const validateCandidateRegistry = (records) => {
   return findings;
 };
 
+const validateWithdrawalRecord = ({
+  root,
+  path,
+  withdrawal,
+  recordBytes,
+  withdrawalValidator,
+  targetRecord,
+  targetReport,
+  seriesRecords,
+}) => {
+  const errors = [];
+  if (!withdrawalValidator || !validateAgainstSchema(
+    withdrawalValidator,
+    path,
+    withdrawal,
+    errors,
+  )) {
+    return errors;
+  }
+  const expectedTargetPath = join(dirname(path), 'runtime-admission.json');
+  if (!targetRecord || !targetReport || withdrawal.target.record_path !== expectedTargetPath) {
+    errors.push(`${path}: withdrawal target must resolve to the adjacent runtime-admission record`);
+    return errors;
+  }
+  const candidate = targetRecord.candidate;
+  const attempt = candidate.attempt_accounting.current_attempt;
+  if (
+    withdrawal.withdrawal_id !== `${candidate.candidate_id}-withdrawal-r1`
+    || withdrawal.target.candidate_id !== candidate.candidate_id
+    || withdrawal.target.series_id !== candidate.attempt_accounting.series_id
+    || withdrawal.target.attempt_ordinal !== candidate.attempt_accounting.attempt_ordinal
+  ) {
+    errors.push(`${path}: withdrawal identity must bind the exact target candidate and attempt`);
+  }
+
+  const targetBytes = readContainedRegularFile(
+    root,
+    withdrawal.target.record_path,
+    `${path}: withdrawal target record`,
+    errors,
+  );
+  if (
+    targetBytes
+    && createHash('sha256').update(targetBytes).digest('hex')
+      !== withdrawal.target.record_sha256
+  ) {
+    errors.push(`${path}: target_record_sha256 must match the recorded runtime-admission bytes`);
+  }
+  if (
+    withdrawal.target.authorization_evidence_path !== attempt.evidence_path
+    || withdrawal.target.authorization_evidence_sha256 !== attempt.evidence_sha256
+  ) {
+    errors.push(`${path}: withdrawal authorization evidence must match the target attempt exactly`);
+  }
+  if (JSON.stringify(withdrawal.observed_attempt) !== JSON.stringify(attempt)) {
+    errors.push(`${path}: observed_attempt must preserve the target attempt exactly`);
+  }
+  if (
+    targetReport.declaredDisposition !== 'RUNTIME_AUTHORIZED'
+    || targetReport.derivedDisposition !== 'RUNTIME_AUTHORIZED'
+    || attempt.status !== 'not_run'
+    || attempt.execution_authorized !== true
+    || attempt.executed_checks !== 0
+    || attempt.passed_checks !== 0
+    || attempt.failed_checks !== 0
+  ) {
+    errors.push(`${path}: only an unused, historically RUNTIME_AUTHORIZED attempt may be withdrawn`);
+  }
+  if (seriesRecords.some((record) => record.path !== targetRecord.path)) {
+    errors.push(`${path}: withdrawn runtime-authorization series cannot reopen under the same series_id`);
+  }
+
+  validateWithdrawalSignature({
+    root,
+    path,
+    withdrawal,
+    recordBytes,
+    errors,
+  });
+  return errors;
+};
+
 export async function validateRuntimeAdmission({
   root = DEFAULT_ROOT,
   overrides = new Map(),
+  pinnedLineagePolicy,
 } = {}) {
   const errors = [];
+  let effectiveLineagePolicyPins = {
+    allowed_objectives: ALLOWED_LINEAGE_OBJECTIVES,
+    sealed_predecessors: SEALED_PREDECESSORS,
+  };
+  try {
+    const isDefaultRoot = realpathSync(root) === realpathSync(DEFAULT_ROOT);
+    if (!isDefaultRoot) {
+      if (pinnedLineagePolicy) {
+        effectiveLineagePolicyPins = pinnedLineagePolicy;
+      } else {
+        errors.push(
+          `${LINEAGE_POLICY_PATH}: non-default root requires independently supplied lineage policy pins`,
+        );
+      }
+    }
+  } catch {
+    errors.push(`${LINEAGE_POLICY_PATH}: repository root must resolve before lineage validation`);
+  }
+  errors.push(...validateLineagePolicyPins(effectiveLineagePolicyPins));
   if (!existsSync(join(root, README_PATH))) {
     errors.push(`${README_PATH}: missing`);
   }
   const validator = compileSchema(root, overrides, errors);
+  const withdrawalValidator = compileWithdrawalSchema(root, overrides, errors);
   const template = parseJson(root, TEMPLATE_PATH, overrides, errors);
   const lineagePolicy = parseJson(root, LINEAGE_POLICY_PATH, overrides, errors);
   if (validator && template) {
@@ -1320,12 +2199,14 @@ export async function validateRuntimeAdmission({
 
   const discoveredFiles = discoverRuntimeAdmissionFiles(root);
   const candidateFiles = discoverCandidateFiles(root);
+  const withdrawalFiles = discoverWithdrawalFiles(root);
   for (const path of discoveredFiles) {
     if (!candidateFiles.includes(path)) {
       errors.push(`${path}: mislocated runtime-admission.json; expected docs/uat/candidates/<candidate-id>/runtime-admission.json`);
     }
   }
   const candidates = [];
+  const parsedRecords = [];
   const registryRecords = [];
   const reportsByPath = new Map();
   for (const path of candidateFiles) {
@@ -1353,12 +2234,19 @@ export async function validateRuntimeAdmission({
     if (candidate && schemaValid) {
       registryRecords.push({ path, candidate });
     }
+    if (candidate) {
+      parsedRecords.push({ path, candidate });
+    }
     errors.push(...candidateErrors);
     const candidateReport = {
       path,
       candidateId: candidate?.candidate_id ?? null,
       declaredDisposition,
       derivedDisposition,
+      effectiveDisposition: derivedDisposition,
+      authorizationState: 'active',
+      effectiveAuthorizationState: 'active',
+      withdrawalId: null,
       errors: candidateErrors,
     };
     candidates.push(candidateReport);
@@ -1372,6 +2260,8 @@ export async function validateRuntimeAdmission({
       overrides,
       policy: lineagePolicy,
       records: registryRecords,
+      allRecords: parsedRecords,
+      pinnedPolicy: effectiveLineagePolicyPins,
     }));
   }
   for (const finding of registryFindings) {
@@ -1381,14 +2271,72 @@ export async function validateRuntimeAdmission({
       candidateReport.errors.push(finding.message);
       if (candidateReport.derivedDisposition !== 'NO-GO') {
         candidateReport.derivedDisposition = 'HOLD';
+        candidateReport.effectiveDisposition = 'HOLD';
+      }
+    }
+  }
+
+  const baseAuthorizedPaths = new Set(
+    candidates
+      .filter((candidateReport) =>
+        candidateReport.errors.length === 0
+        && candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED')
+      .map((candidateReport) => candidateReport.path),
+  );
+  const recordsByPath = new Map(registryRecords.map((record) => [record.path, record]));
+  const recordsBySeries = new Map();
+  for (const record of parsedRecords) {
+    const seriesId = record.candidate?.attempt_accounting?.series_id;
+    if (typeof seriesId !== 'string' || seriesId.length === 0) continue;
+    const series = recordsBySeries.get(seriesId) ?? [];
+    series.push(record);
+    recordsBySeries.set(seriesId, series);
+  }
+  for (const path of withdrawalFiles) {
+    const targetPath = join(dirname(path), 'runtime-admission.json');
+    const targetRecord = recordsByPath.get(targetPath) ?? null;
+    const targetReport = reportsByPath.get(targetPath) ?? null;
+    const withdrawalErrors = [];
+    if (path.split('/').length !== 5) {
+      withdrawalErrors.push(`${path}: mislocated ${WITHDRAWAL_FILENAME}; expected docs/uat/candidates/<candidate-id>/${WITHDRAWAL_FILENAME}`);
+    }
+    const withdrawalDocument = readContainedJson(
+      root,
+      path,
+      `${path}: withdrawal record`,
+      withdrawalErrors,
+    );
+    const withdrawal = withdrawalDocument?.value ?? null;
+    if (withdrawal) {
+      withdrawalErrors.push(...validateWithdrawalRecord({
+        root,
+        path,
+        withdrawal,
+        recordBytes: withdrawalDocument.bytes,
+        withdrawalValidator,
+        targetRecord,
+        targetReport,
+        seriesRecords: targetRecord
+          ? recordsBySeries.get(targetRecord.candidate.attempt_accounting.series_id) ?? []
+          : [],
+      }));
+    }
+    errors.push(...withdrawalErrors);
+    if (targetReport) {
+      targetReport.withdrawalId = withdrawal?.withdrawal_id ?? null;
+      targetReport.errors.push(...withdrawalErrors);
+      if (withdrawalErrors.length === 0) {
+        targetReport.authorizationState = 'withdrawn';
+        targetReport.effectiveAuthorizationState = 'withdrawn';
+        targetReport.effectiveDisposition = 'HOLD';
       }
     }
   }
 
   const authorizedCandidates = candidates.filter(
     (candidateReport) =>
-      candidateReport.errors.length === 0
-      && candidateReport.derivedDisposition === 'RUNTIME_AUTHORIZED',
+      baseAuthorizedPaths.has(candidateReport.path)
+      && candidateReport.authorizationState === 'active',
   );
   if (authorizedCandidates.length > 1) {
     for (const candidateReport of authorizedCandidates) {
@@ -1397,6 +2345,7 @@ export async function validateRuntimeAdmission({
       errors.push(message);
       candidateReport.errors.push(message);
       candidateReport.derivedDisposition = 'HOLD';
+      candidateReport.effectiveDisposition = 'HOLD';
     }
   }
 
@@ -1404,6 +2353,7 @@ export async function validateRuntimeAdmission({
     errors,
     counts: {
       candidateFiles: candidateFiles.length,
+      withdrawalFiles: withdrawalFiles.length,
       templatesValidated: template ? 1 : 0,
     },
     candidates,

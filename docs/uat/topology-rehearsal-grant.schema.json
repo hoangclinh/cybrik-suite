@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/docs/uat/topology-rehearsal-grant.schema.json",
+  "title": "CYBRIK topology-only rehearsal exact-action grant",
+  "description": "Structural shape of one exact-action topology rehearsal grant document. Structural conformance is necessary and never sufficient: tools/contract-validation/validate-topology-grant.mjs applies the exact semantic, canonical-byte and fail-closed signature controls. A conforming grant grants no Docker, listener, runtime, UAT, demo, merge, release or production authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "record",
+    "runner",
+    "topology",
+    "selected_image_identity",
+    "observed_image_identity",
+    "repositories",
+    "tools",
+    "window",
+    "attempt",
+    "authorizes",
+    "grants_no_authority"
+  ],
+  "properties": {
+    "schema": { "const": "CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1" },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "const": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/topology-rehearsal.json"
+        },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregate_sha256"],
+      "properties": {
+        "aggregate_sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_ip",
+        "host_port",
+        "container_port",
+        "protocol",
+        "internal_network",
+        "publish_spec"
+      ],
+      "properties": {
+        "host_ip": { "const": "127.0.0.1" },
+        "host_port": { "const": 15433 },
+        "container_port": { "const": 5432 },
+        "protocol": { "const": "tcp" },
+        "internal_network": { "const": true },
+        "publish_spec": { "const": "127.0.0.1:15433:5432/tcp" }
+      }
+    },
+    "selected_image_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "tag",
+        "platform",
+        "index_digest",
+        "manifest_digest",
+        "pull_policy"
+      ],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "platform": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/platform" }]
+        },
+        "index_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digestReference" }]
+        },
+        "manifest_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digestReference" }]
+        },
+        "pull_policy": { "const": "never" }
+      }
+    },
+    "observed_image_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "tag",
+        "platform",
+        "index_digest",
+        "manifest_digest",
+        "local_image_id",
+        "observed_at"
+      ],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "platform": { "$ref": "#/$defs/platform" },
+        "index_digest": { "$ref": "#/$defs/digestReference" },
+        "manifest_digest": { "$ref": "#/$defs/digestReference" },
+        "local_image_id": { "$ref": "#/$defs/digestReference" },
+        "observed_at": { "$ref": "#/$defs/instant" }
+      }
+    },
+    "repositories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cybrik-suite",
+        "cybrik-soc-command-center",
+        "cybrik-cyber-ai-platform",
+        "cybrik-security-tool-fabric"
+      ],
+      "properties": {
+        "cybrik-suite": { "$ref": "#/$defs/repositoryState" },
+        "cybrik-soc-command-center": { "$ref": "#/$defs/repositoryState" },
+        "cybrik-cyber-ai-platform": { "$ref": "#/$defs/repositoryState" },
+        "cybrik-security-tool-fabric": { "$ref": "#/$defs/repositoryState" }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["docker", "probe"],
+      "properties": {
+        "docker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "version"],
+          "properties": {
+            "path": { "type": "string", "pattern": "^/" },
+            "sha256": { "$ref": "#/$defs/digest" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "argv"],
+          "properties": {
+            "path": { "const": "/usr/bin/nc" },
+            "sha256": { "$ref": "#/$defs/digest" },
+            "argv": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "-z" },
+                { "const": "-w" },
+                { "const": "5" },
+                { "const": "127.0.0.1" },
+                { "const": "15433" }
+              ],
+              "items": false,
+              "minItems": 5,
+              "maxItems": 5
+            }
+          }
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "not_before",
+        "expires_at",
+        "runtime_limit_seconds",
+        "extension_cycles"
+      ],
+      "properties": {
+        "not_before": { "$ref": "#/$defs/instant" },
+        "expires_at": { "$ref": "#/$defs/instant" },
+        "runtime_limit_seconds": { "const": 180 },
+        "extension_cycles": { "const": 0 }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "max_attempts"],
+      "properties": {
+        "ordinal": { "const": 1 },
+        "max_attempts": { "const": 1 }
+      }
+    },
+    "authorizes": { "const": "topology_rehearsal_single_attempt" },
+    "grants_no_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "demo",
+        "merge",
+        "product_runtime",
+        "production",
+        "release",
+        "uat"
+      ],
+      "properties": {
+        "demo": { "const": true },
+        "merge": { "const": true },
+        "product_runtime": { "const": true },
+        "production": { "const": true },
+        "release": { "const": true },
+        "uat": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digestReference": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "instant": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "variant"],
+      "properties": {
+        "os": { "const": "linux" },
+        "architecture": { "type": "string", "minLength": 1 },
+        "variant": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }]
+        }
+      }
+    },
+    "repositoryState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "clean"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "clean": { "const": true }
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -9,11 +10,12 @@ import {
   expectedCandidateFields,
   expectedRepositories,
   isMainModule,
-  validateRuntimeAdmission,
+  validateRuntimeAdmission as validateRuntimeAdmissionRaw,
 } from '../validate-runtime-admission.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../../..');
 const SCHEMA_PATH = 'docs/uat/runtime-admission.schema.json';
+const WITHDRAWAL_SCHEMA_PATH = 'docs/uat/runtime-authorization-withdrawal.schema.json';
 const README_PATH = 'docs/uat/candidates/README.md';
 const TEMPLATE_PATH = 'docs/uat/templates/runtime-admission.hold.json';
 const LINEAGE_POLICY_PATH = 'docs/uat/runtime-admission-lineage-policy.json';
@@ -23,6 +25,33 @@ const stableWriteJson = (path, value) =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const committedLineagePolicy = () => JSON.parse(read(LINEAGE_POLICY_PATH));
+// Every temp repo is seeded with the committed legacy candidates and sealed
+// predecessors, so candidate-file counts are relative to that seeded floor.
+const seededCandidateCount = () => {
+  const policy = committedLineagePolicy();
+  return policy.legacy_candidates.length + policy.sealed_predecessors.length;
+};
+const validateRuntimeAdmission = async (options = {}) => {
+  if (options.root && options.root !== ROOT && !Object.hasOwn(
+    options,
+    'pinnedLineagePolicy',
+  )) {
+    let policy = { allowed_objectives: [], sealed_predecessors: [] };
+    try {
+      policy = JSON.parse(readFileSync(resolve(options.root, LINEAGE_POLICY_PATH), 'utf8'));
+    } catch {
+      // Invalid-policy tests still supply explicit empty pins rather than self-pinning in code.
+    }
+    return validateRuntimeAdmissionRaw({
+      ...options,
+      pinnedLineagePolicy: {
+        allowed_objectives: policy.allowed_objectives ?? [],
+        sealed_predecessors: policy.sealed_predecessors ?? [],
+      },
+    });
+  }
+  return validateRuntimeAdmissionRaw(options);
+};
 
 const HEX_40 = '0123456789abcdef0123456789abcdef01234567';
 const TREE_40 = '89abcdef0123456789abcdef0123456789abcdef';
@@ -37,6 +66,11 @@ const candidateDir = (seriesId, ordinal) => `docs/uat/candidates/${candidateId(s
 const evidenceDir = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/evidence`;
 const currentAttemptArtifact = (seriesId, ordinal) => `${evidenceDir(seriesId, ordinal)}/05-attempt-accounting.json`;
 const candidateRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-admission.json`;
+const withdrawalRecordPath = (seriesId, ordinal) => `${candidateDir(seriesId, ordinal)}/runtime-authorization-withdrawal.json`;
+const WITHDRAWAL_TRUST_PATH = 'docs/uat/runtime-authorization-withdrawal-trust.json';
+const MASTER_AUTHORIZATION_TRUST_PATH =
+  'integration/compose/soc-ai-fabric-alert-context-mtls/authorization-trust.json';
+const WITHDRAWAL_NAMESPACE = 'cybrik-uat-runtime-withdrawal-v1';
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 const templateRecord = () => ({
@@ -394,7 +428,10 @@ const withTempRepo = async ({
   try {
     mkdirSync(join(tempRoot, 'docs/uat/candidates'), { recursive: true });
     mkdirSync(join(tempRoot, 'docs/uat/templates'), { recursive: true });
-    for (const entry of committedLineagePolicy().legacy_candidates) {
+    for (const entry of [
+      ...committedLineagePolicy().legacy_candidates,
+      ...committedLineagePolicy().sealed_predecessors,
+    ]) {
       const sourceDir = resolve(ROOT, dirname(entry.record_path));
       cpSync(sourceDir, join(tempRoot, dirname(entry.record_path)), {
         recursive: true,
@@ -402,6 +439,9 @@ const withTempRepo = async ({
     }
     const records = [
       ...committedLineagePolicy().legacy_candidates.map((entry) =>
+        JSON.parse(read(entry.record_path)),
+      ),
+      ...committedLineagePolicy().sealed_predecessors.map((entry) =>
         JSON.parse(read(entry.record_path)),
       ),
       ...candidates,
@@ -424,6 +464,11 @@ const withTempRepo = async ({
       }
     }
     writeFileSync(join(tempRoot, SCHEMA_PATH), read(SCHEMA_PATH), 'utf8');
+    writeFileSync(
+      join(tempRoot, WITHDRAWAL_SCHEMA_PATH),
+      read(WITHDRAWAL_SCHEMA_PATH),
+      'utf8',
+    );
     writeFileSync(join(tempRoot, README_PATH), read(README_PATH), 'utf8');
     stableWriteJson(join(tempRoot, TEMPLATE_PATH), templateRecord());
     stableWriteJson(
@@ -478,40 +523,40 @@ const lineagePolicyFor = (candidates, {
   objectiveId = 'bounded-postgres-runtime-v1',
 } = {}) => {
   const policy = committedLineagePolicy();
-  policy.allowed_objectives = [
-    ...policy.allowed_objectives,
+  const allowedByKey = new Map(policy.allowed_objectives.map((entry) => [
+    `${entry.capability_id}\u0000${entry.objective_id}`,
     {
-      capability_id: capabilityId,
-      objective_id: objectiveId,
+      ...entry,
+      allowed_series_ids: new Set(entry.allowed_series_ids),
     },
-    {
-      capability_id: 'cybrik.suite.golden-workflow',
-      objective_id: 'golden-uat-v1',
-    },
-  ];
-  policy.allowed_objectives = [...new Map(policy.allowed_objectives.map(
-    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
-  )).values()];
-  return policy;
-};
-
-const lineagePolicyForCurrentCandidates = (candidates) => {
-  const policy = committedLineagePolicy();
-  const allowedByKey = new Map(policy.allowed_objectives.map(
-    (entry) => [`${entry.capability_id}\u0000${entry.objective_id}`, entry],
-  ));
+  ]));
+  const ensureObjective = (capability, objective) => {
+    const key = `${capability}\u0000${objective}`;
+    if (!allowedByKey.has(key)) {
+      allowedByKey.set(key, {
+        capability_id: capability,
+        objective_id: objective,
+        allowed_series_ids: new Set(),
+      });
+    }
+    return allowedByKey.get(key);
+  };
+  ensureObjective(capabilityId, objectiveId);
   for (const candidate of candidates) {
     const lineage = candidate.attempt_accounting.objective_lineage;
     if (!lineage) continue;
-    const key = `${lineage.capability_id}\u0000${lineage.objective_id}`;
-    allowedByKey.set(key, {
-      capability_id: lineage.capability_id,
-      objective_id: lineage.objective_id,
-    });
+    ensureObjective(lineage.capability_id, lineage.objective_id)
+      .allowed_series_ids.add(candidate.attempt_accounting.series_id);
   }
-  policy.allowed_objectives = [...allowedByKey.values()];
+  policy.allowed_objectives = [...allowedByKey.values()].map((entry) => ({
+    capability_id: entry.capability_id,
+    objective_id: entry.objective_id,
+    allowed_series_ids: [...entry.allowed_series_ids].sort(),
+  }));
   return policy;
 };
+
+const lineagePolicyForCurrentCandidates = (candidates) => lineagePolicyFor(candidates);
 
 const historicalPrerequisite = (candidate) => ({
   candidate_id: candidate.candidate_id,
@@ -524,6 +569,314 @@ const historicalPrerequisite = (candidate) => ({
   evidence_sha256: candidate.attempt_accounting.current_attempt.evidence_sha256,
   evidence_use: 'historical_prerequisite',
 });
+
+const sealedBrowserPredecessor = () => ({
+  candidate_id: 'browser-integrated-uat-bridge-r1',
+  record_path:
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+  record_sha256: 'b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578',
+  evidence_path:
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md',
+  evidence_sha256: '24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe',
+  evidence_use: 'sealed_predecessor',
+});
+
+// The one topology rehearsal the sealed topology policy admits. Any other
+// record_id is an unsealed rehearsal and must never satisfy the prerequisite.
+const SEALED_TOPOLOGY_RECORD_ID = 'postgres-loopback-internal-v1-r1';
+const topologyRehearsalDir = (recordId) => `docs/uat/topology-rehearsals/${recordId}`;
+const topologyRehearsalRecordPath = (recordId) =>
+  `${topologyRehearsalDir(recordId)}/topology-rehearsal.json`;
+
+const topologyPrerequisite = ({
+  recordId = SEALED_TOPOLOGY_RECORD_ID,
+  resultSha256 = '1'.repeat(64),
+  manifestSha256 = '2'.repeat(64),
+  evidenceUse = 'non_authorizing_preflight',
+} = {}) => ({
+  record_id: recordId,
+  capability_id: 'cybrik.suite.runtime-topology',
+  objective_id: 'postgres-loopback-internal-v1',
+  result_path: `${topologyRehearsalDir(recordId)}/result.md`,
+  result_sha256: resultSha256,
+  evidence_manifest_path: `${topologyRehearsalDir(recordId)}/evidence-manifest.json`,
+  evidence_manifest_sha256: manifestSha256,
+  evidence_use: evidenceUse,
+});
+
+// Builds the single closed TOPOLOGY_PASS rehearsal record the dedicated policy
+// permits, in the exact shape docs/uat/topology-rehearsal.schema.json requires,
+// plus the artifact bytes its digests are taken over.
+const closedTopologyRehearsal = ({
+  recordId = SEALED_TOPOLOGY_RECORD_ID,
+} = {}) => {
+  const directory = topologyRehearsalDir(recordId);
+  const recordPath = topologyRehearsalRecordPath(recordId);
+  const diagnosisContent = '# bounded loopback topology diagnosis\n';
+  const reviewContent = '# independent review of the bounded topology plan\n';
+  const grantContent = '# founder grant for one bounded topology rehearsal\n';
+  const signatureContent =
+    '-----BEGIN SSH SIGNATURE-----\nsynthetic-detached-sshsig\n-----END SSH SIGNATURE-----\n';
+  const resultContent =
+    '# TOPOLOGY_PASS: 127.0.0.1:15433 reachable, internal-only, torn down\n';
+  const resultReviewContent = '# local review of the closed topology result\n';
+  const manifestValue = {
+    schema_version: '1.0.0',
+    record_id: recordId,
+    external_bytes_ci_verified: false,
+    locally_verified: true,
+    result_sha256: sha256(resultContent),
+  };
+  const manifestContent = stableJson(manifestValue);
+
+  const citedArtifacts = topologyPrerequisite({
+    recordId,
+    resultSha256: sha256(resultContent),
+    manifestSha256: sha256(manifestContent),
+  });
+  const artifactFiles = [
+    { kind: 'diagnosis', path: `${directory}/01-diagnosis.md`, content: diagnosisContent },
+    {
+      kind: 'independent_review',
+      path: `${directory}/02-independent-review.md`,
+      content: reviewContent,
+    },
+    { kind: 'grant', path: `${directory}/03-grant.md`, content: grantContent },
+    {
+      kind: 'authorization_signature',
+      path: `${directory}/03-grant.md.sig`,
+      content: signatureContent,
+    },
+    { kind: 'result', path: citedArtifacts.result_path, content: resultContent },
+    {
+      kind: 'evidence_manifest',
+      path: citedArtifacts.evidence_manifest_path,
+      content: manifestContent,
+    },
+    {
+      kind: 'result_review',
+      path: `${directory}/04-result-review.md`,
+      content: resultReviewContent,
+    },
+  ];
+  const artifacts = artifactFiles.map((artifact) => ({
+    kind: artifact.kind,
+    path: artifact.path,
+    sha256: sha256(artifact.content),
+  }));
+  const grantArtifact = artifacts.find((artifact) => artifact.kind === 'grant');
+  const signatureArtifact = artifacts.find(
+    (artifact) => artifact.kind === 'authorization_signature',
+  );
+
+  const record = {
+    schema_version: '1.0.0',
+    record_id: citedArtifacts.record_id,
+    recorded_at: '2026-08-03T00:00:00Z',
+    identity: {
+      capability_id: citedArtifacts.capability_id,
+      objective_id: citedArtifacts.objective_id,
+    },
+    attempt: {
+      series_id: 'postgres-loopback-internal-v1',
+      attempt_ordinal: 1,
+      max_attempts: 1,
+      phase: 'closed',
+      execution_authorized: false,
+      attempt_consumed: true,
+      outcome: 'TOPOLOGY_PASS',
+    },
+    topology: {
+      host_ip: '127.0.0.1',
+      host_port: 15433,
+      container_port: 5432,
+      internal_network: true,
+      runtime_limit_seconds: 180,
+      extension_cycles: 0,
+      probe: {
+        executable_path: '/usr/bin/nc',
+        executable_sha256: '4'.repeat(64),
+        argv: ['-z', '-w', '5', '127.0.0.1', '15433'],
+      },
+    },
+    production_exclusion: {
+      no_production_credentials: true,
+      no_production_configuration: true,
+      no_production_data: true,
+      no_production_traffic: true,
+    },
+    authorization: {
+      signer: 'FOUNDER',
+      namespace: 'cybrik-uat-topology-rehearsal-v1',
+      grant_path: grantArtifact.path,
+      grant_sha256: grantArtifact.sha256,
+      signature_path: signatureArtifact.path,
+      signature_sha256: signatureArtifact.sha256,
+      allowed_signers_path: 'docs/uat/topology-rehearsal-allowed-signers',
+      allowed_signers_sha256: sha256(read('docs/uat/topology-rehearsal-allowed-signers')),
+      trust_path: 'docs/uat/topology-rehearsal-authorization-trust.json',
+    },
+    evidence: {
+      directory,
+      external_bytes_ci_verified: false,
+      artifacts,
+      result_controls: {
+        teardown_verified: true,
+        residual_resources: 0,
+        external_manifest_locally_verified: true,
+      },
+    },
+    disposition: {
+      profile: 'HOLD',
+      rationale:
+        'Bounded topology-only rehearsal closed with its single attempt consumed; it authorizes no runtime execution.',
+    },
+  };
+
+  // Future schema/validator surface: a successor must pin the exact rehearsal
+  // record bytes, not only the result and manifest bytes it cites. Until that
+  // lands these two fields are unknown to the schema, so every test that builds
+  // a valid topology prerequisite stays RED by design.
+  const prerequisite = {
+    ...citedArtifacts,
+    record_path: recordPath,
+    record_sha256: sha256(stableJson(record)),
+  };
+
+  return {
+    prerequisite,
+    // The same prerequisite in the shape today's schema accepts: result and
+    // manifest pins only. Tests that target a control unrelated to the record
+    // binding cite this one, so an unimplemented pin cannot mask them.
+    citedPrerequisite: citedArtifacts,
+    record,
+    recordPath,
+    directory,
+    extraWrites: [
+      ...artifactFiles.map((artifact) => ({
+        kind: 'text',
+        dir: directory,
+        path: artifact.path,
+        value: artifact.content,
+      })),
+      {
+        kind: 'json',
+        dir: directory,
+        path: recordPath,
+        value: record,
+      },
+    ],
+  };
+};
+
+const runtimeAuthorizationWithdrawal = (
+  candidate,
+  {
+    recordedAt = '2026-08-04T00:00:00Z',
+    rationale = 'Authorization withdrawn after closure proof.',
+    targetRecordSha256 = sha256(stableJson(candidate)),
+  } = {},
+) => {
+  const seriesId = candidate.attempt_accounting.series_id;
+  const ordinal = candidate.attempt_accounting.attempt_ordinal;
+  const recordPath = withdrawalRecordPath(seriesId, ordinal);
+  const allowedSignersPath = `${candidate.evidence.directory}/withdrawal-allowed-signers`;
+  const signaturePath = `${recordPath}.sig`;
+  return {
+    allowedSignersPath,
+    recordPath,
+    signaturePath,
+    trustPath: WITHDRAWAL_TRUST_PATH,
+    install(tempRoot) {
+      const keyPath = join(tempRoot, '.withdrawal-test-key');
+      execFileSync('/usr/bin/ssh-keygen', [
+        '-q', '-t', 'ed25519', '-N', '', '-f', keyPath,
+      ]);
+      const [keyType, encodedKey] = readFileSync(`${keyPath}.pub`, 'utf8')
+        .trim()
+        .split(/\s+/u);
+      const allowedSigners = `FOUNDER namespaces="${WITHDRAWAL_NAMESPACE}" ${keyType} ${encodedKey}\n`;
+      const allowedSignersSha256 = sha256(allowedSigners);
+      const keyFingerprint = `SHA256:${createHash('sha256')
+        .update(Buffer.from(encodedKey, 'base64'))
+        .digest('base64')
+        .replace(/=+$/u, '')}`;
+      const record = {
+        schema_version: '1.0.0',
+        withdrawal_id: `${candidate.candidate_id}-withdrawal-r1`,
+        recorded_at: recordedAt,
+        target: {
+          candidate_id: candidate.candidate_id,
+          record_path: candidateRecordPath(seriesId, ordinal),
+          record_sha256: targetRecordSha256,
+          series_id: seriesId,
+          attempt_ordinal: ordinal,
+          authorization_evidence_path:
+            candidate.attempt_accounting.current_attempt.evidence_path,
+          authorization_evidence_sha256:
+            candidate.attempt_accounting.current_attempt.evidence_sha256,
+        },
+        observed_attempt: structuredClone(
+          candidate.attempt_accounting.current_attempt,
+        ),
+        decision: {
+          kind: 'WITHDRAW_UNUSED_AUTHORIZATION',
+          actor: 'CODEX_GOVERNOR',
+          scope: 'bounded_nonproduction_runtime_only',
+        },
+        external_packet_closure: {
+          mode: 'no_signed_packet_issued_attested',
+          assertion: 'no_signed_packet_issued_for_exact_target',
+          signer: 'FOUNDER',
+          namespace: WITHDRAWAL_NAMESPACE,
+          allowed_signers_path: allowedSignersPath,
+          allowed_signers_sha256: allowedSignersSha256,
+          signature_path: signaturePath,
+        },
+        effect: {
+          authorization_state: 'withdrawn',
+          effective_profile: 'HOLD',
+          series_state: 'closed',
+          objective_terminal: false,
+          runtime_credit: 'none',
+          authorization_reusable: false,
+          production_authority: 'none_founder_only',
+        },
+        rationale,
+        limitations: [
+          'No runtime, UAT, release, deployment or production credit.',
+        ],
+      };
+      mkdirSync(join(tempRoot, dirname(allowedSignersPath)), { recursive: true });
+      writeFileSync(join(tempRoot, allowedSignersPath), allowedSigners, 'utf8');
+      stableWriteJson(join(tempRoot, WITHDRAWAL_TRUST_PATH), {
+        schema: 'CYBRIK-UAT-RUNTIME-WITHDRAWAL-TRUST/v1',
+        signer: 'FOUNDER',
+        namespace: WITHDRAWAL_NAMESPACE,
+        key_type: keyType,
+        key_fingerprint: keyFingerprint,
+        allowed_signers_sha256: allowedSignersSha256,
+      });
+      mkdirSync(join(tempRoot, dirname(MASTER_AUTHORIZATION_TRUST_PATH)), {
+        recursive: true,
+      });
+      stableWriteJson(join(tempRoot, MASTER_AUTHORIZATION_TRUST_PATH), {
+        allowed_signers_sha256: '0'.repeat(64),
+        key_fingerprint: keyFingerprint,
+        key_type: keyType,
+        namespace: 'cybrik-uat-soc-ai-fabric-v1',
+        python_sha256: '0'.repeat(64),
+        schema: 'CYBRIK-UAT-SSH-AUTHORIZATION-TRUST/v1',
+        signer: 'FOUNDER',
+      });
+      stableWriteJson(join(tempRoot, recordPath), record);
+      execFileSync('/usr/bin/ssh-keygen', [
+        '-Y', 'sign', '-f', keyPath, '-n', WITHDRAWAL_NAMESPACE,
+        join(tempRoot, recordPath),
+      ], { stdio: 'ignore' });
+    },
+  };
+};
 
 test('exports include attempt_accounting in the candidate field contract', () => {
   assert.deepEqual(expectedRepositories, ['suite', 'soc', 'cyber_ai', 'tool_fabric']);
@@ -547,15 +900,20 @@ test('exports include attempt_accounting in the candidate field contract', () =>
 
 test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 records', () => {
   const policy = JSON.parse(read(LINEAGE_POLICY_PATH));
-  assert.equal(policy.schema_version, '1.0.0');
+  assert.equal(policy.schema_version, '1.1.0');
   assert.deepEqual(policy.allowed_objectives, [
     {
       capability_id: 'cybrik.ai.durable-postgres',
       objective_id: 'bounded-postgres-runtime-v1',
+      allowed_series_ids: ['runtime-admission-ai-pg'],
     },
     {
       capability_id: 'cybrik.suite.golden-workflow',
       objective_id: 'golden-uat-v1',
+      allowed_series_ids: [
+        'browser-integrated-uat-bridge',
+        'runtime-admission-soc-ai-lifecycle-mtls',
+      ],
     },
   ]);
   assert.deepEqual(
@@ -573,6 +931,1224 @@ test('committed lineage policy seals exactly the terminal PostgreSQL R1/R2/R3 re
     assert.equal(entry.recorded_disposition, 'NO-GO');
     assert.equal(sha256(read(entry.record_path)), entry.record_sha256);
   }
+  assert.deepEqual(policy.sealed_predecessors, [{
+    candidate_id: 'browser-integrated-uat-bridge-r1',
+    series_id: 'browser-integrated-uat-bridge',
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    record_path:
+      'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+    record_sha256: 'b463b6032a69b68958cd6a470a5a1ac8976ae6778bdb26192a13c5009128e578',
+    recorded_disposition: 'HOLD',
+    recorded_current_attempt_status: 'not_run',
+  }]);
+});
+
+test('an allowed objective still rejects every unlisted runtime-admission series', async () => {
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-golden-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: committedLineagePolicy(),
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'objective_lineage series_id must be explicitly allowlisted for its capability/objective',
+    )));
+  });
+});
+
+test('sealed predecessor references must match the immutable HOLD not-run policy pin', async () => {
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-sealed-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      record_sha256: '0'.repeat(64),
+    },
+  };
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'sealed_predecessor record path and digest must match the immutable lineage policy',
+    )));
+  });
+});
+
+test('topology prerequisite identity, result and manifest digests fail closed on drift', async () => {
+  const resultContent = 'topology pass result\n';
+  const manifestContent = '{"external_evidence":"locally-reviewed"}\n';
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-topology-successor',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topologyPrerequisite({
+      resultSha256: '0'.repeat(64),
+      manifestSha256: sha256(manifestContent),
+    }),
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.result_path,
+        value: resultContent,
+      },
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.evidence_manifest_path,
+        value: manifestContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'topology_prerequisite result SHA-256 must match committed result bytes',
+    )));
+  });
+});
+
+test('topology prerequisite bytes cannot be promoted into runtime execution evidence', async () => {
+  const resultContent = 'topology pass result reused as execution evidence\n';
+  const resultSha256 = sha256(resultContent);
+  const manifestContent = '{"external_evidence":"locally-reviewed"}\n';
+  const candidate = baseCandidate({
+    seriesId: 'unlisted-topology-reuse',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    evidenceContent: resultContent,
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topologyPrerequisite({
+      resultSha256,
+      manifestSha256: sha256(manifestContent),
+    }),
+  };
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.result_path,
+        value: resultContent,
+      },
+      {
+        kind: 'text',
+        dir: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+        path: candidate.attempt_accounting.objective_lineage.topology_prerequisite.evidence_manifest_path,
+        value: manifestContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) => error.includes(
+      'topology_prerequisite bytes must never be reused as runtime execution evidence',
+    )));
+  });
+});
+
+test('a future successor citing the sealed predecessor and a closed topology rehearsal validates clean', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-successor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topology.prerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
+    const successor = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 1),
+    );
+    assert.equal(successor.declaredDisposition, 'HOLD');
+    assert.equal(successor.derivedDisposition, 'HOLD');
+  });
+});
+
+// Every negative test below states the one message it is about, and fails with
+// the observed error list when that message is absent, so no assertion can be
+// satisfied — or hidden — by an unrelated schema or lineage error.
+const assertFinding = (report, expected) => {
+  assert.ok(
+    report.errors.some((error) => error.includes(expected)),
+    `expected finding ${JSON.stringify(expected)}; observed errors:\n${report.errors.join('\n') || '(none)'}`,
+  );
+};
+
+const assertNoFinding = (report, unexpected) => {
+  assert.ok(
+    !report.errors.some((error) => error.includes(unexpected)),
+    `unexpected finding ${JSON.stringify(unexpected)}; observed errors:\n${report.errors.join('\n')}`,
+  );
+};
+
+// A reported finding is only half a fail-closed control: the candidate it was
+// reported against must also carry no runtime authority in the report the
+// callers of this validator read.
+const assertHeldNotRuntimeAuthorized = (report, recordPath) => {
+  const candidateReport = report.candidates.find((entry) => entry.path === recordPath);
+  assert.ok(candidateReport, `no candidate report for ${recordPath}`);
+  assert.notEqual(candidateReport.derivedDisposition, 'RUNTIME_AUTHORIZED');
+  assert.equal(candidateReport.derivedDisposition, 'HOLD');
+  assert.equal(candidateReport.effectiveDisposition, 'HOLD');
+};
+
+// Same otherwise-valid successor as the clean path above, mutated at exactly one
+// point: the cited predecessor evidence digest. The sealed record itself is
+// untouched, so only the successor's claim about the sealed HOLD/not_run
+// evidence drifts, and that alone must fail closed. This control is about the
+// predecessor, not the topology record binding, so it cites the prerequisite in
+// the shape today's schema accepts.
+test('a successor citing drifted sealed predecessor evidence fails closed', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-drifted-predecessor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      evidence_sha256: '0'.repeat(64),
+    },
+    topology_prerequisite: topology.citedPrerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor must preserve the exact HOLD/not_run predecessor evidence`,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RED checkpoint: independent-review findings.
+//
+// The findings below are not implemented yet. Each intended control has exactly
+// one message string, declared once here and asserted verbatim by exactly one
+// negative test, so no test can pass on an unrelated schema or lineage error.
+// ---------------------------------------------------------------------------
+
+// Finding 1: execution authority must be earned by both prerequisites, and the
+// one already-committed authorized record may survive only as an exact-byte
+// exemption keyed to its immutable candidate bytes.
+const AUTHORIZED_PREREQUISITES_FINDING =
+  'runtime execution authorization requires both sealed_predecessor and topology_prerequisite';
+const GRANDFATHERED_BYTES_FINDING =
+  'grandfathered runtime authorization applies only to the exact immutable candidate bytes';
+// Finding 2: the topology prerequisite must bind the sealed rehearsal record
+// itself, not merely the result and manifest bytes it cites.
+const TOPOLOGY_RECORD_ID_FINDING =
+  `topology_prerequisite record_id must equal the sealed ${SEALED_TOPOLOGY_RECORD_ID} rehearsal`;
+const TOPOLOGY_RECORD_PATH_FINDING =
+  'topology_prerequisite record_path must equal the committed topology rehearsal record path';
+const TOPOLOGY_RECORD_BYTES_FINDING =
+  'topology_prerequisite record_sha256 must match committed topology record bytes';
+// Finding 3: caller-supplied pins must never be able to relax the validator's
+// own immutable lineage seal, in either direction.
+const SEALED_PIN_FINDING =
+  'sealed_predecessors must exactly match the validator-immutable sealed set regardless of supplied pins';
+const OBJECTIVE_PIN_FINDING =
+  'lineage policy pins must preserve every validator-immutable allowed objective series';
+
+const GRANDFATHERED_MTLS_SERIES = 'runtime-admission-soc-ai-lifecycle-mtls';
+const GRANDFATHERED_MTLS_RECORD_PATH = candidateRecordPath(GRANDFATHERED_MTLS_SERIES, 1);
+const GRANDFATHERED_MTLS_RECORD_SHA256 =
+  'a59acf23125b4ffd912f59459faa4498c7441d00ca8f21b2c148b5d0b7780ba4';
+
+// Builds an otherwise-clean unauthorized successor that cites the sealed
+// predecessor and the single closed topology rehearsal.
+const topologySuccessor = (seriesId, lineageOverrides = {}) => {
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    ...lineageOverrides,
+  };
+  return candidate;
+};
+
+test('the committed grandfathered mTLS R1 record is pinned by exact bytes and stays valid at the default root', async () => {
+  assert.equal(
+    sha256(read(GRANDFATHERED_MTLS_RECORD_PATH)),
+    GRANDFATHERED_MTLS_RECORD_SHA256,
+  );
+  const committed = JSON.parse(read(GRANDFATHERED_MTLS_RECORD_PATH));
+  // The exemption exists only because this record is authorized while carrying
+  // neither future prerequisite; nothing else in the registry may do that.
+  assert.equal(committed.attempt_accounting.current_attempt.execution_authorized, true);
+  assert.equal(committed.attempt_accounting.objective_lineage.sealed_predecessor, undefined);
+  assert.equal(committed.attempt_accounting.objective_lineage.topology_prerequisite, undefined);
+
+  const report = await validateRuntimeAdmissionRaw({ root: ROOT });
+  assert.deepEqual(report.errors, []);
+  const committedReport = report.candidates.find(
+    (candidateReport) => candidateReport.path === GRANDFATHERED_MTLS_RECORD_PATH,
+  );
+  assert.equal(committedReport.declaredDisposition, 'RUNTIME_AUTHORIZED');
+});
+
+test('an execution-authorized candidate without both runtime prerequisites fails closed', async () => {
+  const seriesId = 'aaa-test-authorized-without-prerequisites';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+test('an execution-authorized candidate carrying only the sealed predecessor still fails closed', async () => {
+  const seriesId = 'aaa-test-authorized-sealed-only';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+// The door the two fail-closed controls above guard must actually open: a
+// successor that earns runtime authority by carrying both prerequisites, with
+// nothing else about it changed, must validate clean and keep its declared
+// RUNTIME_AUTHORIZED disposition. Without this test the prerequisite rule could
+// be satisfied by a validator that rejects every authorized candidate.
+test('an execution-authorized successor carrying both runtime prerequisites validates clean', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-authorized-with-prerequisites';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+    topology_prerequisite: topology.prerequisite,
+  };
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.deepEqual(report.errors, []);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
+    const successor = report.candidates.find(
+      (candidateReport) => candidateReport.candidateId === candidateId(seriesId, 1),
+    );
+    assert.equal(successor.declaredDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(successor.derivedDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(successor.effectiveDisposition, 'RUNTIME_AUTHORIZED');
+  });
+});
+
+test('the grandfathered exemption never extends to another candidate of the same mTLS series', async () => {
+  const seriesId = GRANDFATHERED_MTLS_SERIES;
+  const r1Content = '{"attempt":1,"result":"failed"}\n';
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 18,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+    evidenceContent: r1Content,
+  });
+  r1.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 19,
+        passed_checks: 18,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256(r1Content),
+      },
+    ],
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  r2.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+
+  await withTempRepo({ candidates: [r1, r2] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    // The exemption is keyed to one exact record, so the successor attempt in
+    // the very same sealed series inherits no authority from it.
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${AUTHORIZED_PREREQUISITES_FINDING}`,
+    );
+  });
+});
+
+test('the grandfathered mTLS R1 exemption is void once its immutable bytes drift', async () => {
+  const seriesId = GRANDFATHERED_MTLS_SERIES;
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: true,
+    disposition: 'RUNTIME_AUTHORIZED',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  // Same candidate_id and same record path as the exempt record, different
+  // bytes: an exemption granted by series or by identifier would admit this.
+  assert.equal(candidate.candidate_id, `${GRANDFATHERED_MTLS_SERIES}-r1`);
+  assert.notEqual(sha256(stableJson(candidate)), GRANDFATHERED_MTLS_RECORD_SHA256);
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${GRANDFATHERED_MTLS_RECORD_PATH}: ${GRANDFATHERED_BYTES_FINDING}`,
+    );
+  });
+});
+
+test('topology_prerequisite must cite the sealed rehearsal record_id and no other', async () => {
+  const topology = closedTopologyRehearsal({
+    recordId: 'postgres-loopback-internal-v1-r2',
+  });
+  const seriesId = 'aaa-test-golden-unsealed-topology-record';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    // Everything about this rehearsal is internally consistent and closed; only
+    // its identity is unsealed, and that alone must fail closed.
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_ID_FINDING}`);
+  });
+});
+
+test('topology_prerequisite must pin the committed topology rehearsal record path', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-record-path';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_path: topology.prerequisite.result_path,
+    },
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_PATH_FINDING}`);
+  });
+});
+
+test('topology_prerequisite fails closed on topology record drift even when result and manifest bytes hold', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-record-drift';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Only the rehearsal record bytes move; every artifact it cites, and every
+  // digest recorded inside it, stays byte-identical.
+  const driftedRecord = { ...topology.record, recorded_at: '2026-08-03T00:00:01Z' };
+  assert.notEqual(sha256(stableJson(driftedRecord)), topology.prerequisite.record_sha256);
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath ? { ...write, value: driftedRecord } : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(report, `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_RECORD_BYTES_FINDING}`);
+    assertNoFinding(report, 'topology_prerequisite result SHA-256 must match');
+    assertNoFinding(report, 'topology_prerequisite evidence manifest SHA-256 must match');
+  });
+});
+
+test('topology_prerequisite without the record pins is rejected by the runtime-admission schema', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-unpinned-record';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: Object.fromEntries(
+      Object.entries(topology.prerequisite).filter(
+        ([key]) => key !== 'record_path' && key !== 'record_sha256',
+      ),
+    ),
+  });
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    const schemaPointer =
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/objective_lineage/topology_prerequisite`;
+    assertFinding(report, `${schemaPointer} must have required property 'record_path'`);
+    assertFinding(report, `${schemaPointer} must have required property 'record_sha256'`);
+  });
+});
+
+// Robustness: a malformed candidate must fail closed as a reported schema
+// finding, never as a validator crash. Here exactly one field of an otherwise
+// valid topology prerequisite is retyped from string to number, every other
+// field stays present and correct, so the only admissible outcome is a resolved
+// report carrying the precise schema type finding for result_path.
+test('a non-string topology_prerequisite result_path is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-nonstring-result-path';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      result_path: 15433,
+    },
+  });
+  assert.equal(
+    Object.keys(candidate.attempt_accounting.objective_lineage.topology_prerequisite).length,
+    Object.keys(topology.prerequisite).length,
+  );
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/objective_lineage/topology_prerequisite/result_path must be string`,
+    );
+  });
+});
+
+// Robustness: the record binding proves only that the cited bytes are the bytes
+// the successor pinned. It proves nothing about their shape, so every field read
+// out of them afterwards is reading untrusted structure. A malformed sealed
+// rehearsal record must therefore fail closed as this reported finding, never as
+// a propagated TypeError.
+const TOPOLOGY_CLOSED_RECORD_FINDING =
+  'topology_prerequisite must resolve to a closed non-authorizing TOPOLOGY_PASS record';
+
+const reportWithoutThrowing = async (tempRoot, context) => {
+  try {
+    return await validateRuntimeAdmission({ root: tempRoot });
+  } catch (error) {
+    assert.fail(`${context} must be reported, not thrown: ${error?.stack ?? error}`);
+  }
+};
+
+test('a sealed topology record whose bytes parse as JSON null is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-record';
+  // Well-formed JSON, no object to read fields from. The successor pins these
+  // exact bytes, so the binding holds and parsed-field validation is reached.
+  const nullRecordBytes = 'null\n';
+  assert.equal(JSON.parse(nullRecordBytes), null);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_sha256: sha256(nullRecordBytes),
+    },
+  });
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath
+      ? {
+        kind: 'text',
+        dir: topology.directory,
+        path: topology.recordPath,
+        value: nullRecordBytes,
+      }
+      : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(tempRoot, 'a null topology rehearsal record');
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_CLOSED_RECORD_FINDING}`,
+    );
+    assertNoFinding(report, 'topology_prerequisite record_sha256 must match');
+  });
+});
+
+test('a sealed topology record with non-array evidence artifacts is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-nonarray-artifacts';
+  // Exactly one field of the otherwise closed, internally consistent rehearsal
+  // record is retyped from array to string; the successor pins the resulting
+  // exact bytes, so only the artifact-list shape is malformed.
+  const malformedRecord = {
+    ...topology.record,
+    evidence: {
+      ...topology.record.evidence,
+      artifacts: 'docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1',
+    },
+  };
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: {
+      ...topology.prerequisite,
+      record_sha256: sha256(stableJson(malformedRecord)),
+    },
+  });
+  const extraWrites = topology.extraWrites.map((write) =>
+    (write.path === topology.recordPath ? { ...write, value: malformedRecord } : write));
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a topology rehearsal record with non-array evidence artifacts',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_CLOSED_RECORD_FINDING}`,
+    );
+    assertNoFinding(report, 'topology_prerequisite record_sha256 must match');
+  });
+});
+
+// Robustness: the runtime lineage gates deliberately run over every parsed
+// record, including records the schema rejected, so the sealed and topology
+// byte-reuse checks read candidate arrays whose items were never proven to be
+// objects. An array item that is JSON null must therefore fail closed as the
+// reported Ajv item finding, never as a TypeError propagated out of an
+// unguarded artifact.sha256 or historyRow.evidence_sha256 callback.
+test('a null candidate evidence artifact entry is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-artifact-entry';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Both lineage prerequisites stay present and correct and the one real
+  // artifact stays valid, so nothing short-circuits before the byte-reuse
+  // checks and exactly one unproven array item reaches them.
+  candidate.evidence.artifacts = [...candidate.evidence.artifacts, null];
+  assert.equal(
+    candidate.attempt_accounting.objective_lineage.sealed_predecessor.candidate_id,
+    sealedBrowserPredecessor().candidate_id,
+  );
+  assert.deepEqual(
+    candidate.attempt_accounting.objective_lineage.topology_prerequisite,
+    topology.prerequisite,
+  );
+  assert.equal(candidate.evidence.artifacts.length, 2);
+  assert.equal(candidate.evidence.artifacts[1], null);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a null candidate evidence artifact entry',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /evidence/artifacts/1 must be object`,
+    );
+    // Reporting instead of throwing is only half the control: the malformed
+    // candidate must also stay held and win no runtime authority.
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+test('a null attempt_accounting failure_history entry is reported, not thrown', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-golden-topology-null-history-entry';
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // Same construction as above on the other unguarded array: the sealed and
+  // topology prerequisites remain intact, and the current attempt and evidence
+  // artifacts stay valid, so the only unproven structure is this history row.
+  candidate.attempt_accounting.failure_history = [null];
+  assert.equal(
+    candidate.attempt_accounting.objective_lineage.sealed_predecessor.candidate_id,
+    sealedBrowserPredecessor().candidate_id,
+  );
+  assert.deepEqual(
+    candidate.attempt_accounting.objective_lineage.topology_prerequisite,
+    topology.prerequisite,
+  );
+  assert.equal(candidate.attempt_accounting.failure_history[0], null);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await reportWithoutThrowing(
+      tempRoot,
+      'a null attempt_accounting failure_history entry',
+    );
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: schema /attempt_accounting/failure_history/0 must be object`,
+    );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+// The two null-entry tests above prove the guarded array callbacks no longer
+// throw on unproven items. They cannot prove the guards still detect reuse,
+// because a guard that returned false for every item would satisfy them too.
+// Each of the four tests below therefore places the reused digest in exactly
+// one guarded array branch — never in current_attempt.evidence_sha256 and never
+// in the other array — so only that branch can raise the asserted finding.
+const SEALED_BYTE_REUSE_FINDING =
+  'sealed_predecessor bytes must never be reused as runtime execution evidence';
+const TOPOLOGY_BYTE_REUSE_FINDING =
+  'topology_prerequisite bytes must never be reused as runtime execution evidence';
+const SEALED_PREDECESSOR_EVIDENCE_PATH = sealedBrowserPredecessor().evidence_path;
+
+const topologyArtifactContent = (topology, artifactPath) => {
+  const write = topology.extraWrites.find((entry) => entry.path === artifactPath);
+  assert.ok(write, `no committed topology rehearsal bytes for ${artifactPath}`);
+  return write.value;
+};
+
+// A two-attempt series whose R1 truthfully failed on `reusedContent`, so R2 can
+// carry that digest in failure_history and nowhere else: R2's own current
+// attempt keeps distinct fresh bytes and its artifact list stays its own. R2
+// carries both runtime prerequisites, so no prerequisite-shape finding can stand
+// in for the byte-reuse finding under test.
+const historyByteReuseSeries = ({ seriesId, reusedContent, prerequisite }) => {
+  const r1 = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 2,
+    currentStatus: 'failed',
+    executionAuthorized: false,
+    passedChecks: 3,
+    failedChecks: 1,
+    authorizationSmoke: 'fail',
+    disposition: 'NO-GO',
+    evidenceContent: reusedContent,
+  });
+  const r2 = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 2,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    history: [
+      {
+        candidate_id: candidateId(seriesId, 1),
+        attempt_ordinal: 1,
+        executed_checks: 4,
+        passed_checks: 3,
+        failed_checks: 1,
+        disposition: 'NO-GO',
+        evidence_path: currentAttemptArtifact(seriesId, 1),
+        evidence_sha256: sha256(reusedContent),
+      },
+    ],
+  });
+  for (const candidate of [r1, r2]) {
+    candidate.attempt_accounting.objective_lineage = {
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+      historical_prerequisites: [],
+    };
+  }
+  r2.attempt_accounting.objective_lineage.sealed_predecessor = sealedBrowserPredecessor();
+  r2.attempt_accounting.objective_lineage.topology_prerequisite = prerequisite;
+  assert.notEqual(
+    r2.attempt_accounting.current_attempt.evidence_sha256,
+    sha256(reusedContent),
+  );
+  assert.ok(r2.evidence.artifacts.every(
+    (artifact) => artifact.sha256 !== sha256(reusedContent),
+  ));
+  return { r1, r2 };
+};
+
+test('sealed predecessor bytes copied only into candidate evidence artifacts are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-sealed-artifact-byte-reuse';
+  const sealedEvidenceContent = read(SEALED_PREDECESSOR_EVIDENCE_PATH);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  // The successor copied the sealed HOLD/not_run predecessor result into its own
+  // evidence directory and registered it: a real artifact, present on disk and
+  // matching its recorded digest, so nothing short-circuits before the gate.
+  const copiedPath = `${evidenceDir(seriesId, 1)}/06-copied-sealed-predecessor-result.md`;
+  candidate.evidence.artifacts = [
+    ...candidate.evidence.artifacts,
+    { path: copiedPath, sha256: sha256(sealedEvidenceContent) },
+  ];
+  assert.notEqual(
+    candidate.attempt_accounting.current_attempt.evidence_sha256,
+    sealedBrowserPredecessor().evidence_sha256,
+  );
+  assert.deepEqual(candidate.attempt_accounting.failure_history, []);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      ...topology.extraWrites,
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: copiedPath,
+        value: sealedEvidenceContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, TOPOLOGY_BYTE_REUSE_FINDING);
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+test('sealed predecessor bytes carried only by failure_history are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-sealed-history-byte-reuse';
+  const sealedEvidenceContent = read(SEALED_PREDECESSOR_EVIDENCE_PATH);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const { r1, r2 } = historyByteReuseSeries({
+    seriesId,
+    reusedContent: sealedEvidenceContent,
+    prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [r1, r2],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, TOPOLOGY_BYTE_REUSE_FINDING);
+    // R1 carries the same digest but cites no sealed predecessor, so the gate
+    // must fire against the citing successor only.
+    assertNoFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${SEALED_BYTE_REUSE_FINDING}`,
+    );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 2));
+  });
+});
+
+test('topology rehearsal result bytes copied only into candidate evidence artifacts are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-topology-artifact-byte-reuse';
+  const resultContent = topologyArtifactContent(
+    topology,
+    topology.prerequisite.result_path,
+  );
+  assert.equal(sha256(resultContent), topology.prerequisite.result_sha256);
+  const candidate = topologySuccessor(seriesId, {
+    topology_prerequisite: topology.prerequisite,
+  });
+  const copiedPath = `${evidenceDir(seriesId, 1)}/06-copied-topology-result.md`;
+  candidate.evidence.artifacts = [
+    ...candidate.evidence.artifacts,
+    { path: copiedPath, sha256: sha256(resultContent) },
+  ];
+  assert.notEqual(
+    candidate.attempt_accounting.current_attempt.evidence_sha256,
+    topology.prerequisite.result_sha256,
+  );
+  assert.deepEqual(candidate.attempt_accounting.failure_history, []);
+
+  await withTempRepo({
+    candidates: [candidate],
+    extraWrites: [
+      ...topology.extraWrites,
+      {
+        kind: 'text',
+        dir: evidenceDir(seriesId, 1),
+        path: copiedPath,
+        value: resultContent,
+      },
+    ],
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, SEALED_BYTE_REUSE_FINDING);
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 1));
+  });
+});
+
+test('topology rehearsal manifest bytes carried only by failure_history are rejected', async () => {
+  const topology = closedTopologyRehearsal();
+  const seriesId = 'aaa-test-topology-history-byte-reuse';
+  // The second digest of the prerequisite pair, so the history branch is proven
+  // against the whole pinned topology digest set and not only the result bytes.
+  const manifestContent = topologyArtifactContent(
+    topology,
+    topology.prerequisite.evidence_manifest_path,
+  );
+  assert.equal(sha256(manifestContent), topology.prerequisite.evidence_manifest_sha256);
+  const { r1, r2 } = historyByteReuseSeries({
+    seriesId,
+    reusedContent: manifestContent,
+    prerequisite: topology.prerequisite,
+  });
+
+  await withTempRepo({
+    candidates: [r1, r2],
+    extraWrites: topology.extraWrites,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertNoFinding(report, SEALED_BYTE_REUSE_FINDING);
+    assertNoFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: ${TOPOLOGY_BYTE_REUSE_FINDING}`,
+    );
+    assertHeldNotRuntimeAuthorized(report, candidateRecordPath(seriesId, 2));
+  });
+});
+
+test('default-root validation ignores caller-supplied lineage policy pins', async () => {
+  // Empty pins would void the entire seal if the caller could reach it; at the
+  // default root the validator must use only its own compiled-in pins.
+  const report = await validateRuntimeAdmissionRaw({
+    root: ROOT,
+    pinnedLineagePolicy: { allowed_objectives: [], sealed_predecessors: [] },
+  });
+  assert.deepEqual(report.errors, []);
+});
+
+test('a non-default root without independently supplied pins fails closed', async () => {
+  await withTempRepo({ candidates: [baseCandidate()] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({ root: tempRoot });
+    assertFinding(
+      report,
+      'non-default root requires independently supplied lineage policy pins',
+    );
+  });
+});
+
+test('a drifted policy cannot self-pin an additional sealed predecessor', async () => {
+  const seriesId = 'aaa-test-self-pinned-sealed-enrollment';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  // A brand-new HOLD/not_run record enrolled as a sealed predecessor. Every
+  // per-entry check it faces succeeds, so only the immutable pin can stop it.
+  const driftedPolicy = lineagePolicyFor([candidate], {
+    capabilityId: 'cybrik.suite.golden-workflow',
+    objectiveId: 'golden-uat-v1',
+  });
+  driftedPolicy.sealed_predecessors = [
+    ...driftedPolicy.sealed_predecessors,
+    {
+      candidate_id: candidate.candidate_id,
+      series_id: seriesId,
+      capability_id: 'cybrik.suite.golden-workflow',
+      objective_id: 'golden-uat-v1',
+      record_path: candidateRecordPath(seriesId, 1),
+      record_sha256: sha256(stableJson(candidate)),
+      recorded_disposition: 'HOLD',
+      recorded_current_attempt_status: 'not_run',
+    },
+  ];
+
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: driftedPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({
+      root: tempRoot,
+      pinnedLineagePolicy: {
+        allowed_objectives: driftedPolicy.allowed_objectives,
+        sealed_predecessors: driftedPolicy.sealed_predecessors,
+      },
+    });
+    assertFinding(report, SEALED_PIN_FINDING);
+  });
+});
+
+test('a drifted policy cannot self-pin away an immutable allowed objective series', async () => {
+  const seriesId = 'aaa-test-self-pinned-objective-removal';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+  };
+  const driftedPolicy = lineagePolicyFor([candidate], {
+    capabilityId: 'cybrik.suite.golden-workflow',
+    objectiveId: 'golden-uat-v1',
+  });
+  driftedPolicy.allowed_objectives = driftedPolicy.allowed_objectives.map((entry) => ({
+    ...entry,
+    allowed_series_ids: entry.allowed_series_ids.filter(
+      (allowedSeriesId) => allowedSeriesId !== 'browser-integrated-uat-bridge',
+    ),
+  }));
+
+  await withTempRepo({
+    candidates: [candidate],
+    lineagePolicy: driftedPolicy,
+  }, async (tempRoot) => {
+    const report = await validateRuntimeAdmissionRaw({
+      root: tempRoot,
+      pinnedLineagePolicy: {
+        allowed_objectives: driftedPolicy.allowed_objectives,
+        sealed_predecessors: driftedPolicy.sealed_predecessors,
+      },
+    });
+    assertFinding(report, OBJECTIVE_PIN_FINDING);
+  });
+});
+
+test('a sealed_predecessor that resolves to no sealed record fails closed', async () => {
+  const seriesId = 'aaa-test-unresolvable-sealed-predecessor';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: {
+      ...sealedBrowserPredecessor(),
+      candidate_id: 'aaa-test-unsealed-predecessor-r1',
+    },
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor must resolve to an immutable sealed predecessor`,
+    );
+    // A lineage carrying only one half of the pair is incomplete regardless.
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor and topology_prerequisite must be carried together`,
+    );
+  });
+});
+
+test('a sealed_predecessor cannot be cited to reopen its own sealed series', async () => {
+  const seriesId = 'browser-integrated-uat-bridge';
+  // Ordinal 2 of the sealed series: the accounting rules of a HOLD/not_run R1
+  // make such a successor unbuildable anyway, but the reopen control must fire
+  // on the sealed series identity by itself.
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 2,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 2)}: sealed_predecessor cannot reopen its sealed series_id`,
+    );
+  });
+});
+
+test('sealed predecessor bytes cannot be replayed as a successor execution evidence', async () => {
+  const sealedEvidencePath =
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md';
+  const sealedEvidenceContent = read(sealedEvidencePath);
+  assert.equal(sha256(sealedEvidenceContent), sealedBrowserPredecessor().evidence_sha256);
+  const seriesId = 'aaa-test-sealed-predecessor-byte-reuse';
+  const candidate = baseCandidate({
+    seriesId,
+    ordinal: 1,
+    maxAttempts: 1,
+    currentStatus: 'not_run',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+    evidenceContent: sealedEvidenceContent,
+  });
+  candidate.attempt_accounting.objective_lineage = {
+    capability_id: 'cybrik.suite.golden-workflow',
+    objective_id: 'golden-uat-v1',
+    historical_prerequisites: [],
+    sealed_predecessor: sealedBrowserPredecessor(),
+  };
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assertFinding(
+      report,
+      `${candidateRecordPath(seriesId, 1)}: sealed_predecessor bytes must never be reused as runtime execution evidence`,
+    );
+  });
 });
 
 test('standalone validator rejects any attempt to grandfather a fourth legacy candidate', async () => {
@@ -632,7 +2208,7 @@ test('candidate discovery still validates only docs/uat/candidates/*/runtime-adm
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 4);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
     assert.equal(report.candidates[0].derivedDisposition, 'RUNTIME_AUTHORIZED');
   });
 });
@@ -681,7 +2257,7 @@ test('valid retired R1 NO-GO and authorized R2 patterns validate together', asyn
     writeFileSync(join(tempRoot, r1AttemptPath), r1AttemptContent, 'utf8');
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.deepEqual(report.errors, []);
-    assert.equal(report.counts.candidateFiles, 5);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 2);
     const byId = new Map(report.candidates.map((candidateReport) => [candidateReport.candidateId, candidateReport]));
     assert.equal(byId.get(candidateId(seriesId, 1)).declaredDisposition, 'NO-GO');
     assert.equal(byId.get(candidateId(seriesId, 1)).derivedDisposition, 'NO-GO');
@@ -1226,24 +2802,72 @@ test('failure history evidence may point to prior candidate evidence but must re
   });
 });
 
-test('committed runtime-admission assets preserve terminal NO-GO results and the new HOLD candidate', async () => {
+test('committed runtime-admission assets preserve history and no consumed authority remains effective', async () => {
   const report = await validateRuntimeAdmission({ root: ROOT });
   assert.deepEqual(report.errors, []);
   assert.equal(report.counts.templatesValidated, 1);
-  assert.equal(report.counts.candidateFiles, 4);
-  const byId = new Map(
+  const derivedById = new Map(
     report.candidates.map((candidateReport) => [
       candidateReport.candidateId,
       candidateReport.derivedDisposition,
     ]),
   );
-  assert.equal(byId.get('runtime-admission-ai-pg-r1'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r2'), 'NO-GO');
-  assert.equal(byId.get('runtime-admission-ai-pg-r3'), 'NO-GO');
-  assert.equal(
-    byId.get('runtime-admission-soc-ai-lifecycle-mtls-r1'),
-    'HOLD',
+  const expectedDerivedById = new Map([
+    ['browser-integrated-uat-bridge-r1', 'HOLD'],
+    ['runtime-admission-ai-pg-r1', 'NO-GO'],
+    ['runtime-admission-ai-pg-r2', 'NO-GO'],
+    ['runtime-admission-ai-pg-r3', 'NO-GO'],
+    ['runtime-admission-soc-ai-lifecycle-mtls-r1', 'RUNTIME_AUTHORIZED'],
+  ]);
+  const effectiveById = new Map(
+    report.candidates.map((candidateReport) => [
+      candidateReport.candidateId,
+      candidateReport.effectiveDisposition,
+    ]),
   );
+  const expectedEffectiveById = new Map([
+    ['browser-integrated-uat-bridge-r1', 'HOLD'],
+    ['runtime-admission-ai-pg-r1', 'NO-GO'],
+    ['runtime-admission-ai-pg-r2', 'NO-GO'],
+    ['runtime-admission-ai-pg-r3', 'NO-GO'],
+    ['runtime-admission-soc-ai-lifecycle-mtls-r1', 'HOLD'],
+  ]);
+  assert.equal(report.counts.candidateFiles, expectedDerivedById.size);
+  assert.deepEqual(derivedById, expectedDerivedById);
+  assert.deepEqual(effectiveById, expectedEffectiveById);
+  assert.equal(
+    [...derivedById.values()].filter(
+      (disposition) => disposition === 'RUNTIME_AUTHORIZED',
+    ).length,
+    1,
+  );
+  assert.equal(
+    [...effectiveById.values()].filter(
+      (disposition) => disposition === 'RUNTIME_AUTHORIZED',
+    ).length,
+    0,
+  );
+  assert.equal(
+    report.candidates.find((candidate) =>
+      candidate.candidateId === 'runtime-admission-soc-ai-lifecycle-mtls-r1')
+      .effectiveAuthorizationState,
+    'withdrawn',
+  );
+
+  const browser = JSON.parse(read(
+    'docs/uat/candidates/browser-integrated-uat-bridge-r1/runtime-admission.json',
+  ));
+  assert.deepEqual(browser.attempt_accounting.current_attempt, {
+    status: 'not_run',
+    execution_authorized: false,
+    executed_checks: 0,
+    passed_checks: 0,
+    failed_checks: 0,
+    evidence_path:
+      'docs/uat/candidates/browser-integrated-uat-bridge-r1/G-U2B-POSTGRES-RED-RUNTIME-RESULT-R1.md',
+    evidence_sha256:
+      '24d65a67b3e916988114542342bd5411ef87081b28d972d41b25e6d0a94388fe',
+  });
 
   const r2 = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-ai-pg-r2/runtime-admission.json',
@@ -1557,7 +3181,7 @@ test('mislocated runtime-admission records fail closed while unrelated candidate
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes('mislocated runtime-admission.json')));
-    assert.equal(report.counts.candidateFiles, 4);
+    assert.equal(report.counts.candidateFiles, seededCandidateCount() + 1);
   });
 });
 
@@ -1804,12 +3428,15 @@ test('open Critical or High findings before execution truthfully derive HOLD', a
   });
 });
 
-test('A0 records non-circular sequencing and pins the committed mTLS attempt as unauthorized', async () => {
+test('A0 preserves non-circular sequencing and pins exact Phase A authorization', async () => {
   const holdStatus = read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
   );
   const architecture = read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+  );
+  const phaseAuthorization = read(
+    'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
   );
   const committed = JSON.parse(read(
     'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/runtime-admission.json',
@@ -1819,25 +3446,122 @@ test('A0 records non-circular sequencing and pins the committed mTLS attempt as 
   assert.match(holdStatus, /Phase B — bounded execution and evidence closure/);
   assert.match(architecture, /A1–A7 are evidence-closure criteria, not preauthorization criteria/);
   assert.ok(committed.contracts.feature_flags.some((entry) =>
-    entry.name === 'suite_soc_ai_lifecycle_mtls_two_phase_admission'
-      && entry.state === 'accepted_sequence_not_authorized'));
+    entry.name === 'suite_integrated_master_uat_one_shot'
+      && entry.state === 'enabled_only_by_exact_signed_external_authorization'));
   assert.deepEqual(committed.attempt_accounting.current_attempt, {
     status: 'not_run',
-    execution_authorized: false,
+    execution_authorized: true,
     executed_checks: 0,
     passed_checks: 0,
     failed_checks: 0,
     evidence_path:
-      'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
-    evidence_sha256: committed.evidence.artifacts[0].sha256,
+      'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
+    evidence_sha256:
+      '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
   });
   assert.equal(committed.open_findings.critical, 0);
-  assert.equal(committed.open_findings.high, 1);
+  assert.equal(committed.open_findings.high, 0);
   const smokeRows = Object.values(committed.negative_smoke).flat();
-  assert.equal(smokeRows.length, 10);
-  assert.ok(smokeRows.every((row) => row.status === 'hold'));
-  assert.equal(committed.evidence.final_profile_verdict, 'HOLD');
-  assert.equal(committed.disposition.profile, 'HOLD');
+  assert.equal(smokeRows.length, 3);
+  assert.ok(smokeRows.every((row) => row.status === 'pass'));
+  assert.equal(committed.evidence.final_profile_verdict, 'RUNTIME_AUTHORIZED');
+  assert.equal(committed.disposition.profile, 'RUNTIME_AUTHORIZED');
+  assert.deepEqual(committed.commit_tree, {
+    suite: {
+      commit: '8e6f05f823b237b8c1b93e630182d570062b239e',
+      tree: '1cfc07c2c5c2ddc7789533297f7ac8661ba2aa3a',
+    },
+    soc: {
+      commit: 'abfdfde96afc6daa2868694de993c623daa8862e',
+      tree: '241ef24a33246918ff5cf133e7d8d004823fdf06',
+    },
+    cyber_ai: {
+      commit: '51377267c6adbd7860270253cb212681001c7b1e',
+      tree: '831a24ffd3033f966f35a9daab9f5d8af81e8b64',
+    },
+    tool_fabric: {
+      commit: '50aff1df146d6e98b33d9f82617781595bcf1512',
+      tree: '2b4d516eef0a3b0ae05b44a225515efef749f25b',
+    },
+  });
+  const checkNames = Object.fromEntries(
+    ['suite', 'soc', 'cyber_ai', 'tool_fabric'].map((repo) => [
+      repo,
+      committed.hosted_ci.required_checks
+        .filter((check) => check.repo === repo)
+        .map((check) => check.name),
+    ]),
+  );
+  assert.deepEqual(checkNames, {
+    suite: ['contract standards validation', 'secret-scan'],
+    soc: [
+      'api',
+      'backup-tool',
+      'dependency-scan',
+      'e2e',
+      'sbom',
+      'secret-scan',
+      'web',
+      'pf-workers',
+    ],
+    cyber_ai: [
+      'scaffold-integrity',
+      'lockfile-integrity',
+      'lint',
+      'type',
+      'test',
+      'build-offline',
+      'secret-scan',
+      'security-supply-chain',
+    ],
+    tool_fabric: ['scaffold-integrity', 'secret-scan', 'admission-gate'],
+  });
+  assert.deepEqual(
+    committed.network_exposure.surfaces.map((surface) => surface.bind),
+    [
+      '127.0.0.1:55432',
+      '127.0.0.1:58442',
+      '127.0.0.1:58443',
+      '127.0.0.1:58444',
+    ],
+  );
+  assert.deepEqual(committed.production_exclusion, {
+    no_production_credentials: true,
+    no_production_configuration: true,
+    no_production_data: true,
+    no_production_traffic: true,
+  });
+  assert.equal(
+    committed.attempt_accounting.current_attempt.evidence_sha256,
+    '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
+  );
+  assert.deepEqual(
+    committed.evidence.artifacts.map(({ path, sha256 }) => [path, sha256]),
+    [
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/01-hold-status.md',
+        '84d8266bb3c6de1cca312ae4b9cca0a12247313b9483ca495450a2bab7724dc6',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/02-architecture-and-acceptance.md',
+        '465dd3955c92f1eec543964c9da7663203c3b1f9f84b8c722bfbe73e245c5be7',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/06-integrated-master-phase-a-authorization.md',
+        '9827ecfb70c8de41b1f59d5bddff65680f4076ecd605ce9648ae805194b17df7',
+      ],
+      [
+        'docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/07-independent-phase-a-review.md',
+        '67ac930e0672d5313c236be542206e35fa68316c8f93cb6b8989ff0169d3058a',
+      ],
+    ],
+  );
+  assert.match(phaseAuthorization, /signed externally by `FOUNDER` with SSHSIG/);
+  assert.match(phaseAuthorization, /cybrik-uat-soc-ai-fabric-v1/);
+  assert.match(phaseAuthorization, /invoked\s+once/);
+  assert.match(phaseAuthorization, /Release dates are\s+unchanged/);
+  assert.match(phaseAuthorization, /production remains Founder-controlled/);
+  assert.match(phaseAuthorization, /clean detached Suite worktree/);
 
   const admittedPreflight = baseCandidate({
     executionAuthorized: true,
@@ -2175,6 +3899,299 @@ test('the registry cannot hold two independently authorized runtime candidates',
   });
 });
 
+test('a valid withdrawal frees the singleton without mutating the target record', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+  });
+  const second = baseCandidate({
+    seriesId: 'aaa-test-authorized-b',
+    ordinal: 1,
+  });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.equal(report.errors.length, 0);
+    const firstReport = report.candidates.find((candidateReport) => candidateReport.candidateId === first.candidate_id);
+    const secondReport = report.candidates.find((candidateReport) => candidateReport.candidateId === second.candidate_id);
+    assert.equal(firstReport.derivedDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(firstReport.effectiveDisposition, 'HOLD');
+    assert.equal(firstReport.authorizationState, 'withdrawn');
+    assert.equal(secondReport.effectiveDisposition, 'RUNTIME_AUTHORIZED');
+    assert.equal(secondReport.authorizationState, 'active');
+  });
+});
+
+test('an invalid withdrawal fails closed and does not free the singleton', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+  });
+  const second = baseCandidate({
+    seriesId: 'aaa-test-authorized-b',
+    ordinal: 1,
+  });
+  const withdrawal = runtimeAuthorizationWithdrawal(first, {
+    targetRecordSha256: 'f'.repeat(64),
+  });
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('target_record_sha256 must match the recorded runtime-admission bytes'),
+      ),
+    );
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate'),
+      ),
+    );
+    assert.equal(
+      report.candidates.filter(
+        (candidateReport) => candidateReport.effectiveDisposition === 'RUNTIME_AUTHORIZED',
+      ).length,
+      0,
+    );
+  });
+});
+
+test('a withdrawn runtime-authorization series cannot reopen under the same series id', async () => {
+  const first = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 1,
+    maxAttempts: 2,
+  });
+  const reopened = baseCandidate({
+    seriesId: 'aaa-test-authorized-a',
+    ordinal: 2,
+    maxAttempts: 2,
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  reopened.attempt_accounting.failure_history = [
+    {
+      candidate_id: first.candidate_id,
+      attempt_ordinal: 1,
+      executed_checks: 0,
+      passed_checks: 0,
+      failed_checks: 0,
+      evidence_path: first.attempt_accounting.current_attempt.evidence_path,
+      evidence_sha256: first.attempt_accounting.current_attempt.evidence_sha256,
+    },
+  ];
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, reopened] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(
+      report.errors.some((error) =>
+        error.includes('withdrawn runtime-authorization series cannot reopen under the same series_id'),
+      ),
+      report.errors.join('\n'),
+    );
+    assert.equal(report.candidates.find((candidateReport) => candidateReport.candidateId === reopened.candidate_id).derivedDisposition, 'HOLD');
+  });
+});
+
+test('an unsigned withdrawal cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    unlinkSync(join(tempRoot, withdrawal.signaturePath));
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal SSHSIG must verify against the pinned withdrawal trust')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a withdrawal whose signed bytes drift cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    writeFileSync(recordPath, `${readFileSync(recordPath, 'utf8')} `, 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal SSHSIG must verify against the pinned withdrawal trust')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a symlinked withdrawal record is rejected before external JSON is parsed', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const relocatedPath = `${recordPath}.relocated`;
+    writeFileSync(relocatedPath, '{not-json', 'utf8');
+    unlinkSync(recordPath);
+    symlinkSync(relocatedPath, recordPath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal record must resolve to a contained non-symlink regular file')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal signer and trust drift cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const allowedPath = join(tempRoot, withdrawal.allowedSignersPath);
+    writeFileSync(allowedPath, readFileSync(allowedPath, 'utf8').replace('FOUNDER', 'IMPOSTOR'), 'utf8');
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal allowed-signers identity must bind FOUNDER')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal trust must retain the tracked master UAT signer identity', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const masterTrustPath = join(tempRoot, MASTER_AUTHORIZATION_TRUST_PATH);
+    const masterTrust = JSON.parse(readFileSync(masterTrustPath, 'utf8'));
+    masterTrust.key_fingerprint = `SHA256:${'A'.repeat(43)}`;
+    stableWriteJson(masterTrustPath, masterTrust);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal trust must retain the tracked master UAT signer identity')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a symlinked withdrawal trust descriptor cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const trustPath = join(tempRoot, WITHDRAWAL_TRUST_PATH);
+    const relocatedPath = `${trustPath}.relocated`;
+    writeFileSync(relocatedPath, readFileSync(trustPath));
+    unlinkSync(trustPath);
+    symlinkSync(relocatedPath, trustPath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal trust descriptor must resolve to a contained non-symlink regular file')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('withdrawal signature path must remain the adjacent detached SSHSIG', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+    const relocatedSignaturePath = `${withdrawal.signaturePath}.relocated`;
+    writeFileSync(
+      join(tempRoot, relocatedSignaturePath),
+      readFileSync(join(tempRoot, withdrawal.signaturePath)),
+    );
+    record.external_packet_closure.signature_path = relocatedSignaturePath;
+    stableWriteJson(recordPath, record);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal signature_path must be the adjacent detached SSHSIG')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a symlinked withdrawal signature cannot free the singleton', async () => {
+  const first = baseCandidate({ seriesId: 'aaa-test-authorized-a' });
+  const second = baseCandidate({ seriesId: 'aaa-test-authorized-b' });
+  const withdrawal = runtimeAuthorizationWithdrawal(first);
+
+  await withTempRepo({ candidates: [first, second] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const signaturePath = join(tempRoot, withdrawal.signaturePath);
+    const relocatedPath = `${signaturePath}.relocated`;
+    writeFileSync(relocatedPath, readFileSync(signaturePath));
+    unlinkSync(signaturePath);
+    symlinkSync(relocatedPath, signaturePath);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('withdrawal signature must resolve to a contained non-symlink regular file')));
+    assert.ok(report.errors.some((error) =>
+      error.includes('registry may contain at most one RUNTIME_AUTHORIZED candidate')));
+  });
+});
+
+test('a signed withdrawal cannot target a candidate that was never authorized', async () => {
+  const held = baseCandidate({
+    seriesId: 'aaa-test-held',
+    executionAuthorized: false,
+    disposition: 'HOLD',
+  });
+  const authorized = baseCandidate({ seriesId: 'aaa-test-authorized' });
+  const withdrawal = runtimeAuthorizationWithdrawal(held);
+
+  await withTempRepo({ candidates: [held, authorized] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes('schema /observed_attempt/execution_authorized must be equal to constant')));
+    assert.equal(
+      report.candidates.find((candidateReport) =>
+        candidateReport.candidateId === authorized.candidate_id).effectiveDisposition,
+      'RUNTIME_AUTHORIZED',
+    );
+  });
+});
+
+test('withdrawal schema forbids production authority and reactivation fields', async () => {
+  const candidate = baseCandidate({ seriesId: 'aaa-test-authorized' });
+  const withdrawal = runtimeAuthorizationWithdrawal(candidate);
+
+  await withTempRepo({ candidates: [candidate] }, async (tempRoot) => {
+    withdrawal.install(tempRoot);
+    const recordPath = join(tempRoot, withdrawal.recordPath);
+    const record = JSON.parse(readFileSync(recordPath, 'utf8'));
+    record.effect.production_authority = 'delegated';
+    record.effect.reactivate = true;
+    stableWriteJson(recordPath, record);
+    const report = await validateRuntimeAdmission({ root: tempRoot });
+    assert.ok(report.errors.some((error) =>
+      error.includes("schema /effect must NOT have additional properties")));
+    assert.ok(report.errors.some((error) =>
+      error.includes('schema /effect/production_authority must be equal to constant')));
+  });
+});
+
 test('a failed smoke cannot hide an unrecorded prerequisite while a held smoke remains valid evidence', async () => {
   const candidate = baseCandidate({
     authorizationSmoke: 'fail',
@@ -2204,7 +4221,7 @@ test('a new series must declare objective lineage when terminal legacy records e
     disposition: 'HOLD',
   });
   delete future.attempt_accounting.objective_lineage;
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2233,7 +4250,7 @@ test('a new series cannot reopen a terminal capability objective under another n
       historicalPrerequisite(terminal.r3),
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2265,7 +4282,7 @@ test('historical prerequisite evidence can never be promoted to execution author
       },
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2294,7 +4311,7 @@ test('a distinct future objective may cite terminal R3 only as historical prereq
       historicalPrerequisite(terminal.r3),
     ],
   };
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2331,7 +4348,7 @@ test('a new current attempt cannot reuse bytes accounted by a historical prerequ
       sha256: prerequisite.evidence_sha256,
     },
   ];
-  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3]);
+  const lineagePolicy = lineagePolicyFor([terminal.r1, terminal.r2, terminal.r3, future]);
 
   await withTempRepo({
     candidates: [terminal.r1, terminal.r2, terminal.r3, future],
@@ -2392,7 +4409,13 @@ test('a terminal future objective cannot be reopened by another future series', 
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, terminalFuture, reopened],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([
+      legacy.r1,
+      legacy.r2,
+      legacy.r3,
+      terminalFuture,
+      reopened,
+    ]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) =>
@@ -2419,6 +4442,8 @@ test('self-declared capability and objective aliases must be registered by polic
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, alias],
     extraWrites: legacy.extraWrites,
+    // The alias is deliberately excluded so its self-declared objective stays
+    // unregistered in allowed_objectives.
     lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
@@ -2451,7 +4476,7 @@ test('duplicate and drifted historical prerequisites fail closed', async () => {
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, future],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
@@ -2468,7 +4493,7 @@ test('duplicate and drifted historical prerequisites fail closed', async () => {
   await withTempRepo({
     candidates: [legacy.r1, legacy.r2, legacy.r3, future],
     extraWrites: legacy.extraWrites,
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
@@ -2526,7 +4551,7 @@ test('malformed policy and non-NO-GO legacy enrollment fail closed', async () =>
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(
-      'must contain exactly schema_version, allowed_objectives and legacy_candidates',
+      'must contain exactly schema_version, allowed_objectives, legacy_candidates and sealed_predecessors',
     )));
   });
 
@@ -2572,7 +4597,7 @@ test('undeclared cross-series byte reuse is rejected registry-wide', async () =>
         value: 'attempt 3\n',
       },
     ],
-    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3]),
+    lineagePolicy: lineagePolicyFor([legacy.r1, legacy.r2, legacy.r3, future]),
   }, async (tempRoot) => {
     const report = await validateRuntimeAdmission({ root: tempRoot });
     assert.ok(report.errors.some((error) => error.includes(

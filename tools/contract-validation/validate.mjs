@@ -51,7 +51,7 @@ if (process.argv.includes('--test-w1-contracts')) {
   process.exit(runW1ContractTests());
 }
 
-// These 23 validators cover the accepted corpus and additive proposal checks.
+// These 31 validators cover the accepted corpus and additive proposal checks.
 const steps = [
   'validate-schemas.mjs',
   'validate-inference.mjs',
@@ -82,12 +82,32 @@ const steps = [
   'tests/validate-svc-lifecycle.test.mjs',
   'validate-runtime-admission.mjs',
   'tests/validate-runtime-admission.test.mjs',
+  // Topology-only rehearsal registry — static singleton and evidence controls.
+  // The registry holds one proposed HOLD record, unauthorized and not_run; it
+  // carries a diagnosis_review of its diagnosis only, while the future
+  // record_review of the exact record bytes stays owed; green opens no runtime gate.
+  'validate-topology-rehearsal.mjs',
+  'tests/validate-topology-rehearsal.test.mjs',
+  // C8 exact-action topology grant contract — the grant schema, its canonical byte
+  // rendering, its exact semantics and its injection-only, fail-closed signature seam.
+  // Green is static document conformance only: no registry lookup, no pull, no host
+  // inspection, and no runtime, UAT, demo, merge, release or production authority.
+  'validate-topology-grant.mjs',
+  'tests/validate-topology-grant.test.mjs',
   // W2-K transport peer-evidence profile — ACCEPTED FOR IMPLEMENTATION but
   // NOT IMPLEMENTED. Server-neutral, fail-closed static conformance only; it
   // opens no socket, selects no server, and grants no runtime, UAT, release,
   // deployment or production authority.
   'validate-transport-peer.mjs',
   'tests/validate-transport-peer.test.mjs',
+  // Receipt trust-bundle and durability design — ACCEPTED FOR IMPLEMENTATION
+  // and NOT IMPLEMENTED. Static packet and semantic-fixture evidence only.
+  'validate-receipt-trust-durability.mjs',
+  'tests/validate-receipt-trust-durability.test.mjs',
+  // Fabric runtime-producer implementation evidence — coordinator-verified,
+  // not hosted CI or runtime evidence. The gate remains HOLD for runtime/UAT.
+  '../../tools/operations/validate-fabric-runtime-producer-gate.mjs',
+  '../../tools/operations/tests/validate-fabric-runtime-producer-gate.test.mjs',
   '../../tools/operations/validate-w1-control.mjs',
 ];
 let failed = 0;
@@ -97,4 +117,4 @@ for (const s of steps) {
   console.log('');
 }
 if (failed) { console.error(`FAIL — ${failed}/${steps.length} validator(s) reported errors.`); process.exit(1); }
-console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, and validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');
+console.log('ALL GREEN — the mixed-lifecycle static contract corpus passes its registered JSON Schema 2020-12, OpenAPI 3.1.x, AsyncAPI 3.0.0 and security/trust invariants, including validate-transport for W2-I PROPOSED / NOT ACCEPTED, validate-resource-bounds for W2-H ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, validate-transport-peer for W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, receipt trust/durability as ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED, the static topology-rehearsal singleton controls over one proposed HOLD record that stays unauthorized and not_run and carries a diagnosis_review of its diagnosis while its record_review of the exact record bytes remains owed, and the Fabric runtime-producer implementation gate while runtime remains HOLD. This is static conformance only, not runtime or release proof; it also proves no UAT, T10/T11, deployment or production readiness.');

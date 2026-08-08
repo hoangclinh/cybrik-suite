@@ -1,0 +1,286 @@
+{
+  "evidence_class": "rehearsal_only",
+  "negative_cases": [
+    {
+      "case_id": "N1",
+      "purpose": "replayed_delegation",
+      "reason": "Reject a replay without creating a second durable investigation.",
+      "status": "authored_not_run",
+      "step": 3
+    },
+    {
+      "case_id": "N2",
+      "purpose": "cnf_mismatch",
+      "reason": "Reject a delegation whose certificate binding differs from the presented peer.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N3",
+      "purpose": "wrong_audience",
+      "reason": "Reject a delegation addressed to a different relying service.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N4",
+      "purpose": "wrong_scope",
+      "reason": "Reject a delegation that lacks the exact lifecycle-create scope.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N5",
+      "purpose": "wrong_operation",
+      "reason": "Reject a create-only delegation used for another operation.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N6",
+      "purpose": "cross_tenant",
+      "reason": "Reject a request whose authoritative tenant differs from the target tenant.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N7",
+      "purpose": "tenant_org_advisory_mismatch",
+      "reason": "Reject organization advisory data that conflicts with the authoritative tenant.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N8",
+      "purpose": "missing_server_tls_extension",
+      "reason": "Fail closed when server-owned transport identity evidence is absent.",
+      "status": "authored_not_run",
+      "step": 2
+    },
+    {
+      "case_id": "N9",
+      "purpose": "postgresql_unavailable",
+      "reason": "Fail closed without an in-memory replay fallback when durable state is unavailable.",
+      "status": "authored_not_run",
+      "step": 3
+    },
+    {
+      "case_id": "N10",
+      "purpose": "secret_material_leakage",
+      "reason": "Reject evidence that contains restricted material and retain only stable reasons.",
+      "status": "authored_not_run",
+      "step": 8
+    },
+    {
+      "case_id": "F1",
+      "purpose": "fabric_delegation_rejected",
+      "reason": "Reject a Tool Fabric request whose delegated identity or purpose is not admitted.",
+      "status": "not_implemented",
+      "step": 4
+    },
+    {
+      "case_id": "F2",
+      "purpose": "fabric_receipt_tamper_rejected",
+      "reason": "Reject a Tool Fabric receipt whose exact bytes do not match the admitted digest.",
+      "status": "not_implemented",
+      "step": 7
+    }
+  ],
+  "products": [
+    {
+      "admitted_source_roots": [
+        {
+          "identity": "soc-lifecycle-create-client",
+          "path": "services/api/src/cybrik_soc/modules/copilot/lifecycle_create.py",
+          "symbol": "LifecycleCreateClient"
+        }
+      ],
+      "repository": "cybrik-soc-command-center",
+      "role": "soc_truth",
+      "runtime_wiring": [
+        {
+          "identity": "soc-client-separate-process",
+          "requirement": "A separate SOC-client process must drive the pinned create-only client over a caller-owned mTLS transport.",
+          "status": "not_wired"
+        }
+      ],
+      "surfaces": [
+        "soc_client"
+      ]
+    },
+    {
+      "admitted_source_roots": [
+        {
+          "identity": "cyber-ai-runtime-composition",
+          "path": "services/ai-api/src/cybrik_ai_api/runtime_composition.py",
+          "symbol": "compose_lifecycle_runtime"
+        },
+        {
+          "identity": "cyber-ai-transport-security",
+          "path": "services/ai-api/src/cybrik_ai_api/transport_security.py",
+          "symbol": "AsgiTlsTransportResolver"
+        }
+      ],
+      "repository": "cybrik-cyber-ai-platform",
+      "role": "ai_runtime",
+      "runtime_wiring": [
+        {
+          "identity": "ai-loopback-mtls-listener",
+          "requirement": "A bound listener must terminate a real loopback mTLS connection and publish the server-owned ASGI TLS extension; the resolver is opt-in and unwired.",
+          "status": "not_wired"
+        },
+        {
+          "identity": "ai-postgres-durable-replay",
+          "requirement": "The composed lifecycle runtime must persist replay and checkpoint state in the admitted PostgreSQL instance with no in-memory fallback.",
+          "status": "not_wired"
+        }
+      ],
+      "surfaces": [
+        "ai_mtls",
+        "postgres_replay",
+        "tool_fabric_delegation"
+      ]
+    },
+    {
+      "admitted_source_roots": [],
+      "repository": "cybrik-security-tool-fabric",
+      "role": "tool_execution",
+      "runtime_wiring": [
+        {
+          "identity": "fabric-r0-in-process-invocation",
+          "requirement": "The current concrete domain stops at in-process R0AlertContextInvocationService.invoke and an unsigned ReceiptPlan; it is not an emittable runtime receipt producer.",
+          "status": "not_wired"
+        },
+        {
+          "identity": "fabric-runtime-receipt-producer",
+          "requirement": "cybrik-security-tool-fabric must own invocation, policy, bounded execution and accepted bound-receipt production; no such runtime producer is implemented or wired.",
+          "status": "not_wired"
+        }
+      ],
+      "surfaces": [
+        "tool_fabric_delegation",
+        "tool_fabric_receipt"
+      ]
+    }
+  ],
+  "schema_version": "CYBRIK-D2-PREFOUNDER-INTEGRATED-SCENARIO/v2",
+  "steps": [
+    {
+      "consumer": "cybrik-cyber-ai-platform",
+      "identity": "soc-lifecycle-create-request",
+      "producer": "cybrik-soc-command-center",
+      "purpose": "Submit one synthetic lifecycle-create request with exact tenant and analyst delegation.",
+      "status": "authored_not_run",
+      "step": 1,
+      "surface": "soc_client"
+    },
+    {
+      "consumer": "cybrik-cyber-ai-platform",
+      "identity": "cyber-ai-delegation-admission",
+      "producer": "cybrik-cyber-ai-platform",
+      "purpose": "Validate transport-bound delegation and authorize only lifecycle create.",
+      "status": "authored_not_run",
+      "step": 2,
+      "surface": "ai_mtls"
+    },
+    {
+      "consumer": "cybrik-cyber-ai-platform",
+      "identity": "cyber-ai-durable-replay",
+      "producer": "cybrik-cyber-ai-platform",
+      "purpose": "Persist the accepted lifecycle and replay decision in the admitted PostgreSQL state.",
+      "status": "authored_not_run",
+      "step": 3,
+      "surface": "postgres_replay"
+    },
+    {
+      "consumer": "cybrik-security-tool-fabric",
+      "identity": "cyber-ai-fabric-invocation",
+      "producer": "cybrik-cyber-ai-platform",
+      "purpose": "Request one typed read-only defensive capability through the Tool Fabric boundary.",
+      "status": "not_implemented",
+      "step": 4,
+      "surface": "tool_fabric_delegation"
+    },
+    {
+      "consumer": "cybrik-security-tool-fabric",
+      "identity": "fabric-policy-admission",
+      "producer": "cybrik-security-tool-fabric",
+      "purpose": "Re-authorize identity, tenant, purpose, target and capability before execution.",
+      "status": "not_implemented",
+      "step": 5,
+      "surface": "tool_fabric_delegation"
+    },
+    {
+      "consumer": "cybrik-security-tool-fabric",
+      "identity": "fabric-bounded-execution",
+      "producer": "cybrik-security-tool-fabric",
+      "purpose": "Execute only the admitted synthetic read-only capability within its resource envelope.",
+      "status": "not_implemented",
+      "step": 6,
+      "surface": "tool_fabric_delegation"
+    },
+    {
+      "consumer": "cybrik-suite",
+      "identity": "fabric-runtime-receipt-production",
+      "producer": "cybrik-security-tool-fabric",
+      "purpose": "Emit an accepted bound runtime receipt from the Fabric-owned invocation, policy and execution path; no producer exists today.",
+      "status": "not_implemented",
+      "step": 7,
+      "surface": "tool_fabric_receipt"
+    },
+    {
+      "consumer": "cybrik-suite",
+      "identity": "suite-terminal-evidence",
+      "producer": "cybrik-suite",
+      "purpose": "Capture N1-N10 results, rollback and the complete no-residual terminal evidence set.",
+      "status": "authored_not_run",
+      "step": 8,
+      "surface": "suite_evidence"
+    }
+  ],
+  "terminal_evidence": [
+    {
+      "check": "rollback_executed",
+      "requirement": "The admitted rollback lifecycle step completed and produced its terminal receipt.",
+      "status": "not_captured"
+    },
+    {
+      "check": "no_container_residual",
+      "requirement": "No UAT database or product container remains after rollback.",
+      "status": "not_captured"
+    },
+    {
+      "check": "no_listener_residual",
+      "requirement": "No admitted loopback listener remains after rollback.",
+      "status": "not_captured"
+    },
+    {
+      "check": "no_ephemeral_pki_residual",
+      "requirement": "No ephemeral UAT certificate or private material remains after rollback.",
+      "status": "not_captured"
+    },
+    {
+      "check": "no_repository_residual",
+      "requirement": "All four pinned repositories retain their exact clean identities.",
+      "status": "not_captured"
+    },
+    {
+      "check": "no_secret_material_residual",
+      "requirement": "Reports, logs and evidence contain no restricted credential or private material.",
+      "status": "not_captured"
+    }
+  ],
+  "tool_fabric_runtime": {
+    "current_invocation_boundary": "in_process_R0AlertContextInvocationService.invoke",
+    "current_receipt_form": "unsigned_ReceiptPlan",
+    "receipt_signature_envelope": "proposed_not_implemented",
+    "responsibility": {
+      "execution": "cybrik-security-tool-fabric",
+      "invocation": "cybrik-security-tool-fabric",
+      "policy": "cybrik-security-tool-fabric",
+      "receipt": "cybrik-security-tool-fabric"
+    },
+    "runtime_receipt_producer_status": "not_implemented",
+    "runtime_wiring_status": "not_wired"
+  }
+}

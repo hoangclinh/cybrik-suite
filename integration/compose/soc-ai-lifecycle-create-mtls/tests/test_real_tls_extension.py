@@ -11,15 +11,17 @@ import ast
 import asyncio
 import base64
 import json
+import os
 import ssl
+import stat
 import sys
 import types
 import zipfile
+from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import ClassVar, Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import client as runtime_client
 from cybrik_suite_uat_mtls import harness as runtime_harness
 from cybrik_suite_uat_mtls import pki as runtime_pki
@@ -54,6 +56,45 @@ def _install_fake_module(
         setattr(module, key, value)
     monkeypatch.setitem(sys.modules, name, module)
     return module
+
+
+def _authorized_pki_root(
+    root: Path,
+) -> AbstractContextManager[runtime_pki.AuthorizedPkiRoot]:
+    """Pre-create the authorized 0700 root and open its live capability."""
+
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    os.chmod(root, runtime_pki.PKI_DIRECTORY_MODE)
+    prepared = os.lstat(root)
+    return runtime_pki.authorized_pki_root(
+        root,
+        expected_device=prepared.st_dev,
+        expected_inode=prepared.st_ino,
+        expected_uid=prepared.st_uid,
+        expected_mode=stat.S_IMODE(prepared.st_mode),
+    )
+
+
+def _pki_material(root: Path) -> runtime_pki.PkiMaterial:
+    prepared = os.lstat(root)
+    return runtime_pki.PkiMaterial(
+        root=root,
+        ca_certificate=root / "ca-cert.pem",
+        server_certificate=root / "server-cert.pem",
+        server_private_key=root / "server-key.pem",
+        client_certificate=root / "client-cert.pem",
+        client_private_key=root / "client-key.pem",
+        alternate_client_certificate=root / "alternate-client-cert.pem",
+        alternate_client_private_key=root / "alternate-client-key.pem",
+        jwt_private_key=root / "jwt-signing-key.pem",
+        jwt_public_jwk=root / "jwt-public-jwk.json",
+        root_identity=runtime_pki.PkiRootIdentity(
+            device=prepared.st_dev,
+            inode=prepared.st_ino,
+            uid=prepared.st_uid,
+            mode=stat.S_IMODE(prepared.st_mode),
+        ),
+    )
 
 
 def _server_tree() -> ast.Module:
@@ -513,47 +554,53 @@ def test_tls_evidence_middleware_skips_non_mapping_tls_payload(tmp_path: Path) -
     assert not evidence_path.exists()
 
 
-def test_pki_root_must_be_absolute_outside_repositories_and_fresh(
+def test_pki_root_must_be_an_absolute_prepared_directory_outside_repositories(
     tmp_path: Path,
 ) -> None:
     repository_root = tmp_path / "repo"
     repository_root.mkdir()
 
-    with pytest.raises(runtime_pki.PkiBoundaryError, match="must be absolute"):
-        runtime_pki._resolved_outside_repositories(
-            Path("relative"), repository_roots=(repository_root,)
-        )
+    with pytest.raises(runtime_pki.PkiBoundaryError, match="must be an absolute path"):
+        runtime_pki._authorized_root_path(Path("relative"))
 
-    (repository_root / "nested").mkdir()
-    with pytest.raises(runtime_pki.PkiBoundaryError, match="outside every repository"):
-        runtime_pki._resolved_outside_repositories(
-            repository_root / "nested" / "pki", repository_roots=(repository_root,)
-        )
+    with pytest.raises(runtime_pki.PkiBoundaryError, match="must be a named directory"):
+        runtime_pki._authorized_root_path(Path("/"))
+
+    with pytest.raises(runtime_pki.PkiBoundaryError, match="must already exist"):
+        runtime_pki._authorized_root_path(tmp_path / "missing-pki")
 
     existing = tmp_path / "existing-pki"
     existing.mkdir()
-    with pytest.raises(runtime_pki.PkiBoundaryError, match="must not already exist"):
-        runtime_pki._resolved_outside_repositories(
-            existing, repository_roots=(repository_root,)
-        )
-
     symlink_root = tmp_path / "symlink-pki"
     symlink_root.symlink_to(existing)
-    with pytest.raises(runtime_pki.PkiBoundaryError, match="must not already exist"):
-        runtime_pki._resolved_outside_repositories(
-            symlink_root, repository_roots=(repository_root,)
-        )
+    with pytest.raises(
+        runtime_pki.PkiBoundaryError, match="must be supplied already resolved"
+    ):
+        runtime_pki._authorized_root_path(symlink_root)
 
-    allowed = runtime_pki._resolved_outside_repositories(
-        tmp_path / "fresh-pki", repository_roots=(repository_root,)
+    assert runtime_pki._authorized_root_path(existing) == existing
+
+    nested = repository_root / "nested"
+    nested.mkdir()
+    for inside in (repository_root, nested):
+        with pytest.raises(
+            runtime_pki.PkiBoundaryError, match="outside every repository"
+        ):
+            runtime_pki._assert_outside_repositories(
+                inside, repository_roots=(repository_root,)
+            )
+
+    runtime_pki._assert_outside_repositories(
+        existing, repository_roots=(repository_root,)
     )
-    assert allowed == (tmp_path / "fresh-pki").resolve(strict=False)
 
 
-def test_pki_write_removes_partial_file_when_stream_fails(
+def test_pki_write_removes_the_partial_leaf_when_the_stream_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    destination = tmp_path / "key.pem"
+    root = tmp_path / "pki-root"
+    root.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    destination = root / "key.pem"
 
     class BrokenStream:
         def __enter__(self) -> Self:
@@ -574,8 +621,18 @@ def test_pki_write_removes_partial_file_when_stream_fails(
 
     monkeypatch.setattr(runtime_pki.os, "fdopen", lambda fd, mode: BrokenStream())
 
-    with pytest.raises(RuntimeError, match="boom"):
-        runtime_pki._write(destination, b"secret", runtime_pki.PRIVATE_FILE_MODE)
+    root_descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for unsafe in ("", ".", "..", "nested/key.pem"):
+            with pytest.raises(runtime_pki.PkiBoundaryError, match="single component"):
+                runtime_pki._PinnedLeaf(name=unsafe, root_descriptor=root_descriptor)
+
+        leaf = runtime_pki._PinnedLeaf(name="key.pem", root_descriptor=root_descriptor)
+        with pytest.raises(RuntimeError, match="boom"):
+            runtime_pki._write(leaf, b"secret", runtime_pki.PRIVATE_FILE_MODE)
+    finally:
+        os.close(root_descriptor)
+
     assert not destination.exists()
 
 
@@ -690,18 +747,7 @@ def test_destroy_ephemeral_pki_rejects_unsafe_roots_and_is_idempotent(
     target = tmp_path / "pki-root"
     target.mkdir()
     (target / "leaf.pem").write_text("leaf", encoding="utf-8")
-    material = runtime_pki.PkiMaterial(
-        root=target,
-        ca_certificate=target / "ca-cert.pem",
-        server_certificate=target / "server-cert.pem",
-        server_private_key=target / "server-key.pem",
-        client_certificate=target / "client-cert.pem",
-        client_private_key=target / "client-key.pem",
-        alternate_client_certificate=target / "alternate-client-cert.pem",
-        alternate_client_private_key=target / "alternate-client-key.pem",
-        jwt_private_key=target / "jwt-signing-key.pem",
-        jwt_public_jwk=target / "jwt-public-jwk.json",
-    )
+    material = _pki_material(target)
     runtime_pki.destroy_ephemeral_pki(material)
     assert not target.exists()
     runtime_pki.destroy_ephemeral_pki(material)
@@ -730,18 +776,7 @@ def test_verify_absent_reports_false_for_existing_root_and_symlink(
 ) -> None:
     root = tmp_path / "pki-root"
     root.mkdir()
-    material = runtime_pki.PkiMaterial(
-        root=root,
-        ca_certificate=root / "ca-cert.pem",
-        server_certificate=root / "server-cert.pem",
-        server_private_key=root / "server-key.pem",
-        client_certificate=root / "client-cert.pem",
-        client_private_key=root / "client-key.pem",
-        alternate_client_certificate=root / "alternate-client-cert.pem",
-        alternate_client_private_key=root / "alternate-client-key.pem",
-        jwt_private_key=root / "jwt-signing-key.pem",
-        jwt_public_jwk=root / "jwt-public-jwk.json",
-    )
+    material = _pki_material(root)
     assert runtime_pki.verify_absent(material) is False
 
     runtime_pki.destroy_ephemeral_pki(material)
@@ -762,6 +797,52 @@ def test_verify_absent_reports_false_for_existing_root_and_symlink(
         jwt_public_jwk=symlink_root / "jwt-public-jwk.json",
     )
     assert runtime_pki.verify_absent(symlink_material) is False
+
+
+def test_destroy_ephemeral_pki_rejects_root_replacement_during_teardown(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Teardown must not delete a directory that replaced the authorized root."""
+
+    target = tmp_path / "pki-root"
+    displaced_root = tmp_path / "pki-root-pinned"
+    replacement_marker = "replacement-owned.txt"
+    target.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+    os.chmod(target, runtime_pki.PKI_DIRECTORY_MODE)
+    (target / "leaf.pem").write_text("leaf", encoding="utf-8")
+    material = _pki_material(target)
+    original_unlink = os.unlink
+    replaced = False
+
+    def replace_after_leaf_unlink(
+        path: os.PathLike[str] | str | bytes,
+        *args: object,
+        dir_fd: int | None = None,
+    ) -> None:
+        nonlocal replaced
+        if dir_fd is None:
+            original_unlink(path, *args)
+        else:
+            original_unlink(path, *args, dir_fd=dir_fd)
+        if not replaced and Path(path).name == "leaf.pem":
+            replaced = True
+            target.rename(displaced_root)
+            target.mkdir(mode=runtime_pki.PKI_DIRECTORY_MODE)
+            os.chmod(target, runtime_pki.PKI_DIRECTORY_MODE)
+            (target / replacement_marker).write_text(
+                "replacement sentinel\n", encoding="utf-8"
+            )
+
+    monkeypatch.setattr(runtime_pki.os, "unlink", replace_after_leaf_unlink)
+
+    with pytest.raises(
+        runtime_pki.PkiBoundaryError, match="identity changed during destruction"
+    ):
+        runtime_pki.destroy_ephemeral_pki(material)
+
+    assert replaced is True
+    assert (target / replacement_marker).is_file()
+    assert list(displaced_root.iterdir()) == []
 
 
 def test_verify_b1_artifact_rejects_filename_digest_and_version_mismatches(
@@ -1086,7 +1167,7 @@ def test_serve_wires_config_middleware_signal_handlers_and_shutdown(
     _install_fake_module(
         monkeypatch,
         "cybrik_suite_uat_mtls.harness",
-        assert_runtime_authorized=lambda: events.setdefault("authorized", True),
+        assert_child_runtime_authorized=lambda: events.setdefault("authorized", True),
     )
     monkeypatch.setattr(runtime_server, "_verify_b1_artifact", lambda: Path("wheel"))
     monkeypatch.setattr(runtime_server, "_application", lambda: {"inner": True})
@@ -1319,14 +1400,15 @@ def test_create_ephemeral_pki_writes_expected_artifacts_with_faked_cryptography(
     monkeypatch.setattr(
         runtime_pki,
         "_write",
-        lambda path, payload, mode: calls.append((path.name, payload, mode)),
+        lambda leaf, payload, mode: calls.append((leaf.name, payload, mode)),
     )
 
-    material = runtime_pki.create_ephemeral_pki(
-        tmp_path / "ephemeral-pki",
-        repository_roots=(repository_root,),
-        jwt_kid="jwt-kid",
-    )
+    with _authorized_pki_root(tmp_path / "ephemeral-pki") as capability:
+        material = runtime_pki.create_ephemeral_pki(
+            capability,
+            repository_roots=(repository_root,),
+            jwt_kid="jwt-kid",
+        )
 
     assert material.root == (tmp_path / "ephemeral-pki").resolve(strict=True)
     assert [name for name, _, _ in calls] == [
@@ -1350,10 +1432,13 @@ def test_create_ephemeral_pki_writes_expected_artifacts_with_faked_cryptography(
     )
 
 
-def test_create_ephemeral_pki_destroys_root_when_write_fails(
+def test_create_ephemeral_pki_removes_only_created_leaves_when_a_write_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Failure must retract the created leaves and keep the authorized root."""
+
     destroyed: list[Path] = []
+    written: list[str] = []
     repository_root = tmp_path / "repo"
     repository_root.mkdir()
 
@@ -1456,22 +1541,33 @@ def test_create_ephemeral_pki_destroys_root_when_write_fails(
         x509=sys.modules["cryptography.x509"],
         hazmat=fake_hazmat,
     )
-    monkeypatch.setattr(
-        runtime_pki,
-        "_write",
-        lambda path, payload, mode: (_ for _ in ()).throw(RuntimeError("write failed")),
-    )
+    real_write = runtime_pki._write
+
+    def fail_after_two_leaves(leaf: object, payload: bytes, mode: int) -> None:
+        if len(written) == 2:
+            raise RuntimeError("write failed")
+        written.append(leaf.name)  # type: ignore[attr-defined]
+        real_write(leaf, payload, mode)
+
+    monkeypatch.setattr(runtime_pki, "_write", fail_after_two_leaves)
     monkeypatch.setattr(
         runtime_pki,
         "destroy_ephemeral_pki",
         lambda material: destroyed.append(material.root),
     )
 
-    with pytest.raises(RuntimeError, match="write failed"):
+    root = tmp_path / "pki-root"
+    with (
+        _authorized_pki_root(root) as capability,
+        pytest.raises(RuntimeError, match="write failed"),
+    ):
         runtime_pki.create_ephemeral_pki(
-            tmp_path / "pki-root",
+            capability,
             repository_roots=(repository_root,),
             jwt_kid="jwt-kid",
         )
 
-    assert destroyed == [(tmp_path / "pki-root").resolve(strict=True)]
+    assert written == ["ca-cert.pem", "server-cert.pem"]
+    assert destroyed == []
+    assert root.is_dir()
+    assert list(root.iterdir()) == []

@@ -80,6 +80,21 @@ Individual layers: `npm run validate:schemas` · `npm run validate:inference` ·
 Requires Node.js `20` or `>=22` (see `package.json` `engines`). CI pins the Node.js 24 LTS
 security release `24.18.1`.
 
+The standalone F8 trust/durability validator uses the same lockfile-pinned toolchain. Its default
+resolution is this directory after `npm ci`. A clean worktree may instead reuse an already
+provisioned, byte-identical Suite validator toolchain without copying or linking `node_modules`:
+
+```bash
+CYBRIK_CONTRACT_VALIDATION_DEPS_ROOT=/absolute/path/to/cybrik-suite/tools/contract-validation \
+  npm run validate:f8:receipt-trust-durability
+```
+
+The override is version-gated: the validator reads the resolved package metadata and fails closed
+unless `ajv` is exactly 8.20.0 and `ajv-formats` is exactly 3.0.1, matching
+this directory's `package.json` and `package-lock.json`. The override provisions validation tooling
+only; it is not product runtime evidence and grants no implementation, UAT, release, or production
+authority.
+
 The repository-root command `node tools/operations/validate-w1-control.mjs` also loads the pinned
 `yaml@2.9.0` from this toolchain. On a fresh clone, run `npm ci` in
 `tools/contract-validation` before invoking that standalone control-validator command.
@@ -140,7 +155,10 @@ three-way `x5t#S256` equality, no-degrade behavior, denial-class coverage, packe
 absence of raw certificate or authorization material. It opens no socket and selects no server.
 
 Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
-`validate.mjs`; its header comment truthfully states These 23 validators, and its `ALL GREEN`
+`validate.mjs`; W2-K entered when the orchestrator had 23 steps, while the `validate.mjs` header now
+truthfully states the present-day count. These 31 validators include the separately registered
+Fabric runtime-producer gate and its regression suite plus the C8 topology grant validator and its
+test. The orchestrator's `ALL GREEN`
 banner names W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. The W2-I P2-3 additive-byte pin now also carries the exact,
 additive W2-K paragraph, ADR-0013 catalog row and Governor-decision row applied to
 `docs/adr/README.md`; every other byte of that catalog, including the W2-I entries, is
@@ -148,6 +166,125 @@ unchanged outside the exact W2-K lifecycle addition. The W2-H entries moved sepa
 under the W2-H/R5 acceptance, which is disjoint from this packet. R4 acceptance authorizes contract-first
 implementation only and grants no runtime, UAT, release, deployment, or production authority.
 Standalone green (via the scripts above) remains static conformance only.
+
+## Topology-only rehearsal records
+
+The topology-rehearsal validator is a separate, non-product preflight control:
+
+```bash
+npm run validate:topology-rehearsal
+npm run test:topology-rehearsal
+```
+
+It discovers only `docs/uat/topology-rehearsals/*/topology-rehearsal.json`, enforces the one exact
+policy-and-code-pinned record identity, fixed loopback/internal-network envelope, one 180-second
+cycle with no extension, exact bounded host probe, phase/outcome truth table, contained artifact
+digests with distinct role/path/bytes, exhaustive per-phase artifact inventories, policy-and-code-pinned
+current/prior state, detached Founder SSHSIG authorization, locally reviewed external-manifest
+limitation and zero residual resources for every closed record. Review scope is split: a
+`diagnosis_review` artifact attests the diagnosis bytes and is required from the proposed phase,
+while a `record_review` artifact and its record review binding carry the record-level review of the
+exact proposed record bytes and are required only from authorization onward. Every authorized or
+closed `grant` artifact is a mandatory `.json` exact-action grant document, judged in full by the
+grant contract below before any `ssh-keygen` verification runs: there is no free-text or
+SSHSIG-only fallback, because a signature proves who produced bytes and never what those bytes
+authorize. A grant-document refusal is reported with the record path and its own exact cause; the
+generic `authorized or closed topology record requires a verified Founder SSHSIG` finding stays
+reserved for an actual signature or trust failure. The admission instant is the record's own
+`recorded_at`, canonicalised to one second-resolution UTC `Z` rendering, never a wall clock, so
+offset and `Z` renderings of one instant admit identically and a `recorded_at` that rendering
+cannot represent exactly — a non-zero sub-second fraction, a missing designator, an impossible
+calendar date — refuses admission instead of being truncated into a different instant. The current
+valid state
+is one proposed HOLD record, `postgres-loopback-internal-v1-r1`, which is unauthorized, unconsumed
+and `not_run`, carries only `diagnosis` and `diagnosis_review`, and pins a null record review
+binding because its `record_review` and record-level review remain owed. A green result is static
+control evidence only and grants no Docker effect, runtime, UAT, demo, release or production
+authority.
+
+### Record review attestation — `CYBRIK-TOPOLOGY-RECORD-REVIEW/v1`
+
+The `record_review` artifact bytes are machine-checked, not taken on trust. The artifact must be a
+`.json` attestation whose bytes are bounded canonical JSON: exactly
+`JSON.stringify(value, null, 2)` followed by one LF, encoded UTF-8, LF line endings, no BOM, no
+trailing bytes and at most 65536 bytes. Compact, re-indented, CRLF, BOM-prefixed, duplicate-keyed
+or trailing-byte serializations fail closed.
+
+The attestation must carry the exact ordered ten-key inventory — no extra key, no missing key and
+no reordering — of `schema`, `record_path`, `reviewed_phase`, `reviewed_record_sha256`,
+`reviewer_identity`, `reviewer_independent_of_record_author`, `reviewer_mode`, `decision`,
+`findings` and `grants_execution_authority`.
+
+Those values are crosschecked against the record they claim: `schema` must be
+`CYBRIK-TOPOLOGY-RECORD-REVIEW/v1`, `record_path` must name this record, `reviewed_phase` must be
+`proposed`, and `reviewed_record_sha256` must be a lowercase 64-hex digest equal to the record
+review binding digest. `reviewer_identity` must be a bounded non-blank control-character-free
+string, `reviewer_independent_of_record_author` must be `true`, `reviewer_mode` must be
+`read_only`, and `grants_execution_authority` must be `false`. `decision` is exactly
+`RECORD_BYTES_APPROVED` or `RECORD_BYTES_REJECTED` and must be coherent with `findings`: approved
+if and only if the bounded findings list (at most 32 entries, each carrying the exact ordered keys
+`id`, `severity` and `summary`, with unique `id` and a `P0`–`P3` `severity`) is empty. An
+authorized or closed record requires an approved review of the proposed bytes, so a well-formed
+`RECORD_BYTES_REJECTED` attestation is a refusal to approve and blocks the record.
+
+Non-claim: an approved record review is a self-declared, digest-bound assertion about record bytes.
+It is not a signed identity proof, it does not cryptographically prove that the reviewer is
+independent of the record author, and it
+grants no execution, runtime, UAT, demo, release or production authority — no Docker effect, no
+PostgreSQL RED run, no merge and no production change.
+The detached Founder exact-action SSHSIG over the exact grant remains separately required and is
+unchanged by this control.
+
+### Exact-action grant contract — `CYBRIK-TOPOLOGY-REHEARSAL-GRANT/v1`
+
+The grant validator is a separate static control over the grant document that a future
+authorization would have to carry:
+
+```bash
+npm run validate:topology-grant
+npm run test:topology-grant
+```
+
+It keeps two image identities strictly apart. A record's `topology.image` is the
+**selected required image identity** — `repository`, `tag`, `platform`, `index digest`,
+`manifest digest`, `pull_policy` and a `resolution_state` — and it may never carry a
+`local image ID`. While
+`resolution_state` is `UNRESOLVED` its platform and both digests are `null`, and an unresolved
+selection can never be granted. The **observed host image identity** is the separate, timestamped
+statement of what a host actually has: the same repository, tag, platform, `index digest` and
+`manifest digest`, plus the host-local `local image ID` and an `observed_at` instant. A grant carries
+both and fails closed unless they agree exactly; the `local image ID` must equal neither digest, and
+a stale or future observation is refused.
+
+The grant document itself must be bounded canonical JSON — exactly `JSON.stringify(value, null, 2)`
+followed by one LF, UTF-8, LF endings, no BOM, no trailing bytes, at most 65536 bytes — carrying the
+exact ordered twelve-key inventory `schema`, `record`, `runner`, `topology`,
+`selected_image_identity`, `observed_image_identity`, `repositories`, `tools`, `window`, `attempt`,
+`authorizes` and `grants_no_authority`. Its window is one 180-second cycle with zero extension,
+closed at `not_before` and open at `expires_at`. The document is judged before any signature process
+runs, so malformed grant bytes never reach the verifier, and every no-authority clause is mandatory
+and true.
+
+The `record` binding names the pinned topology record path and the one exact **proposed prior-state
+record digest** that the caller pins from the policy state history — the same digest the record
+review byte binding attests. It can never name the current authorized record's own digest: that
+record embeds `grant_sha256` and the grant embeds the record digest, so a current-hash binding
+would be a cryptographic fixed point rather than a binding. The pin is a mandatory caller-supplied
+option on `validateGrantDocument`, `validateGrantBytes` and `validateGrantBeforeSignature`; an
+absent, malformed or duplicated proposed pin supplies no digest, so the grant is refused and never
+reaches the injected verifier. A record block that is not the pinned path and a lowercase 64-hex
+digest reports only its own shape cause, distinct from the record-binding cause.
+
+Every exported semantic function of the grant validator is a pure projection over caller-supplied
+values: it opens no file, spawns no process and touches no network. That claim is scoped to the
+imported semantic path; the command-line control surface below it reads the committed grant schema
+and its dependency resolver may call the pinned `/usr/bin/git` to locate the validation package
+root.
+
+Non-claim: this is a static byte- and field-level control over declared identities. It performs no
+registry lookup, no pull, no digest resolution and no host inspection, it proves no image exists, it
+verifies no signature of its own, and it
+grants no runtime, UAT, demo, merge, release or production authority.
 
 ## Runtime-admission records
 
@@ -159,14 +296,35 @@ npm run validate:runtime-admission
 npm run test:runtime-admission
 ```
 
-It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape, validates the
+It loads `docs/uat/runtime-admission.schema.json` as the canonical record shape and
+`docs/uat/runtime-authorization-withdrawal.schema.json` as the append-only unused-authority
+withdrawal shape, validates the
 truthful HOLD template at `docs/uat/templates/runtime-admission.hold.json`, verifies the immutable
 three-record legacy seal and the allowed capability/objective registry at
 `docs/uat/runtime-admission-lineage-policy.json`, discovers only
-`docs/uat/candidates/*/runtime-admission.json`, and fail-closes on missing gate items, duplicate or
+`docs/uat/candidates/*/runtime-admission.json` plus the exact optional sibling
+`runtime-authorization-withdrawal.json`, and fail-closes on missing gate items, duplicate or
 incomplete four-repo tuples, non-success required hosted checks, missing rollback/seed procedures,
 open Critical/High findings, cross-series terminal-objective reopening, historical-evidence
 promotion or byte reuse, canonical-path escape through symlinked parents, stronger-profile
 overclaim, or any failed tenant-isolation,
-authorization or secret-boundary check. A green result validates static runtime-admission records
+authorization or secret-boundary check. A withdrawal frees the singleton only when it preserves
+the original unused authorization bytes, closes the series, and its detached SSHSIG verifies as
+`FOUNDER` against the pinned `docs/uat/runtime-authorization-withdrawal-trust.json` identity under
+the dedicated `cybrik-uat-runtime-withdrawal-v1` namespace. Invalid withdrawal material leaves the
+authority effectively active. A green result validates static runtime-admission records
 only; it grants no `DEMO_READY_LOCAL`, UAT pass, POC readiness, RC readiness or GA claim.
+
+## Receipt trust and durability
+
+Status: **ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED**. Run:
+
+```bash
+npm run validate:f8:receipt-trust-durability
+npm run test:f8:receipt-trust-durability
+```
+
+The validator checks packet/reuse hashes, public-only RFC 7638 Ed25519 keys, monotone rotation,
+durable ordering, fail-closed completion, append-only/no-resign semantics, and retention coupling.
+Green is static evidence only and grants no runtime, UAT, release, deployment, or production
+authority.

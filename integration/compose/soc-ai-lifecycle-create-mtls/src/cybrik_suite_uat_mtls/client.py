@@ -310,9 +310,9 @@ async def _execute_network_case(plan: CasePlan) -> dict[str, object]:
     )
     from cybrik_soc.platform.svc_delegation import CertBinding, DataMarking
 
-    from .harness import assert_runtime_authorized
+    from .harness import assert_child_runtime_authorized
 
-    assert_runtime_authorized()
+    assert_child_runtime_authorized()
     pki_root = Path(os.environ["CYBRIK_UAT_D2_PKI_ROOT"]).resolve(strict=True)
     primary_cnf = certificate_thumbprint_sha256(pki_root / "client-cert.pem")
     alternate_cnf = certificate_thumbprint_sha256(
@@ -403,9 +403,9 @@ async def _execute_network_case(plan: CasePlan) -> dict[str, object]:
 
 
 def _execute_secret_sweep() -> dict[str, object]:
-    from .harness import assert_runtime_authorized
+    from .harness import assert_child_runtime_authorized
 
-    assert_runtime_authorized()
+    assert_child_runtime_authorized()
     evidence_root = Path(os.environ["CYBRIK_UAT_D2_EVIDENCE_DIR"]).resolve(strict=True)
     runtime_root = Path(os.environ["CYBRIK_UAT_D2_RUNTIME_DIR"]).resolve(strict=True)
     known_runtime_secrets = [

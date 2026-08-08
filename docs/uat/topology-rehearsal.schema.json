@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/docs/uat/topology-rehearsal.schema.json",
+  "title": "CYBRIK topology-only rehearsal record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "recorded_at",
+    "identity",
+    "attempt",
+    "topology",
+    "production_exclusion",
+    "authorization",
+    "evidence",
+    "disposition"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "record_id": { "const": "postgres-loopback-internal-v1-r1" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_id", "objective_id"],
+      "properties": {
+        "capability_id": { "const": "cybrik.suite.runtime-topology" },
+        "objective_id": { "const": "postgres-loopback-internal-v1" }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series_id",
+        "attempt_ordinal",
+        "max_attempts",
+        "phase",
+        "execution_authorized",
+        "attempt_consumed",
+        "outcome"
+      ],
+      "properties": {
+        "series_id": { "const": "postgres-loopback-internal-v1" },
+        "attempt_ordinal": { "const": 1 },
+        "max_attempts": { "const": 1 },
+        "phase": { "enum": ["proposed", "authorized", "closed"] },
+        "execution_authorized": { "type": "boolean" },
+        "attempt_consumed": { "type": "boolean" },
+        "outcome": {
+          "enum": [
+            "not_run",
+            "PRECHECK_ABORT",
+            "TOPOLOGY_PASS",
+            "FAIL_PUBLICATION",
+            "FAIL_INTERNAL_INGRESS",
+            "STOP_CONTROL"
+          ]
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_ip",
+        "host_port",
+        "container_port",
+        "internal_network",
+        "runtime_limit_seconds",
+        "extension_cycles",
+        "image",
+        "probe"
+      ],
+      "properties": {
+        "host_ip": { "const": "127.0.0.1" },
+        "host_port": { "const": 15433 },
+        "container_port": { "const": 5432 },
+        "internal_network": { "const": true },
+        "image": { "$ref": "#/$defs/selectedImageIdentity" },
+        "runtime_limit_seconds": { "const": 180 },
+        "extension_cycles": { "const": 0 },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["executable_path", "executable_sha256", "argv"],
+          "properties": {
+            "executable_path": { "const": "/usr/bin/nc" },
+            "executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "argv": {
+              "type": "array",
+              "prefixItems": [
+                { "const": "-z" },
+                { "const": "-w" },
+                { "const": "5" },
+                { "const": "127.0.0.1" },
+                { "const": "15433" }
+              ],
+              "items": false,
+              "minItems": 5,
+              "maxItems": 5
+            }
+          }
+        }
+      }
+    },
+    "production_exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_production_credentials",
+        "no_production_configuration",
+        "no_production_data",
+        "no_production_traffic"
+      ],
+      "properties": {
+        "no_production_credentials": { "const": true },
+        "no_production_configuration": { "const": true },
+        "no_production_data": { "const": true },
+        "no_production_traffic": { "const": true }
+      }
+    },
+    "authorization": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/authorization" }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "external_bytes_ci_verified",
+        "artifacts",
+        "record_review_binding",
+        "result_controls"
+      ],
+      "properties": {
+        "directory": { "type": "string", "minLength": 1 },
+        "external_bytes_ci_verified": { "const": false },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" },
+          "minItems": 2,
+          "maxItems": 8
+        },
+        "record_review_binding": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/recordReviewBinding" }
+          ]
+        },
+        "result_controls": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/resultControls" }
+          ]
+        }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "rationale"],
+      "properties": {
+        "profile": { "const": "HOLD" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "selectedImageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_state",
+        "repository",
+        "tag",
+        "platform",
+        "index_digest",
+        "manifest_digest",
+        "pull_policy"
+      ],
+      "properties": {
+        "resolution_state": { "enum": ["UNRESOLVED", "RESOLVED"] },
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "platform": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/selectedImagePlatform" }
+          ]
+        },
+        "index_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/prefixedSha256" }]
+        },
+        "manifest_digest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/prefixedSha256" }]
+        },
+        "pull_policy": { "const": "never" }
+      },
+      "if": {
+        "properties": { "resolution_state": { "const": "UNRESOLVED" } },
+        "required": ["resolution_state"]
+      },
+      "then": {
+        "properties": {
+          "platform": { "type": "null" },
+          "index_digest": { "type": "null" },
+          "manifest_digest": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "platform": { "$ref": "#/$defs/selectedImagePlatform" },
+          "index_digest": { "$ref": "#/$defs/prefixedSha256" },
+          "manifest_digest": { "$ref": "#/$defs/prefixedSha256" }
+        }
+      }
+    },
+    "selectedImagePlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "variant"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "variant": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }]
+        }
+      }
+    },
+    "prefixedSha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "diagnosis",
+            "diagnosis_review",
+            "record_review",
+            "grant",
+            "authorization_signature",
+            "result",
+            "evidence_manifest",
+            "result_review"
+          ]
+        },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "recordReviewBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_path",
+        "review_sha256",
+        "reviewed_phase",
+        "reviewed_record_sha256"
+      ],
+      "properties": {
+        "review_path": { "type": "string", "minLength": 1 },
+        "review_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "reviewed_phase": { "const": "proposed" },
+        "reviewed_record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "resultControls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "teardown_verified",
+        "residual_resources",
+        "external_manifest_locally_verified"
+      ],
+      "properties": {
+        "teardown_verified": { "type": "boolean" },
+        "residual_resources": { "type": "integer", "minimum": 0 },
+        "external_manifest_locally_verified": { "type": "boolean" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer",
+        "namespace",
+        "grant_path",
+        "grant_sha256",
+        "signature_path",
+        "signature_sha256",
+        "allowed_signers_path",
+        "allowed_signers_sha256",
+        "trust_path"
+      ],
+      "properties": {
+        "signer": { "const": "FOUNDER" },
+        "namespace": { "const": "cybrik-uat-topology-rehearsal-v1" },
+        "grant_path": { "type": "string", "minLength": 1 },
+        "grant_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "signature_path": { "type": "string", "minLength": 1 },
+        "signature_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "allowed_signers_path": { "const": "docs/uat/topology-rehearsal-allowed-signers" },
+        "allowed_signers_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "trust_path": { "const": "docs/uat/topology-rehearsal-authorization-trust.json" }
+      }
+    }
+  }
+}

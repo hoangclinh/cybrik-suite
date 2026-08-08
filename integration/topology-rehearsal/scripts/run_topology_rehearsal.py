@@ -1,0 +1,550 @@
+"""Inert runner entrypoint for the G-U2B topology rehearsal attempt.
+
+Importing this script performs no I/O, imports no library module and authorizes no Docker
+effect, listener, PostgreSQL attempt, UAT, demo, merge, release or production action. Every
+library import is taken inside the function that needs it, so the front door stays inert.
+
+Nothing runs without the exact `--execute` request together with the two external artifact
+paths, the four `--control-root NAME=PATH` worktrees and the `--attempt-ledger-root` the
+durable one-attempt budget lives in. Any other argv returns the fixed non-zero hold exit.
+All five worktrees are the operator's own declaration: this file reads them off argv and
+forwards them unmodified, there is no default for any of them, and there is no second way to
+obtain them.
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+__all__ = [
+    "HOLD_EXIT",
+    "SubprocessCommandRunner",
+    "build_parser",
+    "build_runtime_wiring",
+    "execute_authorized_attempt",
+    "main",
+]
+
+HOLD_EXIT = 2
+
+# The bound every argv this executor is handed runs under. It is a property of the one
+# executor object rather than of a call site, so no adapter can widen it.
+COMMAND_TIMEOUT_SECONDS = 120.0
+
+CONTROL_ROOT_SEPARATOR = "="
+
+# The one attempt-ledger file name, sited under the worktree the operator declares with
+# `--attempt-ledger-root`. It was previously appended to `plan.signature_path`, which the
+# plan derives from the `--control-root` for the suite, so the durable one-attempt budget was
+# per *checkout* rather than per grant: a second clean checkout at the granted commit
+# presented a fresh, unconsumed budget inside the same grant window. Admission pins every
+# control worktree to `clean is True` plus an exact commit and tree, which is why installing
+# a signing key there fails -- but the ledger file is untracked, so a clean tree and an
+# absent ledger are the same observation and nothing pinned it.
+#
+# The budget's worktree is therefore a fifth operator declaration on argv, at the same trust
+# level as `--execute`, the choice of grant file and the four control roots. This file still
+# reads no host source, invents no absolute path and re-decides no trust anchor; it forwards
+# what was typed, and there is no default, so an operator who declared no ledger worktree is
+# refused rather than given one nobody named.
+#
+# Being an argv token, it is held to the argv token rule: `_attempt_ledger_root` puts it
+# through `plan.absolute_normal_path`, which is `plan.exact_token` plus absoluteness plus a
+# normal form, and then refuses a worktree contained in any declared `--control-root`. Three
+# shapes are how F0092 returned after the move -- a relative token is answered by the process
+# working directory, so one command line run from two directories yields two budgets; a token
+# inside a control worktree is the original per-checkout reset verbatim; and a *non-normal*
+# token was the third, because containment was decided by comparing raw argv strings.
+#
+# That third shape is why the normal form is required on both sides rather than on the ledger
+# root alone. For a control worktree `/ctl/suite`, the tokens `/ctl/./suite/ledger`,
+# `//ctl/suite/ledger` and `/ctl/other/../suite/ledger` each name a directory inside it while
+# comparing unequal to every declared root, and symmetrically a control root typed as
+# `/ctl/./suite` hid every plainly-spelled ledger root beneath it. One
+# command line, typed once, no re-pointing. The absoluteness and token checks came free with
+# the old siting because the budget was derived from a path `plan` had already validated;
+# normal form was never checked anywhere, and all three are paid back here.
+#
+# A normal form makes one directory have one *punctuation*, not one name. The comparison stayed
+# byte-exact, so `/ctl/SUITE/ledger` against `--control-root cybrik-suite=/ctl/suite` passed all
+# three checks and compared unequal to every root while naming that worktree at `os.open` on a
+# case-insensitive filesystem -- which is the default on the machines these worktrees live on.
+# That was also one command line typed once with ordinary spellings, so the paragraph above was
+# not a disclosure that covered it. A previous cut answered it by folding case alone, which was
+# the same error one layer down: case is one way to spell a name twice and *normal form* is
+# another, so `/ctl/café-suite/ledger` (U+0065 U+0301) against
+# `--control-root cybrik-suite=/ctl/café-suite` (U+00E9) survived the case fold on exactly the
+# same argument. `_is_inside` now compares through `_canonical_caseless`, which folds case and
+# normal form together on both sides. The case cut also fixed a fail-open regression the
+# normal-form cut introduced: the prefix was built as `enclosing + "/"`, which for a control
+# root of `/` became `//` and matched nothing, so `/` accepted every absolute ledger worktree
+# it in fact encloses.
+#
+# What remains open is stated here rather than closed: a *symlink* or bind mount pointing inside
+# a control worktree still aliases past a textual comparison. No textual rule can see it, and
+# this file may not resolve paths -- it reads no host source, and `realpath` is not fail-closed
+# on a directory that does not exist yet. That route needs an aliasing filesystem object, not a
+# spelling, which is an act at the trust level of declaring the control root itself.
+#
+# The residual that remains is narrower than the one this comment used to claim, and the
+# difference matters: an operator who deliberately types a *different* absolute, normal,
+# non-contained `--attempt-ledger-root` on a second invocation still obtains a second budget.
+# That is a deliberate re-pointing by the holder of the grant, and closing it needs an anchor
+# no argv-only entrypoint can supply. It does not cover a single command line that merely
+# spells one directory two ways -- that was a defect, it was graded as one, and it is fixed
+# above rather than disclosed away.
+ATTEMPT_LEDGER_NAME = "attempt-ledger"
+
+# One POSIX separator, joined here rather than through `os.path`: this module imports no
+# host-observing surface, and the four control roots it already forwards are POSIX paths
+# handed to `git -C` by the same plan.
+ATTEMPT_LEDGER_PATH_SEPARATOR = "/"
+
+
+class SubprocessCommandRunner:
+    """The single process seam, argv-only, `shell=False` and timeout-bounded.
+
+    One class, one spawn site, and exactly one instance on the default path. The bounds are
+    per-instance, so a second executor would be a second unreviewed seam.
+    """
+
+    def run(
+        self,
+        argv: Sequence[str],
+        *,
+        timeout_seconds: float,
+        stdin: bytes | None = None,
+    ) -> Any:
+        from cybrik_suite_topology_rehearsal.protocols import CommandResult
+
+        # The ceiling is enforced here rather than trusted at the call sites. Every adapter
+        # forwards `EFFECT_TIMEOUT_SECONDS`, which is `RUNTIME_LIMIT_SECONDS = 180`, so an
+        # unclamped forward let each spawn run 180s under a seam whose own contract above
+        # declares a 120s bound. Clamping at the single spawn site is what makes that bound a
+        # property of the executor object, as the class docstring claims: no caller, and no
+        # future adapter, can widen it by passing a larger number.
+        # Clamped in place rather than into a new name: the single-spawn-site control at
+        # tests/test_scripts_inert.py:720 pins the spawn's `timeout` to the parameter name,
+        # and that control is correct and stays unmodified. Rebinding keeps the spawn reading
+        # `timeout_seconds` while making the value it holds the bounded one.
+        timeout_seconds = min(float(timeout_seconds), COMMAND_TIMEOUT_SECONDS)
+
+        try:
+            completed = subprocess.run(
+                list(argv),
+                shell=False,
+                capture_output=True,
+                timeout=timeout_seconds,
+                input=stdin,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return CommandResult()
+        return CommandResult(
+            returncode=completed.returncode,
+            stdout=completed.stdout.decode("utf-8", "replace"),
+            stderr=completed.stderr.decode("utf-8", "replace"),
+        )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--grant")
+    parser.add_argument("--signature")
+    # Repeatable and accumulating: four declared worktrees must stay four.
+    parser.add_argument("--control-root", dest="control_root", action="append", default=[])
+    # No default: the worktree the durable one-attempt budget lives in is the operator's own
+    # declaration, and a default here would be this file choosing the anchor.
+    parser.add_argument("--attempt-ledger-root", dest="attempt_ledger_root")
+    return parser
+
+
+def _control_root_pair(token: object) -> tuple[str, str]:
+    """One `NAME=PATH` token, or a refusal naming the shape that was wrong."""
+    if not isinstance(token, str) or CONTROL_ROOT_SEPARATOR not in token:
+        raise ValueError("control-root: a worktree is declared as NAME=PATH")
+    name, _, path = token.partition(CONTROL_ROOT_SEPARATOR)
+    if not name or not path:
+        raise ValueError("control-root: both the name and the path must be given")
+    return name, path
+
+
+def _control_roots(tokens: Sequence[object]) -> dict[str, str]:
+    """Fold the typed tokens, refusing a second declaration of one already named."""
+    roots: dict[str, str] = {}
+    for token in tokens:
+        name, path = _control_root_pair(token)
+        if name in roots:
+            raise ValueError("control-root: a worktree was declared twice")
+        roots[name] = path
+    if not roots:
+        raise ValueError("control-root: no worktree was declared")
+    return roots
+
+
+def _attempt_ledger_root(value: object, roots: Mapping[str, str]) -> str:
+    """The declared ledger worktree, or a refusal naming the shape that was wrong.
+
+    The budget's worktree is an argv token like the four control roots, and it is held to the
+    same rule they are: `plan.absolute_normal_path` — `plan.exact_token` (no non-string, no
+    empty token, no separator) plus absoluteness plus a normal form. The token and absoluteness
+    checks were inherited by the old siting for free, because the budget was derived from a
+    path the plan had already validated; taking the worktree off argv dropped them, and the
+    normal form was never checked anywhere. Three shapes are how F0092 comes back:
+
+    * A *relative* token is answered by the process working directory, so the identical
+      command line run from a second directory names a second file and yields a second
+      unconsumed budget inside one grant window.
+    * A token *inside a declared control worktree* puts the budget back under a directory a
+      re-checkout replaces, which is the original defect verbatim. Admission pins each control
+      worktree to `clean is True` with an exact commit and tree, but the ledger file is
+      untracked, so a clean tree and an absent ledger are the same observation downstream.
+    * A token that *aliases* into a control worktree without naming it byte-for-byte: a
+      non-normal spelling (`/ctl/./suite/ledger`), or a case variant (`/ctl/SUITE/ledger`) on
+      the case-insensitive filesystems these worktrees live on. Both reach the same directory
+      at `os.open` while comparing unequal to every declared root.
+
+    Every control root is re-validated here rather than assumed, because `_control_roots` folds
+    the typed tokens without validating them and `plan.control_commands` sees them only later,
+    so an aliasing *control* token would otherwise hide a plainly-spelled ledger root beneath
+    it. The rule is read from `plan` rather than restated, so the token discipline has exactly
+    one definition.
+
+    Containment is refused, not a shared prefix: a sibling worktree whose path merely begins
+    with the same characters is a different directory and a checkout of the control root does
+    not replace it.
+    """
+    from cybrik_suite_topology_rehearsal.plan import absolute_normal_path
+
+    root = absolute_normal_path(value, label="attempt-ledger-root")
+    for name, control in roots.items():
+        enclosing = absolute_normal_path(control, label=f"control-root:{name}")
+        if _is_inside(root, enclosing):
+            raise ValueError(
+                f"attempt-ledger-root: the ledger worktree lies inside the {name!r} control "
+                "worktree, so a second checkout of it presents an unconsumed budget"
+            )
+    return root
+
+
+def _is_inside(root: str, enclosing: str) -> bool:
+    """Does `root` name `enclosing` or a directory beneath it? Both are absolute normal paths.
+
+    The question is about *directories*, and the only tool here is the two typed strings: this
+    file reads no host source, so it cannot resolve either side, and resolution would not be
+    fail-closed if it could — `realpath` returns a not-yet-created path unchanged, handing the
+    byte-exact comparison straight back to an operator whose ledger directory does not exist
+    yet, and it would make a control that must be reviewable on the page depend on the state of
+    the filesystem at the instant it ran.
+
+    So the comparison over-approximates instead, in the direction that refuses more:
+
+    * `_canonical_caseless` on both sides, which folds case *and* Unicode normal form. Either
+      alone leaves the other live: a case variant and a normalization variant of a component
+      both name the same directory on a case-insensitive filesystem (APFS is, by default, and
+      these worktrees live on one), and neither compares equal byte-for-byte. On a
+      case-sensitive filesystem this refuses a worktree that is genuinely distinct; that costs
+      the operator one retype, where the converse hands back the budget reset the control
+      exists to prevent. Only the *comparison* folds — the caller returns and forwards the
+      operator's token exactly as typed, since rewriting it would make this file choose a
+      directory nobody named.
+    * The separator is appended only when `enclosing` does not already end in one. `/` is the
+      single normal-form path that is itself the separator; building `//` from it matched
+      nothing and made a control root of `/` accept every absolute ledger worktree, when `/`
+      encloses all of them.
+
+    Residual, stated narrowly and not closed: a *symlink* or bind mount whose target is inside a
+    control worktree still aliases past this comparison, and no textual rule can see it. Unlike
+    a case or normalization variant, that route is not one command line typed once — an aliasing
+    filesystem object to exist or be created for the purpose, which is an act at the same trust
+    level as typing the control root itself, and `--attempt-ledger-root` is already an operator
+    declaration at that level alongside `--execute` and the choice of grant file.
+    """
+    folded_root = _canonical_caseless(root)
+    folded_enclosing = _canonical_caseless(enclosing)
+    if folded_root == folded_enclosing:
+        return True
+    prefix = (
+        folded_enclosing
+        if folded_enclosing.endswith(ATTEMPT_LEDGER_PATH_SEPARATOR)
+        else f"{folded_enclosing}{ATTEMPT_LEDGER_PATH_SEPARATOR}"
+    )
+    return folded_root.startswith(prefix)
+
+
+def _canonical_caseless(value: str) -> str:
+    """One value for every spelling of a name that differs only by case or by normal form.
+
+    `casefold` alone answers case and not normal form: U+00E9 and U+0065 U+0301 are canonically
+    equivalent, casefold to themselves, and compare unequal, so a ledger worktree spelled in one
+    form aliased into a control worktree spelled in the other. Nothing upstream closed it --
+    `plan.exact_token` constrains separators and emptiness rather than the character repertoire,
+    and `os.path.normpath` normalizes path punctuation and never Unicode.
+
+    The normalization is applied on *both* sides of the fold, which is UAX#15 D145's shape and
+    not belt-and-braces. Casefolding is not closed under normalization: U+0345 casefolds into a
+    character that recomposes differently depending on whether its input was already normalized,
+    so normalizing only afterwards maps canonically-equivalent inputs to different results -- a
+    sweep to U+2FFFF puts that at 955 characters, so it is the common case for this repertoire
+    rather than a curiosity. The leading `normalize` is also what makes the guarantee provable
+    instead of measured: it renders canonically-equivalent inputs byte-identical before anything
+    else runs, so every later step is deterministic on them.
+
+    `unicodedata` is a pure table lookup in the standard library: it opens nothing, reads no
+    host source and is imported inside the function like every other library import here, so
+    the front door stays inert.
+    """
+    import unicodedata
+
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", value).casefold())
+
+
+def load_authorization(grant_path: str, signature_path: str) -> Any:
+    """Refuse: the envelope this would build is not authored and not reviewed.
+
+    The identity of this function is pinned by
+    `test_default_dependency_loader_returns_the_reviewed_real_triple`; its *behaviour* is
+    pinned by nothing, because every test injects its own loader. That asymmetry is the whole
+    reason it refuses rather than guesses.
+
+    The envelope the runner consumes carries `record_sha256`, `runner_aggregate_sha256`,
+    `expected_controls` and one `observed_at` instant, and none of the four is derived from
+    the grant — a fact copied out of the document it is meant to check proves only that
+    copying works. Each is an authority input: the record digest and the runner aggregate
+    digest decide what the admission decision is taken *about*, and `expected_controls` is
+    what preparation forces the signature-covered pin to agree with. No module in `src`
+    builds this envelope and no test states its loading contract, so any implementation here
+    would be nine unreviewed authority decisions taken by whichever spelling turned the bar
+    green.
+
+    Refusing is therefore the fail-closed answer and not a gap: RUNTIME is HOLD, this slice is
+    static, and an entrypoint whose default path cannot fabricate an authorization is exactly
+    the inertness the front door advertises. The refusal is the typed `PrecheckAbort` the
+    operator is owed, naming the boundary rather than the argv.
+    """
+    from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
+
+    raise PrecheckAbort(
+        "load_authorization: building the authorization envelope from "
+        f"{grant_path!r} and {signature_path!r} is not authorized in this slice"
+    )
+
+
+def load_runtime_dependencies() -> Any:
+    """The reviewed real triple this composition root runs on."""
+    from types import SimpleNamespace
+
+    from cybrik_suite_topology_rehearsal.runner import run_topology_rehearsal
+
+    return SimpleNamespace(
+        authorization_loader=load_authorization,
+        wiring_builder=build_runtime_wiring,
+        runner=run_topology_rehearsal,
+    )
+
+
+def build_runtime_wiring(
+    *,
+    authorization: Any,
+    repository_roots: Any,
+    attempt_ledger_root: Any,
+    command_runner: Any = None,
+) -> Any:
+    """Compose the one plan, the one executor and the complete adapter surface.
+
+    The four worktrees arrive as a mandatory argument. Nothing here reads the host, the
+    envelope or this file's own location for one; there is no fallback, so a caller that did
+    not name them has left nothing honest behind and is refused by name.
+
+    The key space belongs to `plan`. This function re-raises `plan`'s refusal as the typed
+    abort the operator is owed rather than answering the question a second time.
+    """
+    from types import SimpleNamespace
+
+    from cybrik_suite_topology_rehearsal import adapter, plan
+    from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
+    from cybrik_suite_topology_rehearsal.protocols import Adapters
+    from cybrik_suite_topology_rehearsal.runner import attempt_id_for
+
+    # Read inside a guard: this is envelope content, not argv, and a grant missing the key
+    # or carrying a non-mapping under it used to raise a bare `KeyError`/`TypeError` that
+    # escaped both `PrecheckAbort` handlers and left `main` as a traceback rather than the
+    # hold exit the operator is owed.
+    try:
+        identity = authorization.grant["observed_image_identity"]
+        attempt_id = attempt_id_for(identity["observed_at"])
+        image_reference = (
+            f"{identity['repository']}{plan.DIGEST_MARKER}{identity['manifest_digest']}"
+        )
+    except (KeyError, IndexError, TypeError, AttributeError) as error:
+        raise PrecheckAbort(
+            "authorization.grant: observed_image_identity is not the reviewed shape "
+            f"({error})"
+        ) from error
+
+    try:
+        built = plan.build_plan(
+            attempt_id=attempt_id,
+            image_reference=image_reference,
+            repository_roots=repository_roots,
+        )
+    except PrecheckAbort:
+        raise
+    except ValueError as error:
+        # `plan` labels its own refusals. `attempt_id` and `image_reference` are validated at
+        # the top of `build_plan`, before any root is touched, so relabelling those as a
+        # roots-naming failure told the operator to correct four worktrees that were in fact
+        # correct. Each fault now carries the boundary it actually came from.
+        detail = str(error)
+        if detail.startswith(("attempt_id:", "image_reference:")):
+            raise PrecheckAbort(
+                f"authorization.grant: observed_image_identity did not yield a "
+                f"plannable attempt ({detail})"
+            ) from error
+        raise PrecheckAbort(
+            f"repository_roots: the four control worktrees were not named ({detail})"
+        ) from error
+    except (KeyError, IndexError, TypeError) as error:
+        # A roots argument that is not a mapping of the four names fails on subscript before
+        # it fails on content; that is a roots fault and keeps the roots label.
+        raise PrecheckAbort(
+            f"repository_roots: the four control worktrees were not named ({error})"
+        ) from error
+
+    runner = SubprocessCommandRunner() if command_runner is None else command_runner
+    clock = adapter.MonotonicClock()
+    command_adapters = {
+        "controls": adapter.ControlIdentityCommandAdapter(built, runner),
+        "docker": adapter.DockerCommandAdapter(built, runner, clock),
+        "host": adapter.HostCommandAdapter(built, runner),
+        "probe": adapter.ProbeCommandAdapter(built, runner),
+        "signature": adapter.SshSignatureCommandAdapter(built, runner),
+    }
+    credential = adapter.CredentialFileAdapter(built)
+    # The composition root owes the same refusal `main` does, for the reason the loader guard
+    # records: this function is exported and states a contract of its own to every caller, so
+    # a siting rule enforced only at the argv frame is satisfied by any other caller supplying
+    # a relative or control-contained worktree. `plan` has already refused any
+    # `repository_roots` that is not exactly the four control worktrees by this point, so the
+    # containment question can be asked here against a mapping that is known good.
+    try:
+        ledger_root = _attempt_ledger_root(attempt_ledger_root, repository_roots)
+    except ValueError as error:
+        raise PrecheckAbort(f"attempt_ledger_root: {error}") from error
+    ledger = adapter.AtomicFileAttemptLedger(
+        f"{ledger_root}{ATTEMPT_LEDGER_PATH_SEPARATOR}{ATTEMPT_LEDGER_NAME}"
+    )
+    adapters = Adapters(
+        identities=command_adapters["controls"],
+        host=command_adapters["host"],
+        docker=command_adapters["docker"],
+        probe=command_adapters["probe"],
+        credential=credential,
+        verifier=command_adapters["signature"],
+        ledger=ledger,
+        clock=clock,
+    )
+    return SimpleNamespace(
+        plan=built,
+        command_runner=runner,
+        command_adapters=command_adapters,
+        adapters=adapters,
+        credential=credential,
+        ledger=ledger,
+        clock=clock,
+    )
+
+
+def execute_authorized_attempt(
+    grant_path: str,
+    signature_path: str,
+    *,
+    repository_roots: Any,
+    attempt_ledger_root: Any,
+    dependencies_loader: Any = load_runtime_dependencies,
+) -> int:
+    """Load once, build once, run once, and hold on anything that is not a pass."""
+    from cybrik_suite_topology_rehearsal.constants import TOPOLOGY_PASS
+    from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
+
+    dependencies = dependencies_loader()
+    # The loader is inside the guard with the builder. It was outside it, so a `PrecheckAbort`
+    # from `load_authorization` -- which is the default loader's only behaviour in this slice
+    # -- left this function as a traceback while the identical abort from `wiring_builder`
+    # two lines below returned the hold exit, contradicting the docstring above. `main`
+    # catches `PrecheckAbort` and so masked the difference at the outermost frame, but this
+    # function is exported and states a contract of its own to every other caller.
+    try:
+        authorization = dependencies.authorization_loader(grant_path, signature_path)
+        wiring = dependencies.wiring_builder(
+            authorization=authorization,
+            repository_roots=repository_roots,
+            attempt_ledger_root=attempt_ledger_root,
+        )
+    except PrecheckAbort:
+        return HOLD_EXIT
+    result = dependencies.runner(
+        authorization,
+        wiring.adapters,
+        execute_requested=True,
+    )
+    return 0 if result.outcome == TOPOLOGY_PASS else HOLD_EXIT
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    execute: Any = execute_authorized_attempt,
+) -> int:
+    """Read what was typed and forward it, or hold before anything is opened."""
+    try:
+        parsed = build_parser().parse_args(list(argv or []))
+    except SystemExit:
+        return HOLD_EXIT
+    if not parsed.execute or not parsed.grant or not parsed.signature:
+        return HOLD_EXIT
+    # The ledger worktree is required here, with the other typed declarations, and is never
+    # folded to a default: an unstated budget location would otherwise be answered by
+    # whatever this file chose, which is the anchor nobody declared. Truthiness alone was not
+    # enough (F0092): the token is validated against the control roots it must stay outside
+    # of, so the fold below runs after they are known.
+    if not parsed.attempt_ledger_root:
+        return HOLD_EXIT
+    try:
+        roots = _control_roots(parsed.control_root)
+        attempt_ledger_root = _attempt_ledger_root(parsed.attempt_ledger_root, roots)
+    except ValueError:
+        return HOLD_EXIT
+    from cybrik_suite_topology_rehearsal.errors import PrecheckAbort
+
+    try:
+        return execute(
+            parsed.grant,
+            parsed.signature,
+            repository_roots=roots,
+            attempt_ledger_root=attempt_ledger_root,
+        )
+    except PrecheckAbort:
+        # A typed refusal from below is the operator's answer, not a traceback: the key
+        # space belongs to `plan`, and `main` only reports the hold it was handed.
+        return HOLD_EXIT
+
+
+# Running the file must produce the exit `main` computed. Without this guard the module
+# defined its functions, called none of them, and fell off the end with status 0 — which is
+# this entrypoint's TOPOLOGY_PASS code — so an operator who ran the rehearsal was told it had
+# passed while nothing had been loaded, planned or spawned. That is the inverse of the
+# fail-closed contract the module docstring states, and it is why this is the blocking row.
+# The guard does not fire on import, so the front door stays inert exactly as advertised.
+#
+# No `[project.scripts]` table accompanies it: console entry points would install two
+# runnable commands onto the PATH of anything that installs this package, which widens the
+# runtime surface while RUNTIME is HOLD. Invocation by path is enough to make the exit code
+# honest, and it is the smaller change.
+if __name__ == "__main__":  # pragma: no cover - exercised by invocation, not by import
+    raise SystemExit(main(sys.argv[1:]))

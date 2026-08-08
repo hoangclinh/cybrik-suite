@@ -1,0 +1,216 @@
+{
+  "schema_version": "cybrik.fabric-runtime-producer-gate.v1",
+  "status": "DRAFT",
+  "candidate_id": "runtime-admission-soc-ai-lifecycle-mtls-r1",
+  "evaluated_at": "2026-08-03T00:00:00+07:00",
+  "release_constraints": {
+    "stable_v1_founder_go_no_go": "2026-12-20",
+    "release_window": "2026-12-21/2026-12-31"
+  },
+  "pins": {
+    "suite_base": {
+      "commit": "ba830494ebc4b2d7ff215cf068f6736205c55075",
+      "tree": "22c540b3d480c2910dd43c76c0271f70e89ec9b7",
+      "author": "Cybrik Codex Worker <codex-worker@local.invalid>"
+    },
+    "fabric_candidate": {
+      "commit": "7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+      "tree": "0cd08e52a636ff03586aa30223a623e1f08a836b",
+      "parent": "e06b19c528c90a375898f8cce6d22ed0124c96da",
+      "author": "Cybrik Codex Worker <codex-worker@local.invalid>",
+      "pushed": true,
+      "merged": false
+    }
+  },
+  "fabric_publication": {
+    "repository": "cybrik-security-tool-fabric",
+    "provider": "github_actions",
+    "draft_pull_request": 5,
+    "draft_pull_request_url": "https://github.com/hoangclinh/cybrik-security-tool-fabric/pull/5",
+    "observed_at": "2026-08-03T09:04:35Z",
+    "state_is_snapshot": true,
+    "draft_pull_request_state_observed": "OPEN",
+    "draft_pull_request_mergeable_state_observed": "CLEAN",
+    "run_id": 30797481044,
+    "run_url": "https://github.com/hoangclinh/cybrik-security-tool-fabric/actions/runs/30797481044",
+    "run_conclusion": "success",
+    "head_commit": "50aff1df146d6e98b33d9f82617781595bcf1512",
+    "head_tree": "2b4d516eef0a3b0ae05b44a225515efef749f25b",
+    "jobs": [
+      {
+        "name": "scaffold-integrity",
+        "conclusion": "success"
+      },
+      {
+        "name": "secret-scan",
+        "conclusion": "success"
+      },
+      {
+        "name": "detect",
+        "conclusion": "success"
+      },
+      {
+        "name": "control-plane",
+        "conclusion": "success"
+      },
+      {
+        "name": "executor",
+        "conclusion": "success"
+      },
+      {
+        "name": "admission-gate",
+        "conclusion": "success"
+      }
+    ],
+    "candidate_reachable_from_head": true,
+    "candidate_tree_equals_head_tree": false,
+    "post_candidate_delta_paths": [
+      ".github/workflows/ci.yml",
+      ".gitleaks.toml",
+      "tests/control-plane/test_ci_admission.py"
+    ],
+    "runtime_implementation_modified": false,
+    "coverage_scope": "single_repository",
+    "closes_conditions": []
+  },
+  "conditions": [
+    {
+      "id": "business_contract_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json"
+      ],
+      "note": "The alert-context business packet is accepted for implementation."
+    },
+    {
+      "id": "transport_binding_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json"
+      ],
+      "note": "The transport binding is accepted for implementation but defines no endpoint or runtime operation."
+    },
+    {
+      "id": "receipt_integrity_profile_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json"
+      ],
+      "note": "The receipt integrity profile is accepted for implementation and remains explicitly not implemented."
+    },
+    {
+      "id": "fabric_in_process_boundary_reviewed",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-security-tool-fabric:src/control-plane/cybrik_fabric_control/invocation/service.py",
+        "cybrik-security-tool-fabric:tests/control-plane/test_signed_receipt_service_integration.py",
+        "cybrik-security-tool-fabric:commit/e06b19c528c90a375898f8cce6d22ed0124c96da"
+      ],
+      "note": "The Fabric-owned in-process boundary and signed receipt lane passed bounded review and 638 tests; this is not runtime evidence."
+    },
+    {
+      "id": "runtime_route_profile_implementation_authorized",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+        "cybrik-suite:contracts/compatibility/cybrik-suite-contract-packet.v1.manifest.json",
+        "cybrik-suite:contracts/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json"
+      ],
+      "note": "The accepted W2-B createInvocation mapping notes authorize contract-first implementation and the C1 profile reuses that route byte-unchanged; this is not an operational endpoint or deployment authorization."
+    },
+    {
+      "id": "key_lifecycle_trust_bundle_design_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+        "cybrik-suite:docs/adr/ADR-0014-receipt-trust-and-durability-profile.md",
+        "cybrik-suite:docs/adr/evidence/ADR-0014-EVIDENCE.md"
+      ],
+      "note": "The provider-neutral key lifecycle and public trust-bundle floor is accepted for implementation; Fabric product choices and runtime evidence remain separate gates."
+    },
+    {
+      "id": "durable_receipt_store_design_accepted",
+      "phase": "implementation",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-suite:contracts/compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json",
+        "cybrik-suite:docs/adr/ADR-0014-receipt-trust-and-durability-profile.md",
+        "cybrik-suite:docs/adr/evidence/ADR-0014-EVIDENCE.md"
+      ],
+      "note": "The provider-neutral durable ordering and observable failure floor is accepted for implementation; no ledger, database or runtime is selected or proven."
+    },
+    {
+      "id": "product_runtime_producer_implemented_reviewed",
+      "phase": "runtime",
+      "satisfied": true,
+      "evidence_state": "verified",
+      "evidence": [
+        "cybrik-security-tool-fabric:commit/7f2561e501585bb5d66b9a32d6b9ac2c3a2f94d7",
+        "cybrik-security-tool-fabric:tree/0cd08e52a636ff03586aa30223a623e1f08a836b",
+        "cybrik-security-tool-fabric:docs/adr/ADR-0005-receipt-trust-durability-runtime-producer-reference.md",
+        "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/05-fabric-runtime-producer-review.md"
+      ],
+      "verification": {
+        "exact_path_count": 51,
+        "prospective_patch_sha256": "4e52491718b67128f306bf4ab122cb02d962377242bb3c200cd0a87ecd508d1e",
+        "content_aggregate_sha256": "9a54f288348715f0c156437bd974acb6cad62655d6994a96c4ead8a6e75f2f6d"
+      },
+      "note": "The Fabric-owned injection-only runtime producer reference passed 797 tests executed by the coordinator and 91% branch coverage; two independent reviews returned P0-P2 clear, including one bounded static-only pass disclosed in the review packet. This is not hosted CI or runtime evidence."
+    },
+    {
+      "id": "canonical_tuple_hosted_ci_green",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "open",
+      "evidence": [
+        "cybrik-security-tool-fabric:actions/runs/30797481044",
+        "cybrik-security-tool-fabric:commit/50aff1df146d6e98b33d9f82617781595bcf1512",
+        "cybrik-security-tool-fabric:tree/2b4d516eef0a3b0ae05b44a225515efef749f25b",
+        "cybrik-suite:docs/uat/candidates/runtime-admission-soc-ai-lifecycle-mtls-r1/evidence/05-fabric-runtime-producer-review.md"
+      ],
+      "note": "Hosted GitHub Actions run 30797481044 succeeded on the single Fabric repository and is qualified partial evidence only; it is not canonical four-repository CI across SOC, Cyber AI, Fabric and Suite, so this condition remains open and unsatisfied."
+    },
+    {
+      "id": "runtime_negative_and_rollback_evidence",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "Runtime negative cases, bounded stop, reset and no-residual rollback evidence have not been captured."
+    },
+    {
+      "id": "coverage_remeasured_current_suite_tree",
+      "phase": "runtime",
+      "satisfied": false,
+      "evidence_state": "missing",
+      "evidence": [],
+      "note": "Historical M2 coverage does not measure the current Suite candidate tree."
+    }
+  ],
+  "declared": {
+    "implementation_disposition": "GO",
+    "runtime_disposition": "HOLD",
+    "runtime_authorized": false
+  },
+  "production_authorized": false,
+  "non_claims": [
+    "no_runtime_started",
+    "no_uat_pass",
+    "no_demo_or_release_promotion",
+    "no_production_authority",
+    "no_canonical_tuple_ci_claim"
+  ]
+}

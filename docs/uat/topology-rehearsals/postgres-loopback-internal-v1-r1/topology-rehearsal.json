@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "record_id": "postgres-loopback-internal-v1-r1",
+  "recorded_at": "2026-08-04T20:08:51+07:00",
+  "identity": {
+    "capability_id": "cybrik.suite.runtime-topology",
+    "objective_id": "postgres-loopback-internal-v1"
+  },
+  "attempt": {
+    "series_id": "postgres-loopback-internal-v1",
+    "attempt_ordinal": 1,
+    "max_attempts": 1,
+    "phase": "proposed",
+    "execution_authorized": false,
+    "attempt_consumed": false,
+    "outcome": "not_run"
+  },
+  "topology": {
+    "host_ip": "127.0.0.1",
+    "host_port": 15433,
+    "container_port": 5432,
+    "internal_network": true,
+    "runtime_limit_seconds": 180,
+    "extension_cycles": 0,
+    "image": {
+      "resolution_state": "UNRESOLVED",
+      "repository": "postgres",
+      "tag": "16-alpine",
+      "platform": null,
+      "index_digest": null,
+      "manifest_digest": null,
+      "pull_policy": "never"
+    },
+    "probe": {
+      "executable_path": "/usr/bin/nc",
+      "executable_sha256": "427423db6d5d5e9f720c5e110a2c9b3cba39ea089dafed4ab936d04dd218bdac",
+      "argv": [
+        "-z",
+        "-w",
+        "5",
+        "127.0.0.1",
+        "15433"
+      ]
+    }
+  },
+  "production_exclusion": {
+    "no_production_credentials": true,
+    "no_production_configuration": true,
+    "no_production_data": true,
+    "no_production_traffic": true
+  },
+  "authorization": null,
+  "evidence": {
+    "directory": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1",
+    "external_bytes_ci_verified": false,
+    "artifacts": [
+      {
+        "kind": "diagnosis",
+        "path": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-R1.md",
+        "sha256": "b4d9e8cd0ff34b5a99d9b8b3e04419c27b1927d6e61d146d7658454a74c73874"
+      },
+      {
+        "kind": "diagnosis_review",
+        "path": "docs/uat/topology-rehearsals/postgres-loopback-internal-v1-r1/G-U2B-POSTGRES-RUNTIME-TOPOLOGY-DIAGNOSIS-REVIEW-R1.md",
+        "sha256": "bba21165cbf1489bed58d5d583577515efa1217ab36982be18f837b32fe532c7"
+      }
+    ],
+    "record_review_binding": null,
+    "result_controls": null
+  },
+  "disposition": {
+    "profile": "HOLD",
+    "rationale": "Proposed topology-only preflight record held at HOLD. The diagnosis_review artifact attests the diagnosis bytes only; it does not attest these record bytes, so a record_review artifact and its record review binding, carrying the record-level review of these exact record bytes, remain owed before any authorization. The probe executable digest is a proposal-time observation of the host binary, not attempt evidence, and no probe was run. The selected required image identity is declared UNRESOLVED: its platform, index digest and manifest digest are null because no registry resolution and no host observation have occurred, and this record makes no local image ID claim. This record grants no image pull, Docker, listener, rehearsal execution, PostgreSQL RED, UAT, demo, merge, release or production authority."
+  }
+}

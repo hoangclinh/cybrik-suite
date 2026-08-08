@@ -74,19 +74,38 @@ const createXorshift32 = (seed) => {
   };
 };
 
-const APPROVED_REQUIRED_CHECK_NAMES = Object.freeze([
+// This constant is the exact allowlist of APPROVED RENDERED JOB NAMES in
+// .github/workflows/contracts.yml — it is not a list of required status checks,
+// and the assertion below reads Object.values(workflow.jobs), i.e. every job in
+// the file whether required or not. 'topology rehearsal tests' is admitted here
+// deliberately, for the job that runs the integration/topology-rehearsal pytest,
+// ruff and compileall gate against the declared baseline.
+//
+// Adding a job does NOT make it a required check. Branch protection is hosted
+// state no lane in this repository can write, and the recorded snapshot of it
+// lists exactly two required checks for Suite (docs/operations/W1-BLOCKER-4-
+// CANONICAL-INTEGRATION-PACKET.md:597, docs/operations/W1-E2-EVIDENCE-
+// REGISTER.md:2810). Promoting this job to a required status check is a separate
+// Founder-owned branch-protection change that has not happened; do not read this
+// constant as evidence that it has.
+//
+// The allowlist stays an exact sorted deepEqual rather than a subset or prefix
+// test, so an unapproved name is still refused and a silent fourth job cannot
+// appear.
+const APPROVED_RENDERED_JOB_NAMES = Object.freeze([
   'contract standards validation',
   'secret-scan',
+  'topology rehearsal tests',
 ]);
-const assertApprovedRequiredCheckNames = (checkNames) =>
-  assert.deepEqual([...checkNames].sort(), APPROVED_REQUIRED_CHECK_NAMES);
+const assertApprovedRenderedJobNames = (jobNames) =>
+  assert.deepEqual([...jobNames].sort(), APPROVED_RENDERED_JOB_NAMES);
 
-test('required check names match the exact approved stable allowlist', () => {
+test('rendered job names match the exact approved allowlist', () => {
   const workflow = parseYaml(readText('.github/workflows/contracts.yml'));
-  const checkNames = Object.values(workflow.jobs)
+  const jobNames = Object.values(workflow.jobs)
     .map((job) => job.name);
 
-  assertApprovedRequiredCheckNames(checkNames);
+  assertApprovedRenderedJobNames(jobNames);
   for (const unapprovedName of [
     'secret-scan v8',
     'secret-scan gitleaks-8',
@@ -118,7 +137,7 @@ test('required check names match the exact approved stable allowlist', () => {
   ]) {
     assert.throws(
       () =>
-        assertApprovedRequiredCheckNames([
+        assertApprovedRenderedJobNames([
           'contract standards validation',
           unapprovedName,
         ]),

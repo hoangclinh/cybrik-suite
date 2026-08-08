@@ -159,10 +159,15 @@ const W1_RECONCILIATION_CI_PATHS = [
   "tools/contract-validation/validate.mjs",
 ];
 
+// Extension 1 of 4: the checkout pin rises from 2 to 3 because the added
+// `topology rehearsal tests` job checks the tree out. The count is raised, not
+// removed: the control still refuses any fourth use and any unpinned or
+// off-allowlist action, and the reviewed SHA is unchanged, so no new supplier
+// enters the trusted set.
 const CI_ACTION_PINS = new Map([
   [
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-    2,
+    3,
   ],
   [
     "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
@@ -3531,6 +3536,103 @@ export function validateW1CiWiring({
       "CI3 workflow must preserve the rendered secret-scan required-check name",
     );
   }
+  // Extension 3 of 4: pin the third job's rendered required-check name on the same
+  // footing as the other two, so it cannot be renamed out from under a branch
+  // protection rule that requires it.
+  const rehearsalJob = workflowJob("topology-rehearsal-tests");
+  const rehearsalJobDocument = workflowDocument.jobs["topology-rehearsal-tests"];
+  if (rehearsalJobDocument?.name !== "topology rehearsal tests") {
+    throw new Error(
+      "CI3 workflow must preserve the rendered topology-rehearsal required-check name",
+    );
+  }
+  // Extension 4 of 4: pin what the job DOES, not merely that it exists. A job that
+  // is present but no longer reads .github/REVIEW-BASELINE.json would restore
+  // exactly the defect this job was added to remove — a declared consumer that does
+  // not consume — while leaving the required check green. The lockfile and network
+  // protections are pinned here for the same reason.
+  // The linter is pinned by version, not merely by name. The bar of 12 at
+  // .github/REVIEW-BASELINE.json was measured with ruff 0.16.0, so an unpinned or
+  // differently pinned ruff would let the measured number move with no change to
+  // the tree — precisely the drift the baseline asserts is impossible.
+  //
+  // The ruff pattern deliberately no longer requires `uv run --frozen --offline`.
+  // That is not a relaxation: ruff is absent from pyproject.toml and from the
+  // protected uv.lock, so `uv run --frozen --offline ruff` could never have
+  // supplied it, and pinning that shape pinned a command that does not run. The
+  // lockfile and network protections it was standing in for are unchanged — they
+  // are carried by the `uv sync --frozen` and `uv run --frozen --offline` patterns
+  // on the two steps that DO use the project environment, and by the assertExcludes
+  // below. ruff check resolves no dependencies and opens no socket.
+  // The identity half of the comparison is pinned separately from the file read.
+  // /REVIEW-BASELINE\.json/ above is satisfied by the surviving open() alone, so it
+  // does NOT hold the identity check in place: the composition read, the nodeid
+  // reconstruction and the two set differences could all be deleted and the bare
+  // count comparison restored — the exact defect the identity check was added to
+  // remove — while every pattern above still matched and the required check stayed
+  // green. A control that declares a behaviour it does not hold in place is the
+  // same shape as the defect this extension was written against, so the behaviour
+  // is pinned by the two names that cannot survive that deletion: the composition
+  // field is read from the baseline, and the declared set it produces is bound.
+  //
+  // F0143 extension. Pinning those two NAMES pins how the declared set is BUILT,
+  // not the comparison that consumes it, so one level of the same mutation still
+  // survived: delete only the two `for red in sorted(...)` loops and identity
+  // enforcement is gone while the bare count comparison remains — the exact defect
+  // this block exists to remove. Both names above survive that deletion, because
+  // `composition` is still read and `declared_reds` is still referenced by the
+  // `if declared_failures and not declared_reds` guard, so nothing dangles and
+  // nothing lints that workflow. The two set differences are therefore pinned as
+  // EXPRESSIONS rather than as names, which closes the one-level deletion
+  // demonstrated above.
+  //
+  // F0158 correction. That is ALL it does. It does not terminate the regress, and
+  // no text pattern can: `assertIncludes` is `pattern.test` over the raw YAML slice,
+  // so it matches text in comments and in dead code and cannot observe behaviour.
+  // Two mutations survive every pattern in this block. (1) Delete the reporting and
+  // exit path at the end of the baseline-comparison step — the `if problems:` block
+  // that prints each `::error::` and calls `sys.exit(1)`. Every pattern below still
+  // matches, because each name and expression they pin lives in the code above that
+  // block, so the step computes a genuine count regression and both identity
+  // mismatches, prints the counts line, and exits 0 while this control stays green.
+  // Nothing in this file pins that exit path. (2) Delete the loops and leave one of
+  // these expressions behind in a comment; `pattern.test` matches the comment.
+  // These are the same shape as F0143 and are recorded as open, not as closed.
+  //
+  // Deliberately NOT repaired by adding another pattern: pinning the exit path would
+  // close mutation (1) and move the regress to the next unpinned line. If that hop is
+  // ever taken it must be an acknowledged increment, not a second claim of termination.
+  for (const pattern of [
+    /REVIEW-BASELINE\.json/,
+    /uv==0\.11\.16/,
+    /ruff==0\.16\.0/,
+    /uv sync --frozen --group test/,
+    /uv run --frozen --offline --group test python -m pytest/,
+    /ruff check --no-cache/,
+    /uv run --frozen --offline python -m compileall/,
+    /baseline\["pytest"\]\["composition"\]/,
+    /declared_reds/,
+    /declared_reds - measured_reds/,
+    /measured_reds - declared_reds/,
+  ]) {
+    assertIncludes(
+      rehearsalJob,
+      pattern,
+      `CI3 workflow topology-rehearsal job is missing ${pattern}`,
+    );
+  }
+  // The measuring lane must never regenerate the protected lockfile, and must never
+  // write the bar it is measured against.
+  assertExcludes(
+    rehearsalJob,
+    /uv (?:lock|sync)(?![^\n]*--frozen)/,
+    "CI3 topology-rehearsal job must not resolve dependencies without --frozen",
+  );
+  assertExcludes(
+    rehearsalJob,
+    /(?:>|>>|tee|sed -i|mv|cp)[^\n]*REVIEW-BASELINE\.json/,
+    "CI3 topology-rehearsal job must read the review baseline, never write it",
+  );
   for (const pattern of [
     /name: Checkout contract topology/,
     /fetch-depth: 0/,
@@ -3625,9 +3727,14 @@ export function validateW1CiWiring({
       );
     }
   }
-  if (actionUses.length !== 3) {
+  // Extension 2 of 4: the exact total rises from 3 to 4 for the added checkout in
+  // the `topology rehearsal tests` job. It stays an exact equality rather than a
+  // lower bound, so an additive action use is still refused. uv is installed from
+  // PyPI in a run: step and is deliberately not counted here, because it is not a
+  // GitHub Action and does not widen the action supply chain this rule governs.
+  if (actionUses.length !== 4) {
     throw new Error(
-      `CI3 workflow must contain exactly 3 reviewed GitHub action uses; found ${actionUses.length}`,
+      `CI3 workflow must contain exactly 4 reviewed GitHub action uses; found ${actionUses.length}`,
     );
   }
   for (const [action, expectedCount] of CI_ACTION_PINS) {
@@ -4177,6 +4284,16 @@ const CONTROL_DOCUMENT_PATHS = {
     "W1-BLOCKER-4-CANONICAL-INTEGRATION-PACKET.md",
   ],
   workflowText: [".github", "workflows", "contracts.yml"],
+  // F0145. The topology-rehearsal uv.lock became tracked at 9bdb25c and was the
+  // newest protection in the tree with no control holding it in place. Its absence
+  // is provably invisible to the local gate — every commit through 7e7bd3d lacked
+  // the file and still measured COMPLETE with `uv run --frozen --offline` — so a
+  // later deletion would take only the hosted job RED, at the same
+  // `Unable to find lockfile at uv.lock, but --frozen was provided` that took it
+  // RED twice before. Listing the path here is the pin: validateW1ControlFiles
+  // below readFile()s every entry eagerly, so a missing lockfile rejects the
+  // validator that `npm run validate` runs on every cycle.
+  rehearsalLockText: ["integration", "topology-rehearsal", "uv.lock"],
   packageText: ["tools", "contract-validation", "package.json"],
   orchestratorText: ["tools", "contract-validation", "validate.mjs"],
 };

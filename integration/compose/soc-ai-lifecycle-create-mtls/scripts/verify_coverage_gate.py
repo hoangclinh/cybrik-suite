@@ -1,5 +1,16 @@
 """Verify the D2 harness coverage gate from pinned Coverage.py JSON.
 
+Admission requires two external artifacts whose SHA-256 the caller states up
+front: a canonical coverage authorization, and the measurement receipt that
+authorization covers. The authorization pins the producer's wrapper, pinned
+interpreter and command digests plus the Suite source tuple; the schema 2.0.0
+receipt must repeat every one of them and bind the exact coverage JSON bytes.
+
+The published PASS carries exactly the four keys the runtime admission layer
+admits -- ``binding``, ``branch``, ``line`` and ``status`` -- while the pinned
+Coverage.py version and JSON format, every critical symbol and both 80% floors
+are still enforced before anything is published.
+
 This module is pure stdlib and import-inert. It does not run Coverage.py, import
 the UAT harness, restore B1, open listeners, or grant runtime authority.
 """
@@ -7,10 +18,12 @@ the UAT harness, restore B1, open listeners, or grant runtime authority.
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import re
 import secrets
+import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +62,71 @@ STATIC_BRANCH_NODES: Final = (
 )
 EXCLUSION_MARKER: Final = re.compile(
     r"#\s*pragma[:\s]?\s*no\s*(?:cover|branch)", re.IGNORECASE
+)
+MAX_RECEIPT_BYTES: Final = 1024 * 1024
+MAX_COVERAGE_AUTHORIZATION_BYTES: Final = 64 * 1024
+RECEIPT_SCHEMA_VERSION: Final = "2.0.0"
+RECEIPT_POLICY_ID: Final = "cybrik-d2-coverage-receipt/v2"
+PRODUCER_IDENTITY: Final = "cybrik-d2-coverage-wrapper"
+ADMISSIBLE_STATUS: Final = "PASS"
+RECEIPT_KEYS: Final = frozenset(
+    {
+        "artifacts",
+        "authorization",
+        "execution_boundary",
+        "producer",
+        "receipt_id",
+        "run",
+        "schema_version",
+        "source",
+    }
+)
+RECEIPT_ARTIFACT_KEYS: Final = frozenset(
+    {"coverage_data_sha256", "coverage_json_sha256"}
+)
+RECEIPT_AUTHORIZATION_KEYS: Final = frozenset({"id", "sha256"})
+RECEIPT_BOUNDARY_KEYS: Final = frozenset({"network_calls", "runtime_executed"})
+RECEIPT_PRODUCER_KEYS: Final = frozenset(
+    {"executable_sha256", "identity", "wrapper_sha256"}
+)
+RECEIPT_RUN_KEYS: Final = frozenset({"command_sha256", "id", "nonce"})
+RECEIPT_SOURCE_KEYS: Final = frozenset({"suite_commit", "suite_tree"})
+COVERAGE_AUTHORIZATION_KEYS: Final = frozenset(
+    {
+        "authorization_id",
+        "measurement_command_sha256",
+        "measurement_wrapper_sha256",
+        "pinned_python_sha256",
+        "receipt_policy_id",
+        "suite_commit",
+        "suite_tree",
+    }
+)
+COVERAGE_AUTHORIZATION_DIGEST_KEYS: Final = (
+    "measurement_command_sha256",
+    "measurement_wrapper_sha256",
+    "pinned_python_sha256",
+)
+SHA256_HEX: Final = re.compile(r"^[0-9a-f]{64}$")
+GIT_OBJECT_HEX: Final = re.compile(r"^[0-9a-f]{40}$")
+AUTHORIZATION_ID: Final = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+ARGUMENT_KEYS: Final = (
+    "--suite-root",
+    "--coverage-json",
+    "--coverage-authorization",
+    "--coverage-authorization-sha256",
+    "--measurement-receipt",
+    "--measurement-receipt-sha256",
+    "--result-json",
+)
+REQUIRED_BASE_ARGUMENTS: Final = frozenset(
+    {"--suite-root", "--coverage-json", "--result-json"}
+)
+RECEIPT_ARGUMENTS: Final = frozenset(
+    {"--measurement-receipt", "--measurement-receipt-sha256"}
+)
+COVERAGE_AUTHORIZATION_ARGUMENTS: Final = frozenset(
+    {"--coverage-authorization", "--coverage-authorization-sha256"}
 )
 
 
@@ -105,23 +183,62 @@ def _reject_nonfinite(_: str) -> object:
     _fail("coverage_json_not_canonical")
 
 
-def _load_json(path: Path) -> dict[str, object]:
+def _read_bounded(
+    path: Path, *, max_bytes: int, oversize_reason: str, unreadable_reason: str
+) -> bytes:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
-        if path.stat().st_size > MAX_JSON_BYTES:
-            _fail("coverage_json_too_large")
+        descriptor = os.open(path, flags)
+    except OSError:
+        _fail(unreadable_reason)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            _fail(unreadable_reason)
+        if info.st_size > max_bytes:
+            _fail(oversize_reason)
+        chunks: list[bytes] = []
+        read_total = 0
+        while True:
+            chunk = os.read(descriptor, 65536)
+            if not chunk:
+                break
+            read_total += len(chunk)
+            if read_total > max_bytes:
+                _fail(oversize_reason)
+            chunks.append(chunk)
+    except OSError:
+        _fail(unreadable_reason)
+    finally:
+        os.close(descriptor)
+    data = b"".join(chunks)
+    if len(data) != info.st_size:
+        _fail(unreadable_reason)
+    return data
+
+
+def _load_json(data: bytes) -> dict[str, object]:
+    try:
         loaded = json.loads(
-            path.read_text(encoding="utf-8"),
+            data.decode("utf-8"),
             object_pairs_hook=_pairs_without_duplicates,
             parse_constant=_reject_nonfinite,
         )
-    except (OSError, UnicodeError, ValueError, RecursionError):
+    except (UnicodeError, ValueError, RecursionError):
         _fail("coverage_json_invalid")
     if not isinstance(loaded, dict):
         _fail("coverage_json_root_not_object")
     return loaded
 
 
-def _absolute_canonical_path(raw: str, *, directory: bool) -> Path:
+def _absolute_canonical_path(
+    raw: str,
+    *,
+    directory: bool,
+    not_regular_reason: str = "coverage_json_not_regular_file",
+) -> Path:
     candidate = Path(raw)
     if not candidate.is_absolute():
         _fail("input_path_not_absolute")
@@ -137,7 +254,7 @@ def _absolute_canonical_path(raw: str, *, directory: bool) -> Path:
         if not candidate.is_dir():
             _fail("suite_root_not_directory")
     elif not candidate.is_file():
-        _fail("coverage_json_not_regular_file")
+        _fail(not_regular_reason)
     return candidate
 
 
@@ -353,6 +470,206 @@ def _source_files(package_root: Path) -> dict[Path, int]:
     return files
 
 
+def _bound_alias_name(node: ast.alias) -> str:
+    return node.asname or node.name.split(".", maxsplit=1)[0]
+
+
+def _canonical_typing_import_line(
+    tree: ast.Module, *, binding: str, symbol: str | None
+) -> int | None:
+    """Return an unshadowed top-level ``typing`` import line, if unique."""
+
+    canonical_aliases: list[ast.alias] = []
+    for statement in tree.body:
+        if symbol is None and isinstance(statement, ast.Import):
+            canonical_aliases.extend(
+                alias
+                for alias in statement.names
+                if alias.name == "typing" and alias.asname is None
+            )
+        elif (
+            symbol is not None
+            and isinstance(statement, ast.ImportFrom)
+            and statement.level == 0
+            and statement.module == "typing"
+        ):
+            canonical_aliases.extend(
+                alias
+                for alias in statement.names
+                if alias.name == symbol and alias.asname is None
+            )
+    if len(canonical_aliases) != 1:
+        return None
+
+    canonical_id = id(canonical_aliases[0])
+    for node in ast.walk(tree):
+        if isinstance(node, ast.alias):
+            if _bound_alias_name(node) == binding and id(node) != canonical_id:
+                return None
+        elif isinstance(node, ast.Name):
+            if node.id == binding and isinstance(node.ctx, (ast.Store, ast.Del)):
+                return None
+        elif isinstance(node, ast.arg) and node.arg == binding:
+            return None
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == binding:
+                return None
+        elif (
+            isinstance(node, ast.ExceptHandler)
+            and node.name == binding
+            or isinstance(node, (ast.Global, ast.Nonlocal))
+            and binding in node.names
+            or isinstance(node, (ast.MatchAs, ast.MatchStar))
+            and node.name == binding
+        ):
+            return None
+    return canonical_aliases[0].lineno
+
+
+def _safe_type_expression(node: ast.expr) -> bool:
+    """Admit declarative type syntax without calls, comprehensions, or effects."""
+
+    if isinstance(node, (ast.Name, ast.Constant)):
+        return True
+    if isinstance(node, ast.Attribute):
+        return _safe_type_expression(node.value)
+    if isinstance(node, ast.Subscript):
+        return _safe_type_expression(node.value) and _safe_type_expression(node.slice)
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return all(_safe_type_expression(element) for element in node.elts)
+    if isinstance(node, ast.Starred):
+        return _safe_type_expression(node.value)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _safe_type_expression(node.left) and _safe_type_expression(node.right)
+    if isinstance(node, ast.Slice):
+        return all(
+            item is None or _safe_type_expression(item)
+            for item in (node.lower, node.upper, node.step)
+        )
+    return False
+
+
+def _safe_type_checking_body(node: ast.If) -> bool:
+    if node.orelse:
+        return False
+    type_alias = getattr(ast, "TypeAlias", ())
+    for statement in node.body:
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            continue
+        if (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.value is None
+            and _safe_type_expression(statement.annotation)
+        ):
+            continue
+        if (
+            type_alias
+            and isinstance(statement, type_alias)
+            and isinstance(statement.name, ast.Name)
+            and _safe_type_expression(statement.value)
+        ):
+            continue
+        return False
+    return bool(node.body)
+
+
+def _typing_only_exclusion_lines(path: Path) -> frozenset[int]:
+    """Return only fail-closed lines excluded for canonical typing syntax."""
+
+    try:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (OSError, UnicodeError, SyntaxError):
+        _fail("package_source_unreadable")
+
+    lines = source.splitlines()
+    allowed: set[int] = set()
+    type_checking_line = _canonical_typing_import_line(
+        tree, binding="TYPE_CHECKING", symbol="TYPE_CHECKING"
+    )
+    typing_line = _canonical_typing_import_line(tree, binding="typing", symbol=None)
+    protocol_line = _canonical_typing_import_line(
+        tree, binding="Protocol", symbol="Protocol"
+    )
+    for node in tree.body:
+        is_direct_type_checking = (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Name)
+            and node.test.id == "TYPE_CHECKING"
+            and type_checking_line is not None
+            and type_checking_line < node.lineno
+        )
+        is_qualified_type_checking = (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Attribute)
+            and isinstance(node.test.value, ast.Name)
+            and node.test.value.id == "typing"
+            and node.test.attr == "TYPE_CHECKING"
+            and typing_line is not None
+            and typing_line < node.lineno
+        )
+        if (
+            isinstance(node, ast.If)
+            and (is_direct_type_checking or is_qualified_type_checking)
+            and _safe_type_checking_body(node)
+        ):
+            if node.end_lineno is None:
+                _fail("package_source_syntax_invalid")
+            allowed.update(range(node.lineno, node.end_lineno + 1))
+            continue
+        if not isinstance(node, ast.ClassDef):
+            continue
+        is_protocol = any(
+            (
+                isinstance(base, ast.Name)
+                and base.id == "Protocol"
+                and protocol_line is not None
+                and protocol_line < node.lineno
+            )
+            or (
+                isinstance(base, ast.Attribute)
+                and isinstance(base.value, ast.Name)
+                and base.value.id == "typing"
+                and base.attr == "Protocol"
+                and typing_line is not None
+                and typing_line < node.lineno
+            )
+            for base in node.bases
+        )
+        if not is_protocol:
+            continue
+        if node.end_lineno is None:
+            _fail("package_source_syntax_invalid")
+        for line_number in range(node.lineno, node.end_lineno + 1):
+            if not lines[line_number - 1].strip():
+                allowed.add(line_number)
+        line_number = node.end_lineno + 1
+        while line_number <= len(lines) and not lines[line_number - 1].strip():
+            allowed.add(line_number)
+            line_number += 1
+        for member in node.body:
+            if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if (
+                member.end_lineno is None
+                or len(member.body) != 1
+                or not isinstance(member.body[0], ast.Expr)
+                or not isinstance(member.body[0].value, ast.Constant)
+                or member.body[0].value.value is not Ellipsis
+            ):
+                continue
+            allowed.update(range(member.lineno, member.end_lineno + 1))
+
+    if any(
+        EXCLUSION_MARKER.search(lines[line - 1]) is not None
+        for line in allowed
+        if 1 <= line <= len(lines)
+    ):
+        _fail("package_source_excluded")
+    return frozenset(allowed)
+
+
 def _file_coverage(
     files_value: object, *, suite_root: Path, package_root: Path
 ) -> dict[Path, FileCoverage]:
@@ -440,9 +757,9 @@ def _has_exclusion_marker(source: str, *, start: int, end: int) -> bool:
     )
 
 
-def _critical_result(
-    file: FileCoverage, *, module: str, function: str
-) -> dict[str, object]:
+def _assert_critical_symbol(file: FileCoverage, *, function: str) -> None:
+    """Enforce full line and branch coverage of one critical symbol's region."""
+
     try:
         source = file.path.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
@@ -467,6 +784,60 @@ def _critical_result(
         _fail("critical_ast_range_mismatch")
     region_facts = _facts(region, max_line=max(len(source.splitlines()), 1))
     _check_summary(region.get("summary"), region_facts)
+
+    nested_facts: list[CoverageFacts] = []
+    for nested_node in sorted(
+        (
+            child
+            for child in ast.walk(node)
+            if child is not node
+            and isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ),
+        key=lambda child: child.lineno,
+    ):
+        candidates: list[dict[str, object]] = []
+        for qualified_name, raw_nested_region in file.functions.items():
+            if not qualified_name.startswith(f"{function}."):
+                continue
+            nested_region = _mapping(raw_nested_region, "critical_region_missing")
+            if (
+                _integer(
+                    nested_region.get("start_line"),
+                    "critical_region_invalid",
+                    minimum=1,
+                )
+                == nested_node.lineno
+            ):
+                candidates.append(nested_region)
+        if len(candidates) != 1:
+            _fail("critical_region_missing")
+        facts = _facts(candidates[0], max_line=max(len(source.splitlines()), 1))
+        _check_summary(candidates[0].get("summary"), facts)
+        nested_facts.append(facts)
+
+    if nested_facts:
+        region_facts = CoverageFacts(
+            executed_lines=frozenset().union(
+                region_facts.executed_lines,
+                *(facts.executed_lines for facts in nested_facts),
+            ),
+            missing_lines=frozenset().union(
+                region_facts.missing_lines,
+                *(facts.missing_lines for facts in nested_facts),
+            ),
+            excluded_lines=frozenset().union(
+                region_facts.excluded_lines,
+                *(facts.excluded_lines for facts in nested_facts),
+            ),
+            executed_branches=frozenset().union(
+                region_facts.executed_branches,
+                *(facts.executed_branches for facts in nested_facts),
+            ),
+            missing_branches=frozenset().union(
+                region_facts.missing_branches,
+                *(facts.missing_branches for facts in nested_facts),
+            ),
+        )
 
     file_range = CoverageFacts(
         executed_lines=frozenset(
@@ -510,31 +881,11 @@ def _critical_result(
     if region_facts.branch_total == 0:
         if has_static_branch:
             _fail("critical_branch_coverage_empty")
-        branch_ratio: float | None = None
-        branch_requirement = "not-applicable-no-static-branch"
-    else:
-        if not has_static_branch:
-            _fail("critical_branch_coverage_unexpected")
-        branch_ratio = region_facts.branch_covered / region_facts.branch_total
-        branch_requirement = "one-hundred-percent"
-        if branch_ratio != 1.0:
-            _fail("critical_branch_coverage_incomplete")
-    return {
-        "symbol": f"{module}.{function}",
-        "start_line": start,
-        "end_line": end,
-        "region_start_line": region_start,
-        "region_end_line": region_end,
-        "line_covered": region_facts.line_covered,
-        "line_total": region_facts.line_total,
-        "line_ratio": line_ratio,
-        "branch": {
-            "covered": region_facts.branch_covered,
-            "total": region_facts.branch_total,
-            "ratio": branch_ratio,
-            "requirement": branch_requirement,
-        },
-    }
+        return
+    if not has_static_branch:
+        _fail("critical_branch_coverage_unexpected")
+    if region_facts.branch_covered / region_facts.branch_total != 1.0:
+        _fail("critical_branch_coverage_incomplete")
 
 
 def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
@@ -568,76 +919,355 @@ def verify(*, suite_root: Path, report: dict[str, object]) -> dict[str, object]:
     if branch_ratio < MINIMUM_RATIO:
         _fail("package_branch_coverage_below_80")
 
-    critical: list[dict[str, object]] = []
     for module, function in CRITICAL_SYMBOLS:
-        path = package_root / f"{module}.py"
-        file = files.get(path)
+        file = files.get(package_root / f"{module}.py")
         if file is None:
             _fail("critical_module_missing")
-        critical.append(_critical_result(file, module=module, function=function))
-    if aggregate.excluded_lines:
-        _fail("package_source_excluded")
+        _assert_critical_symbol(file, function=function)
+    for file in files.values():
+        if file.facts.excluded_lines - _typing_only_exclusion_lines(file.path):
+            _fail("package_source_excluded")
 
+    # Only the two admission-compatible ratio objects are published: the pinned
+    # version and format, every critical symbol and both floors were enforced
+    # above, and restating them would widen the admitted result key set.
     return {
-        "status": "PASS",
-        "coverage_json_format": PINNED_JSON_FORMAT,
-        "coverage_version": PINNED_COVERAGE_VERSION,
-        "package_file_count": len(files),
-        "line": {
-            "covered": aggregate.line_covered,
-            "total": aggregate.line_total,
-            "ratio": line_ratio,
-        },
         "branch": {
             "covered": aggregate.branch_covered,
-            "total": aggregate.branch_total,
             "ratio": branch_ratio,
+            "total": aggregate.branch_total,
         },
-        "critical": critical,
+        "line": {
+            "covered": aggregate.line_covered,
+            "ratio": line_ratio,
+            "total": aggregate.line_total,
+        },
     }
 
 
-def _arguments(argv: list[str]) -> tuple[str, str, str]:
+def _receipt_pairs_without_duplicates(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            _fail("measurement_receipt_invalid")
+        result[key] = value
+    return result
+
+
+def _receipt_reject_nonfinite(_: str) -> object:
+    _fail("measurement_receipt_invalid")
+
+
+def _load_receipt(data: bytes) -> dict[str, object]:
+    try:
+        loaded = json.loads(
+            data.decode("utf-8"),
+            object_pairs_hook=_receipt_pairs_without_duplicates,
+            parse_constant=_receipt_reject_nonfinite,
+        )
+    except (UnicodeError, ValueError, RecursionError):
+        _fail("measurement_receipt_invalid")
+    if not isinstance(loaded, dict):
+        _fail("measurement_receipt_invalid")
+    return loaded
+
+
+def _nonempty_string(value: object, reason: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        _fail(reason)
+    return value
+
+
+def _hex_digest(value: object, reason: str, *, pattern: re.Pattern[str]) -> str:
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        _fail(reason)
+    return value
+
+
+def _receipt_section(
+    receipt: dict[str, object], key: str, expected_keys: frozenset[str]
+) -> dict[str, object]:
+    """Return one receipt section, treating any key-set drift as schema drift."""
+
+    reason = "measurement_receipt_schema_invalid"
+    section = _mapping(receipt.get(key), reason)
+    if set(section) != expected_keys:
+        _fail(reason)
+    return section
+
+
+def _verify_coverage_authorization(
+    authorization_raw: str, admitted_sha256: str, *, suite_root: Path
+) -> tuple[dict[str, object], str]:
+    """Admit the canonical coverage authorization from its exact bytes only.
+
+    The digest every downstream binding is stated against is recomputed here
+    from the bytes on disk, so no caller-supplied digest can stand in for it.
+    """
+
+    if SHA256_HEX.fullmatch(admitted_sha256) is None:
+        _fail("coverage_authorization_digest_invalid")
+    authorization_path = _absolute_canonical_path(
+        authorization_raw,
+        directory=False,
+        not_regular_reason="coverage_authorization_not_regular_file",
+    )
+    if authorization_path.is_relative_to(suite_root):
+        _fail("coverage_authorization_must_be_outside_suite")
+    payload = _read_bounded(
+        authorization_path,
+        max_bytes=MAX_COVERAGE_AUTHORIZATION_BYTES,
+        oversize_reason="coverage_authorization_too_large",
+        unreadable_reason="coverage_authorization_unreadable",
+    )
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != admitted_sha256:
+        _fail("coverage_authorization_digest_mismatch")
+    try:
+        record = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, ValueError, RecursionError):
+        _fail("coverage_authorization_not_canonical")
+    if not isinstance(record, dict):
+        _fail("coverage_authorization_not_canonical")
+    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    if canonical.encode("utf-8") != payload:
+        # A duplicate key, a reordering or any other re-encoding of the same
+        # meaning is a different authorization: only the pinned bytes admit.
+        _fail("coverage_authorization_not_canonical")
+
+    reason = "coverage_authorization_schema_invalid"
+    if set(record) != COVERAGE_AUTHORIZATION_KEYS:
+        _fail(reason)
+    if record["receipt_policy_id"] != RECEIPT_POLICY_ID:
+        _fail(reason)
+    authorization_id = _nonempty_string(record["authorization_id"], reason)
+    if AUTHORIZATION_ID.fullmatch(authorization_id) is None:
+        _fail(reason)
+    for key in COVERAGE_AUTHORIZATION_DIGEST_KEYS:
+        _hex_digest(record[key], reason, pattern=SHA256_HEX)
+    for key in ("suite_commit", "suite_tree"):
+        _hex_digest(record[key], reason, pattern=GIT_OBJECT_HEX)
+    return record, digest
+
+
+def _validate_artifacts(receipt: dict[str, object], *, coverage_bytes: bytes) -> None:
+    reason = "measurement_receipt_artifacts_invalid"
+    artifacts = _receipt_section(receipt, "artifacts", RECEIPT_ARTIFACT_KEYS)
+    for key in sorted(RECEIPT_ARTIFACT_KEYS):
+        _hex_digest(artifacts[key], reason, pattern=SHA256_HEX)
+    if artifacts["coverage_json_sha256"] != hashlib.sha256(coverage_bytes).hexdigest():
+        _fail("measurement_receipt_coverage_digest_mismatch")
+
+
+def _validate_claimed_authorization(
+    receipt: dict[str, object],
+    *,
+    coverage_authorization: dict[str, object],
+    coverage_authorization_sha256: str,
+) -> None:
+    """Require the receipt to name the exact authorization it was measured under."""
+
+    claimed = _receipt_section(receipt, "authorization", RECEIPT_AUTHORIZATION_KEYS)
+    if (
+        claimed["id"] != coverage_authorization["authorization_id"]
+        or claimed["sha256"] != coverage_authorization_sha256
+    ):
+        _fail("measurement_receipt_authorization_mismatch")
+
+
+def _validate_execution_boundary(receipt: dict[str, object]) -> None:
+    reason = "measurement_receipt_boundary_invalid"
+    boundary = _receipt_section(receipt, "execution_boundary", RECEIPT_BOUNDARY_KEYS)
+    if not isinstance(boundary["network_calls"], list) or boundary["network_calls"]:
+        _fail(reason)
+    if boundary["runtime_executed"] is not False:
+        _fail(reason)
+
+
+def _validate_producer(
+    receipt: dict[str, object], *, coverage_authorization: dict[str, object]
+) -> None:
+    reason = "measurement_receipt_producer_invalid"
+    producer = _receipt_section(receipt, "producer", RECEIPT_PRODUCER_KEYS)
+    if (
+        producer["identity"] != PRODUCER_IDENTITY
+        or producer["executable_sha256"]
+        != coverage_authorization["pinned_python_sha256"]
+        or producer["wrapper_sha256"]
+        != coverage_authorization["measurement_wrapper_sha256"]
+    ):
+        _fail(reason)
+
+
+def _validate_run(
+    receipt: dict[str, object], *, coverage_authorization: dict[str, object]
+) -> None:
+    reason = "measurement_receipt_run_invalid"
+    run = _receipt_section(receipt, "run", RECEIPT_RUN_KEYS)
+    _nonempty_string(run["id"], reason)
+    _hex_digest(run["nonce"], reason, pattern=SHA256_HEX)
+    if run["command_sha256"] != coverage_authorization["measurement_command_sha256"]:
+        _fail(reason)
+
+
+def _validate_source(
+    receipt: dict[str, object], *, coverage_authorization: dict[str, object]
+) -> None:
+    reason = "measurement_receipt_source_invalid"
+    source = _receipt_section(receipt, "source", RECEIPT_SOURCE_KEYS)
+    if (
+        source["suite_commit"] != coverage_authorization["suite_commit"]
+        or source["suite_tree"] != coverage_authorization["suite_tree"]
+    ):
+        _fail(reason)
+
+
+def _verify_receipt(
+    receipt_raw: str,
+    admitted_sha256: str,
+    *,
+    suite_root: Path,
+    coverage_bytes: bytes,
+    coverage_authorization: dict[str, object],
+    coverage_authorization_sha256: str,
+) -> str:
+    """Admit the schema 2.0.0 receipt the coverage authorization covers.
+
+    Every producer, run and source claim must repeat the authorization, and the
+    artifacts must bind the exact coverage JSON bytes this gate measured.
+    """
+
+    if SHA256_HEX.fullmatch(admitted_sha256) is None:
+        _fail("measurement_receipt_digest_invalid")
+    receipt_path = _absolute_canonical_path(
+        receipt_raw,
+        directory=False,
+        not_regular_reason="measurement_receipt_not_regular_file",
+    )
+    if receipt_path.is_relative_to(suite_root):
+        _fail("measurement_receipt_must_be_outside_suite")
+    receipt_bytes = _read_bounded(
+        receipt_path,
+        max_bytes=MAX_RECEIPT_BYTES,
+        oversize_reason="measurement_receipt_too_large",
+        unreadable_reason="measurement_receipt_unreadable",
+    )
+    digest = hashlib.sha256(receipt_bytes).hexdigest()
+    if digest != admitted_sha256:
+        _fail("measurement_receipt_digest_mismatch")
+    receipt = _load_receipt(receipt_bytes)
+    canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"))
+    if canonical.encode("utf-8") != receipt_bytes:
+        _fail("measurement_receipt_not_canonical")
+    if set(receipt) != RECEIPT_KEYS:
+        _fail("measurement_receipt_schema_invalid")
+    if receipt["schema_version"] != RECEIPT_SCHEMA_VERSION:
+        _fail("measurement_receipt_schema_invalid")
+    _nonempty_string(receipt["receipt_id"], "measurement_receipt_schema_invalid")
+    _validate_artifacts(receipt, coverage_bytes=coverage_bytes)
+    _validate_claimed_authorization(
+        receipt,
+        coverage_authorization=coverage_authorization,
+        coverage_authorization_sha256=coverage_authorization_sha256,
+    )
+    _validate_execution_boundary(receipt)
+    _validate_producer(receipt, coverage_authorization=coverage_authorization)
+    _validate_run(receipt, coverage_authorization=coverage_authorization)
+    _validate_source(receipt, coverage_authorization=coverage_authorization)
+    return digest
+
+
+@dataclass(frozen=True)
+class Arguments:
+    """The exact argument tuple every admissible invocation states up front."""
+
+    suite_root: str
+    coverage_json: str
+    coverage_authorization: str
+    coverage_authorization_sha256: str
+    measurement_receipt: str
+    measurement_receipt_sha256: str
+    result_json: str
+
+
+def _arguments(argv: list[str]) -> Arguments:
     if argv == ["--help"]:
         print(
             "usage: verify_coverage_gate.py --suite-root ABSOLUTE "
-            "--coverage-json ABSOLUTE --result-json ABSOLUTE"
+            "--coverage-json ABSOLUTE --coverage-authorization ABSOLUTE "
+            "--coverage-authorization-sha256 HEX64 --measurement-receipt ABSOLUTE "
+            "--measurement-receipt-sha256 HEX64 --result-json ABSOLUTE"
         )
         raise SystemExit(0)
-    if len(argv) != 6:
+    if len(argv) % 2 != 0 or len(argv) > 2 * len(ARGUMENT_KEYS):
         _fail("arguments_invalid")
     values: dict[str, str] = {}
     for index in range(0, len(argv), 2):
         key = argv[index]
-        if (
-            key not in {"--suite-root", "--coverage-json", "--result-json"}
-            or key in values
-        ):
+        if key not in ARGUMENT_KEYS or key in values:
             _fail("arguments_invalid")
         values[key] = argv[index + 1]
-    if set(values) != {"--suite-root", "--coverage-json", "--result-json"}:
+    if not REQUIRED_BASE_ARGUMENTS <= set(values):
         _fail("arguments_invalid")
-    return (
-        values["--suite-root"],
-        values["--coverage-json"],
-        values["--result-json"],
+    if not COVERAGE_AUTHORIZATION_ARGUMENTS <= set(values):
+        _fail("coverage_authorization_missing")
+    if not RECEIPT_ARGUMENTS <= set(values):
+        _fail("measurement_receipt_missing")
+    return Arguments(
+        suite_root=values["--suite-root"],
+        coverage_json=values["--coverage-json"],
+        coverage_authorization=values["--coverage-authorization"],
+        coverage_authorization_sha256=values["--coverage-authorization-sha256"],
+        measurement_receipt=values["--measurement-receipt"],
+        measurement_receipt_sha256=values["--measurement-receipt-sha256"],
+        result_json=values["--result-json"],
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     result_path: Path | None = None
     try:
-        suite_raw, coverage_raw, result_raw = _arguments(
-            list(sys.argv[1:] if argv is None else argv)
+        arguments = _arguments(list(sys.argv[1:] if argv is None else argv))
+        suite_root = _absolute_canonical_path(arguments.suite_root, directory=True)
+        coverage_json = _absolute_canonical_path(
+            arguments.coverage_json, directory=False
         )
-        suite_root = _absolute_canonical_path(suite_raw, directory=True)
-        coverage_json = _absolute_canonical_path(coverage_raw, directory=False)
         if coverage_json.is_relative_to(suite_root):
             _fail("coverage_json_must_be_outside_suite")
-        result_path = _fresh_result_path(
-            result_raw, suite_root=suite_root, coverage_json=coverage_json
+        coverage_bytes = _read_bounded(
+            coverage_json,
+            max_bytes=MAX_JSON_BYTES,
+            oversize_reason="coverage_json_too_large",
+            unreadable_reason="coverage_json_invalid",
         )
-        result = verify(suite_root=suite_root, report=_load_json(coverage_json))
+        authorization, authorization_sha256 = _verify_coverage_authorization(
+            arguments.coverage_authorization,
+            arguments.coverage_authorization_sha256,
+            suite_root=suite_root,
+        )
+        receipt_sha256 = _verify_receipt(
+            arguments.measurement_receipt,
+            arguments.measurement_receipt_sha256,
+            suite_root=suite_root,
+            coverage_bytes=coverage_bytes,
+            coverage_authorization=authorization,
+            coverage_authorization_sha256=authorization_sha256,
+        )
+        result_path = _fresh_result_path(
+            arguments.result_json, suite_root=suite_root, coverage_json=coverage_json
+        )
+        result = {
+            "binding": {
+                "coverage_authorization_sha256": authorization_sha256,
+                "measurement_receipt_sha256": receipt_sha256,
+                "suite_commit": authorization["suite_commit"],
+                "suite_tree": authorization["suite_tree"],
+            },
+            **verify(suite_root=suite_root, report=_load_json(coverage_bytes)),
+            "status": ADMISSIBLE_STATUS,
+        }
         _write_result(result_path, result)
     except GateFailure as exc:
         reason = str(exc)

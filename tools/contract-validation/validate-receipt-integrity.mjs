@@ -1,13 +1,11 @@
-// Standalone static validator for the F8 receipt-integrity signature profile
-// packet. The packet is `PROPOSED` and **NOT ACCEPTED**.
+// Standalone static validator for the accepted-for-implementation F8
+// receipt-integrity signature profile. The packet remains NOT IMPLEMENTED.
 //
-// ADR-0004 F8 deferred the receipt-signing envelope. This packet proposes one
-// candidate profile and freezes a reproducible test vector for it. Exit 0 proves
-// only that the proposed profile is internally consistent, that the frozen vector
-// is cryptographically well formed under Ed25519, and that the declared rejection
-// inventory really rejects. Exit 0 decides no ADR, implements no runtime, closes
-// no F8 deferral, promotes nothing to stable v1/GA, and authorizes no signer,
-// issuer, key lifecycle or production deployment.
+// ADR-0004 F8 deferred the receipt-signing envelope. The delegated Governor has
+// accepted this profile for implementation only. Exit 0 proves only static
+// internal consistency, a well-formed Ed25519 vector, and executable rejection
+// rules. It proves no runtime, product, key lifecycle, UAT, release, deployment,
+// stable-v1/GA or production gate.
 //
 // Declared standalone commands, run from tools/contract-validation:
 //
@@ -39,9 +37,12 @@ const DEFAULT_ROOT = resolve(HERE, '../..');
 // ---------------------------------------------------------------------------
 
 export const RECEIPT_DIGEST_PROFILE = 'CYBRIK-RECEIPT-JCS/v1';
-export const SIGNATURE_ENVELOPE_PROFILE = 'CYBRIK-RECEIPT-JWS/v1';
+// The envelope profile id moved to /v2 at 0.2.0 because the signed statement
+// gained a required member (trust_bundle_ref), which changes the signed bytes.
+// The DIGEST profile id stayed at /v1: nothing about the receipt hash input moved.
+export const SIGNATURE_ENVELOPE_PROFILE = 'CYBRIK-RECEIPT-JWS/v2';
 export const CANONICALIZATION_ID = 'RFC8785-JCS';
-export const PROFILE_VERSION = '0.1.0';
+export const PROFILE_VERSION = '0.2.0';
 export const JWS_TYP = 'application/cybrik-receipt-signature-statement+json';
 export const SIGNER_ROLE = 'tool-fabric-control-plane';
 export const TRUST_BUNDLE_URI = 'cybrik-trust://receipt-signers/v1';
@@ -53,6 +54,14 @@ export const RECEIPT_CONTRACT_VERSION = '0.1.0';
 // Nothing else is stripped and no schema `default` is ever injected.
 export const RECEIPT_DIGEST_EXCLUDED_KEYS = ['receipt_digest', 'signature'];
 
+// What the ACCEPTED cybrik.execution-receipt.v1 prose says the digest covers:
+// "all fields except signature". Following it literally excludes one key, not
+// two. Keeping the accepted recipe executable — rather than only describing the
+// difference in prose — is what makes the divergence provable in bytes.
+export const ACCEPTED_PROSE_EXCLUDED_KEYS = ['signature'];
+export const ACCEPTED_RECEIPT_DIGEST_DESCRIPTION =
+  'Digest over the canonical receipt content (all fields except signature).';
+
 // Schema `default: []` sites on cybrik.execution-receipt.v1. The profile MUST
 // NOT materialize any of them; an absent array and an explicitly empty array are
 // two different receipts with two different digests.
@@ -63,7 +72,7 @@ const ALLOWED_HEADER_KEYS = ['alg', 'kid', 'typ'];
 // message itself or fetch one over the network, plus the detached/unencoded
 // payload switch. The exact-key-set rule above already excludes them; they are
 // enumerated so a violation names the specific attack.
-const FORBIDDEN_HEADER_KEYS = [
+export const FORBIDDEN_HEADER_KEYS = [
   'b64',
   'crit',
   'epk',
@@ -76,14 +85,15 @@ const FORBIDDEN_HEADER_KEYS = [
 ];
 const KEY_MATERIAL_KEYS = ['d', 'e', 'jwk', 'k', 'n', 'x', 'y'];
 
-const KID_PATTERN = /^cybrik-receipt-signer:v1:[0-9a-f]{64}$/;
+const KID_PATTERN = /^cybrik-receipt-signer:v1:[A-Za-z0-9_-]{43}$/;
 const LOCATOR_PATTERN =
   /^cybrik-ledger:\/\/receipt-signatures\/sha256\/[0-9a-f]{64}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const ED25519_SIGNATURE_BYTES = 64;
 
-const PROPOSED_STATUS = 'PROPOSED';
-const PACKET_VERSION = '0.1.0';
+const ACCEPTED_STATUS = 'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED';
+const DECISION_EFFECTIVE_AT = '2026-08-03T06:48:44+07:00';
+const PACKET_VERSION = '0.2.0';
 const PACKET_INTEGRITY_KEY = 'x-cybrik-packet-integrity';
 const CONTRACTS_PATH_ROOT = 'contracts/';
 
@@ -93,6 +103,7 @@ const CONTRACTS_PATH_ROOT = 'contracts/';
 // as exact literals is what stops a reviewer-invisible promotion from slipping
 // in behind a near-miss paraphrase.
 const SANCTIONED_STATUS_LITERALS = [
+  ACCEPTED_STATUS,
   'NOT IMPLEMENTED',
   'not stable v1/GA',
   'no stable v1 and no GA claim',
@@ -128,6 +139,211 @@ const statusHonestyViolations = (text) => {
 };
 
 // ---------------------------------------------------------------------------
+// Strict raw-JSON wire admission.
+//
+// `JSON.parse` is deliberately lenient in two ways that matter to a signature
+// profile. It silently keeps the LAST of a set of duplicate member names, so a
+// reviewer reading the source and a parser reading the same bytes can disagree
+// about what a document says. And `readFileSync(path, 'utf8')` replaces any
+// ill-formed byte with U+FFFD, so text read that way no longer round-trips to
+// the bytes that were on disk — a digest taken over the re-encoded text is then
+// not a digest of the file. Both are admitted here at the wire, once, before any
+// value is trusted.
+// ---------------------------------------------------------------------------
+
+const JSON_WHITESPACE = new Set([' ', '\t', '\n', '\r']);
+const JSON_STRING_ESCAPES = {
+  '"': '"', '\\': '\\', '/': '/', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t',
+};
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+const JSON_SCALAR_TERMINATORS = new Set([',', ']', '}', ' ', '\t', '\n', '\r']);
+
+/**
+ * Structural violations of the profile's strict raw-JSON admission rules:
+ * duplicate member names anywhere in the document (compared AFTER unescaping,
+ * so `"a"` and `"a"` collide), and any content after the top-level value
+ * other than whitespace. Returns [] for an admissible document.
+ */
+export function strictJsonViolations(text) {
+  const violations = [];
+  let index = 0;
+  const fail = (message) => violations.push(message);
+  const skipWhitespace = () => {
+    while (index < text.length && JSON_WHITESPACE.has(text[index])) index += 1;
+  };
+
+  const readString = () => {
+    index += 1;
+    let value = '';
+    while (index < text.length) {
+      const character = text[index];
+      if (character === '"') {
+        index += 1;
+        return value;
+      }
+      if (character === '\\') {
+        const escape = text[index + 1];
+        index += 2;
+        if (escape === 'u') {
+          value += String.fromCharCode(Number.parseInt(text.slice(index, index + 4), 16));
+          index += 4;
+        } else {
+          value += JSON_STRING_ESCAPES[escape] ?? escape;
+        }
+        continue;
+      }
+      value += character;
+      index += 1;
+    }
+    fail('unterminated string literal');
+    return value;
+  };
+
+  const readValue = (depth) => {
+    if (depth > 64) {
+      fail('JSON nesting exceeds the admitted depth');
+      return false;
+    }
+    skipWhitespace();
+    const character = text[index];
+    if (character === undefined) {
+      fail('unexpected end of input');
+      return false;
+    }
+    if (character === '{') {
+      index += 1;
+      const seen = new Set();
+      skipWhitespace();
+      if (text[index] === '}') {
+        index += 1;
+        return true;
+      }
+      for (;;) {
+        skipWhitespace();
+        if (text[index] !== '"') {
+          fail('object member name is not a string literal');
+          return false;
+        }
+        const name = readString();
+        if (seen.has(name)) fail(`duplicate key '${name}'`);
+        seen.add(name);
+        skipWhitespace();
+        if (text[index] !== ':') {
+          fail(`missing ':' after member '${name}'`);
+          return false;
+        }
+        index += 1;
+        if (!readValue(depth + 1)) return false;
+        skipWhitespace();
+        if (text[index] === ',') {
+          index += 1;
+          continue;
+        }
+        if (text[index] === '}') {
+          index += 1;
+          return true;
+        }
+        fail('malformed object');
+        return false;
+      }
+    }
+    if (character === '[') {
+      index += 1;
+      skipWhitespace();
+      if (text[index] === ']') {
+        index += 1;
+        return true;
+      }
+      for (;;) {
+        if (!readValue(depth + 1)) return false;
+        skipWhitespace();
+        if (text[index] === ',') {
+          index += 1;
+          continue;
+        }
+        if (text[index] === ']') {
+          index += 1;
+          return true;
+        }
+        fail('malformed array');
+        return false;
+      }
+    }
+    if (character === '"') {
+      readString();
+      return true;
+    }
+    const start = index;
+    while (index < text.length && !JSON_SCALAR_TERMINATORS.has(text[index])) index += 1;
+    if (index === start) {
+      fail(`unexpected character '${character}'`);
+      return false;
+    }
+    return true;
+  };
+
+  if (readValue(0)) {
+    skipWhitespace();
+    if (index < text.length) {
+      fail(`trailing content after the top-level JSON value at offset ${index}`);
+    }
+  }
+  return violations;
+}
+
+/**
+ * Admits exact on-disk bytes: no UTF-8 BOM, well-formed UTF-8, and the strict
+ * structural rules above. Returns every violation found plus the parsed value
+ * where one could be recovered, so a caller reports all of them at once instead
+ * of stopping at the first.
+ */
+export function parseStrictJsonBytes(bytes) {
+  const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const violations = [];
+  let body = buffer;
+
+  if (buffer.subarray(0, UTF8_BOM.length).equals(UTF8_BOM)) {
+    violations.push('byte order mark (U+FEFF) is present; only raw UTF-8 bytes are admitted');
+    body = buffer.subarray(UTF8_BOM.length);
+  }
+  const text = body.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(body)) {
+    violations.push('bytes are not well-formed UTF-8; a lossy re-encoding would not digest to the file');
+  }
+  violations.push(...strictJsonViolations(text));
+
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    violations.push(`JSON parse failed: ${error.message}`);
+  }
+  return { violations, value };
+}
+
+// ---------------------------------------------------------------------------
+// Declared divergences from the ACCEPTED receipt contract (OD-F8-6).
+//
+// A proposal that reuses an accepted contract by $ref can still disagree with
+// what that contract's prose says. Enumerating every such disagreement — rather
+// than describing one of them as the only one — is what stops a reviewer from
+// reading the accepted schema, implementing exactly it, and producing receipts
+// this profile rejects.
+// ---------------------------------------------------------------------------
+
+export const ACCEPTED_CONTRACT_DIVERGENCES = [
+  {
+    id: 'receipt-digest-exclusion-set',
+    subject: 'cybrik.execution-receipt.v1 properties.receipt_digest.description',
+    accepted_text: ACCEPTED_RECEIPT_DIGEST_DESCRIPTION,
+    profile_text:
+      "CYBRIK-RECEIPT-JCS/v1 removes exactly two top-level keys before canonicalization — receipt_digest AND signature — and prefixes the hash input with UTF-8('CYBRIK-RECEIPT-JCS/v1') then one 0x00 byte.",
+    consequence:
+      'The accepted prose names one excluded field; this profile excludes two and binds a profile id into the hash input. A Fabric implementation that read the accepted schema and nothing else would compute a different digest for the same receipt, and every statement it signed would be rejected under RI-1. digest_evidence.accepted_prose_recipe in the examples manifest pins that second value so the difference is provable in bytes rather than asserted in prose.',
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Rejection inventory. Four negative fixtures live on disk; the inventory below
 // is wider than the fixture set on purpose, so every rule is exercised by at
 // least one in-process mutation probe even where no fixture exists.
@@ -157,7 +373,7 @@ export const REJECTION_INVENTORY = [
   {
     id: 'RI-5',
     category: 'embedded-or-remote-key',
-    rule: 'No embedded or remote key may appear anywhere: jwk, jku, x5u, x5c, x5t, x5t#S256 and epk are forbidden in the header, no key material may appear in the envelope, and kid resolves only against the pinned external trust bundle.',
+    rule: 'No embedded or remote key may appear anywhere: b64, crit, epk, jku, jwk, x5c, x5t, x5t#S256 and x5u are forbidden in the header, no key material may appear in the envelope, the unsigned envelope trust_bundle_ref must be exactly the reference bound inside the signed statement, and kid must resolve to a key in the trust bundle the verifier already holds. The bound bundle_digest is a provenance record of the generation current at signing time, not a precondition the verifier bundle must equal, so a rotation that retains the signing key does not invalidate a historical receipt.',
   },
   {
     id: 'RI-6',
@@ -241,6 +457,7 @@ const expectedManifestTopLevelKeys = [
   'description',
   'x-cybrik-status',
   'x-cybrik-not-accepted',
+  'x-cybrik-not-implemented',
   'x-cybrik-packet-version',
   'x-cybrik-is-bundle-tag',
   'format_pins',
@@ -251,10 +468,11 @@ const expectedManifestTopLevelKeys = [
   'digest_profile',
   'signature_profile',
   'rejection_inventory',
+  'accepted_contract_divergences',
   'runtime_invariants',
   'authority_invariants',
   'future_prerequisites',
-  'open_decisions',
+  'decisions',
   'verification_commands',
   PACKET_INTEGRITY_KEY,
   'gate',
@@ -267,6 +485,18 @@ export const expectedFuturePrerequisites = [
   'workload-attestation',
   'production-issuer-and-signer',
   'key-lifecycle',
+];
+
+// Every technical question resolved by the delegated-Governor F8 decision.
+// Runtime and key-lifecycle prerequisites remain separate OPEN gates.
+export const expectedDecisions = [
+  'OD-F8-1',
+  'OD-F8-2',
+  'OD-F8-3',
+  'OD-F8-4',
+  'OD-F8-5',
+  'OD-F8-6',
+  'OD-F8-7',
 ];
 
 // ---------------------------------------------------------------------------
@@ -293,18 +523,33 @@ export const canonicalReceiptDigest = (receipt) => {
   )}`;
 };
 
+/**
+ * The accepted contract's prose recipe, executed literally: the same profile
+ * hash construction with only `signature` removed, because "all fields except
+ * signature" names one field. It exists to make the OD-F8-6 divergence a
+ * comparable value rather than a claim; nothing signs or accepts this digest.
+ */
+export const acceptedProseReceiptDigest = (receipt) => {
+  const content = { ...receipt };
+  for (const key of ACCEPTED_PROSE_EXCLUDED_KEYS) delete content[key];
+  return `sha256:${sha256Hex(
+    Buffer.concat([utf8(RECEIPT_DIGEST_PROFILE), Buffer.from([0]), jcsBytes(content)]),
+  )}`;
+};
+
 /** Lowercase hex SHA-256 of the exact compact JWS bytes, wrapped in the locator. */
 export const computeSignatureLocator = (jwsCompact) =>
   `cybrik-ledger://receipt-signatures/sha256/${sha256Hex(Buffer.from(jwsCompact, 'ascii'))}`;
 
 /**
- * kid is the hex-encoded SHA-256 over the RFC 7638 thumbprint input for an OKP
- * key — JCS of exactly {crv, kty, x}. RFC 7638 renders the digest as base64url;
- * this profile deliberately renders it as lowercase hex so the kid grammar stays
- * a single character class. That encoding choice is the only divergence.
+ * kid is the RFC 7638 base64url-encoded SHA-256 over the thumbprint input for
+ * an OKP key — JCS of exactly {crv, kty, x}. Padding is omitted as RFC 7638
+ * requires, so a SHA-256 thumbprint is exactly 43 base64url characters.
  */
 export const jwkThumbprintKid = (jwk) =>
-  `cybrik-receipt-signer:v1:${sha256Hex(jcsBytes({ crv: jwk?.crv, kty: jwk?.kty, x: jwk?.x }))}`;
+  `cybrik-receipt-signer:v1:${createHash('sha256')
+    .update(jcsBytes({ crv: jwk?.crv, kty: jwk?.kty, x: jwk?.x }))
+    .digest('base64url')}`;
 
 /** Digest of the pinned external trust bundle document. */
 export const trustBundleDigest = (bundle) => `sha256:${sha256Hex(jcsBytes(bundle))}`;
@@ -422,13 +667,13 @@ export function verifyReceiptSignatureEnvelope({
     }
   }
 
-  let header;
-  try {
-    header = JSON.parse(Buffer.from(protectedSegment, 'base64url').toString('utf8'));
-  } catch (error) {
-    fail('RI-3', `protected header is not JSON: ${error.message}`);
-    return findings;
+  const protectedHeaderBytes = Buffer.from(protectedSegment, 'base64url');
+  const protectedHeaderAdmission = parseStrictJsonBytes(protectedHeaderBytes);
+  for (const violation of protectedHeaderAdmission.violations) {
+    fail('RI-3', `protected header ${violation}`);
   }
+  const header = protectedHeaderAdmission.value;
+  if (header === undefined) return findings;
   if (!header || typeof header !== 'object' || Array.isArray(header)) {
     fail('RI-3', 'protected header must be a JSON object');
     return findings;
@@ -479,8 +724,14 @@ export function verifyReceiptSignatureEnvelope({
   if (envelope.trust_bundle_ref?.bundle_uri !== TRUST_BUNDLE_URI) {
     fail('RI-5', `envelope.trust_bundle_ref.bundle_uri must pin ${TRUST_BUNDLE_URI}`);
   }
-  if (trustBundle && envelope.trust_bundle_ref?.bundle_digest !== trustBundleDigest(trustBundle)) {
-    fail('RI-5', 'envelope.trust_bundle_ref.bundle_digest does not match the pinned trust bundle');
+  // The reference is bound INSIDE the signed statement, so the unsigned copy in
+  // the envelope carries no independent authority: it must reproduce the signed
+  // one exactly. Deliberately NOT checked: equality with the digest of the
+  // bundle the verifier happens to hold. The bound value records the generation
+  // current at signing time; requiring the verifier's own bundle to match it
+  // would make every historical receipt unverifiable the moment a key rotated.
+  if (statement && !same(envelope.trust_bundle_ref, statement.trust_bundle_ref)) {
+    fail('RI-5', 'envelope.trust_bundle_ref is not the reference bound inside the signed statement');
   }
   const bundleEntry = (trustBundle?.keys || []).find((entry) => entry.kid === envelope.kid);
   if (!bundleEntry) {
@@ -570,7 +821,9 @@ export const mutationProbes = [
     label: 'signature envelope profile changed',
     mutate: (vector) => ({
       ...vector,
-      envelope: { ...vector.envelope, envelope_profile: 'CYBRIK-RECEIPT-JWS/v2' },
+      // The superseded 0.1.0 envelope profile id. A verifier that still accepted
+      // it would accept a statement signed without the trust_bundle_ref binding.
+      envelope: { ...vector.envelope, envelope_profile: 'CYBRIK-RECEIPT-JWS/v1' },
     }),
   },
   {
@@ -578,7 +831,7 @@ export const mutationProbes = [
     label: 'signature envelope version changed',
     mutate: (vector) => ({
       ...vector,
-      envelope: { ...vector.envelope, envelope_version: '0.2.0' },
+      envelope: { ...vector.envelope, envelope_version: '0.1.0' },
     }),
   },
   {
@@ -665,6 +918,7 @@ export const mutationProbes = [
   {
     id: 'RI-4',
     label: 'b64=false unencoded-payload switch',
+    header: 'b64',
     mutate: (vector) => {
       const parts = decodeJwsParts(vector.envelope.jws_compact);
       const jws = reencodeJws({ ...parts.header, b64: false }, parts.payload, parts.signatureSegment);
@@ -677,6 +931,7 @@ export const mutationProbes = [
   {
     id: 'RI-5',
     label: 'embedded jwk in the protected header',
+    header: 'jwk',
     mutate: (vector) => {
       const parts = decodeJwsParts(vector.envelope.jws_compact);
       const jws = reencodeJws(
@@ -693,6 +948,7 @@ export const mutationProbes = [
   {
     id: 'RI-5',
     label: 'remote jku key-fetch header',
+    header: 'jku',
     mutate: (vector) => {
       const parts = decodeJwsParts(vector.envelope.jws_compact);
       const jws = reencodeJws(
@@ -709,6 +965,7 @@ export const mutationProbes = [
   {
     id: 'RI-5',
     label: 'remote x5u certificate-fetch header',
+    header: 'x5u',
     mutate: (vector) => {
       const parts = decodeJwsParts(vector.envelope.jws_compact);
       const jws = reencodeJws(
@@ -725,6 +982,7 @@ export const mutationProbes = [
   {
     id: 'RI-5',
     label: 'embedded x5c certificate chain header',
+    header: 'x5c',
     mutate: (vector) => {
       const parts = decodeJwsParts(vector.envelope.jws_compact);
       const jws = reencodeJws(
@@ -738,6 +996,35 @@ export const mutationProbes = [
       };
     },
   },
+  // The remaining enumerated key-sourcing parameters. Every entry of
+  // FORBIDDEN_HEADER_KEYS is proved to reject on its own, so a parameter can
+  // never be declared forbidden with no executable probe behind the claim.
+  ...[
+    ['crit', ['b64']],
+    ['epk', { crv: 'X25519', kty: 'OKP', x: 'VEVTVC1PTkxZLU5PVC1BLUtFWQ' }],
+    ['x5t', 'VEVTVC1PTkxZLU5PVC1BLVRIVU1CUFJJTlQ'],
+    ['x5t#S256', 'VEVTVC1PTkxZLU5PVC1BLVRIVU1CUFJJTlQ'],
+  ].map(([parameter, value]) => ({
+    id: 'RI-5',
+    header: parameter,
+    label: `forbidden ${parameter} key-sourcing header`,
+    mutate: (vector) => {
+      const parts = decodeJwsParts(vector.envelope.jws_compact);
+      const jws = reencodeJws(
+        { ...parts.header, [parameter]: value },
+        parts.payload,
+        parts.signatureSegment,
+      );
+      return {
+        ...vector,
+        envelope: {
+          ...vector.envelope,
+          jws_compact: jws,
+          signature_locator: computeSignatureLocator(jws),
+        },
+      };
+    },
+  })),
   {
     id: 'RI-5',
     label: 'kid absent from the pinned trust bundle',
@@ -848,29 +1135,38 @@ export function validateReceiptIntegrityProposal({
 } = {}) {
   const errors = [];
   const texts = new Map();
+  const bytes = new Map();
   const documents = new Map();
 
-  const readText = (relativePath) => {
-    if (overrides.has(relativePath)) return overrides.get(relativePath);
+  // Read raw bytes, never `readFileSync(path, 'utf8')`: a lossy decode would
+  // silently repair an ill-formed file, and the member digest below must be a
+  // digest of what is actually on disk.
+  const readBytes = (relativePath) => {
+    if (overrides.has(relativePath)) {
+      const override = overrides.get(relativePath);
+      return Buffer.isBuffer(override) ? override : Buffer.from(String(override), 'utf8');
+    }
     const absolutePath = join(root, relativePath);
     if (!existsSync(absolutePath)) {
       errors.push(`missing expected packet file: ${relativePath}`);
       return undefined;
     }
-    return readFileSync(absolutePath, 'utf8');
+    return readFileSync(absolutePath);
   };
   const readJson = (relativePath) => {
-    const text = readText(relativePath);
-    if (text === undefined) return undefined;
-    texts.set(relativePath, text);
-    try {
-      const document = JSON.parse(text);
-      documents.set(relativePath, document);
-      return document;
-    } catch (error) {
-      errors.push(`${relativePath}: JSON parse failed: ${error.message}`);
-      return undefined;
+    const buffer = readBytes(relativePath);
+    if (buffer === undefined) return undefined;
+    bytes.set(relativePath, buffer);
+    const { violations, value } = parseStrictJsonBytes(buffer);
+    if (expectedPacketPaths.includes(relativePath)) {
+      for (const violation of violations) errors.push(`${relativePath}: ${violation}`);
+    } else if (value === undefined) {
+      errors.push(`${relativePath}: JSON parse failed`);
     }
+    if (value === undefined) return undefined;
+    texts.set(relativePath, buffer.toString('utf8'));
+    documents.set(relativePath, value);
+    return value;
   };
 
   for (const relativePath of [...expectedPacketPaths, ...acceptedRefPaths]) readJson(relativePath);
@@ -885,11 +1181,14 @@ export function validateReceiptIntegrityProposal({
   // --- lifecycle honesty ------------------------------------------------------
   for (const [relativePath, document] of documents) {
     if (!expectedPacketPaths.includes(relativePath)) continue;
-    if (document?.['x-cybrik-status'] !== undefined && document['x-cybrik-status'] !== PROPOSED_STATUS) {
-      fail(`${relativePath}: x-cybrik-status must remain ${PROPOSED_STATUS}`);
+    if (document?.['x-cybrik-status'] !== undefined && document['x-cybrik-status'] !== ACCEPTED_STATUS) {
+      fail(`${relativePath}: x-cybrik-status must be ${ACCEPTED_STATUS}`);
     }
-    if (document?.['x-cybrik-not-accepted'] !== undefined && document['x-cybrik-not-accepted'] !== true) {
-      fail(`${relativePath}: x-cybrik-not-accepted must remain true`);
+    if (document?.['x-cybrik-not-accepted'] !== undefined && document['x-cybrik-not-accepted'] !== false) {
+      fail(`${relativePath}: x-cybrik-not-accepted must be false`);
+    }
+    if (document?.['x-cybrik-status'] !== undefined && document['x-cybrik-not-implemented'] !== true) {
+      fail(`${relativePath}: accepted packet metadata must carry x-cybrik-not-implemented=true`);
     }
   }
   for (const [relativePath, text] of texts) {
@@ -908,7 +1207,7 @@ export function validateReceiptIntegrityProposal({
       fail(`${COMPATIBILITY_PATH}: packet version must be ${PACKET_VERSION}`);
     }
     if (manifest['x-cybrik-is-bundle-tag'] !== false) {
-      fail(`${COMPATIBILITY_PATH}: a proposal cannot be an immutable bundle tag`);
+      fail(`${COMPATIBILITY_PATH}: the pre-v1 packet cannot be an immutable bundle tag`);
     }
     if (!same(manifest.verification_commands, expectedVerificationCommands)) {
       fail(`${COMPATIBILITY_PATH}: verification_commands drifted from the validator's declaration`);
@@ -916,17 +1215,36 @@ export function validateReceiptIntegrityProposal({
     if (!same(manifest.rejection_inventory, REJECTION_INVENTORY)) {
       fail(`${COMPATIBILITY_PATH}: rejection_inventory drifted from the validator's implemented rules`);
     }
+    if (!same(manifest.accepted_contract_divergences, ACCEPTED_CONTRACT_DIVERGENCES)) {
+      fail(`${COMPATIBILITY_PATH}: accepted_contract_divergences drifted from the validator's declaration`);
+    }
+    if (!same((manifest.decisions || []).map((entry) => entry.id), expectedDecisions)) {
+      fail(`${COMPATIBILITY_PATH}: decisions must be exactly ${expectedDecisions.join(', ')}`);
+    }
+    for (const decision of manifest.decisions || []) {
+      if (!String(decision.current).startsWith('DECIDED —')) {
+        fail(`${COMPATIBILITY_PATH}: ${decision.id} must carry a DECIDED disposition`);
+      }
+    }
     if (!same((manifest.future_prerequisites || []).map((entry) => entry.id), expectedFuturePrerequisites)) {
       fail(`${COMPATIBILITY_PATH}: future_prerequisites must be exactly ${expectedFuturePrerequisites.join(', ')}`);
     }
     if (!same(manifest.members?.map((member) => member.file), expectedPacketPaths.map((path) => path.slice(CONTRACTS_PATH_ROOT.length)))) {
       fail(`${COMPATIBILITY_PATH}: members must list exactly the ${PACKET_MEMBER_COUNT} packet files in inventory order`);
     }
+    for (const member of manifest.members || []) {
+      if (member.status !== ACCEPTED_STATUS) {
+        fail(`${COMPATIBILITY_PATH}: ${member.file} member status must be ${ACCEPTED_STATUS}`);
+      }
+    }
     if (!same(manifest.reuses_unmodified, acceptedRefPaths.map((path) => path.slice(CONTRACTS_PATH_ROOT.length)))) {
       fail(`${COMPATIBILITY_PATH}: reuses_unmodified must list exactly the accepted schemas reused by $ref`);
     }
-    if (manifest.gate?.status !== 'OPEN — NOT DECIDED') {
-      fail(`${COMPATIBILITY_PATH}: gate.status must remain 'OPEN — NOT DECIDED'`);
+    if (manifest.gate?.status !== ACCEPTED_STATUS) {
+      fail(`${COMPATIBILITY_PATH}: gate.status must be '${ACCEPTED_STATUS}'`);
+    }
+    if (manifest.gate?.decision_effective_at !== DECISION_EFFECTIVE_AT) {
+      fail(`${COMPATIBILITY_PATH}: gate.decision_effective_at must be ${DECISION_EFFECTIVE_AT}`);
     }
 
     // --- packet integrity -----------------------------------------------------
@@ -950,7 +1268,7 @@ export function validateReceiptIntegrityProposal({
       }
       const actual = relativePath === COMPATIBILITY_PATH
         ? sha256Hex(utf8(manifestSelfDigestInput(manifest)))
-        : sha256Hex(utf8(texts.get(relativePath) ?? ''));
+        : sha256Hex(bytes.get(relativePath) ?? Buffer.alloc(0));
       if (entry.sha256 !== actual) {
         fail(`${COMPATIBILITY_PATH}: member digest mismatch for ${memberFile}`);
       }
@@ -985,6 +1303,19 @@ export function validateReceiptIntegrityProposal({
   const receipt = examples?.test_vector?.receipt;
   const trustBundle = examples?.trust_bundle;
   let probeCount = 0;
+  let historicalVerificationCases = 0;
+
+  // The accepted receipt schema is reused unmodified, so its prose is read here
+  // rather than restated: if the accepted wording ever moves, the divergence
+  // claim stops being true and this fails rather than going quietly stale.
+  const acceptedReceiptSchema = documents.get(acceptedRefPaths[1]);
+  const acceptedDigestText = acceptedReceiptSchema?.properties?.receipt_digest?.description;
+  if (acceptedDigestText !== ACCEPTED_RECEIPT_DIGEST_DESCRIPTION) {
+    fail(
+      `${acceptedRefPaths[1]}: the accepted receipt_digest wording the divergence inventory pins `
+      + `has changed; ACCEPTED_CONTRACT_DIVERGENCES must be re-derived`,
+    );
+  }
 
   if (!receipt || !trustBundle) {
     fail(`${EXAMPLES_MANIFEST_PATH}: must carry test_vector.receipt and the pinned trust_bundle`);
@@ -1009,6 +1340,18 @@ export function validateReceiptIntegrityProposal({
     if (absentDigest === emptyDigest) {
       fail('CYBRIK-RECEIPT-JCS/v1 must distinguish an absent array from an explicitly empty array');
     }
+    // OD-F8-6: the accepted prose recipe, executed. It must be pinned and it
+    // must differ, or the declared divergence is cosmetic.
+    const proseDigest = acceptedProseReceiptDigest(receipt);
+    if (evidence.accepted_prose_recipe !== proseDigest) {
+      fail(`${EXAMPLES_MANIFEST_PATH}: digest_evidence.accepted_prose_recipe mismatch (expected ${proseDigest})`);
+    }
+    if (proseDigest === absentDigest) {
+      fail(
+        `${EXAMPLES_MANIFEST_PATH}: the declared divergence from the accepted receipt_digest prose `
+        + 'is not observable — both recipes produce the same digest',
+      );
+    }
     if (examples?.trust_bundle_digest !== trustBundleDigest(trustBundle)) {
       fail(`${EXAMPLES_MANIFEST_PATH}: trust_bundle_digest mismatch`);
     }
@@ -1028,10 +1371,47 @@ export function validateReceiptIntegrityProposal({
       fail(`${EXAMPLES_MANIFEST_PATH}: receipt.signature must carry exactly the envelope signature_locator`);
     }
 
+    // OD-F8-7: the reference is bound inside the signed statement, and the
+    // generation it names is the one this packet freezes.
+    if (statement && !same(statement.trust_bundle_ref, envelope?.trust_bundle_ref)) {
+      fail(`${EXAMPLES_MANIFEST_PATH}: the signed statement and the envelope bind different trust_bundle_ref values`);
+    }
+    if (statement?.trust_bundle_ref?.bundle_digest !== examples?.trust_bundle_digest) {
+      fail(
+        `${EXAMPLES_MANIFEST_PATH}: the signed trust_bundle_ref.bundle_digest must record the frozen `
+        + 'trust-bundle generation current at signing time',
+      );
+    }
+
     const vector = { envelope, statement, receipt, trustBundle };
     const positiveFindings = verifyReceiptSignatureEnvelope(vector);
     for (const finding of positiveFindings) {
       fail(`positive vector rejected by ${finding.id}: ${finding.message}`);
+    }
+
+    // Historical verification across a rotation. The extra generation retains
+    // the signing key and adds one more entry, so its document digest is not the
+    // one the signer bound. A verifier that demanded equality would reject every
+    // receipt signed before the rotation; this profile must not.
+    const rotatedBundle = {
+      ...trustBundle,
+      keys: [
+        ...(trustBundle.keys || []),
+        // A second entry that is self-consistent under the kid rule and is never
+        // selected, because kid selects the signing key. It is a bundle-shape
+        // device, not a signer: nothing verifies against it.
+        (() => {
+          const jwk = { crv: 'Ed25519', kty: 'OKP', x: 'VEVTVC1PTkxZLU5PVC1BLVNJR05FUi1LRVktdjEtLS0' };
+          return { kid: jwkThumbprintKid(jwk), jwk };
+        })(),
+      ],
+    };
+    historicalVerificationCases += 1;
+    if (trustBundleDigest(rotatedBundle) === trustBundleDigest(trustBundle)) {
+      fail('the rotation case must actually change the trust-bundle digest');
+    }
+    for (const finding of verifyReceiptSignatureEnvelope({ ...vector, trustBundle: rotatedBundle })) {
+      fail(`historical verification across a rotation was rejected by ${finding.id}: ${finding.message}`);
     }
 
     // Every inventory rule must be exercised, and each probe must fire its rule.
@@ -1087,15 +1467,18 @@ export function validateReceiptIntegrityProposal({
   return {
     status: manifest?.['x-cybrik-status'],
     notAccepted: manifest?.['x-cybrik-not-accepted'],
+    notImplemented: manifest?.['x-cybrik-not-implemented'],
     packetVersion: manifest?.['x-cybrik-packet-version'],
     gateStatus: manifest?.gate?.status,
     errors,
     counts: {
-      packetFiles: expectedPacketPaths.filter((relativePath) => texts.has(relativePath)).length,
+      packetFiles: expectedPacketPaths.filter((relativePath) => bytes.has(relativePath)).length,
       positiveFixtures: positiveFixturePaths.length,
       negativeFixtures: negativeFixturePaths.length,
       rejectionRules: REJECTION_IDS.length,
       mutationProbes: probeCount,
+      acceptedContractDivergences: ACCEPTED_CONTRACT_DIVERGENCES.length,
+      historicalVerificationCases,
     },
   };
 }
@@ -1113,17 +1496,20 @@ function main() {
       'RESULT=PASS',
       `status=${report.status}`,
       `not_accepted=${report.notAccepted}`,
+      `not_implemented=${report.notImplemented}`,
       `gate=${JSON.stringify(report.gateStatus)}`,
       `packet_files=${report.counts.packetFiles}`,
       `positive=${report.counts.positiveFixtures}`,
       `negative=${report.counts.negativeFixtures}`,
       `rejection_rules=${report.counts.rejectionRules}`,
       `mutation_probes=${report.counts.mutationProbes}`,
+      `accepted_contract_divergences=${report.counts.acceptedContractDivergences}`,
+      `historical_verification_cases=${report.counts.historicalVerificationCases}`,
     ].join(' '),
   );
   console.log(
-    'PROPOSED — NOT ACCEPTED. No ADR decision, no runtime implementation, no F8 closure, '
-    + 'no stable v1 and no GA claim follows from this result.',
+    'ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED. Static contract conformance only; '
+    + 'no runtime, product, UAT, release, deployment, production, stable-v1 or GA claim follows.',
   );
 }
 

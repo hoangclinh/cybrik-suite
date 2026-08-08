@@ -1,0 +1,16 @@
+# Exact historical false positives only. New commits, paths, rules, or lines remain scanned.
+# 5af4b90 synthetic UAT idempotency identifiers and public SSH key fixture.
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/src/cybrik_suite_uat_fabric/runtime_wiring.py:generic-api-key:234
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_runtime_case_wiring.py:generic-api-key:71
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_runtime_case_wiring.py:generic-api-key:94
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_runtime_case_wiring.py:generic-api-key:148
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_runtime_wiring_admission.py:generic-api-key:13
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_runtime_wiring.py:generic-api-key:192
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_soc_product_service_app.py:generic-api-key:57
+5af4b90adf547c1185ab17f5931c304e44b17694:integration/compose/soc-ai-fabric-alert-context-mtls/tests/test_integrated_stage.py:generic-api-key:184
+
+# Older deterministic conformance/test fixtures already present in branch history.
+9358c7b85e0533c3e939d0eae0e4e6736fdacf24:integration/compose/soc-ai-lifecycle-create-mtls/tests/test_terminal_integration.py:private-key:69
+c543ebe86eb88d1f4125ab44e79dba8ab2ca1b2f:tools/contract-validation/tests/validate-resource-bounds.test.mjs:generic-api-key:1707
+a7ee5345ed53c153d8b5f237fb7fd68484bc1e50:contracts/examples/receipt-integrity/positive/receipt-signature-envelope.json:jwt:9
+c19f9c45cc87252ef6f1aba61fc7b9abcfa11979:tools/contract-validation/tests/validate-transport.test.mjs:generic-api-key:1965

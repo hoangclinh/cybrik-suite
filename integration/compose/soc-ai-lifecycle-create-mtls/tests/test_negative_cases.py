@@ -16,7 +16,6 @@ from types import SimpleNamespace
 from typing import Self
 
 import pytest
-
 from cybrik_suite_uat_mtls import client, evidence, harness, procedure, store
 
 _CLIENT = Path(__file__).resolve().parents[1] / "src/cybrik_suite_uat_mtls/client.py"
@@ -53,7 +52,7 @@ def test_runtime_cases_prove_persistence_outage_and_secret_boundaries() -> None:
     ):
         assert required in source or required in harness
     assert "if not store.verify_absent()" in harness
-    assert 'results.append(_run_case("N9"' in harness
+    assert 'results.append(execute_case("N9"))' in harness
     assert "store.pause()" not in harness
 
 
@@ -349,7 +348,7 @@ def _prepare_network_case(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, outcomes: list[object]
 ) -> tuple[type[Exception], SimpleNamespace]:
     error_type = _install_network_fakes(monkeypatch, outcomes)
-    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: None)
+    monkeypatch.setattr(harness, "assert_child_runtime_authorized", lambda: None)
     monkeypatch.setattr(client, "certificate_thumbprint_sha256", lambda _: "thumbprint")
     monkeypatch.setattr(client, "_PemEs256Signer", lambda _: object())
     tls_context = SimpleNamespace(minimum_version=None, maximum_version=None)
@@ -443,7 +442,7 @@ def test_secret_sweep_is_file_bounded_and_rejects_known_or_classified_secrets(
     evidence_root, runtime_root = _secret_roots(tmp_path)
     artifact = evidence_root / "result.txt"
     real_secret_reason = evidence.secret_reason
-    monkeypatch.setattr(harness, "assert_runtime_authorized", lambda: None)
+    monkeypatch.setattr(harness, "assert_child_runtime_authorized", lambda: None)
     monkeypatch.setenv("CYBRIK_UAT_D2_EVIDENCE_DIR", str(evidence_root))
     monkeypatch.setenv("CYBRIK_UAT_D2_RUNTIME_DIR", str(runtime_root))
 
@@ -780,7 +779,11 @@ def test_postgres_start_uses_digest_pinned_argv_and_rolls_back_readiness_failure
     )
     monkeypatch.setattr(store, "wait_ready", lambda _: None)
     store.start(runtime)
-    assert calls[0][0][0:3] == ("docker", "run", "--pull=never")
+    assert calls[0][0][0:3] == (
+        store.DOCKER_EXECUTABLE,
+        "run",
+        "--pull=never",
+    )
     assert calls[0][0][-1] == store.POSTGRES_IMAGE
     assert runtime.password not in calls[0][0]
 
@@ -952,7 +955,12 @@ def test_stop_and_verify_absent_are_fully_stubbed(
 
     monkeypatch.setattr(store, "container_exists", lambda: True)
     store.stop()
-    assert calls[0][0][0] == ("docker", "rm", "-f", store.CONTAINER_NAME)
+    assert calls[0][0][0] == (
+        store.DOCKER_EXECUTABLE,
+        "rm",
+        "-f",
+        store.CONTAINER_NAME,
+    )
     assert store.verify_absent() is False
 
     monkeypatch.setattr(store, "container_exists", lambda: False)

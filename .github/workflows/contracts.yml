@@ -88,3 +88,198 @@ jobs:
       - name: Test W1 control validator fail-closed rules
         working-directory: tools/contract-validation
         run: npm run test:w1-control
+
+  topology-rehearsal-tests:
+    name: topology rehearsal tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout topology rehearsal suite
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)
+
+      # No new GitHub Action enters the reviewed supply chain here. uv is already a
+      # project dependency, so installing it from PyPI at a pinned version in a run:
+      # step adds no supplier the trusted set does not already carry. 0.11.16 is the
+      # version the local collector measures with.
+      # ruff is installed here beside uv, and NOT through the project environment,
+      # because it is not a project dependency: pyproject.toml declares no runtime
+      # dependencies and the single `test` group is pytest alone, so the protected
+      # uv.lock does not pin ruff and may not be regenerated to add it. 0.16.0 is
+      # the version the declared bar of 12 at .github/REVIEW-BASELINE.json was
+      # measured with; pinning it is what makes that number mean the same thing on
+      # THIS side. Only the hosted side is pinned: ruff is absent from pyproject.toml
+      # and from the protected uv.lock, so the local collector resolves it from PATH
+      # and equal versions across the two gates is a convention, not a pin. An
+      # unpinned ruff would let the measurement move with no change to the tree — the
+      # drift the baseline says is impossible — and that remains reachable locally,
+      # so a disagreement between the two numbers should be diagnosed at the
+      # measuring host's ruff before it is diagnosed at the tree.
+      - name: Install uv 0.11.16 and ruff 0.16.0 (pinned, from PyPI — deliberately not actions)
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input \
+            "uv==0.11.16" "ruff==0.16.0"
+          uv --version
+          ruff --version
+
+      # Install may reach the network; measurement may not. --frozen never rewrites
+      # the committed uv.lock, and the three measuring steps below add --offline so
+      # no measured command can resolve anything the lockfile did not already pin.
+      - name: Materialise the locked environment (--frozen never regenerates uv.lock)
+        working-directory: integration/topology-rehearsal
+        run: uv sync --frozen --group test
+
+      - name: Measure pytest, ruff and compileall (no network)
+        working-directory: integration/topology-rehearsal
+        run: |
+          set -euo pipefail
+          uv run --frozen --offline --group test python -m pytest -q \
+            --junit-xml="${RUNNER_TEMP}/pytest.xml" || true
+          ruff check --no-cache \
+            --output-format=json src tests > "${RUNNER_TEMP}/ruff.json" || true
+          uv run --frozen --offline python -m compileall -q src tests
+
+      # The bar is read from .github/REVIEW-BASELINE.json and is never written here.
+      # That file lives outside this lane's write prefix on purpose: a lane that can
+      # edit its own baseline is setting its own gate. A drift in EITHER direction
+      # fails — an over-run is a regression, and an under-run means a RED was retired
+      # without the baseline owner lowering the number and recording why.
+      - name: Compare against the declared baseline (fail-closed both directions)
+        working-directory: integration/topology-rehearsal
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys, xml.etree.ElementTree as ET
+
+          root = os.environ["GITHUB_WORKSPACE"]
+          tmp = os.environ["RUNNER_TEMP"]
+
+          def measured(path, load, what):
+              # The `|| true` on the measuring step deliberately lets one command
+              # fail so that BOTH bars are still reported in a single run. The state
+              # that produces is a missing or empty artifact, and an unguarded parse
+              # would surface it as a traceback that reads as a bug in this gate
+              # rather than as its true meaning: the measurement did not happen. A
+              # gate that merely looks broken is the one that gets called flaky and
+              # deleted, so the failure is made to name itself.
+              try:
+                  with open(path) as handle:
+                      return load(handle)
+              except (OSError, ValueError, ET.ParseError):
+                  print(f"::error::the {what} measurement did not run — "
+                        f"{os.path.basename(path)} is missing, empty or unreadable")
+                  sys.exit(1)
+
+          with open(os.path.join(root, ".github", "REVIEW-BASELINE.json")) as handle:
+              baseline = json.load(handle)
+
+          suite = measured(os.path.join(tmp, "pytest.xml"),
+                           lambda handle: ET.parse(handle).getroot(), "pytest")
+          if suite.tag == "testsuites":
+              # find() yields None for a <testsuites> root with no <testsuite>
+              # child. Every use below (.get here, .iter in the identity check)
+              # would then raise AttributeError — an uncaught traceback in the
+              # one step written so a failed measurement names itself. Guarded
+              # for the same reason measured() is: the gate must not read as
+              # broken when it is in fact reporting a true condition.
+              suite = suite.find("testsuite")
+              if suite is None:
+                  print("::error::the pytest measurement produced no testsuite "
+                        "element — pytest.xml is present but carries no results")
+                  sys.exit(1)
+          measured_failures = int(suite.get("failures", 0)) + int(suite.get("errors", 0))
+          declared_failures = baseline["pytest"]["expected_failures"]
+
+          measured_violations = len(measured(os.path.join(tmp, "ruff.json"),
+                                             json.load, "ruff"))
+          declared_violations = baseline["ruff"]["expected_violations"]
+
+          problems = []
+
+          # A bare count admits a substitution: retire F131's RED, introduce one
+          # unrelated failure, and 1 still measures against a declared 1 while a live
+          # regression rides through green. The baseline declares WHICH red is
+          # permitted by exact nodeid, and the junit XML carries classname and name
+          # for every failing case, so the identity is available and free.
+          def nodeid(case):
+              segments = [s for s in (case.get("classname") or "").split(".") if s]
+              # junit renders tests/test_a.py::TestB::test_c as
+              # classname="tests.test_a.TestB", name="test_c"; the module is the
+              # longest dotted prefix that is a file on disk.
+              for cut in range(len(segments), 0, -1):
+                  path = os.path.join(*segments[:cut]) + ".py"
+                  if os.path.exists(path):
+                      return "::".join([path] + segments[cut:] + [case.get("name") or ""])
+              return "::".join(segments + [case.get("name") or ""])
+
+          # `composition` is a PROSE field maintained by the baseline owner, so the
+          # nodeids are scraped out of a sentence. \S+ greedily swallows whatever
+          # punctuation ends that sentence, and a nodeid written as "...::test_x."
+          # or "(...::test_x)" would then never match a measured nodeid: the job
+          # would red a tree that has no regression, blaming the suite for the
+          # baseline's punctuation. That is fail-closed but misattributed, and a
+          # gate that reds for reasons the operator cannot act on is the one that
+          # gets called flaky. Sentence punctuation is therefore stripped from BOTH
+          # ends: a nodeid written parenthetically as "(pkg/test_a.py::test_b)," is
+          # bracketed, and stripping only the tail leaves a leading "(" that misses
+          # just as silently. Deliberately NOT stripped: "]", which terminates a
+          # parametrised nodeid such as ...::test_b[case-1] and is part of the
+          # identity. A path segment can never begin with ( " ' so this cannot eat
+          # a real nodeid.
+          declared_reds = {
+              red.lstrip("(\"'").rstrip(".,;:)\"'")
+              for red in re.findall(r"\S+\.py::\S+", baseline["pytest"]["composition"])
+          }
+          measured_reds = {
+              nodeid(case)
+              for case in suite.iter("testcase")
+              if case.find("failure") is not None or case.find("error") is not None
+          }
+          if declared_failures and not declared_reds:
+              problems.append(
+                  f"pytest: the baseline permits {declared_failures} failure(s) but its "
+                  "composition names no nodeid, so identity cannot be checked."
+              )
+          for red in sorted(declared_reds - measured_reds):
+              problems.append(
+                  f"pytest: the declared intentional RED {red} did not fail. If it was "
+                  "legitimately retired, the owner of .github/REVIEW-BASELINE.json "
+                  "lowers the number and records why in revision_history; this job may not."
+              )
+          for red in sorted(measured_reds - declared_reds):
+              problems.append(
+                  f"pytest: {red} failed but is not the RED the baseline declares — "
+                  "a regression against the bar, even where the total still matches."
+              )
+          # The loop variable is `count`, NOT `measured`: `measured` is the guarded
+          # reader defined above, and binding an int to that name here would shadow
+          # it for the rest of the script. Nothing lints this file — ruff and
+          # compileall are pointed at src and tests only — so the first guarded read
+          # added below this loop would fail on a hosted runner with
+          # "TypeError: 'int' object is not callable", in the very step rewritten so
+          # that a failed measurement names itself.
+          for label, count, declared in (
+              ("pytest failures", measured_failures, declared_failures),
+              ("ruff violations", measured_violations, declared_violations),
+          ):
+              if count > declared:
+                  problems.append(
+                      f"{label}: measured {count} exceeds the declared {declared} — "
+                      "a regression against the bar."
+                  )
+              elif count < declared:
+                  problems.append(
+                      f"{label}: measured {count} is below the declared {declared}. "
+                      "If a RED was legitimately retired, the owner of "
+                      ".github/REVIEW-BASELINE.json lowers the number and records why "
+                      "in revision_history; this job may not."
+                  )
+
+          print(
+              f"pytest failures {measured_failures}/{declared_failures}; "
+              f"ruff violations {measured_violations}/{declared_violations}"
+          )
+          if problems:
+              for problem in problems:
+                  print(f"::error::{problem}")
+              sys.exit(1)
+          PY

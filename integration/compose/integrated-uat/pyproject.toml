@@ -1,0 +1,18 @@
+[project]
+name = "cybrik-suite-integrated-uat"
+version = "0.0.0"
+description = "Injection-only master orchestration contract for the CYBRIK integrated UAT."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+test = [
+    "pytest==9.1.1",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
+testpaths = ["tests"]

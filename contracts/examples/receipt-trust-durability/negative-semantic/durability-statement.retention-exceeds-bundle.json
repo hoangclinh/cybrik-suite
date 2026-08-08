@@ -1,0 +1,14 @@
+{
+  "schema": "cybrik.receipt-durability-statement@0.1.0",
+  "intent_committed_before_dispatch": true,
+  "receipt_committed_before_result": true,
+  "completion_without_durable_receipt_status": "failed",
+  "performed_unrecorded_handling": "alarm_grade_reconciliation_never_completed",
+  "unresolved_intent_terminalization": "failed_or_timed_out_receipt",
+  "receipt_read_visibility": "durable_only_unavailable_without_existence_detail",
+  "append_only": true,
+  "replay_resigns": false,
+  "durability_class": "replicated_quorum",
+  "receipt_retention_days": 731,
+  "trust_bundle_retention_days": 730
+}

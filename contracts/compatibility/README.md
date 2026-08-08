@@ -79,3 +79,10 @@ pins every member. The packet proves only Suite-side schema, conservation-proper
 coherence. It introduces no authority axis, server, endpoint, OpenAPI, AsyncAPI, MCP, runtime,
 UAT, T10/T11, release, deployment, or production claim. ADR-0012 is accepted for implementation
 and remains not implemented.
+
+`cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json` is a
+**ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED** successor design packet for the two F8 runtime
+prerequisites: public trust-bundle lifecycle and durable receipt ordering/failure semantics. It
+reuses accepted F8, W2-B and C1 bytes unchanged, does not duplicate the accepted route profile,
+and authorizes implementation of the design floor only; it grants no signer, ledger, runtime,
+UAT, release, deployment, or production authority.

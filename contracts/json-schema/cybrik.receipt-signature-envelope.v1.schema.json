@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.receipt-signature-envelope.v1.schema.json",
   "title": "CYBRIK receipt signature envelope v1",
-  "description": "Transport shape for one control-plane signature over one execution receipt, offered as a candidate for the envelope ADR-0004 F8 deferred. The signature itself is an ordinary compact JWS with an INCLUDED payload (three non-empty base64url segments) whose payload is the JCS rendering of cybrik.receipt-signature-statement.v1. Detached payloads and RFC 7797 b64=false are rejected. Only EdDSA over Ed25519 is permitted; alg=none is rejected. The envelope carries NO key material: jwk, jku, x5u, x5c, x5t, x5t#S256 and epk are all forbidden in the protected header, and kid resolves only against the pinned external trust bundle named by trust_bundle_ref. signature_locator is the ledger address of the exact compact JWS bytes and is the value the receipt's own `signature` field carries. Status: PROPOSED — NOT ACCEPTED (v0.1.0; not stable v1/GA). No ADR decision, no runtime, no signer, no issuer and no key lifecycle follow from this file.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
-  "x-cybrik-contract-version": "0.1.0",
-  "x-cybrik-profile": "CYBRIK-RECEIPT-JWS/v1",
+  "description": "Transport shape for one control-plane signature over one execution receipt, accepted for implementation only as the envelope ADR-0004 F8 deferred. The signature itself is an ordinary compact JWS with an INCLUDED payload (three non-empty base64url segments) whose payload is the JCS rendering of cybrik.receipt-signature-statement.v1. Detached payloads and RFC 7797 b64=false are rejected. Only EdDSA over Ed25519 is permitted; alg=none is rejected. The envelope carries NO key material: jwk, jku, x5u, x5c, x5t, x5t#S256 and epk are all forbidden in the protected header, and kid resolves only against the pinned external trust bundle named by trust_bundle_ref. signature_locator is the ledger address of the exact compact JWS bytes and is the value the receipt's own `signature` field carries. Status: ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED (v0.2.0; not stable v1/GA). No runtime, signer, issuer, key lifecycle, UAT, release, deployment or production authority follows from this file.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-not-implemented": true,
+  "x-cybrik-contract-version": "0.2.0",
+  "x-cybrik-profile": "CYBRIK-RECEIPT-JWS/v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,12 +28,12 @@
   ],
   "properties": {
     "envelope_profile": {
-      "description": "Signature envelope profile id.",
-      "const": "CYBRIK-RECEIPT-JWS/v1"
+      "description": "Signature envelope profile id. /v2 because the signed statement gained a required member at 0.2.0 and the signed bytes therefore changed. The receipt DIGEST profile id stayed at /v1 because the hash input did not move.",
+      "const": "CYBRIK-RECEIPT-JWS/v2"
     },
     "envelope_version": {
       "description": "Version of the envelope profile document.",
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "digest_profile": {
       "description": "Receipt digest profile the bound receipt_digest was produced under. Must agree with the signed statement inside jws_compact.",
@@ -44,9 +45,8 @@
     },
     "receipt_id": {
       "type": "string",
-      "description": "receipt_id of the signed receipt. Must equal the receipt_id inside the signed payload.",
-      "minLength": 1,
-      "maxLength": 128
+      "description": "receipt_id of the signed receipt. Must equal the receipt_id inside the signed payload. Deliberately no wider and no narrower than the accepted cybrik.execution-receipt.v1 receipt_id.",
+      "minLength": 1
     },
     "receipt_digest": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
@@ -80,11 +80,11 @@
     "kid": {
       "type": "string",
       "description": "Signer key id, identical to the kid in the protected header and in the signed statement. Resolved only against the pinned external trust bundle.",
-      "pattern": "^cybrik-receipt-signer:v1:[0-9a-f]{64}$"
+      "pattern": "^cybrik-receipt-signer:v1:[A-Za-z0-9_-]{43}$"
     },
     "trust_bundle_ref": {
       "type": "object",
-      "description": "Pinned reference to the external trust bundle a verifier resolves kid against. bundle_uri is a pinned identifier, not a fetch instruction; a verifier that cannot match bundle_digest against a bundle it already trusts fails closed.",
+      "description": "Unsigned transport copy of the trust-bundle reference. It carries no independent authority: it must reproduce trust_bundle_ref inside the signed statement exactly, and a mismatch is rejected under RI-5. bundle_uri is a pinned identifier, not a fetch instruction. bundle_digest records the generation current at signing time; a verifier resolves kid against the bundle it already holds rather than requiring its own bundle to equal that digest. See OD-F8-7.",
       "additionalProperties": false,
       "required": ["bundle_uri", "bundle_digest"],
       "properties": {

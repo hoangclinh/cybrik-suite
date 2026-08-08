@@ -1,11 +1,15 @@
 {
   "profile": "CYBRIK-RECEIPT-JCS/v1",
-  "profile_version": "0.1.0",
+  "profile_version": "0.2.0",
   "receipt_contract_id": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt.v1.schema.json",
   "receipt_contract_version": "0.1.0",
   "canonicalization": "RFC8785-JCS",
   "receipt_id": "rcpt-f8-0001",
   "receipt_digest": "sha256:39ded94c4b25a4323c1dffcc90e01ca45ae461807b4991185480141a1ce8871e",
-  "kid": "cybrik-receipt-signer:v1:7ad2111bd1c7c57194312a9980384307b82e04040ad6efd853d233f2265fa795",
-  "signed_at": "2026-07-31T00:00:02Z"
+  "kid": "cybrik-receipt-signer:v1:etIRG9HHxXGUMSqZgDhDB7guBAQK1u_YU9Iz8iZfp5U",
+  "signed_at": "2026-07-31T00:00:02Z",
+  "trust_bundle_ref": {
+    "bundle_uri": "cybrik-trust://receipt-signers/v1",
+    "bundle_digest": "sha256:7ac74550ba2c513655240da0258726989aeb7f6ae1a0d5b06b96ec0d3e3d2e9e"
+  }
 }
