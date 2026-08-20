@@ -1,0 +1,10 @@
+# CYBRIK Suite — canonical security contact (RFC 9116)
+# Authoritative policy: docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md
+
+Contact: mailto:security@cybrik.ai
+Contact: mailto:report@cybrik.ai
+Expires: 2027-08-20T00:00:00.000Z
+Canonical: https://cybrik.ai/.well-known/security.txt
+Policy: https://cybrik.ai/security
+Preferred-Languages: en
+Hiring: https://cybrik.ai/careers
