@@ -1,33 +1,37 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-20T19:58:00+07:00",
+  "timestamp": "2026-08-20T20:10:00+07:00",
   "milestone": "SOC Post-UAT Production Release Candidate",
   "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
   "repositories": {
-    "cybrik-suite": "cc33874e3d721c58faa2fc02a9033401b3e5e97e",
+    "cybrik-suite": "353d5f5d786641bd41b2055d4ee9b554f7834345",
     "cybrik-soc-command-center": "c0f75f6d08d25b16f1a3ef8921b4ba98348a194a",
     "cybrik-cyber-ai-platform": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
     "cybrik-security-tool-fabric": "9a80ebebd00bae90b1f3e379c27d672b263124d4"
   },
   "contract_governance": {
     "w2_i_inference_transport": {
-      "version": "0.2.0",
+      "packet_manifest": "contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json",
+      "version": "0.2.0-candidate",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
       "contract_conformance_status": "VERIFIED (276 unit/contract tests passing in cybrik-cyber-ai-platform)",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)"
     },
     "w2_f_service_delegation": {
-      "version": "1.0.0",
-      "status": "ACCEPTED_BASELINE"
+      "packet_manifest": "contracts/compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json",
+      "version": "0.1.0",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
     },
-    "w2_h_org_hierarchy": {
-      "version": "1.0.0",
-      "status": "ACCEPTED_BASELINE"
+    "w2_g_org_hierarchy": {
+      "packet_manifest": "contracts/compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json",
+      "version": "0.1.0",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
     },
     "responsible_disclosure": {
+      "policy_file": "docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md",
       "policy_status": "ACTIVE_APPROVED_BY_FOUNDER",
       "intake_channel": "security@cybrik.ai (secondary report@cybrik.ai -> contact@bpech.com via Cloudflare Email Routing)",
-      "security_txt_status": "PREPARED (public/.well-known/security.txt)"
+      "security_txt": "public/.well-known/security.txt"
     }
   }
 }
