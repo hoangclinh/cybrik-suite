@@ -5,7 +5,7 @@ Suite product until resolved by the Founder with evidence.
 
 | ID | Blocker | Status | Resolution requires |
 |---|---|---|---|
-| RB-001 | No verified responsible-disclosure channel exists. All `SECURITY.md` files are private-pre-release placeholders and intentionally name no contact address — a security email/channel must not be invented on paper. | **BLOCKING — OPEN** (raised 2026-07-23, Founder decision) | A real, tested disclosure channel (monitored mailbox or intake form), a published policy (contact, SLA, safe-harbor statement), and Founder sign-off replacing the placeholders in all four repositories' `SECURITY.md` |
+| RB-001 | No verified responsible-disclosure channel existed. All `SECURITY.md` files were private-pre-release placeholders and intentionally named no contact address — a security email/channel must not be invented on paper. | **RESOLVED (2026-08-20)** (raised 2026-07-23, Founder decision; closed 2026-08-20, Founder sign-off) | Resolved. Evidence: (1) verified intake channel `security@cybrik.ai` / `report@cybrik.ai` routing to `contact@bpech.com` via Cloudflare Email Routing, delivery tested end-to-end; (2) published policy with contact, SLA matrix, and legal safe-harbor statement in [`docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md`](../security/RESPONSIBLE-DISCLOSURE-POLICY.md) (status `ACTIVE — APPROVED BY FOUNDER`); (3) active `SECURITY.md` naming the live channel across all four repositories (`cybrik-suite`, `cybrik-soc-command-center`, `cybrik-cyber-ai-platform`, `cybrik-security-tool-fabric`) |
 
 Rules:
 
