@@ -1,17 +1,33 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-20T19:40:00+07:00",
+  "timestamp": "2026-08-20T19:58:00+07:00",
+  "milestone": "SOC Post-UAT Production Release Candidate",
+  "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
   "repositories": {
-    "cybrik-suite": "afe7be20b1169d0566a8ef862cbbd508c6a0d46d",
+    "cybrik-suite": "cc33874e3d721c58faa2fc02a9033401b3e5e97e",
     "cybrik-soc-command-center": "c0f75f6d08d25b16f1a3ef8921b4ba98348a194a",
-    "cybrik-cyber-ai-platform": "afd2389ae5c857f4bea76928331152f3d186b5fb",
+    "cybrik-cyber-ai-platform": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
     "cybrik-security-tool-fabric": "9a80ebebd00bae90b1f3e379c27d672b263124d4"
   },
-  "accepted_contracts": [
-    "cybrik-ai-inference-plane.v1 (W2-I v0.2.0)",
-    "cybrik.svc-delegation-token.v1 (W2-F v1.0.0)",
-    "cybrik.svc-trust-metadata.v1 (W2-F v1.0.0)",
-    "cybrik.org-hierarchy.v1 (W2-H v1.0.0)"
-  ],
-  "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION"
+  "contract_governance": {
+    "w2_i_inference_transport": {
+      "version": "0.2.0",
+      "specification_status": "COUNCIL_ACCEPTED_BASELINE",
+      "contract_conformance_status": "VERIFIED (276 unit/contract tests passing in cybrik-cyber-ai-platform)",
+      "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)"
+    },
+    "w2_f_service_delegation": {
+      "version": "1.0.0",
+      "status": "ACCEPTED_BASELINE"
+    },
+    "w2_h_org_hierarchy": {
+      "version": "1.0.0",
+      "status": "ACCEPTED_BASELINE"
+    },
+    "responsible_disclosure": {
+      "policy_status": "ACTIVE_APPROVED_BY_FOUNDER",
+      "intake_channel": "security@cybrik.ai (secondary report@cybrik.ai -> contact@bpech.com via Cloudflare Email Routing)",
+      "security_txt_status": "PREPARED (public/.well-known/security.txt)"
+    }
+  }
 }
