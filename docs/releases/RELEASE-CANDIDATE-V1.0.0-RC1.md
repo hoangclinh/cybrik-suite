@@ -7,7 +7,7 @@
 - **Release Status:** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION`
 - **Staging Qualification:** `IN_PROGRESS / PENDING_HUMAN_PR_MERGE`
 - **Manifest Binding:** [`releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`](../../releases/manifests/release-candidate-v1.0.0-rc1.manifest.json)
-- **Timestamp:** `2026-08-21T10:55:43+07:00` (`Asia/Ho_Chi_Minh`)
+- **Timestamp:** `2026-08-21T11:37:56+07:00` (`Asia/Ho_Chi_Minh`)
 
 > **Status honesty.** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION` means the candidate is
 > assembled, its Suite-local contract validation is green, and the human governance boundaries
@@ -50,9 +50,9 @@ repositories. Each SHA below was resolved against the local canonical checkout o
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
-| 1 | `cybrik-suite` | `f051192452b546f85e7eba6123b88a56c1ca0cce` | [#56] | `fix/rc-manifest-contracts` | `docs(release): publish release candidate v1.0.0-rc1 manifest and specification` |
-| 2 | `cybrik-soc-command-center` | `7be188720c97c4c12e45a016e6c0795de10c9900` | [#13] | `fix/copilot-draft-auth` | `fix(test): delenv CYBRIK_RATE_LIMIT_BACKEND in test_development_keeps_dev_defaults` |
-| 3 | `cybrik-cyber-ai-platform` | `ccbfb4f82463daa06b5e82db18fb6b056b25f31a` | [#11] | `feature/rc-w2i-conformance` | `security(deps): upgrade cryptography to remediate PYSEC-2026-3552 in cyber-ai` |
+| 1 | `cybrik-suite` | `7f412965310590cbdf924cf4160193ffe0daf0c0` | [#56] | `fix/rc-manifest-contracts` | `fix(release): bind exact four release candidate PR heads and accepted governance milestones in manifest` |
+| 2 | `cybrik-soc-command-center` | `2822b9e18831e4fc180cb50c455b5e67e3ed365a` | [#13] | `fix/copilot-draft-auth` | `hardening(config): enforce strict fail-closed DSN and rate-limit backend validation in production` |
+| 3 | `cybrik-cyber-ai-platform` | `6793e217ecda313859794ce9a7b59c2e51861c20` | [#11] | `feature/rc-w2i-conformance` | `fix(auth): bind delegation keys strictly to token issuer preventing cross-issuer collision` |
 | 4 | `cybrik-security-tool-fabric` | `0e4fee8d08ff9a67c200ce6c5f97a6f277581be9` | [#6] | `chore/sec-md-fabric` | `ci: trigger fresh PR checks on rebased branch` |
 
 The `cybrik-suite` pin is the **content base** this document and its manifest were authored
@@ -66,22 +66,34 @@ staging qualification reads `IN_PROGRESS / PENDING_HUMAN_PR_MERGE` rather than `
 
 ### 2.1 Relationship to the Authorized R22 Subjects
 
-Each pin is classified against the authorized RC subject recorded for its repository. Two of the
-four branches were **rebased** after the subject was authorized, so the authorized SHA is no
-longer an ancestor of the pinned head; the authorized *commit subject* is carried at a rewritten
-SHA on the pinned branch. Ancestry below was verified with `git merge-base --is-ancestor`.
+Each pin is classified against the authorized RC subject recorded for its repository. Three of the
+four branches (`cybrik-suite`, `cybrik-cyber-ai-platform`, `cybrik-security-tool-fabric`) were
+**rebased** after the subject was authorized, so the authorized SHA is no longer an ancestor of the
+pinned head; the authorized *commit subject* is carried at a rewritten SHA on the pinned branch.
+Ancestry below was verified with `git merge-base --is-ancestor`.
 
 | Repository | Authorized R22 Subject | Containment vs. Pinned Head | Classification |
 |---|---|---|---|
-| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at the pinned head itself | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
-| `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Ancestor.** Verified ancestor of `7be18872…`; the previous manifest pin `c0f75f6d…` is also an ancestor | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
-| `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52` on the pinned branch | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, the prior manifest pin and a verified ancestor of `7f41296…` | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Ancestor.** Verified ancestor of `2822b9e1…`; the previous manifest pins `7be18872…` and `c0f75f6d…` are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52`, a verified ancestor of `6793e217…`; the previous manifest pin `ccbfb4f8…` is also an ancestor | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
 
-CI status for all four PR heads is recorded as `SUCCESS` in
-`soc-autonomous-state:VERIFIED_SUBJECTS.json` (recorded 2026-08-21T10:35:00+07:00). **Those runs
-were not re-executed for this document**; the claim is a faithful restatement of the control
-record, not an independent observation.
+CI status was read back from each pull request's GitHub status-check rollup **at the pinned head**
+on 2026-08-21T11:37:56+07:00:
+
+| Repository | Pinned Head | Observed Check Rollup |
+|---|---|---|
+| `cybrik-suite` | `7f41296…` | 6 successful, 0 failing — **complete** |
+| `cybrik-soc-command-center` | `2822b9e1…` | 5 successful, 1 skipped, **2 still running**, 0 failing — **incomplete** |
+| `cybrik-cyber-ai-platform` | `6793e217…` | 8 successful, 0 failing — **complete** |
+| `cybrik-security-tool-fabric` | `0e4fee8d…` | 4 successful, 2 skipped, 0 failing — **complete** |
+
+The control record `soc-autonomous-state:VERIFIED_SUBJECTS.json` (recorded
+2026-08-21T10:35:00+07:00) predates the SOC, Cyber AI and Suite hardening heads: it records
+`SUCCESS` for the **ancestor** heads `7be18872…`, `ccbfb4f8…` and `f051192…`, and for the Fabric
+pin `0e4fee8d…` exactly. The rollups above are an observation of check state, **not** a
+re-execution of any suite, and the SOC pin has **no completed green run** yet (§9.3).
 
 ### 2.2 Relationship to the SHAs Carried in the Engineering Evidence Records
 
@@ -93,9 +105,9 @@ below was verified with `git merge-base --is-ancestor` and `git rev-list --count
 
 | Repository | Evidenced SHA | Pinned Head | Ancestry (verified) | Evidence Carry-Forward |
 |---|---|---|---|---|
-| `cybrik-cyber-ai-platform` | `281b2529…` ([Cyber AI Runtime evidence](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md)) | `ccbfb4f8…` | **Divergent** — merge base `2dd7aca2…`; pin is 32 commits ahead, evidenced SHA 1 commit off-line (`feat(auth): add fail-closed service delegation verifier (W2-H1)`) | **Does NOT carry forward as ancestry.** The `258 / 258` result belongs to a commit that is not an ancestor of the pin. See §9.2. |
+| `cybrik-cyber-ai-platform` | `281b2529…` ([Cyber AI Runtime evidence](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md)) | `6793e217…` | **Divergent** — merge base `2dd7aca2…`; pin is 33 commits ahead, evidenced SHA 1 commit off-line (`feat(auth): add fail-closed service delegation verifier (W2-H1)`) | **Does NOT carry forward as ancestry.** The `258 / 258` result belongs to a commit that is not an ancestor of the pin. See §9.2. |
 | `cybrik-security-tool-fabric` | `147a1d83…` ([Deploy/Rollback evidence](../operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md)) | `0e4fee8d…` | **Divergent** — merge base `3292a65a…`; pin is 29 commits ahead, evidenced SHA 1 commit off-line (`feat(contracts): load the auth/org vendored snapshot as its own registry`) | **Does NOT carry forward as ancestry.** The `172 / 172` and Go executor results belong to an off-line commit. See §9.2. |
-| `cybrik-soc-command-center` | `4480a412…` ([SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md), CI run `32164562480`, 8/8 required contexts) | `7be18872…` | **Divergent** — merge base `1b6671cc…`; pin is 10 commits ahead and 56 behind the evidenced SHA | **Does NOT carry forward.** That CI run belongs to the evidenced SHA. The pin's own CI is recorded as green on PR #13 but was not re-observed here. See §9.3. |
+| `cybrik-soc-command-center` | `4480a412…` ([SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md), CI run `32164562480`, 8/8 required contexts) | `2822b9e1…` | **Divergent** — merge base `1b6671cc…`; pin is 11 commits ahead and 56 behind the evidenced SHA | **Does NOT carry forward.** That CI run belongs to the evidenced SHA. The pin's own PR #13 checks were observed still running at 2026-08-21T11:37+07:00 (§2.1). See §9.3. |
 
 [#56]: `cybrik-suite` PR 56
 [#13]: `cybrik-soc-command-center` PR 13
@@ -132,7 +144,7 @@ packet manifests.
 
 The manifest records the W2-I transport posture as
 `BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)`. Concretely, at the pinned
-`cybrik-cyber-ai-platform` head `ccbfb4f8…` the transport conformance suite
+`cybrik-cyber-ai-platform` head `6793e217…` the transport conformance suite
 (`tests/contract/test_w2i_transport_conformance.py`, 17 test functions plus parameterization)
 asserts that the relying party:
 
@@ -154,16 +166,20 @@ asserts that the relying party:
 | Repository | Suite | Result | Source | Re-executed for this RC? |
 |---|---|---|---|---|
 | `cybrik-cyber-ai-platform` | pytest (ai-api, ai-core, ai-worker, contract) at `281b2529…` | **258 / 258 passed**, 96.63% coverage | [Cyber AI Runtime evidence §](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
-| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite present at pinned head `ccbfb4f8…`) | Previously recorded as **276** unit/contract tests at `b867220f…` | Prior manifest revision | **No — not re-run against the pin; see §9.2** |
+| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite present at pinned head `6793e217…`) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **green at the pin** | Prior manifest revision; PR #11 rollup 2026-08-21T11:37+07:00 | **No local re-run against the pin; see §9.2** |
 | `cybrik-security-tool-fabric` | pytest control plane at `147a1d83…` | **172 / 172 passed** | [Tool Fabric Runtime evidence §5.1](../operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
 | `cybrik-security-tool-fabric` | Go 1.22 executor (`go test ./...`, incl. `FuzzParse`) | All passed | [Tool Fabric Runtime evidence §5.2](../operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
 | `cybrik-soc-command-center` | CI run `32164562480` attempt 2 at `4480a412…` | **8 / 8 required contexts successful**; Playwright `31 passed`; pytest `279 collected / 278 passed / 1 skipped` | [SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md) | No — and this run is on a **divergent** SHA (§2.2) |
-| all four PR heads | hosted PR checks at the pinned heads | Recorded **`SUCCESS`** | `soc-autonomous-state:VERIFIED_SUBJECTS.json` (2026-08-21T10:35+07:00) | **No — restated from the control record, not observed here (§2.1)** |
-| `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 for this RC — §4.2 | **Yes** |
+| all four PR heads | hosted PR checks at the pinned heads | Suite, Cyber AI and Fabric **complete with 0 failing**; SOC **still running** (2 checks) | GitHub status-check rollups observed at the pinned heads 2026-08-21T11:37:56+07:00 (§2.1) | **Check state observed, no suite re-executed (§2.1)** |
+| `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 at content base `f051192…` — §4.2 | **Yes — inputs byte-identical at the current base (§4.2)** |
 
 ### 4.2 Suite Contract Validation Executed for this Candidate
 
-Re-executed at the `cybrik-suite` content base on 2026-08-21:
+Executed on 2026-08-21 at the prior content base `f051192…`. It was **not** re-run at the current
+content base `7f41296…`: every byte under `contracts/` and `tools/contract-validation/` is
+identical between the two commits (`git diff f051192…7f41296 -- contracts/ tools/contract-validation/`
+is empty), so the run's inputs are unchanged. The validator's `ajv` dependency is not installed in
+this worktree and dependency installation is Founder-gated, so no re-run was attempted.
 
 ```text
 $ node tools/contract-validation/validate-inference.mjs
@@ -312,8 +328,8 @@ injected a reversible 503 circuit-breaker fault into `ai-api` and observed:
 
 Each service's rollback target is the last known-stable image for that service. Under the current
 pin set **no product rollback target is an ancestor of its pin** (§2.2): the rehearsed Cyber AI
-target `281b2529…` is off-line from `ccbfb4f8…` after the branch rebase, the Fabric target
-`147a1d83…` is off-line from `0e4fee8d…`, and the SOC pin `7be18872…` is divergent from the
+target `281b2529…` is off-line from `6793e217…` after the branch rebase, the Fabric target
+`147a1d83…` is off-line from `0e4fee8d…`, and the SOC pin `2822b9e1…` is divergent from the
 evidenced `4480a412…`. The rehearsed *procedure* (§6.2) is unchanged and still applies, but every
 rollback **target image** must be re-established against the pinned heads before staging
 qualification can be claimed (§9.3, §9.6).
@@ -421,24 +437,27 @@ bytes and the decision agree.
 ### 9.2 No product test suite was re-executed against its pinned head
 
 - **Cyber AI:** the `276` conformance count was measured at `b867220f…`, which after the branch
-  rebase is **not an ancestor** of the pin `ccbfb4f8…` (§2.2). The conformance file
+  rebase is **not an ancestor** of the pin `6793e217…` (§2.2). The conformance file
   `tests/contract/test_w2i_transport_conformance.py` is present at the pin, and the pin adds a
-  `cryptography` upgrade (`PYSEC-2026-3552`) that was not covered by any recorded run.
+  `cryptography` upgrade (`PYSEC-2026-3552`) plus an issuer-binding auth fix that no local run
+  covers. The hosted PR #11 `test` check is green at the pin, but reports no test count here.
 - **Fabric:** the `172 / 172` control-plane and Go executor results belong to `147a1d83…`, which
   is off-line from the pin `0e4fee8d…` (§2.2).
 - Re-execution was not attempted because it requires dependency installation, which is
   Founder-gated in this repository.
 
-**Closing action:** attach test-session transcripts taken at `ccbfb4f8…` and `0e4fee8d…`.
+**Closing action:** attach test-session transcripts taken at `6793e217…` and `0e4fee8d…`.
 
 ### 9.3 The pinned SOC head has no CI evidence in this repository
 
-`7be18872…` is divergent from the UAT-evidenced `4480a412…` (merge base `1b6671cc…`; 10 commits
-ahead, 56 behind). The `8 / 8 required contexts` result belongs to the evidenced SHA. PR #13's own
-checks are recorded `SUCCESS` in `soc-autonomous-state:VERIFIED_SUBJECTS.json`, but that record was
-not independently re-observed here and no run URL is bound in this repository.
-**Closing action:** bind the PR #13 CI run identifier and result into this repository, or adopt a
-SOC SHA on `origin/main` with its own green run.
+`2822b9e1…` is divergent from the UAT-evidenced `4480a412…` (merge base `1b6671cc…`; 11 commits
+ahead, 56 behind). The `8 / 8 required contexts` result belongs to the evidenced SHA. The control
+record `soc-autonomous-state:VERIFIED_SUBJECTS.json` records `SUCCESS` for the **ancestor** head
+`7be18872…`, not for this pin. At the pin itself, PR #13's rollup was observed
+2026-08-21T11:37:56+07:00 as 5 successful / 1 skipped / **2 still running** / 0 failing — an
+**incomplete** run, and no run URL is bound in this repository.
+**Closing action:** let PR #13's checks complete at `2822b9e1…`, then bind that run identifier and
+result into this repository, or adopt a SOC SHA on `origin/main` with its own green run.
 
 ### 9.4 `security.txt` publication is unverified
 
