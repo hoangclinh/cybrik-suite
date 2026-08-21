@@ -1,25 +1,40 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-21T11:37:56+07:00",
+  "timestamp": "2026-08-21T12:48:03+07:00",
   "milestone": "SOC Post-UAT Production Release Candidate",
   "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
-  "staging_qualification_status": "IN_PROGRESS / PENDING_HUMAN_PR_MERGE",
+  "staging_qualification_status": "IN_PROGRESS / PENDING_HUMAN_PR_MERGE / BLOCKED_ON_FAILING_CYBER_AI_TYPE_CHECK",
   "provenance_model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
-  "provenance_note": "Each pin below is the exact head of the final evaluated pull request for that repository. No pin is on its repository's origin/main; every pull request is PENDING_REQUIRED_HUMAN_REVIEW under branch protection. The cybrik-suite pin is the content base this manifest was authored against — a manifest cannot contain its own commit SHA.",
+  "provenance_note": "Each pin below is the exact head of the final evaluated pull request for that repository. No pin is on its repository's origin/main; every pull request is PENDING_REQUIRED_HUMAN_REVIEW under branch protection. This manifest binds the immutable CONTENT BASE only: the cybrik-suite pin is the authoring parent of the commit that carries this manifest, because a manifest cannot contain its own commit SHA. The final post-merge release is bound OUTSIDE this file by the external release-tag envelope v1.0.0-rc1 (see release_tag_envelope), which is created after the four pull requests merge and which binds the merged main-line SHAs. The two bindings are complementary and neither is a substitute for the other.",
+  "release_tag_envelope": {
+    "envelope_tag": "v1.0.0-rc1",
+    "envelope_status": "NOT_CREATED — no release tag exists in any repository for this candidate",
+    "model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
+    "manifest_binds": "The immutable content base: one pre-merge pull-request head per repository, plus the cybrik-suite authoring parent of this manifest's own commit.",
+    "envelope_binds": "The final post-merge release: the four merged main-line SHAs, created only after every pull request in the pin set is merged under branch protection.",
+    "why_two_bindings": "A manifest committed into cybrik-suite cannot name its own SHA, and pre-merge PR heads are rewritten by rebase. The content-base pins therefore record what was evaluated; the external release tag records what was released. Reading a content-base pin as a released SHA is a category error (ABMB-04).",
+    "envelope_creation_preconditions": [
+      "all four pull requests merged to their repositories' origin/main",
+      "a completed green check rollup at each merged SHA",
+      "the open items in docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md section 9 closed",
+      "explicit Founder approval — tag creation is not delegated by this manifest"
+    ],
+    "envelope_authority": "Founder approval required. This manifest grants no tagging, release, deployment or GA authority."
+  },
   "repositories": {
     "cybrik-suite": {
-      "pinned_sha": "7f412965310590cbdf924cf4160193ffe0daf0c0",
-      "commit_subject": "fix(release): bind exact four release candidate PR heads and accepted governance milestones in manifest",
+      "pinned_sha": "afc9150adea0fc30ca87afb10b88b531da23ab1a",
+      "commit_subject": "fix(release): update release candidate manifest pins for hardened SOC and Cyber AI heads",
       "pull_request": 56,
       "branch": "fix/rc-manifest-contracts",
-      "pin_role": "CONTENT_BASE (this manifest's authoring parent)",
+      "pin_role": "CONTENT_BASE (this manifest's authoring parent; see release_tag_envelope)",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "c518d8e344c412dc884135e3947213c5de41739f",
-      "subject_containment": "REBASE_REWRITE — the authorized subject SHA is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, the prior manifest pin and a verified ancestor of the pinned head",
+      "subject_containment": "REBASE_REWRITE — the authorized subject SHA is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, a verified ancestor of the pinned head. The prior manifest pin 7f412965310590cbdf924cf4160193ffe0daf0c0 is the pinned head's direct parent.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
       "ci_status_recorded": "SUCCESS — 6 checks successful, 0 failing, observed at the pinned head",
-      "ci_status_provenance": "GitHub PR #56 status-check rollup observed at head 7f412965 on 2026-08-21T11:37:56+07:00. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head f0511924, not for this pin."
+      "ci_status_provenance": "GitHub PR #56 status-check rollup observed at head afc9150a on 2026-08-21T12:48:03+07:00. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head f0511924, not for this pin."
     },
     "cybrik-soc-command-center": {
       "pinned_sha": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
@@ -31,21 +46,23 @@
       "subject_containment": "ANCESTOR — authorized subject 992eabdc is a verified ancestor of the pinned head; the prior manifest pins 7be188720c97c4c12e45a016e6c0795de10c9900 and c0f75f6d08d25b16f1a3ef8921b4ba98348a194a are also ancestors",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "IN_PROGRESS — 5 checks successful, 1 skipped, 2 still running, 0 failing, observed at the pinned head",
-      "ci_status_provenance": "GitHub PR #13 status-check rollup observed at head 2822b9e1 on 2026-08-21T11:37:56+07:00; not yet complete. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head 7be18872, not for this pin. No completed green run is recorded for this pin."
+      "ci_status_recorded": "SUCCESS — 9 checks successful, 1 skipped, 0 failing, observed at the pinned head (rollup now complete)",
+      "ci_status_provenance": "GitHub PR #13 status-check rollup observed at head 2822b9e1 on 2026-08-21T12:48:03+07:00. The two checks that were still running at 2026-08-21T11:37:56+07:00 have since completed successfully, so this pin now has a completed run with 0 failing. No run identifier is bound in this repository. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head 7be18872, not for this pin. See specification 9.3."
     },
     "cybrik-cyber-ai-platform": {
-      "pinned_sha": "6793e217ecda313859794ce9a7b59c2e51861c20",
-      "commit_subject": "fix(auth): bind delegation keys strictly to token issuer preventing cross-issuer collision",
+      "pinned_sha": "5d0c2d43880f8e54e358015ca92d89ba8d09ddc0",
+      "commit_subject": "fix(resilience): enforce strict single in-flight probe in half-open circuit breaker",
       "pull_request": 11,
       "branch": "feature/rc-w2i-conformance",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
-      "subject_containment": "REBASE_REWRITE — authorized subject 'test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0' is carried at f9dad52, a verified ancestor of the pinned head; the authorized SHA b867220f itself is not an ancestor (merge base 2dd7aca2). The prior manifest pin ccbfb4f82463daa06b5e82db18fb6b056b25f31a is a verified ancestor.",
+      "subject_containment": "REBASE_REWRITE — authorized subject 'test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0' is carried at f9dad52ceeeb9f74a6574ded93227e18a23cfeef, a verified ancestor of the pinned head (pin 4 commits ahead, 0 behind); the authorized SHA b867220f itself is not an ancestor (merge base 2dd7aca23dfe1668f417fa322ab0cfaded839802; pin 34 ahead, 3 behind). The prior manifest pins 6793e217ecda313859794ce9a7b59c2e51861c20 — the pinned head's direct parent — and ccbfb4f82463daa06b5e82db18fb6b056b25f31a are verified ancestors.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS — 8 checks successful, 0 failing, observed at the pinned head",
-      "ci_status_provenance": "GitHub PR #11 status-check rollup observed at head 6793e217 on 2026-08-21T11:37:56+07:00. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head ccbfb4f8, not for this pin."
+      "ci_status_recorded": "FAILING — 5 checks successful, 1 FAILING ('type'), 2 skipped ('test', 'build-offline'), observed at the pinned head",
+      "ci_status_provenance": "GitHub PR #11 status-check rollup and check-runs API observed at head 5d0c2d43 on 2026-08-21T12:48:03+07:00. The 'type' check failed with exit code 1 (workflow run 32451755425, job 96681490549) and 'test' and 'build-offline' were consequently skipped, so this pin carries NO hosted test evidence. The prior pin 6793e217 — this head's direct parent — was 8 successful / 0 failing; adopting this head is therefore a CI regression. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head ccbfb4f8, not for this pin.",
+      "ancestry_verification": "Verified read-only through the GitHub compare API at 2026-08-21T12:48:03+07:00, not with local git: the pinned head is not present in any local checkout of cybrik-cyber-ai-platform and no fetch was performed, because this change is scoped to cybrik-suite only.",
+      "blocking_condition": "BLOCKING — the pinned head has a failing required check. This pin cannot enter staging qualification until 'type' is green at the pinned head and 'test' runs to completion. See specification 9.3a."
     },
     "cybrik-security-tool-fabric": {
       "pinned_sha": "0e4fee8d08ff9a67c200ce6c5f97a6f277581be9",
@@ -58,7 +75,7 @@
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
       "ci_status_recorded": "SUCCESS — 4 checks successful, 2 skipped, 0 failing, observed at the pinned head",
-      "ci_status_provenance": "GitHub PR #6 status-check rollup observed at head 0e4fee8d on 2026-08-21T11:37:56+07:00; soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for this exact head."
+      "ci_status_provenance": "GitHub PR #6 status-check rollup observed at head 0e4fee8d on 2026-08-21T12:48:03+07:00 (unchanged: 4 successful, 2 skipped, 0 failing); soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for this exact head."
     }
   },
   "governance_milestones": {
@@ -142,7 +159,7 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council, HB-4, 2026-08-20)",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "NOT RE-EXECUTED LOCALLY FOR THIS PIN — the W2-I transport conformance suite is present at the pinned cybrik-cyber-ai-platform head 6793e217 (tests/contract/test_w2i_transport_conformance.py, 17 test functions); the hosted PR #11 'test' check reported SUCCESS at that head, but no test-count transcript was produced against this pin and the previously recorded 276 unit/contract test count was measured at an earlier SHA. See specification §9.2.",
+      "contract_conformance_status": "NOT RE-EXECUTED LOCALLY FOR THIS PIN, AND NO HOSTED TEST SIGNAL AT THIS PIN — the W2-I transport conformance suite is present at the ancestor head 6793e217 (tests/contract/test_w2i_transport_conformance.py, 17 test functions) and the hosted PR #11 'test' check reported SUCCESS at that ancestor. At the current pin 5d0c2d43 the 'test' check was SKIPPED because 'type' failed, so no hosted test result exists at the pin and no test-count transcript was produced against it. The previously recorded 276 unit/contract test count was measured at an earlier SHA. See specification 9.2 and 9.3a.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)"
     },
     "w2_f_service_delegation": {
@@ -165,7 +182,7 @@
     "command": "node tools/contract-validation/validate-inference.mjs",
     "result": "PASS (exit 0)",
     "executed_on": "2026-08-21 (at content base f051192452b546f85e7eba6123b88a56c1ca0cce)",
-    "scope": "W2-D inference packet JSON Schema / fixtures / trust invariants only. This is not staging qualification and flips no gate. Not re-run at the current content base 7f412965: contracts/ and tools/contract-validation/ are byte-identical between the two commits, so the run's inputs are unchanged."
+    "scope": "W2-D inference packet JSON Schema / fixtures / trust invariants only. This is not staging qualification and flips no gate. Not re-run at the current content base afc9150a: contracts/ and tools/contract-validation/ are byte-identical between f0511924 and afc9150a, so the run's inputs are unchanged."
   },
   "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval."
 }
