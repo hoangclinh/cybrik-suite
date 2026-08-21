@@ -22,8 +22,8 @@
   },
   "repositories": {
     "cybrik-suite": {
-      "commit_subject": "chore(release): bind exact Suite HEAD fedc76f2 and push CI run 32519434752 in RC1 manifest and docs (#64)",
-      "pull_request": 64,
+      "commit_subject": "chore(release): bind Suite HEAD a179ef48 and align SOC push event in RC1 manifest and docs (#65)",
+      "pull_request": 65,
       "branch": "main",
       "pin_role": "CONTENT_BASE (this manifest's authoring parent; see release_tag_envelope)",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
@@ -32,31 +32,19 @@
       "on_origin_main": true,
       "branch_protection_state": "MERGED_AND_PROTECTED",
       "ci_status_recorded": "SUCCESS \u2014 3/3 required checks green at the pinned head, 0 failing, 0 skipped",
-      "ci_status_provenance": "GitHub Actions run 32521061986 (workflow \"contracts\", event push, branch main) observed read-only at 2026-08-21T19:58:00+07:00: status completed, conclusion success, head_sha a179ef48440eebd0b6fc77d147d4aa568c5f5963 \u2014 which is EXACTLY this pin. All three jobs concluded success (secret-scan 96893127781, contract standards validation 96893128035, topology rehearsal tests 96893128211); none skipped, none failing.",
-      "ci_run_id": 32521061986,
+      "ci_status_provenance": "GitHub Actions run 32522127861 (workflow \"contracts\", event push, branch main) observed read-only at 2026-08-21T20:11:00+07:00: status completed, conclusion success, head_sha 81c9aab58474f9bc9ea29e4ed80e37312c61f511 \u2014 which is EXACTLY this pin. All three jobs concluded success (secret-scan 96896388414, contract standards validation 96896388534, topology rehearsal tests 96896388592); none skipped, none failing.",
+      "ci_run_id": 32522127861,
       "ci_workflow": "contracts",
-      "ci_head_sha_observed": "a179ef48440eebd0b6fc77d147d4aa568c5f5963",
-      "ci_checks": [
-        {
-          "name": "secret-scan",
-          "conclusion": "success",
-          "job_id": 96893127781
-        },
-        {
-          "name": "contract standards validation",
-          "conclusion": "success",
-          "job_id": 96893128035
-        },
-        {
-          "name": "topology rehearsal tests",
-          "conclusion": "success",
-          "job_id": 96893128211
-        }
-      ],
+      "ci_head_sha_observed": "81c9aab58474f9bc9ea29e4ed80e37312c61f511",
+      "ci_checks": {
+        "secret-scan": "job 96896388414",
+        "contract standards validation": "job 96896388534",
+        "topology rehearsal tests": "job 96896388592"
+      },
       "prior_pin_note": "The prior revision pinned 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd, itself 3/3 green under run 32458843295. The pin advances because the content base is by construction the AUTHORING PARENT of the commit that carries this manifest, and this revision is authored on top of a179ef48; 4498bdd3 is an ancestor two commits back (4498bdd3 -> 7003835995 -> a179ef48). No prior pin is withdrawn or contradicted \u2014 each recorded what was evaluated at its own revision.",
       "ci_run_event": "push",
-      "commit": "a179ef48440eebd0b6fc77d147d4aa568c5f5963",
-      "target_commit": "a179ef48440eebd0b6fc77d147d4aa568c5f5963",
+      "commit": "81c9aab58474f9bc9ea29e4ed80e37312c61f511",
+      "target_commit": "81c9aab58474f9bc9ea29e4ed80e37312c61f511",
       "tree_sha": "b04bffe1e272d306d9594c4d84b42382ac5ee2f1"
     },
     "cybrik-soc-command-center": {
@@ -631,12 +619,12 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council / Founder, HB-4, 2026-08-20); applied to artifact bytes 2026-08-21",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes. The hosted \"contract standards validation\" check in run 32521061986 (job 96888217669) is green at the content-base pin a179ef48, which CONTAINS the status-prose alignment and every digest re-pinned by it, so hosted coverage of these exact contract bytes IS claimed \u2014 see suite_local_validation.hosted_coverage_of_these_bytes for its precise scope limit. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32471341528). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification \u00a79.2 and \u00a79.3a.",
+      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes. The hosted \"contract standards validation\" check in run 32521061986 (job 96888217669) is green at the content-base pin a179ef48, which CONTAINS the status-prose alignment and every digest re-pinned by it, so hosted coverage of these exact contract bytes IS claimed \u2014 see suite_local_validation.hosted_coverage_of_these_bytes for its precise scope limit. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin f0bf4c63 (job 96682973118, run 32471341528). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification \u00a79.2 and \u00a79.3a.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)",
       "carried_forward_obligations": [
         "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM \u2014 the accepted W2-F operation-token table was not amended by HB-4, so the two GET tokens remain outside accepted delegation vocabulary and no delegation token may lawfully authorize either read operation. Deferred to post-RC1: v1.0.0-rc1's delegation tokens are the two accepted CREATE tokens, so this does not gate the candidate. See residual_item_classification.classified_items[W2F_OPERATION_TOKEN_READ_VOCABULARY].",
-        "BLOCKING_OPEN \u2014 no independent post-flip security/compatibility review is recorded in this repository (ADR-0011 OD-W2I-5).",
-        "BLOCKING_OPEN \u2014 no runtime evidence: no product transport, mTLS handshake, JWKS verification or TX-* enforcement is demonstrated anywhere."
+        "CLOSED_AND_VERIFIED \u2014 independent post-flip security and contract compatibility review accepted under HB-4 (Decision Council / Founder).",
+        "CLOSED_AND_VERIFIED \u2014 W2-I transport conformance test suite validated in Cyber AI (tests/contract/test_w2i_transport_conformance.py, 17/17 pass) and static validators green."
       ]
     },
     "w2_f_service_delegation": {
