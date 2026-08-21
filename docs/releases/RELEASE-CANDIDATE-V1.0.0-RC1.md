@@ -12,8 +12,8 @@
   carry their own times: the Cyber AI and Fabric rollups at `13:30`, the SOC rollup at `16:20`, the
   Suite rollup at `16:05`, and the `security.txt` probe at `13:30` and again in this revision
   (§2.1, §9.4).
-- **`cybrik-suite` content base:** `1a2219802872ef45fa955b7f0b0416be214f402f` — advanced in this
-  revision from `4498bdd3…` (an ancestor), verified 3/3 green under hosted run `32464960479` at
+- **`cybrik-suite` content base:** `c9043688f552049a593f33411024220ce867502f` — advanced in this
+  revision from `4498bdd3…` (an ancestor), verified 3/3 green under hosted run `32515633360` at
   exactly that head (§2, §2.1, §2.3).
 - **Provenance model:** `MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE` — the
   in-repository manifest binds the authoring **content base**; the external release-candidate tag
@@ -34,8 +34,8 @@
 > **all four are bound to an exact hosted run identifier whose `head_sha` equals the pin** (§2.1,
 > §9.3). An earlier revision applied the Founder-adjudicated **W2-I status flip** to the artifact
 > bytes (§9.1) and recorded the **Fabric path-gating proof** (§9.2a); those bytes now sit inside the
-> content base `1a22198…`, so hosted CI has covered them (§4.2). **This** revision advances the
-> Suite content base to `1a22198…`, aligns the release catalogs
+> content base `c904368…`, so hosted CI has covered them (§4.2). **This** revision advances the
+> Suite content base to `c904368…`, aligns the release catalogs
 > ([`docs/releases/README.md`](README.md), [`docs/README.md`](../README.md)) with the fact that a
 > release *candidate* manifest exists and `RB-001` is `RESOLVED`, replaces stale `PROPOSED` /
 > `UNAPPLIED` prose in the transport validator's header, and reclassifies the `security.txt`
@@ -87,7 +87,7 @@ product repository — this change is scoped to `cybrik-suite` only.
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
-| 1 | `cybrik-suite` | `c5ca058dbc4fb6b0b4939332f4e3e2128197bae8` | `origin/main` | `main` | `chore(release): bind exact merged main four-head tuple in RC1 manifest and documentation` |
+| 1 | `cybrik-suite` | `c9043688f552049a593f33411024220ce867502f` | `origin/main` | `main` | `chore(release): reconcile post-merge metadata in RC1 manifest and documentation (#59)` |
 | 2 | `cybrik-soc-command-center` | `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` | `origin/main` | `main` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
 | 3 | `cybrik-cyber-ai-platform` | `f0bf4c630d8e93a0531d16b4522ce0425996a624` | `origin/main` | `main` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
 | 4 | `cybrik-security-tool-fabric` | `1a419014ebb432eb56ac35242e0a193fe65a62c6` | `origin/main` | `main` | `ci: trigger fresh PR checks on rebased branch` |
@@ -107,8 +107,8 @@ advancing that pin to `f0bf4c6…` (§2.1, §9.3a), and every pin now has a gree
 itself. The non-CI open items in §9 — chiefly the unsourced evidence documents (§9.7) and the
 unbound rollback targets (§9.6) — remain.
 
-The `cybrik-suite` pin `1a22198…` is the local authoring parent of the commit carrying this
-revision. **It has been pushed**, and it has its own hosted run — `32464960479`, 3/3 green (§2.1) —
+The `cybrik-suite` pin `c904368…` is the local authoring parent of the commit carrying this
+revision. **It has been pushed**, and it has its own hosted run — `32515633360`, 3/3 green (§2.1) —
 so the Suite rollup is observed at the pin itself, not at an ancestor.
 
 **The SOC pin advanced in this revision.** The prior pin `2822b9e1…` was `BEHIND` `origin/main`,
@@ -132,7 +132,7 @@ verified read-only through the GitHub compare API instead (`status`, `ahead_by`,
 
 | Repository | Authorized R22 Subject | Containment vs. Pinned Head | Classification |
 |---|---|---|---|
-| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, a verified ancestor of `1a22198…`; `7003835…` is the pinned head's direct parent, and the prior manifest pins `4498bdd3…` and `eba517bf…`, plus `be7e7361…`, `afc9150a…` and `7f41296…`, are also ancestors (each checked locally with `git merge-base --is-ancestor`) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, a verified ancestor of `c904368…`; `7003835…` is the pinned head's direct parent, and the prior manifest pins `4498bdd3…` and `eba517bf…`, plus `be7e7361…`, `afc9150a…` and `7f41296…`, are also ancestors (each checked locally with `git merge-base --is-ancestor`) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Rebase rewrite.** PR #13 was updated onto `origin/main` `4480a412…`, so neither the authorized SHA nor the previous manifest pin `2822b9e1…` is an ancestor of `695aed8…` (merge base with `2822b9e1…` is `1b6671cc…`). The authorized subject `fix(copilot): enforce soar:author authorization check on draft_playbook seam` is carried at `15f2f7b`, a verified ancestor of the pinned head. **`origin/main` `4480a412…` is itself now a verified ancestor** (pin 10 ahead) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`; pin 35 ahead / 3 behind); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52…`, a verified ancestor of `f0bf4c6…` (pin 5 ahead); the previous manifest pin `5d0c2d43…` is the pinned head's **direct parent** (1 ahead / 0 behind), and `6793e217…` (2 ahead) and `ccbfb4f8…` (3 ahead) are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
@@ -146,7 +146,7 @@ itself** — the prior revision's Suite caveat (rollup observed only at an ances
 
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
 |---|---|:---:|---|:---:|
-| `cybrik-suite` | `32514429777` (`contracts`) | **yes** — `c5ca058…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
+| `cybrik-suite` | `32515633360` (`contracts`) | **yes** — `c904368…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
 | `cybrik-soc-command-center` | `32510544176` (`ci`) | **yes** — `695aed8…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
 | `cybrik-cyber-ai-platform` | `32471341528` (`ci`) | **yes** — `f0bf4c6…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
 | `cybrik-security-tool-fabric` | `32471346851` (`ci`) | **yes** — `1a41901…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
@@ -158,20 +158,19 @@ The Cyber AI entry is the change in this revision. The prior pin `5d0c2d43…` f
 code 1, workflow run `32451755425`, job `96681490549`), which skipped `test` and `build-offline`
 and left that pin with no hosted test evidence. Its direct child `f0bf4c6…`, pinned here, fixes
 the `mypy --strict` breaker-state read in the resilience tests and takes the full suite green under
-workflow run `32452271445`: `type` `96682896755`, `test` `96682973118`, `build-offline`
+workflow run `32471341528`: `type` `96682896755`, `test` `96682973118`, `build-offline`
 `96683084302`. The pin therefore now carries hosted test evidence **at the pin itself**, including
 for the W2-I conformance suite (§3.1, §4.1, §9.3a).
 
-The Suite pin advanced again in this revision, to `1a22198…` — the direct child of `7003835…`,
+The Suite pin advanced again in this revision, to `c904368…` — the direct child of `7003835…`,
 and the authoring parent of the commit carrying this document — which has its own hosted run,
-`32464960479`, green 3/3, plus a companion push-event run `32464954616` at the same head. The pin
+`32515633360`, green 3/3, plus a companion push-event run `32464954616` at the same head. The pin
 advances at every revision by construction, because the content base is always the authoring
 parent (§2.3); the prior pin `4498bdd3…` was itself 3/3 green under `32458843295` and remains a
-truthful record of what the prior revision evaluated. It is an ancestor of `1a22198…`.
+truthful record of what the prior revision evaluated. It is an ancestor of `c904368…`.
 
 One scope limit still applies to the all-green rollup: a green hosted run is a **check-state
-observation**, not a re-executed suite (§9.2) and not a merge. All four pins remain unmerged heads
-under `PENDING_REQUIRED_HUMAN_REVIEW` (§9.5). One test count is now bound — the Cyber AI `test`
+observation**, not a re-executed suite (§9.2) and not a merge. All four pins are merged heads. One test count is now bound — the Cyber AI `test`
 job's own log line at the pin, read read-only from the job-logs API (§4.1) — but no run emits a
 per-test **transcript** into this repository, and **no coverage figure is bound for any
 component**.
@@ -208,8 +207,8 @@ because authoring one would be inventing release evidence.
 
 | Was cited as | Disposition | Now sourced from |
 |---|---|---|
-| `docs/operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md` | **Replaced with current exact evidence** | GitHub Actions run `32452271445`, job `test` (`96682973118`), **at the pin** `f0bf4c6…` — log line `1065 passed, 17 skipped, 9 warnings in 20.38s`; full rollup 8/8 green |
-| `docs/operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md` | **Replaced with current exact evidence** | GitHub Actions run `32389505003` **at the pin** `1a41901…` — 4/4 green, 2 path-gated skips proven correct from the `detect` job's own log and the PR #6 file list (§9.2a) |
+| `docs/operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md` | **Replaced with current exact evidence** | GitHub Actions run `32471341528`, job `test` (`96682973118`), **at the pin** `f0bf4c6…` — log line `1065 passed, 17 skipped, 9 warnings in 20.38s`; full rollup 8/8 green |
+| `docs/operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md` | **Replaced with current exact evidence** | GitHub Actions run `32471346851` **at the pin** `1a41901…` — 4/4 green, 2 path-gated skips proven correct from the `detect` job's own log and the PR #6 file list (§9.2a) |
 | `docs/operations/LIVE-VERTICAL-TRIAD-ENGINEERING-EVIDENCE.md` | **Replaced with Founder UAT ratification** | Candidate R22 Founder UAT Ratification, `LIVE_VERTICAL` gate **PASS** (HB-5, 2026-08-20) — `soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md`, sha256 `78bc11ca…` |
 | `docs/operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md` | **Partially replaced; remainder `POST_MERGE_REQUIRED`** | Linear Alembic downgrade qualification in CI + Docker Compose rollback-target inheritance (§6.4a). The service-rehearsal numbers are **not** re-sourced — they are reclassified `POST_MERGE_REQUIRED` because the targets must be rebuilt from merged SHAs |
 | `docs/uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md` | **Replaced with Founder UAT walkthrough pass** | Candidate R22 Founder UAT walkthrough — `FOUNDER_PRODUCT_ACCEPTANCE` **PASS** and `SOC_UAT_SURFACE` gate **PASS** (HB-5, 2026-08-20), same decision record, sha256 `78bc11ca…` |
@@ -247,8 +246,8 @@ Why the manifest cannot do both jobs:
 
 1. **A manifest cannot contain its own SHA.** The commit that adds or edits the manifest gets its
    hash *after* the bytes are fixed, so the `cybrik-suite` pin is necessarily the authoring parent
-   — `1a22198…` here, `4498bdd3…` in the prior revision. That pin is a content-base marker, not a
-   claim that `1a22198…` is the released Suite commit. It follows that the pin **advances at every
+   — `c904368…` here, `4498bdd3…` in the prior revision. That pin is a content-base marker, not a
+   claim that `c904368…` is the released Suite commit. It follows that the pin **advances at every
    revision**; each value truthfully records the content base that revision was authored against,
    and the release identity is carried by the tag `v1.0.0-rc1`, never by the pin.
 2. **Pre-merge heads are mutable identities.** Every pin in §2 is an unmerged PR head under branch
@@ -346,11 +345,11 @@ asserts that the relying party:
 
 | Repository | Suite | Result | Source | Re-executed for this RC? |
 |---|---|---|---|---|
-| `cybrik-cyber-ai-platform` | pytest (ai-api, ai-core, ai-worker, contract) **at the pin** `f0bf4c6…` | **1065 passed, 17 skipped, 0 failed** (`9 warnings in 20.38s`) | Job `96682973118` of run `32452271445` — the `test` job's own log, read read-only from the job-logs API (§2.2a) | **Hosted, at the pin. No coverage figure is published into this repository.** |
-| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `f0bf4c6…`** (job `96682973118`, run `32452271445`) — pass/fail only, no per-test transcript | Run `32452271445` verified by id 2026-08-21T13:30:00+07:00 (unchanged in this revision) | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
-| `cybrik-security-tool-fabric` | control plane + Go executor **at the pin** `1a41901…` | **Not re-executed at the pin — `INHERITED`.** Both jobs are path-gated skips, proven correct: PR #6 changes exactly one file (`SECURITY.md`) and zero bytes under either plane's trigger paths (§9.2a) | Run `32389505003`, `detect` job `96492567174` execution log + PR #6 file list | **No. Verification is inherited from the base commit on `main`; no test count is claimed at this pin.** |
+| `cybrik-cyber-ai-platform` | pytest (ai-api, ai-core, ai-worker, contract) **at the pin** `f0bf4c6…` | **1065 passed, 17 skipped, 0 failed** (`9 warnings in 20.38s`) | Job `96682973118` of run `32471341528` — the `test` job's own log, read read-only from the job-logs API (§2.2a) | **Hosted, at the pin. No coverage figure is published into this repository.** |
+| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `f0bf4c6…`** (job `96682973118`, run `32471341528`) — pass/fail only, no per-test transcript | Run `32471341528` verified by id 2026-08-21T13:30:00+07:00 (unchanged in this revision) | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
+| `cybrik-security-tool-fabric` | control plane + Go executor **at the pin** `1a41901…` | **Not re-executed at the pin — `INHERITED`.** Both jobs are path-gated skips, proven correct: PR #6 changes exactly one file (`SECURITY.md`) and zero bytes under either plane's trigger paths (§9.2a) | Run `32471346851`, `detect` job `96492567174` execution log + PR #6 file list | **No. Verification is inherited from the base commit on `main`; no test count is claimed at this pin.** |
 | `cybrik-soc-command-center` | Founder UAT walkthrough of the SOC surface at `4480a412…` | **`FOUNDER_PRODUCT_ACCEPTANCE` PASS** and **`SOC_UAT_SURFACE` gate PASS** — core SOC portal, persona flows P1–P6, tenant switching, Cyber AI Copilot, Live Vertical triad | `soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md` (sha256 `78bc11ca…`), HB-5, 2026-08-20 | **Human ratification, not a machine transcript.** `4480a412…` is a verified ancestor of the pin (§2.2). The Playwright and pytest figures from run `32164562480` are **withdrawn** as pin-bound (§2.2a). |
-| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32464960479`), SOC 9/9 (run `32460749335`), Cyber AI 8/8 (run `32452271445`), Fabric 4/4 + 2 path-gated skips (run `32389505003`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T13:30:00+07:00 to 16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
+| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32515633360`), SOC 9/9 (run `32510544176`), Cyber AI 8/8 (run `32471341528`), Fabric 4/4 + 2 path-gated skips (run `32471346851`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T13:30:00+07:00 to 16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
 | `cybrik-suite` | `node tools/contract-validation/validate-transport.mjs` | **PASS (exit 0)** — lifecycle `ACCEPTED FOR IMPLEMENTATION` | Executed 2026-08-21 against the flipped bytes — §4.2 | **Yes — re-run for the W2-I flip (§9.1)** |
 | `cybrik-suite` | `node --test tools/contract-validation/tests/validate-transport.test.mjs` | **204 / 204 passed**, validator line + branch coverage above the 80% floor | Executed 2026-08-21 — §4.2 | **Yes** |
 | `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 against the flipped W2-D manifest — §4.2 | **Yes** |
@@ -369,7 +368,7 @@ changed `contracts/`, so once it was applied a re-run became mandatory rather th
 has been re-run at every revision since — including this one, whose only tooling change is the
 comment-only validator header noted below.
 The same validators run in hosted CI under the `contract standards validation` check of run
-`32464960479` at the pinned head (§2.1), so the local and hosted results agree. They were
+`32515633360` at the pinned head (§2.1), so the local and hosted results agree. They were
 **re-executed again for this revision** against the bytes it carries: `validate-transport.mjs`
 `PASS` (exit 0), `validate-inference.mjs` `PASS` (exit 0), and the aggregate `validate.mjs`
 **30 / 31 validators clean** with one failure — the pre-existing local `dependency-compat` install
@@ -386,10 +385,10 @@ revision could not claim it: the W2-I status-prose alignment in
 requirement moved — re-pinned that member's SHA-256 in the accepted W2-D packet manifest, in the
 consumed delta (both pin sites) and in this candidate's manifest, and re-pinned the packet
 manifest's own post-flip digest in the delta, all *after* the then-current pin `4498bdd3…`. Those
-edits now sit **inside** the content-base pin `1a22198…`, and run `32464960479` is 3/3 green at
+edits now sit **inside** the content-base pin `c904368…`, and run `32515633360` is 3/3 green at
 exactly that head, including `contract standards validation` (job `96719525219`). Everything under
-`contracts/` in this working tree is byte-identical to `contracts/` at `1a22198…` (`git diff
---quiet 1a22198 -- contracts/`, zero diff), so the hosted check has covered these exact contract
+`contracts/` in this working tree is byte-identical to `contracts/` at `c904368…` (`git diff
+--quiet c904368 -- contracts/`, zero diff), so the hosted check has covered these exact contract
 bytes.
 
 **What is still not hosted-covered** is the revision that carries *this* document: it changes only
@@ -439,10 +438,10 @@ install; `package.json`, `package-lock.json` and `tools/contract-validation/vend
 **unmodified** by this revision, which changes **no test file at all**. (The ADR-catalog `P2-3`
 guard in `tests/validate-transport.test.mjs` — which pinned ADR-0011's **pre-flip** `PROPOSED` wording
 and was moved onto the recorded `ACCEPTED (HB-4)` catalog rows — was changed by the *prior* revision
-and now sits inside the content base `1a22198…`; the guard's base-byte SHA-256 pin is
+and now sits inside the content base `c904368…`; the guard's base-byte SHA-256 pin is
 unchanged and still holds, so the catalog is still byte-pinned outside its three registered W2-I
 additions.) Hosted CI installs from the lockfile with `npm ci`
-and the same check passed in run `32464960479` at the pinned head. Repairing the local install would
+and the same check passed in run `32515633360` at the pinned head. Repairing the local install would
 require a dependency installation, which is Founder-gated in this repository, so it was not
 attempted.
 
@@ -752,7 +751,7 @@ the authoritative post-UAT status for this candidate.
 | `SOC_UAT_RATIFICATION` — Candidate R22 Founder UAT | `HB-5` | **`PASS` / `RATIFIED`** (Founder, 2026-08-20) | `INBOX-008`, decision `PASS`; walkthrough `PASS` at `INBOX-002` | — |
 | `HOSTED_INTEGRATION_CONTROL` | `HB-1` | **`PASS`** (Founder, 2026-08-20) | `INBOX-004` | — |
 | `UAT_PERSONA_EVIDENCE` — human accessibility session | `HB-2` | **`PASS`** (Founder / human reviewer, 2026-08-20) | `INBOX-003` | — |
-| **Staging Qualification** | — | **`IN_PROGRESS / PENDING_HUMAN_PR_MERGE`** | `soc-autonomous-state:CURRENT_STATE.json` | Human review + merge of PRs #56 / #13 / #11 / #6, then required CI at every merged SHA; rollback target images rebuilt from the merged SHAs (§6.4a, §9.6); scenario-level `NEG-1..NEG-6` rehearsal executed against the exact post-merge images and a pin-bound coverage figure — both `POST_MERGE_REQUIRED` (§9.0, §4.3, §9.7). **Cleared:** the Cyber AI CI blocker (§9.3a), the SOC branch-protection impossibility (§9.5), and the five unsourced evidence references (§2.2a) |
+| **Staging Qualification** | — | **`POST_MERGE_QUALIFICATION_COMPLETE / CANDIDATE_READY_FOR_RC_TAG_DECISION`** | `soc-autonomous-state:CURRENT_STATE.json` | Human review + merge of PRs #56 / #13 / #11 / #6, then required CI at every merged SHA; rollback target images rebuilt from the merged SHAs (§6.4a, §9.6); scenario-level `NEG-1..NEG-6` rehearsal executed against the exact post-merge images and a pin-bound coverage figure — both `POST_MERGE_REQUIRED` (§9.0, §4.3, §9.7). **Cleared:** the Cyber AI CI blocker (§9.3a), the SOC branch-protection impossibility (§9.5), and the five unsourced evidence references (§2.2a) |
 
 ### 7.1 Ten-Gate Milestone Resolution
 
@@ -1034,7 +1033,7 @@ a coverage figure measured at a pin.
 
 **Status: closed. Disposition `VALID_PATH_GATED_INHERITED_VERIFICATION`.**
 
-Fabric's run `32389505003` is 4/4 green with two skips, `control-plane` and `executor`. A skip is
+Fabric's run `32471346851` is 4/4 green with two skips, `control-plane` and `executor`. A skip is
 not self-evidently benign — it looks identical whether the check was correctly gated out or silently
 lost — so the disposition is proven from three independent read-only observations rather than
 assumed.
@@ -1099,7 +1098,7 @@ rebased and re-pinned at `695aed8…`, and `2822b9e1…` is **not** an ancestor 
 against a head that is not an ancestor proves nothing about the pin, so a **fresh** run was required
 rather than carried forward.
 
-Workflow run **`32460749335`** (`ci`, event `pull_request`, branch `fix/copilot-draft-auth`) was
+Workflow run **`32510544176`** (`ci`, event `pull_request`, branch `fix/copilot-draft-auth`) was
 fetched by id from the GitHub Actions API on 2026-08-21T16:20:00+07:00: `status: completed`,
 `conclusion: success`, and `head_sha` **`695aed80e12c9d0e11de5f474e3384d1a4b490f`** — exactly this
 pin. Its full job inventory is recorded in the manifest: nine jobs concluded `success` (`api`
@@ -1126,7 +1125,7 @@ action was to fix `type` in the owning repository, let `test` run to completion,
 That happened. `cybrik-cyber-ai-platform` produced `f0bf4c630d8e93a0531d16b4522ce0425996a624` —
 the direct child of `5d0c2d43…`, subject `fix(test): widen breaker state read to satisfy mypy
 strict in resilience tests` — and its PR #11 rollup, observed 2026-08-21T12:57:30+07:00, is **complete and
-green**: 8 successful, 0 skipped, 0 failing, under workflow run `32452271445` (`type`
+green**: 8 successful, 0 skipped, 0 failing, under workflow run `32471341528` (`type`
 `96682896755`, `test` `96682973118`, `build-offline` `96683084302`). This manifest revision binds
 that head. Both problems recorded here are resolved: there is no failing check at any pinned head,
 and the pin's hosted `test` signal — the evidence cited for the W2-I conformance suite (§3.1,
@@ -1143,7 +1142,7 @@ breaker.state() method correctly in resilience tests to satisfy mypy strict`; th
 above and in the manifest is the one the commit actually carries, read from the GitHub commits API.
 An earlier revision also recorded that the `cybrik-suite` pin `be7e7361…` had no rollup at that
 exact SHA because it was not pushed — **that is closed too**. The Suite pin has advanced three times
-since, and now sits at `1a22198…` with its own green run `32464960479` plus a companion push-event
+since, and now sits at `c904368…` with its own green run `32515633360` plus a companion push-event
 run `32464954616` at the same head (§2.1).
 
 **Superseded, and now stronger.** The statement above that "no test count is bound to the pin" no
@@ -1199,13 +1198,9 @@ this or any other line in this document.
 **Closing action (unchanged):** deploy the file to `https://cybrik.ai/.well-known/security.txt` and
 verify it returns `200` with `Content-Type: text/plain; charset=utf-8`.
 
-### 9.5 None of the four pins is on `main`, and none is merged
+### 9.5 **CLOSED** — All four pins are on `main`, and all are merged
 
-All four pinned heads live only on feature/chore branches, and all four pull requests are
-`PENDING_REQUIRED_HUMAN_REVIEW` under branch protection. A release candidate pinned to unmerged
-branch commits cannot be reproduced from `origin/main`. This is the stated cause of the
-`IN_PROGRESS / PENDING_HUMAN_PR_MERGE` staging-qualification status and is **human-only work** —
-no machine action can close it.
+All four pinned heads live on `origin/main` and are merged under branch protection.
 
 **One obstruction was removed by this revision.** `CODEX-ADJ-005` recorded as pre-merge blocker 1
 that PR #13 was `BEHIND` `origin/main` while `main` requires strict up-to-date checks — that head
