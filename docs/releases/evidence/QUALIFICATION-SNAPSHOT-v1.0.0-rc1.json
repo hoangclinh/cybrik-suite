@@ -14,14 +14,14 @@
     ],
     "authority_of_record": "soc-autonomous-state:HUMAN_BOUNDARIES.json, soc-autonomous-state:AUTHORITY_INBOX.json and soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md — control-plane artifacts outside every suite repository. This file exists BECAUSE that is true, not in spite of it: §9.7 asked for a derived artifact in-repo, and a derived artifact that claimed to be authoritative would recreate the very gap it was meant to document.",
     "verification_split": "Every field below carries an in_repository_corroboration value. VERIFIED means this repository independently observed the fact (read-only GitHub API, or read-only git against a local canonical checkout, at the snapshot timestamp). ABSENT means the claim is reproduced from an external record that nothing committed here can check. Where an external record is reproduced, its sha256 is bound so a reader can detect drift in the bytes that were read — a digest pins the source, it does not make the claim checkable here.",
-    "revision_note": "Revision 3 (2026-08-21, classification and prose alignment; no new measurement). Changes against revision 2: residual_item_classification introduces the RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1 shared with RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0; open_items_not_closed_by_this_snapshot becomes a list of classified objects so no item can be read as both blocking and deferred; the W2-F read-token amendment is classified DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and scenario-level NEG-1..NEG-6 rehearsal execution POST_MERGE_REQUIRED against the exact post-merge images; provenance_model mirrors the manifest's content-base / external-release-tag-envelope split; and contract_state.w2_i_transport_binding carries its obligations with explicit classes. Revision 2 (2026-08-21T16:20:00+07:00) advanced the SOC pin from 2822b9e1 to 34b6302 (rebased onto origin/main 4480a412), advanced the Suite content base to 4498bdd, moved codex_challenges, performance_evidence and database_restore_drill from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records, and superseded dangling_evidence_references with external_evidence_reconciliation. Nothing was resolved by authoring a missing document."
+    "revision_note": "Revision 4 (2026-08-21, content-base re-pin, catalog alignment and one reclassification; no new product measurement). Changes against revision 3: the cybrik-suite content base advances from 4498bdd3 to 7065a7034991e43a1f486d67f84777766b5d0cba — the authoring parent of the commit carrying this revision — verified 3/3 green read-only under GitHub Actions run 32464960479 at exactly that head (companion push-event run 32464954616 also 3/3 green), with job identifiers re-bound accordingly; SECURITY_TXT_PUBLICATION is reclassified from BLOCKING_OPEN to EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED with POST_DEPLOYMENT_REQUIRED as its single gating class, on unchanged facts (the URL was re-probed 404 on 2026-08-21) and without reopening or weakening RB-001; and a compound_label_rule is added to the taxonomy so the compound label cannot be read as breaking disjointness. No product suite was re-executed and no gate moved. Revision 3 (2026-08-21, classification and prose alignment; no new measurement). Changes against revision 2: residual_item_classification introduces the RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1 shared with RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0; open_items_not_closed_by_this_snapshot becomes a list of classified objects so no item can be read as both blocking and deferred; the W2-F read-token amendment is classified DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and scenario-level NEG-1..NEG-6 rehearsal execution POST_MERGE_REQUIRED against the exact post-merge images; provenance_model mirrors the manifest's content-base / external-release-tag-envelope split; and contract_state.w2_i_transport_binding carries its obligations with explicit classes. Revision 2 (2026-08-21T16:20:00+07:00) advanced the SOC pin from 2822b9e1 to 34b6302 (rebased onto origin/main 4480a412), advanced the Suite content base to 4498bdd, moved codex_challenges, performance_evidence and database_restore_drill from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records, and superseded dangling_evidence_references with external_evidence_reconciliation. Nothing was resolved by authoring a missing document."
   },
   "components": {
     "cybrik-suite": {
       "pull_request": 56,
       "branch": "fix/rc-manifest-contracts",
-      "pinned_sha": "4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd",
-      "ci_run_id": 32458843295,
+      "pinned_sha": "7065a7034991e43a1f486d67f84777766b5d0cba",
+      "ci_run_id": 32464960479,
       "ci_workflow": "contracts",
       "ci_conclusion": "success",
       "checks_green": 3,
@@ -32,28 +32,28 @@
       "on_origin_main": false,
       "merged": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "in_repository_corroboration": "VERIFIED — run object and job inventory read from the GitHub Actions API at the snapshot timestamp; head_sha matches the pin exactly. The companion push-event run 32458840409 at the same head is also 3/3 green.",
-      "commit_subject": "fix(contracts): apply founder-authorized W2-I status flip and bind release evidence snapshot",
+      "in_repository_corroboration": "VERIFIED — run object and job inventory read read-only from the GitHub Actions API at 2026-08-21T16:05:00+07:00; head_sha 7065a7034991e43a1f486d67f84777766b5d0cba matches the pin exactly. The companion push-event run 32464954616 at the same head is also 3/3 green.",
+      "commit_subject": "fix(docs): align W2-I prose, ADR catalog, and release classification taxonomy",
       "ci_run_event": "pull_request",
-      "ci_companion_push_run_id": 32458840409,
+      "ci_companion_push_run_id": 32464954616,
       "ci_checks": [
         {
           "name": "secret-scan",
           "conclusion": "success",
-          "job_id": 96701475413
+          "job_id": 96719525344
         },
         {
           "name": "contract standards validation",
           "conclusion": "success",
-          "job_id": 96701475619
+          "job_id": 96719525219
         },
         {
           "name": "topology rehearsal tests",
           "conclusion": "success",
-          "job_id": 96701475588
+          "job_id": 96719524994
         }
       ],
-      "note": "This pin is the content base: it is the authoring parent of the commit that carries this snapshot revision, because a committed file cannot contain its own commit SHA."
+      "note": "This pin is the content base: it is the authoring parent of the commit that carries this snapshot revision, because a committed file cannot contain its own commit SHA. It therefore ADVANCES at every revision — 4498bdd3 bound revision 3, 7065a703 binds revision 4, and 4498bdd3 is an ancestor of 7065a703 two commits back. The release identity is carried by the external tag v1.0.0-rc1, never by this pin."
     },
     "cybrik-soc-command-center": {
       "pull_request": 13,
@@ -557,7 +557,7 @@
       "single_failure": "tools/contract-validation/tests/dependency-compat.test.mjs — MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. The lockfile declares the alias (brace-expansion-v5 -> npm:brace-expansion@5.0.9) but the untracked local node_modules install does not contain it.",
       "failure_is_preexisting": true,
       "failure_unrelated_to_this_revision": "This revision changes exactly three files — the RC specification, the RC manifest and this snapshot. It touches no package.json, package-lock.json, vendor tree or test file, and the failing test reads none of the three.",
-      "why_not_repaired": "Repairing the local install requires a dependency installation, which cybrik-suite:CLAUDE.md reserves to the Founder. Hosted CI installs from the lockfile with npm ci and the same check passes — Suite run 32458843295 is 3/3 green at the pin.",
+      "why_not_repaired": "Repairing the local install requires a dependency installation, which cybrik-suite:CLAUDE.md reserves to the Founder. Hosted CI installs from the lockfile with npm ci and the same check passes — Suite run 32464960479 is 3/3 green at the pin.",
       "in_repository_corroboration": "VERIFIED — the validators were executed in this worktree against the bytes carried by this revision."
     }
   },
@@ -582,9 +582,12 @@
     },
     {
       "id": "SECURITY_TXT_PUBLICATION",
-      "classification": "BLOCKING_OPEN",
-      "item": "§9.4 — security.txt publication at the canonical URL is unverified (HTTP 404 on the direct probe of 2026-08-21T13:30:00+07:00). The Founder UAT decision records it as a non-blocking follow-up for RB-001, which stays RESOLVED; publication itself remains open.",
-      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §5.3, §9.4"
+      "classification": "EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED",
+      "gating_class": "POST_DEPLOYMENT_REQUIRED",
+      "compound_label_note": "EXTERNAL_RESOURCE_REQUIREMENT names WHERE the artifact of record lives (the public web edge at cybrik.ai, outside every suite repository); it is not a second class. The single gating class is POST_DEPLOYMENT_REQUIRED, so disjointness holds.",
+      "item": "§9.4 — security.txt is not served at the public canonical URL (HTTP 404 re-probed 2026-08-21, unchanged from the 2026-08-21T13:30:00+07:00 probe). VERIFIED in-repository: the file exists at public/.well-known/security.txt, is byte-identical to docs/security/security.txt, and is RFC 9116 field-conformant (§5.3). NOT VERIFIABLE here: publishing at that URL is a production web deployment, which cybrik-suite:CLAUDE.md reserves to the Founder and which cannot be verified before a deployment exists.",
+      "reclassified_by_revision_4": "Moved from BLOCKING_OPEN. The facts are unchanged — the file is still not served and the 404 still stands. RB-001 stays RESOLVED and is neither reopened nor weakened: its substance was the absence of a verified intake channel, and that channel (security@cybrik.ai / report@cybrik.ai to contact@bpech.com, delivery-tested end-to-end) is verified. Nothing is waived and no deployment, publication or production authority is granted.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §5.3, §9.0, §9.4"
     },
     {
       "id": "PINS_UNMERGED",
@@ -738,11 +741,12 @@
     "net_effect": "Zero dangling paths remain. Two of the five are replaced by hosted CI evidence measured at the pins themselves (Cyber AI, Fabric), two by the Founder UAT ratification record with gate-level rather than scenario-level scope (Live Vertical, SOC UAT surface), and one is split: its database-rollback and rollback-target-inheritance halves are qualified now, and its service-rehearsal numbers are reclassified POST_MERGE_REQUIRED rather than restated. Six specific figures previously carried by the missing documents — Cyber AI 258/258 and 96.63% coverage, Fabric 172/172 and the Go executor result, Playwright 31 passed, pytest 279/278/1 — are WITHDRAWN, not re-sourced.",
     "closes": "CODEX-ADJ-005 pre-merge item 2."
   },
-  "status_honesty": "DERIVED_RELEASE_EVIDENCE=true and AUTHORITATIVE_ORCHESTRATION_STATE=false are load-bearing, and revision 3 does not weaken them. Revision 3 changes CLASSIFICATION and PROSE only: it adds residual_item_classification, restates every open item as a classified object, mirrors the MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE provenance model, and aligns the W2-I prose with the applied HB-4 acceptance. It measures nothing new, closes no gate, promotes nothing and adds no authority. Classifying the W2-F read-token amendment DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM narrows its SCOPE against this candidate and relaxes NO constraint: no delegation token may lawfully authorize either GET operation, before or after the reclassification. This file grants no staging-qualification, merge, tag, deployment, GA or production authority, and it cannot promote v1.0.0-rc1 beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Promotion requires explicit Founder approval per cybrik-suite:CLAUDE.md.",
+  "status_honesty": "DERIVED_RELEASE_EVIDENCE=true and AUTHORITATIVE_ORCHESTRATION_STATE=false are load-bearing, and neither revision 3 nor revision 4 weakens them. Revision 4 re-pins the Suite content base to its new authoring parent, aligns the release catalogs, and reclassifies ONE item (SECURITY_TXT_PUBLICATION) whose underlying facts are unchanged; the reclassification relaxes no constraint, waives nothing, reopens no blocker and grants no deployment, publication, release or production authority. RB-001 remains RESOLVED on its own evidence. Revision 3 does not weaken them either. Revision 3 changes CLASSIFICATION and PROSE only: it adds residual_item_classification, restates every open item as a classified object, mirrors the MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE provenance model, and aligns the W2-I prose with the applied HB-4 acceptance. It measures nothing new, closes no gate, promotes nothing and adds no authority. Classifying the W2-F read-token amendment DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM narrows its SCOPE against this candidate and relaxes NO constraint: no delegation token may lawfully authorize either GET operation, before or after the reclassification. This file grants no staging-qualification, merge, tag, deployment, GA or production authority, and it cannot promote v1.0.0-rc1 beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Promotion requires explicit Founder approval per cybrik-suite:CLAUDE.md.",
   "residual_item_classification": {
     "model": "RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1",
     "authority": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0 is the authoritative statement of this taxonomy. This block is the derived projection of it and must never disagree with it.",
     "disjointness_rule": "Every residual item carries EXACTLY ONE class. No item is simultaneously blocking and deferred, and no top-level status field in this snapshot may disagree with the class recorded against the item that details it.",
+    "compound_label_rule": "One item (SECURITY_TXT_PUBLICATION) carries the compound label EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED. This is NOT a second class and does not break disjointness: the part before the slash names where the artifact of record lives, and the part after it is the single gating class, recorded separately as gating_class. Read the gating class only.",
     "classes": {
       "BLOCKING_OPEN": "Must be closed before v1.0.0-rc1 may leave CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Gates staging qualification.",
       "POST_MERGE_REQUIRED": "Cannot be executed until the four pull requests merge, because it needs artifacts built from the EXACT post-merge main-line SHAs. A sequencing fact, not a defect and not a waiver. Gates staging qualification, after merge.",
@@ -754,7 +758,7 @@
   },
   "provenance_model": {
     "model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
-    "manifest_binds": "The immutable CONTENT BASE: one pre-merge pull-request head per product repository, plus the cybrik-suite AUTHORING PARENT of the commit that carries releases/manifests/release-candidate-v1.0.0-rc1.manifest.json. A manifest cannot contain its own commit SHA, so the Suite pin is necessarily its authoring parent.",
+    "manifest_binds": "The immutable CONTENT BASE: one pre-merge pull-request head per product repository, plus the cybrik-suite AUTHORING PARENT of the commit that carries releases/manifests/release-candidate-v1.0.0-rc1.manifest.json — at this revision, exactly 7065a7034991e43a1f486d67f84777766b5d0cba, 3/3 green under GitHub Actions run 32464960479 at that head. A manifest cannot contain its own commit SHA, so the Suite pin is necessarily its authoring parent.",
     "envelope_binds": "The final POST-MERGE release: the external release-candidate tag v1.0.0-rc1, created outside the manifest only after all four pull requests merge, binding the merged main-line SHAs.",
     "envelope_status": "NOT_CREATED — no release tag exists in any repository for this candidate.",
     "category_error_to_avoid": "Reading a content-base pin in components{} as a RELEASED SHA is a category error (ABMB-04). Nothing in components{} has been released, tagged, deployed or promoted.",

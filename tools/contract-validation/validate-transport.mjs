@@ -1,13 +1,20 @@
-// validate-transport.mjs — W2-I inference-plane transport-binding candidate validator.
+// validate-transport.mjs — W2-I inference-plane transport-binding validator (ACCEPTED, APPLIED).
 //
-// Scope: the W2-I transport-binding candidate ONLY. Under the recorded Founder decision (Option A,
-// 2026-07-26) the candidate is NOT a packet of its own: it is a PROPOSED, UNAPPLIED DELTA against
-// the ACCEPTED W2-D inference packet manifest, recorded in
-// compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json. That delta is the single
-// source of truth for the candidate lifecycle (PROPOSED — NOT ACCEPTED; Gate W2-I not decided). It
-// is explicitly NOT a compatibility manifest (x-cybrik-is-manifest false) and this validator never
-// treats it as one: it synthesizes no packet version, no bundle tag and no manifest lifecycle, and
-// asserts those manifest-shaped fields ABSENT rather than faking them (section 3a). It is
+// Scope: the W2-I transport binding ONLY. Under the recorded Founder decision (Option A,
+// 2026-07-26) it is NOT a packet of its own: it is a delta against the ACCEPTED W2-D inference
+// packet manifest, recorded in
+// compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json. That delta remains the
+// single source of truth for the binding's lifecycle, and this validator is a TWO-STATE machine
+// driven by it (section 0): PROPOSED — NOT ACCEPTED, or ACCEPTED FOR IMPLEMENTATION — APPLIED.
+// Gate W2-I was decided ACCEPT by the Decision Council / Founder at human boundary HB-4 on
+// 2026-08-20, and the status flip was APPLIED into the ACCEPTED W2-D manifest on 2026-08-21, so
+// the state ON DISK is ACCEPTED FOR IMPLEMENTATION — successor OpenAPI v0.2.0, schemas and
+// fixtures v0.1.0, pre-GA and NOT stable v1/GA. Acceptance is the recorded gate decision; it is
+// never this validator and never a green run. Even applied, the delta is explicitly NOT a
+// compatibility manifest (x-cybrik-is-manifest false) and this validator never treats it as one:
+// it synthesizes no packet version, no bundle tag and no manifest lifecycle, and asserts those
+// manifest-shaped fields ABSENT rather than faking them (section 3a) — an applied delta is a
+// CONSUMED REVIEW RECORD, retained for audit, carrying no residual authority. It is
 // ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (validate-schemas.mjs),
 // the ACCEPTED W2-D inference packet (validate-inference.mjs), the ACCEPTED W2-F
 // service-delegation packet (validate-svc.mjs) and the ACCEPTED W2-G org-hierarchy packet
@@ -34,18 +41,22 @@
 //       merely on something — every such fixture reuses the canonical jti + idempotency_key, so
 //       truthiness alone would let TX-7 shadow TX-8 — with the positive presentations accepted so
 //       no rule is vacuous);
-//   (4) verify the PROPOSED delta: its artifact identity and self-denial (proposed-delta, not a
-//       manifest, unapplied, granting no acceptance authority, and carrying none of the
+//   (4) verify the delta: its artifact identity and self-denial (proposed-delta, never a
+//       manifest; UNAPPLIED while PROPOSED and APPLIED — with an ISO flip date and a
+//       sha256_after_flip pin — once ACCEPTED, so a half-flip cannot express itself either way;
+//       granting no acceptance authority, and carrying none of the
 //       manifest-shaped fields it declines to be), a single lifecycle state across every candidate
 //       member, per-member SHA-256 integrity + on-disk paths + the digest-pinned examples manifest,
 //       the upstream ACCEPTED W2-D pins (the byte-frozen predecessor manifest + OpenAPI must show
-//       zero diff against the reviewed bytes), the single-owner ownership record (one CURRENT owner,
-//       one PROPOSED successor, digests agreeing across both pin sites), the CLOSED operation
-//       registry against the positive fixtures, the ADR basis (accepted ADR-0008 seam; candidate
-//       ADR-0011 unaccepted), accepted base reused unmodified, NO server/secret/vendor and MCP OUT
-//       OF SCOPE, disjoint from ADR-0004 tool authority, and the ABSENCE of the withdrawn
-//       second-plane artifacts (a resurrected second plane would re-create a second owner of the
-//       same paths, which is exactly what Option A refused), plus the ADR-0001 D6 guard that the
+//       zero diff against the reviewed bytes), the single-owner ownership record (one CURRENT owner
+//       and, post-flip, NO residual PROPOSED successor, digests agreeing across both pin sites),
+//       the CLOSED operation registry against the positive fixtures, the ADR basis (accepted
+//       ADR-0008 seam; ADR-0011 unaccepted while PROPOSED, and ACCEPTED with every not-yet
+//       qualifier gone once the gate has decided), accepted base reused unmodified, NO
+//       server/secret/vendor and MCP OUT OF SCOPE, disjoint from ADR-0004 tool authority, and the
+//       ABSENCE of the withdrawn second-plane artifacts (a resurrected second plane would
+//       re-create a second owner of the same paths, which is exactly what Option A refused), plus
+//       the ADR-0001 D6 guard that the
 //       ACCEPTED W2-D manifest's OWN BYTES reference no candidate material — parsed independently of,
 //       and never behind, the upstream digest pin, so a stale pin cannot mask an unrecorded flip
 //       (section 3f);
@@ -417,9 +428,12 @@ export function runValidation({ root } = {}) {
       if (!Array.isArray(a.evidence) || a.evidence.length === 0) fail('transport manifest: accepted packet must record acceptance.evidence[]');
       if (/NOT OPENED|awaiting/i.test(gateStatus)) fail('transport manifest: gate.status must record the Gate W2-I decision once accepted');
     }
-    // ADR basis: the accepted W2-F seam profile is ADR-0008; the candidate transport-binding ADR is
-    // ADR-0011 and stays PROPOSED — NOT ACCEPTED — NOT APPLIED (not yet authored; the number before
-    // it is reserved for the W0-I07B capability-name canonicalization record and is never cited here).
+    // ADR basis: the accepted W2-F seam profile is ADR-0008; the transport-binding ADR is ADR-0011,
+    // whose required status follows the SAME two-state machine as everything else here — PROPOSED —
+    // NOT ACCEPTED — NOT APPLIED before the gate, ACCEPTED and free of every not-yet qualifier after
+    // it. Gate W2-I has decided, so the accepted branch is the live one and the decision record is
+    // docs/adr/ADR-0011-inference-plane-transport-binding-profile.md. The number before it is
+    // reserved for the W0-I07B capability-name canonicalization record and is never cited here.
     const basisIds = (compat.adr_basis || []).map((x) => x.id);
     if (!basisIds.includes('ADR-0008')) fail('transport manifest: adr_basis must include the accepted ADR-0008 service-delegation/workload-identity seam profile');
     const candidateAdr = (compat.adr_basis || []).find((x) => x.id === 'ADR-0011');
