@@ -88,7 +88,7 @@ product repository — this change is scoped to `cybrik-suite` only.
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
 | 1 | `cybrik-suite` | `7065a7034991e43a1f486d67f84777766b5d0cba` | [#56] | `fix/rc-manifest-contracts` | `fix(docs): align W2-I prose, ADR catalog, and release classification taxonomy` |
-| 2 | `cybrik-soc-command-center` | `34b6302e6bdc34e3fb334c079680e76166d9b476` | [#13] | `fix/copilot-draft-auth` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
+| 2 | `cybrik-soc-command-center` | `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` | [#13] | `fix/copilot-draft-auth` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
 | 3 | `cybrik-cyber-ai-platform` | `b5ab09c8194bc88cfa7c2fdbb53c672efd06a722` | [#11] | `feature/rc-w2i-conformance` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
 | 4 | `cybrik-security-tool-fabric` | `0e4fee8d08ff9a67c200ce6c5f97a6f277581be9` | [#6] | `chore/sec-md-fabric` | `ci: trigger fresh PR checks on rebased branch` |
 
@@ -115,7 +115,7 @@ so the Suite rollup is observed at the pin itself, not at an ancestor.
 and `main` requires strict up-to-date checks, so that head could **never** satisfy branch
 protection — recorded as pre-merge blocker 1 of `CODEX-ADJ-005`. Updating the branch necessarily
 produced a new SHA. PR #13 is now rebased onto `origin/main` `4480a412…` and pinned at
-`34b6302…`, which carries the age-encrypted restore drill (§6.4b). `2822b9e1…` is **not** an
+`695aed8…`, which carries the age-encrypted restore drill (§6.4b). `2822b9e1…` is **not** an
 ancestor of the new pin. This removes a branch-protection *impossibility*; it does not merge
 anything (§9.5).
 
@@ -133,7 +133,7 @@ verified read-only through the GitHub compare API instead (`status`, `ahead_by`,
 | Repository | Authorized R22 Subject | Containment vs. Pinned Head | Classification |
 |---|---|---|---|
 | `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, a verified ancestor of `7065a703…`; `7003835…` is the pinned head's direct parent, and the prior manifest pins `4498bdd3…` and `eba517bf…`, plus `be7e7361…`, `afc9150a…` and `7f41296…`, are also ancestors (each checked locally with `git merge-base --is-ancestor`) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
-| `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Rebase rewrite.** PR #13 was updated onto `origin/main` `4480a412…`, so neither the authorized SHA nor the previous manifest pin `2822b9e1…` is an ancestor of `34b6302…` (merge base with `2822b9e1…` is `1b6671cc…`). The authorized subject `fix(copilot): enforce soar:author authorization check on draft_playbook seam` is carried at `15f2f7b`, a verified ancestor of the pinned head. **`origin/main` `4480a412…` is itself now a verified ancestor** (pin 10 ahead) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Rebase rewrite.** PR #13 was updated onto `origin/main` `4480a412…`, so neither the authorized SHA nor the previous manifest pin `2822b9e1…` is an ancestor of `695aed8…` (merge base with `2822b9e1…` is `1b6671cc…`). The authorized subject `fix(copilot): enforce soar:author authorization check on draft_playbook seam` is carried at `15f2f7b`, a verified ancestor of the pinned head. **`origin/main` `4480a412…` is itself now a verified ancestor** (pin 10 ahead) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`; pin 35 ahead / 3 behind); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52…`, a verified ancestor of `b5ab09c8…` (pin 5 ahead); the previous manifest pin `5d0c2d43…` is the pinned head's **direct parent** (1 ahead / 0 behind), and `6793e217…` (2 ahead) and `ccbfb4f8…` (3 ahead) are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
 
@@ -147,7 +147,7 @@ itself** — the prior revision's Suite caveat (rollup observed only at an ances
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
 |---|---|:---:|---|:---:|
 | `cybrik-suite` | `32464960479` (`contracts`) | **yes** — `7065a703…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
-| `cybrik-soc-command-center` | `32460749335` (`ci`) | **yes** — `34b6302…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
+| `cybrik-soc-command-center` | `32460749335` (`ci`) | **yes** — `695aed8…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
 | `cybrik-cyber-ai-platform` | `32452271445` (`ci`) | **yes** — `b5ab09c8…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
 | `cybrik-security-tool-fabric` | `32389505003` (`ci`) | **yes** — `0e4fee8d…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
 
@@ -196,7 +196,7 @@ for the Cyber AI pin, which was compared through the GitHub compare API (§2.1):
 |---|---|---|---|---|
 | `cybrik-cyber-ai-platform` | `281b2529…` | `b5ab09c8…` | **Divergent** — merge base `2dd7aca2…`; pin is 35 commits ahead, evidenced SHA 1 commit off-line (`feat(auth): add fail-closed service delegation verifier (W2-H1)`) | **Does NOT carry forward.** The `258 / 258` figure is **withdrawn** (§2.2a). The pin has its own hosted `test` result at the pin — `1065 passed, 17 skipped, 0 failed` (§2.1, §4.1). |
 | `cybrik-security-tool-fabric` | `147a1d83…` | `0e4fee8d…` | **Divergent** — merge base `3292a65a…`; pin is 29 commits ahead, evidenced SHA 1 commit off-line (`feat(contracts): load the auth/org vendored snapshot as its own registry`) | **Does NOT carry forward.** The `172 / 172` and Go executor figures are **withdrawn** (§2.2a). The pin's control-plane and executor verification is **inherited** through proven path gating (§9.2a), not re-executed. |
-| `cybrik-soc-command-center` | `4480a412…` (CI run `32164562480`, 8/8 required contexts) | `34b6302…` | **Ancestor** — `4480a412…` is a verified ancestor of the pin (pin 10 ahead). This is a **provenance improvement**: under the prior pin `2822b9e1…` the same SHA was divergent (11 ahead / 56 behind) | **Carries forward as ancestry.** The UAT-walkthrough surface is contained in the pin. The per-run figures (`Playwright 31 passed`, `pytest 279 / 278 / 1`) are still **withdrawn** as pin-bound (§2.2a): they belong to run `32164562480` at the ancestor, not to the pin, which has its own qualification run (§2.1). |
+| `cybrik-soc-command-center` | `4480a412…` (CI run `32164562480`, 8/8 required contexts) | `695aed8…` | **Ancestor** — `4480a412…` is a verified ancestor of the pin (pin 10 ahead). This is a **provenance improvement**: under the prior pin `2822b9e1…` the same SHA was divergent (11 ahead / 56 behind) | **Carries forward as ancestry.** The UAT-walkthrough surface is contained in the pin. The per-run figures (`Playwright 31 passed`, `pytest 279 / 278 / 1`) are still **withdrawn** as pin-bound (§2.2a): they belong to run `32164562480` at the ancestor, not to the pin, which has its own qualification run (§2.1). |
 
 ### 2.2a Evidence Reconciliation — What Replaced the Five Missing Documents
 
@@ -595,7 +595,7 @@ re-measurement of the figures above.
 Each service's rollback target is the last known-stable image for that service. Under the current
 pin set **no product rollback target image is an ancestor of its pin**: the rehearsed Cyber AI
 target `281b2529…` is off-line from `b5ab09c8…` after the branch rebase, and the Fabric target
-`147a1d83…` is off-line from `0e4fee8d…`. The SOC position **improved** — the pin `34b6302…` now
+`147a1d83…` is off-line from `0e4fee8d…`. The SOC position **improved** — the pin `695aed8…` now
 contains `origin/main` `4480a412…` as a verified ancestor (§2.2) — but that is source ancestry, not
 a built image. The rehearsed *procedure* (§6.2) is unchanged and still applies, and every rollback
 **target image** must be re-established against the pinned heads before staging qualification can
@@ -675,7 +675,7 @@ collapsing them is the error the classification exists to prevent.
 
 Both are drills against a developer PostgreSQL 16.14 instance, and the RTO covers the **restore
 step only**, not a full recovery procedure. The encrypted drill is carried by the **pinned SOC head
-itself** (`34b6302…`), which is what closes `CODEX-ADJ-005` pre-merge item 3: the encrypted-backup
+itself** (`695aed8…`), which is what closes `CODEX-ADJ-005` pre-merge item 3: the encrypted-backup
 control claim now has matching encrypted-drill evidence instead of resting on the unencrypted
 drill.
 
@@ -761,6 +761,8 @@ authority action for all ten milestone gates. Every gate is ratified **`PASS`** 
 `LIVE_VERTICAL`, `DEPLOY_ROLLBACK_REHEARSAL` and `CYBER_AI_RUNTIME`, which the **previous revision
 of this document reported as `FAIL` pending ratification**. That ratification has since occurred
 (`HB-5`, 2026-08-20), so those three entries are superseded:
+
+**Tool Fabric semantics:** Historical gate PASS means the in-scope Wave 1 scaffold / contract-conformance capability passed the accepted UAT gate. It does NOT mean a live production tool-execution runtime was enabled. Live execution remains HOLD and is not claimed by RC1.
 
 | Gate | Owner | Machine Engineering Status | Human Authority Action | Ratification |
 |---|---|---|---|:---:|
@@ -1076,6 +1078,9 @@ is therefore only reachable when the diff resolved *and* genuinely matched nothi
 control-plane and executor verification carried by the base commit on `main` is **inherited
 unchanged**. The skip asserts nothing about those planes beyond what `main` already established.
 
+**Tool Fabric semantics:** Historical gate PASS means the in-scope Wave 1 scaffold / contract-conformance capability passed the accepted UAT gate. It does NOT mean a live production tool-execution runtime was enabled. Live execution remains HOLD and is not claimed by RC1.
+
+
 **What this does not prove.** It does not re-execute either suite, binds no test transcript at this
 pin, and grants no runtime, deployment or release authority. Fabric runtime remains `HOLD`, and
 §9.2 stays open on its own terms.
@@ -1090,13 +1095,13 @@ That was closed by binding run `32447499849` at `2822b9e1…`.
 
 **Re-bound at the rebased pin.** That run is now superseded along with its head. `CODEX-ADJ-005`
 found `2822b9e1…` `BEHIND` `origin/main` under strict up-to-date checks (§9.5), so the branch was
-rebased and re-pinned at `34b6302…`, and `2822b9e1…` is **not** an ancestor of the new pin. A run
+rebased and re-pinned at `695aed8…`, and `2822b9e1…` is **not** an ancestor of the new pin. A run
 against a head that is not an ancestor proves nothing about the pin, so a **fresh** run was required
 rather than carried forward.
 
 Workflow run **`32460749335`** (`ci`, event `pull_request`, branch `fix/copilot-draft-auth`) was
 fetched by id from the GitHub Actions API on 2026-08-21T16:20:00+07:00: `status: completed`,
-`conclusion: success`, and `head_sha` **`34b6302e6bdc34e3fb334c079680e76166d9b476`** — exactly this
+`conclusion: success`, and `head_sha` **`695aed8e0e12c9d0e11de5f474e3384d1a4b490f`** — exactly this
 pin. Its full job inventory is recorded in the manifest: nine jobs concluded `success` (`api`
 `96707087898`, `backup-tool` `96707087953`, `pf-workers` `96707088017`, `web` `96707087901`,
 `secret-scan` `96707087717`, `dependency-scan` `96707087963`, `sbom` `96707087909`, `e2e`
@@ -1205,7 +1210,7 @@ no machine action can close it.
 **One obstruction was removed by this revision.** `CODEX-ADJ-005` recorded as pre-merge blocker 1
 that PR #13 was `BEHIND` `origin/main` while `main` requires strict up-to-date checks — that head
 could never satisfy branch protection at all, regardless of review. The branch is now rebased onto
-`origin/main` `4480a412…` and re-pinned at `34b6302…` with its own qualification run. That converts
+`origin/main` `4480a412…` and re-pinned at `695aed8…` with its own qualification run. That converts
 an *impossibility* into ordinary pending review. It merges nothing.
 
 **Closing action:** human review and merge of PRs #56, #13, #11 and #6, then re-pin this manifest
