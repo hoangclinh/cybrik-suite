@@ -4,8 +4,8 @@
 - **Document Status:** `DRAFT`
 - **Release Candidate:** `v1.0.0-rc1`
 - **Milestone:** SOC Post-UAT Production Release Candidate
-- **Release Status:** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION`
-- **Staging Qualification:** `IN_PROGRESS / PENDING_HUMAN_PR_MERGE`
+- **Release Status:** `CANDIDATE_READY_FOR_RC_TAG_DECISION`
+- **Staging Qualification:** `POST_MERGE_QUALIFICATION_COMPLETE / CANDIDATE_READY_FOR_RC_TAG_DECISION`
 - **Manifest Binding:** [`releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`](../../releases/manifests/release-candidate-v1.0.0-rc1.manifest.json)
 - **Timestamp:** `2026-08-21T16:20:00+07:00` (`Asia/Ho_Chi_Minh`) — the revision timestamp, equal to
   the manifest's `timestamp` and the derived snapshot's `snapshot_timestamp`. Individual observations
@@ -26,8 +26,8 @@
 > **Status honesty.** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION` means the candidate is
 > assembled, its Suite-local contract validation is green, and the human governance boundaries
 > `HB-1`..`HB-5` are closed. It does **not** mean the candidate is qualified, piloted, or GA.
-> Staging qualification is `IN_PROGRESS` and blocked on one thing: `PENDING_HUMAN_PR_MERGE` —
-> all four pins are unmerged pull-request heads awaiting required human review (§2). The prior
+> Staging qualification is `POST_MERGE_QUALIFICATION_COMPLETE` and the candidate is `READY_FOR_RC_TAG_DECISION` —
+> all four pins are merged to their repositories' `origin/main` under `MERGED_AND_PROTECTED` branch protection (§2). The prior
 > revision's second blocker, a **failing `type` check at the pinned `cybrik-cyber-ai-platform`
 > head**, is **cleared**: the pin has been advanced to `f0bf4c6…`, whose PR #11 rollup is 8/8
 > green (§2.1, §9.3a). All four pinned components now carry a green rollup, and
@@ -87,10 +87,10 @@ product repository — this change is scoped to `cybrik-suite` only.
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
-| 1 | `cybrik-suite` | `1a2219802872ef45fa955b7f0b0416be214f402f` | [#56] | `fix/rc-manifest-contracts` | `fix(docs): align W2-I prose, ADR catalog, and release classification taxonomy` |
-| 2 | `cybrik-soc-command-center` | `695aed80e12c9d0e11de5f474e3384d1a4b490f` | [#13] | `fix/copilot-draft-auth` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
-| 3 | `cybrik-cyber-ai-platform` | `f0bf4c630d8e93a0531d16b4522ce0425996a624` | [#11] | `feature/rc-w2i-conformance` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
-| 4 | `cybrik-security-tool-fabric` | `1a419014ebb432eb56ac35242e0a193fe65a62c6` | [#6] | `chore/sec-md-fabric` | `ci: trigger fresh PR checks on rebased branch` |
+| 1 | `cybrik-suite` | `c5ca058dbc4fb6b0b4939332f4e3e2128197bae8` | `origin/main` | `main` | `chore(release): bind exact merged main four-head tuple in RC1 manifest and documentation` |
+| 2 | `cybrik-soc-command-center` | `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` | `origin/main` | `main` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
+| 3 | `cybrik-cyber-ai-platform` | `f0bf4c630d8e93a0531d16b4522ce0425996a624` | `origin/main` | `main` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
+| 4 | `cybrik-security-tool-fabric` | `1a419014ebb432eb56ac35242e0a193fe65a62c6` | `origin/main` | `main` | `ci: trigger fresh PR checks on rebased branch` |
 
 The `cybrik-suite` pin is the **content base** this document and its manifest were authored
 against — its own commit cannot contain its own SHA. This is the recorded
@@ -99,9 +99,9 @@ oversight. §2.3 states that model in full: the manifest binds the immutable **c
 the **external release-tag envelope** `v1.0.0-rc1` — created after merge, outside this file —
 binds the released main-line SHAs.
 
-**None of the four pins is on its repository's `origin/main`.** Every one is an unmerged PR head
-whose branch-protection state is `PENDING_REQUIRED_HUMAN_REVIEW`. That is why staging
-qualification reads `PENDING_HUMAN_PR_MERGE` rather than `READY` (§7, §9.5). It is now the **only**
+**All four pins are now on their repository's `origin/main`.** Every one is a merged head
+whose branch-protection state is `MERGED_AND_PROTECTED`. That is why staging
+qualification reads `POST_MERGE_QUALIFICATION_COMPLETE`. It is now the **only**
 CI-shaped reason: the prior revision's failing `type` check at the Cyber AI pin has been cleared by
 advancing that pin to `f0bf4c6…` (§2.1, §9.3a), and every pin now has a green hosted run at the pin
 itself. The non-CI open items in §9 — chiefly the unsourced evidence documents (§9.7) and the
@@ -146,10 +146,10 @@ itself** — the prior revision's Suite caveat (rollup observed only at an ances
 
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
 |---|---|:---:|---|:---:|
-| `cybrik-suite` | `32464960479` (`contracts`) | **yes** — `1a22198…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
-| `cybrik-soc-command-center` | `32460749335` (`ci`) | **yes** — `695aed8…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
-| `cybrik-cyber-ai-platform` | `32452271445` (`ci`) | **yes** — `f0bf4c6…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
-| `cybrik-security-tool-fabric` | `32389505003` (`ci`) | **yes** — `1a41901…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
+| `cybrik-suite` | `32514429777` (`contracts`) | **yes** — `c5ca058…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
+| `cybrik-soc-command-center` | `32510544176` (`ci`) | **yes** — `695aed8…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
+| `cybrik-cyber-ai-platform` | `32471341528` (`ci`) | **yes** — `f0bf4c6…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
+| `cybrik-security-tool-fabric` | `32471346851` (`ci`) | **yes** — `1a41901…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
 
 Per-job identifiers for all four runs are recorded in the manifest under
 `repositories.<repo>.ci_checks`, so every green claim above is traceable to a specific job.
