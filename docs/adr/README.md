@@ -16,10 +16,12 @@ All ten suite ADRs are therefore decided; none is still `PROPOSED`. Accepted ADR
 architectural policy/model decisions only — no technical capability is implemented by their
 acceptance.
 
-The W2-I transport-binding candidate adds ADR-0011 as
-`PROPOSED — NOT DECIDED — NOT APPLIED`; therefore the preceding ten-ADR statement describes the
-accepted base catalog before this additive proposal and is not an acceptance statement for
-ADR-0011. Gate W2-I is **`NOT OPENED`**.
+The W2-I transport binding adds ADR-0011 as `ACCEPTED (HB-4)`; therefore the preceding ten-ADR
+statement describes the accepted base catalog before this additive record and is not the acceptance
+statement for ADR-0011. Gate W2-I was `DECIDED — ACCEPT` by the Decision Council / Founder at human
+boundary `HB-4` on 2026-08-20, and the status flip was applied to the artifact bytes on 2026-08-21.
+Acceptance authorizes contract-first implementation only — v0.2.0, not stable v1/GA, and no runtime,
+endpoint, deployment or release authority.
 
 The W2-H resource-bounds packet adds ADR-0012 as
 `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`. Gate W2-H accepts the exact v0.1.0 packet for
@@ -61,7 +63,7 @@ or production evidence.
 | [ADR-0008](ADR-0008-internal-service-delegation-and-workload-identity.md) | Internal service delegation & workload-identity profile | `ACCEPTED FOR IMPLEMENTATION` (W2-F, 2026-07-24) — v0.1.0, not stable v1/GA |
 | [ADR-0009](ADR-0009-org-hierarchy-and-external-authority-contract-profile.md) | Org-hierarchy & external-authority contract profile | `ACCEPTED FOR IMPLEMENTATION` (W2-G, 2026-07-24) — v0.1.0, not stable v1/GA; applies the ADR-0007 contract delta, re-decides no model |
 | [ADR-0010](ADR-0010-capability-name-canonicalization.md) | Capability-name canonicalization across JSON Schema runtimes | `ACCEPTED FOR IMPLEMENTATION — APPLIED` (2026-07-26) — pre-GA patch 0.1.1, not stable v1/GA |
-| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |
+| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `ACCEPTED (HB-4)` (Gate W2-I `DECIDED — ACCEPT`, 2026-08-20; applied to artifact bytes 2026-08-21) — v0.2.0 successor revision, not stable v1/GA |
 | [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; design floor only, runtime and production remain unauthorized |
@@ -104,7 +106,7 @@ authoritative on ADR status.**
 | [W1-CONTRACT-RECONCILIATION-APPLICATION.md](W1-CONTRACT-RECONCILIATION-APPLICATION.md) | Exact C1/G1 + corrected C2 two-merge reconciliation application | Current: `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` at PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`; the earlier rehearsal-only/local-commit disposition remains dated provenance; no runtime/UAT/production claim |
 | [FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md](FOUNDER-DECISION-PACKET-W0-IR01-CONTROLLED-INTEGRATION.md) | Historical W0-IR01 controlled-integration decision | `DECIDED — OPTION Z — FOUNDER-MANUAL` (2026-07-29) remains immutable dated history; its forward-looking per-action technical approvals are superseded by `DELEGATED-GOVERNOR-AUTHORITY-2026-07-30.md`. Evidence gates remain mandatory and production remains Founder-controlled |
 | [FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md](FOUNDER-DECISION-PACKET-W0-T11-RESOURCE-BUDGET.md) | W0-T11 resource-budget contract instrument — scope, naming and sequencing questions `T11-RB-1` … `T11-RB-8` | `DEPENDENCY READY — AWAITING BOUNDED IMPLEMENTATION PACKET` (decision 2026-07-29). W1-C1/W1-C2 canonical-integration prerequisite is satisfied by PR #1 merge `28c564eb…`; operative naming remains `res-bounds-*` with `resource-bounds/`; no gate opens and no ADR number is allocated. Independent review run `60adebd4-d22f-4134-8918-1dfd83e89712` `PASS`, `P0=P1=P2=0`, five `P3` retained |
-| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |
+| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding revision | Option A recorded with `G-W2I-1..5=yes`; scope authority only — it decided ownership, never acceptance. Gate W2-I was separately `DECIDED — ACCEPT` under `HB-4` on 2026-08-20 (ADR-0011); the binding is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` |
 | [DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md](DELEGATED-GOVERNOR-DECISION-W2-H-RESOURCE-BOUNDS-PROPOSAL.md) | Gate W2-H bounded writer authorization for the W0-T11/RB resource-bounds contract packet | R5 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |
 | [DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md](DELEGATED-GOVERNOR-DECISION-W2-K-TRANSPORT-PEER-EVIDENCE.md) | Gate W2-K bounded proposal, registration, wire-cleanup, and atomic-acceptance authority for the server-neutral transport peer-evidence packet | R4 records `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; exact-path governance metadata and digest changes only, with no runtime, UAT, release, deployment, or production authority |
 | [DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md](DELEGATED-GOVERNOR-DECISION-F8-RECEIPT-INTEGRITY.md) | ADR-0004 F8 receipt-integrity contract-profile decision | Records compact JWS + JCS v0.2.0 as `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; key lifecycle and every runtime-through-production gate remain open |

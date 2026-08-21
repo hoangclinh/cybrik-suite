@@ -14,7 +14,7 @@
     ],
     "authority_of_record": "soc-autonomous-state:HUMAN_BOUNDARIES.json, soc-autonomous-state:AUTHORITY_INBOX.json and soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md — control-plane artifacts outside every suite repository. This file exists BECAUSE that is true, not in spite of it: §9.7 asked for a derived artifact in-repo, and a derived artifact that claimed to be authoritative would recreate the very gap it was meant to document.",
     "verification_split": "Every field below carries an in_repository_corroboration value. VERIFIED means this repository independently observed the fact (read-only GitHub API, or read-only git against a local canonical checkout, at the snapshot timestamp). ABSENT means the claim is reproduced from an external record that nothing committed here can check. Where an external record is reproduced, its sha256 is bound so a reader can detect drift in the bytes that were read — a digest pins the source, it does not make the claim checkable here.",
-    "revision_note": "Revision 2 (2026-08-21T16:20:00+07:00). Changes against revision 1: the SOC pin advances from 2822b9e1 to 34b6302 (rebased onto origin/main 4480a412); the Suite content base advances to 4498bdd; codex_challenges, performance_evidence and database_restore_drill move from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records; and dangling_evidence_references is superseded by external_evidence_reconciliation, which resolves all five missing documents by re-sourcing or explicit withdrawal. Nothing was resolved by authoring a missing document."
+    "revision_note": "Revision 3 (2026-08-21, classification and prose alignment; no new measurement). Changes against revision 2: residual_item_classification introduces the RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1 shared with RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0; open_items_not_closed_by_this_snapshot becomes a list of classified objects so no item can be read as both blocking and deferred; the W2-F read-token amendment is classified DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and scenario-level NEG-1..NEG-6 rehearsal execution POST_MERGE_REQUIRED against the exact post-merge images; provenance_model mirrors the manifest's content-base / external-release-tag-envelope split; and contract_state.w2_i_transport_binding carries its obligations with explicit classes. Revision 2 (2026-08-21T16:20:00+07:00) advanced the SOC pin from 2822b9e1 to 34b6302 (rebased onto origin/main 4480a412), advanced the Suite content base to 4498bdd, moved codex_challenges, performance_evidence and database_restore_drill from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records, and superseded dangling_evidence_references with external_evidence_reconciliation. Nothing was resolved by authoring a missing document."
   },
   "components": {
     "cybrik-suite": {
@@ -524,7 +524,24 @@
       "governing_manifest": "contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
       "absorbed_members": 4,
       "superseded_member": "contracts/openapi/cybrik-ai-inference-plane.v1.openapi.yaml (SUPERSEDED-SUPPORTED, byte-frozen at 731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e)",
-      "in_repository_corroboration": "VERIFIED — the flipped bytes are in this repository and node tools/contract-validation/validate-transport.mjs proves the flip is whole (members absorbed at agreeing digests, predecessor relabelled, decision recorded, one CURRENT owner per pair)."
+      "in_repository_corroboration": "VERIFIED — the flipped bytes are in this repository and node tools/contract-validation/validate-transport.mjs proves the flip is whole (members absorbed at agreeing digests, predecessor relabelled, decision recorded, one CURRENT owner per pair).",
+      "carried_forward_obligations": [
+        {
+          "item": "W2-F operation-token vocabulary amendment for the two read tokens",
+          "classification": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM",
+          "note": "Deferred to post-RC1. v1.0.0-rc1's delegation tokens are the two accepted CREATE tokens; no read-token operation is claimed by this candidate. Until the amendment is recorded at W2-F's own gate, no delegation token may lawfully authorize listModelClasses or getModelClassHealth."
+        },
+        {
+          "item": "Independent post-flip security/compatibility review of the W2-I bytes",
+          "classification": "BLOCKING_OPEN",
+          "note": "ADR-0011 OD-W2I-5. Not supplied by HB-4 and not reclassified."
+        },
+        {
+          "item": "Runtime evidence of the transport seam (product transport, mTLS handshake, JWKS verification, TX-* enforcement)",
+          "classification": "BLOCKING_OPEN",
+          "note": "None is demonstrated anywhere. Acceptance is contract shape only."
+        }
+      ]
     },
     "accepted_packets": {
       "w2_b": "ACCEPTED FOR IMPLEMENTATION",
@@ -545,18 +562,84 @@
     }
   },
   "open_items_not_closed_by_this_snapshot": [
-    "§9.2 — no product test suite was re-executed BY THIS REPOSITORY against its pinned head. Partially narrowed: the Cyber AI hosted 'test' job log at the pin was read (1065 passed / 17 skipped) and the Fabric path-gated skips were proven correct, but neither is a transcript committed here, and Fabric's control-plane and executor results at the pin remain INHERITED rather than re-executed.",
-    "§9.4 — security.txt publication at the canonical URL is unverified. The Founder UAT decision records it as a non-blocking follow-up (HTTP 404 on the current probe).",
-    "§9.5 — none of the four pins is on origin/main and none is merged. Human-only work; no machine action can close it. Advancing the SOC pin to a rebased head removes the branch-protection IMPOSSIBILITY that CODEX-ADJ-005 recorded, but it does not merge anything.",
-    "§9.6 — rollback target images are not re-established against the pinned heads. Now classified POST_MERGE_REQUIRED with a stated cause: the compose topology builds application images from source, so rebuilding the targets requires the merged main-line SHAs.",
-    "W2-F operation-token amendment — undischarged; the two GET tokens remain outside accepted delegation vocabulary, so no delegation token may authorize either read operation.",
-    "No independent post-flip security/compatibility review of the W2-I bytes is recorded.",
-    "CODEX_POST_MERGE_REQUIREMENTS from CODEX-ADJ-005 — merge all four PRs under branch protection and run required CI against every merged SHA. Human-only.",
-    "The NEG-1..NEG-6 negative security matrix is ratified at GATE level by the Founder (LIVE_VERTICAL PASS) but remains unsourced at SCENARIO level: no per-case identifier, input, expected rejection or observed rejection is bound in any suite repository.",
-    "Coverage figures are bound nowhere. The Cyber AI 96.63% claim is withdrawn and no hosted run publishes a coverage number into this repository.",
-    "The performance baseline is a workstation micro-benchmark measured OFF-PIN for its two SOC metrics (subject 2822b9e1, no longer an ancestor of the SOC pin). It qualifies no performance objective, and rc1 declares none.",
-    "PRODUCTION_BACKUP_KEY_CUSTODY and PRODUCTION_OFF_SYSTEM_STORAGE are EXTERNAL_RESOURCE, and PRODUCTION_BACKUP_ENCRYPTION_LIVE_VERIFICATION is POST_DEPLOYMENT_REQUIRED. Only the local encrypted drill is VERIFIED.",
-    "codex_challenges, performance_evidence and database_restore_drill are now populated, but every verdict and measurement in them is ABSENT for in-repository corroboration: they are derived projections of control-plane records."
+    {
+      "id": "W2F_OPERATION_TOKEN_READ_VOCABULARY",
+      "classification": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM",
+      "item": "W2-F operation-token vocabulary amendment for the two READ tokens ai.model_classes.list and ai.model_class_health.read — undischarged. DEFERRED TO POST-RC1 and NOT a blocker for v1.0.0-rc1: the delegation tokens v1.0.0-rc1 authorizes are the two CREATE tokens ai.inference.create and ai.alert_summarization.create, both already ACCEPTED W2-F vocabulary, so the missing read vocabulary withdraws nothing this candidate claims. The constraint itself stands unamended — no delegation token may lawfully authorize either GET operation until the amendment is recorded at W2-F's own gate. HB-4 accepted the transport binding and deliberately did not amend W2-F bytes accepted at a different gate.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §3, §9.0, §9.1; docs/adr/ADR-0011-inference-plane-transport-binding-profile.md OD-W2I-2"
+    },
+    {
+      "id": "NEG_MATRIX_SCENARIO_LEVEL_REHEARSAL",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "Scenario-level rehearsal EXECUTION of the NEG-1..NEG-6 negative security matrix. The matrix is ratified at GATE level by the Founder (LIVE_VERTICAL PASS, HB-5) and remains unsourced at SCENARIO level: no per-case identifier, input, expected rejection or observed rejection is bound in any suite repository. Execution is POST_MERGE_REQUIRED in whole — it exercises a live four-service topology whose application images are built from source, so it must be RE-RUN AGAINST THE EXACT POST-MERGE IMAGES built from the merged main-line SHAs of all four repositories. Those SHAs do not exist yet, and building or publishing from an unmerged state needs deployment authority reserved to the Founder by cybrik-suite:CLAUDE.md.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §4.3, §9.0, §9.7"
+    },
+    {
+      "id": "PRODUCT_SUITES_NOT_REEXECUTED_AT_PIN",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "§9.2 — no product test suite was re-executed BY THIS REPOSITORY against its pinned head. Partially narrowed: the Cyber AI hosted 'test' job log at the pin was read (1065 passed / 17 skipped) and the Fabric path-gated skips were proven correct, but neither is a transcript committed here, and Fabric's control-plane and executor results at the pin remain INHERITED rather than re-executed.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.2, §9.2a"
+    },
+    {
+      "id": "SECURITY_TXT_PUBLICATION",
+      "classification": "BLOCKING_OPEN",
+      "item": "§9.4 — security.txt publication at the canonical URL is unverified (HTTP 404 on the direct probe of 2026-08-21T13:30:00+07:00). The Founder UAT decision records it as a non-blocking follow-up for RB-001, which stays RESOLVED; publication itself remains open.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §5.3, §9.4"
+    },
+    {
+      "id": "PINS_UNMERGED",
+      "classification": "BLOCKING_OPEN",
+      "item": "§9.5 — none of the four pins is on origin/main and none is merged. Human-only work; no machine action can close it. Advancing the SOC pin to a rebased head removes the branch-protection IMPOSSIBILITY that CODEX-ADJ-005 recorded, but it merges nothing.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.5"
+    },
+    {
+      "id": "ROLLBACK_TARGETS_NOT_REESTABLISHED",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "§9.6 — rollback target images are not re-established against the pinned heads, and the service-rehearsal figures are reclassified rather than re-sourced. Stated cause: the compose topology builds application images from source, so rebuilding the targets requires the merged main-line SHAs.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.3, §6.4a, §9.6"
+    },
+    {
+      "id": "INDEPENDENT_POST_FLIP_REVIEW",
+      "classification": "BLOCKING_OPEN",
+      "item": "No independent post-flip security/compatibility review of the W2-I bytes is recorded (ADR-0011 OD-W2I-5). Not reclassified by HB-4.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.1"
+    },
+    {
+      "id": "COVERAGE_FIGURE_UNBOUND",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "Coverage figures are bound nowhere. The Cyber AI 96.63% claim is withdrawn and no hosted run publishes a coverage number into this repository; a pin-bound figure must be measured at a merged SHA.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.7"
+    },
+    {
+      "id": "PERFORMANCE_BASELINE_OFF_PIN",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "The performance baseline is a workstation micro-benchmark measured OFF-PIN for its two SOC metrics (subject 2822b9e1, no longer an ancestor of the SOC pin). It qualifies no performance objective, and rc1 declares none. Re-measurement belongs against the merged SHAs.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.4c, §9.7"
+    },
+    {
+      "id": "PRODUCTION_BACKUP_KEY_CUSTODY_AND_STORAGE",
+      "classification": "EXTERNAL_RESOURCE",
+      "item": "PRODUCTION_BACKUP_KEY_CUSTODY and PRODUCTION_OFF_SYSTEM_STORAGE are EXTERNAL_RESOURCE. Only the local encrypted drill is VERIFIED.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.4b, §9.7"
+    },
+    {
+      "id": "PRODUCTION_BACKUP_ENCRYPTION_LIVE_VERIFICATION",
+      "classification": "POST_DEPLOYMENT_REQUIRED",
+      "item": "PRODUCTION_BACKUP_ENCRYPTION_LIVE_VERIFICATION cannot be performed until a production deployment exists.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.4b, §9.7"
+    },
+    {
+      "id": "CODEX_POST_MERGE_REQUIREMENTS",
+      "classification": "POST_MERGE_REQUIRED",
+      "item": "CODEX_POST_MERGE_REQUIREMENTS from CODEX-ADJ-005 — merge all four PRs under branch protection and run required CI against every merged SHA. Human-only for the merge itself.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.5, §9.7"
+    },
+    {
+      "id": "DERIVED_BLOCKS_UNCORROBORATED_IN_REPO",
+      "classification": "EXTERNAL_RESOURCE",
+      "item": "codex_challenges, performance_evidence and database_restore_drill are populated, but every verdict and measurement in them is ABSENT for in-repository corroboration: they are derived projections of control-plane records. The gate authority of record stays outside every suite repository.",
+      "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.7"
+    }
   ],
   "external_evidence_reconciliation": {
     "supersedes": "dangling_evidence_references",
@@ -655,5 +738,26 @@
     "net_effect": "Zero dangling paths remain. Two of the five are replaced by hosted CI evidence measured at the pins themselves (Cyber AI, Fabric), two by the Founder UAT ratification record with gate-level rather than scenario-level scope (Live Vertical, SOC UAT surface), and one is split: its database-rollback and rollback-target-inheritance halves are qualified now, and its service-rehearsal numbers are reclassified POST_MERGE_REQUIRED rather than restated. Six specific figures previously carried by the missing documents — Cyber AI 258/258 and 96.63% coverage, Fabric 172/172 and the Go executor result, Playwright 31 passed, pytest 279/278/1 — are WITHDRAWN, not re-sourced.",
     "closes": "CODEX-ADJ-005 pre-merge item 2."
   },
-  "status_honesty": "DERIVED_RELEASE_EVIDENCE=true and AUTHORITATIVE_ORCHESTRATION_STATE=false are load-bearing, and revision 2 does not weaken them. Populating codex_challenges, performance_evidence and database_restore_drill, and resolving the five dangling evidence references, closes DOCUMENTATION gaps and one branch-protection impossibility. It closes no gate, promotes nothing, and adds no authority. This file grants no staging-qualification, merge, tag, deployment, GA or production authority, and it cannot promote v1.0.0-rc1 beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Promotion requires explicit Founder approval per cybrik-suite:CLAUDE.md."
+  "status_honesty": "DERIVED_RELEASE_EVIDENCE=true and AUTHORITATIVE_ORCHESTRATION_STATE=false are load-bearing, and revision 3 does not weaken them. Revision 3 changes CLASSIFICATION and PROSE only: it adds residual_item_classification, restates every open item as a classified object, mirrors the MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE provenance model, and aligns the W2-I prose with the applied HB-4 acceptance. It measures nothing new, closes no gate, promotes nothing and adds no authority. Classifying the W2-F read-token amendment DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM narrows its SCOPE against this candidate and relaxes NO constraint: no delegation token may lawfully authorize either GET operation, before or after the reclassification. This file grants no staging-qualification, merge, tag, deployment, GA or production authority, and it cannot promote v1.0.0-rc1 beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Promotion requires explicit Founder approval per cybrik-suite:CLAUDE.md.",
+  "residual_item_classification": {
+    "model": "RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1",
+    "authority": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0 is the authoritative statement of this taxonomy. This block is the derived projection of it and must never disagree with it.",
+    "disjointness_rule": "Every residual item carries EXACTLY ONE class. No item is simultaneously blocking and deferred, and no top-level status field in this snapshot may disagree with the class recorded against the item that details it.",
+    "classes": {
+      "BLOCKING_OPEN": "Must be closed before v1.0.0-rc1 may leave CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Gates staging qualification.",
+      "POST_MERGE_REQUIRED": "Cannot be executed until the four pull requests merge, because it needs artifacts built from the EXACT post-merge main-line SHAs. A sequencing fact, not a defect and not a waiver. Gates staging qualification, after merge.",
+      "POST_DEPLOYMENT_REQUIRED": "Cannot be verified until a production deployment exists. Does not gate staging qualification.",
+      "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM": "A governance act at a DIFFERENT gate that this candidate does not depend on, deliberately deferred to post-RC1. It constrains future scope, not this candidate's claims. Does not gate staging qualification.",
+      "EXTERNAL_RESOURCE": "The authority or artifact of record lives outside every suite repository; nothing committed here can close it. Records the gap rather than gating on it."
+    },
+    "reading_rule": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and EXTERNAL_RESOURCE items are recorded but do NOT hold v1.0.0-rc1 at its current status. BLOCKING_OPEN and POST_MERGE_REQUIRED items do. No prose elsewhere in this file overrides that."
+  },
+  "provenance_model": {
+    "model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
+    "manifest_binds": "The immutable CONTENT BASE: one pre-merge pull-request head per product repository, plus the cybrik-suite AUTHORING PARENT of the commit that carries releases/manifests/release-candidate-v1.0.0-rc1.manifest.json. A manifest cannot contain its own commit SHA, so the Suite pin is necessarily its authoring parent.",
+    "envelope_binds": "The final POST-MERGE release: the external release-candidate tag v1.0.0-rc1, created outside the manifest only after all four pull requests merge, binding the merged main-line SHAs.",
+    "envelope_status": "NOT_CREATED — no release tag exists in any repository for this candidate.",
+    "category_error_to_avoid": "Reading a content-base pin in components{} as a RELEASED SHA is a category error (ABMB-04). Nothing in components{} has been released, tagged, deployed or promoted.",
+    "authority": "releases/manifests/release-candidate-v1.0.0-rc1.manifest.json (provenance_model, release_tag_envelope) and docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §2.3. This block is the derived projection of both."
+  }
 }
