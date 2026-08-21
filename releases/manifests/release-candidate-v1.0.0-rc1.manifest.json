@@ -1,20 +1,148 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-20T20:10:00+07:00",
+  "timestamp": "2026-08-21T10:55:43+07:00",
   "milestone": "SOC Post-UAT Production Release Candidate",
   "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
+  "staging_qualification_status": "IN_PROGRESS / PENDING_HUMAN_PR_MERGE",
+  "provenance_model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
+  "provenance_note": "Each pin below is the exact head of the final evaluated pull request for that repository. No pin is on its repository's origin/main; every pull request is PENDING_REQUIRED_HUMAN_REVIEW under branch protection. The cybrik-suite pin is the content base this manifest was authored against — a manifest cannot contain its own commit SHA.",
   "repositories": {
-    "cybrik-suite": "353d5f5d786641bd41b2055d4ee9b554f7834345",
-    "cybrik-soc-command-center": "c0f75f6d08d25b16f1a3ef8921b4ba98348a194a",
-    "cybrik-cyber-ai-platform": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
-    "cybrik-security-tool-fabric": "9a80ebebd00bae90b1f3e379c27d672b263124d4"
+    "cybrik-suite": {
+      "pinned_sha": "f051192452b546f85e7eba6123b88a56c1ca0cce",
+      "commit_subject": "docs(release): publish release candidate v1.0.0-rc1 manifest and specification",
+      "pull_request": 56,
+      "branch": "fix/rc-manifest-contracts",
+      "pin_role": "CONTENT_BASE (this manifest's authoring parent)",
+      "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
+      "authorized_rc_subject": "c518d8e344c412dc884135e3947213c5de41739f",
+      "subject_containment": "REBASE_REWRITE — authorized subject is not an ancestor SHA; identical commit subject is carried at the pinned head",
+      "on_origin_main": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "ci_status_recorded": "SUCCESS",
+      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+    },
+    "cybrik-soc-command-center": {
+      "pinned_sha": "7be188720c97c4c12e45a016e6c0795de10c9900",
+      "commit_subject": "fix(test): delenv CYBRIK_RATE_LIMIT_BACKEND in test_development_keeps_dev_defaults",
+      "pull_request": 13,
+      "branch": "fix/copilot-draft-auth",
+      "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
+      "authorized_rc_subject": "992eabdcdd8a70bd44c7a21119df2211c9e02c8c",
+      "subject_containment": "ANCESTOR — authorized subject is a verified ancestor of the pinned head; the prior manifest pin c0f75f6d08d25b16f1a3ef8921b4ba98348a194a is also an ancestor",
+      "on_origin_main": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "ci_status_recorded": "SUCCESS",
+      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+    },
+    "cybrik-cyber-ai-platform": {
+      "pinned_sha": "ccbfb4f82463daa06b5e82db18fb6b056b25f31a",
+      "commit_subject": "security(deps): upgrade cryptography to remediate PYSEC-2026-3552 in cyber-ai",
+      "pull_request": 11,
+      "branch": "feature/rc-w2i-conformance",
+      "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
+      "authorized_rc_subject": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
+      "subject_containment": "REBASE_REWRITE — authorized subject 'test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0' is carried at f9dad52 on the pinned branch, not as an ancestor SHA",
+      "on_origin_main": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "ci_status_recorded": "SUCCESS",
+      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+    },
+    "cybrik-security-tool-fabric": {
+      "pinned_sha": "0e4fee8d08ff9a67c200ce6c5f97a6f277581be9",
+      "commit_subject": "ci: trigger fresh PR checks on rebased branch",
+      "pull_request": 6,
+      "branch": "chore/sec-md-fabric",
+      "classification": "VERIFIED_EQUIVALENT_REWRITE",
+      "authorized_rc_subject": "9a80ebebd00bae90b1f3e379c27d672b263124d4",
+      "subject_containment": "REBASE_REWRITE — authorized subject 'docs(security): update SECURITY.md to active responsible disclosure policy' is carried at 49bc3d8 on the pinned branch, not as an ancestor SHA",
+      "on_origin_main": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "ci_status_recorded": "SUCCESS",
+      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+    }
+  },
+  "governance_milestones": {
+    "w2_i_transport_binding_acceptance": {
+      "gate_id": "W2_I_ACCEPTANCE",
+      "boundary_id": "HB-4",
+      "candidate": "W2-I Inference Plane Transport Binding v0.2.0",
+      "decision": "ACCEPTED",
+      "decided_by": "Decision Council / Founder",
+      "decided_on": "2026-08-20T19:15:00+07:00",
+      "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT)",
+      "artifact_status_flip_applied": false,
+      "artifact_status_flip_note": "The acceptance DECISION is recorded and closed at HB-4. The in-repository artifact bytes have NOT been flipped: contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json still carries x-cybrik-status PROPOSED and x-cybrik-applied false. Per ADR-0001 D5/D6 the status flip is a separate recorded change. See docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.1."
+    },
+    "founder_uat_ratification": {
+      "gate_id": "SOC_UAT_RATIFICATION",
+      "boundary_id": "HB-5",
+      "session": "Candidate R22 Founder UAT",
+      "decision": "PASS",
+      "disposition": "RATIFIED",
+      "decided_by": "Founder",
+      "decided_on": "2026-08-20T19:25:00+07:00",
+      "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-008; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-5 (CLOSED, SATISFIED_BY_FOUNDER_FINAL_UAT_RATIFICATION_PASS)",
+      "walkthrough_result": "PASS — SOC product functionality, personas P1-P6, tenant switching, Cyber AI Copilot, Live Vertical triad (INBOX-002)",
+      "ten_gate_ratification": {
+        "record": "soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md §2",
+        "all_gates_ratified_pass": true,
+        "gates": [
+          "SUITE_LOCAL_GATES",
+          "HOSTED_INTEGRATION_CONTROL",
+          "RESPONSIBLE_DISCLOSURE",
+          "W2_I_ACCEPTANCE",
+          "SOC_UAT_SURFACE",
+          "CYBER_AI_RUNTIME",
+          "TOOL_FABRIC_RUNTIME",
+          "LIVE_VERTICAL",
+          "UAT_PERSONA_EVIDENCE",
+          "DEPLOY_ROLLBACK_REHEARSAL"
+        ],
+        "supersedes": "The prior manifest/specification revision carried LIVE_VERTICAL, DEPLOY_ROLLBACK_REHEARSAL and CYBER_AI_RUNTIME as FAIL pending ratification; HB-5 supplied that ratification on 2026-08-20.",
+        "in_repository_corroboration": "NONE — the gate authority of record is a control-plane artifact outside every suite repository. See specification §9.7."
+      }
+    },
+    "hosted_integration_control_ratification": {
+      "gate_id": "HOSTED_INTEGRATION_CONTROL",
+      "boundary_id": "HB-1",
+      "decision": "PASS",
+      "decided_by": "Founder",
+      "decided_on": "2026-08-20T18:42:54+07:00",
+      "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-004"
+    },
+    "human_accessibility_walkthrough": {
+      "gate_id": "UAT_PERSONA_EVIDENCE",
+      "boundary_id": "HB-2",
+      "decision": "PASS",
+      "decided_by": "Founder / Human Accessibility Reviewer",
+      "decided_on": "2026-08-20T18:41:33+07:00",
+      "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-003"
+    },
+    "responsible_disclosure": {
+      "gate_id": "RESPONSIBLE_DISCLOSURE",
+      "boundary_id": "HB-3",
+      "release_blocker_id": "RB-001",
+      "status": "RESOLVED",
+      "resolved_on": "2026-08-20",
+      "canonical_address": "security@cybrik.ai",
+      "intake_channel": "security@cybrik.ai (secondary report@cybrik.ai -> contact@bpech.com via Cloudflare Email Routing, delivery tested end-to-end)",
+      "policy_file": "docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md",
+      "policy_status": "ACTIVE_APPROVED_BY_FOUNDER",
+      "security_txt": "public/.well-known/security.txt",
+      "public_security_txt_status": "PENDING_PUBLIC_WEB_DEPLOYMENT (canonical URL not observed serving; see specification §9.4)",
+      "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-005/INBOX-006; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-3 (CLOSED)"
+    }
   },
   "contract_governance": {
     "w2_i_inference_transport": {
-      "packet_manifest": "contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json",
-      "version": "0.2.0-candidate",
+      "declared_artifact": "contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json",
+      "declared_artifact_status_in_repo": "PROPOSED — status flip NOT applied",
+      "planned_packet_manifest": "contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json",
+      "planned_packet_manifest_present": false,
+      "version": "0.2.0",
+      "governance_status": "ACCEPTED (Decision Council, HB-4, 2026-08-20)",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "VERIFIED (276 unit/contract tests passing in cybrik-cyber-ai-platform)",
+      "contract_conformance_status": "NOT RE-EXECUTED FOR THIS PIN — the W2-I transport conformance suite is present at the pinned cybrik-cyber-ai-platform head (tests/contract/test_w2i_transport_conformance.py); the previously recorded 276 unit/contract test count was measured at an earlier SHA and was not re-run against this pin. See specification §9.2.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)"
     },
     "w2_f_service_delegation": {
@@ -27,11 +155,17 @@
       "version": "0.1.0",
       "status": "ACCEPTED FOR IMPLEMENTATION"
     },
-    "responsible_disclosure": {
-      "policy_file": "docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md",
-      "policy_status": "ACTIVE_APPROVED_BY_FOUNDER",
-      "intake_channel": "security@cybrik.ai (secondary report@cybrik.ai -> contact@bpech.com via Cloudflare Email Routing)",
-      "security_txt": "public/.well-known/security.txt"
+    "w2_d_inference": {
+      "packet_manifest": "contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
+      "version": "0.1.0",
+      "status": "ACCEPTED FOR IMPLEMENTATION"
     }
-  }
+  },
+  "suite_local_validation": {
+    "command": "node tools/contract-validation/validate-inference.mjs",
+    "result": "PASS (exit 0)",
+    "executed_on": "2026-08-21",
+    "scope": "W2-D inference packet JSON Schema / fixtures / trust invariants only. This is not staging qualification and flips no gate."
+  },
+  "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval."
 }

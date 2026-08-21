@@ -5,13 +5,15 @@
 - **Release Candidate:** `v1.0.0-rc1`
 - **Milestone:** SOC Post-UAT Production Release Candidate
 - **Release Status:** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION`
+- **Staging Qualification:** `IN_PROGRESS / PENDING_HUMAN_PR_MERGE`
 - **Manifest Binding:** [`releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`](../../releases/manifests/release-candidate-v1.0.0-rc1.manifest.json)
-- **Timestamp:** `2026-08-20T20:10:00+07:00` (`Asia/Ho_Chi_Minh`)
+- **Timestamp:** `2026-08-21T10:55:43+07:00` (`Asia/Ho_Chi_Minh`)
 
 > **Status honesty.** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION` means the candidate is
-> assembled and its Suite-local contract validation is green. It does **not** mean the candidate
-> is qualified, piloted, or GA. Founder UAT gates (`LIVE_VERTICAL`, `DEPLOY_ROLLBACK_REHEARSAL`,
-> `CYBER_AI_RUNTIME`) remain `FAIL` pending ratification, and §9 records every item this
+> assembled, its Suite-local contract validation is green, and the human governance boundaries
+> `HB-1`..`HB-5` are closed. It does **not** mean the candidate is qualified, piloted, or GA.
+> Staging qualification is `IN_PROGRESS` and blocked on `PENDING_HUMAN_PR_MERGE`: all four pins
+> are unmerged pull-request heads awaiting required human review (§2). §9 records every item this
 > document could **not** verify. Nothing here promotes any contract packet to stable v1/GA, and
 > nothing here is an ADR-0001 immutable bundle tag.
 
@@ -34,34 +36,71 @@ The candidate covers the four-repository suite topology:
 | `cybrik-security-tool-fabric` | Tool execution authority, policy/approval, sandbox, execution receipts | `fabric-control` (FastAPI), Go 1.22 `executor` |
 
 Release blocker **RB-001** (no verified responsible-disclosure channel) is
-**RESOLVED (2026-08-20)** per [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md). No `BLOCKING — OPEN`
+**RESOLVED (2026-08-20)** per [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md), closed under human
+boundary `HB-3` with the canonical intake address `security@cybrik.ai`. No `BLOCKING — OPEN`
 entry exists in the register, so this manifest is created without a Founder waiver clause.
 
 ---
 
-## 2. Adopted Repository SHAs
+## 2. Adopted Repository SHAs — the Four Final Evaluated PR Heads
 
-The manifest adopts these exact commits. Each SHA below was resolved against the local canonical
-checkout on 2026-08-20 (`git cat-file -t` → `commit` for all four).
+The manifest pins the **exact head of the final evaluated pull request** in each of the four
+repositories. Each SHA below was resolved against the local canonical checkout on 2026-08-21
+(`git cat-file -t` → `commit` for all four) and its commit subject read back from that object.
 
-| Repository | Adopted SHA | Commit Subject | Branch Provenance |
+| # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
+|---|---|---|---|---|---|
+| 1 | `cybrik-suite` | `f051192452b546f85e7eba6123b88a56c1ca0cce` | [#56] | `fix/rc-manifest-contracts` | `docs(release): publish release candidate v1.0.0-rc1 manifest and specification` |
+| 2 | `cybrik-soc-command-center` | `7be188720c97c4c12e45a016e6c0795de10c9900` | [#13] | `fix/copilot-draft-auth` | `fix(test): delenv CYBRIK_RATE_LIMIT_BACKEND in test_development_keeps_dev_defaults` |
+| 3 | `cybrik-cyber-ai-platform` | `ccbfb4f82463daa06b5e82db18fb6b056b25f31a` | [#11] | `feature/rc-w2i-conformance` | `security(deps): upgrade cryptography to remediate PYSEC-2026-3552 in cyber-ai` |
+| 4 | `cybrik-security-tool-fabric` | `0e4fee8d08ff9a67c200ce6c5f97a6f277581be9` | [#6] | `chore/sec-md-fabric` | `ci: trigger fresh PR checks on rebased branch` |
+
+The `cybrik-suite` pin is the **content base** this document and its manifest were authored
+against — its own commit cannot contain its own SHA. This is the recorded
+`MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE` provenance model, not an
+oversight.
+
+**None of the four pins is on its repository's `origin/main`.** Every one is an unmerged PR head
+whose branch-protection state is `PENDING_REQUIRED_HUMAN_REVIEW`. That is the sole reason
+staging qualification reads `IN_PROGRESS / PENDING_HUMAN_PR_MERGE` rather than `READY` (§7, §9.5).
+
+### 2.1 Relationship to the Authorized R22 Subjects
+
+Each pin is classified against the authorized RC subject recorded for its repository. Two of the
+four branches were **rebased** after the subject was authorized, so the authorized SHA is no
+longer an ancestor of the pinned head; the authorized *commit subject* is carried at a rewritten
+SHA on the pinned branch. Ancestry below was verified with `git merge-base --is-ancestor`.
+
+| Repository | Authorized R22 Subject | Containment vs. Pinned Head | Classification |
 |---|---|---|---|
-| `cybrik-suite` | `353d5f5d786641bd41b2055d4ee9b554f7834345` | `fix(release): align release candidate manifest with adopted SHAs and governance status` | `fix/rc-manifest-contracts` (this branch; not on `main`) |
-| `cybrik-soc-command-center` | `c0f75f6d08d25b16f1a3ef8921b4ba98348a194a` | `docs(security): add active SECURITY.md referencing suite responsible disclosure policy` | `chore/sec-md-soc`, `codex/w2j-org-assets-vertical` (**not on `origin/main`**) |
-| `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` | `feature/rc-w2i-conformance` (**not on `origin/main`**) |
-| `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | `docs(security): update SECURITY.md to active responsible disclosure policy` | `chore/sec-md-fabric`, `codex/w2h-auth-org-conformance` (**not on `origin/main`**) |
+| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at the pinned head itself | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Ancestor.** Verified ancestor of `7be18872…`; the previous manifest pin `c0f75f6d…` is also an ancestor | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52` on the pinned branch | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
 
-### 2.1 Relationship to the SHAs Carried in the Engineering Evidence Records
+CI status for all four PR heads is recorded as `SUCCESS` in
+`soc-autonomous-state:VERIFIED_SUBJECTS.json` (recorded 2026-08-21T10:35:00+07:00). **Those runs
+were not re-executed for this document**; the claim is a faithful restatement of the control
+record, not an independent observation.
+
+### 2.2 Relationship to the SHAs Carried in the Engineering Evidence Records
 
 The engineering evidence records committed to this repository were produced against *earlier*
-commits. The adopted SHAs are **not** the evidenced SHAs. The relationship differs per repository
-and is material to how far each evidence record carries:
+commits. The pinned PR heads are **not** the evidenced SHAs. After the branch rebases, **none of
+the three product evidence SHAs is an ancestor of its pin** — a regression in provenance strength
+against the prior RC pin set, where the Cyber AI and Fabric evidence SHAs were ancestors. Ancestry
+below was verified with `git merge-base --is-ancestor` and `git rev-list --count`:
 
-| Repository | Evidenced SHA | Adopted SHA | Ancestry (verified via `git merge-base --is-ancestor`) | Evidence Carry-Forward |
+| Repository | Evidenced SHA | Pinned Head | Ancestry (verified) | Evidence Carry-Forward |
 |---|---|---|---|---|
-| `cybrik-cyber-ai-platform` | `281b2529…` ([Cyber AI Runtime evidence](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md)) | `b867220f…` | Evidenced SHA **is an ancestor** of the adopted SHA. Delta = `SECURITY.md` + `tests/contract/test_w2i_transport_conformance.py` (test-only, 819 insertions) | **Carries forward.** The delta adds tests and a security doc; it changes no runtime source. |
-| `cybrik-security-tool-fabric` | `147a1d83…` ([Deploy/Rollback evidence](../operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md)) | `9a80ebeb…` | Evidenced SHA **is an ancestor** of the adopted SHA | **Carries forward** for the evidenced tree; the delta is `SECURITY.md` activation. |
-| `cybrik-soc-command-center` | `4480a412…` ([SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md), CI run `32164562480`, 8/8 required contexts) | `c0f75f6d…` | **Divergent — neither is an ancestor of the other.** Merge base is `1b6671cc…` | **Does NOT carry forward.** The adopted SOC SHA has no CI evidence of its own in this repository. See §9. |
+| `cybrik-cyber-ai-platform` | `281b2529…` ([Cyber AI Runtime evidence](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md)) | `ccbfb4f8…` | **Divergent** — merge base `2dd7aca2…`; pin is 32 commits ahead, evidenced SHA 1 commit off-line (`feat(auth): add fail-closed service delegation verifier (W2-H1)`) | **Does NOT carry forward as ancestry.** The `258 / 258` result belongs to a commit that is not an ancestor of the pin. See §9.2. |
+| `cybrik-security-tool-fabric` | `147a1d83…` ([Deploy/Rollback evidence](../operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md)) | `0e4fee8d…` | **Divergent** — merge base `3292a65a…`; pin is 29 commits ahead, evidenced SHA 1 commit off-line (`feat(contracts): load the auth/org vendored snapshot as its own registry`) | **Does NOT carry forward as ancestry.** The `172 / 172` and Go executor results belong to an off-line commit. See §9.2. |
+| `cybrik-soc-command-center` | `4480a412…` ([SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md), CI run `32164562480`, 8/8 required contexts) | `7be18872…` | **Divergent** — merge base `1b6671cc…`; pin is 10 commits ahead and 56 behind the evidenced SHA | **Does NOT carry forward.** That CI run belongs to the evidenced SHA. The pin's own CI is recorded as green on PR #13 but was not re-observed here. See §9.3. |
+
+[#56]: `cybrik-suite` PR 56
+[#13]: `cybrik-soc-command-center` PR 13
+[#11]: `cybrik-cyber-ai-platform` PR 11
+[#6]: `cybrik-security-tool-fabric` PR 6
 
 ---
 
@@ -75,7 +114,14 @@ Cross-product contract governance for this candidate, as recorded in the manifes
 | **W2-F** — internal service delegation + workload identity | [`contracts/compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json`](../../contracts/compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json) | `0.1.0` | `ACCEPTED FOR IMPLEMENTATION` (Gate W2-F, 2026-07-24) |
 | **W2-G** — organizational hierarchy + external-authority boundary | [`contracts/compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json`](../../contracts/compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json) | `0.1.0` | `ACCEPTED FOR IMPLEMENTATION` (Gate W2-G, 2026-07-24) |
 | **W2-D** — AI model-inference + alert summarization | [`contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json`](../../contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json) | `0.1.0` | `ACCEPTED FOR IMPLEMENTATION` (Gate W2-D, 2026-07-24) |
-| **W2-I** — inference-plane transport binding | `contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json` | `0.2.0-candidate` | `COUNCIL_ACCEPTED_BASELINE` — **artifact not present in this repository; see §9.1** |
+| **W2-I** — inference-plane transport binding | [`contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json`](../../contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json) | `0.2.0` | **`ACCEPTED`** — Decision Council, boundary `HB-4`, 2026-08-20. **Artifact status flip NOT applied; see §9.1** |
+
+The **W2-I acceptance decision is closed**: boundary `HB-4` (`W2_I_ACCEPTANCE`) is `CLOSED` with
+resolution `SATISFIED_BY_COUNCIL_DECISION_ACCEPT`, recorded at
+`soc-autonomous-state:AUTHORITY_INBOX.json` `INBOX-007` (decision `ACCEPT`, 2026-08-20T19:15+07:00).
+The **in-repository artifact bytes have not yet been flipped** to match that decision — the delta
+record still carries `x-cybrik-status: PROPOSED` and `x-cybrik-applied: false`. Under ADR-0001 D5
+the status flip is a separate, separately recorded change. §9.1 tracks that gap.
 
 Both W2-F and W2-G packets are `x-cybrik-packet-version: 0.1.0` with
 `x-cybrik-is-bundle-tag: false`. Neither is a stable v1/GA promotion; per ADR-0001 D2 no N-1
@@ -85,8 +131,8 @@ packet manifests.
 ### 3.1 W2-I Transport Execution Posture
 
 The manifest records the W2-I transport posture as
-`BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)`. Concretely, at the adopted
-`cybrik-cyber-ai-platform` SHA the transport conformance suite
+`BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)`. Concretely, at the pinned
+`cybrik-cyber-ai-platform` head `ccbfb4f8…` the transport conformance suite
 (`tests/contract/test_w2i_transport_conformance.py`, 17 test functions plus parameterization)
 asserts that the relying party:
 
@@ -108,13 +154,16 @@ asserts that the relying party:
 | Repository | Suite | Result | Source | Re-executed for this RC? |
 |---|---|---|---|---|
 | `cybrik-cyber-ai-platform` | pytest (ai-api, ai-core, ai-worker, contract) at `281b2529…` | **258 / 258 passed**, 96.63% coverage | [Cyber AI Runtime evidence §](../operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
-| `cybrik-cyber-ai-platform` | + W2-I transport conformance at `b867220f…` | Manifest records **276** unit/contract tests passing | Manifest `contract_conformance_status` | **No — see §9.2** |
+| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite present at pinned head `ccbfb4f8…`) | Previously recorded as **276** unit/contract tests at `b867220f…` | Prior manifest revision | **No — not re-run against the pin; see §9.2** |
 | `cybrik-security-tool-fabric` | pytest control plane at `147a1d83…` | **172 / 172 passed** | [Tool Fabric Runtime evidence §5.1](../operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
 | `cybrik-security-tool-fabric` | Go 1.22 executor (`go test ./...`, incl. `FuzzParse`) | All passed | [Tool Fabric Runtime evidence §5.2](../operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md) | No |
-| `cybrik-soc-command-center` | CI run `32164562480` attempt 2 at `4480a412…` | **8 / 8 required contexts successful**; Playwright `31 passed`; pytest `279 collected / 278 passed / 1 skipped` | [SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md) | No — and this run is on a **divergent** SHA (§2.1) |
-| `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-20 for this RC — §4.2 | **Yes** |
+| `cybrik-soc-command-center` | CI run `32164562480` attempt 2 at `4480a412…` | **8 / 8 required contexts successful**; Playwright `31 passed`; pytest `279 collected / 278 passed / 1 skipped` | [SOC UAT surface evidence](../uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md) | No — and this run is on a **divergent** SHA (§2.2) |
+| all four PR heads | hosted PR checks at the pinned heads | Recorded **`SUCCESS`** | `soc-autonomous-state:VERIFIED_SUBJECTS.json` (2026-08-21T10:35+07:00) | **No — restated from the control record, not observed here (§2.1)** |
+| `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 for this RC — §4.2 | **Yes** |
 
 ### 4.2 Suite Contract Validation Executed for this Candidate
+
+Re-executed at the `cybrik-suite` content base on 2026-08-21:
 
 ```text
 $ node tools/contract-validation/validate-inference.mjs
@@ -134,7 +183,13 @@ exit 0
 
 All **39 / 39** trust invariants hold, all **8 / 8** positive fixtures validate, all **8 / 8**
 negative-schema fixtures are rejected, and all **4 / 4** negative-semantic fixtures are
-structurally valid (rejected only by a runtime trust invariant, as designed).
+structurally valid (rejected only by a runtime trust invariant, as designed). The counts are
+byte-identical to the prior revision's run.
+
+The validator's `node_modules` tree was **borrowed read-only** from the canonical `cybrik-suite`
+checkout rather than installed — dependency installation is Founder-gated in this repository — and
+the borrowed tree was detached again immediately after the run. No lockfile, `package.json`, or
+dependency byte in this repository was changed.
 
 ### 4.3 Negative Security Matrix (Adversarial Vectors)
 
@@ -255,12 +310,13 @@ injected a reversible 503 circuit-breaker fault into `ai-api` and observed:
 
 ### 6.4 Rollback Targets for this Candidate
 
-Each service's rollback target is the last known-stable image for that service. Note that for
-`cybrik-cyber-ai-platform` the rehearsed rollback target (`281b2529…`) is the **evidenced
-ancestor** of the adopted SHA, so the rehearsed procedure applies directly. For
-`cybrik-soc-command-center` the rollback target must be re-established against the adopted SHA
-before staging qualification, because the adopted SHA is divergent from the evidenced one (§2.1,
-§9.3).
+Each service's rollback target is the last known-stable image for that service. Under the current
+pin set **no product rollback target is an ancestor of its pin** (§2.2): the rehearsed Cyber AI
+target `281b2529…` is off-line from `ccbfb4f8…` after the branch rebase, the Fabric target
+`147a1d83…` is off-line from `0e4fee8d…`, and the SOC pin `7be18872…` is divergent from the
+evidenced `4480a412…`. The rehearsed *procedure* (§6.2) is unchanged and still applies, but every
+rollback **target image** must be re-established against the pinned heads before staging
+qualification can be claimed (§9.3, §9.6).
 
 ### 6.5 Manifest / Contract Rollback
 
@@ -271,18 +327,47 @@ acceptance untouched.
 
 ---
 
-## 7. Gate Status at Candidate Assembly
+## 7. Gate Status — Authoritative Post-UAT
 
-| Gate | Status | Blocking Requirement |
-|---|---|---|
-| `RB-001` responsible disclosure | **RESOLVED (2026-08-20)** | — |
-| `LIVE_VERTICAL` | `FAIL` | Founder UAT ratification |
-| `DEPLOY_ROLLBACK_REHEARSAL` | `FAIL` | Founder UAT ratification |
-| `CYBER_AI_RUNTIME` | `FAIL` | Live vertical staging integration |
-| `W2-I` transport acceptance | See §9.1 | Exact successor SHA-256 acceptance (`UAT-A2B`) |
+All five human governance boundaries (`HB-1`..`HB-5`) are **`CLOSED`** per
+`soc-autonomous-state:HUMAN_BOUNDARIES.json` (`open_boundary_count: 0`). The gate table below is
+the authoritative post-UAT status for this candidate.
 
-Engineering satisfaction (`*_ENGINEERING_SATISFIED = YES` in the evidence records) is a distinct
-and lesser claim than gate status. This candidate does not flip any gate.
+| Gate | Boundary | Status | Authority Record | Remaining Requirement |
+|---|---|---|---|---|
+| `RESPONSIBLE_DISCLOSURE` / `RB-001` | `HB-3` | **`RESOLVED`** (2026-08-20) | `INBOX-005`, `INBOX-006`; [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md) | Public serving of `security.txt` at the canonical URL (§9.4) |
+| `W2_I_ACCEPTANCE` — transport binding v0.2.0 | `HB-4` | **`ACCEPTED`** (Decision Council, 2026-08-20) | `INBOX-007`, decision `ACCEPT` | Apply the artifact status flip to the in-repo delta record (§9.1) |
+| `SOC_UAT_RATIFICATION` — Candidate R22 Founder UAT | `HB-5` | **`PASS` / `RATIFIED`** (Founder, 2026-08-20) | `INBOX-008`, decision `PASS`; walkthrough `PASS` at `INBOX-002` | — |
+| `HOSTED_INTEGRATION_CONTROL` | `HB-1` | **`PASS`** (Founder, 2026-08-20) | `INBOX-004` | — |
+| `UAT_PERSONA_EVIDENCE` — human accessibility session | `HB-2` | **`PASS`** (Founder / human reviewer, 2026-08-20) | `INBOX-003` | — |
+| **Staging Qualification** | — | **`IN_PROGRESS / PENDING_HUMAN_PR_MERGE`** | `soc-autonomous-state:CURRENT_STATE.json` | Human review + merge of PRs #56 / #13 / #11 / #6; rollback targets re-established (§6.4) |
+
+### 7.1 Ten-Gate Milestone Resolution
+
+`soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md` §2 records the formal human
+authority action for all ten milestone gates. Every gate is ratified **`PASS`** — including
+`LIVE_VERTICAL`, `DEPLOY_ROLLBACK_REHEARSAL` and `CYBER_AI_RUNTIME`, which the **previous revision
+of this document reported as `FAIL` pending ratification**. That ratification has since occurred
+(`HB-5`, 2026-08-20), so those three entries are superseded:
+
+| Gate | Owner | Machine Engineering Status | Human Authority Action | Ratification |
+|---|---|---|---|:---:|
+| `SUITE_LOCAL_GATES` | `cybrik-suite` | `ENGINEERING_SATISFIED` | Satisfied on verified local baseline | `PASS` |
+| `HOSTED_INTEGRATION_CONTROL` | `cybrik-suite` | `ENGINEERING_SATISFIED` | Founder hosted branch-protection review | `PASS` |
+| `RESPONSIBLE_DISCLOSURE` | Founder | `ENGINEERING_SATISFIED` | Founder channel approval & RB-001 resolution | `PASS` |
+| `W2_I_ACCEPTANCE` | `cybrik-suite` | `ENGINEERING_SATISFIED` | Decision Council acceptance vote | `PASS` |
+| `SOC_UAT_SURFACE` | `cybrik-soc-command-center` | `ENGINEERING_SATISFIED` | Confirmed in UAT | `PASS` |
+| `CYBER_AI_RUNTIME` | `cybrik-cyber-ai-platform` | `ENGINEERING_SATISFIED` | Model runtime confirmed in UAT | `PASS` |
+| `TOOL_FABRIC_RUNTIME` | `cybrik-security-tool-fabric` | `ENGINEERING_SATISFIED` | Capability gate confirmed in UAT | `PASS` |
+| `LIVE_VERTICAL` | `cybrik-suite` | `ENGINEERING_SATISFIED` | Triad scenario confirmed in UAT | `PASS` |
+| `UAT_PERSONA_EVIDENCE` | `cybrik-soc-command-center` | `ENGINEERING_SATISFIED_MACHINE_EVIDENCE` | Human accessibility session completed | `PASS` |
+| `DEPLOY_ROLLBACK_REHEARSAL` | `cybrik-suite` | `ENGINEERING_SATISFIED` | Deploy/rollback rehearsal confirmed in UAT | `PASS` |
+
+Ten ratified gates are **not** staging qualification. Gate ratification is a statement about the
+evaluated candidate; the pins in §2 are unmerged PR heads whose suites were not re-executed (§9.2,
+§9.3), and no rollback target is bound to a pin (§9.6). Engineering satisfaction
+(`*_ENGINEERING_SATISFIED`) remains a distinct and lesser claim than gate status, and gate status
+remains a distinct and lesser claim than qualification.
 
 ---
 
@@ -296,62 +381,106 @@ and lesser claim than gate status. This candidate does not flip any gate.
 | W2-F packet | `cybrik-suite:contracts/compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json` |
 | W2-G packet | `cybrik-suite:contracts/compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json` |
 | W2-D packet | `cybrik-suite:contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json` |
+| W2-I delta record | `cybrik-suite:contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json` |
 | W2-I conformance suite | `cybrik-cyber-ai-platform:tests/contract/test_w2i_transport_conformance.py` |
+| Human boundary register | `soc-autonomous-state:HUMAN_BOUNDARIES.json` |
+| Authority inbox | `soc-autonomous-state:AUTHORITY_INBOX.json` |
+| Verified PR-head subjects | `soc-autonomous-state:VERIFIED_SUBJECTS.json` |
 
 ---
 
 ## 9. Open Items — Not Verified by this Document
 
 These are recorded rather than resolved. Each must be closed before staging qualification can be
-claimed.
+claimed. Items 9.1–9.5 carry forward from the prior revision with their status updated against the
+current pin set; 9.6 and 9.7 are new.
 
-### 9.1 W2-I packet manifest reference is dangling
+### 9.1 W2-I is accepted by decision but not by artifact bytes
 
-The manifest's `contract_governance.w2_i_inference_transport.packet_manifest` points at
-`contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json`. **That file
-does not exist** — not in `cybrik-suite`, and not in any of the three product repositories
-(verified by `git ls-files` across all four). `contracts/compatibility/` contains exactly four
-manifests: the base contract packet, the W2-D inference packet, the W2-G org-hierarchy packet, and
-the W2-F service-delegation packet.
+Boundary `HB-4` is `CLOSED` with `SATISFIED_BY_COUNCIL_DECISION_ACCEPT` and `INBOX-007` records
+decision `ACCEPT` for *W2-I Inference Plane Transport Binding v0.2.0*. The **decision** is
+therefore authoritative and this document records it as `ACCEPTED` (§3, §7).
 
-The reference is therefore **forward-looking**, and the `COUNCIL_ACCEPTED_BASELINE` status it
-carries is not corroborated by any artifact in this repository. Existing governance records state
-the opposite: [`FOUNDER-DECISION-PACKET-FOUNDER-UAT-IMPLEMENTATION-WAVE.md`](../adr/FOUNDER-DECISION-PACKET-FOUNDER-UAT-IMPLEMENTATION-WAVE.md)
-holds `UAT-A2B` at **`HOLD — reviewed artifact is green but not acceptance-closed`** and records
-W2-I as `PROPOSED — NOT ACCEPTED`, and [`founder-uat-readiness.v1.json`](../uat/founder-uat-readiness.v1.json)
-records the W2-I gate as `FAIL`. **Closing action:** create and accept the exact v0.2.0-candidate
-packet manifest under `contracts/compatibility/`, with its SHA-256 recorded at acceptance, or
-correct the manifest reference.
+The **artifact** has not caught up. The only W2-I artifact in this repository is
+[`contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json`](../../contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json),
+which still declares `x-cybrik-status: PROPOSED`, `x-cybrik-not-accepted: true` and
+`x-cybrik-applied: false`, and whose own text states that a status flip requires explicit recorded
+authorization (ADR-0001 D5) and that no release manifest may reference the PROPOSED bytes
+(ADR-0001 D6). The forward-looking path the prior manifest revision named,
+`contracts/compatibility/cybrik-suite-inference-plane.v0.2.0-candidate.manifest.json`, **still does
+not exist**; the manifest now records it as `planned_packet_manifest` with
+`planned_packet_manifest_present: false` and points `declared_artifact` at the file that does
+exist. Existing in-repo governance records also still read the old way:
+[`FOUNDER-DECISION-PACKET-FOUNDER-UAT-IMPLEMENTATION-WAVE.md`](../adr/FOUNDER-DECISION-PACKET-FOUNDER-UAT-IMPLEMENTATION-WAVE.md)
+holds `UAT-A2B` at `HOLD` and records W2-I as `PROPOSED — NOT ACCEPTED`.
 
-### 9.2 The `276` conformance count was not re-executed here
+**Closing action:** apply the `HB-4` decision to the artifact — flip the delta record's status
+with the acceptance evidence and SHA-256 recorded, and reconcile the ADR decision packet — so the
+bytes and the decision agree.
 
-`contract_conformance_status` claims `VERIFIED (276 unit/contract tests passing)`. The committed
-evidence record measures **258 / 258** at the ancestor SHA `281b2529…`; the adopted SHA adds the
-W2-I transport conformance file (17 test functions plus parameterization), which is consistent
-with 276 but was **not** re-run to confirm. Re-execution was not attempted because the suite
-requires dependency installation, which is Founder-gated in this repository. **Closing action:**
-attach a test-session transcript at `b867220f…` showing `276 passed`.
+### 9.2 No product test suite was re-executed against its pinned head
 
-### 9.3 The adopted SOC SHA has no CI evidence
+- **Cyber AI:** the `276` conformance count was measured at `b867220f…`, which after the branch
+  rebase is **not an ancestor** of the pin `ccbfb4f8…` (§2.2). The conformance file
+  `tests/contract/test_w2i_transport_conformance.py` is present at the pin, and the pin adds a
+  `cryptography` upgrade (`PYSEC-2026-3552`) that was not covered by any recorded run.
+- **Fabric:** the `172 / 172` control-plane and Go executor results belong to `147a1d83…`, which
+  is off-line from the pin `0e4fee8d…` (§2.2).
+- Re-execution was not attempted because it requires dependency installation, which is
+  Founder-gated in this repository.
 
-`c0f75f6d…` is divergent from the UAT-evidenced `4480a412…` (merge base `1b6671cc…`), and the diff
-between them is large (107 files, ~17k deletions). The `8 / 8 required contexts` result belongs to
-the evidenced SHA, not the adopted one. **Closing action:** either adopt a SOC SHA on `origin/main`
-with its own green CI run, or attach a green CI run for `c0f75f6d…`.
+**Closing action:** attach test-session transcripts taken at `ccbfb4f8…` and `0e4fee8d…`.
+
+### 9.3 The pinned SOC head has no CI evidence in this repository
+
+`7be18872…` is divergent from the UAT-evidenced `4480a412…` (merge base `1b6671cc…`; 10 commits
+ahead, 56 behind). The `8 / 8 required contexts` result belongs to the evidenced SHA. PR #13's own
+checks are recorded `SUCCESS` in `soc-autonomous-state:VERIFIED_SUBJECTS.json`, but that record was
+not independently re-observed here and no run URL is bound in this repository.
+**Closing action:** bind the PR #13 CI run identifier and result into this repository, or adopt a
+SOC SHA on `origin/main` with its own green run.
 
 ### 9.4 `security.txt` publication is unverified
 
 The file is present and RFC 9116 field-conformant locally (§5.3), but serving at
-`https://cybrik.ai/.well-known/security.txt` was not observed. It is also unsigned (the RFC's
-optional PGP signature). **Closing action:** verify the canonical URL returns the file with
-`Content-Type: text/plain; charset=utf-8`.
+`https://cybrik.ai/.well-known/security.txt` was not observed; `HB-3` itself records
+`public_security_txt_status: PENDING_PUBLIC_WEB_DEPLOYMENT (404)`. It is also unsigned (the RFC's
+optional PGP signature). This does **not** reopen `RB-001` — the blocker was the absence of a
+verified intake channel, and that channel is verified. **Closing action:** verify the canonical URL
+returns the file with `Content-Type: text/plain; charset=utf-8`.
 
-### 9.5 Three of four adopted SHAs are not on their repository's `main`
+### 9.5 None of the four pins is on `main`, and none is merged
 
-`c0f75f6d…`, `b867220f…`, and `9a80ebeb…` all live only on feature/chore branches (§2). A release
-candidate pinned to unmerged branch commits cannot be reproduced from `origin/main`.
-**Closing action:** merge the adopted work to `main` in each repository and re-pin, or record an
-explicit Founder waiver for branch-pinned adoption.
+All four pinned heads live only on feature/chore branches, and all four pull requests are
+`PENDING_REQUIRED_HUMAN_REVIEW` under branch protection. A release candidate pinned to unmerged
+branch commits cannot be reproduced from `origin/main`. This is the stated cause of the
+`IN_PROGRESS / PENDING_HUMAN_PR_MERGE` staging-qualification status and is **human-only work** —
+no machine action can close it. **Closing action:** human review and merge of PRs #56, #13, #11
+and #6, then re-pin this manifest to the resulting `main` commits.
+
+### 9.6 Rollback targets are not re-established against the pins
+
+Because no product evidence SHA is an ancestor of its pin (§2.2), the rehearsed rollback target
+images (§6.3) no longer correspond to the pinned code. The rehearsed procedure is unaffected; the
+targets are. **Closing action:** re-establish a known-stable rollback image per service against the
+pinned heads and re-run the `SCENARIO-TRIAD-UAT-001` smoke flow plus `NEG-1..NEG-4`.
+
+### 9.7 The gate authority of record lives outside this repository
+
+The previous revision of this document cited `docs/uat/founder-uat-readiness.v1.json` as the source
+of the `LIVE_VERTICAL` / `DEPLOY_ROLLBACK_REHEARSAL` / `CYBER_AI_RUNTIME` `FAIL` statuses. **That
+file does not exist** — not at that path, not elsewhere in `cybrik-suite`, and not in any of the
+three product repositories (verified by `git ls-files` across all four). The reference was dangling
+and has been removed.
+
+The gate statuses in §7.1 are therefore sourced from
+`soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md`,
+`soc-autonomous-state:HUMAN_BOUNDARIES.json` and `soc-autonomous-state:AUTHORITY_INBOX.json` —
+control-plane artifacts that are **outside every suite repository**. Nothing committed in
+`cybrik-suite` corroborates them, so this repository cannot independently reproduce its own release
+candidate's gate status. **Closing action:** commit a gate-status artifact of record into
+`cybrik-suite:docs/uat/`, derived from the Founder UAT decision, so the release manifest and its
+gate evidence live in the same repository.
 
 ---
 
