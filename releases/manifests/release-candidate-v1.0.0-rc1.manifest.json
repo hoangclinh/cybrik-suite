@@ -1,6 +1,6 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-21T10:55:43+07:00",
+  "timestamp": "2026-08-21T11:37:56+07:00",
   "milestone": "SOC Post-UAT Production Release Candidate",
   "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
   "staging_qualification_status": "IN_PROGRESS / PENDING_HUMAN_PR_MERGE",
@@ -8,44 +8,44 @@
   "provenance_note": "Each pin below is the exact head of the final evaluated pull request for that repository. No pin is on its repository's origin/main; every pull request is PENDING_REQUIRED_HUMAN_REVIEW under branch protection. The cybrik-suite pin is the content base this manifest was authored against — a manifest cannot contain its own commit SHA.",
   "repositories": {
     "cybrik-suite": {
-      "pinned_sha": "f051192452b546f85e7eba6123b88a56c1ca0cce",
-      "commit_subject": "docs(release): publish release candidate v1.0.0-rc1 manifest and specification",
+      "pinned_sha": "7f412965310590cbdf924cf4160193ffe0daf0c0",
+      "commit_subject": "fix(release): bind exact four release candidate PR heads and accepted governance milestones in manifest",
       "pull_request": 56,
       "branch": "fix/rc-manifest-contracts",
       "pin_role": "CONTENT_BASE (this manifest's authoring parent)",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "c518d8e344c412dc884135e3947213c5de41739f",
-      "subject_containment": "REBASE_REWRITE — authorized subject is not an ancestor SHA; identical commit subject is carried at the pinned head",
+      "subject_containment": "REBASE_REWRITE — the authorized subject SHA is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, the prior manifest pin and a verified ancestor of the pinned head",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS",
-      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+      "ci_status_recorded": "SUCCESS — 6 checks successful, 0 failing, observed at the pinned head",
+      "ci_status_provenance": "GitHub PR #56 status-check rollup observed at head 7f412965 on 2026-08-21T11:37:56+07:00. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head f0511924, not for this pin."
     },
     "cybrik-soc-command-center": {
-      "pinned_sha": "7be188720c97c4c12e45a016e6c0795de10c9900",
-      "commit_subject": "fix(test): delenv CYBRIK_RATE_LIMIT_BACKEND in test_development_keeps_dev_defaults",
+      "pinned_sha": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
+      "commit_subject": "hardening(config): enforce strict fail-closed DSN and rate-limit backend validation in production",
       "pull_request": 13,
       "branch": "fix/copilot-draft-auth",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "992eabdcdd8a70bd44c7a21119df2211c9e02c8c",
-      "subject_containment": "ANCESTOR — authorized subject is a verified ancestor of the pinned head; the prior manifest pin c0f75f6d08d25b16f1a3ef8921b4ba98348a194a is also an ancestor",
+      "subject_containment": "ANCESTOR — authorized subject 992eabdc is a verified ancestor of the pinned head; the prior manifest pins 7be188720c97c4c12e45a016e6c0795de10c9900 and c0f75f6d08d25b16f1a3ef8921b4ba98348a194a are also ancestors",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS",
-      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+      "ci_status_recorded": "IN_PROGRESS — 5 checks successful, 1 skipped, 2 still running, 0 failing, observed at the pinned head",
+      "ci_status_provenance": "GitHub PR #13 status-check rollup observed at head 2822b9e1 on 2026-08-21T11:37:56+07:00; not yet complete. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head 7be18872, not for this pin. No completed green run is recorded for this pin."
     },
     "cybrik-cyber-ai-platform": {
-      "pinned_sha": "ccbfb4f82463daa06b5e82db18fb6b056b25f31a",
-      "commit_subject": "security(deps): upgrade cryptography to remediate PYSEC-2026-3552 in cyber-ai",
+      "pinned_sha": "6793e217ecda313859794ce9a7b59c2e51861c20",
+      "commit_subject": "fix(auth): bind delegation keys strictly to token issuer preventing cross-issuer collision",
       "pull_request": 11,
       "branch": "feature/rc-w2i-conformance",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "b867220fdc07d736e625e5fac88c6baf4d0d431f",
-      "subject_containment": "REBASE_REWRITE — authorized subject 'test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0' is carried at f9dad52 on the pinned branch, not as an ancestor SHA",
+      "subject_containment": "REBASE_REWRITE — authorized subject 'test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0' is carried at f9dad52, a verified ancestor of the pinned head; the authorized SHA b867220f itself is not an ancestor (merge base 2dd7aca2). The prior manifest pin ccbfb4f82463daa06b5e82db18fb6b056b25f31a is a verified ancestor.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS",
-      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+      "ci_status_recorded": "SUCCESS — 8 checks successful, 0 failing, observed at the pinned head",
+      "ci_status_provenance": "GitHub PR #11 status-check rollup observed at head 6793e217 on 2026-08-21T11:37:56+07:00. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head ccbfb4f8, not for this pin."
     },
     "cybrik-security-tool-fabric": {
       "pinned_sha": "0e4fee8d08ff9a67c200ce6c5f97a6f277581be9",
@@ -57,8 +57,8 @@
       "subject_containment": "REBASE_REWRITE — authorized subject 'docs(security): update SECURITY.md to active responsible disclosure policy' is carried at 49bc3d8 on the pinned branch, not as an ancestor SHA",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS",
-      "ci_status_provenance": "soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00); not re-executed for this manifest"
+      "ci_status_recorded": "SUCCESS — 4 checks successful, 2 skipped, 0 failing, observed at the pinned head",
+      "ci_status_provenance": "GitHub PR #6 status-check rollup observed at head 0e4fee8d on 2026-08-21T11:37:56+07:00; soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for this exact head."
     }
   },
   "governance_milestones": {
@@ -142,7 +142,7 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council, HB-4, 2026-08-20)",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "NOT RE-EXECUTED FOR THIS PIN — the W2-I transport conformance suite is present at the pinned cybrik-cyber-ai-platform head (tests/contract/test_w2i_transport_conformance.py); the previously recorded 276 unit/contract test count was measured at an earlier SHA and was not re-run against this pin. See specification §9.2.",
+      "contract_conformance_status": "NOT RE-EXECUTED LOCALLY FOR THIS PIN — the W2-I transport conformance suite is present at the pinned cybrik-cyber-ai-platform head 6793e217 (tests/contract/test_w2i_transport_conformance.py, 17 test functions); the hosted PR #11 'test' check reported SUCCESS at that head, but no test-count transcript was produced against this pin and the previously recorded 276 unit/contract test count was measured at an earlier SHA. See specification §9.2.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)"
     },
     "w2_f_service_delegation": {
@@ -164,8 +164,8 @@
   "suite_local_validation": {
     "command": "node tools/contract-validation/validate-inference.mjs",
     "result": "PASS (exit 0)",
-    "executed_on": "2026-08-21",
-    "scope": "W2-D inference packet JSON Schema / fixtures / trust invariants only. This is not staging qualification and flips no gate."
+    "executed_on": "2026-08-21 (at content base f051192452b546f85e7eba6123b88a56c1ca0cce)",
+    "scope": "W2-D inference packet JSON Schema / fixtures / trust invariants only. This is not staging qualification and flips no gate. Not re-run at the current content base 7f412965: contracts/ and tools/contract-validation/ are byte-identical between the two commits, so the run's inputs are unchanged."
   },
   "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval."
 }
