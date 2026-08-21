@@ -9,8 +9,12 @@
 - **Manifest Binding:** [`releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`](../../releases/manifests/release-candidate-v1.0.0-rc1.manifest.json)
 - **Timestamp:** `2026-08-21T16:20:00+07:00` (`Asia/Ho_Chi_Minh`) — the revision timestamp, equal to
   the manifest's `timestamp` and the derived snapshot's `snapshot_timestamp`. Individual observations
-  carry their own times: the Cyber AI and Fabric rollups and the `security.txt` probe were observed at
-  `13:30`, the Suite and SOC rollups at `16:20` (§2.1, §9.4).
+  carry their own times: the Cyber AI and Fabric rollups at `13:30`, the SOC rollup at `16:20`, the
+  Suite rollup at `16:05`, and the `security.txt` probe at `13:30` and again in this revision
+  (§2.1, §9.4).
+- **`cybrik-suite` content base:** `7065a7034991e43a1f486d67f84777766b5d0cba` — advanced in this
+  revision from `4498bdd3…` (an ancestor), verified 3/3 green under hosted run `32464960479` at
+  exactly that head (§2, §2.1, §2.3).
 - **Provenance model:** `MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE` — the
   in-repository manifest binds the authoring **content base**; the external release-candidate tag
   `v1.0.0-rc1` (`NOT_CREATED`) binds the final **post-merge** release (§2.3)
@@ -26,12 +30,19 @@
 > all four pins are unmerged pull-request heads awaiting required human review (§2). The prior
 > revision's second blocker, a **failing `type` check at the pinned `cybrik-cyber-ai-platform`
 > head**, is **cleared**: the pin has been advanced to `b5ab09c8…`, whose PR #11 rollup is 8/8
-> green (§2.1, §9.3a). All four pinned components now carry a green rollup, and in this revision
+> green (§2.1, §9.3a). All four pinned components now carry a green rollup, and
 > **all four are bound to an exact hosted run identifier whose `head_sha` equals the pin** (§2.1,
-> §9.3). This revision also applies the Founder-adjudicated **W2-I status flip** to the artifact
-> bytes (§9.1) and records the **Fabric path-gating proof** (§9.2a). §9 records every item this
-> document could **not** verify — including three fields of the derived snapshot that have **no
-> in-repository record at all**, and four cited evidence documents that **do not exist** (§9.7).
+> §9.3). An earlier revision applied the Founder-adjudicated **W2-I status flip** to the artifact
+> bytes (§9.1) and recorded the **Fabric path-gating proof** (§9.2a); those bytes now sit inside the
+> content base `7065a703…`, so hosted CI has covered them (§4.2). **This** revision advances the
+> Suite content base to `7065a703…`, aligns the release catalogs
+> ([`docs/releases/README.md`](README.md), [`docs/README.md`](../README.md)) with the fact that a
+> release *candidate* manifest exists and `RB-001` is `RESOLVED`, replaces stale `PROPOSED` /
+> `UNAPPLIED` prose in the transport validator's header, and reclassifies the `security.txt`
+> publication item (§9.4) — a classification change on unchanged facts that waives nothing. §9
+> records every item this document could **not** verify — including three fields of the derived
+> snapshot that have **no in-repository record at all**, and four cited evidence documents that
+> **do not exist** (§9.7).
 > Nothing here promotes any contract packet to stable v1/GA, and nothing here is an ADR-0001
 > immutable bundle tag.
 
@@ -76,7 +87,7 @@ product repository — this change is scoped to `cybrik-suite` only.
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
-| 1 | `cybrik-suite` | `4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd` | [#56] | `fix/rc-manifest-contracts` | `fix(contracts): apply founder-authorized W2-I status flip and bind release evidence snapshot` |
+| 1 | `cybrik-suite` | `7065a7034991e43a1f486d67f84777766b5d0cba` | [#56] | `fix/rc-manifest-contracts` | `fix(docs): align W2-I prose, ADR catalog, and release classification taxonomy` |
 | 2 | `cybrik-soc-command-center` | `34b6302e6bdc34e3fb334c079680e76166d9b476` | [#13] | `fix/copilot-draft-auth` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
 | 3 | `cybrik-cyber-ai-platform` | `b5ab09c8194bc88cfa7c2fdbb53c672efd06a722` | [#11] | `feature/rc-w2i-conformance` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
 | 4 | `cybrik-security-tool-fabric` | `0e4fee8d08ff9a67c200ce6c5f97a6f277581be9` | [#6] | `chore/sec-md-fabric` | `ci: trigger fresh PR checks on rebased branch` |
@@ -96,8 +107,8 @@ advancing that pin to `b5ab09c8…` (§2.1, §9.3a), and every pin now has a gre
 itself. The non-CI open items in §9 — chiefly the unsourced evidence documents (§9.7) and the
 unbound rollback targets (§9.6) — remain.
 
-The `cybrik-suite` pin `4498bdd3…` is the local authoring parent of the commit carrying this
-revision. **It has been pushed**, and it has its own hosted run — `32458843295`, 3/3 green (§2.1) —
+The `cybrik-suite` pin `7065a703…` is the local authoring parent of the commit carrying this
+revision. **It has been pushed**, and it has its own hosted run — `32464960479`, 3/3 green (§2.1) —
 so the Suite rollup is observed at the pin itself, not at an ancestor.
 
 **The SOC pin advanced in this revision.** The prior pin `2822b9e1…` was `BEHIND` `origin/main`,
@@ -121,20 +132,21 @@ verified read-only through the GitHub compare API instead (`status`, `ahead_by`,
 
 | Repository | Authorized R22 Subject | Containment vs. Pinned Head | Classification |
 |---|---|---|---|
-| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, a verified ancestor of `4498bdd3…`; the prior manifest pin `eba517bf…` is the pinned head's direct parent, and `be7e7361…`, `afc9150a…` and `7f41296…` are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
+| `cybrik-suite` | `c518d8e344c412dc884135e3947213c5de41739f` | **Rebase rewrite.** Not an ancestor (merge base `55e94c28…`); identical subject carried at `f051192…`, a verified ancestor of `7065a703…`; `7003835…` is the pinned head's direct parent, and the prior manifest pins `4498bdd3…` and `eba517bf…`, plus `be7e7361…`, `afc9150a…` and `7f41296…`, are also ancestors (each checked locally with `git merge-base --is-ancestor`) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-soc-command-center` | `992eabdcdd8a70bd44c7a21119df2211c9e02c8c` | **Rebase rewrite.** PR #13 was updated onto `origin/main` `4480a412…`, so neither the authorized SHA nor the previous manifest pin `2822b9e1…` is an ancestor of `34b6302…` (merge base with `2822b9e1…` is `1b6671cc…`). The authorized subject `fix(copilot): enforce soar:author authorization check on draft_playbook seam` is carried at `15f2f7b`, a verified ancestor of the pinned head. **`origin/main` `4480a412…` is itself now a verified ancestor** (pin 10 ahead) | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`; pin 35 ahead / 3 behind); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52…`, a verified ancestor of `b5ab09c8…` (pin 5 ahead); the previous manifest pin `5d0c2d43…` is the pinned head's **direct parent** (1 ahead / 0 behind), and `6793e217…` (2 ahead) and `ccbfb4f8…` (3 ahead) are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
 
 CI status was verified from the **GitHub Actions runs and jobs API by exact run identifier** — the
-Cyber AI and Fabric runs at 2026-08-21T13:30:00+07:00, the Suite and SOC runs at
-2026-08-21T16:20:00+07:00 (both re-observed after this revision's Suite commit and the SOC rebase).
+Cyber AI and Fabric runs at 2026-08-21T13:30:00+07:00, the SOC run at 2026-08-21T16:20:00+07:00 and
+the Suite run at 2026-08-21T16:05:00+07:00 (each re-observed after this revision's Suite commit and
+the SOC rebase).
 For every component the run object was fetched by id and its `head_sha` compared against the pin. **All four components are green, and all four runs sit at the pin
 itself** — the prior revision's Suite caveat (rollup observed only at an ancestor) is closed.
 
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
 |---|---|:---:|---|:---:|
-| `cybrik-suite` | `32458843295` (`contracts`) | **yes** — `4498bdd3…` | **3 / 3** successful — `secret-scan` (`96701475413`), `contract standards validation` (`96701475619`), `topology rehearsal tests` (`96701475588`); 0 skipped; 0 failing. Companion push-event run `32458840409` at the same head is also 3/3 green | **GREEN** |
+| `cybrik-suite` | `32464960479` (`contracts`) | **yes** — `7065a703…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
 | `cybrik-soc-command-center` | `32460749335` (`ci`) | **yes** — `34b6302…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
 | `cybrik-cyber-ai-platform` | `32452271445` (`ci`) | **yes** — `b5ab09c8…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
 | `cybrik-security-tool-fabric` | `32389505003` (`ci`) | **yes** — `0e4fee8d…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
@@ -150,9 +162,12 @@ workflow run `32452271445`: `type` `96682896755`, `test` `96682973118`, `build-o
 `96683084302`. The pin therefore now carries hosted test evidence **at the pin itself**, including
 for the W2-I conformance suite (§3.1, §4.1, §9.3a).
 
-The Suite pin advanced again in this revision, to `4498bdd3…` — the direct child of `eba517bf…`,
+The Suite pin advanced again in this revision, to `7065a703…` — the direct child of `7003835…`,
 and the authoring parent of the commit carrying this document — which has its own hosted run,
-`32458843295`, green 3/3, plus a companion push-event run `32458840409` at the same head.
+`32464960479`, green 3/3, plus a companion push-event run `32464954616` at the same head. The pin
+advances at every revision by construction, because the content base is always the authoring
+parent (§2.3); the prior pin `4498bdd3…` was itself 3/3 green under `32458843295` and remains a
+truthful record of what the prior revision evaluated. It is an ancestor of `7065a703…`.
 
 One scope limit still applies to the all-green rollup: a green hosted run is a **check-state
 observation**, not a re-executed suite (§9.2) and not a merge. All four pins remain unmerged heads
@@ -232,8 +247,10 @@ Why the manifest cannot do both jobs:
 
 1. **A manifest cannot contain its own SHA.** The commit that adds or edits the manifest gets its
    hash *after* the bytes are fixed, so the `cybrik-suite` pin is necessarily the authoring parent
-   — `4498bdd3…` here, `eba517bf…` in the prior revision. That pin is a content-base marker, not a
-   claim that `4498bdd3…` is the released Suite commit.
+   — `7065a703…` here, `4498bdd3…` in the prior revision. That pin is a content-base marker, not a
+   claim that `7065a703…` is the released Suite commit. It follows that the pin **advances at every
+   revision**; each value truthfully records the content base that revision was authored against,
+   and the release identity is carried by the tag `v1.0.0-rc1`, never by the pin.
 2. **Pre-merge heads are mutable identities.** Every pin in §2 is an unmerged PR head under branch
    protection, and three of the four branches have already been rebased at least once (§2.1), which
    rewrites SHAs while preserving subjects. Only a post-merge `main` SHA is stable enough to be a
@@ -333,7 +350,7 @@ asserts that the relying party:
 | `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `b5ab09c8…`** (job `96682973118`, run `32452271445`) — pass/fail only, no per-test transcript | Run `32452271445` verified by id 2026-08-21T13:30:00+07:00 (unchanged in this revision) | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
 | `cybrik-security-tool-fabric` | control plane + Go executor **at the pin** `0e4fee8d…` | **Not re-executed at the pin — `INHERITED`.** Both jobs are path-gated skips, proven correct: PR #6 changes exactly one file (`SECURITY.md`) and zero bytes under either plane's trigger paths (§9.2a) | Run `32389505003`, `detect` job `96492567174` execution log + PR #6 file list | **No. Verification is inherited from the base commit on `main`; no test count is claimed at this pin.** |
 | `cybrik-soc-command-center` | Founder UAT walkthrough of the SOC surface at `4480a412…` | **`FOUNDER_PRODUCT_ACCEPTANCE` PASS** and **`SOC_UAT_SURFACE` gate PASS** — core SOC portal, persona flows P1–P6, tenant switching, Cyber AI Copilot, Live Vertical triad | `soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md` (sha256 `78bc11ca…`), HB-5, 2026-08-20 | **Human ratification, not a machine transcript.** `4480a412…` is a verified ancestor of the pin (§2.2). The Playwright and pytest figures from run `32164562480` are **withdrawn** as pin-bound (§2.2a). |
-| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32458843295`), SOC 9/9 (run `32460749335`), Cyber AI 8/8 (run `32452271445`), Fabric 4/4 + 2 path-gated skips (run `32389505003`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
+| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32464960479`), SOC 9/9 (run `32460749335`), Cyber AI 8/8 (run `32452271445`), Fabric 4/4 + 2 path-gated skips (run `32389505003`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T13:30:00+07:00 to 16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
 | `cybrik-suite` | `node tools/contract-validation/validate-transport.mjs` | **PASS (exit 0)** — lifecycle `ACCEPTED FOR IMPLEMENTATION` | Executed 2026-08-21 against the flipped bytes — §4.2 | **Yes — re-run for the W2-I flip (§9.1)** |
 | `cybrik-suite` | `node --test tools/contract-validation/tests/validate-transport.test.mjs` | **204 / 204 passed**, validator line + branch coverage above the 80% floor | Executed 2026-08-21 — §4.2 | **Yes** |
 | `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 against the flipped W2-D manifest — §4.2 | **Yes** |
@@ -347,25 +364,40 @@ asserts that the relying party:
 
 ### 4.2 Suite Contract Validation Executed for this Candidate
 
-Re-executed on 2026-08-21 **against the flipped bytes** carried by this revision (§9.1). Unlike the
-prior revision — which could not re-run and relied on `contracts/` being byte-identical to an
-earlier base — the W2-I flip changes `contracts/`, so a re-run was mandatory rather than optional.
+Re-executed on 2026-08-21 **against the flipped bytes** this candidate carries (§9.1). The W2-I flip
+changed `contracts/`, so once it was applied a re-run became mandatory rather than optional, and it
+has been re-run at every revision since — including this one, whose only tooling change is the
+comment-only validator header noted below.
 The same validators run in hosted CI under the `contract standards validation` check of run
-`32458843295` at the pinned head (§2.1), so the local and hosted results agree. They were
+`32464960479` at the pinned head (§2.1), so the local and hosted results agree. They were
 **re-executed again for this revision** against the bytes it carries: `validate-transport.mjs`
 `PASS` (exit 0), `validate-inference.mjs` `PASS` (exit 0), and the aggregate `validate.mjs`
 **30 / 31 validators clean** with one failure — the pre-existing local `dependency-compat` install
-defect described below, which none of the files this revision changes touches.
+defect described below, which none of the files this revision changes touches. This revision's only
+tooling change is a **comment-only** header block in `tools/contract-validation/validate-transport.mjs`,
+replacing stale `PROPOSED` / `UNAPPLIED` prose with the applied `ACCEPTED FOR IMPLEMENTATION` state
+the file's own two-state machine already enforced. No executable line moved; the validators and the
+`204 / 204` harness were re-run *after* the edit and are unchanged.
 
-**Hosted coverage of these exact bytes is not yet claimed.** This revision edits the status prose in
+**Hosted coverage of the contract bytes is now claimed — and only of those bytes.** The prior
+revision could not claim it: the W2-I status-prose alignment in
 `contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml` — comment and
 `description` text only; no path, operation, parameter, request body, response binding or `security`
-requirement moves — and therefore re-pins that member's SHA-256 in the accepted W2-D packet manifest,
-in the consumed delta (both pin sites) and in this candidate's manifest, and re-pins the packet
-manifest's own post-flip digest in the delta. Run `32458843295` covers the **content-base parent**,
-not these bytes. The evidence for these bytes is the local re-execution transcribed above plus the
-`204 / 204` harness run; a hosted rollup at the successor head is required before any claim that
-hosted CI covers this revision. That is a `POST_MERGE_REQUIRED` sequencing fact (§9.0), not a defect:
+requirement moved — re-pinned that member's SHA-256 in the accepted W2-D packet manifest, in the
+consumed delta (both pin sites) and in this candidate's manifest, and re-pinned the packet
+manifest's own post-flip digest in the delta, all *after* the then-current pin `4498bdd3…`. Those
+edits now sit **inside** the content-base pin `7065a703…`, and run `32464960479` is 3/3 green at
+exactly that head, including `contract standards validation` (job `96719525219`). Everything under
+`contracts/` in this working tree is byte-identical to `contracts/` at `7065a703…` (`git diff
+--quiet 7065a703 -- contracts/`, zero diff), so the hosted check has covered these exact contract
+bytes.
+
+**What is still not hosted-covered** is the revision that carries *this* document: it changes only
+release documentation, release catalogs, the derived qualification snapshot and one comment-only
+header block in `tools/contract-validation/validate-transport.mjs`. It touches no contract member,
+no fixture and no digest-pinned artifact, so it neither dilutes nor extends the coverage above — but
+its own bytes need a hosted rollup at the successor head before hosted CI may be said to cover them.
+That is a `POST_MERGE_REQUIRED` sequencing fact (§9.0), not a defect:
 the digest chain is fully self-consistent, which is exactly what `validate-transport.mjs` verifies.
 
 ```text
@@ -404,12 +436,13 @@ recorded gate, `G-W2I-4`).
 `MODULE_NOT_FOUND` for `brace-expansion-v5/package.json`. The alias the lockfile declares
 (`brace-expansion-v5` → `npm:brace-expansion@5.0.9`) is simply absent from the local `node_modules`
 install; `package.json`, `package-lock.json` and `tools/contract-validation/vendor/` are all
-**unmodified** by this revision, and the only test-file change it makes is to the ADR-catalog `P2-3`
-guard in `tests/validate-transport.test.mjs`, which pinned ADR-0011's **pre-flip** `PROPOSED` wording
-and was moved onto the recorded `ACCEPTED (HB-4)` catalog rows; the guard's base-byte SHA-256 pin is
+**unmodified** by this revision, which changes **no test file at all**. (The ADR-catalog `P2-3`
+guard in `tests/validate-transport.test.mjs` — which pinned ADR-0011's **pre-flip** `PROPOSED` wording
+and was moved onto the recorded `ACCEPTED (HB-4)` catalog rows — was changed by the *prior* revision
+and now sits inside the content base `7065a703…`; the guard's base-byte SHA-256 pin is
 unchanged and still holds, so the catalog is still byte-pinned outside its three registered W2-I
-additions. Hosted CI installs from the lockfile with `npm ci`
-and the same check passed in run `32458843295` at the pinned head. Repairing the local install would
+additions.) Hosted CI installs from the lockfile with `npm ci`
+and the same check passed in run `32464960479` at the pinned head. Repairing the local install would
 require a dependency installation, which is Founder-gated in this repository, so it was not
 attempted.
 
@@ -506,7 +539,9 @@ advisory data throughout.
 - **SLA on receipt:** CRITICAL 24h / HIGH 48h / MEDIUM 72h / LOW 7d initial response, with a
   90-day embargo ([policy §4](../security/RESPONSIBLE-DISCLOSURE-POLICY.md)).
 - **Publication is NOT verified here.** Serving of the file at the canonical
-  `https://cybrik.ai/.well-known/security.txt` URL was not observed. See §9.4.
+  `https://cybrik.ai/.well-known/security.txt` URL was not observed — re-probed `404` on
+  2026-08-21. Classified `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED`, gating class
+  `POST_DEPLOYMENT_REQUIRED`; it does not gate staging qualification. See §9.0 and §9.4.
 
 ---
 
@@ -712,7 +747,7 @@ the authoritative post-UAT status for this candidate.
 
 | Gate | Boundary | Status | Authority Record | Remaining Requirement |
 |---|---|---|---|---|
-| `RESPONSIBLE_DISCLOSURE` / `RB-001` | `HB-3` | **`RESOLVED`** (2026-08-20) | `INBOX-005`, `INBOX-006`; [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md) | Public serving of `security.txt` at the canonical URL (§9.4) |
+| `RESPONSIBLE_DISCLOSURE` / `RB-001` | `HB-3` | **`RESOLVED`** (2026-08-20) | `INBOX-005`, `INBOX-006`; [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md) | Public serving of `security.txt` at the canonical URL — classified `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED`, gating class `POST_DEPLOYMENT_REQUIRED`, so it does **not** gate staging qualification and does **not** reopen `RB-001` (§9.0, §9.4) |
 | `W2_I_ACCEPTANCE` — transport binding v0.2.0 | `HB-4` | **`ACCEPTED`** (Decision Council, 2026-08-20); **artifact flip applied 2026-08-21** | `INBOX-007`, decision `ACCEPT` | Amend the accepted W2-F operation-token table — undischarged. Classified `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` (§9.0): it scopes out the two GET operations and does **not** gate this candidate, whose delegation tokens are the two accepted create tokens (§3, §9.1) |
 | `SOC_UAT_RATIFICATION` — Candidate R22 Founder UAT | `HB-5` | **`PASS` / `RATIFIED`** (Founder, 2026-08-20) | `INBOX-008`, decision `PASS`; walkthrough `PASS` at `INBOX-002` | — |
 | `HOSTED_INTEGRATION_CONTROL` | `HB-1` | **`PASS`** (Founder, 2026-08-20) | `INBOX-004` | — |
@@ -840,7 +875,7 @@ Classification of the residual items, authoritative for this document:
 | Rollback targets re-established against the pins; service-rehearsal figures | `POST_MERGE_REQUIRED` | §6.3, §6.4a, §9.6 |
 | Product test suites re-executed against their pinned heads | `POST_MERGE_REQUIRED` | §9.2 |
 | Merge of PRs #56 / #13 / #11 / #6 under branch protection | `BLOCKING_OPEN` (human-only) | §9.5 |
-| `security.txt` served at the canonical URL | `BLOCKING_OPEN` (non-`RB-001`) | §9.4 |
+| `security.txt` served at the public canonical URL | `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED` — gating class `POST_DEPLOYMENT_REQUIRED`; non-`RB-001` | §5.3, §9.4 |
 | Independent post-flip security / compatibility review of the W2-I bytes | `BLOCKING_OPEN` | §9.1 |
 | Coverage figure bound at a pin | `POST_MERGE_REQUIRED` | §9.7 |
 | Production backup key custody; off-system storage | `EXTERNAL_RESOURCE` | §6.4b, §9.7 |
@@ -851,6 +886,13 @@ Classification of the residual items, authoritative for this document:
 recorded but do **not** hold `v1.0.0-rc1` at its current status. `BLOCKING_OPEN` and
 `POST_MERGE_REQUIRED` items do. That is the whole of the difference, and no prose elsewhere in this
 document overrides this table.
+
+**Compound labels.** One row above carries a compound label,
+`EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED`. That is **not** a second class and it
+does not break disjointness: the part before the slash names *where the artifact of record lives*,
+and the part after it is the **single gating class**. Where a compound label appears, read the
+gating class only; it is always named explicitly in the row and again in the section that details
+the item.
 
 **Closed by earlier revisions and retained for history:** **9.1** (the W2-I status flip is applied
 to the artifact bytes), **9.2a** (the two skipped Fabric checks are proven correct path-gated
@@ -864,6 +906,12 @@ control-plane and SOC records (§6.4b, §6.4c, §9.7). The five dangling evidenc
 resolved by **re-sourcing or withdrawal** (§2.2a); zero dangling paths remain. And the SOC pin is
 rebased onto `origin/main`, removing the branch-protection *impossibility* recorded as
 `CODEX-ADJ-005` pre-merge blocker 1 (§2, §9.5).
+
+**Reclassified by this revision.** The `security.txt` publication item moves from `BLOCKING_OPEN`
+to `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED` (§9.4). It is a reclassification of an
+item whose facts are unchanged — the file is still not served, and the 404 still stands — made
+because its closing action is a production deployment and therefore cannot precede one. `RB-001`
+remains `RESOLVED` and is untouched. Nothing is waived and no authority is granted.
 
 **Sharpened, not closed.** Resolving the five references narrowed two items rather than removing
 them, and both now carry the class `POST_MERGE_REQUIRED` (§9.0): the `NEG-1..NEG-6` matrix is
@@ -1089,9 +1137,9 @@ note: the task authorizing this re-pin quoted the commit subject as `fix(test): 
 breaker.state() method correctly in resilience tests to satisfy mypy strict`; the subject recorded
 above and in the manifest is the one the commit actually carries, read from the GitHub commits API.
 An earlier revision also recorded that the `cybrik-suite` pin `be7e7361…` had no rollup at that
-exact SHA because it was not pushed — **that is closed too**. The Suite pin has advanced twice
-since, and now sits at `4498bdd3…` with its own green run `32458843295` plus a companion push-event
-run `32458840409` at the same head (§2.1).
+exact SHA because it was not pushed — **that is closed too**. The Suite pin has advanced three times
+since, and now sits at `7065a703…` with its own green run `32464960479` plus a companion push-event
+run `32464954616` at the same head (§2.1).
 
 **Superseded, and now stronger.** The statement above that "no test count is bound to the pin" no
 longer holds for this component. The `test` job's own log at the pin (`96682973118`) reads
@@ -1099,13 +1147,25 @@ longer holds for this component. The `test` job's own log at the pin (`966829731
 §2.1, §4.1 and the manifest. It remains a hosted-log observation rather than a transcript committed
 here, and **no coverage figure** is published into this repository.
 
-### 9.4 `security.txt` publication is unverified
+### 9.4 `security.txt` is not served at the public canonical URL
 
-**Status: open, re-verified negative in this revision.**
+**Status: `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED`** (§9.0, and mirrored in the
+derived snapshot). Read that compound label precisely: the **gating class is
+`POST_DEPLOYMENT_REQUIRED`**, and `EXTERNAL_RESOURCE_REQUIREMENT` names only *where the artifact of
+record lives* — the public web edge at `cybrik.ai`, outside every suite repository. It is not a
+second gating class, so the §9.0 disjointness rule is intact. **This item does not gate staging
+qualification.**
 
-The file is present and RFC 9116 field-conformant locally (§5.3), but it is still **not served**.
-Unlike the prior revision, which inherited the claim from `HB-3`, this revision observed the
-canonical URL directly on 2026-08-21T13:30:00+07:00:
+**Verified here.** The file exists at
+[`public/.well-known/security.txt`](../../public/.well-known/security.txt), is byte-identical to the
+copy of record at [`docs/security/security.txt`](../security/security.txt), matches the
+specification embedded in
+[`RESPONSIBLE-DISCLOSURE-POLICY.md`](../security/RESPONSIBLE-DISCLOSURE-POLICY.md) §6.1, and is RFC
+9116 field-conformant on every required and optional field (§5.3). The in-repository path is the
+canonical `.well-known/` location. That is the whole of what a repository can verify.
+
+**Not verified, and not verifiable from here.** Serving at the public canonical URL was re-observed
+negative on 2026-08-21, unchanged from the earlier probe:
 
 ```text
 $ curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://cybrik.ai/.well-known/security.txt
@@ -1114,11 +1174,25 @@ $ curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://cybrik.ai/.w
 
 The origin returns the site's HTML 404 page, not the file — matching `HB-3`'s own
 `public_security_txt_status: PENDING_PUBLIC_WEB_DEPLOYMENT (404)`. The file is also unsigned (the
-RFC's optional PGP signature).
+RFC's optional PGP signature). No commit in any suite repository can change either fact: publishing
+at that URL is a **production web deployment**, which `cybrik-suite:CLAUDE.md` reserves to the
+Founder and which by definition cannot be verified before a deployment exists.
 
-This does **not** reopen `RB-001` — the blocker was the absence of a verified intake channel, and
-that channel is verified. **Closing action:** deploy the file to the canonical URL and verify it
-returns `200` with `Content-Type: text/plain; charset=utf-8`.
+**Reclassified by this revision, from `BLOCKING_OPEN`.** The reclassification rests on facts already
+recorded here, not on a new judgement: (1) `RB-001`'s substance was the *absence of a verified
+intake channel*, and that channel — `security@cybrik.ai` / `report@cybrik.ai` routed to
+`contact@bpech.com`, delivery-tested end-to-end — is verified, which is why `RB-001` is `RESOLVED`
+(2026-08-20, Founder sign-off); (2) the §7 gate table already carries public serving as a
+*remaining requirement of a resolved gate*, not as a reopening of it; and (3) the closing action is
+a production deployment, so the item satisfies `POST_DEPLOYMENT_REQUIRED` on the definition §9.0
+gives it. **What this changes:** the item no longer holds `v1.0.0-rc1` at
+`CANDIDATE_READY_FOR_STAGING_QUALIFICATION`. **What it does not change:** `RB-001` stays `RESOLVED`
+and is not reopened, weakened or re-litigated; the file is still not served; the 404 above still
+stands; and no deployment, publication or production authority is granted, claimed or implied by
+this or any other line in this document.
+
+**Closing action (unchanged):** deploy the file to `https://cybrik.ai/.well-known/security.txt` and
+verify it returns `200` with `Content-Type: text/plain; charset=utf-8`.
 
 ### 9.5 None of the four pins is on `main`, and none is merged
 

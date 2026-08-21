@@ -23,41 +23,41 @@
   },
   "repositories": {
     "cybrik-suite": {
-      "pinned_sha": "4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd",
-      "commit_subject": "fix(contracts): apply founder-authorized W2-I status flip and bind release evidence snapshot",
+      "pinned_sha": "7065a7034991e43a1f486d67f84777766b5d0cba",
+      "commit_subject": "fix(docs): align W2-I prose, ADR catalog, and release classification taxonomy",
       "pull_request": 56,
       "branch": "fix/rc-manifest-contracts",
       "pin_role": "CONTENT_BASE (this manifest's authoring parent; see release_tag_envelope)",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "c518d8e344c412dc884135e3947213c5de41739f",
-      "subject_containment": "REBASE_REWRITE — the authorized subject SHA c518d8e344c412dc884135e3947213c5de41739f is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, a verified ancestor of the pinned head. eba517bfa70b767c19df5f0c9fbdd4358290faea is the pinned head's direct parent; be7e7361fd3c23384b1b0d2aa5042ed6c245339a, afc9150adea0fc30ca87afb10b88b531da23ab1a and 7f412965310590cbdf924cf4160193ffe0daf0c0 are also ancestors.",
+      "subject_containment": "REBASE_REWRITE — the authorized subject SHA c518d8e344c412dc884135e3947213c5de41739f is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, a verified ancestor of the pinned head. 700383599568d01544627e89c3c147bfa89fa8e1 is the pinned head's direct parent; 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd (the prior revision's pin), eba517bfa70b767c19df5f0c9fbdd4358290faea, be7e7361fd3c23384b1b0d2aa5042ed6c245339a, afc9150adea0fc30ca87afb10b88b531da23ab1a and 7f412965310590cbdf924cf4160193ffe0daf0c0 are also ancestors. Every containment relation in this sentence was checked locally with git merge-base --is-ancestor against 7065a703.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
       "ci_status_recorded": "SUCCESS — 3/3 required checks green at the pinned head, 0 failing, 0 skipped",
-      "ci_status_provenance": "GitHub Actions run 32458843295 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:20:00+07:00: status completed, conclusion success, head_sha 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96701475413, contract standards validation 96701475619, topology rehearsal tests 96701475588); none skipped, none failing. The companion push-event run 32458840409 at the same head is also 3/3 green (96701466582, 96701466688, 96701466744).",
-      "ci_run_id": 32458843295,
+      "ci_status_provenance": "GitHub Actions run 32464960479 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:05:00+07:00: status completed, conclusion success, head_sha 7065a7034991e43a1f486d67f84777766b5d0cba — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96719525344, contract standards validation 96719525219, topology rehearsal tests 96719524994); none skipped, none failing. The companion push-event run 32464954616 at the same head is also 3/3 green (secret-scan 96719506649, contract standards validation 96719506817, topology rehearsal tests 96719506821).",
+      "ci_run_id": 32464960479,
       "ci_workflow": "contracts",
-      "ci_head_sha_observed": "4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd",
+      "ci_head_sha_observed": "7065a7034991e43a1f486d67f84777766b5d0cba",
       "ci_checks": [
         {
           "name": "secret-scan",
           "conclusion": "success",
-          "job_id": 96701475413
+          "job_id": 96719525344
         },
         {
           "name": "contract standards validation",
           "conclusion": "success",
-          "job_id": 96701475619
+          "job_id": 96719525219
         },
         {
           "name": "topology rehearsal tests",
           "conclusion": "success",
-          "job_id": 96701475588
+          "job_id": 96719524994
         }
       ],
-      "prior_pin_note": "The prior revision pinned be7e7361fd3c23384b1b0d2aa5042ed6c245339a and recorded that no hosted run existed at that SHA because it was not pushed. be7e7361 is the direct parent of this pin.",
+      "prior_pin_note": "The prior revision pinned 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd, itself 3/3 green under run 32458843295. The pin advances because the content base is by construction the AUTHORING PARENT of the commit that carries this manifest, and this revision is authored on top of 7065a703; 4498bdd3 is an ancestor two commits back (4498bdd3 -> 7003835995 -> 7065a703). No prior pin is withdrawn or contradicted — each recorded what was evaluated at its own revision.",
       "ci_run_event": "pull_request",
-      "ci_companion_push_run_id": 32458840409
+      "ci_companion_push_run_id": 32464954616
     },
     "cybrik-soc-command-center": {
       "pinned_sha": "34b6302e6bdc34e3fb334c079680e76166d9b476",
@@ -296,7 +296,7 @@
     "all_components_green": true,
     "every_run_at_its_pin": true,
     "components": {
-      "cybrik-suite": "SUCCESS — run 32458843295, 3/3 green at pinned head 4498bdd3, 0 skipped, 0 failing",
+      "cybrik-suite": "SUCCESS — run 32464960479, 3/3 green at pinned head 7065a703, 0 skipped, 0 failing",
       "cybrik-soc-command-center": "SUCCESS — run 32460749335, 9/9 green at pinned head 34b6302e, 1 skipped (alert-context-route-db), 0 failing",
       "cybrik-cyber-ai-platform": "SUCCESS — run 32452271445, 8/8 green at pinned head b5ab09c8, 0 skipped, 0 failing; job 'test' log reads 1065 passed / 17 skipped / 0 failed",
       "cybrik-security-tool-fabric": "SUCCESS — run 32389505003, 4/4 green at pinned head 0e4fee8d, 2 path-gated skips proven correct (control-plane, executor), 0 failing"
@@ -373,7 +373,7 @@
       "policy_file": "docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md",
       "policy_status": "ACTIVE_APPROVED_BY_FOUNDER",
       "security_txt": "public/.well-known/security.txt",
-      "public_security_txt_status": "PENDING_PUBLIC_WEB_DEPLOYMENT (canonical URL not observed serving; see specification §9.4)",
+      "public_security_txt_status": "PENDING_PUBLIC_WEB_DEPLOYMENT (canonical URL not observed serving; re-probed 404 on 2026-08-21). Classified EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED with gating class POST_DEPLOYMENT_REQUIRED, so it does not gate staging qualification and does not reopen RB-001; see specification §9.0 and §9.4.",
       "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-005/INBOX-006; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-3 (CLOSED)"
     }
   },
@@ -623,7 +623,7 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council / Founder, HB-4, 2026-08-20); applied to artifact bytes 2026-08-21",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes. The hosted \"contract standards validation\" check in run 32458843295 covers the content-base parent 4498bdd3; this revision's later status-prose alignment re-pins the successor member digest, so hosted coverage of THESE exact bytes is not claimed — see suite_local_validation.hosted_coverage_of_these_bytes. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
+      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes. The hosted \"contract standards validation\" check in run 32464960479 (job 96719525219) is green at the content-base pin 7065a703, which CONTAINS the status-prose alignment and every digest re-pinned by it, so hosted coverage of these exact contract bytes IS claimed — see suite_local_validation.hosted_coverage_of_these_bytes for its precise scope limit. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)",
       "carried_forward_obligations": [
         "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM — the accepted W2-F operation-token table was not amended by HB-4, so the two GET tokens remain outside accepted delegation vocabulary and no delegation token may lawfully authorize either read operation. Deferred to post-RC1: v1.0.0-rc1's delegation tokens are the two accepted CREATE tokens, so this does not gate the candidate. See residual_item_classification.classified_items[W2F_OPERATION_TOKEN_READ_VOCABULARY].",
@@ -654,27 +654,28 @@
       "node tools/contract-validation/validate.mjs"
     ],
     "result": "PASS for validate-transport.mjs and validate-inference.mjs (exit 0). validate.mjs reports 30/31 validators clean and 1 failing — the pre-existing local dependency-compat failure described in known_local_failure, which no file changed by this revision touches.",
-    "executed_on": "2026-08-21 (re-executed against the exact bytes carried by this revision, after the W2-I prose alignment and the resulting digest re-pin)",
+    "executed_on": "2026-08-21 (re-executed against the exact bytes carried by this revision. This revision changes no contract byte; the only tooling change is a comment-only header block in tools/contract-validation/validate-transport.mjs, replacing stale PROPOSED/UNAPPLIED prose with the applied ACCEPTED W2-I state. Both validators were re-run after that edit and both exit 0.)",
     "transport_validator_summary": "Lifecycle ACCEPTED FOR IMPLEMENTATION. 3 transport schemas compiled; 5 positive + 9 negative-schema + 8 negative-semantic fixtures; 39/39 structural TT-1..TT-9 assertions; 8/8 negative-semantic fixtures rejected on exactly their declared TX rule, witnessing TX-1..TX-8 once each; 4 candidate-member + 2 upstream-accepted + 1 examples-manifest + 22/22 support-fixture digests verified; the accepted W2-D manifest proven to declare all 4 absorbed members at digests agreeing with the delta, to relabel the predecessor SUPERSEDED-SUPPORTED byte-frozen, and to record the gate decision; a name-blind sweep of 4 OpenAPI documents / 19 declared pairs proving 4/4 owned pairs keep exactly one CURRENT owner, carry no residual proposed successor, and keep the superseded predecessor on disk.",
-    "transport_validator_tests": "node --test tools/contract-validation/tests/validate-transport.test.mjs — 204/204 pass, validator line and branch coverage above the 80% floor. This revision moves one guard: the P2-3 ADR-catalog literals in that test pinned ADR-0011's PRE-FLIP 'PROPOSED — NOT DECIDED — NOT APPLIED' wording, which contradicted the applied HB-4 acceptance; they now pin the recorded 'ACCEPTED (HB-4)' rows. The guard's base-byte SHA-256 pin (ADR_README_BASE_SHA256) is UNCHANGED and still holds, so docs/adr/README.md remains byte-pinned outside its three registered W2-I additions.",
-    "known_local_failure": "tools/contract-validation/tests/dependency-compat.test.mjs fails in this local worktree with MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. This is a LOCAL node_modules install that predates and is unrelated to this change: package.json, package-lock.json, tools/contract-validation/vendor and the test file itself are all unmodified by it, and the alias the lockfile declares (brace-expansion-v5 -> npm:brace-expansion@5.0.9) is simply absent from the local install. Hosted CI runs npm ci from the lockfile and the same check passed in run 32458843295 at the pinned head. Repairing the local install would require a dependency installation, which is Founder-gated.",
+    "transport_validator_tests": "node --test tools/contract-validation/tests/validate-transport.test.mjs — 204/204 pass, re-executed at this revision after the comment-only validator header edit; validator line and branch coverage above the 80% floor. THE PRIOR revision (now the content base 7065a703) moved one guard: the P2-3 ADR-catalog literals in that test pinned ADR-0011's PRE-FLIP 'PROPOSED — NOT DECIDED — NOT APPLIED' wording, which contradicted the applied HB-4 acceptance; they now pin the recorded 'ACCEPTED (HB-4)' rows. The guard's base-byte SHA-256 pin (ADR_README_BASE_SHA256) is UNCHANGED and still holds, so docs/adr/README.md remains byte-pinned outside its three registered W2-I additions. This revision changes no test file.",
+    "known_local_failure": "tools/contract-validation/tests/dependency-compat.test.mjs fails in this local worktree with MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. This is a LOCAL node_modules install that predates and is unrelated to this change: package.json, package-lock.json, tools/contract-validation/vendor and the test file itself are all unmodified by it, and the alias the lockfile declares (brace-expansion-v5 -> npm:brace-expansion@5.0.9) is simply absent from the local install. Hosted CI runs npm ci from the lockfile and the same check passed in run 32464960479 at the pinned head. Repairing the local install would require a dependency installation, which is Founder-gated.",
     "scope": "Static contract conformance only. This is not staging qualification, not runtime proof, and it flips no gate: the W2-I acceptance is the recorded HB-4 decision, and these runs are evidence attached to it.",
-    "hosted_coverage_of_these_bytes": "NOT CLAIMED. This revision edits status prose in contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml (comment and info.description text only — no path, operation, parameter, request body, response binding or security requirement moves) and therefore re-pins that member's sha256 in contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json, in both pin sites of contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json and in contract_governance.w2_i_inference_transport.absorbed_members here, plus the packet manifest's own post-flip digest (sha256_after_flip) in the delta. GitHub Actions run 32458843295 covers the CONTENT-BASE PARENT 4498bdd3, not these bytes. Evidence for these bytes is the local re-execution recorded above plus the 204/204 harness run. A hosted rollup at the successor head is required before hosted coverage of this revision may be claimed; that is a POST_MERGE_REQUIRED sequencing fact, not a defect."
+    "hosted_coverage_of_these_bytes": "NOW CLAIMED FOR THE CONTRACT BYTES, AND ONLY FOR THEM. The prior revision could not claim hosted coverage of the W2-I status-prose alignment because its content-base pin 4498bdd3 predated that alignment. The pin has since advanced to 7065a7034991e43a1f486d67f84777766b5d0cba, which CONTAINS the alignment, and GitHub Actions run 32464960479 is 3/3 green at EXACTLY that head — including the \"contract standards validation\" check, job 96719525219. Every byte under contracts/ in this working tree is identical to contracts/ at 7065a703 (verified locally: git diff --quiet 7065a703 -- contracts/, zero diff), so the hosted check has covered these exact contract bytes and every digest pinned against them. NOT claimed: the revision that CARRIES this manifest changes only release documentation, release catalogs, the derived qualification snapshot and one comment-only header block in tools/contract-validation/validate-transport.mjs. It touches no contract member, no fixture and no digest-pinned artifact, so it neither dilutes nor extends the coverage above — but its own documentation bytes remain hosted-uncovered until a rollup runs at the successor head, which is a POST_MERGE_REQUIRED sequencing fact, not a defect."
   },
   "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval. The release_evidence section closes documentation gaps and one branch-protection impossibility; it closes no gate and confers no authority. Every claim in it that is not a hosted CI fact or a git ancestry fact is reproduced from outside this repository and is marked as such. provenance_model_explained and residual_item_classification are CLASSIFICATION AND PROSE ONLY: they measure nothing, close nothing and grant nothing. In particular, classifying the W2-F read-token amendment DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM narrows its scope against this candidate and relaxes no constraint — no delegation token may lawfully authorize either GET operation, before or after the reclassification.",
   "ci_provenance_method": "Read-only GitHub Actions API observation at 2026-08-21T13:30:00+07:00: for each component the run object (name, head_sha, status, conclusion, head_branch) and its full job inventory were fetched by run id and the head_sha compared against the pin recorded here. Every run id below was verified to exist, to have concluded success, and to sit at the exact pinned head. No suite was re-executed locally and no repository other than cybrik-suite was modified.",
   "provenance_model_explained": {
     "model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
-    "one_sentence": "cybrik-suite operates a TWO-PART release binding: this in-repository manifest binds the AUTHORING PARENT CONTENT BASE, and the external release-candidate tag v1.0.0-rc1 binds the final POST-MERGE release.",
+    "one_sentence": "cybrik-suite operates a TWO-PART release binding: this in-repository manifest binds the AUTHORING PARENT CONTENT BASE — for cybrik-suite, exactly 7065a7034991e43a1f486d67f84777766b5d0cba — and the external release-candidate TAG v1.0.0-rc1 binds the final POST-MERGE release.",
     "part_1_content_base": {
       "bound_by": "releases/manifests/release-candidate-v1.0.0-rc1.manifest.json — this file, in this repository",
       "binds": "The exact commits that were EVALUATED: one pre-merge pull-request head per product repository, plus the cybrik-suite AUTHORING PARENT of the commit that carries this manifest.",
-      "why_the_authoring_parent": "A manifest cannot contain its own commit SHA — the commit that writes these bytes is hashed only after the bytes are fixed. The cybrik-suite pin is therefore necessarily the authoring parent, and is a content-base marker rather than a claim that the pin is the released Suite commit.",
-      "state": "BOUND — the four SHAs under repositories{}"
+      "cybrik_suite_content_base": "7065a7034991e43a1f486d67f84777766b5d0cba — the authoring parent of the commit carrying this revision, verified 3/3 green under GitHub Actions run 32464960479 at exactly that head (companion push-event run 32464954616 also 3/3 green).",
+      "why_the_authoring_parent": "A manifest cannot contain its own commit SHA — the commit that writes these bytes is hashed only after the bytes are fixed. The cybrik-suite pin is therefore necessarily the authoring parent, and is a content-base marker rather than a claim that the pin is the released Suite commit. It follows that the pin ADVANCES with each revision of this manifest: 4498bdd3 bound the prior revision, 7065a703 binds this one, and each is a truthful record of what was evaluated at its own revision.",
+      "state": "BOUND — the four SHAs under repositories{}, with cybrik-suite at 7065a703"
     },
     "part_2_release_tag_envelope": {
       "bound_by": "An external tag v1.0.0-rc1, created after merge, OUTSIDE this file",
-      "binds": "The commits that are RELEASED: the merged origin/main SHAs of all four repositories.",
+      "binds": "The commits that are RELEASED: the merged origin/main SHAs of all four repositories. The tag v1.0.0-rc1 — not the content-base pin 7065a703 — is what binds the post-merge release.",
       "state": "NOT_CREATED — no such tag exists in any repository; see release_tag_envelope for its preconditions and authority."
     },
     "complementarity": "The two bindings are complementary and neither substitutes for the other. The content-base pins record WHAT WAS EVALUATED; the external release tag records WHAT WAS RELEASED.",
@@ -685,6 +686,7 @@
     "model": "RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1",
     "authority": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0 is the authoritative statement. This block and the derived snapshot's residual_item_classification are projections of it and must never disagree with it.",
     "disjointness_rule": "Every residual item carries EXACTLY ONE class. No item is simultaneously blocking and deferred, and no top-level status field in this manifest may disagree with the class recorded against the item that details it.",
+    "compound_label_rule": "One item (SECURITY_TXT_PUBLICATION) carries the compound label EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED. That is NOT a second class and does not break disjointness: the part before the slash names where the artifact of record lives, and the part after it is the single gating class, recorded separately as gating_class. Read the gating class only.",
     "classes": {
       "BLOCKING_OPEN": "Must be closed before v1.0.0-rc1 may leave CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Gates staging qualification.",
       "POST_MERGE_REQUIRED": "Cannot be executed until the four pull requests merge, because it needs artifacts built from the EXACT post-merge main-line SHAs. A sequencing fact, not a defect and not a waiver. Gates staging qualification, after merge.",
@@ -709,6 +711,16 @@
         "current_state": "Ratified at GATE level by the Founder (LIVE_VERTICAL PASS, HB-5) and unsourced at SCENARIO level: no per-case identifier, input, expected rejection or observed rejection is bound in any suite repository. The gate ratification is unaffected by this classification and is not re-derived from those rows.",
         "closing_action": "After all four pull requests merge, rebuild the topology from the merged main-line SHAs, RE-RUN NEG-1..NEG-6 AGAINST THE EXACT POST-MERGE IMAGES, and bind the per-case transcript into this repository.",
         "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §4.3, §9.0, §9.7"
+      },
+      {
+        "id": "SECURITY_TXT_PUBLICATION",
+        "classification": "EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED",
+        "gating_class": "POST_DEPLOYMENT_REQUIRED",
+        "item": "Serving public/.well-known/security.txt at the public canonical URL https://cybrik.ai/.well-known/security.txt. Re-probed 2026-08-21: HTTP 404, the site's HTML 404 page rather than the file.",
+        "verified_in_repository": "The file exists at public/.well-known/security.txt, is byte-identical to the copy of record at docs/security/security.txt, and is RFC 9116 field-conformant on every required and optional field (specification §5.3). That is the whole of what a repository can verify.",
+        "why_not_blocking": "The closing action is a PRODUCTION WEB DEPLOYMENT, which cybrik-suite:CLAUDE.md reserves to the Founder and which by definition cannot be verified before a deployment exists — the definition of POST_DEPLOYMENT_REQUIRED. RB-001's substance was the ABSENCE OF A VERIFIED INTAKE CHANNEL, and that channel (security@cybrik.ai / report@cybrik.ai routed to contact@bpech.com, delivery-tested end-to-end) is verified, which is why RB-001 is RESOLVED (2026-08-20, Founder sign-off).",
+        "reclassified_in_this_revision": "Moved from BLOCKING_OPEN on UNCHANGED facts: the file is still not served and the 404 still stands. RB-001 is neither reopened nor weakened, nothing is waived, and no deployment, publication, release or production authority is granted, claimed or implied.",
+        "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §5.3, §9.0, §9.4"
       }
     ],
     "reading_rule": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and EXTERNAL_RESOURCE items are recorded but do NOT hold v1.0.0-rc1 at release_status CANDIDATE_READY_FOR_STAGING_QUALIFICATION. BLOCKING_OPEN and POST_MERGE_REQUIRED items do. staging_qualification_status IN_PROGRESS / PENDING_HUMAN_PR_MERGE is consistent with both: the deferred items do not gate it, and the blocking and post-merge items are exactly what PENDING_HUMAN_PR_MERGE names."
