@@ -45,7 +45,7 @@
       "file": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml",
       "contract_version": "0.2.0",
       "lifecycle_now": "CURRENT — ACCEPTED FOR IMPLEMENTATION (v0.2.0; not stable v1/GA)",
-      "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741",
+      "sha256": "c47ceb8fb111c5d22ad099634ba65f4c1139f64c54d16ce31097ccfc603a5631",
       "pin_note": "Authoritative pin table for this digest is candidate_members; both sites must be re-pinned together after any edit to the successor bytes.",
       "lifecycle_before_flip": "PROPOSED-SUCCESSOR — NOT ACCEPTED",
       "sha256_at_proposal": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba"
@@ -110,7 +110,7 @@
         "contract_version": "0.1.0",
         "status": "ACCEPTED FOR IMPLEMENTATION",
         "sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b",
-        "sha256_after_flip": "79a57fd0b9a4acb77afacec6db1a3642269a9f62567ae17cd087382f25ff423d",
+        "sha256_after_flip": "652b3b9a4990f5b6d2df6d1ea5ca60516d3e0406ec72aa6b9e15db2f0e4f9edf",
         "byte_frozen_through_flip": false,
         "flip_note": "This accepted manifest is the TARGET of the flip, so its bytes changed by design when the four members and the acceptance record were applied. sha256 remains the pre-flip byte the review was performed against; sha256_after_flip is the current on-disk byte."
       },
@@ -133,7 +133,7 @@
       "format": "openapi",
       "kind": "rest-mapping",
       "status": "ACCEPTED FOR IMPLEMENTATION",
-      "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741",
+      "sha256": "c47ceb8fb111c5d22ad099634ba65f4c1139f64c54d16ce31097ccfc603a5631",
       "sha256_at_proposal": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba"
     },
     {
@@ -176,7 +176,7 @@
       "sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b",
       "pin_note": "sha256 is the pre-flip byte this delta was authored and reviewed against; sha256_after_flip is the byte on disk after the flip applied these changes. upstream_pins.accepted carries the same pair and both sites must be re-pinned together.",
       "modified_now": true,
-      "sha256_after_flip": "79a57fd0b9a4acb77afacec6db1a3642269a9f62567ae17cd087382f25ff423d"
+      "sha256_after_flip": "652b3b9a4990f5b6d2df6d1ea5ca60516d3e0406ec72aa6b9e15db2f0e4f9edf"
     },
     "adds_members": [
       {

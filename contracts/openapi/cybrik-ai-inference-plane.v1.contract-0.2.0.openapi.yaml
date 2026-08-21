@@ -1,19 +1,23 @@
-# CYBRIK AI model-inference plane REST mapping notes — PROPOSED successor revision v0.2.0 (W2-I)
-# Status: PROPOSED — NOT ACCEPTED. Gate W2-I is NOT OPENED and no Founder acceptance of this
-# revision has been recorded. Validation of this file is conformance evidence only: it authorizes
-# no implementation and decides no deployment.
+# CYBRIK AI model-inference plane REST mapping notes — ACCEPTED successor revision v0.2.0 (W2-I)
+# Status: ACCEPTED FOR IMPLEMENTATION — CURRENT (v0.2.0, not stable v1/GA; accepted under Decision
+# Council HB-4). Gate W2-I was DECIDED — ACCEPT on 2026-08-20 at human boundary HB-4, and the status
+# flip was applied to these bytes on 2026-08-21. Validation of this file remains conformance
+# evidence only: acceptance authorizes contract-first implementation and decides no deployment.
 #
 # WHAT THIS IS — A SUCCESSOR REVISION, NOT A SECOND PLANE. The four inference path+method pairs are
-# owned by the ACCEPTED W2-D member cybrik-ai-inference-plane.v1.openapi.yaml (v0.1.0). This
-# document does NOT introduce a second plane, a second path owner, or a parallel transport API: it
-# is a single proposed compatible successor revision of that W2-D-owned member, declaring the same
-# four pairs under the same four operationIds so that at most one CURRENT owner and at most one
-# PROPOSED successor ever exist per pair.
+# owned by the ACCEPTED W2-D packet, and this document is now that packet's CURRENT OpenAPI member,
+# superseding cybrik-ai-inference-plane.v1.openapi.yaml (v0.1.0). This document does NOT introduce a
+# second plane, a second path owner, or a parallel transport API: it is a single ACCEPTED compatible
+# successor revision of the W2-D-owned member, declaring the same four pairs under the same four
+# operationIds so that exactly one CURRENT owner — and, after the flip, no residual PROPOSED
+# successor — exists per pair.
 #
-# THE PREDECESSOR REMAINS CURRENT. The accepted v0.1.0 document stays the SOLE CURRENT owner of the
-# four operations and stays BYTE-FROZEN. Nothing here modifies, supersedes in effect, or retires it.
-# A transition of this revision from PROPOSED to CURRENT requires a SEPARATE, explicitly recorded
-# Founder status flip that has NOT been made; until then a consumer implements the predecessor.
+# THE PREDECESSOR IS SUPERSEDED-SUPPORTED AND BYTE-FROZEN. The v0.1.0 document is no longer an owner
+# of the four operations: the accepted W2-D packet manifest relabelled its member row
+# SUPERSEDED-SUPPORTED at the flip and rewrote none of its bytes. It stays on disk, unmodified, and
+# is retained for consumers already generated against it. The PROPOSED -> CURRENT transition this
+# revision once awaited was made by the recorded HB-4 acceptance of 2026-08-20 and applied to these
+# bytes on 2026-08-21; a consumer now implements this revision.
 #
 # WHAT THIS REVISION ADDS over the accepted predecessor, and nothing else:
 #   1. every operation is authorized only under BOTH layers of the ACCEPTED W2-F two-layer trust
@@ -23,7 +27,7 @@
 #   2. a typed, fail-closed transport/authorization error surface (RFC 9457 problem shape over the
 #      closed status set {400,401,403,409,422,429,503}; no 500 or other 5xx is exposed). On the
 #      statuses the predecessor already binds (422/503 on the creates) the ACCEPTED W2-D
-#      ModelInferenceError branch is RETAINED alongside the proposed transport branch — it is never
+#      ModelInferenceError branch is RETAINED alongside the accepted transport branch — it is never
 #      replaced and never dropped;
 #   3. two OPTIONAL headers — the predecessor's traceparent, extended to the reads, and an optional
 #      caller deadline. Both are declared at PATH-ITEM level precisely so that every operation's own
@@ -31,8 +35,12 @@
 #      and a client that sends neither is unaffected;
 #   4. a neutral operation token per operation (x-cybrik-operation-token). The two create tokens are
 #      ACCEPTED W2-F vocabulary (contracts/json-schema/cybrik.svc-common-defs.v1.schema.json,
-#      cybrik-svc-delegation-mapping-notes.v1.md); the two read tokens are W2-I PROPOSED vocabulary
-#      and are NOT accepted vocabulary.
+#      cybrik-svc-delegation-mapping-notes.v1.md); the two read tokens are ACCEPTED W2-I TRANSPORT
+#      vocabulary that accepted W2-F DELEGATION vocabulary does not yet define. Extending the W2-F
+#      operation-token table to carry them is a DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM decided at
+#      W2-F's own gate and deferred to post-RC1: until that amendment is recorded, no delegation
+#      token may lawfully authorize either read operation. The two create operations, whose tokens
+#      are already accepted W2-F vocabulary, are unaffected.
 # The four path+method pairs, the four operationIds, every operation-level parameter, every request
 # body and required flag, and every 200 binding are preserved exactly as the accepted predecessor
 # declares them.
@@ -197,7 +205,7 @@ components:
               - $ref: '../json-schema/cybrik.transport-authorization-error.v1.schema.json'
               - $ref: '../json-schema/cybrik.model-inference-error.v1.schema.json'
       description: >-
-        Typed fail-closed error surface. EXACTLY ONE branch applies: the PROPOSED
+        Typed fail-closed error surface. EXACTLY ONE branch applies: the ACCEPTED W2-I
         transport/authorization error when the seam refuses the presentation, or the ACCEPTED W2-D
         provider-neutral inference error when the presentation was authorized and the inference
         plane itself produced no result (create), or the health/capability read could not be served

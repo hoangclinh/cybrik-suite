@@ -7,7 +7,15 @@
 - **Release Status:** `CANDIDATE_READY_FOR_STAGING_QUALIFICATION`
 - **Staging Qualification:** `IN_PROGRESS / PENDING_HUMAN_PR_MERGE`
 - **Manifest Binding:** [`releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`](../../releases/manifests/release-candidate-v1.0.0-rc1.manifest.json)
-- **Timestamp:** `2026-08-21T13:30:00+07:00` (`Asia/Ho_Chi_Minh`)
+- **Timestamp:** `2026-08-21T16:20:00+07:00` (`Asia/Ho_Chi_Minh`) — the revision timestamp, equal to
+  the manifest's `timestamp` and the derived snapshot's `snapshot_timestamp`. Individual observations
+  carry their own times: the Cyber AI and Fabric rollups and the `security.txt` probe were observed at
+  `13:30`, the Suite and SOC rollups at `16:20` (§2.1, §9.4).
+- **Provenance model:** `MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE` — the
+  in-repository manifest binds the authoring **content base**; the external release-candidate tag
+  `v1.0.0-rc1` (`NOT_CREATED`) binds the final **post-merge** release (§2.3)
+- **Residual-item classification:** every item in §9 carries exactly one class from the taxonomy in
+  §9.0 — no item is both blocking and deferred
 - **Derived snapshot:** [`docs/releases/evidence/QUALIFICATION-SNAPSHOT-v1.0.0-rc1.json`](evidence/QUALIFICATION-SNAPSHOT-v1.0.0-rc1.json)
   — `DERIVED_RELEASE_EVIDENCE=true`, `AUTHORITATIVE_ORCHESTRATION_STATE=false` (§9.7)
 
@@ -60,9 +68,11 @@ SHAs were resolved against the local canonical checkouts on 2026-08-21 (`git cat
 `commit`) and their commit subjects read back from those objects. The `cybrik-cyber-ai-platform`
 head `b5ab09c8…` is **not present in any local checkout**; it was resolved read-only through the
 GitHub API (commit object, PR #11 head ref, compare, check-runs and workflow-runs endpoints). All
-four pins were additionally re-verified read-only against the GitHub Actions runs and jobs API at
-2026-08-21T13:30:00+07:00 (§2.1). No fetch was performed into any product repository — this change
-is scoped to `cybrik-suite` only.
+four pins were additionally re-verified read-only against the GitHub Actions runs and jobs API — the
+`cybrik-cyber-ai-platform` and `cybrik-security-tool-fabric` rollups at 2026-08-21T13:30:00+07:00 and
+the `cybrik-suite` and `cybrik-soc-command-center` rollups at 2026-08-21T16:20:00+07:00, after this
+revision's Suite commit and the SOC rebase respectively (§2.1). No fetch was performed into any
+product repository — this change is scoped to `cybrik-suite` only.
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
@@ -116,9 +126,10 @@ verified read-only through the GitHub compare API instead (`status`, `ahead_by`,
 | `cybrik-cyber-ai-platform` | `b867220fdc07d736e625e5fac88c6baf4d0d431f` | **Rebase rewrite.** Not an ancestor (merge base `2dd7aca2…`; pin 35 ahead / 3 behind); subject `test(w2i): add contract-to-runtime transport conformance test suite for v0.2.0` carried at `f9dad52…`, a verified ancestor of `b5ab09c8…` (pin 5 ahead); the previous manifest pin `5d0c2d43…` is the pinned head's **direct parent** (1 ahead / 0 behind), and `6793e217…` (2 ahead) and `ccbfb4f8…` (3 ahead) are also ancestors | `VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT` |
 | `cybrik-security-tool-fabric` | `9a80ebebd00bae90b1f3e379c27d672b263124d4` | **Rebase rewrite.** Not an ancestor (merge base `3292a65a…`); subject `docs(security): update SECURITY.md to active responsible disclosure policy` carried at `49bc3d8` on the pinned branch | `VERIFIED_EQUIVALENT_REWRITE` |
 
-CI status was verified from the **GitHub Actions runs and jobs API by exact run identifier** on
-2026-08-21T13:30:00+07:00. For every component the run object was fetched by id and its `head_sha`
-compared against the pin. **All four components are green, and all four runs sit at the pin
+CI status was verified from the **GitHub Actions runs and jobs API by exact run identifier** — the
+Cyber AI and Fabric runs at 2026-08-21T13:30:00+07:00, the Suite and SOC runs at
+2026-08-21T16:20:00+07:00 (both re-observed after this revision's Suite commit and the SOC rebase).
+For every component the run object was fetched by id and its `head_sha` compared against the pin. **All four components are green, and all four runs sit at the pin
 itself** — the prior revision's Suite caveat (rollup observed only at an ancestor) is closed.
 
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
@@ -275,6 +286,18 @@ separate W2-I manifest to cite — and the forward-looking
 W2-F operation-token amendment: no delegation token may lawfully authorize `listModelClasses` or
 `getModelClassHealth` yet (§9.1). The two POST operations are unaffected.
 
+**Classification — `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` (§9.0).** The W2-F operation-token
+vocabulary amendment for the two **read** tokens is *deferred to post-RC1* and is **not** a blocker
+for `v1.0.0-rc1`. The reason is exact rather than tolerant: the delegation tokens that `v1.0.0-rc1`
+authorizes are the two **create** tokens `ai.inference.create` and `ai.alert_summarization.create`,
+both already accepted W2-F vocabulary; `v1.0.0-rc1` claims no authorized read-token operation, so
+the missing read vocabulary removes nothing this candidate offers. The amendment is a *governance*
+act at W2-F's own gate — amending it here would edit bytes accepted at a different gate. Until it is
+recorded, `listModelClasses` and `getModelClassHealth` are accepted **transport** contract shape with
+no lawful **delegation** authorization, and no implementation may present a token for either. That
+constraint is a scope statement about the two reads, **not** a residual blocker against the
+candidate.
+
 Both W2-F and W2-G packets are `x-cybrik-packet-version: 0.1.0` with
 `x-cybrik-is-bundle-tag: false`. Neither is a stable v1/GA promotion; per ADR-0001 D2 no N-1
 compatibility obligation attaches pre-GA, but every future incompatibility must be recorded in the
@@ -307,7 +330,7 @@ asserts that the relying party:
 | Repository | Suite | Result | Source | Re-executed for this RC? |
 |---|---|---|---|---|
 | `cybrik-cyber-ai-platform` | pytest (ai-api, ai-core, ai-worker, contract) **at the pin** `b5ab09c8…` | **1065 passed, 17 skipped, 0 failed** (`9 warnings in 20.38s`) | Job `96682973118` of run `32452271445` — the `test` job's own log, read read-only from the job-logs API (§2.2a) | **Hosted, at the pin. No coverage figure is published into this repository.** |
-| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `b5ab09c8…`** (job `96682973118`, run `32452271445`) — pass/fail only, no per-test transcript | Run `32452271445` verified by id 2026-08-21T13:30:00+07:00 | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
+| `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `b5ab09c8…`** (job `96682973118`, run `32452271445`) — pass/fail only, no per-test transcript | Run `32452271445` verified by id 2026-08-21T13:30:00+07:00 (unchanged in this revision) | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
 | `cybrik-security-tool-fabric` | control plane + Go executor **at the pin** `0e4fee8d…` | **Not re-executed at the pin — `INHERITED`.** Both jobs are path-gated skips, proven correct: PR #6 changes exactly one file (`SECURITY.md`) and zero bytes under either plane's trigger paths (§9.2a) | Run `32389505003`, `detect` job `96492567174` execution log + PR #6 file list | **No. Verification is inherited from the base commit on `main`; no test count is claimed at this pin.** |
 | `cybrik-soc-command-center` | Founder UAT walkthrough of the SOC surface at `4480a412…` | **`FOUNDER_PRODUCT_ACCEPTANCE` PASS** and **`SOC_UAT_SURFACE` gate PASS** — core SOC portal, persona flows P1–P6, tenant switching, Cyber AI Copilot, Live Vertical triad | `soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md` (sha256 `78bc11ca…`), HB-5, 2026-08-20 | **Human ratification, not a machine transcript.** `4480a412…` is a verified ancestor of the pin (§2.2). The Playwright and pytest figures from run `32164562480` are **withdrawn** as pin-bound (§2.2a). |
 | all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32458843295`), SOC 9/9 (run `32460749335`), Cyber AI 8/8 (run `32452271445`), Fabric 4/4 + 2 path-gated skips (run `32389505003`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
@@ -332,7 +355,18 @@ The same validators run in hosted CI under the `contract standards validation` c
 **re-executed again for this revision** against the bytes it carries: `validate-transport.mjs`
 `PASS` (exit 0), `validate-inference.mjs` `PASS` (exit 0), and the aggregate `validate.mjs`
 **30 / 31 validators clean** with one failure — the pre-existing local `dependency-compat` install
-defect described below, which none of the three files this revision changes touches.
+defect described below, which none of the files this revision changes touches.
+
+**Hosted coverage of these exact bytes is not yet claimed.** This revision edits the status prose in
+`contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml` — comment and
+`description` text only; no path, operation, parameter, request body, response binding or `security`
+requirement moves — and therefore re-pins that member's SHA-256 in the accepted W2-D packet manifest,
+in the consumed delta (both pin sites) and in this candidate's manifest, and re-pins the packet
+manifest's own post-flip digest in the delta. Run `32458843295` covers the **content-base parent**,
+not these bytes. The evidence for these bytes is the local re-execution transcribed above plus the
+`204 / 204` harness run; a hosted rollup at the successor head is required before any claim that
+hosted CI covers this revision. That is a `POST_MERGE_REQUIRED` sequencing fact (§9.0), not a defect:
+the digest chain is fully self-consistent, which is exactly what `validate-transport.mjs` verifies.
 
 ```text
 $ node tools/contract-validation/validate-transport.mjs
@@ -369,8 +403,12 @@ recorded gate, `G-W2I-4`).
 `tools/contract-validation/tests/dependency-compat.test.mjs` fails in this worktree with
 `MODULE_NOT_FOUND` for `brace-expansion-v5/package.json`. The alias the lockfile declares
 (`brace-expansion-v5` → `npm:brace-expansion@5.0.9`) is simply absent from the local `node_modules`
-install; `package.json`, `package-lock.json`, `tools/contract-validation/vendor/` and the test file
-itself are all **unmodified** by this revision. Hosted CI installs from the lockfile with `npm ci`
+install; `package.json`, `package-lock.json` and `tools/contract-validation/vendor/` are all
+**unmodified** by this revision, and the only test-file change it makes is to the ADR-catalog `P2-3`
+guard in `tests/validate-transport.test.mjs`, which pinned ADR-0011's **pre-flip** `PROPOSED` wording
+and was moved onto the recorded `ACCEPTED (HB-4)` catalog rows; the guard's base-byte SHA-256 pin is
+unchanged and still holds, so the catalog is still byte-pinned outside its three registered W2-I
+additions. Hosted CI installs from the lockfile with `npm ci`
 and the same check passed in run `32458843295` at the pinned head. Repairing the local install would
 require a dependency installation, which is Founder-gated in this repository, so it was not
 attempted.
@@ -394,9 +432,21 @@ open item in §9.7. Do not cite an individual row as evidence.
 | NEG-5 | Audience misdirection (`svc:soc-notifier` token → `svc:security-tool-fabric`) | Fabric PDP | SR-3 | `403 audience_mismatch`; confused deputy prevented | PASS |
 | NEG-6 | Marking downgrade (`confidential` input → `public` output request) | Cyber AI policy engine | TR-1 / SI-9 | `InferenceDenied` / `marking_downgrade`; output forced to lattice upper bound | PASS |
 
-The claim that NEG-1 through NEG-4 were **re-executed post-rollback** rested on the same missing
-document. It is reclassified `POST_MERGE_REQUIRED` (§6.4a): re-running the matrix against a
-restored environment needs rollback target images rebuilt from the merged main-line SHAs.
+**Classification — `POST_MERGE_REQUIRED` (§9.0).** Scenario-level rehearsal *execution* of
+`NEG-1..NEG-6` is classified `POST_MERGE_REQUIRED` in whole, not merely the post-rollback re-run.
+The matrix exercises a live four-service topology whose application images are built from source, so
+producing a per-case identifier, input, expected rejection and observed rejection requires images
+built from the **exact post-merge** main-line SHAs of all four repositories. Those SHAs do not exist
+yet (§9.5), and building and publishing from an unmerged state needs deployment authority reserved to
+the Founder by `cybrik-suite:CLAUDE.md`. The gate-level `LIVE_VERTICAL` `PASS` is unaffected — it is
+Founder-ratified at `HB-5` and is not re-derived from these rows.
+
+**Closing action.** After all four pull requests merge, rebuild the topology from the merged
+main-line SHAs, re-run `NEG-1..NEG-6` against those **exact post-merge images**, and bind the
+per-case transcript into this repository. The narrower prior claim — that NEG-1 through NEG-4 were
+**re-executed post-rollback** — rested on the same missing document and is subsumed by this
+classification (§6.4a): re-running the matrix against a *restored* environment needs the same
+rebuilt rollback target images.
 
 ---
 
@@ -554,7 +604,10 @@ re-establishing them requires images built from the four pinned heads. The pins 
 heads under branch protection, and building and publishing from an unmerged state needs deployment
 authority that `cybrik-suite:CLAUDE.md` reserves to the Founder. After merge: rebuild the targets
 from the merged main-line SHAs, re-run the positive smoke stages and the `NEG-1..NEG-4` matrix
-against the restored environment, and record the measured recovery time (§9.6).
+against the restored environment, and record the measured recovery time (§9.6). The **post-rollback**
+`NEG-1..NEG-4` re-run named here is the narrower half of the same obligation: scenario-level
+execution of the full `NEG-1..NEG-6` matrix against the exact post-merge images is classified
+`POST_MERGE_REQUIRED` in whole (§9.0, §4.3).
 
 ### 6.4b Database Backup and Restore — Three Separate Claims
 
@@ -660,11 +713,11 @@ the authoritative post-UAT status for this candidate.
 | Gate | Boundary | Status | Authority Record | Remaining Requirement |
 |---|---|---|---|---|
 | `RESPONSIBLE_DISCLOSURE` / `RB-001` | `HB-3` | **`RESOLVED`** (2026-08-20) | `INBOX-005`, `INBOX-006`; [`RELEASE-BLOCKERS.md`](RELEASE-BLOCKERS.md) | Public serving of `security.txt` at the canonical URL (§9.4) |
-| `W2_I_ACCEPTANCE` — transport binding v0.2.0 | `HB-4` | **`ACCEPTED`** (Decision Council, 2026-08-20); **artifact flip applied 2026-08-21** | `INBOX-007`, decision `ACCEPT` | Amend the accepted W2-F operation-token table — undischarged, and blocking both GET operations (§9.1) |
+| `W2_I_ACCEPTANCE` — transport binding v0.2.0 | `HB-4` | **`ACCEPTED`** (Decision Council, 2026-08-20); **artifact flip applied 2026-08-21** | `INBOX-007`, decision `ACCEPT` | Amend the accepted W2-F operation-token table — undischarged. Classified `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` (§9.0): it scopes out the two GET operations and does **not** gate this candidate, whose delegation tokens are the two accepted create tokens (§3, §9.1) |
 | `SOC_UAT_RATIFICATION` — Candidate R22 Founder UAT | `HB-5` | **`PASS` / `RATIFIED`** (Founder, 2026-08-20) | `INBOX-008`, decision `PASS`; walkthrough `PASS` at `INBOX-002` | — |
 | `HOSTED_INTEGRATION_CONTROL` | `HB-1` | **`PASS`** (Founder, 2026-08-20) | `INBOX-004` | — |
 | `UAT_PERSONA_EVIDENCE` — human accessibility session | `HB-2` | **`PASS`** (Founder / human reviewer, 2026-08-20) | `INBOX-003` | — |
-| **Staging Qualification** | — | **`IN_PROGRESS / PENDING_HUMAN_PR_MERGE`** | `soc-autonomous-state:CURRENT_STATE.json` | Human review + merge of PRs #56 / #13 / #11 / #6, then required CI at every merged SHA; rollback target images rebuilt from the merged SHAs (§6.4a, §9.6); scenario-level `NEG-1..NEG-6` evidence and a pin-bound coverage figure (§9.7). **Cleared:** the Cyber AI CI blocker (§9.3a), the SOC branch-protection impossibility (§9.5), and the five unsourced evidence references (§2.2a) |
+| **Staging Qualification** | — | **`IN_PROGRESS / PENDING_HUMAN_PR_MERGE`** | `soc-autonomous-state:CURRENT_STATE.json` | Human review + merge of PRs #56 / #13 / #11 / #6, then required CI at every merged SHA; rollback target images rebuilt from the merged SHAs (§6.4a, §9.6); scenario-level `NEG-1..NEG-6` rehearsal executed against the exact post-merge images and a pin-bound coverage figure — both `POST_MERGE_REQUIRED` (§9.0, §4.3, §9.7). **Cleared:** the Cyber AI CI blocker (§9.3a), the SOC branch-protection impossibility (§9.5), and the five unsourced evidence references (§2.2a) |
 
 ### 7.1 Ten-Gate Milestone Resolution
 
@@ -703,7 +756,8 @@ reproduced from the ratification record rather than corroborated here. Engineeri
 remains a distinct and lesser claim than qualification.
 
 Two of the re-sourcings deserve naming in this table's terms. `LIVE_VERTICAL` is ratified `PASS` at
-**gate** level while its `NEG-1..NEG-6` scenarios remain unsourced at **scenario** level (§4.3), and
+**gate** level while its `NEG-1..NEG-6` scenarios remain unsourced at **scenario** level and their
+execution is classified `POST_MERGE_REQUIRED` (§9.0, §4.3), and
 `DEPLOY_ROLLBACK_REHEARSAL` is ratified `PASS` while its rehearsal figures are reclassified
 `POST_MERGE_REQUIRED` and only its database-rollback and target-inheritance halves are qualified
 today (§6.4a). A ratified gate does not import evidence that was never committed.
@@ -759,9 +813,44 @@ are no longer cited as sources anywhere in this specification. Each is re-source
 
 ## 9. Open Items — Not Verified by this Document
 
-These are recorded rather than resolved. Each must be closed before staging qualification can be
-claimed. Items 9.1–9.7 carry forward from the prior revision with their status updated against the
-current pin set.
+These are recorded rather than resolved. Items 9.1–9.7 carry forward from the prior revision with
+their status updated against the current pin set. **Not every item below gates staging
+qualification** — §9.0 states which class each one carries and what that class costs.
+
+### 9.0 Residual Item Classification Taxonomy
+
+Every residual item in this document carries **exactly one** class. The classes are disjoint: an
+item is never simultaneously a blocker and a deferral, and no item's top-level status may disagree
+with the section that details it.
+
+| Class | Meaning | Gates staging qualification? |
+|---|---|:---:|
+| `BLOCKING_OPEN` | Must be closed before `v1.0.0-rc1` may leave `CANDIDATE_READY_FOR_STAGING_QUALIFICATION` | **Yes** |
+| `POST_MERGE_REQUIRED` | Cannot be executed before the four pull requests merge, because it needs artifacts built from the **exact post-merge** main-line SHAs. Not a defect and not a waiver — a sequencing fact | **Yes**, after merge |
+| `POST_DEPLOYMENT_REQUIRED` | Cannot be verified until a production deployment exists | No — after GA/deployment |
+| `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` | A governance act at a **different** gate that this candidate does not depend on, deliberately deferred to post-RC1. It constrains *future* scope, not this candidate's claims | **No** |
+| `EXTERNAL_RESOURCE` | The authority or artifact of record lives outside every suite repository; nothing committed here can close it | No — records the gap |
+
+Classification of the residual items, authoritative for this document:
+
+| Item | Class | Where detailed |
+|---|---|---|
+| W2-F operation-token vocabulary amendment for the two **read** tokens | `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` | §3, §9.1 |
+| Scenario-level `NEG-1..NEG-6` rehearsal **execution** | `POST_MERGE_REQUIRED` | §4.3, §9.7 |
+| Rollback targets re-established against the pins; service-rehearsal figures | `POST_MERGE_REQUIRED` | §6.3, §6.4a, §9.6 |
+| Product test suites re-executed against their pinned heads | `POST_MERGE_REQUIRED` | §9.2 |
+| Merge of PRs #56 / #13 / #11 / #6 under branch protection | `BLOCKING_OPEN` (human-only) | §9.5 |
+| `security.txt` served at the canonical URL | `BLOCKING_OPEN` (non-`RB-001`) | §9.4 |
+| Independent post-flip security / compatibility review of the W2-I bytes | `BLOCKING_OPEN` | §9.1 |
+| Coverage figure bound at a pin | `POST_MERGE_REQUIRED` | §9.7 |
+| Production backup key custody; off-system storage | `EXTERNAL_RESOURCE` | §6.4b, §9.7 |
+| Live production backup-encryption verification | `POST_DEPLOYMENT_REQUIRED` | §6.4b, §9.7 |
+| Gate authority of record held in the control plane | `EXTERNAL_RESOURCE` | §9.7 |
+
+**Reading rule.** `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` and `EXTERNAL_RESOURCE` items are
+recorded but do **not** hold `v1.0.0-rc1` at its current status. `BLOCKING_OPEN` and
+`POST_MERGE_REQUIRED` items do. That is the whole of the difference, and no prose elsewhere in this
+document overrides this table.
 
 **Closed by earlier revisions and retained for history:** **9.1** (the W2-I status flip is applied
 to the artifact bytes), **9.2a** (the two skipped Fabric checks are proven correct path-gated
@@ -777,9 +866,10 @@ rebased onto `origin/main`, removing the branch-protection *impossibility* recor
 `CODEX-ADJ-005` pre-merge blocker 1 (§2, §9.5).
 
 **Sharpened, not closed.** Resolving the five references narrowed two items rather than removing
-them: the `NEG-1..NEG-6` matrix is ratified at **gate** level but unsourced at **scenario** level
-(§4.3), and the service rollback-rehearsal figures are reclassified `POST_MERGE_REQUIRED` rather
-than re-sourced (§6.3, §6.4a). Six specific figures are **withdrawn** rather than restated (§2.2a).
+them, and both now carry the class `POST_MERGE_REQUIRED` (§9.0): the `NEG-1..NEG-6` matrix is
+ratified at **gate** level but unsourced at **scenario** level, and its scenario-level rehearsal must
+be executed against the exact post-merge images (§4.3); the service rollback-rehearsal figures are
+reclassified rather than re-sourced (§6.3, §6.4a). Six specific figures are **withdrawn** rather than restated (§2.2a).
 Every claim added in this revision that is not a hosted CI fact or a git ancestry fact is
 reproduced from outside this repository and is marked as such.
 
@@ -838,10 +928,31 @@ service-delegation operation-token table, and amending W2-F would edit bytes acc
 gate. So `ai.model_classes.list` and `ai.model_class_health.read` are now accepted *transport*
 vocabulary that accepted *delegation* vocabulary does not define: **no W2-F delegation token may
 lawfully authorize either GET operation** until that separate amendment is reviewed and recorded.
-This was a `BLOCKING` item before acceptance and survives it undischarged. It is carried in the
-accepted manifest (`w2i_transport_binding_acceptance.carried_forward_obligations`), in the consumed
-delta (`gate.open_items`), and as `OD-W2I-2` in ADR-0011. Also still open: no independent post-flip
-security/compatibility review, and **no runtime evidence of any kind**.
+This was a `BLOCKING` item **before** acceptance. After acceptance it is reclassified
+`DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` (§9.0), and the reclassification is a narrowing of scope,
+not a relaxation of the constraint: `v1.0.0-rc1` authorizes only the two accepted **create**
+delegation tokens, so the missing read vocabulary withdraws nothing this candidate claims, while the
+prohibition on presenting a delegation token for either GET stands in full and unamended. Read-token
+expansion is deferred to post-RC1 and is decided at W2-F's own gate, never here. The obligation is
+carried in the accepted manifest (`w2i_transport_binding_acceptance.carried_forward_obligations`), in
+the consumed delta (`gate.open_items`), and as `OD-W2I-2` in ADR-0011.
+
+Also still open, and **not** reclassified: no independent post-flip security/compatibility review
+(`BLOCKING_OPEN`, §9.0) and **no runtime evidence of any kind**.
+
+**Disclosure — this revision rewrote accepted, digest-pinned bytes, and re-pinned them.** The flip
+above left the successor OpenAPI's *narrative* text describing itself as `PROPOSED — NOT ACCEPTED`
+and the predecessor as still `CURRENT`, contradicting the structured fields the same flip had already
+moved. This revision aligns that prose — the header comment block, the predecessor-lifecycle
+paragraph, the operation-token note and one response `description`. It is the completion of the same
+whole-packet act (ADR-0001 D5), performed under the same rule: **no** path, operation, `operationId`,
+parameter, request body, `required` flag, response binding or `security` requirement moved. Because
+the bytes changed, the member's SHA-256 was re-derived and re-pinned in **all four** sites that bind
+it — the accepted W2-D packet manifest, both pin sites in the consumed delta, and this candidate's
+manifest — and the packet manifest's own post-flip digest (`sha256_after_flip`) was re-pinned in the
+delta. `validate-transport.mjs` verifies that whole chain and passes, which is what makes the rewrite
+auditable rather than silent. The pre-flip revert digest `e04c8617…` is untouched, so §6.5 still
+holds. What is **not** claimed: hosted CI coverage of these exact bytes (§4.2).
 
 ### 9.2 No product test suite was re-executed against its pinned head
 
@@ -1134,7 +1245,9 @@ this section was written to prevent. Zero dangling evidence paths remain in this
 
 - The `NEG-1..NEG-6` matrix is ratified at **gate** level (`LIVE_VERTICAL` `PASS`, HB-5) and
   remains unsourced at **scenario** level — no per-case identifier, input, expected rejection or
-  observed rejection is bound in any suite repository (§4.3).
+  observed rejection is bound in any suite repository. Scenario-level rehearsal **execution** is
+  classified `POST_MERGE_REQUIRED` (§9.0): it needs a topology built from the exact post-merge
+  main-line SHAs, which do not exist yet (§4.3, §9.5).
 - **No coverage figure** is bound for any component; the withdrawn Cyber AI `96.63%` is not
   replaced.
 - The performance baseline is a workstation micro-benchmark, and two of its four metrics were
@@ -1144,8 +1257,9 @@ this section was written to prevent. Zero dangling evidence paths remain in this
   (§6.4b).
 - Every verdict and measurement added here is `ABSENT` for in-repository corroboration.
 
-**Closing actions:** (a) bind scenario-level evidence for `NEG-1..NEG-6` and a coverage figure
-measured at a pin; (b) re-measure the performance baseline against the current pins, or state
+**Closing actions:** (a) after merge, re-run `NEG-1..NEG-6` against the exact post-merge images and
+bind the per-case transcript, and bind a coverage figure measured at a merged SHA — both
+`POST_MERGE_REQUIRED` (§9.0); (b) re-measure the performance baseline against the current pins, or state
 explicitly that rc1 makes no performance claim; (c) after deployment, verify the encrypted-backup
 control against production with measured RPO/RTO and a key-custody attestation; (d) the underlying
 authority gap remains: the gates of record stay in the control plane, and only moving them would

@@ -313,7 +313,7 @@
       "decided_on": "2026-08-20T19:15:00+07:00",
       "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT)",
       "artifact_status_flip_applied": true,
-      "artifact_status_flip_note": "APPLIED. The HB-4 acceptance decision of 2026-08-20 has now been applied to the in-repository artifact bytes as one whole-packet act (ADR-0001 D5): the v0.2.0 successor OpenAPI moved to x-cybrik-status ACCEPTED FOR IMPLEMENTATION / x-cybrik-lifecycle-role CURRENT; the three cybrik.transport-* schemas and the transport examples manifest moved to ACCEPTED FOR IMPLEMENTATION; the ACCEPTED W2-D packet manifest absorbed all four members, relabelled the v0.1.0 predecessor member row SUPERSEDED-SUPPORTED (byte-frozen, superseded document unchanged at 731f4d27) and recorded the decision under w2i_transport_binding_acceptance; ADR-0011 moved to ACCEPTED; and the companion delta was consumed in place with x-cybrik-applied true rather than deleted, so the pre-flip digests and the compatibility disclosure survive audit. See docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.1.",
+      "artifact_status_flip_note": "APPLIED. The HB-4 acceptance decision of 2026-08-20 has now been applied to the in-repository artifact bytes as one whole-packet act (ADR-0001 D5): the v0.2.0 successor OpenAPI moved to x-cybrik-status ACCEPTED FOR IMPLEMENTATION / x-cybrik-lifecycle-role CURRENT; the three cybrik.transport-* schemas and the transport examples manifest moved to ACCEPTED FOR IMPLEMENTATION; the ACCEPTED W2-D packet manifest absorbed all four members, relabelled the v0.1.0 predecessor member row SUPERSEDED-SUPPORTED (byte-frozen, superseded document unchanged at 731f4d27) and recorded the decision under w2i_transport_binding_acceptance; ADR-0011 moved to ACCEPTED; and the companion delta was consumed in place with x-cybrik-applied true rather than deleted, so the pre-flip digests and the compatibility disclosure survive audit. See docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.1. PROSE COMPLETION (same whole-packet rule): the flip left the successor OpenAPI's NARRATIVE text still describing itself as 'PROPOSED — NOT ACCEPTED' and the predecessor as still CURRENT, contradicting the structured fields the same flip had already moved. That prose is now aligned (header comment block, predecessor-lifecycle paragraph, operation-token note, one response description). NO path, operation, operationId, parameter, request body, required flag, response binding or security requirement moved. Because accepted digest-pinned bytes changed, the member sha256 was re-derived and re-pinned in all four binding sites (accepted W2-D packet manifest; both pin sites in the consumed delta; contract_governance.w2_i_inference_transport.absorbed_members here) and the packet manifest's own sha256_after_flip was re-pinned in the delta. validate-transport.mjs verifies that whole chain and passes, which is what makes the rewrite auditable rather than silent. The pre-flip revert digest e04c8617 is untouched. See docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.1 and §4.2.",
       "artifact_status_flip_applied_on": "2026-08-21",
       "artifact_status_flip_carried_forward": "NOT DISCHARGED BY THE FLIP: the accepted W2-F service-delegation operation-token table still names only 'ai.inference.create' and 'ai.summarization.create'. The two GET tokens the binding declares ('ai.model_classes.list', 'ai.model_class_health.read') are accepted W2-I transport vocabulary that the accepted W2-F vocabulary does not define, so no delegation token may authorize either read operation yet. HB-4 accepted the W2-I binding; it did not amend W2-F, and amending W2-F edits bytes accepted at a different gate. Also open: no independent post-flip security/compatibility review, and no runtime evidence."
     },
@@ -380,7 +380,7 @@
   "release_evidence": {
     "derived_snapshot": {
       "path": "docs/releases/evidence/QUALIFICATION-SNAPSHOT-v1.0.0-rc1.json",
-      "revision": 2,
+      "revision": 3,
       "derived_release_evidence": true,
       "authoritative_orchestration_state": false,
       "relationship": "The snapshot is the DERIVED projection; this manifest is the Suite-local release binding. Where they disagree, the control plane wins over both. The snapshot carries the full per-field corroboration split; this section carries only the bindings a release reader needs."
@@ -591,7 +591,7 @@
           "file": "contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml",
           "version": "0.2.0",
           "lifecycle": "CURRENT",
-          "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741"
+          "sha256": "c47ceb8fb111c5d22ad099634ba65f4c1139f64c54d16ce31097ccfc603a5631"
         },
         {
           "file": "contracts/json-schema/cybrik.transport-common-defs.v1.schema.json",
@@ -623,12 +623,12 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council / Founder, HB-4, 2026-08-20); applied to artifact bytes 2026-08-21",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes, and the same runs are covered by the hosted \"contract standards validation\" check in run 32458843295 at the pinned head. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
+      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes. The hosted \"contract standards validation\" check in run 32458843295 covers the content-base parent 4498bdd3; this revision's later status-prose alignment re-pins the successor member digest, so hosted coverage of THESE exact bytes is not claimed — see suite_local_validation.hosted_coverage_of_these_bytes. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)",
       "carried_forward_obligations": [
-        "UNDISCHARGED — the accepted W2-F operation-token table was not amended by HB-4; the two GET tokens remain outside accepted delegation vocabulary.",
-        "OPEN — no independent post-flip security/compatibility review is recorded in this repository.",
-        "OPEN — no runtime evidence: no product transport, mTLS handshake, JWKS verification or TX-* enforcement is demonstrated anywhere."
+        "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM — the accepted W2-F operation-token table was not amended by HB-4, so the two GET tokens remain outside accepted delegation vocabulary and no delegation token may lawfully authorize either read operation. Deferred to post-RC1: v1.0.0-rc1's delegation tokens are the two accepted CREATE tokens, so this does not gate the candidate. See residual_item_classification.classified_items[W2F_OPERATION_TOKEN_READ_VOCABULARY].",
+        "BLOCKING_OPEN — no independent post-flip security/compatibility review is recorded in this repository (ADR-0011 OD-W2I-5).",
+        "BLOCKING_OPEN — no runtime evidence: no product transport, mTLS handshake, JWKS verification or TX-* enforcement is demonstrated anywhere."
       ]
     },
     "w2_f_service_delegation": {
@@ -654,12 +654,63 @@
       "node tools/contract-validation/validate.mjs"
     ],
     "result": "PASS for validate-transport.mjs and validate-inference.mjs (exit 0). validate.mjs reports 30/31 validators clean and 1 failing — the pre-existing local dependency-compat failure described in known_local_failure, which no file changed by this revision touches.",
-    "executed_on": "2026-08-21 (re-executed against the bytes carried by this revision)",
+    "executed_on": "2026-08-21 (re-executed against the exact bytes carried by this revision, after the W2-I prose alignment and the resulting digest re-pin)",
     "transport_validator_summary": "Lifecycle ACCEPTED FOR IMPLEMENTATION. 3 transport schemas compiled; 5 positive + 9 negative-schema + 8 negative-semantic fixtures; 39/39 structural TT-1..TT-9 assertions; 8/8 negative-semantic fixtures rejected on exactly their declared TX rule, witnessing TX-1..TX-8 once each; 4 candidate-member + 2 upstream-accepted + 1 examples-manifest + 22/22 support-fixture digests verified; the accepted W2-D manifest proven to declare all 4 absorbed members at digests agreeing with the delta, to relabel the predecessor SUPERSEDED-SUPPORTED byte-frozen, and to record the gate decision; a name-blind sweep of 4 OpenAPI documents / 19 declared pairs proving 4/4 owned pairs keep exactly one CURRENT owner, carry no residual proposed successor, and keep the superseded predecessor on disk.",
-    "transport_validator_tests": "node --test tools/contract-validation/tests/validate-transport.test.mjs — 204/204 pass, validator line and branch coverage above the 80% floor.",
+    "transport_validator_tests": "node --test tools/contract-validation/tests/validate-transport.test.mjs — 204/204 pass, validator line and branch coverage above the 80% floor. This revision moves one guard: the P2-3 ADR-catalog literals in that test pinned ADR-0011's PRE-FLIP 'PROPOSED — NOT DECIDED — NOT APPLIED' wording, which contradicted the applied HB-4 acceptance; they now pin the recorded 'ACCEPTED (HB-4)' rows. The guard's base-byte SHA-256 pin (ADR_README_BASE_SHA256) is UNCHANGED and still holds, so docs/adr/README.md remains byte-pinned outside its three registered W2-I additions.",
     "known_local_failure": "tools/contract-validation/tests/dependency-compat.test.mjs fails in this local worktree with MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. This is a LOCAL node_modules install that predates and is unrelated to this change: package.json, package-lock.json, tools/contract-validation/vendor and the test file itself are all unmodified by it, and the alias the lockfile declares (brace-expansion-v5 -> npm:brace-expansion@5.0.9) is simply absent from the local install. Hosted CI runs npm ci from the lockfile and the same check passed in run 32458843295 at the pinned head. Repairing the local install would require a dependency installation, which is Founder-gated.",
-    "scope": "Static contract conformance only. This is not staging qualification, not runtime proof, and it flips no gate: the W2-I acceptance is the recorded HB-4 decision, and these runs are evidence attached to it."
+    "scope": "Static contract conformance only. This is not staging qualification, not runtime proof, and it flips no gate: the W2-I acceptance is the recorded HB-4 decision, and these runs are evidence attached to it.",
+    "hosted_coverage_of_these_bytes": "NOT CLAIMED. This revision edits status prose in contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml (comment and info.description text only — no path, operation, parameter, request body, response binding or security requirement moves) and therefore re-pins that member's sha256 in contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json, in both pin sites of contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json and in contract_governance.w2_i_inference_transport.absorbed_members here, plus the packet manifest's own post-flip digest (sha256_after_flip) in the delta. GitHub Actions run 32458843295 covers the CONTENT-BASE PARENT 4498bdd3, not these bytes. Evidence for these bytes is the local re-execution recorded above plus the 204/204 harness run. A hosted rollup at the successor head is required before hosted coverage of this revision may be claimed; that is a POST_MERGE_REQUIRED sequencing fact, not a defect."
   },
-  "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval. The release_evidence section added in this revision closes documentation gaps and one branch-protection impossibility; it closes no gate and confers no authority. Every claim in it that is not a hosted CI fact or a git ancestry fact is reproduced from outside this repository and is marked as such.",
-  "ci_provenance_method": "Read-only GitHub Actions API observation at 2026-08-21T13:30:00+07:00: for each component the run object (name, head_sha, status, conclusion, head_branch) and its full job inventory were fetched by run id and the head_sha compared against the pin recorded here. Every run id below was verified to exist, to have concluded success, and to sit at the exact pinned head. No suite was re-executed locally and no repository other than cybrik-suite was modified."
+  "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval. The release_evidence section closes documentation gaps and one branch-protection impossibility; it closes no gate and confers no authority. Every claim in it that is not a hosted CI fact or a git ancestry fact is reproduced from outside this repository and is marked as such. provenance_model_explained and residual_item_classification are CLASSIFICATION AND PROSE ONLY: they measure nothing, close nothing and grant nothing. In particular, classifying the W2-F read-token amendment DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM narrows its scope against this candidate and relaxes no constraint — no delegation token may lawfully authorize either GET operation, before or after the reclassification.",
+  "ci_provenance_method": "Read-only GitHub Actions API observation at 2026-08-21T13:30:00+07:00: for each component the run object (name, head_sha, status, conclusion, head_branch) and its full job inventory were fetched by run id and the head_sha compared against the pin recorded here. Every run id below was verified to exist, to have concluded success, and to sit at the exact pinned head. No suite was re-executed locally and no repository other than cybrik-suite was modified.",
+  "provenance_model_explained": {
+    "model": "MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE",
+    "one_sentence": "cybrik-suite operates a TWO-PART release binding: this in-repository manifest binds the AUTHORING PARENT CONTENT BASE, and the external release-candidate tag v1.0.0-rc1 binds the final POST-MERGE release.",
+    "part_1_content_base": {
+      "bound_by": "releases/manifests/release-candidate-v1.0.0-rc1.manifest.json — this file, in this repository",
+      "binds": "The exact commits that were EVALUATED: one pre-merge pull-request head per product repository, plus the cybrik-suite AUTHORING PARENT of the commit that carries this manifest.",
+      "why_the_authoring_parent": "A manifest cannot contain its own commit SHA — the commit that writes these bytes is hashed only after the bytes are fixed. The cybrik-suite pin is therefore necessarily the authoring parent, and is a content-base marker rather than a claim that the pin is the released Suite commit.",
+      "state": "BOUND — the four SHAs under repositories{}"
+    },
+    "part_2_release_tag_envelope": {
+      "bound_by": "An external tag v1.0.0-rc1, created after merge, OUTSIDE this file",
+      "binds": "The commits that are RELEASED: the merged origin/main SHAs of all four repositories.",
+      "state": "NOT_CREATED — no such tag exists in any repository; see release_tag_envelope for its preconditions and authority."
+    },
+    "complementarity": "The two bindings are complementary and neither substitutes for the other. The content-base pins record WHAT WAS EVALUATED; the external release tag records WHAT WAS RELEASED.",
+    "category_error_to_avoid": "Reading a content-base pin as a released SHA is a category error (ABMB-04). Nothing under repositories{} has been released, tagged, deployed or promoted, and v1.0.0-rc1 as a TAG does not exist yet.",
+    "prose_authority": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §2.3 states the same model in prose; the derived snapshot mirrors it under provenance_model. All three must agree."
+  },
+  "residual_item_classification": {
+    "model": "RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1",
+    "authority": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0 is the authoritative statement. This block and the derived snapshot's residual_item_classification are projections of it and must never disagree with it.",
+    "disjointness_rule": "Every residual item carries EXACTLY ONE class. No item is simultaneously blocking and deferred, and no top-level status field in this manifest may disagree with the class recorded against the item that details it.",
+    "classes": {
+      "BLOCKING_OPEN": "Must be closed before v1.0.0-rc1 may leave CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Gates staging qualification.",
+      "POST_MERGE_REQUIRED": "Cannot be executed until the four pull requests merge, because it needs artifacts built from the EXACT post-merge main-line SHAs. A sequencing fact, not a defect and not a waiver. Gates staging qualification, after merge.",
+      "POST_DEPLOYMENT_REQUIRED": "Cannot be verified until a production deployment exists. Does not gate staging qualification.",
+      "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM": "A governance act at a DIFFERENT gate that this candidate does not depend on, deliberately deferred to post-RC1. It constrains future scope, not this candidate's claims. Does not gate staging qualification.",
+      "EXTERNAL_RESOURCE": "The authority or artifact of record lives outside every suite repository; nothing committed here can close it. Records the gap rather than gating on it."
+    },
+    "classified_items": [
+      {
+        "id": "W2F_OPERATION_TOKEN_READ_VOCABULARY",
+        "classification": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM",
+        "item": "W2-F operation-token vocabulary amendment for the two READ tokens ai.model_classes.list and ai.model_class_health.read.",
+        "why_not_blocking": "The delegation tokens v1.0.0-rc1 actually authorizes are the two CREATE tokens ai.inference.create and ai.alert_summarization.create, both already ACCEPTED W2-F vocabulary. v1.0.0-rc1 claims no authorized read-token operation, so the missing read vocabulary withdraws nothing this candidate offers. Read-token expansion is deferred to post-RC1 and is decided at W2-F's own gate; amending W2-F here would edit bytes accepted at a different gate.",
+        "constraint_that_still_stands": "Unamended and in full: no W2-F delegation token may lawfully authorize listModelClasses or getModelClassHealth until that separate amendment is reviewed and recorded. The reclassification narrows SCOPE against this candidate; it relaxes no constraint.",
+        "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §3, §9.0, §9.1; docs/adr/ADR-0011-inference-plane-transport-binding-profile.md OD-W2I-2"
+      },
+      {
+        "id": "NEG_MATRIX_SCENARIO_LEVEL_REHEARSAL",
+        "classification": "POST_MERGE_REQUIRED",
+        "item": "Scenario-level rehearsal EXECUTION of the NEG-1..NEG-6 negative security matrix.",
+        "why_post_merge": "The matrix exercises a live four-service topology whose application images are built from source. Producing a per-case identifier, input, expected rejection and observed rejection requires images built from the EXACT POST-MERGE main-line SHAs of all four repositories. Those SHAs do not exist yet, and building or publishing from an unmerged state needs deployment authority reserved to the Founder by cybrik-suite:CLAUDE.md.",
+        "current_state": "Ratified at GATE level by the Founder (LIVE_VERTICAL PASS, HB-5) and unsourced at SCENARIO level: no per-case identifier, input, expected rejection or observed rejection is bound in any suite repository. The gate ratification is unaffected by this classification and is not re-derived from those rows.",
+        "closing_action": "After all four pull requests merge, rebuild the topology from the merged main-line SHAs, RE-RUN NEG-1..NEG-6 AGAINST THE EXACT POST-MERGE IMAGES, and bind the per-case transcript into this repository.",
+        "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §4.3, §9.0, §9.7"
+      }
+    ],
+    "reading_rule": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and EXTERNAL_RESOURCE items are recorded but do NOT hold v1.0.0-rc1 at release_status CANDIDATE_READY_FOR_STAGING_QUALIFICATION. BLOCKING_OPEN and POST_MERGE_REQUIRED items do. staging_qualification_status IN_PROGRESS / PENDING_HUMAN_PR_MERGE is consistent with both: the deferred items do not gate it, and the blocking and post-merge items are exactly what PENDING_HUMAN_PR_MERGE names."
+  }
 }

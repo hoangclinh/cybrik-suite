@@ -4462,14 +4462,21 @@ test('P2-2: the ALL GREEN banner discloses the W2-I PROPOSED / NOT ACCEPTED cand
 // The check must survive a clean checkout and a later canonical merge. Comparing the worktree to
 // HEAD is vacuous after commit, so remove only the three exact W2-I additions and pin every
 // remaining base byte. Any unrelated edit, deletion, status backfill or duplicate then fails.
+// The three literals track the RECORDED lifecycle of ADR-0011, not a frozen proposal: Gate W2-I was
+// DECIDED — ACCEPT at human boundary HB-4 on 2026-08-20 and the status flip was applied to the
+// artifact bytes on 2026-08-21, so the catalog rows now read ACCEPTED (HB-4). Pinning them to the
+// pre-flip PROPOSED wording would make this guard assert a catalog that contradicts the applied
+// acceptance. The base SHA below is unchanged — only the registered W2-I additions moved.
 const ADR_README_BASE_SHA256 = 'dee1be038ddfc5b309529b12b4c0cedbd38131b0fbedcb983023d75ced4f7aa0';
 const ADR_README_W2I_ADDITIONS = [
-  '\nThe W2-I transport-binding candidate adds ADR-0011 as\n' +
-    '`PROPOSED — NOT DECIDED — NOT APPLIED`; therefore the preceding ten-ADR statement describes the\n' +
-    'accepted base catalog before this additive proposal and is not an acceptance statement for\n' +
-    'ADR-0011. Gate W2-I is **`NOT OPENED`**.\n',
-  '\n| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `PROPOSED — NOT DECIDED — NOT APPLIED`; Gate W2-I is **`NOT OPENED`** |',
-  '\n| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding proposal | Option A recorded with `G-W2I-1..5=yes`; scope authority only. Gate W2-I is **`NOT OPENED`** and the proposal remains `PROPOSED — NOT ACCEPTED — NOT IMPLEMENTED` |',
+  '\nThe W2-I transport binding adds ADR-0011 as `ACCEPTED (HB-4)`; therefore the preceding ten-ADR\n' +
+    'statement describes the accepted base catalog before this additive record and is not the acceptance\n' +
+    'statement for ADR-0011. Gate W2-I was `DECIDED — ACCEPT` by the Decision Council / Founder at human\n' +
+    'boundary `HB-4` on 2026-08-20, and the status flip was applied to the artifact bytes on 2026-08-21.\n' +
+    'Acceptance authorizes contract-first implementation only — v0.2.0, not stable v1/GA, and no runtime,\n' +
+    'endpoint, deployment or release authority.\n',
+  '\n| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) | Inference-plane transport-binding profile | `ACCEPTED (HB-4)` (Gate W2-I `DECIDED — ACCEPT`, 2026-08-20; applied to artifact bytes 2026-08-21) — v0.2.0 successor revision, not stable v1/GA |',
+  '\n| [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md) | W2-I path-ownership record for the compatible inference transport-binding revision | Option A recorded with `G-W2I-1..5=yes`; scope authority only — it decided ownership, never acceptance. Gate W2-I was separately `DECIDED — ACCEPT` under `HB-4` on 2026-08-20 (ADR-0011); the binding is `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` |',
 ];
 // W2-H/R5 §10.2 accepts ADR-0012 for implementation. The registry is a catalog,
 // so it moves only its W2-H lifecycle wording; the base bytes below it are still
@@ -4552,12 +4559,46 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
   );
 });
 
-test('P2-3: the intended ADR-0011 / W2-I registry entries are retained', () => {
+// Scoped to the one ADR-0011 registry row, for the same reason the ADR-0012 guard below is: a
+// catalog-wide regex would be satisfied by any other row carrying the same lifecycle string.
+const ADR_0011_ROW_PREFIX = '| [ADR-0011](ADR-0011-inference-plane-transport-binding-profile.md) |';
+
+test('P2-3: the intended ADR-0011 / W2-I registry entries record the HB-4 acceptance', () => {
   const adr = read(ADR_README_REL);
   assert.match(adr, /ADR-0011/, 'P2-3: docs/adr/README.md must still register ADR-0011');
-  assert.match(adr, /PROPOSED — NOT DECIDED — NOT APPLIED/, 'P2-3: the ADR-0011 entry must carry its PROPOSED lifecycle verbatim');
+  const rows = adr.split('\n').filter((line) => line.startsWith(ADR_0011_ROW_PREFIX));
+  assert.equal(
+    rows.length,
+    1,
+    `P2-3: docs/adr/README.md must register ADR-0011 in exactly one row; found ${rows.length}`,
+  );
+  const [row] = rows;
+  assert.match(
+    row,
+    /`ACCEPTED \(HB-4\)`/,
+    `P2-3: the ADR-0011 row must carry the recorded HB-4 acceptance lifecycle:\n${row}`,
+  );
+  assert.doesNotMatch(
+    row,
+    /NOT DECIDED|NOT APPLIED|NOT ACCEPTED|NOT OPENED/,
+    `P2-3: the ADR-0011 row must not keep any pre-flip proposal-lifecycle wording:\n${row}`,
+  );
+  assert.match(
+    row,
+    /not stable v1\/GA/,
+    `P2-3: the ADR-0011 row must still deny stable v1\/GA promotion:\n${row}`,
+  );
   assert.match(adr, /FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP\.md/, 'P2-3: docs/adr/README.md must still register the W2-I Founder path-ownership packet');
-  assert.match(adr, /Gate W2-I is \*\*`NOT OPENED`\*\*/, 'P2-3: the ADR-0011 entry must state that Gate W2-I is NOT OPENED');
+  assert.match(
+    adr,
+    /Gate W2-I was `DECIDED — ACCEPT`/,
+    'P2-3: the catalog must state that Gate W2-I was decided ACCEPT rather than leaving it NOT OPENED',
+  );
+  assert.doesNotMatch(
+    adr,
+    /Gate W2-I is \*\*`NOT OPENED`\*\*/,
+    'P2-3: no residual NOT OPENED claim may survive the applied W2-I flip',
+  );
 });
 
 // The guard is scoped to the one ADR-0012 registry row. A catalog-wide regex
