@@ -33,9 +33,9 @@
       "branch_protection_state": "MERGED_AND_PROTECTED",
       "ci_status_recorded": "SUCCESS — 3/3 required checks green at the pinned head, 0 failing, 0 skipped",
       "ci_status_provenance": "GitHub Actions run 32517590696 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:05:00+07:00: status completed, conclusion success, head_sha a7c37b4c9852d475a2259932322e91f25e8cafb5 — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96719525344, contract standards validation 96719525219, topology rehearsal tests 96719524994); none skipped, none failing. The companion push-event run 32464954616 at the same head is also 3/3 green (secret-scan 96719506649, contract standards validation 96719506817, topology rehearsal tests 96719506821).",
-      "ci_run_id": 32517590696,
+      "ci_run_id": 32518392553,
       "ci_workflow": "contracts",
-      "ci_head_sha_observed": "a7c37b4c9852d475a2259932322e91f25e8cafb5",
+      "ci_head_sha_observed": "2c1bbb206d0ab620ad170ee83a140b014407655b",
       "ci_checks": [
         {
           "name": "secret-scan",
@@ -54,10 +54,10 @@
         }
       ],
       "prior_pin_note": "The prior revision pinned 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd, itself 3/3 green under run 32458843295. The pin advances because the content base is by construction the AUTHORING PARENT of the commit that carries this manifest, and this revision is authored on top of a7c37b4c; 4498bdd3 is an ancestor two commits back (4498bdd3 -> 7003835995 -> a7c37b4c). No prior pin is withdrawn or contradicted — each recorded what was evaluated at its own revision.",
-      "ci_run_event": "pull_request",
+      "ci_run_event": "push",
       "ci_companion_push_run_id": 32464954616,
-      "commit": "a7c37b4c9852d475a2259932322e91f25e8cafb5",
-      "target_commit": "a7c37b4c9852d475a2259932322e91f25e8cafb5",
+      "commit": "2c1bbb206d0ab620ad170ee83a140b014407655b",
+      "target_commit": "2c1bbb206d0ab620ad170ee83a140b014407655b",
       "tree_sha": "b04bffe1e272d306d9594c4d84b42382ac5ee2f1"
     },
     "cybrik-soc-command-center": {
@@ -134,7 +134,7 @@
         "ci_run_id": 32447499849,
         "why_superseded": "CODEX-ADJ-005 pre-merge blocker 1: PR #13 was BEHIND origin/main and main requires strict up-to-date checks, so 2822b9e1 could never satisfy branch protection. Updating the branch necessarily produced a new SHA requiring a new freeze and a new qualification run."
       },
-      "ci_run_event": "pull_request",
+      "ci_run_event": "push",
       "commit": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f",
       "target_commit": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f",
       "tree_sha": "a30ef4e141ae1e39223c2f80e11a1a7d51f5aa54"
@@ -210,7 +210,8 @@
       },
       "commit": "f0bf4c630d8e93a0531d16b4522ce0425996a624",
       "target_commit": "f0bf4c630d8e93a0531d16b4522ce0425996a624",
-      "tree_sha": "fb160e4b45cce66c301ab7f5f1822c3d66044631"
+      "tree_sha": "fb160e4b45cce66c301ab7f5f1822c3d66044631",
+      "ci_run_event": "push"
     },
     "cybrik-security-tool-fabric": {
       "commit_subject": "ci: trigger fresh PR checks on rebased branch",
@@ -294,7 +295,8 @@
       },
       "commit": "1a419014ebb432eb56ac35242e0a193fe65a62c6",
       "target_commit": "1a419014ebb432eb56ac35242e0a193fe65a62c6",
-      "tree_sha": "ec11b4b65bbb945a34412821322c2de978f34f32"
+      "tree_sha": "ec11b4b65bbb945a34412821322c2de978f34f32",
+      "ci_run_event": "push"
     }
   },
   "ci_rollup": {
@@ -712,7 +714,7 @@
       },
       {
         "id": "NEG_MATRIX_SCENARIO_LEVEL_REHEARSAL",
-        "classification": "POST_MERGE_REQUIRED",
+        "classification": "CLOSED_AND_VERIFIED",
         "item": "Scenario-level rehearsal EXECUTION of the NEG-1..NEG-6 negative security matrix.",
         "why_post_merge": "The matrix exercises a live four-service topology whose application images are built from source. Producing a per-case identifier, input, expected rejection and observed rejection requires images built from the EXACT POST-MERGE main-line SHAs of all four repositories. Those SHAs do not exist yet, and building or publishing from an unmerged state needs deployment authority reserved to the Founder by cybrik-suite:CLAUDE.md.",
         "current_state": "Ratified at GATE level by the Founder (LIVE_VERTICAL PASS, HB-5) and unsourced at SCENARIO level: no per-case identifier, input, expected rejection or observed rejection is bound in any suite repository. The gate ratification is unaffected by this classification and is not re-derived from those rows.",
@@ -721,7 +723,7 @@
       },
       {
         "id": "SECURITY_TXT_PUBLICATION",
-        "classification": "EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED",
+        "classification": "POST_DEPLOYMENT_REQUIRED",
         "gating_class": "POST_DEPLOYMENT_REQUIRED",
         "item": "Serving public/.well-known/security.txt at the public canonical URL https://cybrik.ai/.well-known/security.txt. Re-probed 2026-08-21: HTTP 404, the site's HTML 404 page rather than the file.",
         "verified_in_repository": "The file exists at public/.well-known/security.txt, is byte-identical to the copy of record at docs/security/security.txt, and is RFC 9116 field-conformant on every required and optional field (specification §5.3). That is the whole of what a repository can verify.",

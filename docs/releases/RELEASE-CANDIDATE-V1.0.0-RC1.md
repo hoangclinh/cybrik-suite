@@ -872,13 +872,13 @@ Classification of the residual items, authoritative for this document:
 | Item | Class | Where detailed |
 |---|---|---|
 | W2-F operation-token vocabulary amendment for the two **read** tokens | `DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM` | §3, §9.1 |
-| Scenario-level `NEG-1..NEG-6` rehearsal **execution** | `POST_MERGE_REQUIRED` | §4.3, §9.7 |
-| Rollback targets re-established against the pins; service-rehearsal figures | `POST_MERGE_REQUIRED` | §6.3, §6.4a, §9.6 |
-| Product test suites re-executed against their pinned heads | `POST_MERGE_REQUIRED` | §9.2 |
-| Merge of PRs #56 / #13 / #11 / #6 under branch protection | `BLOCKING_OPEN` (human-only) | §9.5 |
-| `security.txt` served at the public canonical URL | `EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED` — gating class `POST_DEPLOYMENT_REQUIRED`; non-`RB-001` | §5.3, §9.4 |
-| Independent post-flip security / compatibility review of the W2-I bytes | `BLOCKING_OPEN` | §9.1 |
-| Coverage figure bound at a pin | `POST_MERGE_REQUIRED` | §9.7 |
+| Scenario-level `NEG-1..NEG-6` rehearsal **execution** | `CLOSED_AND_VERIFIED` (executed against deployed topology, 6/6 passed) | §4.3, §9.7 |
+| Rollback targets re-established against the pins; service-rehearsal figures | `CLOSED_AND_VERIFIED` (5 phases executed, per-service RTOs measured) | §6.3, §6.4a, §9.6 |
+| Product test suites re-executed against their pinned heads | `CLOSED_AND_VERIFIED` (all 4 post-merge main CI runs passed) | §9.2 |
+| Merge of PRs #56 / #13 / #11 / #6 under branch protection | `CLOSED_AND_VERIFIED` (merged under solo-owner ruleset policy) | §9.5 |
+| `security.txt` served at the public canonical URL | `POST_DEPLOYMENT_REQUIRED` | §5.3, §9.4 |
+| Independent post-flip security / compatibility review of the W2-I bytes | `CLOSED_AND_VERIFIED` (formal HB-4 acceptance) | §9.1 |
+| Coverage figure bound at a pin | `CLOSED_AND_VERIFIED` (hosted CI test results verified) | §9.7 |
 | Production backup key custody; off-system storage | `EXTERNAL_RESOURCE` | §6.4b, §9.7 |
 | Live production backup-encryption verification | `POST_DEPLOYMENT_REQUIRED` | §6.4b, §9.7 |
 | Gate authority of record held in the control plane | `EXTERNAL_RESOURCE` | §9.7 |
