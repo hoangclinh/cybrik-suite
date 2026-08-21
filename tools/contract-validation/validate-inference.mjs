@@ -23,6 +23,7 @@
 // Zero external side effects. Exit 0 = all checks passed; exit 1 = at least one failure.
 
 import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, sep } from 'node:path';
 import AjvModule from 'ajv/dist/2020.js';
@@ -41,6 +42,14 @@ const CONTRACTS_ROOT = resolve(CONTRACTS);
 const DRAFT_2020 = 'https://json-schema.org/draft/2020-12/schema';
 const ID_PREFIX = 'https://contracts.cybrik.example/';
 const EXPECTED_VERSION = '0.1.0';
+// Per-file SemVer (ADR-0001 D1). Every member of this packet is new at 0.1.0 EXCEPT the inference
+// OpenAPI successor revision absorbed at Gate W2-I, which is a 0.2.0 revision of the 0.1.0 document
+// it supersedes. The map is pinned here, not read from the manifest, so a member cannot silently
+// re-declare its own expected version — the packet version itself stays 0.1.0 either way.
+const SUCCESSOR_OPENAPI = 'openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml';
+const SUCCESSOR_VERSION = '0.2.0';
+const expectedMemberVersion = (file) => (file === SUCCESSOR_OPENAPI ? SUCCESSOR_VERSION : EXPECTED_VERSION);
+const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
 
 const errors = [];
 const counts = {};
@@ -231,11 +240,32 @@ if (compat) {
     if (memberFiles.has(rf)) fail(`inference manifest: reused accepted member ${rf} must NOT also be declared a packet member (it is reused unmodified, not owned)`);
     bump('reused_accepted_members');
   }
-  // Every declared member exists on disk at contract_version 0.1.0.
+  // Every declared member exists on disk at its expected per-file version, and any member that
+  // declares a digest must match its bytes. Only the members absorbed at Gate W2-I carry digests
+  // today; repairing the older rows is a separate recorded gate, so an absent digest is not an error
+  // here — a WRONG one is.
   for (const m of compat.members || []) {
     const mp = join(CONTRACTS, m.file);
-    if (!existsSync(mp)) fail(`inference manifest: member file missing: ${m.file}`);
-    if (m.contract_version !== EXPECTED_VERSION) fail(`inference manifest: member ${m.file} contract_version must be ${EXPECTED_VERSION}`);
+    if (!existsSync(mp)) { fail(`inference manifest: member file missing: ${m.file}`); continue; }
+    const wantVersion = expectedMemberVersion(m.file);
+    if (m.contract_version !== wantVersion) fail(`inference manifest: member ${m.file} contract_version must be ${wantVersion} (per-file SemVer, ADR-0001 D1)`);
+    if (m.sha256 !== undefined) {
+      if (typeof m.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(m.sha256)) {
+        fail(`inference manifest: member ${m.file} declares a sha256 that is not a 64-hex digest`);
+      } else if (sha256File(mp) !== m.sha256) {
+        fail(`inference manifest: member ${m.file} SHA-256 mismatch — manifest ${m.sha256}, on disk ${sha256File(mp)} (recompute after any edit)`);
+      } else {
+        bump('member_sha_verified');
+      }
+    }
+    // A superseded member is relabelled, never rewritten: it must still be on disk (checked above)
+    // and must name what superseded it, so the deprecation window has a documented other end.
+    if (m.lifecycle === 'SUPERSEDED-SUPPORTED') {
+      if (!m.superseded_by) fail(`inference manifest: superseded member ${m.file} must record superseded_by`);
+      else if (!(compat.members || []).some((x) => x.file === m.superseded_by)) fail(`inference manifest: superseded member ${m.file} names superseded_by '${m.superseded_by}', which is not a member of this packet`);
+      if (m.byte_frozen !== true) fail(`inference manifest: superseded member ${m.file} must record byte_frozen:true (supersession relabels a row; it never rewrites the superseded document)`);
+      bump('superseded_members');
+    }
     bump('manifest_members');
   }
   // Trust-invariant catalog must be present (structural + runtime) so the stance is documented.

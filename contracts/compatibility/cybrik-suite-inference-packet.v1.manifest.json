@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
   "title": "CYBRIK Suite W2-D model-inference + alert-summarization contract packet — compatibility/version manifest",
-  "description": "Inventory and compatibility record for the W2-D AI-inference contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (cybrik-suite-contract-packet.v1.manifest.json): it introduces a new cybrik.model-* / cybrik.ai.* namespace and REUSES accepted primitives (common-defs, data-marking, envelope) by $ref without modifying them. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-D (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — it is NOT a stable v1/GA promotion and is NOT an ADR-0001 immutable bundle tag. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
+  "description": "Inventory and compatibility record for the W2-D AI-inference contract packet. ADDITIVE to, and DISJOINT from, the accepted v0.1 cross-product packet (cybrik-suite-contract-packet.v1.manifest.json): it introduces a new cybrik.model-* / cybrik.ai.* namespace and REUSES accepted primitives (common-defs, data-marking, envelope) by $ref without modifying them. Every member here is ACCEPTED FOR IMPLEMENTATION at v0.1.0 (not stable v1/GA) as of Gate W2-D (Codex under Founder delegation, 2026-07-24); products MAY now implement contract-first against v0.1.0. This is an implementation-authorization acceptance only — it is NOT a stable v1/GA promotion and is NOT an ADR-0001 immutable bundle tag. At Gate W2-I (Decision Council / Founder, human boundary HB-4, 2026-08-20) this manifest additionally ABSORBED the four W2-I inference-plane transport-binding members as ACCEPTED FOR IMPLEMENTATION and relabelled the v0.1.0 OpenAPI member SUPERSEDED-SUPPORTED in favour of its v0.2.0 successor revision; see w2i_transport_binding_acceptance. The packet version stays 0.1.0 and this remains a single-manifest, single-owner packet. $id uses the RFC 2606 .example documentation domain; it is an identifier, not an endpoint.",
   "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
   "x-cybrik-not-accepted": false,
   "x-cybrik-packet-version": "0.1.0",
@@ -16,7 +16,9 @@
   "adr_basis": [
     { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6); this packet stays v0.1.0 ACCEPTED FOR IMPLEMENTATION (not stable v1/GA) and is never a bundle tag." },
     { "id": "ADR-0002", "status": "ACCEPTED", "role": "model-runtime seam (G3): provider-neutral CYBRIK-owned adapter over Ollama/vLLM/llama.cpp; model gets no credential/database/tool/shell authority; constrained structured output + streaming. This packet is the contract realization of that accepted seam." },
-    { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), conditional correlation (E6), naming (E7). Inference lifecycle events reuse the accepted envelope; identity/authority is never a model-populated field." }
+    { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), conditional correlation (E6), naming (E7). Inference lifecycle events reuse the accepted envelope; identity/authority is never a model-populated field." },
+    { "id": "ADR-0008", "status": "ACCEPTED FOR IMPLEMENTATION", "role": "Accepted internal service-delegation and workload-identity trust seam. The W2-I transport-binding members absorbed at Gate W2-I reuse this two-layer profile — mTLS workload identity (D1) plus a short-lived certificate-bound asymmetric delegation token the relying party validates AND re-authorizes (D3) — by reference, without restating, weakening or re-versioning it." },
+    { "id": "ADR-0011", "status": "ACCEPTED", "role": "Inference-plane transport-binding profile, decided ACCEPT at Gate W2-I by the Decision Council / Founder at human boundary HB-4 on 2026-08-20. It is the decision record for the four transport-binding members this manifest absorbed and for the supersession of the v0.1.0 OpenAPI member by the v0.2.0 successor revision." }
   ],
   "adr_out_of_scope": [
     { "id": "ADR-0004", "reason": "Tool execution authority / capability registry / approval — a SEPARATE accepted packet. This packet carries no capability, delegation, approval, tool, or action-authorization field. The inference seam and the tool-execution seam are deliberately disjoint." },
@@ -42,8 +44,13 @@
     { "file": "json-schema/cybrik.alert-summarization-request.v1.schema.json", "title": "Alert-summarization request", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
     { "file": "json-schema/cybrik.alert-summarization-result.v1.schema.json", "title": "Alert-summarization result", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload" },
     { "file": "asyncapi/cybrik-ai-inference-events.v1.asyncapi.yaml", "title": "AI inference lifecycle events", "contract_version": "0.1.0", "format": "asyncapi", "kind": "events" },
-    { "file": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml", "title": "AI inference-plane REST mapping notes", "contract_version": "0.1.0", "format": "openapi", "kind": "rest-mapping" },
-    { "file": "adapters/cybrik-inference-adapter-notes.v1.md", "title": "Provider adapter mapping notes (Ollama/Qwen/OpenAI-envelope)", "contract_version": "0.1.0", "format": "adapter-notes", "kind": "adapter-notes" }
+    { "file": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml", "title": "AI inference-plane REST mapping notes", "contract_version": "0.1.0", "format": "openapi", "kind": "rest-mapping", "lifecycle": "SUPERSEDED-SUPPORTED", "superseded_by": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml", "superseded_at_gate": "W2-I", "superseded_on": "2026-08-20", "byte_frozen": true, "supersession_note": "Relabelled, never rewritten. Supersession changes this row in the manifest; the superseded document's bytes are unchanged and remain digest-stable at 731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e (G-W2I-4). SUPERSEDED-SUPPORTED means it is still a supported implementation target during the deprecation window; it is no longer the CURRENT owner of the four inference operations." },
+    { "file": "adapters/cybrik-inference-adapter-notes.v1.md", "title": "Provider adapter mapping notes (Ollama/Qwen/OpenAI-envelope)", "contract_version": "0.1.0", "format": "adapter-notes", "kind": "adapter-notes" },
+
+    { "file": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml", "title": "AI inference-plane REST mapping notes — transport-binding successor revision", "contract_version": "0.2.0", "format": "openapi", "kind": "rest-mapping", "lifecycle": "CURRENT", "supersedes": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml", "accepted_at_gate": "W2-I", "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741" },
+    { "file": "json-schema/cybrik.transport-common-defs.v1.schema.json", "title": "Inference-plane transport-binding common definitions", "contract_version": "0.1.0", "format": "json-schema", "kind": "shared-primitives", "lifecycle": "CURRENT", "accepted_at_gate": "W2-I", "sha256": "ce1be8f614d79af32450c439fdb5e646ef1c9e5b08b3312b363a769111d1eb84" },
+    { "file": "json-schema/cybrik.inference-transport-binding.v1.schema.json", "title": "Inference-plane transport-binding authorization-context view", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "lifecycle": "CURRENT", "accepted_at_gate": "W2-I", "sha256": "9b778727d4147d1fb6b978756fd8f70b218a6f871d87d9cf8b1ecdcad3f39381" },
+    { "file": "json-schema/cybrik.transport-authorization-error.v1.schema.json", "title": "Typed inference-plane transport and authorization error", "contract_version": "0.1.0", "format": "json-schema", "kind": "payload", "lifecycle": "CURRENT", "accepted_at_gate": "W2-I", "sha256": "aa609abbfe28b609c25417c7a1349dc015611650939238192e5490194cb4dc86" }
   ],
   "backward_compatibility": {
     "additive": true,
@@ -95,6 +102,44 @@
       "G-W2D-5 ACCEPTED: the AsyncAPI/OpenAPI deltas are retained as additive mapping notes with no operational servers/endpoints."
     ],
     "evidence_ref": "See acceptance.evidence[] and cybrik-suite:docs/releases/GATE-W2-D-INFERENCE-ACCEPTANCE-2026-07-24.md. A green validator/secret-scan run is a conformance signal; acceptance is the recorded Founder-delegated decision, not an inference from CI."
+  },
+  "w2i_transport_binding_acceptance": {
+    "note": "Gate W2-I acceptance history, applied into this manifest by the recorded W2-I status flip. Before the flip this manifest carried no candidate material (ADR-0001 D6); the four members above and this record entered together, as one whole-packet act.",
+    "gate": "W2-I",
+    "boundary_id": "HB-4",
+    "candidate": "W2-I Inference Plane Transport Binding v0.2.0",
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "decision": "ACCEPT",
+    "decided_by": "Decision Council / Founder (HB-4)",
+    "decided_on": "2026-08-20",
+    "applied_on": "2026-08-21",
+    "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT). The authority of record is a control-plane artifact OUTSIDE every suite repository; nothing committed in cybrik-suite independently corroborates it.",
+    "founder_option": "A — single-owner compatible revision (cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md, 2026-07-26, G-W2I-1..G-W2I-5 all Yes). The binding entered as a successor revision of the W2-D-owned OpenAPI member, never as a second plane, a second path owner, or a second compatibility manifest.",
+    "consumed_delta": {
+      "file": "compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json",
+      "disposition": "CONSUMED — retained as the applied review record, marked x-cybrik-applied true. It has NO residual authority: its content now lives here, and this manifest is the single compatibility manifest for these operations, before and after the flip (G-W2I-2).",
+      "authored_against_manifest_sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b"
+    },
+    "predecessor_disposition": {
+      "id": "D3",
+      "predecessor": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml",
+      "decided_disposition": "SUPERSEDED-SUPPORTED",
+      "byte_frozen": true,
+      "effective_on": "2026-08-20",
+      "retirement_floor": "Not earlier than max(2027-02-16 — 180 days after the 2026-08-20 flip, two subsequent minor releases of the inference plane after that flip). BOTH bounds must be satisfied and the later governs (ADR-0001 D3). The release-count bound is not yet met, so no retirement date is fixed and none is authorized here.",
+      "retirement_authority": "Retirement is a separate recorded decision. This record fixes the floor, not the date."
+    },
+    "carried_forward_obligations": [
+      "UNDISCHARGED — the ACCEPTED W2-F service-delegation operation-token table (adapters/cybrik-svc-delegation-mapping-notes.v1.md) still names only the two create tokens 'ai.inference.create' and 'ai.summarization.create'. The two GET tokens this binding declares, 'ai.model_classes.list' and 'ai.model_class_health.read', are accepted W2-I transport vocabulary that the accepted W2-F vocabulary does not define. The HB-4 decision accepted the W2-I binding; it did NOT amend W2-F. Until that amendment is separately reviewed and recorded, no delegation token may authorize either read operation, and this manifest makes no claim that it may. Amending W2-F edits bytes accepted at a different gate and is explicitly out of scope here.",
+      "OPEN — member-pin hygiene of this manifest's pre-W2-I members. The eleven W2-D members accepted at Gate W2-D carry no per-member SHA-256 digest, while the four members absorbed at W2-I do. Repairing the older rows edits bytes accepted at Gate W2-D and requires its own separately recorded gate; it was deliberately not bundled into the W2-I flip (G-W2I-4).",
+      "OPEN — runtime evidence. Nothing in this packet demonstrates a product transport, a real mTLS handshake, JWT/JWKS verification, TX-* enforcement or a deployed endpoint. Acceptance is contract-first implementation authorization only."
+    ],
+    "conformance_artifacts": {
+      "examples_manifest": "examples/transport/examples-manifest.json",
+      "examples_manifest_sha256": "39c6d75498cacfdf274c3e220abb4615caaa6ca186a7a2cebc88b38215c907aa",
+      "validator": "cybrik-suite:tools/contract-validation/validate-transport.mjs",
+      "evidence_status": "A green validator run is a conformance signal only. Acceptance is the recorded HB-4 decision, never an inference from CI."
+    }
   },
   "acceptance": {
     "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",

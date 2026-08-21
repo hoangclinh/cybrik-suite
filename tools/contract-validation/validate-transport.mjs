@@ -167,6 +167,10 @@ export function runValidation({ root } = {}) {
     else fail(`W2-I proposed delta: x-cybrik-status must be one of ${Object.keys(LIFECYCLE).map((k) => `'${k}'`).join(' | ')} (got '${s}')`);
   }
   const LC = EXPECTED_STATE ? LIFECYCLE[EXPECTED_STATE] : null;
+  // APPLIED is the post-flip half of the two-state machine. It is derived from the SAME field the
+  // lifecycle is derived from, never from a second independent flag, so a half-flip cannot express
+  // itself as "accepted but not applied" (or the reverse) and slip past the sections below.
+  const APPLIED = EXPECTED_STATE === 'ACCEPTED FOR IMPLEMENTATION';
   const checkLifecycle = (label, obj) => {
     if (!LC || !obj) return;
     if (obj['x-cybrik-status'] !== LC.status) fail(`${label}: x-cybrik-status must be '${LC.status}' to match the manifest lifecycle (got '${obj['x-cybrik-status']}')`);
@@ -340,14 +344,24 @@ export function runValidation({ root } = {}) {
     // manifest, must stay unapplied, and must not grow the manifest-shaped fields it declines.
     if (delta['x-cybrik-artifact-kind'] !== 'proposed-delta') fail(`W2-I delta: x-cybrik-artifact-kind must be 'proposed-delta' (got '${delta['x-cybrik-artifact-kind']}')`);
     if (delta['x-cybrik-is-manifest'] !== false) fail('W2-I delta: x-cybrik-is-manifest must be false — this artifact is NOT a compatibility manifest and must never be read, indexed, released or renamed as one');
-    if (delta['x-cybrik-applied'] !== false) fail('W2-I delta: x-cybrik-applied must be false (the delta is UNAPPLIED until a recorded Gate W2-I status flip applies it)');
-    if (delta['x-cybrik-status'] !== 'PROPOSED' || delta['x-cybrik-not-accepted'] !== true) {
-      fail("W2-I delta: a proposed-delta is PROPOSED / not-accepted by construction — it records a proposal and can never be the record of its own acceptance (acceptance is a flip of the ACCEPTED W2-D manifest, decided by the Founder at Gate W2-I)");
+    // x-cybrik-applied is the delta's own account of whether its content has been carried into the
+    // accepted manifest. It must agree with the lifecycle: PROPOSED means unapplied, ACCEPTED means
+    // applied. The two disagreeing IS the half-flip this section exists to catch.
+    if (delta['x-cybrik-applied'] !== APPLIED) {
+      fail(APPLIED
+        ? 'W2-I delta: x-cybrik-applied must be true once the delta records the ACCEPTED lifecycle (an accepted candidate whose delta still claims to be unapplied is a half-flip: the members moved and the manifest did not, or the record is lying about which)'
+        : 'W2-I delta: x-cybrik-applied must be false while PROPOSED (the delta is UNAPPLIED until a recorded Gate W2-I status flip applies it)');
+    }
+    if (APPLIED) {
+      // An APPLIED delta is a consumed review record. It never becomes the acceptance itself — the
+      // acceptance is the recorded gate decision, applied INTO the W2-D manifest (checked in 3f).
+      if (typeof delta['x-cybrik-applied-on'] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(delta['x-cybrik-applied-on'])) fail('W2-I delta: an applied delta must record x-cybrik-applied-on as an ISO date (when the flip touched the bytes, which is not necessarily when the gate decided)');
+      if (!/APPLIED/.test(delta['x-cybrik-applies-at'] || '')) fail('W2-I delta: x-cybrik-applies-at must record that the flip has been APPLIED, not that it is still awaited');
     }
     if (!/NOT a compatibility manifest/i.test(delta['x-cybrik-manifest-self-denial'] || '')) fail('W2-I delta: x-cybrik-manifest-self-denial must state that this artifact is NOT a compatibility manifest');
     if (!/renamed/i.test(delta['x-cybrik-manifest-self-denial'] || '')) fail('W2-I delta: x-cybrik-manifest-self-denial must forbid renaming the delta into a manifest (renaming is how a proposal silently becomes a packet)');
     if (!/NO ACCEPTANCE AUTHORITY/i.test(delta['x-cybrik-grants'] || '')) fail('W2-I delta: x-cybrik-grants must declare NO ACCEPTANCE AUTHORITY (a delta accepts nothing and authorizes no implementation)');
-    if (typeof delta['x-cybrik-applies-at'] !== 'string' || !/Gate W2-I/.test(delta['x-cybrik-applies-at'])) fail('W2-I delta: x-cybrik-applies-at must record that the delta applies ONLY at a future explicitly-recorded Gate W2-I status flip');
+    if (typeof delta['x-cybrik-applies-at'] !== 'string' || !/Gate W2-I/.test(delta['x-cybrik-applies-at'])) fail('W2-I delta: x-cybrik-applies-at must name the explicitly-recorded Gate W2-I status flip as the ONLY point at which this delta applies');
     // The self-denial must stay TRUE OF THE BYTES, not merely asserted. A delta that grows a manifest
     // identity is a manifest wearing a delta's name, which is precisely the failure Option A refused.
     for (const forbidden of ['members', 'x-cybrik-packet-version', 'x-cybrik-is-bundle-tag', 'x-cybrik-packet-id']) {
@@ -356,7 +370,26 @@ export function runValidation({ root } = {}) {
     // Not-yet-applied, stated as structure: the delta may propose manifest edits but must perform none.
     const pmc = delta.proposed_manifest_changes || {};
     if (pmc.target_manifest?.file !== ACCEPTED_W2D_MANIFEST) fail(`W2-I delta: proposed_manifest_changes.target_manifest.file must be the ACCEPTED W2-D packet manifest ${ACCEPTED_W2D_MANIFEST}`);
-    if (pmc.target_manifest?.modified_now !== false) fail('W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be false (the accepted W2-D manifest is untouched until a recorded flip)');
+    if (pmc.target_manifest?.modified_now !== APPLIED) {
+      fail(APPLIED
+        ? 'W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be true once the flip is applied (the accepted W2-D manifest absorbed these changes; claiming otherwise contradicts x-cybrik-applied)'
+        : 'W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be false (the accepted W2-D manifest is untouched until a recorded flip)');
+    }
+    if (APPLIED) {
+      // The flip rewrote the target manifest by design, so the delta must pin BOTH the pre-flip byte
+      // it was reviewed against and the post-flip byte on disk. One pin alone cannot distinguish
+      // "reviewed and then applied" from "re-pinned to whatever is there now".
+      const after = pmc.target_manifest?.sha256_after_flip;
+      if (typeof after !== 'string' || !/^[0-9a-f]{64}$/.test(after)) fail('W2-I delta: an applied delta must pin proposed_manifest_changes.target_manifest.sha256_after_flip (the accepted manifest bytes AFTER the flip) alongside the pre-flip sha256 it was reviewed against');
+      else {
+        const onDisk = existsSync(join(CONTRACTS, ACCEPTED_W2D_MANIFEST)) ? sha256(join(CONTRACTS, ACCEPTED_W2D_MANIFEST)) : null;
+        if (onDisk && onDisk !== after) fail(`W2-I delta: proposed_manifest_changes.target_manifest.sha256_after_flip ${after} does not match the accepted W2-D manifest on disk (${onDisk}) — re-pin after any edit to the accepted manifest`);
+      }
+      if (pmc.target_manifest?.sha256 === after) fail('W2-I delta: the pre-flip sha256 and sha256_after_flip of the target manifest are identical — the flip is recorded as applied but the accepted manifest never changed, so no member was actually absorbed');
+      for (const a of pmc.adds_members || []) {
+        if (a.applied !== true) fail(`W2-I delta: proposed_manifest_changes.adds_members entry ${a.file} must record applied:true once the flip is applied (a whole-packet flip leaves no member behind)`);
+      }
+    }
     if (!Array.isArray(pmc.removes_members) || pmc.removes_members.length !== 0) fail('W2-I delta: proposed_manifest_changes.removes_members must be empty (a compatible successor revision removes no accepted member)');
     if (!Array.isArray(pmc.modifies_accepted_members) || pmc.modifies_accepted_members.length !== 0) fail('W2-I delta: proposed_manifest_changes.modifies_accepted_members must be empty (no accepted member is modified)');
     bump('delta_identity_checked');
@@ -395,7 +428,16 @@ export function runValidation({ root } = {}) {
       // All three facts, not two: the record must stay PROPOSED, undecided (either wording — a delta
       // says NOT DECIDED, a manifest said NOT ACCEPTED; both mean unaccepted), and unapplied.
       const adrStatus = candidateAdr.status || '';
-      if (!/\bPROPOSED\b/.test(adrStatus) || !/NOT (ACCEPTED|DECIDED)/.test(adrStatus) || !/NOT APPLIED/.test(adrStatus)) fail(`transport manifest: the candidate ADR-0011 must remain PROPOSED — NOT ACCEPTED/NOT DECIDED — NOT APPLIED (Gate W2-I decides it, never this validator); got '${adrStatus}'`);
+      if (APPLIED) {
+        // Once the gate has decided, the ADR is the decision record and must say so — and must stop
+        // carrying any of the three not-yet qualifiers, which would now be false.
+        if (!/\bACCEPTED\b/.test(adrStatus)) fail(`transport manifest: ADR-0011 must record ACCEPTED once Gate W2-I is decided; got '${adrStatus}'`);
+        if (/NOT (ACCEPTED|DECIDED|APPLIED)/.test(adrStatus)) fail(`transport manifest: ADR-0011 must not still carry a NOT ACCEPTED/NOT DECIDED/NOT APPLIED qualifier once accepted; got '${adrStatus}'`);
+      } else {
+        // All three facts, not two: the record must stay PROPOSED, undecided (either wording — a delta
+        // says NOT DECIDED, a manifest said NOT ACCEPTED; both mean unaccepted), and unapplied.
+        if (!/\bPROPOSED\b/.test(adrStatus) || !/NOT (ACCEPTED|DECIDED)/.test(adrStatus) || !/NOT APPLIED/.test(adrStatus)) fail(`transport manifest: the candidate ADR-0011 must remain PROPOSED — NOT ACCEPTED/NOT DECIDED — NOT APPLIED (Gate W2-I decides it, never this validator); got '${adrStatus}'`);
+      }
     }
     // Disjointness from the accepted tool-execution packet (ADR-0004) and the unapplied org-hierarchy
     // delta (ADR-0007) is a load-bearing security stance: the transport binding grants no tool/agent
@@ -485,8 +527,23 @@ export function runValidation({ root } = {}) {
         if (memberFiles.has(u.file)) fail(`W2-I delta: upstream accepted pin ${u.file} must NOT also be a candidate member (an accepted document cannot be candidate material)`);
         if (typeof u.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(u.sha256)) { fail(`W2-I delta: upstream pin ${u.file} sha256 missing/not a 64-hex digest`); continue; }
         const upActual = sha256(up);
-        if (upActual !== u.sha256) fail(`W2-I delta: upstream ACCEPTED pin ${u.file} SHA-256 mismatch — delta ${u.sha256}, on disk ${upActual}. The accepted bytes are byte-frozen and must show ZERO diff; a mismatch means the candidate was reviewed against bytes that are not the accepted ones.`);
-        else bump('upstream_pin_verified');
+        // The accepted W2-D manifest is the TARGET of the flip, so post-flip its bytes are expected to
+        // differ from the reviewed pin. That one file switches to a two-pin rule; every other upstream
+        // pin — the predecessor OpenAPI above all — stays strictly byte-frozen in both states, because
+        // supersession relabels a member row and never rewrites the superseded document.
+        const isFlipTarget = APPLIED && u.file === ACCEPTED_W2D_MANIFEST;
+        if (isFlipTarget) {
+          if (u.byte_frozen_through_flip !== false) fail(`W2-I delta: upstream pin ${u.file} must record byte_frozen_through_flip:false — it is the deliberate target of the applied flip`);
+          const after = u.sha256_after_flip;
+          if (typeof after !== 'string' || !/^[0-9a-f]{64}$/.test(after)) fail(`W2-I delta: upstream pin ${u.file} must carry sha256_after_flip once the flip is applied (the pre-flip sha256 records what was reviewed; it can no longer describe what is on disk)`);
+          else if (upActual !== after) fail(`W2-I delta: upstream pin ${u.file} sha256_after_flip mismatch — delta ${after}, on disk ${upActual} (re-pin both sites after any edit to the accepted manifest)`);
+          else if (after === u.sha256) fail(`W2-I delta: upstream pin ${u.file} records identical pre- and post-flip digests, so the flip is claimed but the accepted manifest never moved`);
+          else bump('upstream_pin_verified');
+        } else {
+          if (APPLIED && u.byte_frozen_through_flip !== true) fail(`W2-I delta: upstream pin ${u.file} must record byte_frozen_through_flip:true — only the accepted manifest may move at the flip, and this file is not it`);
+          if (upActual !== u.sha256) fail(`W2-I delta: upstream ACCEPTED pin ${u.file} SHA-256 mismatch — delta ${u.sha256}, on disk ${upActual}. The accepted bytes are byte-frozen and must show ZERO diff; a mismatch means the candidate was reviewed against bytes that are not the accepted ones.`);
+          else bump('upstream_pin_verified');
+        }
       }
     }
 
@@ -501,18 +558,46 @@ export function runValidation({ root } = {}) {
     const successorMember = (compat.members || []).find((m) => m.file === SUCCESSOR_OPENAPI);
     if (cur.file !== PREDECESSOR_OPENAPI) fail(`W2-I delta: ownership.current_owner.file must be the accepted W2-D-owned ${PREDECESSOR_OPENAPI} (it remains the sole CURRENT owner until a recorded flip) — got '${cur.file}'`);
     if (cur.byte_frozen !== true) fail('W2-I delta: ownership.current_owner.byte_frozen must be true (supersession relabels a member; it never edits the superseded bytes)');
-    if (!/CURRENT/.test(cur.lifecycle_now || '') || !/ACCEPTED FOR IMPLEMENTATION/.test(cur.lifecycle_now || '')) fail('W2-I delta: ownership.current_owner.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION');
+    // The predecessor slot: CURRENT while the candidate is PROPOSED, SUPERSEDED-SUPPORTED once the
+    // flip applies. It is byte-frozen in BOTH states — that is the invariant the flip may not break.
+    if (APPLIED) {
+      // Anchored on the LEADING label: lifecycle_now states the state first and may then explain it,
+      // so matching anywhere would let explanatory prose ("no longer the CURRENT owner") read as a
+      // currency claim, while matching the leading label cannot.
+      if (!/^SUPERSEDED-SUPPORTED\b/.test(cur.lifecycle_now || '')) fail(`W2-I delta: once applied, ownership.current_owner.lifecycle_now must OPEN with SUPERSEDED-SUPPORTED (it is no longer the CURRENT owner; two CURRENT owners of the same four pairs is exactly the condition Option A refused) — got '${cur.lifecycle_now}'`);
+      if (/\b(?:remains|is|stays) (?:still )?CURRENT\b/i.test(cur.lifecycle_now || '')) fail('W2-I delta: ownership.current_owner.lifecycle_now must not still assert that the predecessor IS current after the flip');
+    } else {
+      if (!/CURRENT/.test(cur.lifecycle_now || '') || !/ACCEPTED FOR IMPLEMENTATION/.test(cur.lifecycle_now || '')) fail('W2-I delta: ownership.current_owner.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION');
+    }
     if (upstreamPredecessor && cur.sha256 !== upstreamPredecessor.sha256) fail(`W2-I delta: ownership.current_owner.sha256 (${cur.sha256}) disagrees with upstream_pins.accepted (${upstreamPredecessor.sha256}) for the same file — both pin sites must be re-pinned together`);
     if (succ.file !== SUCCESSOR_OPENAPI) fail(`W2-I delta: ownership.proposed_successor.file must be ${SUCCESSOR_OPENAPI} — got '${succ.file}'`);
     if (succ.contract_version !== SUCCESSOR_VERSION) fail(`W2-I delta: ownership.proposed_successor.contract_version must be ${SUCCESSOR_VERSION}`);
-    if (!/PROPOSED/.test(succ.lifecycle_now || '') || !/NOT ACCEPTED/.test(succ.lifecycle_now || '')) fail('W2-I delta: ownership.proposed_successor.lifecycle_now must record PROPOSED-SUCCESSOR — NOT ACCEPTED');
+    if (APPLIED) {
+      if (!/^CURRENT\b/.test(succ.lifecycle_now || '') || !/ACCEPTED FOR IMPLEMENTATION/.test(succ.lifecycle_now || '')) fail(`W2-I delta: once applied, ownership.proposed_successor.lifecycle_now must OPEN with CURRENT and record ACCEPTED FOR IMPLEMENTATION (it is now the sole owner of the four pairs) — got '${succ.lifecycle_now}'`);
+      if (/NOT ACCEPTED/.test(succ.lifecycle_now || '')) fail('W2-I delta: ownership.proposed_successor.lifecycle_now must not still say NOT ACCEPTED after the flip');
+    } else {
+      if (!/PROPOSED/.test(succ.lifecycle_now || '') || !/NOT ACCEPTED/.test(succ.lifecycle_now || '')) fail('W2-I delta: ownership.proposed_successor.lifecycle_now must record PROPOSED-SUCCESSOR — NOT ACCEPTED');
+    }
     if (successorMember && succ.sha256 !== successorMember.sha256) fail(`W2-I delta: ownership.proposed_successor.sha256 (${succ.sha256}) disagrees with candidate_members (${successorMember.sha256}) for the same file — both pin sites must be re-pinned together`);
     // The predecessor's PROPOSED disposition must stay a proposal, byte-frozen and non-binding.
     const disp = delta.proposed_disposition || {};
     if (disp.predecessor !== PREDECESSOR_OPENAPI) fail(`W2-I delta: proposed_disposition.predecessor must be ${PREDECESSOR_OPENAPI}`);
     if (disp.predecessor_byte_frozen !== true) fail('W2-I delta: proposed_disposition.predecessor_byte_frozen must be true');
-    if (!/CURRENT/.test(disp.predecessor_disposition_now || '')) fail('W2-I delta: proposed_disposition.predecessor_disposition_now must record that the predecessor is still CURRENT (not yet deprecated or superseded)');
-    if (disp.dates_binding !== false) fail('W2-I delta: proposed_disposition.dates_binding must be false (every date in a proposal is a planning value and consumes no W0-W6 release date)');
+    if (APPLIED) {
+      // A decided disposition, with the effective date binding and the retirement date still absent:
+      // ADR-0001 D3's floor is max(180 days, two subsequent minor releases), and the release-count
+      // bound cannot be satisfied at the flip, so a fixed retirement date here would be fabricated.
+      if (!/^SUPERSEDED-SUPPORTED\b/.test(disp.predecessor_disposition_now || '')) fail(`W2-I delta: once applied, proposed_disposition.predecessor_disposition_now must OPEN with SUPERSEDED-SUPPORTED — got '${disp.predecessor_disposition_now}'`);
+      if (disp.predecessor_disposition_decided !== 'SUPERSEDED-SUPPORTED') fail('W2-I delta: proposed_disposition.predecessor_disposition_decided must record the DECIDED disposition SUPERSEDED-SUPPORTED (ADR-0001 D3 / the recorded gate decision)');
+      if (typeof disp.effective_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(disp.effective_on)) fail('W2-I delta: an applied disposition must record effective_on as an ISO date');
+      if (disp.dates_binding !== true) fail('W2-I delta: proposed_disposition.dates_binding must be true once the disposition is decided (the effective date binds)');
+      if (disp.retirement_date_fixed !== false) fail('W2-I delta: proposed_disposition.retirement_date_fixed must be false — the ADR-0001 D3 floor needs two subsequent minor releases as well as 180 days, so no retirement date is derivable at the flip');
+      if (disp.release_dates_consumed !== false) fail('W2-I delta: proposed_disposition.release_dates_consumed must be false (a contract supersession consumes no W0-W6 release date)');
+      if (!/DECIDED/.test(disp.final_disposition_status || '')) fail('W2-I delta: proposed_disposition.final_disposition_status must record the disposition as DECIDED once applied');
+    } else {
+      if (!/CURRENT/.test(disp.predecessor_disposition_now || '')) fail('W2-I delta: proposed_disposition.predecessor_disposition_now must record that the predecessor is still CURRENT (not yet deprecated or superseded)');
+      if (disp.dates_binding !== false) fail('W2-I delta: proposed_disposition.dates_binding must be false (every date in a proposal is a planning value and consumes no W0-W6 release date)');
+    }
     bump('ownership_checked');
 
     // --- 3d. WITHDRAWN SECOND-PLANE ARTIFACTS STAY ABSENT ---------------------------------------
@@ -555,14 +640,25 @@ export function runValidation({ root } = {}) {
   }
 
   // ---------------------------------------------------------------------------
-  // 3f. ADR-0001 D6 — THE ACCEPTED W2-D MANIFEST CARRIES NO CANDIDATE MATERIAL.
+  // 3f. ADR-0001 D6 — THE ACCEPTED W2-D MANIFEST AND THE CANDIDATE, IN BOTH LIFECYCLE STATES.
   //
-  //     D6 forbids an ACCEPTED packet from referencing an UNACCEPTED one. Until a recorded Gate W2-I
-  //     flip APPLIES this delta, the accepted W2-D manifest must name none of: the proposed successor
+  //     D6 forbids an ACCEPTED packet from referencing an UNACCEPTED one. The rule therefore has two
+  //     faces, and which one applies is decided by the SAME lifecycle field as everything else:
+  //
+  //     WHILE PROPOSED — the accepted W2-D manifest must name none of: the proposed successor
   //     OpenAPI, this delta, the proposed transport schemas, the proposed examples manifest, the
   //     candidate ADR-0011, or any candidate_members path. A manifest that already lists candidate
   //     material HAS performed the flip, silently — which is exactly what x-cybrik-applied:false and
   //     proposed_manifest_changes.target_manifest.modified_now:false claim has not happened.
+  //
+  //     ONCE APPLIED — the inverse is the invariant. The members became accepted AND the manifest
+  //     adopted them in one act, so the references are accepted -> accepted and D6 is not engaged.
+  //     What must now be proven is that the flip was WHOLE: every candidate member is declared by the
+  //     accepted manifest at its post-flip digest, the predecessor member row is relabelled
+  //     SUPERSEDED-SUPPORTED rather than deleted or rewritten, and the acceptance is recorded with a
+  //     gate, a decider and a date. A member that flipped while the manifest ignored it — or a
+  //     manifest that adopted a member still carrying PROPOSED bytes — is a half-flip, and a
+  //     half-flip is the failure mode this whole section exists to make unrepresentable.
   //
   //     This block is deliberately OUTSIDE `if (compat)` and reads the accepted manifest's own bytes
   //     rather than trusting the section-3b digest pin. A stale, forged or malformed upstream pin must
@@ -595,27 +691,93 @@ export function runValidation({ root } = {}) {
       ...candidateMemberFiles.map((f) => f.split('/').pop()),
     ].filter(Boolean))];
     let d6Clean = true;
-    // (a) Member-level: an accepted member row naming candidate material IS the unrecorded flip.
-    for (const m of w2dManifest.members || []) {
-      const f = typeof m?.file === 'string' ? m.file : '';
-      const hit = D6_NEEDLES.find((n) => f.includes(n));
-      if (hit) {
-        d6Clean = false;
-        fail(D6_MSG(`declares candidate member '${f}' (matches candidate name '${hit}') — the ACCEPTED packet may not adopt candidate material before a recorded Gate W2-I flip applies the delta`));
+    if (!APPLIED) {
+      // (a) Member-level: an accepted member row naming candidate material IS the unrecorded flip.
+      for (const m of w2dManifest.members || []) {
+        const f = typeof m?.file === 'string' ? m.file : '';
+        const hit = D6_NEEDLES.find((n) => f.includes(n));
+        if (hit) {
+          d6Clean = false;
+          fail(D6_MSG(`declares candidate member '${f}' (matches candidate name '${hit}') — the ACCEPTED packet may not adopt candidate material before a recorded Gate W2-I flip applies the delta`));
+        }
       }
+      // (b) Document-level: any other reference — a path, a $ref, a cross-ref row, prose, an ADR
+      //     citation — counts too. A forward reference from accepted bytes into unaccepted ones is the
+      //     violation; where in the document it sits is not a defence. Reported as ONE error listing
+      //     every name that matched: several needles (full path, basename, version token) can name the
+      //     same reference, and repeating one violation N times would misreport its size.
+      const w2dText = JSON.stringify(w2dManifest);
+      const referenced = D6_NEEDLES.filter((n) => w2dText.includes(n));
+      if (referenced.length) {
+        d6Clean = false;
+        fail(D6_MSG(`references ${referenced.length} candidate name(s) [${referenced.join(', ')}] — an ACCEPTED packet must carry NO reference to this UNACCEPTED candidate while the delta is unapplied`));
+      }
+      if (d6Clean) bump('d6_accepted_manifest_clean');
+    } else {
+      // --- APPLIED: prove the flip was whole, in the accepted manifest's own bytes. ---------------
+      const rows = new Map();
+      for (const m of w2dManifest.members || []) if (typeof m?.file === 'string') rows.set(m.file, m);
+
+      // (a) Every candidate member is declared, accepted, and pinned to its POST-flip bytes. Reading
+      //     the digest from the accepted manifest (not the delta) is what makes the two records have
+      //     to agree; a one-sided re-pin fails here.
+      for (const m of delta?.candidate_members || []) {
+        const row = rows.get(m.file);
+        if (!row) {
+          d6Clean = false;
+          fail(D6_MSG(`does NOT declare applied candidate member '${m.file}' — the flip is recorded as applied but the accepted manifest never adopted this member (a half-flipped packet)`));
+          continue;
+        }
+        if (row.lifecycle && !/CURRENT|ACCEPTED/i.test(row.lifecycle)) fail(D6_MSG(`declares applied member '${m.file}' with lifecycle '${row.lifecycle}' — an absorbed member is CURRENT/ACCEPTED, never anything else`));
+        if (typeof row.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(row.sha256)) {
+          d6Clean = false;
+          fail(D6_MSG(`declares applied member '${m.file}' without a 64-hex sha256 — members absorbed at W2-I are digest-bound (the pre-W2-I rows are a separate, recorded gate)`));
+        } else if (row.sha256 !== m.sha256) {
+          d6Clean = false;
+          fail(D6_MSG(`pins applied member '${m.file}' at ${row.sha256}, but the delta pins ${m.sha256} for the same file — both pin sites must be re-pinned together`));
+        } else {
+          bump('applied_member_pin_agreed');
+        }
+      }
+
+      // (b) The predecessor is relabelled, not deleted and not rewritten. Supersession that removes
+      //     the superseded row loses the deprecation window; supersession that edits the superseded
+      //     document breaks G-W2I-4. Both are checked, one here and one by the byte-frozen pin in 3b.
+      const predRow = rows.get(PREDECESSOR_OPENAPI);
+      if (!predRow) {
+        d6Clean = false;
+        fail(D6_MSG(`no longer declares the superseded predecessor '${PREDECESSOR_OPENAPI}' — supersession relabels a member row and never deletes it, because a deleted row cannot carry a deprecation window`));
+      } else {
+        if (predRow.lifecycle !== 'SUPERSEDED-SUPPORTED') {
+          d6Clean = false;
+          fail(D6_MSG(`declares the predecessor '${PREDECESSOR_OPENAPI}' with lifecycle '${predRow.lifecycle}' — once the flip is applied it must be SUPERSEDED-SUPPORTED, or the packet claims two CURRENT owners of the same four pairs`));
+        }
+        if (predRow.superseded_by !== SUCCESSOR_OPENAPI) fail(D6_MSG(`declares the predecessor without superseded_by:'${SUCCESSOR_OPENAPI}' — a superseded member must name what superseded it`));
+        if (predRow.byte_frozen !== true) fail(D6_MSG(`must record byte_frozen:true on the superseded predecessor row (G-W2I-4: the superseded document's bytes never move)`));
+      }
+
+      // (c) The acceptance itself is recorded in the accepted manifest, with a gate, a decider and a
+      //     date. Absorbed members with no recorded decision behind them are an unrecorded flip.
+      const acc = w2dManifest.w2i_transport_binding_acceptance;
+      if (!acc || typeof acc !== 'object') {
+        d6Clean = false;
+        fail(D6_MSG('does not record w2i_transport_binding_acceptance — an accepted manifest that absorbed W2-I members must carry the decision that authorized them (ADR-0001 D5: acceptance is a recorded decision, never an inference from the bytes being present)'));
+      } else {
+        if (acc.gate !== 'W2-I') fail(D6_MSG("w2i_transport_binding_acceptance.gate must be 'W2-I'"));
+        if (!acc.decided_by) fail(D6_MSG('w2i_transport_binding_acceptance must record decided_by'));
+        if (!acc.decided_on) fail(D6_MSG('w2i_transport_binding_acceptance must record decided_on'));
+        if (!/ACCEPTED FOR IMPLEMENTATION/.test(acc.status || '')) fail(D6_MSG('w2i_transport_binding_acceptance.status must record ACCEPTED FOR IMPLEMENTATION'));
+        if (!Array.isArray(acc.carried_forward_obligations) || acc.carried_forward_obligations.length === 0) fail(D6_MSG('w2i_transport_binding_acceptance must list carried_forward_obligations — the open items acceptance did NOT discharge (notably the accepted W2-F operation-token table, which this flip did not amend) are recorded, never dropped'));
+        if (acc.predecessor_disposition?.decided_disposition !== 'SUPERSEDED-SUPPORTED') fail(D6_MSG('w2i_transport_binding_acceptance.predecessor_disposition.decided_disposition must record SUPERSEDED-SUPPORTED'));
+      }
+
+      // (d) One manifest, before and after (G-W2I-2). The absorbed members must live in THIS manifest
+      //     and the consumed delta must still deny being one.
+      if (w2dManifest['x-cybrik-is-bundle-tag'] !== false) fail(D6_MSG('x-cybrik-is-bundle-tag must stay false — a status flip is not a bundle-tag promotion (ADR-0001 D6)'));
+      if (w2dManifest['x-cybrik-packet-version'] !== '0.1.0') fail(D6_MSG(`x-cybrik-packet-version must stay 0.1.0 across the flip — absorbing members is not a packet re-version (got '${w2dManifest['x-cybrik-packet-version']}')`));
+
+      if (d6Clean) bump('d6_applied_manifest_whole');
     }
-    // (b) Document-level: any other reference — a path, a $ref, a cross-ref row, prose, an ADR
-    //     citation — counts too. A forward reference from accepted bytes into unaccepted ones is the
-    //     violation; where in the document it sits is not a defence. Reported as ONE error listing
-    //     every name that matched: several needles (full path, basename, version token) can name the
-    //     same reference, and repeating one violation N times would misreport its size.
-    const w2dText = JSON.stringify(w2dManifest);
-    const referenced = D6_NEEDLES.filter((n) => w2dText.includes(n));
-    if (referenced.length) {
-      d6Clean = false;
-      fail(D6_MSG(`references ${referenced.length} candidate name(s) [${referenced.join(', ')}] — an ACCEPTED packet must carry NO reference to this UNACCEPTED candidate while the delta is unapplied`));
-    }
-    if (d6Clean) bump('d6_accepted_manifest_clean');
   }
 
   // ---------------------------------------------------------------------------
@@ -900,7 +1062,15 @@ export function runValidation({ root } = {}) {
     // name the predecessor it supersedes — a successor that does not say what it succeeds is a second
     // plane by another name.
     if (oapi.info?.version !== SUCCESSOR_VERSION) fail(`transport OpenAPI: info.version must be ${SUCCESSOR_VERSION} to match the contract_version the delta pins for this member (got '${oapi.info?.version}')`);
-    if (!/PROPOSED/.test(oapi.info?.['x-cybrik-lifecycle-role'] || '')) fail("transport OpenAPI: info.x-cybrik-lifecycle-role must record it as a PROPOSED-SUCCESSOR");
+    // The successor's own role must track the flip: a PROPOSED-SUCCESSOR before it, the CURRENT owner
+    // after. A document whose status says ACCEPTED while its role still says PROPOSED-SUCCESSOR is the
+    // half-flip the ownership sweep below is written to catch, so it is refused here at the source.
+    const succRole = oapi.info?.['x-cybrik-lifecycle-role'] || '';
+    if (APPLIED) {
+      if (!/^CURRENT$/i.test(succRole)) fail(`transport OpenAPI: once applied, info.x-cybrik-lifecycle-role must be CURRENT (the successor is now the sole owner of the four pairs) — got '${succRole}'`);
+    } else if (!/PROPOSED/.test(succRole)) {
+      fail("transport OpenAPI: info.x-cybrik-lifecycle-role must record it as a PROPOSED-SUCCESSOR");
+    }
     const supersedes = oapi.info?.['x-cybrik-supersedes'];
     if (supersedes !== PREDECESSOR_OPENAPI.split('/').pop()) fail(`transport OpenAPI: info.x-cybrik-supersedes must name the accepted predecessor '${PREDECESSOR_OPENAPI.split('/').pop()}' (a compatible successor revision of the W2-D-owned plane, not a second plane) — got '${supersedes}'`);
     // BOTH security schemes: a mutual-TLS transport scheme AND a bearer at+jwt (certificate-bound)
@@ -1135,10 +1305,22 @@ export function runValidation({ root } = {}) {
   //    disjunction is deliberate — a half-flip (role still PROPOSED-SUCCESSOR, status already
   //    ACCEPTED) claims accepted authority over pairs it does not own, and must count as an owner.
   //
-  //    For the four inference pairs — defined as whatever the BYTE-FROZEN accepted predecessor
-  //    declares, so the authority is the accepted document itself rather than a list restated here:
-  //      - exactly ONE CURRENT/ACCEPTED owner, and it must be the predecessor the delta pins;
-  //      - at most ONE PROPOSED successor, and it must be the successor the delta pins.
+  //    SUPERSESSION IS A THIRD STATE, AND IT IS NOT READABLE FROM THE DOCUMENT. A superseded document
+  //    keeps its own x-cybrik-status: ACCEPTED FOR IMPLEMENTATION forever, because supersession
+  //    relabels the member row in the accepted manifest and never rewrites the superseded bytes
+  //    (G-W2I-4). So after the flip the predecessor would still classify as an owner by its own info
+  //    block, and the four pairs would show two CURRENT owners — a false positive that would make the
+  //    correct post-flip state unrepresentable. The classifier therefore consults the ACCEPTED
+  //    MANIFEST's member rows, which are the authority on supersession, and demotes any document the
+  //    manifest labels SUPERSEDED-SUPPORTED out of ownership entirely.
+  //
+  //    For the four inference pairs — defined as whatever the BYTE-FROZEN predecessor declares, so
+  //    the authority is the accepted document itself rather than a list restated here:
+  //      - WHILE PROPOSED: exactly ONE CURRENT owner (the predecessor the delta pins), and at most
+  //        ONE PROPOSED successor (the successor the delta pins).
+  //      - ONCE APPLIED: exactly ONE CURRENT owner and it must be the SUCCESSOR; the predecessor must
+  //        be SUPERSEDED (not an owner); and there must be NO remaining proposed successor, because a
+  //        successor that stayed PROPOSED through its own flip is a half-flip.
   //    Documents whose pairs are disjoint from those four (the accepted fabric control plane, say)
   //    are untouched by the rule. A parse failure is a REJECTION, never a skip: an unparseable
   //    document may be declaring the very same owned pairs and we would never know.
@@ -1146,7 +1328,14 @@ export function runValidation({ root } = {}) {
   const OPENAPI_DIR = join(CONTRACTS, 'openapi');
   const CURRENT_ROLE = 'CURRENT';
   const SUCCESSOR_ROLE = 'PROPOSED-SUCCESSOR';
-  const pairOwners = new Map();   // 'METHOD /path' -> { CURRENT: [file], 'PROPOSED-SUCCESSOR': [file] }
+  const SUPERSEDED_ROLE = 'SUPERSEDED';
+  // Supersession authority: the accepted manifest's member rows, never the superseded document.
+  const supersededFiles = new Set(
+    (w2dManifest?.members || [])
+      .filter((m) => m && typeof m.file === 'string' && m.lifecycle === 'SUPERSEDED-SUPPORTED')
+      .map((m) => m.file),
+  );
+  const pairOwners = new Map();   // 'METHOD /path' -> { CURRENT: [file], 'PROPOSED-SUCCESSOR': [file], SUPERSEDED: [file] }
   const declaredPairs = new Map(); // 'openapi/<file>' -> Set of 'METHOD /path'
   if (!existsSync(OPENAPI_DIR)) {
     fail('OpenAPI ownership sweep: contracts/openapi is missing, so single ownership of the four inference operations cannot be evaluated (fail closed)');
@@ -1168,14 +1357,16 @@ export function runValidation({ root } = {}) {
       bump('openapi_documents_swept');
       const role = d.info?.['x-cybrik-lifecycle-role'];
       const isCurrent = /^CURRENT$/i.test(String(role || '')) || d.info?.['x-cybrik-status'] === 'ACCEPTED FOR IMPLEMENTATION';
-      const owns = isCurrent ? CURRENT_ROLE : SUCCESSOR_ROLE;
+      // Supersession wins over the document's self-description, and only over an otherwise-CURRENT
+      // one: a PROPOSED document the manifest never adopted cannot be "superseded" by anything.
+      const owns = supersededFiles.has(rel) && isCurrent ? SUPERSEDED_ROLE : (isCurrent ? CURRENT_ROLE : SUCCESSOR_ROLE);
       const mine = new Set();
       for (const [p, item] of Object.entries(d.paths || {})) {
         for (const method of Object.keys(item || {})) {
           if (!HTTP_METHODS.has(method.toLowerCase())) continue;
           const key = `${method.toUpperCase()} ${p}`;
           mine.add(key);
-          if (!pairOwners.has(key)) pairOwners.set(key, { [CURRENT_ROLE]: [], [SUCCESSOR_ROLE]: [] });
+          if (!pairOwners.has(key)) pairOwners.set(key, { [CURRENT_ROLE]: [], [SUCCESSOR_ROLE]: [], [SUPERSEDED_ROLE]: [] });
           pairOwners.get(key)[owns].push(rel);
         }
       }
@@ -1189,20 +1380,42 @@ export function runValidation({ root } = {}) {
   }
   const pinnedCurrent = delta?.ownership?.current_owner?.file;
   const pinnedSuccessor = delta?.ownership?.proposed_successor?.file;
+  // Whichever document must be the sole CURRENT owner of the four pairs, in this lifecycle state.
+  const expectedOwner = APPLIED ? SUCCESSOR_OPENAPI : PREDECESSOR_OPENAPI;
   for (const key of [...ownedPairs].sort()) {
-    const o = pairOwners.get(key) || { [CURRENT_ROLE]: [], [SUCCESSOR_ROLE]: [] };
+    const o = pairOwners.get(key) || { [CURRENT_ROLE]: [], [SUCCESSOR_ROLE]: [], [SUPERSEDED_ROLE]: [] };
     const cur = o[CURRENT_ROLE];
     const succ = o[SUCCESSOR_ROLE];
+    const sup = o[SUPERSEDED_ROLE] || [];
     if (cur.length !== 1) {
       fail(`OpenAPI ownership sweep: ${key} must have exactly ONE CURRENT owner, found ${cur.length} [${cur.join(', ') || 'none'}] — Founder Option A permits a single CURRENT owner of the four inference operations, so a second accepted/CURRENT document declaring the same pair is rejected whatever its filename or version`);
-    } else if (cur[0] !== PREDECESSOR_OPENAPI) {
-      fail(`OpenAPI ownership sweep: ${key} names '${cur[0]}' as its CURRENT owner, but the accepted predecessor ${PREDECESSOR_OPENAPI} is the sole CURRENT owner until a recorded Gate W2-I flip`);
-    } else if (pinnedCurrent && cur[0] !== pinnedCurrent) {
+    } else if (cur[0] !== expectedOwner) {
+      fail(APPLIED
+        ? `OpenAPI ownership sweep: ${key} names '${cur[0]}' as its CURRENT owner, but once the Gate W2-I flip is applied the successor ${SUCCESSOR_OPENAPI} is the sole CURRENT owner and the predecessor is SUPERSEDED-SUPPORTED`
+        : `OpenAPI ownership sweep: ${key} names '${cur[0]}' as its CURRENT owner, but the accepted predecessor ${PREDECESSOR_OPENAPI} is the sole CURRENT owner until a recorded Gate W2-I flip`);
+    } else if (!APPLIED && pinnedCurrent && cur[0] !== pinnedCurrent) {
       fail(`OpenAPI ownership sweep: ${key} CURRENT owner '${cur[0]}' is not the CURRENT owner the delta pins ('${pinnedCurrent}')`);
+    } else if (APPLIED && pinnedSuccessor && cur[0] !== pinnedSuccessor) {
+      fail(`OpenAPI ownership sweep: ${key} CURRENT owner '${cur[0]}' is not the successor the delta pins ('${pinnedSuccessor}') — the applied flip must promote exactly the reviewed successor, not some other document`);
     } else {
       bump('owned_pair_current_ok');
     }
-    if (succ.length > 1) {
+    if (APPLIED) {
+      // Post-flip there is no proposal left to hold: a document still classifying as a proposed
+      // successor of an already-flipped pair never completed its own flip.
+      if (succ.length !== 0) {
+        fail(`OpenAPI ownership sweep: ${key} still carries ${succ.length} PROPOSED successor document(s) [${succ.join(', ')}] after the Gate W2-I flip — the flip promotes the successor to CURRENT and leaves no proposal behind; a residual proposed successor is a half-flip`);
+      } else {
+        bump('owned_pair_successor_ok');
+      }
+      // The predecessor must actually be present and demoted, not deleted. Deleting it would also
+      // satisfy "one CURRENT owner" while silently destroying the deprecation window.
+      if (!sup.includes(PREDECESSOR_OPENAPI)) {
+        fail(`OpenAPI ownership sweep: ${key} does not carry ${PREDECESSOR_OPENAPI} as a SUPERSEDED document — after the flip the predecessor must remain on disk, byte-frozen, and be labelled SUPERSEDED-SUPPORTED by the accepted manifest`);
+      } else {
+        bump('owned_pair_superseded_ok');
+      }
+    } else if (succ.length > 1) {
       fail(`OpenAPI ownership sweep: ${key} carries ${succ.length} PROPOSED successor documents [${succ.join(', ')}] — at most ONE delta-linked proposed successor may duplicate the accepted path declarations; a second successor re-creates the two-owner condition Option A refused, under a different filename/version`);
     } else if (succ.length === 1 && pinnedSuccessor && succ[0] !== pinnedSuccessor) {
       fail(`OpenAPI ownership sweep: ${key} PROPOSED successor '${succ[0]}' is not the delta-linked successor '${pinnedSuccessor}' — an unlinked successor owns accepted paths with no delta recording the proposal`);
@@ -1247,10 +1460,13 @@ export function isMainModule(metaUrl, argv1 = process.argv[1]) {
 // decides anything: the verdict is `errors.length`, and it is computed by runValidation.
 // ---------------------------------------------------------------------------
 export const REPORT_HEADER =
-  '=== W2-I inference-plane transport-binding candidate (PROPOSED delta vs. the ACCEPTED W2-D packet) — JSON Schema / fixtures / invariant / integrity / ownership / OpenAPI validation ===';
+  '=== W2-I inference-plane transport binding vs. the ACCEPTED W2-D packet — JSON Schema / fixtures / invariant / integrity / ownership / OpenAPI validation ===';
 
 export function formatValidationReport(result) {
   const { errors, counts, lifecycle } = result || {};
+  // The banner reports the state it actually validated. A report that says "unapplied" after an
+  // applied run would be the same class of defect the validator exists to catch, one level up.
+  const applied = lifecycle === 'ACCEPTED FOR IMPLEMENTATION';
   const errs = errors || [];
   const c = counts || {};
   const stdout = [REPORT_HEADER, `counts: ${JSON.stringify(c)}`];
@@ -1268,14 +1484,22 @@ export function formatValidationReport(result) {
     `integrity (${c.member_sha_verified || 0} candidate-member + ${c.upstream_pin_verified || 0} upstream-accepted + ${c.examples_manifest_sha_verified || 0} examples-manifest + ${c.example_sha_verified || 0}/${c.example_inventory_on_disk || 0} support-fixture SHA-256 digests, inventory closed with no duplicate or orphan); ` +
     `${c.invariants_checked || 0} structural assertions (${c.invariants_ok || 0} ok) covering TT-1..TT-9; ` +
     `${c.runtime_negative_declared_match || 0}/${c.runtime_negative_total || 0} negative-semantic fixtures rejected on EXACTLY their declared TX rule, witnessing each of TX-1..TX-8 once; ` +
-    `delta self-denial (proposed-delta, NOT a manifest, unapplied) + single-owner ownership + ${c.withdrawn_artifact_absent || 0} withdrawn second-plane artifacts absent + ` +
-    `ADR-0001 D6 (the accepted W2-D manifest's own bytes reference no candidate material) + ` +
-    `a lifecycle-aware sweep of ${c.openapi_documents_swept || 0} OpenAPI document(s)/${c.openapi_pairs_swept || 0} declared pairs proving ${c.owned_pair_current_ok || 0}/${c.ownership_sweep_pairs || 0} owned pairs keep exactly one CURRENT owner and ${c.owned_pair_successor_ok || 0}/${c.ownership_sweep_pairs || 0} at most one delta-linked PROPOSED successor + ` +
+    `delta self-denial (${applied ? 'consumed applied record, still NOT a manifest' : 'proposed-delta, NOT a manifest, unapplied'}) + single-owner ownership + ${c.withdrawn_artifact_absent || 0} withdrawn second-plane artifacts absent + ` +
+    (applied
+      ? `ADR-0001 D5/D6 (the accepted W2-D manifest declares all ${c.applied_member_pin_agreed || 0} absorbed members at digests agreeing with the delta, relabels the predecessor SUPERSEDED-SUPPORTED byte-frozen, and records the gate decision) + `
+      : `ADR-0001 D6 (the accepted W2-D manifest's own bytes reference no candidate material) + `) +
+    `a lifecycle-aware sweep of ${c.openapi_documents_swept || 0} OpenAPI document(s)/${c.openapi_pairs_swept || 0} declared pairs proving ${c.owned_pair_current_ok || 0}/${c.ownership_sweep_pairs || 0} owned pairs keep exactly one CURRENT owner and ` +
+    (applied
+      ? `${c.owned_pair_successor_ok || 0}/${c.ownership_sweep_pairs || 0} carry no residual proposed successor and ${c.owned_pair_superseded_ok || 0}/${c.ownership_sweep_pairs || 0} keep the superseded predecessor on disk + `
+      : `${c.owned_pair_successor_ok || 0}/${c.ownership_sweep_pairs || 0} at most one delta-linked PROPOSED successor + `) +
     `${c.registry_operation_witnessed || 0}/${c.openapi_operation_bound || 0} closed-registry operations agreeing across delta, fixtures and the successor bytes; ` +
     `response-binding preservation over ${c.response_operations_checked || 0} accepted operation(s) — ${c.response_status_preserved || 0} accepted non-error binding(s) preserved verbatim and ` +
-    `${c.dual_branch_response_ok || 0}/${c.dual_branch_response_total || 0} error surfaces on the ${c.response_accepted_error_statuses || 0} accepted error status(es) carrying EXACTLY the accepted ModelInferenceError + proposed TransportAuthorizationError oneOf branch set; ` +
+    `${c.dual_branch_response_ok || 0}/${c.dual_branch_response_total || 0} error surfaces on the ${c.response_accepted_error_statuses || 0} accepted error status(es) carrying EXACTLY the accepted ModelInferenceError + TransportAuthorizationError oneOf branch set; ` +
     `the OpenAPI mTLS+at+jwt security bind. ` +
-    `Lifecycle: ${lifecycle || 'UNKNOWN'} — schemas/fixtures v${EXPECTED_VERSION}, successor OpenAPI v${SUCCESSOR_VERSION}. Conformance evidence only; this is NOT acceptance and NOT implementation authorization, and the delta remains UNAPPLIED against the ACCEPTED W2-D packet.`,
+    `Lifecycle: ${lifecycle || 'UNKNOWN'} — schemas/fixtures v${EXPECTED_VERSION}, successor OpenAPI v${SUCCESSOR_VERSION}. ` +
+    (applied
+      ? `Conformance evidence only. This run is NOT the acceptance: Gate W2-I was decided by the recorded gate decision, and this delta was APPLIED into the ACCEPTED W2-D packet. It proves no runtime, endpoint, deployment or release readiness, and it does not discharge the open items the acceptance carried forward — notably the accepted W2-F operation-token table, which this flip did not amend.`
+      : `Conformance evidence only; this is NOT acceptance and NOT implementation authorization, and the delta remains UNAPPLIED against the ACCEPTED W2-D packet.`),
   );
   return { stdout, stderr, exitCode: 0 };
 }

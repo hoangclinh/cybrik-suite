@@ -1,11 +1,17 @@
 // validate-transport.test.mjs — citation/integrity/ownership tests for the W2-I transport-binding
 // PROPOSED SUCCESSOR of the ACCEPTED W2-D inference OpenAPI member.
 //
-// LIFECYCLE (never asserted away by these tests): W2-D is the SOLE CURRENT owner of the four
-// inference operations; the W2-I successor is PROPOSED — NOT ACCEPTED; Gate W2-I is NOT OPENED.
+// LIFECYCLE (never asserted away by these tests): Gate W2-I was decided ACCEPT at human boundary
+// HB-4 on 2026-08-20 and applied on 2026-08-21. The W2-I successor is now the SOLE CURRENT owner of
+// the four inference operations and the v0.1.0 predecessor is SUPERSEDED-SUPPORTED and byte-frozen.
 // Founder Option A (FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md, 2026-07-26) forbids a second
-// independent path owner, so the transport binding enters ONLY as a delta-linked proposed
-// successor revision of the W2-D OpenAPI member.
+// independent path owner, so the binding entered ONLY as a delta-linked successor revision of the
+// W2-D OpenAPI member — one owner before the flip, one owner after, never two.
+//
+// The `APPLIED` switch below is derived from the delta's own lifecycle field, exactly as the
+// validator derives it. Every state-dependent assertion branches on it, and the pre-flip branches
+// are kept rather than deleted: the mutation family (8) still has to prove the validator rejects a
+// regression back into a half-flipped or unapplied shape.
 //
 // Families:
 //   1. zero unresolved ADR reference — every ADR-nnnn cited by the candidate resolves to a real
@@ -96,6 +102,12 @@ const predecessor = YAML.parse(predecessorText);
 
 // The ADR number reserved for the W0-I07B capability-name canonicalization record. Built by
 // concatenation so this test file itself stays free of the excluded token (family 4 scans it too).
+// The lifecycle these tests run against, read from the SAME field the validator reads. Gate W2-I is
+// decided and applied, so the post-flip branch is live; the pre-flip branch is retained because the
+// mutation family must still be able to prove the validator rejects a regression back into it.
+const APPLIED = delta['x-cybrik-status'] === 'ACCEPTED FOR IMPLEMENTATION';
+const MEMBER_STATUS = APPLIED ? 'ACCEPTED FOR IMPLEMENTATION' : 'PROPOSED';
+
 const RESERVED_ADR = ['ADR', '0010'].join('-');
 const CANDIDATE_ADR = 'ADR-0011';
 const SEAM_ADR = 'ADR-0008';
@@ -159,13 +171,25 @@ test('every ADR reference in the candidate resolves to a real docs/adr record', 
   }
 });
 
-test('the candidate transport-binding ADR is declared as ADR-0011, authored but NOT DECIDED', () => {
+test('the transport-binding ADR is declared as ADR-0011 and its status tracks the gate', () => {
   assert.ok(candidateEntry, `the delta adr_basis must declare the candidate ${CANDIDATE_ADR}`);
-  assert.equal(candidateEntry.status, 'PROPOSED — NOT DECIDED — NOT APPLIED');
-  assert.match(candidateEntry.role, /^Candidate inference-plane transport-binding profile evaluated by Gate W2-I\./);
-  assert.ok(adrRecordExists(CANDIDATE_ADR), `${CANDIDATE_ADR} must now be authored as a real docs/adr record`);
+  assert.ok(adrRecordExists(CANDIDATE_ADR), `${CANDIDATE_ADR} must be authored as a real docs/adr record`);
   const rec = adrRecordText(CANDIDATE_ADR);
-  assert.match(rec, /PROPOSED — NOT DECIDED/, 'the ADR-0011 record must carry a PROPOSED — NOT DECIDED status');
+  if (APPLIED) {
+    // Decided: the delta and the ADR record must BOTH say so, and neither may keep a not-yet
+    // qualifier. A record still reading PROPOSED behind an accepted packet is the documentation half
+    // of a half-flip, and is exactly as misleading as the byte half.
+    assert.equal(candidateEntry.status, 'ACCEPTED');
+    assert.doesNotMatch(candidateEntry.status, /NOT (ACCEPTED|DECIDED|APPLIED)/, 'an accepted ADR entry must not keep a not-yet qualifier');
+    assert.match(candidateEntry.role, /Inference-plane transport-binding profile, DECIDED ACCEPT at Gate W2-I/);
+    assert.match(rec, /^- Status: `ACCEPTED`/m, 'the ADR-0011 record must carry an ACCEPTED status line');
+    assert.match(rec, /^- Date decided: 2026-08-20/m, 'the ADR-0011 record must carry the date the gate decided');
+    assert.match(rec, /HB-4/, 'the ADR-0011 record must name the human boundary the decision was taken at');
+  } else {
+    assert.equal(candidateEntry.status, 'PROPOSED — NOT DECIDED — NOT APPLIED');
+    assert.match(candidateEntry.role, /^Candidate inference-plane transport-binding profile evaluated by Gate W2-I\./);
+    assert.match(rec, /PROPOSED — NOT DECIDED/, 'the ADR-0011 record must carry a PROPOSED — NOT DECIDED status');
+  }
 
   // The claim under test is about the DECISION, so it is asserted against the Decision section and
   // nothing else. A whole-record doesNotMatch over the retired path was the wrong instrument: the
@@ -352,8 +376,19 @@ test('the delta is NOT a manifest and says so in machine-readable form', () => {
   assert.equal(delta['x-cybrik-is-manifest'], false, 'the delta must self-deny manifest status');
   assert.equal(delta['x-cybrik-artifact-kind'], 'proposed-delta');
   assert.match(String(delta['x-cybrik-manifest-self-denial']), /NOT a compatibility manifest/);
-  assert.equal(delta['x-cybrik-applied'], false, 'the delta must record that it is NOT applied');
-  assert.match(String(delta['x-cybrik-applies-at']), /future Gate W2-I status flip/);
+  // Self-denial survives the flip: an applied delta is a consumed review record, and a record that
+  // grew into a manifest would be the second manifest Option A refused, under a delta's filename.
+  assert.equal(delta['x-cybrik-applied'], APPLIED, 'x-cybrik-applied must agree with the delta lifecycle');
+  for (const forbidden of ['members', 'x-cybrik-packet-version', 'x-cybrik-is-bundle-tag', 'x-cybrik-packet-id']) {
+    assert.ok(!(forbidden in delta), `the delta must not grow the manifest-shaped field '${forbidden}'`);
+  }
+  assert.match(String(delta['x-cybrik-grants']), /NO ACCEPTANCE AUTHORITY/, 'the delta never grants acceptance authority, applied or not');
+  if (APPLIED) {
+    assert.match(String(delta['x-cybrik-applies-at']), /APPLIED at the Gate W2-I status flip/);
+    assert.match(String(delta['x-cybrik-applied-on']), /^\d{4}-\d{2}-\d{2}$/, 'an applied delta records when the flip touched the bytes');
+  } else {
+    assert.match(String(delta['x-cybrik-applies-at']), /future Gate W2-I status flip/);
+  }
 });
 
 test('every delta candidate-member sha256 matches its on-disk bytes', () => {
@@ -361,7 +396,13 @@ test('every delta candidate-member sha256 matches its on-disk bytes', () => {
   assert.equal(members.length, 4, 'the delta pins exactly four candidate member digests (3 schemas + the successor OpenAPI)');
   for (const m of members) {
     assert.equal(sha256File(join(CONTRACTS, m.file)), m.sha256, `candidate member ${m.file}: pinned sha256 is stale — re-pin after any edit`);
-    assert.equal(m.status, 'PROPOSED', `candidate member ${m.file} must stay PROPOSED`);
+    assert.equal(m.status, MEMBER_STATUS, `candidate member ${m.file} must carry the packet lifecycle status`);
+    if (APPLIED) {
+      // Both digests, so "the flip changed only the lifecycle header" is checkable rather than
+      // asserted: the reviewed byte and the applied byte are each recorded, and they must differ.
+      assert.match(String(m.sha256_at_proposal), /^[0-9a-f]{64}$/, `candidate member ${m.file} must retain the digest the gate reviewed`);
+      assert.notEqual(m.sha256_at_proposal, m.sha256, `candidate member ${m.file} records identical pre- and post-flip digests, so the status flip never touched it`);
+    }
   }
 });
 
@@ -369,16 +410,33 @@ test('the delta pins the UPSTREAM accepted W2-D manifest and OpenAPI bytes exact
   const pins = delta.upstream_pins?.accepted || [];
   assert.equal(pins.length, 2, 'the delta pins exactly the accepted W2-D packet manifest and the accepted W2-D OpenAPI predecessor');
   const byFile = Object.fromEntries(pins.map((p) => [p.file, p]));
-  assert.equal(byFile['compatibility/cybrik-suite-inference-packet.v1.manifest.json']?.sha256, sha256File(join(ROOT, W2D_MANIFEST_REL)));
+  const manifestPin = byFile['compatibility/cybrik-suite-inference-packet.v1.manifest.json'];
   assert.equal(byFile['openapi/cybrik-ai-inference-plane.v1.openapi.yaml']?.sha256, sha256File(join(ROOT, PREDECESSOR_REL)));
+  if (APPLIED) {
+    // The accepted manifest is the TARGET of the flip, so post-flip it is the one upstream pin whose
+    // bytes are expected to have moved. It therefore carries two digests: what was reviewed, and what
+    // is on disk. Collapsing them to one would make "reviewed, then applied" indistinguishable from
+    // "re-pinned to whatever is there now".
+    assert.equal(manifestPin?.byte_frozen_through_flip, false, 'the accepted manifest is the flip target and must say so');
+    assert.equal(manifestPin?.sha256_after_flip, sha256File(join(ROOT, W2D_MANIFEST_REL)), 'sha256_after_flip must match the accepted manifest on disk');
+    assert.notEqual(manifestPin?.sha256, manifestPin?.sha256_after_flip, 'identical pre/post digests would mean the flip never modified the accepted manifest');
+    assert.equal(byFile['openapi/cybrik-ai-inference-plane.v1.openapi.yaml']?.byte_frozen_through_flip, true, 'the predecessor is byte-frozen through the flip');
+  } else {
+    assert.equal(manifestPin?.sha256, sha256File(join(ROOT, W2D_MANIFEST_REL)));
+  }
 });
 
-test('the accepted W2-D predecessor and manifest show zero diff against HEAD', () => {
-  for (const rel of [PREDECESSOR_REL, W2D_MANIFEST_REL]) {
+test('the superseded W2-D predecessor document shows zero diff against HEAD', () => {
+  // Byte-freeze is the load-bearing half of supersession (G-W2I-4): the manifest relabels the member
+  // row, and the superseded DOCUMENT is never rewritten. The accepted manifest itself is deliberately
+  // excluded post-flip — it is the artifact the flip was supposed to change, and its integrity is
+  // covered by the two-digest upstream pin above instead.
+  const frozen = APPLIED ? [PREDECESSOR_REL] : [PREDECESSOR_REL, W2D_MANIFEST_REL];
+  for (const rel of frozen) {
     const r = spawnSync('git', ['diff', '--exit-code', '--', rel], { cwd: ROOT, encoding: 'utf8' });
-    assert.equal(r.status, 0, `${rel}: accepted W2-D bytes must be unchanged (G-W2I-4)\n${r.stdout}`);
+    assert.equal(r.status, 0, `${rel}: byte-frozen W2-D bytes must be unchanged (G-W2I-4)\n${r.stdout}`);
     const staged = spawnSync('git', ['diff', '--cached', '--exit-code', '--', rel], { cwd: ROOT, encoding: 'utf8' });
-    assert.equal(staged.status, 0, `${rel}: accepted W2-D bytes must be unchanged in the index too\n${staged.stdout}`);
+    assert.equal(staged.status, 0, `${rel}: byte-frozen W2-D bytes must be unchanged in the index too\n${staged.stdout}`);
   }
 });
 
@@ -404,18 +462,25 @@ test('the retired second-plane draft and the rogue transport manifest are gone f
   }
 });
 
-test('exactly one CURRENT owner and at most one delta-linked PROPOSED successor per (method, path)', () => {
+test('exactly one owner per (method, path), with supersession read from the accepted manifest', () => {
+  // This mirrors the validator's sweep independently, from the same authority: a superseded document
+  // keeps its own ACCEPTED FOR IMPLEMENTATION status forever (its bytes are frozen), so ownership
+  // cannot be read from the document alone. The accepted manifest's member rows are what say which
+  // document was demoted.
+  const w2d = JSON.parse(read(W2D_MANIFEST_REL));
+  const superseded = new Set((w2d.members || []).filter((m) => m.lifecycle === 'SUPERSEDED-SUPPORTED').map((m) => m.file));
   const dir = join(CONTRACTS, 'openapi');
   const owners = new Map();
   for (const f of readdirSync(dir).filter((x) => /\.ya?ml$/.test(x))) {
     const doc = YAML.parse(readFileSync(join(dir, f), 'utf8'));
     const status = doc.info?.['x-cybrik-status'];
-    const role = doc.info?.['x-cybrik-lifecycle-role'] || (status === 'ACCEPTED FOR IMPLEMENTATION' ? 'CURRENT' : 'PROPOSED-SUCCESSOR');
+    const declared = doc.info?.['x-cybrik-lifecycle-role'] || (status === 'ACCEPTED FOR IMPLEMENTATION' ? 'CURRENT' : 'PROPOSED-SUCCESSOR');
+    const role = superseded.has(`openapi/${f}`) && declared === 'CURRENT' ? 'SUPERSEDED' : declared;
     for (const [p, item] of Object.entries(doc.paths || {})) {
       for (const method of Object.keys(item)) {
         if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) continue;
         const key = `${method.toUpperCase()} ${p}`;
-        if (!owners.has(key)) owners.set(key, { CURRENT: [], 'PROPOSED-SUCCESSOR': [] });
+        if (!owners.has(key)) owners.set(key, { CURRENT: [], 'PROPOSED-SUCCESSOR': [], SUPERSEDED: [] });
         owners.get(key)[role].push(f);
       }
     }
@@ -430,20 +495,32 @@ test('exactly one CURRENT owner and at most one delta-linked PROPOSED successor 
   }
   const four = ['GET /api/v1/model-classes', 'GET /api/v1/model-classes/{model_class}/health', 'POST /api/v1/inferences', 'POST /api/v1/summarizations'];
   for (const k of four) {
-    assert.equal(owners.get(k)['PROPOSED-SUCCESSOR'].length, 1, `${k}: the four inference pairs each carry exactly one PROPOSED successor`);
+    const o = owners.get(k);
+    if (APPLIED) {
+      // Post-flip: the successor owns, the predecessor is demoted but STILL PRESENT, and no proposal
+      // survives. Requiring the predecessor to remain is what stops "delete it" passing as a flip.
+      assert.deepEqual(o.CURRENT, ['cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml'], `${k}: the successor is the sole CURRENT owner after the flip`);
+      assert.deepEqual(o.SUPERSEDED, ['cybrik-ai-inference-plane.v1.openapi.yaml'], `${k}: the predecessor must remain on disk as SUPERSEDED-SUPPORTED`);
+      assert.equal(o['PROPOSED-SUCCESSOR'].length, 0, `${k}: no proposed successor may survive the flip`);
+    } else {
+      assert.deepEqual(o.CURRENT, ['cybrik-ai-inference-plane.v1.openapi.yaml'], `${k}: the predecessor is the sole CURRENT owner before the flip`);
+      assert.equal(o['PROPOSED-SUCCESSOR'].length, 1, `${k}: the four inference pairs each carry exactly one PROPOSED successor`);
+    }
   }
 });
 
-test('the successor declares its delta link and stays PROPOSED — NOT ACCEPTED', () => {
+test('the successor declares its delta link and its lifecycle tracks the gate', () => {
   assert.equal(successor.openapi, '3.1.1');
   assert.equal(successor.info.version, '0.2.0');
-  assert.equal(successor.info['x-cybrik-status'], 'PROPOSED');
-  assert.equal(successor.info['x-cybrik-not-accepted'], true);
-  assert.equal(successor.info['x-cybrik-lifecycle-role'], 'PROPOSED-SUCCESSOR');
+  assert.equal(successor.info['x-cybrik-status'], APPLIED ? 'ACCEPTED FOR IMPLEMENTATION' : 'PROPOSED');
+  assert.equal(successor.info['x-cybrik-not-accepted'], !APPLIED);
+  assert.equal(successor.info['x-cybrik-lifecycle-role'], APPLIED ? 'CURRENT' : 'PROPOSED-SUCCESSOR');
   assert.equal(successor.info['x-cybrik-supersedes'], 'cybrik-ai-inference-plane.v1.openapi.yaml');
   assert.equal(successor.info['x-cybrik-delta-ref'], '../compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json');
   assert.ok(!('servers' in successor), 'the successor must declare no servers block');
-  assert.equal(predecessor.info['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION', 'the predecessor stays the CURRENT accepted owner');
+  // The predecessor's OWN status never moves, in either state: supersession is recorded in the
+  // manifest, so relabelling it here would be the byte rewrite G-W2I-4 forbids.
+  assert.equal(predecessor.info['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION', 'the predecessor document keeps its own accepted status, before and after supersession');
 });
 
 test('the delta records the resolved path-ownership decision and cites the Founder packet', () => {
@@ -456,8 +533,25 @@ test('the delta records the resolved path-ownership decision and cites the Found
   assert.equal(delta.founder_decision?.decided_by, 'Founder');
   assert.equal(delta.founder_decision?.decided_on, '2026-07-26');
   assert.match(String(delta.founder_decision?.packet), /FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP\.md$/);
-  assert.match(delta.gate?.status || '', /NOT OPENED/);
-  assert.match(delta.acceptance?.status || '', /NOT ACCEPTED/);
+  if (APPLIED) {
+    assert.match(delta.gate?.status || '', /^DECIDED — ACCEPTED FOR IMPLEMENTATION/);
+    assert.doesNotMatch(delta.gate?.status || '', /NOT OPENED|awaiting/i, 'a decided gate must not still read as awaiting a decision');
+    assert.match(delta.acceptance?.status || '', /^ACCEPTED FOR IMPLEMENTATION/);
+    assert.doesNotMatch(delta.acceptance?.status || '', /\bNOT ACCEPTED\b/);
+    for (const k of ['gate', 'decided_by', 'decided_on']) {
+      assert.ok(delta.acceptance?.[k], `an accepted delta must record acceptance.${k}`);
+    }
+    assert.ok((delta.acceptance?.evidence || []).length > 0, 'an accepted delta must record acceptance.evidence[]');
+    // The open items acceptance did NOT discharge stay recorded. The W2-F operation-token gap was
+    // BLOCKING before the gate and the gate did not amend W2-F, so it must survive as an open item;
+    // silently dropping it at the flip is the failure this assertion exists to prevent.
+    const open = JSON.stringify(delta.gate?.open_items || []);
+    assert.match(open, /W2-F/, 'the undischarged W2-F operation-token amendment must remain an open item after acceptance');
+    assert.match(open, /UNDISCHARGED/, 'the W2-F item must be marked undischarged, not quietly reworded into a resolved one');
+  } else {
+    assert.match(delta.gate?.status || '', /NOT OPENED/);
+    assert.match(delta.acceptance?.status || '', /NOT ACCEPTED/);
+  }
 });
 
 // The in-scope copy of the Founder path-ownership arbitration, and the exact full digest of the
@@ -810,8 +904,19 @@ test('the delta operation registry is closed and maps every token to its operati
   const byToken = Object.fromEntries(reg.operations.map((o) => [o.token, o]));
   assert.match(byToken['ai.inference.create'].vocabulary_status, /^ACCEPTED — W2-F vocabulary/);
   assert.match(byToken['ai.summarization.create'].vocabulary_status, /^ACCEPTED — W2-F vocabulary/);
-  assert.match(byToken['ai.model_classes.list'].vocabulary_status, /^W2-I PROPOSED — NOT ACCEPTED/);
-  assert.match(byToken['ai.model_class_health.read'].vocabulary_status, /^W2-I PROPOSED — NOT ACCEPTED/);
+  for (const readToken of ['ai.model_classes.list', 'ai.model_class_health.read']) {
+    const vs = byToken[readToken].vocabulary_status;
+    if (APPLIED) {
+      // The gap the gate did NOT close. Accepting the transport binding accepted these tokens on the
+      // transport seam only; the accepted W2-F table still names just the two creates. The status
+      // string has to keep saying so, or an implementer reads "ACCEPTED" and issues a delegation
+      // token naming an operation the accepted vocabulary cannot resolve.
+      assert.match(vs, /^ACCEPTED W2-I transport vocabulary, NOT YET ACCEPTED W2-F delegation vocabulary/, `${readToken}: the W2-F vocabulary gap must survive W2-I acceptance`);
+      assert.match(vs, /UNDISCHARGED/, `${readToken}: the W2-F amendment must be recorded as an undischarged obligation`);
+    } else {
+      assert.match(vs, /^W2-I PROPOSED — NOT ACCEPTED/);
+    }
+  }
   const svcDefs = JSON.parse(read('contracts/json-schema/cybrik.svc-common-defs.v1.schema.json'));
   const acceptedVocab = svcDefs.$defs.operationRef.properties.name.description;
   assert.ok(acceptedVocab.includes("'ai.inference.create'") && acceptedVocab.includes("'ai.summarization.create'"), 'the accepted W2-F vocabulary must actually contain the two POST tokens');
@@ -836,21 +941,60 @@ test('the D2 compatibility/break disclosure and the D3 disposition are explicit 
   assert.ok(Array.isArray(d2.consumer_matrix) && d2.consumer_matrix.length > 0, 'D2 must carry a consumer compatibility matrix');
   const d3 = delta.proposed_disposition;
   assert.equal(d3?.id, 'D3');
-  assert.equal(d3.predecessor_disposition_proposed, 'SUPERSEDED-SUPPORTED');
   assert.equal(d3.predecessor_byte_frozen, true);
-  assert.equal(d3.dates_binding, false, 'D3 dates are PROPOSED, never binding');
   assert.match(d3.retirement_floor, /180 days/);
   assert.match(d3.retirement_floor, /two subsequent minor releases/);
   assert.match(d3.retirement_floor, /max\(/i);
+  if (APPLIED) {
+    assert.equal(d3.predecessor_disposition_decided, 'SUPERSEDED-SUPPORTED');
+    assert.match(String(d3.effective_on), /^\d{4}-\d{2}-\d{2}$/, 'a decided supersession has an effective date');
+    assert.equal(d3.dates_binding, true, 'the decided effective date binds');
+    // But the RETIREMENT date still does not exist: D3's floor is max(180 days, two subsequent minor
+    // releases), and the release-count bound cannot be met at the flip. Publishing a retirement date
+    // here would be fabricating the half of the floor that has not happened.
+    assert.equal(d3.retirement_date_fixed, false, 'no retirement date is derivable at the flip — the two-minor-release bound is unmet');
+    assert.equal(d3.release_dates_consumed, false, 'a contract supersession consumes no W0-W6 release date');
+    assert.match(d3.final_disposition_status, /^DECIDED/);
+  } else {
+    assert.equal(d3.predecessor_disposition_proposed, 'SUPERSEDED-SUPPORTED');
+    assert.equal(d3.dates_binding, false, 'D3 dates are PROPOSED, never binding');
+  }
 });
 
-test('D6: the accepted W2-D manifest references no proposed/delta/successor member', () => {
+test('D6: the accepted W2-D manifest and the candidate agree, in whichever state the gate is in', () => {
   const m = JSON.parse(read(W2D_MANIFEST_REL));
   const files = (m.members || []).map((x) => x.file);
-  for (const f of files) {
-    assert.doesNotMatch(f, /contract-0\.2\.0|w2i-proposed-delta|transport/, `accepted W2-D manifest must not reference candidate member ${f} before the flip`);
+  if (!APPLIED) {
+    // D6 proper: an accepted packet may not reference an unaccepted one.
+    for (const f of files) {
+      assert.doesNotMatch(f, /contract-0\.2\.0|w2i-proposed-delta|transport/, `accepted W2-D manifest must not reference candidate member ${f} before the flip`);
+    }
+    assert.doesNotMatch(JSON.stringify(m), /w2i-proposed-delta|contract-0\.2\.0/, 'the accepted W2-D manifest must not mention the candidate at all before the flip');
+    return;
   }
-  assert.doesNotMatch(JSON.stringify(m), /w2i-proposed-delta|contract-0\.2\.0/, 'the accepted W2-D manifest must not mention the candidate at all before the flip');
+  // Post-flip the inverse is the invariant: the flip was whole, or it was not a flip. Every absorbed
+  // member is declared at a digest agreeing with the delta, the predecessor is relabelled rather than
+  // dropped, and the decision that authorized all of it is recorded in the manifest itself.
+  const rows = new Map(files.map((f, i) => [f, m.members[i]]));
+  for (const cm of delta.candidate_members) {
+    const row = rows.get(cm.file);
+    assert.ok(row, `the accepted W2-D manifest must declare absorbed member ${cm.file}`);
+    assert.equal(row.sha256, cm.sha256, `${cm.file}: the manifest and the delta must pin the same bytes`);
+    assert.equal(sha256File(join(ROOT, 'contracts', cm.file)), row.sha256, `${cm.file}: the manifest pin must match the bytes on disk`);
+  }
+  const predRow = rows.get('openapi/cybrik-ai-inference-plane.v1.openapi.yaml');
+  assert.ok(predRow, 'the superseded predecessor row must survive the flip — deleting it would destroy the deprecation window');
+  assert.equal(predRow.lifecycle, 'SUPERSEDED-SUPPORTED');
+  assert.equal(predRow.superseded_by, 'openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml');
+  assert.equal(predRow.byte_frozen, true);
+  const acc = m.w2i_transport_binding_acceptance;
+  assert.ok(acc, 'the accepted manifest must record the decision that authorized the absorbed members');
+  assert.equal(acc.gate, 'W2-I');
+  assert.equal(acc.decision, 'ACCEPT');
+  assert.ok(acc.decided_by && acc.decided_on, 'the recorded acceptance names a decider and a date');
+  assert.ok((acc.carried_forward_obligations || []).some((o) => /W2-F/.test(o)), 'the undischarged W2-F obligation must be recorded in the accepted manifest, not only in the delta');
+  assert.equal(m['x-cybrik-packet-version'], '0.1.0', 'absorbing members is not a packet re-version');
+  assert.equal(m['x-cybrik-is-bundle-tag'], false, 'a status flip is not a bundle-tag promotion');
 });
 
 // ---------------------------------------------------------------------------
@@ -1001,6 +1145,36 @@ function buildPacket(opts = {}) {
       if (!site || typeof site.file !== 'string') continue;
       const abs = join(tContracts, site.file);
       if (existsSync(abs)) site.sha256 = sha256File(abs);
+    }
+    // THIRD DECLARATION SITE, post-flip only. Once the flip is applied the ACCEPTED W2-D manifest
+    // declares the absorbed members at their own digests, and validate-transport.mjs §3f cross-checks
+    // them against the delta. Re-pinning only the delta would make every successor/schema mutation
+    // fail on a manifest-vs-delta pin disagreement instead of on the rule under test — the same
+    // vacuity trap the two ownership sites above exist to avoid, one site further out. A real edit
+    // has to re-pin all three, so the harness does too. The manifest's own pin inside the delta
+    // (upstream_pins / proposed_manifest_changes.sha256_after_flip) is re-pinned last, because
+    // rewriting the member rows changes the manifest bytes those two sites describe.
+    const tManifestAbs = join(tContracts, 'compatibility', 'cybrik-suite-inference-packet.v1.manifest.json');
+    if (existsSync(tManifestAbs)) {
+      const tManifest = JSON.parse(readFileSync(tManifestAbs, 'utf8'));
+      let touched = false;
+      for (const row of tManifest.members || []) {
+        if (!row || typeof row.file !== 'string' || typeof row.sha256 !== 'string') continue;
+        const abs = join(tContracts, row.file);
+        if (!existsSync(abs)) continue;
+        const fresh = sha256File(abs);
+        if (fresh !== row.sha256) { row.sha256 = fresh; touched = true; }
+      }
+      if (touched) {
+        writeFileSync(tManifestAbs, `${JSON.stringify(tManifest, null, 2)}\n`);
+        const manifestSha = sha256File(tManifestAbs);
+        if (tDelta.proposed_manifest_changes?.target_manifest?.sha256_after_flip) {
+          tDelta.proposed_manifest_changes.target_manifest.sha256_after_flip = manifestSha;
+        }
+        for (const u of tDelta.upstream_pins?.accepted || []) {
+          if (u?.file === 'compatibility/cybrik-suite-inference-packet.v1.manifest.json' && u.sha256_after_flip) u.sha256_after_flip = manifestSha;
+        }
+      }
     }
   }
   // Post-re-pin delta mutation. The ONLY way a row can leave a deliberately MALFORMED digest in the
@@ -1308,18 +1482,34 @@ test('a SECOND proposed successor of the four pairs is rejected', () => {
   );
 });
 
-test('an early half-flip of the successor status is rejected', () => {
+// A HALF-FLIP is a member and its packet disagreeing about the lifecycle. It has two directions and
+// both must fail: the member running ahead of the packet (an early flip, before the gate decided)
+// and the member lagging behind it (a stale member the flip missed). Which direction is reachable
+// depends on where the packet currently is, so the row mutates AWAY from the current state either
+// way — the point is the disagreement, never the particular value.
+test('a half-flipped successor status — member and packet disagreeing — is rejected', () => {
+  const [from, to] = APPLIED
+    ? ['  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION', '  x-cybrik-status: PROPOSED']
+    : ['  x-cybrik-status: PROPOSED', '  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION'];
+  assert.ok(successorText.includes(from), `the successor must declare '${from.trim()}' today, or this mutation is a no-op`);
   expectFail(
-    buildPacket({ successor: (t) => t.replace('  x-cybrik-status: PROPOSED', '  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION') }),
-    'flipping the successor to ACCEPTED while the delta is unapplied and Gate W2-I is NOT OPENED must be rejected',
-    /PROPOSED|flip|lifecycle/i,
+    buildPacket({ successor: (t) => t.replace(from, to) }),
+    APPLIED
+      ? 'a member left at PROPOSED while the packet is ACCEPTED is a flip that did not finish, and must be rejected'
+      : 'flipping the successor to ACCEPTED while the delta is unapplied and Gate W2-I is NOT OPENED must be rejected',
+    /PROPOSED|ACCEPTED|flip|lifecycle/i,
   );
 });
 
-test('marking the delta applied while the gate is not decided is rejected', () => {
+test('x-cybrik-applied contradicting the delta lifecycle is rejected', () => {
+  // The same invariant one level up: applied-ness is not an independent flag a record may set at
+  // will. Before the gate decides, claiming applied is a silent flip; after it, claiming unapplied
+  // disowns a flip that already touched the accepted manifest.
   expectFail(
-    buildPacket({ delta: (c) => { c['x-cybrik-applied'] = true; } }),
-    'the delta may only be applied at a future recorded Gate W2-I status flip',
+    buildPacket({ delta: (c) => { c['x-cybrik-applied'] = !APPLIED; } }),
+    APPLIED
+      ? 'an ACCEPTED delta that claims to be unapplied contradicts the accepted manifest that already carries its members'
+      : 'the delta may only be applied at a recorded Gate W2-I status flip',
     /applied/i,
   );
 });
@@ -1418,10 +1608,37 @@ test('upstream pin drift on the accepted W2-D OpenAPI is rejected', () => {
 });
 
 test('upstream pin drift on the accepted W2-D manifest is rejected', () => {
+  // The accepted manifest is the ONE upstream pin whose bytes legitimately move at the flip, so
+  // post-flip it is `sha256_after_flip` that has to track the disk. Drifting the pre-flip `sha256`
+  // instead would prove nothing there: that field is a historical record of what was reviewed, and
+  // it is SUPPOSED to disagree with the current bytes.
+  const manifestPin = (c) => c.upstream_pins.accepted.find((x) => x.file.endsWith('cybrik-suite-inference-packet.v1.manifest.json'));
   expectFail(
-    buildPacket({ delta: (c) => { c.upstream_pins.accepted.find((p) => p.file.endsWith('cybrik-suite-inference-packet.v1.manifest.json')).sha256 = '0'.repeat(64); } }),
+    buildPacket({
+      delta: (c) => {
+        const pin = manifestPin(c);
+        if (APPLIED) pin.sha256_after_flip = '0'.repeat(64);
+        else pin.sha256 = '0'.repeat(64);
+      },
+    }),
     'the accepted W2-D manifest pin must match its on-disk bytes',
     /upstream|sha-?256/i,
+  );
+});
+
+test('an applied delta that drops the post-flip manifest pin is rejected', () => {
+  if (!APPLIED) return; // the second pin only exists once the flip has moved the manifest bytes
+  // Deleting the post-flip pin leaves ONLY the historical pre-flip digest, which no longer describes
+  // anything on disk. That is not a weaker binding of the accepted manifest — it is none at all,
+  // dressed as one, because a reader sees a 64-hex digest and assumes it was checked.
+  expectFail(
+    buildPacket({
+      delta: (c) => {
+        delete c.upstream_pins.accepted.find((x) => x.file.endsWith('cybrik-suite-inference-packet.v1.manifest.json')).sha256_after_flip;
+      },
+    }),
+    'an applied delta must keep pinning the accepted manifest bytes as they are NOW, not only as they were reviewed',
+    /sha256_after_flip/,
   );
 });
 
@@ -1845,48 +2062,87 @@ const OWNERSHIP_SWEEP_ROWS = [
   },
   {
     id: 'SW-5',
-    title: 'a CURRENT owner that is not the accepted predecessor is rejected',
-    why: 'the accepted predecessor is the SOLE CURRENT owner until a recorded Gate W2-I flip; a ' +
-      'different document holding that role — whatever its filename — is an unrecorded flip',
-    match: /OpenAPI ownership sweep: GET \/api\/v1\/model-classes names 'openapi\/cybrik-ai-inference-plane\.v1\.rogue-current\.openapi\.yaml' as its CURRENT owner, but the accepted predecessor/,
+    title: 'a CURRENT owner that is not the document the lifecycle designates is rejected',
+    why: 'exactly one document owns the four pairs at every instant — the predecessor before the flip, ' +
+      'the successor after it. A different document holding that role, whatever its filename, is an ' +
+      'unrecorded flip',
+    match: APPLIED
+      ? /OpenAPI ownership sweep: GET \/api\/v1\/model-classes names 'openapi\/cybrik-ai-inference-plane\.v1\.rogue-current\.openapi\.yaml' as its CURRENT owner, but once the Gate W2-I flip is applied the successor/
+      : /OpenAPI ownership sweep: GET \/api\/v1\/model-classes names 'openapi\/cybrik-ai-inference-plane\.v1\.rogue-current\.openapi\.yaml' as its CURRENT owner, but the accepted predecessor/,
     guard: () => {
-      const demoted = YAML.parse(DEMOTED_PREDECESSOR);
-      assert.equal(demoted.info['x-cybrik-status'], 'PROPOSED', 'the predecessor must no longer classify as CURRENT/ACCEPTED');
-      assert.equal(demoted.info['x-cybrik-lifecycle-role'], undefined, 'nor may it claim the CURRENT role by the other half of the disjunction');
+      // Whichever document legitimately holds the CURRENT role is demoted, and an illegitimate clone
+      // takes it. Exactly ONE document ends up CURRENT, so the sweep reaches the identity branch this
+      // row names rather than stopping at the arity branch SW-1 owns.
+      const demoted = YAML.parse(APPLIED ? DEMOTED_SUCCESSOR : DEMOTED_PREDECESSOR);
+      assert.notEqual(demoted.info['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION', 'the real owner must no longer classify as CURRENT/ACCEPTED');
+      assert.notEqual(demoted.info['x-cybrik-lifecycle-role'], 'CURRENT', 'nor may it claim the CURRENT role by the other half of the disjunction');
       assert.equal(Object.keys(demoted.paths).length, 4, 'it must still DECLARE the four owned pairs, or there is no owned pair set to judge');
-      const rogue = YAML.parse(predecessorText);
+      const rogue = YAML.parse(APPLIED ? successorText : predecessorText);
       assert.equal(rogue.info['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION', 'the rogue clone must classify as the single CURRENT owner');
     },
-    // The rogue clone takes the CURRENT role for the four pairs while the predecessor keeps
-    // declaring them as a non-CURRENT document. The run ALSO reports two proposed successors (the
-    // demoted predecessor is now classified as one) — a true consequence of this arrangement, which
-    // is why the row matches the CURRENT-owner sentence and not merely "the run was red".
-    packet: () => predecessorPacket(DEMOTED_PREDECESSOR, {
-      writeContracts: { 'openapi/cybrik-ai-inference-plane.v1.rogue-current.openapi.yaml': predecessorText },
-    }),
+    // The rogue clone takes the CURRENT role for the four pairs while the real owner keeps declaring
+    // them as a non-CURRENT document. The run ALSO reports the demoted owner as a proposed successor
+    // — a true consequence of this arrangement, which is why the row matches the CURRENT-owner
+    // sentence and not merely "the run was red".
+    packet: () => (APPLIED
+      ? buildPacket({
+        successor: () => DEMOTED_SUCCESSOR,
+        writeContracts: { 'openapi/cybrik-ai-inference-plane.v1.rogue-current.openapi.yaml': successorText },
+      })
+      : predecessorPacket(DEMOTED_PREDECESSOR, {
+        writeContracts: { 'openapi/cybrik-ai-inference-plane.v1.rogue-current.openapi.yaml': predecessorText },
+      })),
   },
   {
     id: 'SW-6',
-    title: 'a CURRENT owner disagreeing with the delta-pinned current owner is rejected',
+    title: 'a CURRENT owner disagreeing with the owner the delta pins is rejected',
     why: 'the sweep and the delta must name the SAME current owner; a delta pinning some other file ' +
       'records an ownership claim the documents on disk do not support',
-    match: /OpenAPI ownership sweep: GET \/api\/v1\/model-classes CURRENT owner 'openapi\/cybrik-ai-inference-plane\.v1\.openapi\.yaml' is not the CURRENT owner the delta pins \('openapi\/cybrik-ai-inference-plane\.v1\.not-the-predecessor\.openapi\.yaml'\)/,
+    // Which ownership slot the sweep cross-checks against the delta depends on the state: before the
+    // flip the delta's current_owner must be the document the sweep found CURRENT; after it, the
+    // delta's successor must be. Both are the same rule — the sweep and the delta may not name
+    // different owners — read at whichever slot currently holds the owner.
+    match: APPLIED
+      ? /OpenAPI ownership sweep: GET \/api\/v1\/model-classes CURRENT owner 'openapi\/cybrik-ai-inference-plane\.v1\.contract-0\.2\.0\.openapi\.yaml' is not the successor the delta pins \('openapi\/cybrik-ai-inference-plane\.v1\.not-the-owner\.openapi\.yaml'\)/
+      : /OpenAPI ownership sweep: GET \/api\/v1\/model-classes CURRENT owner 'openapi\/cybrik-ai-inference-plane\.v1\.openapi\.yaml' is not the CURRENT owner the delta pins \('openapi\/cybrik-ai-inference-plane\.v1\.not-the-predecessor\.openapi\.yaml'\)/,
     guard: () => {
-      assert.equal(existsSync(join(CONTRACTS, 'openapi', 'cybrik-ai-inference-plane.v1.not-the-predecessor.openapi.yaml')), false, 'the pinned-but-wrong current owner must NOT exist on disk, so buildPacket leaves its digest untouched and the two ownership pin sites still agree');
+      for (const ghost of ['cybrik-ai-inference-plane.v1.not-the-predecessor.openapi.yaml', 'cybrik-ai-inference-plane.v1.not-the-owner.openapi.yaml']) {
+        assert.equal(existsSync(join(CONTRACTS, 'openapi', ghost)), false, `${ghost}: the pinned-but-wrong owner must NOT exist on disk, so buildPacket leaves its digest untouched and the two ownership pin sites still agree`);
+      }
     },
-    packet: () => buildPacket({ delta: (c) => { c.ownership.current_owner.file = 'openapi/cybrik-ai-inference-plane.v1.not-the-predecessor.openapi.yaml'; } }),
+    packet: () => buildPacket({
+      delta: (c) => {
+        if (APPLIED) c.ownership.proposed_successor.file = 'openapi/cybrik-ai-inference-plane.v1.not-the-owner.openapi.yaml';
+        else c.ownership.current_owner.file = 'openapi/cybrik-ai-inference-plane.v1.not-the-predecessor.openapi.yaml';
+      },
+    }),
   },
   {
     id: 'SW-7',
-    title: 'a proposed successor that is not the delta-linked one is rejected',
-    why: 'a successor owning accepted paths with no delta recording the proposal is an unlinked ' +
-      'second owner by another name',
-    match: /OpenAPI ownership sweep: GET \/api\/v1\/model-classes PROPOSED successor 'openapi\/cybrik-ai-inference-plane\.v1\.contract-0\.2\.0\.openapi\.yaml' is not the delta-linked successor 'openapi\/cybrik-ai-inference-plane\.v1\.unlinked-successor\.openapi\.yaml'/,
+    title: APPLIED
+      ? 'a proposed successor surviving the applied flip is rejected'
+      : 'a proposed successor that is not the delta-linked one is rejected',
+    why: APPLIED
+      ? 'the flip promotes the successor to CURRENT and leaves no proposal behind. A document still ' +
+        'classifying as a proposed successor of an already-flipped pair never completed its own ' +
+        'flip, or is a second candidate queued against an owner that is no longer taking proposals'
+      : 'a successor owning accepted paths with no delta recording the proposal is an unlinked ' +
+        'second owner by another name',
+    match: APPLIED
+      ? /OpenAPI ownership sweep: GET \/api\/v1\/model-classes still carries 1 PROPOSED successor document\(s\) \[openapi\/cybrik-ai-inference-plane\.v1\.residual-successor\.openapi\.yaml\] after the Gate W2-I flip/
+      : /OpenAPI ownership sweep: GET \/api\/v1\/model-classes PROPOSED successor 'openapi\/cybrik-ai-inference-plane\.v1\.contract-0\.2\.0\.openapi\.yaml' is not the delta-linked successor 'openapi\/cybrik-ai-inference-plane\.v1\.unlinked-successor\.openapi\.yaml'/,
     guard: () => {
+      if (APPLIED) {
+        assert.equal(existsSync(join(CONTRACTS, 'openapi', 'cybrik-ai-inference-plane.v1.residual-successor.openapi.yaml')), false, 'the residual successor must not already exist, or writing it is not a mutation');
+        assert.notEqual(YAML.parse(DEMOTED_SUCCESSOR).info['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION', 'the residual document must classify as a proposal, not as a second CURRENT owner — otherwise the arity branch fires instead');
+        return;
+      }
       assert.equal(existsSync(join(CONTRACTS, 'openapi', 'cybrik-ai-inference-plane.v1.unlinked-successor.openapi.yaml')), false, 'the pinned-but-wrong successor must NOT exist on disk, so ownership.proposed_successor keeps the digest candidate_members pins and this row cannot pass on pin drift');
       assert.equal(delta.ownership.proposed_successor.file, SUCCESSOR_IN_CONTRACTS, 'the candidate really does link this successor, so re-pointing the link is a genuine mutation');
     },
-    packet: () => buildPacket({ delta: (c) => { c.ownership.proposed_successor.file = 'openapi/cybrik-ai-inference-plane.v1.unlinked-successor.openapi.yaml'; } }),
+    packet: () => (APPLIED
+      ? buildPacket({ writeContracts: { 'openapi/cybrik-ai-inference-plane.v1.residual-successor.openapi.yaml': DEMOTED_SUCCESSOR } })
+      : buildPacket({ delta: (c) => { c.ownership.proposed_successor.file = 'openapi/cybrik-ai-inference-plane.v1.unlinked-successor.openapi.yaml'; } })),
   },
   {
     id: 'SW-8',
@@ -1914,6 +2170,17 @@ const DEMOTED_PREDECESSOR = replaceOnce(
   '\n  x-cybrik-status: PROPOSED\n',
   'SW-5',
 );
+// The post-flip mirror: the successor stripped of BOTH halves of the CURRENT-owner disjunction, so
+// it classifies as a proposal rather than an owner. Used by the applied branches of SW-5 (where a
+// rogue clone takes the vacated CURRENT role) and SW-7 (where it is the residual proposal).
+const DEMOTED_SUCCESSOR = APPLIED
+  ? replaceOnce(
+    replaceOnce(successorText, '\n  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION\n', '\n  x-cybrik-status: PROPOSED\n', 'SW-5/7 status'),
+    '\n  x-cybrik-lifecycle-role: CURRENT\n',
+    '\n  x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR\n',
+    'SW-5/7 role',
+  )
+  : successorText;
 
 for (const row of OWNERSHIP_SWEEP_ROWS) {
   test(`${row.id}: ${row.title}`, () => {
@@ -1989,7 +2256,7 @@ const RESIDUAL_ROWS = [
       'never silently adopted as the candidate-wide state',
     match: /W2-I proposed delta: x-cybrik-status must be one of 'PROPOSED' \| 'ACCEPTED FOR IMPLEMENTATION' \(got 'GA'\)/,
     guard: () => {
-      assert.equal(delta['x-cybrik-status'], 'PROPOSED', 'the delta must really declare a supported lifecycle token today, or replacing it is not a mutation');
+      assert.ok(['PROPOSED', 'ACCEPTED FOR IMPLEMENTATION'].includes(delta['x-cybrik-status']), 'the delta must really declare a supported lifecycle token today, or replacing it is not a mutation');
     },
     packet: () => buildPacket({ delta: (c) => { c['x-cybrik-status'] = 'GA'; } }),
   },
@@ -2065,14 +2332,17 @@ const RESIDUAL_ROWS = [
   },
   {
     id: 'RS-7',
-    title: 'a delta that keeps its PROPOSED status but denies being unaccepted is rejected',
-    why: 'a proposed-delta is PROPOSED / not-accepted BY CONSTRUCTION — it records a proposal and can ' +
-      'never be the record of its own acceptance, so a half-flipped self-declaration must fail',
-    match: /W2-I delta: a proposed-delta is PROPOSED \/ not-accepted by construction/,
+    title: 'a delta whose status and not-accepted halves disagree is rejected',
+    why: 'x-cybrik-status and x-cybrik-not-accepted are two statements of ONE fact. Moving one and ' +
+      'not the other produces a record that is simultaneously proposed and accepted, and whichever ' +
+      'half a reader happens to consult decides what they believe',
+    match: APPLIED
+      ? /W2-I proposed delta: x-cybrik-not-accepted must be false to match the manifest lifecycle/
+      : /W2-I delta: a proposed-delta is PROPOSED \/ not-accepted by construction/,
     guard: () => {
-      assert.equal(delta['x-cybrik-not-accepted'], true, 'the delta must really declare itself not-accepted today');
+      assert.equal(delta['x-cybrik-not-accepted'], !APPLIED, 'the delta must really declare the not-accepted half that matches its status today');
     },
-    packet: () => buildPacket({ delta: (c) => { c['x-cybrik-not-accepted'] = false; } }),
+    packet: () => buildPacket({ delta: (c) => { c['x-cybrik-not-accepted'] = !c['x-cybrik-not-accepted']; } }),
   },
   {
     id: 'RS-9',
@@ -2150,23 +2420,37 @@ for (const row of RESIDUAL_ROWS) {
 // the ACCEPTED-lifecycle branch must report EVERY piece of acceptance metadata the flip did not
 // record. Asserting only the first would let the rest of the branch rot unnoticed.
 test('RS-8: an ACCEPTED-lifecycle candidate with no acceptance metadata reports every missing record', () => {
-  assert.equal(delta['x-cybrik-status'], 'PROPOSED', 'the candidate must be PROPOSED today, or flipping it is not a mutation');
-  assert.equal(delta.acceptance.status, 'NOT ACCEPTED — PROPOSED only', 'the acceptance record must still be the honest PROPOSED one');
-  assert.deepEqual(delta.acceptance.evidence, [], 'the acceptance record must carry no evidence yet');
-  for (const k of ['gate', 'decided_by', 'decided_on']) {
-    assert.equal(k in delta.acceptance, false, `acceptance.${k} must be ABSENT today — the row proves the ACCEPTED branch DEMANDS it, so a record that already exists would make that demand vacuous`);
+  // The ACCEPTED branch demands a decision behind the lifecycle. Whichever state the packet is in,
+  // the row constructs the same defect — accepted bytes with no recorded acceptance — and asserts
+  // that EVERY missing record is reported. Asserting only the first would let the rest of the branch
+  // rot unnoticed.
+  if (APPLIED) {
+    assert.match(delta.acceptance.status, /^ACCEPTED FOR IMPLEMENTATION/, 'the acceptance record must be the accepted one today, or stripping it is not a mutation');
+    for (const k of ['gate', 'decided_by', 'decided_on']) {
+      assert.ok(delta.acceptance[k], `acceptance.${k} must be present today, or the row cannot prove the branch demands it`);
+    }
+    assert.ok(delta.acceptance.evidence.length > 0, 'and the acceptance must cite evidence today');
+    assert.match(delta.gate.status, /^DECIDED/, 'Gate W2-I must be recorded as decided');
+  } else {
+    assert.equal(delta.acceptance.status, 'NOT ACCEPTED — PROPOSED only', 'the acceptance record must still be the honest PROPOSED one');
+    assert.deepEqual(delta.acceptance.evidence, [], 'the acceptance record must carry no evidence yet');
+    for (const k of ['gate', 'decided_by', 'decided_on']) {
+      assert.equal(k in delta.acceptance, false, `acceptance.${k} must be ABSENT today — the row proves the ACCEPTED branch DEMANDS it, so a record that already exists would make that demand vacuous`);
+    }
+    assert.match(delta.gate.status, /NOT OPENED/, 'Gate W2-I must still be undecided');
   }
-  assert.match(delta.gate.status, /NOT OPENED/, 'Gate W2-I must still be undecided');
 
-  // Self-consistent flip: the delta's own two lifecycle fields AND every candidate-member status move
-  // together, so the run enters the ACCEPTED branch on a coherent lifecycle rather than tripping the
-  // member-agreement rule first and never reaching it.
+  // Self-consistent lifecycle: the delta's own two fields AND every candidate-member status agree, so
+  // the run enters the ACCEPTED branch on a coherent lifecycle rather than tripping the
+  // member-agreement rule first and never reaching it. Only the ACCEPTANCE RECORD is hollowed out.
   const r = expectFail(
     buildPacket({
       delta: (c) => {
         c['x-cybrik-status'] = 'ACCEPTED FOR IMPLEMENTATION';
         c['x-cybrik-not-accepted'] = false;
         for (const m of c.candidate_members) m.status = 'ACCEPTED FOR IMPLEMENTATION';
+        c.acceptance = { status: 'NOT ACCEPTED — PROPOSED only', evidence: [] };
+        c.gate = { ...c.gate, status: 'NOT OPENED — awaiting explicit Founder decision.' };
       },
     }),
     'a candidate that declares itself ACCEPTED FOR IMPLEMENTATION while recording none of the ' +
@@ -2264,7 +2548,7 @@ test('isMainModule fails closed on every unusable metaUrl/argv pair and still ad
 //       stdout lines and exit with the formatter's exit code, so the formatter is the shipping
 //       presentation path and not a parallel test-only rendering.
 const REPORT_HEADER_TEXT =
-  '=== W2-I inference-plane transport-binding candidate (PROPOSED delta vs. the ACCEPTED W2-D packet) — JSON Schema / fixtures / invariant / integrity / ownership / OpenAPI validation ===';
+  '=== W2-I inference-plane transport binding vs. the ACCEPTED W2-D packet — JSON Schema / fixtures / invariant / integrity / ownership / OpenAPI validation ===';
 
 // The banner clauses, as a function of a counts object: the SAME expected text is asserted against
 // the real run (real numbers) and against an empty counts object (every number 0), so a fallback
@@ -2275,24 +2559,39 @@ const bannerClauses = (n) => [
   `${n('invariants_checked')} structural assertions (${n('invariants_ok')} ok) covering TT-1..TT-9; `,
   `${n('runtime_negative_declared_match')}/${n('runtime_negative_total')} negative-semantic fixtures rejected on EXACTLY their declared TX rule, witnessing each of TX-1..TX-8 once; `,
   `single-owner ownership + ${n('withdrawn_artifact_absent')} withdrawn second-plane artifacts absent`,
-  `a lifecycle-aware sweep of ${n('openapi_documents_swept')} OpenAPI document(s)/${n('openapi_pairs_swept')} declared pairs proving ${n('owned_pair_current_ok')}/${n('ownership_sweep_pairs')} owned pairs keep exactly one CURRENT owner and ${n('owned_pair_successor_ok')}/${n('ownership_sweep_pairs')} at most one delta-linked PROPOSED successor`,
+  `a lifecycle-aware sweep of ${n('openapi_documents_swept')} OpenAPI document(s)/${n('openapi_pairs_swept')} declared pairs proving ${n('owned_pair_current_ok')}/${n('ownership_sweep_pairs')} owned pairs keep exactly one CURRENT owner and `,
   `${n('registry_operation_witnessed')}/${n('openapi_operation_bound')} closed-registry operations agreeing across delta, fixtures and the successor bytes; `,
   `response-binding preservation over ${n('response_operations_checked')} accepted operation(s) — ${n('response_status_preserved')} accepted non-error binding(s) preserved verbatim and `,
-  `${n('dual_branch_response_ok')}/${n('dual_branch_response_total')} error surfaces on the ${n('response_accepted_error_statuses')} accepted error status(es) carrying EXACTLY the accepted ModelInferenceError + proposed TransportAuthorizationError oneOf branch set; `,
+  `${n('dual_branch_response_ok')}/${n('dual_branch_response_total')} error surfaces on the ${n('response_accepted_error_statuses')} accepted error status(es) carrying EXACTLY the accepted ModelInferenceError + TransportAuthorizationError oneOf branch set; `,
 ];
-// Fixed text no count can move: the self-denial clause and the closing lifecycle disclaimer.
-const SELF_DENIAL_CLAUSE = 'delta self-denial (proposed-delta, NOT a manifest, unapplied) + ';
-const D6_CLAUSE = "ADR-0001 D6 (the accepted W2-D manifest's own bytes reference no candidate material) + ";
+// The clauses the banner renders differently per lifecycle. The banner is what an operator and a
+// gate read, so it must describe the state actually validated: a report still saying "unapplied"
+// after an applied run would be the same defect the validator exists to catch, one level up.
+const sweepTailFor = (n, applied) => (applied
+  ? `${n('owned_pair_successor_ok')}/${n('ownership_sweep_pairs')} carry no residual proposed successor and ${n('owned_pair_superseded_ok')}/${n('ownership_sweep_pairs')} keep the superseded predecessor on disk`
+  : `${n('owned_pair_successor_ok')}/${n('ownership_sweep_pairs')} at most one delta-linked PROPOSED successor`);
+const selfDenialFor = (applied) => (applied
+  ? 'delta self-denial (consumed applied record, still NOT a manifest) + '
+  : 'delta self-denial (proposed-delta, NOT a manifest, unapplied) + ');
+const d6ClauseFor = (n, applied) => (applied
+  ? `ADR-0001 D5/D6 (the accepted W2-D manifest declares all ${n('applied_member_pin_agreed')} absorbed members at digests agreeing with the delta, relabels the predecessor SUPERSEDED-SUPPORTED byte-frozen, and records the gate decision) + `
+  : "ADR-0001 D6 (the accepted W2-D manifest's own bytes reference no candidate material) + ");
 const SECURITY_CLAUSE = 'the OpenAPI mTLS+at+jwt security bind. ';
-const disclaimerFor = (lifecycle) =>
-  `Lifecycle: ${lifecycle} — schemas/fixtures v0.1.0, successor OpenAPI v0.2.0. Conformance evidence only; ` +
-  'this is NOT acceptance and NOT implementation authorization, and the delta remains UNAPPLIED against ' +
-  'the ACCEPTED W2-D packet.';
+const disclaimerFor = (lifecycle) => (lifecycle === 'ACCEPTED FOR IMPLEMENTATION'
+  ? `Lifecycle: ${lifecycle} — schemas/fixtures v0.1.0, successor OpenAPI v0.2.0. Conformance evidence only. ` +
+    'This run is NOT the acceptance: Gate W2-I was decided by the recorded gate decision, and this delta ' +
+    'was APPLIED into the ACCEPTED W2-D packet. It proves no runtime, endpoint, deployment or release ' +
+    'readiness, and it does not discharge the open items the acceptance carried forward — notably the ' +
+    'accepted W2-F operation-token table, which this flip did not amend.'
+  : `Lifecycle: ${lifecycle} — schemas/fixtures v0.1.0, successor OpenAPI v0.2.0. Conformance evidence only; ` +
+    'this is NOT acceptance and NOT implementation authorization, and the delta remains UNAPPLIED against ' +
+    'the ACCEPTED W2-D packet.');
 
 const assertOkBannerShape = (banner, counts, lifecycle, why) => {
   const n = (k) => (counts[k] === undefined ? 0 : counts[k]);
+  const applied = lifecycle === 'ACCEPTED FOR IMPLEMENTATION';
   assert.equal(banner.startsWith('\nOK — transport-binding candidate passes JSON Schema 2020-12 compile/ref-resolution; '), true, `${why}: the OK banner must open with the blank line + the compile/ref-resolution claim\n${banner}`);
-  for (const clause of [...bannerClauses(n), SELF_DENIAL_CLAUSE, D6_CLAUSE, SECURITY_CLAUSE]) {
+  for (const clause of [...bannerClauses(n), sweepTailFor(n, applied), selfDenialFor(applied), d6ClauseFor(n, applied), SECURITY_CLAUSE]) {
     assert.equal(banner.includes(clause), true, `${why}: the OK banner dropped or altered a clause:\n  expected substring: ${clause}\n  banner: ${banner}`);
   }
   assert.equal(banner.endsWith(disclaimerFor(lifecycle)), true, `${why}: the banner must END with the lifecycle + non-acceptance disclaimer for '${lifecycle}'\n${banner}`);
@@ -2304,7 +2603,7 @@ const assertOkBannerShape = (banner, counts, lifecycle, why) => {
 test('formatValidationReport renders the REAL clean run: exit 0, header, counts line, OK banner carrying the run\'s own numbers', () => {
   const result = runValidation();
   assert.deepEqual(result.errors, [], `the checked-in candidate must validate, or this row proves nothing about the OK path:\n${result.errors.join('\n')}`);
-  assert.equal(result.lifecycle, 'PROPOSED', 'the candidate lifecycle must still be PROPOSED, or the disclaimer this row pins is the wrong one');
+  assert.equal(result.lifecycle, MEMBER_STATUS, 'the run must report the lifecycle the delta declares, or the disclaimer this row pins is the wrong one');
 
   const report = formatValidationReport(result);
   assert.equal(report.exitCode, 0, 'a run with no errors must exit 0');
@@ -2319,7 +2618,7 @@ test('formatValidationReport renders the REAL clean run: exit 0, header, counts 
   for (const k of ['positive_pass', 'member_sha_verified', 'invariants_ok', 'runtime_negative_declared_match', 'openapi_documents_swept', 'ownership_sweep_pairs', 'dual_branch_response_ok']) {
     assert.ok(result.counts[k] > 0, `count '${k}' is ${result.counts[k]} on a clean run — the OK banner clause that renders it could not tell a real value from the || 0 fallback`);
   }
-  assertOkBannerShape(report.stdout[2], result.counts, 'PROPOSED', 'real clean run');
+  assertOkBannerShape(report.stdout[2], result.counts, MEMBER_STATUS, 'real clean run');
 });
 
 test('formatValidationReport renders a failing result: exit 1, the FAIL count and EVERY error on stderr, no OK claim', () => {
@@ -2421,9 +2720,14 @@ const ABSENT_BLOCK_ROWS = [
     why: 'a delta that deleted its proposed_manifest_changes block would carry NO record of what the future flip would change, and every not-yet-applied rule reads through `pmc.…` — all of them must reject the absence',
     diagnostics: [
       "W2-I delta: proposed_manifest_changes.target_manifest.file must be the ACCEPTED W2-D packet manifest compatibility/cybrik-suite-inference-packet.v1.manifest.json",
-      'W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be false (the accepted W2-D manifest is untouched until a recorded flip)',
+      APPLIED
+        ? 'W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be true once the flip is applied (the accepted W2-D manifest absorbed these changes; claiming otherwise contradicts x-cybrik-applied)'
+        : 'W2-I delta: proposed_manifest_changes.target_manifest.modified_now must be false (the accepted W2-D manifest is untouched until a recorded flip)',
       'W2-I delta: proposed_manifest_changes.removes_members must be empty (a compatible successor revision removes no accepted member)',
       'W2-I delta: proposed_manifest_changes.modifies_accepted_members must be empty (no accepted member is modified)',
+      // Post-flip the block additionally owes the post-flip manifest pin. Its absence must be its own
+      // rejection, not a silent `undefined` that reads as "no pin was required".
+      ...(APPLIED ? ['W2-I delta: an applied delta must pin proposed_manifest_changes.target_manifest.sha256_after_flip (the accepted manifest bytes AFTER the flip) alongside the pre-flip sha256 it was reviewed against'] : []),
     ],
   },
   {
@@ -2441,8 +2745,20 @@ const ABSENT_BLOCK_ROWS = [
     diagnostics: [
       'W2-I delta: proposed_disposition.predecessor must be openapi/cybrik-ai-inference-plane.v1.openapi.yaml',
       'W2-I delta: proposed_disposition.predecessor_byte_frozen must be true',
-      'W2-I delta: proposed_disposition.predecessor_disposition_now must record that the predecessor is still CURRENT (not yet deprecated or superseded)',
-      'W2-I delta: proposed_disposition.dates_binding must be false (every date in a proposal is a planning value and consumes no W0-W6 release date)',
+      ...(APPLIED
+        ? [
+          "W2-I delta: once applied, proposed_disposition.predecessor_disposition_now must OPEN with SUPERSEDED-SUPPORTED — got 'undefined'",
+          'W2-I delta: proposed_disposition.predecessor_disposition_decided must record the DECIDED disposition SUPERSEDED-SUPPORTED (ADR-0001 D3 / the recorded gate decision)',
+          'W2-I delta: an applied disposition must record effective_on as an ISO date',
+          'W2-I delta: proposed_disposition.dates_binding must be true once the disposition is decided (the effective date binds)',
+          'W2-I delta: proposed_disposition.retirement_date_fixed must be false — the ADR-0001 D3 floor needs two subsequent minor releases as well as 180 days, so no retirement date is derivable at the flip',
+          'W2-I delta: proposed_disposition.release_dates_consumed must be false (a contract supersession consumes no W0-W6 release date)',
+          'W2-I delta: proposed_disposition.final_disposition_status must record the disposition as DECIDED once applied',
+        ]
+        : [
+          'W2-I delta: proposed_disposition.predecessor_disposition_now must record that the predecessor is still CURRENT (not yet deprecated or superseded)',
+          'W2-I delta: proposed_disposition.dates_binding must be false (every date in a proposal is a planning value and consumes no W0-W6 release date)',
+        ]),
     ],
   },
   {
@@ -2509,7 +2825,12 @@ const APPLIES_AT_KEY = 'x-cybrik-applies-at';
 const SELF_DENIAL_NO_MANIFEST_DENIAL = 'This artifact must never be read, indexed, released, or renamed as a manifest, and carries no packet identity of its own.';
 const SELF_DENIAL_NO_RENAME_BAN = 'This artifact is NOT a compatibility manifest and carries no packet identity of its own.';
 const GRANTS_NO_ACCEPTANCE_PHRASE = 'NO RUNTIME AUTHORITY, NO ENDPOINT AUTHORITY. This delta certifies no runtime and declares no deployment.';
-const APPLIES_AT_NO_GATE = 'APPLY-ONLY-AT a future status flip that is explicitly recorded by the Founder with evidence (ADR-0001 D5).';
+// Same forgery in both states: a well-formed apply condition that names no gate. Post-flip it must
+// still say the flip HAPPENED, or the row would trip the applied-wording rule instead of the
+// missing-gate-name rule it exists to prove.
+const APPLIES_AT_NO_GATE = APPLIED
+  ? 'APPLIED at the status flip recorded on 2026-08-21 with evidence (ADR-0001 D5).'
+  : 'APPLY-ONLY-AT a future status flip that is explicitly recorded by the Founder with evidence (ADR-0001 D5).';
 
 const DECLARATION_ROWS = [
   {
@@ -2577,7 +2898,7 @@ const DECLARATION_ROWS = [
     title: 'a delta with no applies-at record is rejected',
     why: 'x-cybrik-applies-at is what pins the delta to a FUTURE recorded flip; without it the delta ' +
       'carries no statement of when — or whether — it takes effect',
-    match: /W2-I delta: x-cybrik-applies-at must record that the delta applies ONLY at a future explicitly-recorded Gate W2-I status flip/,
+    match: /W2-I delta: x-cybrik-applies-at must name the explicitly-recorded Gate W2-I status flip as the ONLY point at which this delta applies/,
     guard: () => {
       assert.equal(typeof delta[APPLIES_AT_KEY], 'string', 'the applies-at record must be a string today');
       assert.match(delta[APPLIES_AT_KEY], /Gate W2-I/, 'it must name Gate W2-I today');
@@ -2589,10 +2910,11 @@ const DECLARATION_ROWS = [
     title: 'an applies-at record that names no Gate W2-I flip is rejected',
     why: 'an apply condition that names no gate is satisfiable by any flip at all, which is not an ' +
       'apply condition — the string must keep naming the gate that decides it',
-    match: /W2-I delta: x-cybrik-applies-at must record that the delta applies ONLY at a future explicitly-recorded Gate W2-I status flip/,
+    match: /W2-I delta: x-cybrik-applies-at must name the explicitly-recorded Gate W2-I status flip as the ONLY point at which this delta applies/,
     guard: () => {
       assert.equal(typeof APPLIES_AT_NO_GATE, 'string', 'the replacement must stay a string, or the row would trip the type half of the rule instead of the wording half');
       assert.doesNotMatch(APPLIES_AT_NO_GATE, /Gate W2-I/, 'and must really drop the gate name');
+      if (APPLIED) assert.match(APPLIES_AT_NO_GATE, /APPLIED/, 'post-flip the replacement must keep saying the flip HAPPENED, so only the missing gate name is under test');
     },
     packet: () => buildPacket({ delta: (d) => { d[APPLIES_AT_KEY] = APPLIES_AT_NO_GATE; } }),
   },
@@ -2628,7 +2950,7 @@ const DECLARATION_ROWS = [
     match: /transport manifest: gate\.id must be 'W2-I'/,
     guard: () => {
       assert.equal(delta.gate?.id, 'W2-I', 'the gate must be identified as W2-I today, or deleting the block is not a mutation');
-      assert.match(delta.gate?.status || '', /NOT OPENED|awaiting/i, 'and must record the gate as undecided today');
+      assert.match(delta.gate?.status || '', APPLIED ? /^DECIDED\b/ : /NOT OPENED|awaiting/i, 'and must state the gate disposition today');
     },
     packet: () => buildPacket({ delta: (d) => { delete d.gate; } }),
   },
@@ -2722,10 +3044,41 @@ const ABSENT_UPSTREAM_FILE = 'compatibility/cybrik-suite-inference-packet.v1.abs
 // Replacement lifecycle prose. Each keeps the field a plausible record and drops EXACTLY ONE required
 // half, so the run reaches exactly the diagnostic the row names. `CURRENT` and `PROPOSED` are matched
 // case-sensitively by the validator, so neither word may survive in the row that removes it.
-const CURRENT_OWNER_NO_ACCEPTED = 'CURRENT — the sole owner of the four inference operations until a recorded Gate W2-I flip.';
-const CURRENT_OWNER_NO_CURRENT = 'ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA), unchanged by this proposal.';
-const SUCCESSOR_NO_NOT_ACCEPTED = 'PROPOSED-SUCCESSOR, awaiting the Gate W2-I decision.';
-const SUCCESSOR_NO_PROPOSED = 'NOT ACCEPTED — a candidate successor revision, undecided at Gate W2-I.';
+// Both ownership slots carry a TWO-PART label, and each half does work the other cannot: the
+// position (CURRENT / SUPERSEDED-SUPPORTED / PROPOSED-SUCCESSOR) and the acceptance state. The four
+// forged values below each drop exactly ONE half while keeping the other, so every row proves the
+// validator reads both. The values are state-dependent because the labels are: before the flip the
+// predecessor is the owner and the successor is the proposal; after it, the roles have swapped.
+const CURRENT_OWNER_NO_ACCEPTED = APPLIED
+  // Post-flip the predecessor slot must OPEN with SUPERSEDED-SUPPORTED. This one keeps the
+  // supersession fact but buries it mid-sentence, which is how a demotion reads as a footnote.
+  ? 'Relabelled by the Gate W2-I flip; it is now SUPERSEDED-SUPPORTED and no longer the owner.'
+  : 'CURRENT — the sole owner of the four inference operations until a recorded Gate W2-I flip.';
+const CURRENT_OWNER_NO_CURRENT = APPLIED
+  // ...and this one opens correctly but then re-asserts currency, the contradiction that would let a
+  // superseded document keep being read as an owner.
+  ? 'SUPERSEDED-SUPPORTED — but it remains CURRENT for the four inference operations.'
+  : 'ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA), unchanged by this proposal.';
+const SUCCESSOR_NO_NOT_ACCEPTED = APPLIED
+  ? 'ACCEPTED FOR IMPLEMENTATION (v0.2.0; not stable v1/GA) — the revision the gate accepted.'
+  : 'PROPOSED-SUCCESSOR, awaiting the Gate W2-I decision.';
+const SUCCESSOR_NO_PROPOSED = APPLIED
+  ? 'CURRENT — sole owner of the four inference operations since the Gate W2-I flip.'
+  : 'NOT ACCEPTED — a candidate successor revision, undecided at Gate W2-I.';
+
+// The diagnostics those four forgeries must produce, per state.
+const DIAG_OW_CURRENT_OWNER = APPLIED
+  ? /W2-I delta: once applied, ownership\.current_owner\.lifecycle_now must OPEN with SUPERSEDED-SUPPORTED/
+  : /W2-I delta: ownership\.current_owner\.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION/;
+const DIAG_OW_CURRENT_OWNER_STILL_CURRENT = APPLIED
+  ? /W2-I delta: ownership\.current_owner\.lifecycle_now must not still assert that the predecessor IS current after the flip/
+  : /W2-I delta: ownership\.current_owner\.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION/;
+const DIAG_OW_SUCCESSOR = APPLIED
+  ? /W2-I delta: once applied, ownership\.proposed_successor\.lifecycle_now must OPEN with CURRENT and record ACCEPTED FOR IMPLEMENTATION/
+  : /W2-I delta: ownership\.proposed_successor\.lifecycle_now must record PROPOSED-SUCCESSOR — NOT ACCEPTED/;
+const DIAG_OW_DISPOSITION = APPLIED
+  ? /W2-I delta: once applied, proposed_disposition\.predecessor_disposition_now must OPEN with SUPERSEDED-SUPPORTED/
+  : /W2-I delta: proposed_disposition\.predecessor_disposition_now must record that the predecessor is still CURRENT \(not yet deprecated or superseded\)/;
 
 const upstreamPin = (file) => {
   const p = (delta.upstream_pins?.accepted || []).find((x) => x.file === file);
@@ -2837,7 +3190,7 @@ const PIN_OWNERSHIP_ROWS = [
       const others = delta.candidate_members.filter((m) => m.file !== SUCCESSOR_IN_CONTRACTS);
       assert.ok(others.length > 0, 'there must be a non-successor member to read the expected version/status from');
       assert.ok(others.every((m) => m.contract_version === '0.1.0'), 'every non-successor member is pinned at 0.1.0 today, which is the version the added row must declare');
-      assert.ok(delta.candidate_members.every((m) => m.status === 'PROPOSED'), 'every member is PROPOSED today, which is the status the added row must declare');
+      assert.ok(delta.candidate_members.every((m) => m.status === MEMBER_STATUS), 'every member carries the packet lifecycle status today, which is the status the added row must declare');
     },
     // Claiming the accepted manifest as candidate material also makes its OWN name a candidate needle,
     // so D6 reports the manifest referencing itself. That is a direct consequence of the overlap, not
@@ -2848,7 +3201,7 @@ const PIN_OWNERSHIP_ROWS = [
           file: W2D_MANIFEST_IN_CONTRACTS,
           title: 'the ACCEPTED W2-D packet manifest, wrongly claimed as candidate material',
           contract_version: '0.1.0',
-          status: 'PROPOSED',
+          status: MEMBER_STATUS,
           sha256: '0'.repeat(64), // re-pinned from the on-disk bytes by buildPacket
         });
       },
@@ -2910,75 +3263,101 @@ const PIN_OWNERSHIP_ROWS = [
   },
   {
     id: 'OW-4',
-    title: 'a current-owner lifecycle that says CURRENT but not ACCEPTED FOR IMPLEMENTATION is rejected',
+    title: 'a current-owner lifecycle missing the position half of its label is rejected',
     why: 'CURRENT alone is a position in a sequence, not an acceptance state — a document can be the ' +
       'newest thing on disk without ever having been accepted, and the record must state both',
-    match: /W2-I delta: ownership\.current_owner\.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION/,
+    match: DIAG_OW_CURRENT_OWNER,
     guard: () => {
-      assert.match(delta.ownership.current_owner.lifecycle_now, /CURRENT/, 'the record must carry both halves today');
-      assert.match(delta.ownership.current_owner.lifecycle_now, /ACCEPTED FOR IMPLEMENTATION/, 'or dropping one of them is not a mutation');
-      assert.match(CURRENT_OWNER_NO_ACCEPTED, /CURRENT/, 'the replacement must KEEP the CURRENT half, so only the acceptance half is under test');
-      assert.doesNotMatch(CURRENT_OWNER_NO_ACCEPTED, /ACCEPTED FOR IMPLEMENTATION/, 'and must really drop the acceptance half');
+      const now = delta.ownership.current_owner.lifecycle_now;
+      assert.notEqual(now, CURRENT_OWNER_NO_ACCEPTED, 'the forged value must differ from the real one, or the row is not a mutation');
+      if (APPLIED) {
+        assert.match(now, /^SUPERSEDED-SUPPORTED\b/, 'the record must OPEN with the supersession label today');
+        assert.match(CURRENT_OWNER_NO_ACCEPTED, /SUPERSEDED-SUPPORTED/, 'the replacement must still MENTION supersession, so only the anchoring is under test');
+        assert.doesNotMatch(CURRENT_OWNER_NO_ACCEPTED, /^SUPERSEDED-SUPPORTED\b/, 'and must really stop leading with it');
+      } else {
+        assert.match(now, /CURRENT/, 'the record must carry both halves today');
+        assert.match(now, /ACCEPTED FOR IMPLEMENTATION/, 'or dropping one of them is not a mutation');
+        assert.match(CURRENT_OWNER_NO_ACCEPTED, /CURRENT/, 'the replacement must KEEP the CURRENT half, so only the acceptance half is under test');
+        assert.doesNotMatch(CURRENT_OWNER_NO_ACCEPTED, /ACCEPTED FOR IMPLEMENTATION/, 'and must really drop the acceptance half');
+      }
     },
     packet: () => buildPacket({ delta: (d) => { d.ownership.current_owner.lifecycle_now = CURRENT_OWNER_NO_ACCEPTED; } }),
   },
   {
     id: 'OW-5',
-    title: 'a current-owner lifecycle that says ACCEPTED FOR IMPLEMENTATION but not CURRENT is rejected',
+    title: 'a current-owner lifecycle that contradicts its own position label is rejected',
     why: 'the mirror failure: an accepted document that no longer claims to be the CURRENT owner ' +
       'leaves the owned pairs with an acceptance state and no owner, which is the gap a second owner ' +
       'would move into',
-    match: /W2-I delta: ownership\.current_owner\.lifecycle_now must record it as CURRENT — ACCEPTED FOR IMPLEMENTATION/,
+    match: DIAG_OW_CURRENT_OWNER_STILL_CURRENT,
     guard: () => {
-      assert.match(CURRENT_OWNER_NO_CURRENT, /ACCEPTED FOR IMPLEMENTATION/, 'the replacement must KEEP the acceptance half, so only the CURRENT half is under test');
-      assert.doesNotMatch(CURRENT_OWNER_NO_CURRENT, /CURRENT/, 'and must really drop the CURRENT half — the validator matches it case-sensitively, so no cased variant may survive');
+      if (APPLIED) {
+        assert.match(CURRENT_OWNER_NO_CURRENT, /^SUPERSEDED-SUPPORTED\b/, 'the replacement must KEEP the correct opening label, so only the contradiction is under test');
+        assert.match(CURRENT_OWNER_NO_CURRENT, /\bremains CURRENT\b/, 'and must really re-assert currency — the contradiction this row exists to catch');
+      } else {
+        assert.match(CURRENT_OWNER_NO_CURRENT, /ACCEPTED FOR IMPLEMENTATION/, 'the replacement must KEEP the acceptance half, so only the CURRENT half is under test');
+        assert.doesNotMatch(CURRENT_OWNER_NO_CURRENT, /CURRENT/, 'and must really drop the CURRENT half — the validator matches it case-sensitively, so no cased variant may survive');
+      }
     },
     packet: () => buildPacket({ delta: (d) => { d.ownership.current_owner.lifecycle_now = CURRENT_OWNER_NO_CURRENT; } }),
   },
   {
     id: 'OW-6',
-    title: 'a successor lifecycle that says PROPOSED but not NOT ACCEPTED is rejected',
+    title: 'a successor lifecycle missing the acceptance half of its label is rejected',
     why: 'PROPOSED describes how the document arrived; NOT ACCEPTED is what the gate has not yet done ' +
       'about it. A record carrying only the first reads as a proposal in progress rather than as one ' +
       'that has been decided on by nobody',
-    match: /W2-I delta: ownership\.proposed_successor\.lifecycle_now must record PROPOSED-SUCCESSOR — NOT ACCEPTED/,
+    match: DIAG_OW_SUCCESSOR,
     guard: () => {
-      assert.match(delta.ownership.proposed_successor.lifecycle_now, /PROPOSED/, 'the record must carry both halves today');
-      assert.match(delta.ownership.proposed_successor.lifecycle_now, /NOT ACCEPTED/, 'or dropping one of them is not a mutation');
-      assert.match(SUCCESSOR_NO_NOT_ACCEPTED, /PROPOSED/, 'the replacement must KEEP the PROPOSED half');
-      assert.doesNotMatch(SUCCESSOR_NO_NOT_ACCEPTED, /NOT ACCEPTED/, 'and must really drop the not-accepted half');
+      const now = delta.ownership.proposed_successor.lifecycle_now;
+      assert.notEqual(now, SUCCESSOR_NO_NOT_ACCEPTED, 'the forged value must differ from the real one');
+      if (APPLIED) {
+        assert.match(now, /^CURRENT\b/, 'the successor slot must OPEN with CURRENT today');
+        assert.match(SUCCESSOR_NO_NOT_ACCEPTED, /ACCEPTED FOR IMPLEMENTATION/, 'the replacement must KEEP the acceptance half, so only the ownership half is under test');
+        assert.doesNotMatch(SUCCESSOR_NO_NOT_ACCEPTED, /^CURRENT\b/, 'and must really drop the CURRENT claim');
+      } else {
+        assert.match(now, /PROPOSED/, 'the record must carry both halves today');
+        assert.match(now, /NOT ACCEPTED/, 'or dropping one of them is not a mutation');
+        assert.match(SUCCESSOR_NO_NOT_ACCEPTED, /PROPOSED/, 'the replacement must KEEP the PROPOSED half');
+        assert.doesNotMatch(SUCCESSOR_NO_NOT_ACCEPTED, /NOT ACCEPTED/, 'and must really drop the not-accepted half');
+      }
     },
     packet: () => buildPacket({ delta: (d) => { d.ownership.proposed_successor.lifecycle_now = SUCCESSOR_NO_NOT_ACCEPTED; } }),
   },
   {
     id: 'OW-7',
-    title: 'a successor lifecycle that says NOT ACCEPTED but not PROPOSED is rejected',
+    title: 'a successor lifecycle missing the position half of its label is rejected',
     why: 'the mirror failure: dropping PROPOSED leaves a document that is merely not accepted, which ' +
       'is equally true of a withdrawn or never-submitted revision — the record must keep saying that ' +
       'this one is a live proposal',
-    match: /W2-I delta: ownership\.proposed_successor\.lifecycle_now must record PROPOSED-SUCCESSOR — NOT ACCEPTED/,
+    match: DIAG_OW_SUCCESSOR,
     guard: () => {
-      assert.match(SUCCESSOR_NO_PROPOSED, /NOT ACCEPTED/, 'the replacement must KEEP the not-accepted half');
-      assert.doesNotMatch(SUCCESSOR_NO_PROPOSED, /PROPOSED/, 'and must really drop the PROPOSED half — matched case-sensitively, so PROPOSED-SUCCESSOR may not survive either');
+      if (APPLIED) {
+        assert.match(SUCCESSOR_NO_PROPOSED, /^CURRENT\b/, 'the replacement must KEEP the ownership half, so only the acceptance half is under test');
+        assert.doesNotMatch(SUCCESSOR_NO_PROPOSED, /ACCEPTED FOR IMPLEMENTATION/, 'and must really drop the acceptance half');
+      } else {
+        assert.match(SUCCESSOR_NO_PROPOSED, /NOT ACCEPTED/, 'the replacement must KEEP the not-accepted half');
+        assert.doesNotMatch(SUCCESSOR_NO_PROPOSED, /PROPOSED/, 'and must really drop the PROPOSED half — matched case-sensitively, so PROPOSED-SUCCESSOR may not survive either');
+      }
     },
     packet: () => buildPacket({ delta: (d) => { d.ownership.proposed_successor.lifecycle_now = SUCCESSOR_NO_PROPOSED; } }),
   },
   {
     id: 'OW-8',
-    title: 'a proposed disposition that no longer records the predecessor as still CURRENT is rejected',
+    title: 'a disposition that no longer records the predecessor position is rejected',
     why: 'the disposition is a PROPOSAL about a future flip; the one thing it must state about today ' +
       'is that the predecessor is not yet deprecated or superseded. Losing that sentence is how a ' +
       'proposed supersession quietly reads as an accomplished one',
-    match: /W2-I delta: proposed_disposition\.predecessor_disposition_now must record that the predecessor is still CURRENT \(not yet deprecated or superseded\)/,
+    match: DIAG_OW_DISPOSITION,
     guard: () => {
       const d3 = delta.proposed_disposition;
-      assert.match(d3.predecessor_disposition_now, /CURRENT/, 'the disposition must record the predecessor as still CURRENT today, or deleting the field is not a mutation');
+      assert.match(d3.predecessor_disposition_now, APPLIED ? /^SUPERSEDED-SUPPORTED\b/ : /CURRENT/, 'the disposition must state the predecessor position today, or deleting the field is not a mutation');
       // Deleting the WHOLE block would trip the predecessor/byte-frozen/dates rules first and bury the
       // CURRENT rule among them. Removing exactly this field keeps the other three satisfied, so the
       // run reaches the precise CURRENT diagnostic this row names and only that one.
       assert.equal(d3.predecessor, PRED_IN_CONTRACTS, 'the sibling predecessor field must stay satisfied');
       assert.equal(d3.predecessor_byte_frozen, true, 'as must the byte-freeze field');
-      assert.equal(d3.dates_binding, false, 'as must the non-binding-dates field');
+      assert.equal(d3.dates_binding, APPLIED, 'as must the dates-binding field');
     },
     packet: () => buildPacket({ delta: (d) => { delete d.proposed_disposition.predecessor_disposition_now; } }),
   },
@@ -3396,10 +3775,21 @@ const lineDelta = (before, after) => {
 const errorList = (out) => out.split('\n').filter((l) => l.startsWith('  - ')).map((l) => l.slice(4));
 const literalRx = (s) => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-const DIAG_OA_STATUS = "transport OpenAPI: info.x-cybrik-status must be 'PROPOSED'";
+// The successor's three lifecycle lines, as they read in the CURRENT state. Deriving the anchors
+// rather than hard-coding them is what lets one row body prove the same rule in both states: the
+// mutation always moves the document AWAY from whatever the packet lifecycle requires.
+const OA_STATUS_LINE = `  x-cybrik-status: ${MEMBER_STATUS}`;
+const OA_NOT_ACCEPTED_LINE = `  x-cybrik-not-accepted: ${!APPLIED}`;
+const OA_NOT_ACCEPTED_FORGED = `  x-cybrik-not-accepted: ${APPLIED}`;
+const OA_ROLE_LINE = `  x-cybrik-lifecycle-role: ${APPLIED ? 'CURRENT' : 'PROPOSED-SUCCESSOR'}`;
+const OA_ROLE_FORGED = '  x-cybrik-lifecycle-role: SUCCESSOR-REVISION';
+
+const DIAG_OA_STATUS = `transport OpenAPI: info.x-cybrik-status must be '${MEMBER_STATUS}'`;
 const DIAG_OA_NOT_ACCEPTED = 'transport OpenAPI: info.x-cybrik-not-accepted must match the packet lifecycle';
 const DIAG_OA_VERSION = "transport OpenAPI: info.version must be 0.2.0 to match the contract_version the delta pins for this member (got '0.1.0')";
-const DIAG_OA_ROLE = 'transport OpenAPI: info.x-cybrik-lifecycle-role must record it as a PROPOSED-SUCCESSOR';
+const DIAG_OA_ROLE = APPLIED
+  ? "transport OpenAPI: once applied, info.x-cybrik-lifecycle-role must be CURRENT (the successor is now the sole owner of the four pairs) — got 'SUCCESSOR-REVISION'"
+  : 'transport OpenAPI: info.x-cybrik-lifecycle-role must record it as a PROPOSED-SUCCESSOR';
 const DIAG_OA_SUPERSEDES =
   "transport OpenAPI: info.x-cybrik-supersedes must name the accepted predecessor 'cybrik-ai-inference-plane.v1.openapi.yaml' " +
   '(a compatible successor revision of the W2-D-owned plane, not a second plane) — ' +
@@ -3422,28 +3812,29 @@ const OPENAPI_BIND_ROWS = [
       'that states no lifecycle at all — must fail just as closed: an unstated status is not a ' +
       'PROPOSED one, and a member that declares nothing cannot be shown to agree with the packet ' +
       'lifecycle the delta pins',
-    mutate: (t) => spliceLines(t, ['  x-cybrik-status: PROPOSED'], [], 'OA-1'),
-    removed: ['  x-cybrik-status: PROPOSED'],
+    mutate: (t) => spliceLines(t, [OA_STATUS_LINE], [], 'OA-1'),
+    removed: [OA_STATUS_LINE],
     added: [],
     shape: (doc) => {
       assert.equal(doc.info['x-cybrik-status'], undefined, 'the successor must really have lost its status field');
-      assert.equal(doc.info['x-cybrik-not-accepted'], true, 'its NOT-ACCEPTED sibling must survive untouched, so only the status rule is under test');
-      assert.equal(doc.info['x-cybrik-lifecycle-role'], 'PROPOSED-SUCCESSOR', 'and the lifecycle role must survive, so the ownership sweep still classifies this document as a successor and reports nothing');
+      assert.equal(doc.info['x-cybrik-not-accepted'], !APPLIED, 'its NOT-ACCEPTED sibling must survive untouched, so only the status rule is under test');
+      assert.equal(doc.info['x-cybrik-lifecycle-role'], APPLIED ? 'CURRENT' : 'PROPOSED-SUCCESSOR', 'and the lifecycle role must survive, so the ownership sweep still classifies this document the same way and reports nothing');
     },
     errors: [DIAG_OA_STATUS],
   },
   {
     id: 'OA-2',
-    title: 'a successor claiming x-cybrik-not-accepted: false while the packet is PROPOSED is rejected',
+    title: 'a successor whose x-cybrik-not-accepted contradicts the packet lifecycle is rejected',
     why: 'x-cybrik-not-accepted is the machine-readable half of the status pair. A member flipping it ' +
-      'alone claims acceptance no gate recorded, and a status line still reading PROPOSED is exactly ' +
+      'alone asserts a lifecycle no gate recorded — before the flip it claims an acceptance that does ' +
+      'not exist, after the flip it disclaims one that does — and the untouched status line is exactly ' +
       'the cover such a claim would hide behind',
-    mutate: (t) => spliceLines(t, ['  x-cybrik-not-accepted: true'], ['  x-cybrik-not-accepted: false'], 'OA-2'),
-    removed: ['  x-cybrik-not-accepted: true'],
-    added: ['  x-cybrik-not-accepted: false'],
+    mutate: (t) => spliceLines(t, [OA_NOT_ACCEPTED_LINE], [OA_NOT_ACCEPTED_FORGED], 'OA-2'),
+    removed: [OA_NOT_ACCEPTED_LINE],
+    added: [OA_NOT_ACCEPTED_FORGED],
     shape: (doc) => {
-      assert.equal(doc.info['x-cybrik-not-accepted'], false, 'the successor must really claim it is accepted');
-      assert.equal(doc.info['x-cybrik-status'], 'PROPOSED', 'while its status line still says PROPOSED, so ONLY the not-accepted rule can fire');
+      assert.equal(doc.info['x-cybrik-not-accepted'], APPLIED, 'the successor must really contradict the packet lifecycle');
+      assert.equal(doc.info['x-cybrik-status'], MEMBER_STATUS, 'while its status line still matches the packet, so ONLY the not-accepted rule can fire');
     },
     errors: [DIAG_OA_NOT_ACCEPTED],
   },
@@ -3468,19 +3859,19 @@ const OPENAPI_BIND_ROWS = [
   },
   {
     id: 'OA-4',
-    title: 'a successor whose lifecycle role no longer says PROPOSED is rejected',
-    why: 'the role is what makes this document a PROPOSED successor rather than an owner. A role that ' +
-      'drops the word without claiming CURRENT is the quiet case: the ownership sweep still counts it ' +
-      'as a successor, so ONLY the §6 identity rule stands between an unlabelled document and green',
-    mutate: (t) => spliceLines(t, ['  x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR'], ['  x-cybrik-lifecycle-role: SUCCESSOR-REVISION'], 'OA-4'),
-    removed: ['  x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR'],
-    added: ['  x-cybrik-lifecycle-role: SUCCESSOR-REVISION'],
+    title: 'a successor whose lifecycle role no longer states the role the packet requires is rejected',
+    why: 'the role is what says whether this document is a proposal or the owner. A role that states ' +
+      'neither is the quiet case: it is a plausible-looking label that no rule but the §6 identity ' +
+      'check reads, so that check is all that stands between an unlabelled document and green',
+    mutate: (t) => spliceLines(t, [OA_ROLE_LINE], [OA_ROLE_FORGED], 'OA-4'),
+    removed: [OA_ROLE_LINE],
+    added: [OA_ROLE_FORGED],
     shape: (doc) => {
       const role = doc.info['x-cybrik-lifecycle-role'];
       assert.equal(role, 'SUCCESSOR-REVISION');
-      assert.doesNotMatch(role, /PROPOSED/, 'no surviving PROPOSED anywhere in the role, or the rule under test is still satisfied and the row proves nothing');
-      assert.doesNotMatch(role, /^CURRENT$/i, 'and the role must NOT claim CURRENT, so the ownership sweep keeps classifying this document as a successor and its verdict cannot mask the identity rule');
-      assert.equal(doc.info['x-cybrik-status'], 'PROPOSED', 'the status must stay PROPOSED for the same reason');
+      assert.doesNotMatch(role, /PROPOSED/, 'no surviving PROPOSED anywhere in the role, or the pre-flip rule is still satisfied and the row proves nothing');
+      assert.doesNotMatch(role, /^CURRENT$/i, 'and no surviving CURRENT, or the post-flip rule is still satisfied');
+      assert.equal(doc.info['x-cybrik-status'], MEMBER_STATUS, 'the status must keep matching the packet, so only the role rule can fire');
     },
     errors: [DIAG_OA_ROLE],
   },

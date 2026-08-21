@@ -1,0 +1,251 @@
+{
+  "$comment": "DERIVED, NON-AUTHORITATIVE release-qualification snapshot for v1.0.0-rc1, created under the Founder adjudication §9.7 closing action. It is a convenience projection of state that is authoritative ELSEWHERE. It decides nothing, qualifies nothing, and may not be cited as the source of any gate status. Where the control plane and this file disagree, the control plane wins.",
+  "derived_release_evidence": true,
+  "authoritative_orchestration_state": false,
+  "snapshot_timestamp": "2026-08-21T13:30:00+07:00",
+  "release_candidate": "v1.0.0-rc1",
+  "snapshot_scope": {
+    "what_this_is": "A point-in-time projection into cybrik-suite of (a) hosted CI facts this repository verified itself read-only against the GitHub Actions API, and (b) governance and runtime claims whose authority of record lives outside every suite repository.",
+    "what_this_is_not": [
+      "NOT the authority of record for any gate, boundary, or decision.",
+      "NOT staging qualification, not a merge, not a release tag, not GA, not production authority.",
+      "NOT a test transcript: no per-test result is bound here, because no hosted run emits one into this repository.",
+      "NOT a substitute for docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md or releases/manifests/release-candidate-v1.0.0-rc1.manifest.json."
+    ],
+    "authority_of_record": "soc-autonomous-state:HUMAN_BOUNDARIES.json, soc-autonomous-state:AUTHORITY_INBOX.json and soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md — control-plane artifacts outside every suite repository. This file exists BECAUSE that is true, not in spite of it: §9.7 asked for a derived artifact in-repo, and a derived artifact that claimed to be authoritative would recreate the very gap it was meant to document.",
+    "verification_split": "Every field below carries an in_repository_corroboration value. VERIFIED means this repository independently observed the fact (read-only GitHub API at the snapshot timestamp). ABSENT means the claim is reproduced from an external record that nothing committed here can check."
+  },
+  "components": {
+    "cybrik-suite": {
+      "pull_request": 56,
+      "branch": "fix/rc-manifest-contracts",
+      "pinned_sha": "eba517bfa70b767c19df5f0c9fbdd4358290faea",
+      "ci_run_id": 32452878301,
+      "ci_workflow": "contracts",
+      "ci_conclusion": "success",
+      "checks_green": 3,
+      "checks_total": 3,
+      "checks_skipped": 0,
+      "checks_failing": 0,
+      "run_head_sha_equals_pin": true,
+      "on_origin_main": false,
+      "merged": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "in_repository_corroboration": "VERIFIED — run object and job inventory read from the GitHub Actions API at the snapshot timestamp; head_sha matches the pin exactly."
+    },
+    "cybrik-soc-command-center": {
+      "pull_request": 13,
+      "branch": "fix/copilot-draft-auth",
+      "pinned_sha": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
+      "ci_run_id": 32447499849,
+      "ci_workflow": "ci",
+      "ci_conclusion": "success",
+      "checks_green": 9,
+      "checks_total": 9,
+      "checks_skipped": 1,
+      "checks_failing": 0,
+      "skipped_checks": [
+        "alert-context-route-db"
+      ],
+      "run_head_sha_equals_pin": true,
+      "on_origin_main": false,
+      "merged": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "in_repository_corroboration": "VERIFIED — run object and job inventory read from the GitHub Actions API at the snapshot timestamp; head_sha matches the pin exactly. This closes the corroboration gap recorded at specification §9.3."
+    },
+    "cybrik-cyber-ai-platform": {
+      "pull_request": 11,
+      "branch": "feature/rc-w2i-conformance",
+      "pinned_sha": "b5ab09c8194bc88cfa7c2fdbb53c672efd06a722",
+      "ci_run_id": 32452271445,
+      "ci_workflow": "ci",
+      "ci_conclusion": "success",
+      "checks_green": 8,
+      "checks_total": 8,
+      "checks_skipped": 0,
+      "checks_failing": 0,
+      "run_head_sha_equals_pin": true,
+      "on_origin_main": false,
+      "merged": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "in_repository_corroboration": "VERIFIED — run object and job inventory read from the GitHub Actions API at the snapshot timestamp; head_sha matches the pin exactly.",
+      "note": "This head resolves the failing 'type' check carried by its direct parent 5d0c2d43 and un-skips 'test' and 'build-offline'. The hosted 'test' check is pass/fail only; no test count is bound to the pin."
+    },
+    "cybrik-security-tool-fabric": {
+      "pull_request": 6,
+      "branch": "chore/sec-md-fabric",
+      "pinned_sha": "0e4fee8d08ff9a67c200ce6c5f97a6f277581be9",
+      "ci_run_id": 32389505003,
+      "ci_workflow": "ci",
+      "ci_conclusion": "success",
+      "checks_green": 4,
+      "checks_total": 4,
+      "checks_skipped": 2,
+      "checks_failing": 0,
+      "skipped_checks": [
+        "control-plane",
+        "executor"
+      ],
+      "skip_disposition": "VALID_PATH_GATED_INHERITED_VERIFICATION",
+      "run_head_sha_equals_pin": true,
+      "on_origin_main": false,
+      "merged": false,
+      "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
+      "path_gating_proof": {
+        "changed_files_count": 1,
+        "changed_files": [
+          "SECURITY.md"
+        ],
+        "control_plane_tree_changes": 0,
+        "executor_tree_changes": 0,
+        "detector": ".github/workflows/ci.yml job 'detect', step 'filter'",
+        "trigger_patterns": {
+          "control_plane": "^(src/control-plane/|tests/control-plane/|tests/conformance/|contracts-vendor/)",
+          "executor": "^src/executor/",
+          "both": "^\\.github/"
+        },
+        "detector_observed_output": "job 96492567174 printed 'changed files:' followed by exactly 'SECURITY.md'",
+        "fail_open_note": "The detector runs BOTH planes when the diff base is unresolvable or the diff fails. Neither warning appears in the job log, so the skip is a real gating decision and not a silently broken detector.",
+        "verdict": "The two skips are correct. Zero bytes changed under either plane's trigger paths, so the control-plane and executor verification carried by the base commit on main is inherited unchanged."
+      },
+      "in_repository_corroboration": "VERIFIED — run object, job inventory, PR #6 file list and the detect job's own execution log all read from the GitHub API at the snapshot timestamp."
+    }
+  },
+  "governance_gates": {
+    "HB-1": "PASSED",
+    "HB-2": "PASSED",
+    "HB-3": "PASSED",
+    "HB-4": "ACCEPTED",
+    "HB-5": "PASSED_RATIFIED",
+    "detail": {
+      "HB-1": {
+        "gate_id": "HOSTED_INTEGRATION_CONTROL",
+        "decision": "PASS",
+        "decided_by": "Founder",
+        "decided_on": "2026-08-20T18:42:54+07:00",
+        "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-004"
+      },
+      "HB-2": {
+        "gate_id": "UAT_PERSONA_EVIDENCE",
+        "decision": "PASS",
+        "decided_by": "Founder / Human Accessibility Reviewer",
+        "decided_on": "2026-08-20T18:41:33+07:00",
+        "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-003"
+      },
+      "HB-3": {
+        "gate_id": "RESPONSIBLE_DISCLOSURE",
+        "decision": "RESOLVED",
+        "release_blocker_id": "RB-001",
+        "decided_on": "2026-08-20",
+        "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-005/INBOX-006",
+        "residual": "public_security_txt_status PENDING_PUBLIC_WEB_DEPLOYMENT — the canonical URL was not observed serving (specification §9.4)"
+      },
+      "HB-4": {
+        "gate_id": "W2_I_ACCEPTANCE",
+        "decision": "ACCEPT",
+        "decided_by": "Decision Council / Founder",
+        "decided_on": "2026-08-20T19:15:00+07:00",
+        "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007; HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT)",
+        "artifact_status_flip_applied": true,
+        "artifact_status_flip_applied_on": "2026-08-21"
+      },
+      "HB-5": {
+        "gate_id": "SOC_UAT_RATIFICATION",
+        "decision": "PASS",
+        "disposition": "RATIFIED",
+        "decided_by": "Founder",
+        "decided_on": "2026-08-20T19:25:00+07:00",
+        "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-008; HUMAN_BOUNDARIES.json HB-5 (CLOSED, SATISFIED_BY_FOUNDER_FINAL_UAT_RATIFICATION_PASS)",
+        "ten_gate_ratification": {
+          "all_gates_ratified_pass": true,
+          "gates": [
+            "SUITE_LOCAL_GATES",
+            "HOSTED_INTEGRATION_CONTROL",
+            "RESPONSIBLE_DISCLOSURE",
+            "W2_I_ACCEPTANCE",
+            "SOC_UAT_SURFACE",
+            "CYBER_AI_RUNTIME",
+            "TOOL_FABRIC_RUNTIME",
+            "LIVE_VERTICAL",
+            "UAT_PERSONA_EVIDENCE",
+            "DEPLOY_ROLLBACK_REHEARSAL"
+          ]
+        }
+      }
+    },
+    "in_repository_corroboration": "ABSENT for every gate. All five boundaries and the ten-gate ratification are recorded in soc-autonomous-state (control plane, OUTSIDE every suite repository). Nothing committed in cybrik-suite independently reproduces them. The ONE exception is HB-4's artifact_status_flip_applied, which IS verifiable here: the flipped bytes are in this repository and the transport/inference validators check them."
+  },
+  "codex_challenges": {
+    "status": "NO_IN_REPOSITORY_RECORD",
+    "count_recorded_here": 0,
+    "finding": "No Codex challenge record of any kind exists in cybrik-suite for this release candidate: no challenge identifier, ledger, disposition or transcript appears anywhere under docs/ or releases/. This field is present and empty ON PURPOSE. Emitting a count or a PASS here would be inventing release evidence, which is the exact failure a derived snapshot is most likely to commit.",
+    "where_it_would_live_if_it_exists": "soc-autonomous-state (control plane, OUTSIDE every suite repository)",
+    "closing_action": "If Codex challenges are part of release qualification, commit their record into cybrik-suite:docs/releases/evidence/ and re-derive this snapshot. Until then this field asserts nothing.",
+    "in_repository_corroboration": "ABSENT"
+  },
+  "performance_evidence": {
+    "status": "NO_IN_REPOSITORY_RECORD",
+    "finding": "cybrik-suite holds no performance measurement for this candidate — no latency distribution, no throughput figure, no load profile, no saturation test. The only performance-shaped numbers in the specification are two rollback-rehearsal observations (6.0 s recovery, 1.9 ms restored-probe latency), and those are properties of the rehearsal, not a performance qualification.",
+    "rollback_rehearsal_observations": {
+      "recovery_time_seconds": 6.0,
+      "restored_probe_latency_ms": 1.9,
+      "source": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.3",
+      "caveat": "Reproduced from the specification. The evidence document it cites is itself missing — see dangling_evidence_references below."
+    },
+    "closing_action": "Commit a performance evidence record into cybrik-suite:docs/releases/evidence/ measured against the pinned heads, or state explicitly that performance is out of scope for rc1.",
+    "in_repository_corroboration": "ABSENT"
+  },
+  "database_restore_drill": {
+    "status": "NO_IN_REPOSITORY_RECORD",
+    "finding": "No database restore drill is recorded in cybrik-suite for this candidate. The specification describes a SERVICE rollback rehearsal (§6.2, §6.3) — image-level redeploy behind health probes — which is a different exercise: it demonstrates no dump, no restore, no point-in-time recovery and no data-loss measurement. Reporting the rollback rehearsal as a restore drill would overstate it, so the two are kept separate here.",
+    "closest_related_evidence": {
+      "what": "service rollback rehearsal (reversible 503 circuit-breaker fault injected into ai-api)",
+      "claimed_outcome": "6.0 s recovery, zero downtime, zero data loss, 4/4 services healthy, 7/7 smoke stages green, NEG-1..NEG-4 all PASS post-rollback",
+      "source": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §6.3",
+      "is_a_restore_drill": false
+    },
+    "closing_action": "Run and record a database restore drill (dump, restore, integrity verification, measured RPO/RTO) against the pinned heads, or record explicitly that rc1 makes no restore-drill claim.",
+    "in_repository_corroboration": "ABSENT"
+  },
+  "contract_state": {
+    "w2_i_transport_binding": {
+      "gate": "W2-I",
+      "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+      "decided_on": "2026-08-20",
+      "applied_on": "2026-08-21",
+      "governing_manifest": "contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json",
+      "absorbed_members": 4,
+      "superseded_member": "contracts/openapi/cybrik-ai-inference-plane.v1.openapi.yaml (SUPERSEDED-SUPPORTED, byte-frozen at 731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e)",
+      "in_repository_corroboration": "VERIFIED — the flipped bytes are in this repository and node tools/contract-validation/validate-transport.mjs proves the flip is whole (members absorbed at agreeing digests, predecessor relabelled, decision recorded, one CURRENT owner per pair)."
+    },
+    "accepted_packets": {
+      "w2_b": "ACCEPTED FOR IMPLEMENTATION",
+      "w2_d": "ACCEPTED FOR IMPLEMENTATION",
+      "w2_f": "ACCEPTED FOR IMPLEMENTATION",
+      "w2_g": "ACCEPTED FOR IMPLEMENTATION"
+    }
+  },
+  "open_items_not_closed_by_this_snapshot": [
+    "§9.2 — no product test suite was re-executed against its pinned head; no test transcript is bound to any pin.",
+    "§9.4 — security.txt publication at the canonical URL is unverified.",
+    "§9.5 — none of the four pins is on origin/main and none is merged. Human-only work; no machine action can close it.",
+    "§9.6 — rollback target images are not re-established against the pinned heads.",
+    "W2-F operation-token amendment — undischarged; the two GET tokens remain outside accepted delegation vocabulary, so no delegation token may authorize either read operation.",
+    "No independent post-flip security/compatibility review of the W2-I bytes is recorded.",
+    "codex_challenges, performance_evidence and database_restore_drill have no in-repository record at all (see above).",
+    "Five evidence documents cited by the specification do not exist in any suite repository — see dangling_evidence_references."
+  ],
+  "dangling_evidence_references": {
+    "finding": "The specification cites five evidence documents that do not exist in ANY of the four suite repositories, verified two ways at the snapshot timestamp: every relative link resolved against disk, and each filename searched across the org via GitHub code search (0 results each). This is a second instance of the defect §9.7 already recorded once for docs/uat/founder-uat-readiness.v1.json. The claims those documents support — the Cyber AI 258/258, the Fabric 172/172 and Go executor results, the SOC 8/8 required contexts with Playwright 31 passed and pytest 279/278/1, the NEG-1..NEG-6 matrix, and the rollback rehearsal outcome — are therefore UNSOURCED in-repository, not merely un-re-executed. Between them they are the sole cited source for every headline product test result and for the entire adversarial security matrix in the specification.",
+    "missing_paths": [
+      "docs/operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md",
+      "docs/operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md",
+      "docs/operations/LIVE-VERTICAL-TRIAD-ENGINEERING-EVIDENCE.md",
+      "docs/operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md",
+      "docs/uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md"
+    ],
+    "cited_from": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §2.2, §4.1, §4.3, §6.3, §6.4",
+    "closing_action": "Either commit these five evidence documents into cybrik-suite, or re-source every claim that depends on them and remove the dangling links."
+  },
+  "status_honesty": "DERIVED_RELEASE_EVIDENCE=true and AUTHORITATIVE_ORCHESTRATION_STATE=false are load-bearing. This file grants no staging-qualification, merge, tag, deployment, GA or production authority, and it cannot promote v1.0.0-rc1 beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION. Promotion requires explicit Founder approval per cybrik-suite:CLAUDE.md."
+}
