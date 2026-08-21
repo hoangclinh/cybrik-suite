@@ -12,8 +12,8 @@
   carry their own times: the Cyber AI and Fabric rollups at `13:30`, the SOC rollup at `16:20`, the
   Suite rollup at `16:05`, and the `security.txt` probe at `13:30` and again in this revision
   (§2.1, §9.4).
-- **`cybrik-suite` content base:** `c9043688f552049a593f33411024220ce867502f` — advanced in this
-  revision from `4498bdd3…` (an ancestor), verified 3/3 green under hosted run `32515633360` at
+- **`cybrik-suite` content base:** `9e9690562ec3b50ac29e87497d9b1203c9d6a215` — advanced in this
+  revision from `4498bdd3…` (an ancestor), verified 3/3 green under hosted run `32516586151` at
   exactly that head (§2, §2.1, §2.3).
 - **Provenance model:** `MANIFEST_BINDS_CONTENT_BASE_WITH_EXTERNAL_RELEASE_TAG_ENVELOPE` — the
   in-repository manifest binds the authoring **content base**; the external release-candidate tag
@@ -87,7 +87,7 @@ product repository — this change is scoped to `cybrik-suite` only.
 
 | # | Repository | Pinned PR Head | PR | Branch | Commit Subject |
 |---|---|---|---|---|---|
-| 1 | `cybrik-suite` | `c9043688f552049a593f33411024220ce867502f` | `origin/main` | `main` | `chore(release): reconcile post-merge metadata in RC1 manifest and documentation (#59)` |
+| 1 | `cybrik-suite` | `9e9690562ec3b50ac29e87497d9b1203c9d6a215` | `origin/main` | `main` | `chore(release): reconcile post-merge metadata in RC1 manifest and documentation (#59)` |
 | 2 | `cybrik-soc-command-center` | `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` | `origin/main` | `main` | `docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)` |
 | 3 | `cybrik-cyber-ai-platform` | `f0bf4c630d8e93a0531d16b4522ce0425996a624` | `origin/main` | `main` | `fix(test): widen breaker state read to satisfy mypy strict in resilience tests` |
 | 4 | `cybrik-security-tool-fabric` | `1a419014ebb432eb56ac35242e0a193fe65a62c6` | `origin/main` | `main` | `ci: trigger fresh PR checks on rebased branch` |
@@ -108,7 +108,7 @@ itself. The non-CI open items in §9 — chiefly the unsourced evidence document
 unbound rollback targets (§9.6) — remain.
 
 The `cybrik-suite` pin `c904368…` is the local authoring parent of the commit carrying this
-revision. **It has been pushed**, and it has its own hosted run — `32515633360`, 3/3 green (§2.1) —
+revision. **It has been pushed**, and it has its own hosted run — `32516586151`, 3/3 green (§2.1) —
 so the Suite rollup is observed at the pin itself, not at an ancestor.
 
 **The SOC pin advanced in this revision.** The prior pin `2822b9e1…` was `BEHIND` `origin/main`,
@@ -146,7 +146,7 @@ itself** — the prior revision's Suite caveat (rollup observed only at an ances
 
 | Repository | Run ID | Run `head_sha` = pin? | Observed Check Rollup | Verdict |
 |---|---|:---:|---|:---:|
-| `cybrik-suite` | `32515633360` (`contracts`) | **yes** — `c904368…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
+| `cybrik-suite` | `32516586151` (`contracts`) | **yes** — `c904368…` | **3 / 3** successful — `secret-scan` (`96719525344`), `contract standards validation` (`96719525219`), `topology rehearsal tests` (`96719524994`); 0 skipped; 0 failing. Companion push-event run `32464954616` at the same head is also 3/3 green | **GREEN** |
 | `cybrik-soc-command-center` | `32510544176` (`ci`) | **yes** — `695aed8…` | **9 / 9** successful — `api`, `backup-tool`, `pf-workers`, `web`, `secret-scan`, `dependency-scan`, `sbom`, `e2e`, `e2e-org`; 1 skipped (`alert-context-route-db`); 0 failing. A **fresh** qualification run at the rebased head, not the superseded run `32447499849` | **GREEN** |
 | `cybrik-cyber-ai-platform` | `32471341528` (`ci`) | **yes** — `f0bf4c6…` | **8 / 8** successful — `scaffold-integrity`, `lockfile-integrity`, `secret-scan`, `security-supply-chain`, `lint`, `type`, `test`, `build-offline`; 0 skipped; 0 failing. The `test` job's own log reads **`1065 passed, 17 skipped, 9 warnings in 20.38s`** | **GREEN** |
 | `cybrik-security-tool-fabric` | `32471346851` (`ci`) | **yes** — `1a41901…` | **4 / 4** successful — `scaffold-integrity`, `secret-scan`, `detect`, `admission-gate`; 2 **path-gated** skips (`control-plane`, `executor`), proven correct in §9.2a; 0 failing | **GREEN** |
@@ -164,7 +164,7 @@ for the W2-I conformance suite (§3.1, §4.1, §9.3a).
 
 The Suite pin advanced again in this revision, to `c904368…` — the direct child of `7003835…`,
 and the authoring parent of the commit carrying this document — which has its own hosted run,
-`32515633360`, green 3/3, plus a companion push-event run `32464954616` at the same head. The pin
+`32516586151`, green 3/3, plus a companion push-event run `32464954616` at the same head. The pin
 advances at every revision by construction, because the content base is always the authoring
 parent (§2.3); the prior pin `4498bdd3…` was itself 3/3 green under `32458843295` and remains a
 truthful record of what the prior revision evaluated. It is an ancestor of `c904368…`.
@@ -349,7 +349,7 @@ asserts that the relying party:
 | `cybrik-cyber-ai-platform` | + W2-I transport conformance (suite introduced at ancestor head `6793e217…`, present on the pinned branch) | Previously recorded as **276** unit/contract tests at `b867220f…`; the hosted PR #11 `test` check is **`SUCCESS` at the pin `f0bf4c6…`** (job `96682973118`, run `32471341528`) — pass/fail only, no per-test transcript | Run `32471341528` verified by id 2026-08-21T13:30:00+07:00 (unchanged in this revision) | **No local re-run; hosted pass/fail at the pin, no transcript; see §9.2, §9.3a** |
 | `cybrik-security-tool-fabric` | control plane + Go executor **at the pin** `1a41901…` | **Not re-executed at the pin — `INHERITED`.** Both jobs are path-gated skips, proven correct: PR #6 changes exactly one file (`SECURITY.md`) and zero bytes under either plane's trigger paths (§9.2a) | Run `32471346851`, `detect` job `96492567174` execution log + PR #6 file list | **No. Verification is inherited from the base commit on `main`; no test count is claimed at this pin.** |
 | `cybrik-soc-command-center` | Founder UAT walkthrough of the SOC surface at `4480a412…` | **`FOUNDER_PRODUCT_ACCEPTANCE` PASS** and **`SOC_UAT_SURFACE` gate PASS** — core SOC portal, persona flows P1–P6, tenant switching, Cyber AI Copilot, Live Vertical triad | `soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md` (sha256 `78bc11ca…`), HB-5, 2026-08-20 | **Human ratification, not a machine transcript.** `4480a412…` is a verified ancestor of the pin (§2.2). The Playwright and pytest figures from run `32164562480` are **withdrawn** as pin-bound (§2.2a). |
-| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32515633360`), SOC 9/9 (run `32510544176`), Cyber AI 8/8 (run `32471341528`), Fabric 4/4 + 2 path-gated skips (run `32471346851`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T13:30:00+07:00 to 16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
+| all four PR heads | hosted CI runs at the pinned heads | **All four green, each at the pin itself** — Suite 3/3 (run `32516586151`), SOC 9/9 (run `32510544176`), Cyber AI 8/8 (run `32471341528`), Fabric 4/4 + 2 path-gated skips (run `32471346851`); 0 failing anywhere | GitHub Actions runs + jobs API by exact run id, 2026-08-21T13:30:00+07:00 to 16:20:00+07:00 (§2.1) | **Check state verified, no suite re-executed by this repository (§2.1, §9.2)** |
 | `cybrik-suite` | `node tools/contract-validation/validate-transport.mjs` | **PASS (exit 0)** — lifecycle `ACCEPTED FOR IMPLEMENTATION` | Executed 2026-08-21 against the flipped bytes — §4.2 | **Yes — re-run for the W2-I flip (§9.1)** |
 | `cybrik-suite` | `node --test tools/contract-validation/tests/validate-transport.test.mjs` | **204 / 204 passed**, validator line + branch coverage above the 80% floor | Executed 2026-08-21 — §4.2 | **Yes** |
 | `cybrik-suite` | `node tools/contract-validation/validate-inference.mjs` | **PASS (exit 0)** | Executed 2026-08-21 against the flipped W2-D manifest — §4.2 | **Yes** |
@@ -368,7 +368,7 @@ changed `contracts/`, so once it was applied a re-run became mandatory rather th
 has been re-run at every revision since — including this one, whose only tooling change is the
 comment-only validator header noted below.
 The same validators run in hosted CI under the `contract standards validation` check of run
-`32515633360` at the pinned head (§2.1), so the local and hosted results agree. They were
+`32516586151` at the pinned head (§2.1), so the local and hosted results agree. They were
 **re-executed again for this revision** against the bytes it carries: `validate-transport.mjs`
 `PASS` (exit 0), `validate-inference.mjs` `PASS` (exit 0), and the aggregate `validate.mjs`
 **30 / 31 validators clean** with one failure — the pre-existing local `dependency-compat` install
@@ -385,7 +385,7 @@ revision could not claim it: the W2-I status-prose alignment in
 requirement moved — re-pinned that member's SHA-256 in the accepted W2-D packet manifest, in the
 consumed delta (both pin sites) and in this candidate's manifest, and re-pinned the packet
 manifest's own post-flip digest in the delta, all *after* the then-current pin `4498bdd3…`. Those
-edits now sit **inside** the content-base pin `c904368…`, and run `32515633360` is 3/3 green at
+edits now sit **inside** the content-base pin `c904368…`, and run `32516586151` is 3/3 green at
 exactly that head, including `contract standards validation` (job `96719525219`). Everything under
 `contracts/` in this working tree is byte-identical to `contracts/` at `c904368…` (`git diff
 --quiet c904368 -- contracts/`, zero diff), so the hosted check has covered these exact contract
@@ -441,7 +441,7 @@ and was moved onto the recorded `ACCEPTED (HB-4)` catalog rows — was changed b
 and now sits inside the content base `c904368…`; the guard's base-byte SHA-256 pin is
 unchanged and still holds, so the catalog is still byte-pinned outside its three registered W2-I
 additions.) Hosted CI installs from the lockfile with `npm ci`
-and the same check passed in run `32515633360` at the pinned head. Repairing the local install would
+and the same check passed in run `32516586151` at the pinned head. Repairing the local install would
 require a dependency installation, which is Founder-gated in this repository, so it was not
 attempted.
 
@@ -1142,7 +1142,7 @@ breaker.state() method correctly in resilience tests to satisfy mypy strict`; th
 above and in the manifest is the one the commit actually carries, read from the GitHub commits API.
 An earlier revision also recorded that the `cybrik-suite` pin `be7e7361…` had no rollup at that
 exact SHA because it was not pushed — **that is closed too**. The Suite pin has advanced three times
-since, and now sits at `c904368…` with its own green run `32515633360` plus a companion push-event
+since, and now sits at `c904368…` with its own green run `32516586151` plus a companion push-event
 run `32464954616` at the same head (§2.1).
 
 **Superseded, and now stronger.** The statement above that "no test count is bound to the pin" no

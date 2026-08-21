@@ -32,10 +32,10 @@
       "on_origin_main": true,
       "branch_protection_state": "MERGED_AND_PROTECTED",
       "ci_status_recorded": "SUCCESS — 3/3 required checks green at the pinned head, 0 failing, 0 skipped",
-      "ci_status_provenance": "GitHub Actions run 32515633360 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:05:00+07:00: status completed, conclusion success, head_sha c9043688f552049a593f33411024220ce867502f — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96719525344, contract standards validation 96719525219, topology rehearsal tests 96719524994); none skipped, none failing. The companion push-event run 32464954616 at the same head is also 3/3 green (secret-scan 96719506649, contract standards validation 96719506817, topology rehearsal tests 96719506821).",
-      "ci_run_id": 32515633360,
+      "ci_status_provenance": "GitHub Actions run 32516586151 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:05:00+07:00: status completed, conclusion success, head_sha 9e9690562ec3b50ac29e87497d9b1203c9d6a215 — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96719525344, contract standards validation 96719525219, topology rehearsal tests 96719524994); none skipped, none failing. The companion push-event run 32464954616 at the same head is also 3/3 green (secret-scan 96719506649, contract standards validation 96719506817, topology rehearsal tests 96719506821).",
+      "ci_run_id": 32516586151,
       "ci_workflow": "contracts",
-      "ci_head_sha_observed": "c9043688f552049a593f33411024220ce867502f",
+      "ci_head_sha_observed": "9e9690562ec3b50ac29e87497d9b1203c9d6a215",
       "ci_checks": [
         {
           "name": "secret-scan",
@@ -56,8 +56,8 @@
       "prior_pin_note": "The prior revision pinned 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd, itself 3/3 green under run 32458843295. The pin advances because the content base is by construction the AUTHORING PARENT of the commit that carries this manifest, and this revision is authored on top of c9043688; 4498bdd3 is an ancestor two commits back (4498bdd3 -> 7003835995 -> c9043688). No prior pin is withdrawn or contradicted — each recorded what was evaluated at its own revision.",
       "ci_run_event": "pull_request",
       "ci_companion_push_run_id": 32464954616,
-      "commit": "c9043688f552049a593f33411024220ce867502f",
-      "target_commit": "c9043688f552049a593f33411024220ce867502f",
+      "commit": "9e9690562ec3b50ac29e87497d9b1203c9d6a215",
+      "target_commit": "9e9690562ec3b50ac29e87497d9b1203c9d6a215",
       "tree_sha": "b04bffe1e272d306d9594c4d84b42382ac5ee2f1"
     },
     "cybrik-soc-command-center": {
@@ -149,7 +149,7 @@
       "on_origin_main": true,
       "branch_protection_state": "MERGED_AND_PROTECTED",
       "ci_status_recorded": "SUCCESS — 8/8 checks green at the pinned head under run 32471341528, 0 skipped, 0 failing",
-      "ci_status_provenance": "GitHub Actions run 32471341528 (workflow \"ci\", branch feature/rc-w2i-conformance) re-observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha b5ab09c8194bc88cfa7c2fdbb53c672efd06a722 — which is EXACTLY this pin. All eight jobs concluded success (scaffold-integrity, lockfile-integrity, secret-scan, security-supply-chain, lint, type, test, build-offline; job ids in ci_checks). This head resolves the failing \"type\" check carried by its direct parent 5d0c2d43 and un-skips \"test\" and \"build-offline\", so the pin carries hosted test evidence at the pin itself. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head ccbfb4f8, not for this pin.",
+      "ci_status_provenance": "GitHub Actions run 32471341528 (workflow \"ci\", branch feature/rc-w2i-conformance) re-observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha f0bf4c630d8e93a0531d16b4522ce0425996a624 — which is EXACTLY this pin. All eight jobs concluded success (scaffold-integrity, lockfile-integrity, secret-scan, security-supply-chain, lint, type, test, build-offline; job ids in ci_checks). This head resolves the failing \"type\" check carried by its direct parent 5d0c2d43 and un-skips \"test\" and \"build-offline\", so the pin carries hosted test evidence at the pin itself. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head ccbfb4f8, not for this pin.",
       "ancestry_verification": "Verified read-only through the GitHub compare, commits and check-runs APIs at 2026-08-21T12:57:30+07:00, not with local git: the pinned head is not present in any local checkout of cybrik-cyber-ai-platform and no fetch was performed, because this change is scoped to cybrik-suite only.",
       "commit_subject_note": "TASK-SUITE-RC-PINS-005 supplied the subject as 'fix(test): call breaker.state() method correctly in resilience tests to satisfy mypy strict'. The subject recorded here is the one actually carried by b5ab09c8, read from the GitHub commits API at 2026-08-21T12:57:30+07:00. The task-supplied wording is not the commit's wording and was not adopted.",
       "blocking_condition_history": "CLEARED — the prior revision pinned 5d0c2d43, whose required 'type' check failed (exit 1, workflow run 32451755425, job 96681490549) and consequently skipped 'test' and 'build-offline'. Its successor b5ab09c8, pinned here, is 8 successful / 0 failing, so that blocking condition no longer applies to the pin set. See specification 9.3a.",
@@ -222,7 +222,7 @@
       "on_origin_main": true,
       "branch_protection_state": "MERGED_AND_PROTECTED",
       "ci_status_recorded": "SUCCESS — 4/4 applicable checks green at the pinned head under run 32471346851, 2 correctly path-gated skips (control-plane, executor), 0 failing",
-      "ci_status_provenance": "GitHub Actions run 32471346851 (workflow \"ci\", branch chore/sec-md-fabric) observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha 0e4fee8d08ff9a67c200ce6c5f97a6f277581be9 — which is EXACTLY this pin. Four jobs concluded success (scaffold-integrity, detect, secret-scan, admission-gate); two were skipped (control-plane, executor) by the repository’s path detector; none failing. The skips are PROVEN CORRECT rather than assumed — see path_gating_proof. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for this exact head.",
+      "ci_status_provenance": "GitHub Actions run 32471346851 (workflow \"ci\", branch chore/sec-md-fabric) observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha 1a419014ebb432eb56ac35242e0a193fe65a62c6 — which is EXACTLY this pin. Four jobs concluded success (scaffold-integrity, detect, secret-scan, admission-gate); two were skipped (control-plane, executor) by the repository’s path detector; none failing. The skips are PROVEN CORRECT rather than assumed — see path_gating_proof. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for this exact head.",
       "ci_run_id": 32471346851,
       "ci_workflow": "ci",
       "ci_head_sha_observed": "1a419014ebb432eb56ac35242e0a193fe65a62c6",
@@ -303,7 +303,7 @@
     "all_components_green": true,
     "every_run_at_its_pin": true,
     "components": {
-      "cybrik-suite": "SUCCESS — run 32515633360, 3/3 green at pinned head c9043688, 0 skipped, 0 failing",
+      "cybrik-suite": "SUCCESS — run 32516586151, 3/3 green at pinned head 9e969056, 0 skipped, 0 failing",
       "cybrik-soc-command-center": "SUCCESS — run 32510544176, 9/9 green at pinned head 695aed8e, 0 failing",
       "cybrik-cyber-ai-platform": "SUCCESS — run 32471341528, 8/8 green at pinned head f0bf4c63, 0 failing",
       "cybrik-security-tool-fabric": "SUCCESS — run 32471346851, 4/4 green at pinned head 1a419014, 0 failing"
@@ -398,13 +398,13 @@
       "resolved": [
         {
           "was": "docs/operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md",
-          "now": "GitHub Actions run 32471341528 job 'test' (96682973118) at the pin b5ab09c8 — 1065 passed / 17 skipped / 0 failed",
+          "now": "GitHub Actions run 32471341528 job 'test' (96682973118) at the pin f0bf4c63 — 1065 passed / 17 skipped / 0 failed",
           "disposition": "REPLACED_WITH_CURRENT_EXACT_EVIDENCE",
           "withdrawn": "the off-line 258/258 result and the 96.63% coverage figure"
         },
         {
           "was": "docs/operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md",
-          "now": "GitHub Actions run 32471346851 at the pin 0e4fee8d — 4/4 green, 2 path-gated skips proven correct from the detect job's own log and the PR #6 file list",
+          "now": "GitHub Actions run 32471346851 at the pin 1a419014 — 4/4 green, 2 path-gated skips proven correct from the detect job's own log and the PR #6 file list",
           "disposition": "REPLACED_WITH_CURRENT_EXACT_EVIDENCE",
           "withdrawn": "the off-line 172/172 control-plane result and the Go executor / FuzzParse results"
         },
@@ -730,6 +730,6 @@
         "detailed_in": "docs/releases/RELEASE-CANDIDATE-V1.0.0-RC1.md §5.3, §9.0, §9.4"
       }
     ],
-    "reading_rule": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and EXTERNAL_RESOURCE items are recorded but do NOT hold v1.0.0-rc1 at release_status CANDIDATE_READY_FOR_STAGING_QUALIFICATION. BLOCKING_OPEN and POST_MERGE_REQUIRED items do. staging_qualification_status IN_PROGRESS / PENDING_HUMAN_PR_MERGE is consistent with both: the deferred items do not gate it, and the blocking and post-merge items are exactly what PENDING_HUMAN_PR_MERGE names."
+    "reading_rule": "DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and EXTERNAL_RESOURCE items are recorded but do NOT hold v1.0.0-rc1 at release_status CANDIDATE_READY_FOR_STAGING_QUALIFICATION. BLOCKING_OPEN and POST_MERGE_REQUIRED items do. POST_MERGE_QUALIFICATION_COMPLETE / CANDIDATE_READY_FOR_RC_TAG_DECISION is consistent with both: the deferred items do not gate it, and the blocking and post-merge items are exactly what PENDING_HUMAN_PR_MERGE names."
   }
 }
