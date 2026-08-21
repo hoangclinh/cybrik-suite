@@ -1,6 +1,6 @@
 {
   "release_candidate": "v1.0.0-rc1",
-  "timestamp": "2026-08-21T13:30:00+07:00",
+  "timestamp": "2026-08-21T16:20:00+07:00",
   "milestone": "SOC Post-UAT Production Release Candidate",
   "release_status": "CANDIDATE_READY_FOR_STAGING_QUALIFICATION",
   "staging_qualification_status": "IN_PROGRESS / PENDING_HUMAN_PR_MERGE",
@@ -23,107 +23,118 @@
   },
   "repositories": {
     "cybrik-suite": {
-      "pinned_sha": "eba517bfa70b767c19df5f0c9fbdd4358290faea",
-      "commit_subject": "fix(release): bind verified green cyber-ai head b5ab09c in rc manifest and docs",
+      "pinned_sha": "4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd",
+      "commit_subject": "fix(contracts): apply founder-authorized W2-I status flip and bind release evidence snapshot",
       "pull_request": 56,
       "branch": "fix/rc-manifest-contracts",
       "pin_role": "CONTENT_BASE (this manifest's authoring parent; see release_tag_envelope)",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "c518d8e344c412dc884135e3947213c5de41739f",
-      "subject_containment": "REBASE_REWRITE — the authorized subject SHA c518d8e344c412dc884135e3947213c5de41739f is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, a verified ancestor of the pinned head. be7e7361fd3c23384b1b0d2aa5042ed6c245339a is the pinned head's direct parent; afc9150adea0fc30ca87afb10b88b531da23ab1a and 7f412965310590cbdf924cf4160193ffe0daf0c0 are also ancestors.",
+      "subject_containment": "REBASE_REWRITE — the authorized subject SHA c518d8e344c412dc884135e3947213c5de41739f is not an ancestor; its identical commit subject 'docs(release): publish release candidate v1.0.0-rc1 manifest and specification' is carried at f051192452b546f85e7eba6123b88a56c1ca0cce, a verified ancestor of the pinned head. eba517bfa70b767c19df5f0c9fbdd4358290faea is the pinned head's direct parent; be7e7361fd3c23384b1b0d2aa5042ed6c245339a, afc9150adea0fc30ca87afb10b88b531da23ab1a and 7f412965310590cbdf924cf4160193ffe0daf0c0 are also ancestors.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
       "ci_status_recorded": "SUCCESS — 3/3 required checks green at the pinned head, 0 failing, 0 skipped",
-      "ci_status_provenance": "GitHub Actions run 32452878301 (workflow \"contracts\", branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha eba517bfa70b767c19df5f0c9fbdd4358290faea — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96684462876, contract standards validation 96684462998, topology rehearsal tests 96684463076); none skipped, none failing. This CLOSES the caveat carried by the prior revision, which pinned be7e7361 — an unpushed local head with no hosted run — and had to cite the ancestor afc9150a instead. The pin now carries its own hosted run.",
-      "ci_run_id": 32452878301,
+      "ci_status_provenance": "GitHub Actions run 32458843295 (workflow \"contracts\", event pull_request, branch fix/rc-manifest-contracts) observed read-only at 2026-08-21T16:20:00+07:00: status completed, conclusion success, head_sha 4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd — which is EXACTLY this pin. All three jobs concluded success (secret-scan 96701475413, contract standards validation 96701475619, topology rehearsal tests 96701475588); none skipped, none failing. The companion push-event run 32458840409 at the same head is also 3/3 green (96701466582, 96701466688, 96701466744).",
+      "ci_run_id": 32458843295,
       "ci_workflow": "contracts",
-      "ci_head_sha_observed": "eba517bfa70b767c19df5f0c9fbdd4358290faea",
+      "ci_head_sha_observed": "4498bdd3cd6811052e2be0f0aff2a8ea1e974dcd",
       "ci_checks": [
         {
           "name": "secret-scan",
           "conclusion": "success",
-          "job_id": 96684462876
+          "job_id": 96701475413
         },
         {
           "name": "contract standards validation",
           "conclusion": "success",
-          "job_id": 96684462998
+          "job_id": 96701475619
         },
         {
           "name": "topology rehearsal tests",
           "conclusion": "success",
-          "job_id": 96684463076
+          "job_id": 96701475588
         }
       ],
-      "prior_pin_note": "The prior revision pinned be7e7361fd3c23384b1b0d2aa5042ed6c245339a and recorded that no hosted run existed at that SHA because it was not pushed. be7e7361 is the direct parent of this pin."
+      "prior_pin_note": "The prior revision pinned be7e7361fd3c23384b1b0d2aa5042ed6c245339a and recorded that no hosted run existed at that SHA because it was not pushed. be7e7361 is the direct parent of this pin.",
+      "ci_run_event": "pull_request",
+      "ci_companion_push_run_id": 32458840409
     },
     "cybrik-soc-command-center": {
-      "pinned_sha": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
-      "commit_subject": "hardening(config): enforce strict fail-closed DSN and rate-limit backend validation in production",
+      "pinned_sha": "34b6302e6bdc34e3fb334c079680e76166d9b476",
+      "commit_subject": "docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)",
       "pull_request": 13,
       "branch": "fix/copilot-draft-auth",
       "classification": "VALID_SUCCESSOR_CONTAINING_AUTHORIZED_SUBJECT",
       "authorized_rc_subject": "992eabdcdd8a70bd44c7a21119df2211c9e02c8c",
-      "subject_containment": "ANCESTOR — authorized subject 992eabdc is a verified ancestor of the pinned head; the prior manifest pins 7be188720c97c4c12e45a016e6c0795de10c9900 and c0f75f6d08d25b16f1a3ef8921b4ba98348a194a are also ancestors",
+      "subject_containment": "REBASE_REWRITE — PR #13 was updated onto origin/main 4480a412b7be59176626c1646874c161337bfade, so neither the authorized subject SHA 992eabdcdd8a70bd44c7a21119df2211c9e02c8c nor the prior manifest pin 2822b9e18831e4fc180cb50c455b5e67e3ed365a is an ancestor of the pinned head (merge base with 2822b9e1 is 1b6671cc4c3eac374bc7d0efb53b524e67378ebb). The authorized commit subject 'fix(copilot): enforce soar:author authorization check on draft_playbook seam' is carried at 15f2f7b, a verified ancestor of the pinned head. Verified with git merge-base --is-ancestor against the local canonical checkout.",
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "ci_status_recorded": "SUCCESS — 9/9 checks green at the pinned head under run 32447499849, 1 skipped (alert-context-route-db), 0 failing",
-      "ci_status_provenance": "GitHub Actions run 32447499849 (workflow \"ci\", branch fix/copilot-draft-auth) observed read-only at 2026-08-21T13:30:00+07:00: status completed, conclusion success, head_sha 2822b9e18831e4fc180cb50c455b5e67e3ed365a — which is EXACTLY this pin. Nine jobs concluded success (api, backup-tool, pf-workers, web, secret-scan, dependency-scan, sbom, e2e, e2e-org); one, alert-context-route-db, was skipped; none failing. This run identifier and its job inventory are now BOUND IN THIS REPOSITORY, which closes the corroboration gap the prior revision recorded at specification 9.3. soc-autonomous-state:VERIFIED_SUBJECTS.json (recorded 2026-08-21T10:35:00+07:00) records SUCCESS for the ancestor head 7be18872, not for this pin; the hosted run above is the evidence for the pin itself.",
-      "ci_run_id": 32447499849,
+      "ci_status_recorded": "SUCCESS — 9/9 checks green at the pinned head under run 32460749335, 1 skipped (alert-context-route-db), 0 failing",
+      "ci_status_provenance": "GitHub Actions run 32460749335 (workflow \"ci\", event pull_request, branch fix/copilot-draft-auth) observed read-only at 2026-08-21T16:20:00+07:00: status completed, conclusion success, head_sha 34b6302e6bdc34e3fb334c079680e76166d9b476 — which is EXACTLY this pin. Nine jobs concluded success (api 96707087898, backup-tool 96707087953, pf-workers 96707088017, web 96707087901, secret-scan 96707087717, dependency-scan 96707087963, sbom 96707087909, e2e 96710255755, e2e-org 96710255709); one, alert-context-route-db (96707088555), was skipped; none failing. This is a FRESH qualification run at the rebased head. The superseded pin 2822b9e1 and its run 32447499849 are recorded under superseded_pin; that run proves nothing about this head.",
+      "ci_run_id": 32460749335,
       "ci_workflow": "ci",
-      "ci_head_sha_observed": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
+      "ci_head_sha_observed": "34b6302e6bdc34e3fb334c079680e76166d9b476",
       "ci_checks": [
         {
           "name": "api",
           "conclusion": "success",
-          "job_id": 96669703600
+          "job_id": 96707087898
         },
         {
           "name": "backup-tool",
           "conclusion": "success",
-          "job_id": 96669703658
+          "job_id": 96707087953
         },
         {
           "name": "pf-workers",
           "conclusion": "success",
-          "job_id": 96669703523
+          "job_id": 96707088017
         },
         {
           "name": "web",
           "conclusion": "success",
-          "job_id": 96669703591
+          "job_id": 96707087901
         },
         {
           "name": "secret-scan",
           "conclusion": "success",
-          "job_id": 96669703467
+          "job_id": 96707087717
         },
         {
           "name": "dependency-scan",
           "conclusion": "success",
-          "job_id": 96669703568
+          "job_id": 96707087963
         },
         {
           "name": "sbom",
           "conclusion": "success",
-          "job_id": 96669703319
+          "job_id": 96707087909
         },
         {
           "name": "e2e",
           "conclusion": "success",
-          "job_id": 96671897544
+          "job_id": 96710255755
         },
         {
           "name": "e2e-org",
           "conclusion": "success",
-          "job_id": 96671897528
+          "job_id": 96710255709
         },
         {
           "name": "alert-context-route-db",
           "conclusion": "skipped",
-          "job_id": 96669704101
+          "job_id": 96707088555
         }
-      ]
+      ],
+      "rebased_on_origin_main": "4480a412b7be59176626c1646874c161337bfade",
+      "commits_ahead_of_origin_main": 10,
+      "origin_main_containment": "IMPROVEMENT — origin/main 4480a412 is now a VERIFIED ANCESTOR of the pinned head. 4480a412 is the SHA the SOC UAT surface walkthrough was performed against, so the UAT-evidenced surface is carried forward by ancestry. Under the prior pin 2822b9e1 it was divergent (11 ahead / 56 behind).",
+      "superseded_pin": {
+        "sha": "2822b9e18831e4fc180cb50c455b5e67e3ed365a",
+        "ci_run_id": 32447499849,
+        "why_superseded": "CODEX-ADJ-005 pre-merge blocker 1: PR #13 was BEHIND origin/main and main requires strict up-to-date checks, so 2822b9e1 could never satisfy branch protection. Updating the branch necessarily produced a new SHA requiring a new freeze and a new qualification run."
+      },
+      "ci_run_event": "pull_request"
     },
     "cybrik-cyber-ai-platform": {
       "pinned_sha": "b5ab09c8194bc88cfa7c2fdbb53c672efd06a722",
@@ -184,7 +195,17 @@
           "conclusion": "success",
           "job_id": 96683084302
         }
-      ]
+      ],
+      "ci_test_job_transcript": {
+        "job_id": 96682973118,
+        "job_name": "test",
+        "observed_summary_line": "1065 passed, 17 skipped, 9 warnings in 20.38s",
+        "passed": 1065,
+        "skipped": 17,
+        "failed": 0,
+        "read_from": "GitHub Actions job-logs API for job 96682973118 of run 32452271445, read-only at 2026-08-21T16:20:00+07:00",
+        "scope": "A hosted-log observation at the pin. It is not a transcript committed into this repository, and it publishes no coverage figure."
+      }
     },
     "cybrik-security-tool-fabric": {
       "pinned_sha": "0e4fee8d08ff9a67c200ce6c5f97a6f277581be9",
@@ -270,17 +291,17 @@
     }
   },
   "ci_rollup": {
-    "observed_on": "2026-08-21T13:30:00+07:00",
+    "observed_on": "2026-08-21T16:20:00+07:00",
     "method": "read-only GitHub Actions runs + jobs API, by exact run id, per repository; head_sha compared against the pin in every case. No suite re-executed locally.",
     "all_components_green": true,
     "every_run_at_its_pin": true,
     "components": {
-      "cybrik-suite": "SUCCESS — run 32452878301, 3/3 green at pinned head eba517bf, 0 skipped, 0 failing",
-      "cybrik-soc-command-center": "SUCCESS — run 32447499849, 9/9 green at pinned head 2822b9e1, 1 skipped (alert-context-route-db), 0 failing",
-      "cybrik-cyber-ai-platform": "SUCCESS — run 32452271445, 8/8 green at pinned head b5ab09c8, 0 skipped, 0 failing",
+      "cybrik-suite": "SUCCESS — run 32458843295, 3/3 green at pinned head 4498bdd3, 0 skipped, 0 failing",
+      "cybrik-soc-command-center": "SUCCESS — run 32460749335, 9/9 green at pinned head 34b6302e, 1 skipped (alert-context-route-db), 0 failing",
+      "cybrik-cyber-ai-platform": "SUCCESS — run 32452271445, 8/8 green at pinned head b5ab09c8, 0 skipped, 0 failing; job 'test' log reads 1065 passed / 17 skipped / 0 failed",
       "cybrik-security-tool-fabric": "SUCCESS — run 32389505003, 4/4 green at pinned head 0e4fee8d, 2 path-gated skips proven correct (control-plane, executor), 0 failing"
     },
-    "scope_note": "Green hosted checks at the pinned heads are a CI signal only. They are not staging qualification, not a merge, and not release authority. All four pins remain unmerged pull-request heads under PENDING_REQUIRED_HUMAN_REVIEW branch protection, and no run emits a per-test transcript into this repository, so pass/fail is bound here but test counts are not."
+    "scope_note": "Green hosted checks at the pinned heads are a CI signal only. They are not staging qualification, not a merge, and not release authority. All four pins remain unmerged pull-request heads under PENDING_REQUIRED_HUMAN_REVIEW branch protection. One test count is now bound — the Cyber AI 'test' job's own log line at the pin — but no run emits a per-test transcript into this repository, and no coverage figure is bound for any component."
   },
   "governance_milestones": {
     "w2_i_transport_binding_acceptance": {
@@ -356,6 +377,209 @@
       "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-005/INBOX-006; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-3 (CLOSED)"
     }
   },
+  "release_evidence": {
+    "derived_snapshot": {
+      "path": "docs/releases/evidence/QUALIFICATION-SNAPSHOT-v1.0.0-rc1.json",
+      "revision": 2,
+      "derived_release_evidence": true,
+      "authoritative_orchestration_state": false,
+      "relationship": "The snapshot is the DERIVED projection; this manifest is the Suite-local release binding. Where they disagree, the control plane wins over both. The snapshot carries the full per-field corroboration split; this section carries only the bindings a release reader needs."
+    },
+    "external_evidence_reconciliation": {
+      "prior_state": "The prior revision cited five evidence documents that exist in NO suite repository (CODEX-ADJ-005 pre-merge item 2). Every claim resting on them was unsourced in-repository.",
+      "method": "Re-sourced or explicitly withdrawn. No missing document was authored to close the gap.",
+      "resolved": [
+        {
+          "was": "docs/operations/CYBER-AI-RUNTIME-ENGINEERING-EVIDENCE.md",
+          "now": "GitHub Actions run 32452271445 job 'test' (96682973118) at the pin b5ab09c8 — 1065 passed / 17 skipped / 0 failed",
+          "disposition": "REPLACED_WITH_CURRENT_EXACT_EVIDENCE",
+          "withdrawn": "the off-line 258/258 result and the 96.63% coverage figure"
+        },
+        {
+          "was": "docs/operations/TOOL-FABRIC-RUNTIME-ENGINEERING-EVIDENCE.md",
+          "now": "GitHub Actions run 32389505003 at the pin 0e4fee8d — 4/4 green, 2 path-gated skips proven correct from the detect job's own log and the PR #6 file list",
+          "disposition": "REPLACED_WITH_CURRENT_EXACT_EVIDENCE",
+          "withdrawn": "the off-line 172/172 control-plane result and the Go executor / FuzzParse results"
+        },
+        {
+          "was": "docs/operations/LIVE-VERTICAL-TRIAD-ENGINEERING-EVIDENCE.md",
+          "now": "Candidate R22 Founder UAT Ratification — LIVE_VERTICAL gate PASS (HB-5, 2026-08-20)",
+          "source": "soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md",
+          "source_sha256": "78bc11cae40b52586ac8c71f6018cdee1158cbccf7cfd683b969bebcbd8ddfd0",
+          "disposition": "REPLACED_WITH_FOUNDER_UAT_RATIFICATION",
+          "scope_limit": "Gate-level human ratification. The NEG-1..NEG-6 matrix remains unsourced at SCENARIO level; no per-case identifier, input or observed rejection is bound in any suite repository."
+        },
+        {
+          "was": "docs/operations/DEPLOY-ROLLBACK-REHEARSAL-ENGINEERING-EVIDENCE.md",
+          "now": "Split three ways — see rollback_qualification below",
+          "disposition": "PARTIALLY_REPLACED_REMAINDER_POST_MERGE_REQUIRED",
+          "withdrawn_as_pin_bound": "6.0 s recovery, 1.9 ms restored-probe latency, 4/4 healthy, 7/7 smoke stages, NEG-1..NEG-4 post-rollback"
+        },
+        {
+          "was": "docs/uat/evidence/SOC-UAT-SURFACE-TECHNICAL-EVIDENCE-2026-08-19.md",
+          "now": "Candidate R22 Founder UAT walkthrough PASS — FOUNDER_PRODUCT_ACCEPTANCE and SOC_UAT_SURFACE gate PASS (HB-5, 2026-08-20)",
+          "source": "soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md",
+          "source_sha256": "78bc11cae40b52586ac8c71f6018cdee1158cbccf7cfd683b969bebcbd8ddfd0",
+          "disposition": "REPLACED_WITH_FOUNDER_UAT_WALKTHROUGH_PASS",
+          "ancestry_note": "The walkthrough SHA 4480a412 is now a verified ANCESTOR of the SOC pin, where under the prior pin it was divergent.",
+          "withdrawn": "Playwright '31 passed' and pytest '279 collected / 278 passed / 1 skipped' — they belong to run 32164562480 at 4480a412, not to the pin"
+        }
+      ],
+      "dangling_paths_remaining": 0
+    },
+    "codex_challenge_index": {
+      "authority_of_record": "soc-autonomous-state:CODEX_DECISIONS.json (control plane, OUTSIDE every suite repository)",
+      "count": 5,
+      "index_is_derived": true,
+      "adjudications": [
+        {
+          "id": "CODEX-ADJ-001",
+          "subject": "W2-I Inference Plane Transport Binding v0.2.0 Candidate",
+          "verdict": "COUNCIL_HOLD",
+          "output_sha256": null,
+          "disposition": "DISCHARGED — Council ACCEPTED W2-I (HB-4); the status flip is applied in this repository and is validator-checkable"
+        },
+        {
+          "id": "CODEX-ADJ-002",
+          "subject": "Candidate R22 Machine Completeness",
+          "verdict": "ENGINEERING_DEVELOPMENT_COMPLETE",
+          "output_sha256": null,
+          "disposition": "SUPERSEDED BY HUMAN RATIFICATION — machine completeness is not gate acceptance; the ten gates were ratified PASS at HB-5"
+        },
+        {
+          "id": "CODEX-ADJ-003",
+          "subject": "Pre-Remediation Exact-Subject Challenge Evaluation",
+          "verdict": "PRE_REMEDIATION_FAIL",
+          "output_artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT_FINAL.md",
+          "output_sha256": "a01d766d1109bc681c4495e3181300f49f1f79ab18539f9fd41a2ac55dfa2270",
+          "disposition": "REMEDIATED — ABMB-02 (backup encryption scope) is the direct cause of the encrypted drill bound under backup_and_restore_classification"
+        },
+        {
+          "id": "CODEX-ADJ-004",
+          "subject": "Post-Remediation Exact-Subject Challenge Evaluation",
+          "verdict": "POST_REMEDIATION_FAIL",
+          "output_artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT_FINAL_POST_REMEDIATION.md",
+          "output_sha256": "f13ebf07cb27ea9f9380eaa2202eea4c8992889b340f1141827fcf034d936b18",
+          "disposition": "PARTIALLY DISCHARGED — maps to specification 9.1 (APPLIED), 9.2 (OPEN), 9.3 (BOUND), 9.6 (POST_MERGE_REQUIRED), 9.7 (this snapshot)"
+        },
+        {
+          "id": "CODEX-ADJ-005",
+          "subject": "Post-Adjudication Exact-Subject Challenge Evaluation",
+          "verdict": "POST_ADJUDICATION_FAIL",
+          "output_artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT_FOUNDER_ADJUDICATED.md",
+          "output_sha256": "bdb818be08f7e3c43456cc6063296624bc29ea99d6de5dc52d5319335588093e",
+          "disposition": "ALL THREE PRE-MERGE ITEMS ADDRESSED BY THIS REVISION — SOC pin rebased, five evidence references reconciled, encrypted drill bound. The residual CODEX_POST_MERGE_REQUIREMENTS (merge all four PRs, run required CI at every merged SHA) are human-only and remain OPEN."
+        }
+      ],
+      "interim_reports": [
+        {
+          "artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT.md",
+          "sha256": "0b17b7c7a47d20b5b577536027dfeecd448df991f96114f919dfbe1b6c120565",
+          "note": "earliest report in the series; its blockers concern an earlier pin tuple and are superseded by the pins bound here"
+        },
+        {
+          "artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT_POST_REMEDIATION.md",
+          "sha256": "0c2b2ada412b5d9da03217616961a995e5b90c5c9a317bb900948ff7f578558a",
+          "note": "raised the half-open circuit-breaker defect resolved by advancing the Cyber AI pin to b5ab09c8"
+        }
+      ],
+      "in_repository_corroboration": "ABSENT for every verdict. The digests pin the control-plane bytes that were read; they do not make the verdicts checkable here."
+    },
+    "performance_baseline": {
+      "source_artifact": "soc-autonomous-state:reports/evidence/performance/PERFORMANCE_BASELINE_EVIDENCE.json",
+      "source_artifact_sha256": "e73c2b2cc09a8fdf1b2b5bdbfb919250b3073893aae694e69d4d0d14b6354745",
+      "kind": "MICRO_BENCHMARK — four in-process code paths on one developer workstation (macOS / Python 3.12). Not a load profile, throughput figure, saturation test or service-level latency measurement.",
+      "qualifies_no_objective": "rc1 declares no performance objective, and this baseline establishes none.",
+      "metrics_summary": [
+        "soc_module_import_ms — n=50, p50 0.0002 ms, mean 0.9894 ms, subject cybrik-soc-command-center@2822b9e1 (OFF_PIN after the rebase). The artifact's p99 (73.698 ms) exceeds its max (49.4619 ms); reproduced verbatim rather than silently corrected.",
+        "cyber_ai_delegation_key_resolution_ms — n=1000, p50/p95/p99 0.0001 ms, subject cybrik-cyber-ai-platform@6793e217 (verified ANCESTOR of the pin, 2 behind). This is the ABMB-01 (issuer,kid) hardened path.",
+        "soc_log_scrubbing_latency_ms — n=1000, p50 0.0061 ms, p99 0.0082 ms, subject cybrik-soc-command-center@2822b9e1 (OFF_PIN).",
+        "cyber_ai_circuit_breaker_pass_latency_ms — n=1000, p50 0.0001 ms, p99 0.0002 ms, subject cybrik-cyber-ai-platform@6793e217 (ANCESTOR). CLOSED-state pass path only; does not exercise the half-open single-probe property."
+      ],
+      "exact_subject_drift": "Two of the four metrics were measured against a SOC subject that the pin rebase has left off-line. They are recorded with their real subjects and are NOT restated as pin-bound.",
+      "in_repository_corroboration": "ABSENT."
+    },
+    "backup_and_restore_classification": {
+      "why_three_ways": "Collapsing these is the overstatement CODEX-ADJ-005 pre-merge item 3 caught: an unencrypted local drill was cited in support of an encrypted production-backup control claim.",
+      "implementation": {
+        "claim": "Backup encryption implementation (age provider, fail-closed integrity verification)",
+        "state": "VERIFIED",
+        "evidence": "cybrik-soc-command-center:ops/backup — the age path produces no plaintext on disk, the artifact digest is verifiable WITHOUT the decryption key, and fail-closed behaviour is demonstrated: flipping one byte makes verify exit 1 and aborts the drill BEFORE any temporary database is created; backing up as the NOBYPASSRLS role cybrik_app exits 3 having written zero files, so no silently-incomplete copy is produced. Carried by the qualification commit 64e0350de409ccf69bcbbe4b42e02ab07b1a61e6, a verified ancestor of the SOC pin."
+      },
+      "local_drill": {
+        "claim": "Local restore drill, unencrypted and age-encrypted",
+        "state": "VERIFIED",
+        "unencrypted": {
+          "artifact": "cybrik-soc-command-center:reports/evidence/restore-drill/20260820T164433Z/DRILL-REPORT.md",
+          "artifact_sha256": "30cb3786c144923dcfe5f6a42f4313f68192467af160ad67a3b702aa85cc6045",
+          "machine_record_sha256": "b93daed3e6542deaf8263a256a83bbbfcb065663d35321b0976872ab517bec11",
+          "encryption_provider": "none",
+          "measured_rto_seconds": 0.4,
+          "tables_compared_exact": 56,
+          "restored_total_rows": 2128,
+          "passed": true
+        },
+        "encrypted": {
+          "artifact": "cybrik-soc-command-center:reports/evidence/restore-drill/20260821T075437Z/DRILL-REPORT.md",
+          "artifact_sha256": "69c6cd23a06f1a8cc2540eef6811bc0a74d305c7d98ee157efccae313d425a6c",
+          "machine_record_sha256": "84f159015ba298e9be1a9c99360c2923508d636923705057909c22b286e20a5e",
+          "encryption_provider": "age",
+          "encrypted_artifact_sha256": "d072543b3bedfe01d35aa3adeb5c592389c28ca80d3c28ca8dbb4cd6c04c1563",
+          "drilled_at": "2026-08-21T07:54:37.722244+00:00",
+          "measured_rto_seconds": 1.7,
+          "total_drill_seconds": 2.318,
+          "tables_compared_exact": 56,
+          "tables_compared_range": 0,
+          "checksum_tables": [
+            "audit_events",
+            "copilot_audit"
+          ],
+          "restored_total_rows": 2288,
+          "server_version": "PostgreSQL 16.14",
+          "findings": [],
+          "passed": true,
+          "bound_at_pin": "The pinned SOC head 34b6302 IS the commit that records this drill.",
+          "closes": "CODEX-ADJ-005 pre-merge item 3"
+        },
+        "scope_limit": "Local drills against a developer PostgreSQL instance with a locally held age identity. The RTO covers the restore STEP only, not a full recovery procedure."
+      },
+      "production_custody_and_edge": {
+        "claim": "Production key custody, off-system storage, and live encrypted-backup verification",
+        "state": "POST_DEPLOYMENT",
+        "PRODUCTION_BACKUP_KEY_CUSTODY": "EXTERNAL_RESOURCE — depends on a production secret manager that does not exist. Production credentials, secrets and signing keys require explicit Founder approval and are outside every suite repository's data-handling boundary.",
+        "PRODUCTION_OFF_SYSTEM_STORAGE": "EXTERNAL_RESOURCE — both drills wrote and read on the same host as the database. Off-system retention, immutability and retention-period enforcement depend on unprovisioned production storage.",
+        "PRODUCTION_BACKUP_ENCRYPTION_LIVE_VERIFICATION": "POST_DEPLOYMENT_REQUIRED — verifying the control against the real production database at real volume, on the real schedule, with measured production RPO/RTO, is only possible after deployment.",
+        "not_claimed": "No suite artifact asserts that production backup keys are provisioned or rotated, or that backups are replicated off-system."
+      },
+      "summary": "Implementation = VERIFIED. Local drill (unencrypted and encrypted) = VERIFIED. Production custody / off-system storage / live verification = POST_DEPLOYMENT, and deliberately not claimed."
+    },
+    "rollback_qualification": {
+      "database_rollback": {
+        "state": "VERIFIED",
+        "what": "Linear Alembic downgrade qualification, enforced in hosted CI and re-executed against real PostgreSQL",
+        "ci_enforcement": "cybrik-soc-command-center:.github/workflows/ci.yml, job 'api', step 'Migration test (upgrade -> downgrade -> upgrade)'. A non-reversible migration fails a required check.",
+        "qualification_commit": "cybrik-soc-command-center@64e0350de409ccf69bcbbe4b42e02ab07b1a61e6 (verified ancestor of the SOC pin)",
+        "full_round_trip": "upgrade head -> downgrade base -> upgrade head on PostgreSQL 16.14 against a dedicated scratch database. A 1628-line schema fingerprint (columns, indexes, constraints, policies, RLS flags, grants, functions) was byte-identical before and after; 'downgrade base' left nothing but alembic_version.",
+        "per_revision": "22 / 22 revisions passed 'downgrade -1 / upgrade +1 -> schema unchanged'",
+        "guard_added": "cybrik-soc-command-center:services/api/tests/unit/test_migration_reversibility.py — catches the empty downgrade() body case, where alembic silently leaves schema behind and the CI round-trip still passes green",
+        "no_migration_was_modified": true
+      },
+      "rollback_target_inheritance": {
+        "state": "STRUCTURALLY_VERIFIED",
+        "what": "The deployment topology builds application images from the checked-out source tree rather than pulling a published tag",
+        "evidence": "cybrik-soc-command-center:deploy/pf/staging/docker-compose.staging.yml — application services declare 'build:'; only third-party infrastructure (Kafka, OpenSearch, SeaweedFS, Valkey) is pinned by 'image:'",
+        "consequence": "The rollback target is INHERITED from the git subject: checking out the prior SHA and re-running compose reconstructs the prior image. No separate image-registry pin can drift from the source pin, which is why this manifest binds no image tag.",
+        "cost": "A rollback requires an image REBUILD, which is why the rehearsal cannot be re-run against these pins before merge."
+      },
+      "service_rehearsal_numbers": {
+        "state": "POST_MERGE_REQUIRED",
+        "why": "The prior figures were produced against rollback targets cybrik-cyber-ai-platform@281b2529 and cybrik-security-tool-fabric@147a1d83, both off-line from the pins. Because targets are built from source, re-establishing them requires images built from the four pinned heads, and the pins are unmerged PR heads under branch protection. Building and publishing from an unmerged state needs deployment authority that cybrik-suite:CLAUDE.md reserves to the Founder.",
+        "closing_action": "After merge, rebuild the rollback targets from the merged main-line SHAs, re-run the positive smoke stages and the NEG-1..NEG-4 matrix against the restored environment, and record the measured recovery time. This is specification section 9.6."
+      }
+    },
+    "observed_on": "2026-08-21T16:20:00+07:00",
+    "in_repository_corroboration": "MIXED. The CI facts and the W2-I flip are VERIFIED in this repository. Every governance verdict, performance measurement and drill result is ABSENT: it is reproduced from cybrik-soc-command-center or from the control plane, with a sha256 binding the bytes read at the snapshot timestamp."
+  },
   "contract_governance": {
     "w2_i_inference_transport": {
       "declared_artifact": "contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json",
@@ -399,7 +623,7 @@
       "version": "0.2.0",
       "governance_status": "ACCEPTED (Decision Council / Founder, HB-4, 2026-08-20); applied to artifact bytes 2026-08-21",
       "specification_status": "COUNCIL_ACCEPTED_BASELINE",
-      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes, and the same runs are covered by the hosted \"contract standards validation\" check in run 32452878301 at the pinned head. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
+      "contract_conformance_status": "SUITE-LOCAL VALIDATORS GREEN AT THE FLIP, PRODUCT SUITE NOT RE-EXECUTED. In cybrik-suite: node tools/contract-validation/validate-transport.mjs and validate-inference.mjs both pass against the flipped bytes, and the same runs are covered by the hosted \"contract standards validation\" check in run 32458843295 at the pinned head. In cybrik-cyber-ai-platform: the W2-I transport conformance suite (tests/contract/test_w2i_transport_conformance.py, 17 test functions) is present on the pinned branch and the hosted \"test\" check concluded SUCCESS at the pin b5ab09c8 (job 96682973118, run 32452271445). The hosted run reports pass/fail only and emits no per-test transcript into this repository, so no test count is bound to the pin. The previously recorded 276 unit/contract test count was measured at an earlier SHA and does not carry forward. See specification §9.2 and §9.3a.",
       "transport_execution_posture": "BOUNDED_FAIL_CLOSED_ADAPTER (NO_EXTERNAL_AUTHORITY_ESCALATION)",
       "carried_forward_obligations": [
         "UNDISCHARGED — the accepted W2-F operation-token table was not amended by HB-4; the two GET tokens remain outside accepted delegation vocabulary.",
@@ -429,13 +653,13 @@
       "node tools/contract-validation/validate-inference.mjs",
       "node tools/contract-validation/validate.mjs"
     ],
-    "result": "PASS for validate-transport and validate-inference (exit 0). validate.mjs reports 1/31 failing — see known_local_failure.",
-    "executed_on": "2026-08-21 (against the flipped bytes carried by the commit this manifest revision accompanies)",
+    "result": "PASS for validate-transport.mjs and validate-inference.mjs (exit 0). validate.mjs reports 30/31 validators clean and 1 failing — the pre-existing local dependency-compat failure described in known_local_failure, which no file changed by this revision touches.",
+    "executed_on": "2026-08-21 (re-executed against the bytes carried by this revision)",
     "transport_validator_summary": "Lifecycle ACCEPTED FOR IMPLEMENTATION. 3 transport schemas compiled; 5 positive + 9 negative-schema + 8 negative-semantic fixtures; 39/39 structural TT-1..TT-9 assertions; 8/8 negative-semantic fixtures rejected on exactly their declared TX rule, witnessing TX-1..TX-8 once each; 4 candidate-member + 2 upstream-accepted + 1 examples-manifest + 22/22 support-fixture digests verified; the accepted W2-D manifest proven to declare all 4 absorbed members at digests agreeing with the delta, to relabel the predecessor SUPERSEDED-SUPPORTED byte-frozen, and to record the gate decision; a name-blind sweep of 4 OpenAPI documents / 19 declared pairs proving 4/4 owned pairs keep exactly one CURRENT owner, carry no residual proposed successor, and keep the superseded predecessor on disk.",
     "transport_validator_tests": "node --test tools/contract-validation/tests/validate-transport.test.mjs — 204/204 pass, validator line and branch coverage above the 80% floor.",
-    "known_local_failure": "tools/contract-validation/tests/dependency-compat.test.mjs fails in this local worktree with MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. This is a LOCAL node_modules install that predates and is unrelated to this change: package.json, package-lock.json, tools/contract-validation/vendor and the test file itself are all unmodified by it, and the alias the lockfile declares (brace-expansion-v5 -> npm:brace-expansion@5.0.9) is simply absent from the local install. Hosted CI runs npm ci from the lockfile and the same check passed in run 32452878301 at the pinned head. Repairing the local install would require a dependency installation, which is Founder-gated.",
+    "known_local_failure": "tools/contract-validation/tests/dependency-compat.test.mjs fails in this local worktree with MODULE_NOT_FOUND for 'brace-expansion-v5/package.json'. This is a LOCAL node_modules install that predates and is unrelated to this change: package.json, package-lock.json, tools/contract-validation/vendor and the test file itself are all unmodified by it, and the alias the lockfile declares (brace-expansion-v5 -> npm:brace-expansion@5.0.9) is simply absent from the local install. Hosted CI runs npm ci from the lockfile and the same check passed in run 32458843295 at the pinned head. Repairing the local install would require a dependency installation, which is Founder-gated.",
     "scope": "Static contract conformance only. This is not staging qualification, not runtime proof, and it flips no gate: the W2-I acceptance is the recorded HB-4 decision, and these runs are evidence attached to it."
   },
-  "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval.",
+  "status_honesty": "This manifest is a Suite-local artifact. It is not a stable v1/GA promotion, not an ADR-0001 immutable bundle tag, and not evidence of deployment. Promotion beyond CANDIDATE_READY_FOR_STAGING_QUALIFICATION requires explicit Founder approval. The release_evidence section added in this revision closes documentation gaps and one branch-protection impossibility; it closes no gate and confers no authority. Every claim in it that is not a hosted CI fact or a git ancestry fact is reproduced from outside this repository and is marked as such.",
   "ci_provenance_method": "Read-only GitHub Actions API observation at 2026-08-21T13:30:00+07:00: for each component the run object (name, head_sha, status, conclusion, head_branch) and its full job inventory were fetched by run id and the head_sha compared against the pin recorded here. Every run id below was verified to exist, to have concluded success, and to sit at the exact pinned head. No suite was re-executed locally and no repository other than cybrik-suite was modified."
 }
