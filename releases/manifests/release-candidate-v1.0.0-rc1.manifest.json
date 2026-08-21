@@ -60,7 +60,7 @@
       "ci_companion_push_run_id": 32464954616
     },
     "cybrik-soc-command-center": {
-      "pinned_sha": "34b6302e6bdc34e3fb334c079680e76166d9b476",
+      "pinned_sha": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f",
       "commit_subject": "docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)",
       "pull_request": 13,
       "branch": "fix/copilot-draft-auth",
@@ -70,10 +70,10 @@
       "on_origin_main": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
       "ci_status_recorded": "SUCCESS — 9/9 checks green at the pinned head under run 32460749335, 1 skipped (alert-context-route-db), 0 failing",
-      "ci_status_provenance": "GitHub Actions run 32460749335 (workflow \"ci\", event pull_request, branch fix/copilot-draft-auth) observed read-only at 2026-08-21T16:20:00+07:00: status completed, conclusion success, head_sha 34b6302e6bdc34e3fb334c079680e76166d9b476 — which is EXACTLY this pin. Nine jobs concluded success (api 96707087898, backup-tool 96707087953, pf-workers 96707088017, web 96707087901, secret-scan 96707087717, dependency-scan 96707087963, sbom 96707087909, e2e 96710255755, e2e-org 96710255709); one, alert-context-route-db (96707088555), was skipped; none failing. This is a FRESH qualification run at the rebased head. The superseded pin 2822b9e1 and its run 32447499849 are recorded under superseded_pin; that run proves nothing about this head.",
+      "ci_status_provenance": "GitHub Actions run 32460749335 (workflow \"ci\", event pull_request, branch fix/copilot-draft-auth) observed read-only at 2026-08-21T16:20:00+07:00: status completed, conclusion success, head_sha 695aed8e0e12c9d0e11de5f474e3384d1a4b490f — which is EXACTLY this pin. Nine jobs concluded success (api 96707087898, backup-tool 96707087953, pf-workers 96707088017, web 96707087901, secret-scan 96707087717, dependency-scan 96707087963, sbom 96707087909, e2e 96710255755, e2e-org 96710255709); one, alert-context-route-db (96707088555), was skipped; none failing. This is a FRESH qualification run at the rebased head. The superseded pin 2822b9e1 and its run 32447499849 are recorded under superseded_pin; that run proves nothing about this head.",
       "ci_run_id": 32460749335,
       "ci_workflow": "ci",
-      "ci_head_sha_observed": "34b6302e6bdc34e3fb334c079680e76166d9b476",
+      "ci_head_sha_observed": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f",
       "ci_checks": [
         {
           "name": "api",
@@ -286,7 +286,7 @@
         "detector_observed_output": "The detect job log (job 96492567174) prints its own diff at 2026-08-20T16:02:28Z:\n  changed files:\n  SECURITY.md\nThat single path matches none of the three trigger patterns, so both outputs resolved false and both plane jobs were skipped by their if: conditions.",
         "fail_open_note": "The detector is deliberately FAIL-OPEN: an unresolvable diff base (force-push, first push) or a failed git diff runs BOTH planes and emits a warning. Neither the \"base unresolved\" nor the \"diff measurement failed\" path appears in the job log, so the skip cannot be the silent result of a broken detector — the diff resolved and genuinely matched nothing.",
         "inherited_verification": "Because zero bytes under src/control-plane/, tests/control-plane/, tests/conformance/, contracts-vendor/ or src/executor/ changed on this branch, the control-plane and executor verification carried by the base commit on main is INHERITED unchanged. The skip asserts nothing about those planes beyond what main already established.",
-        "limits": "This proves the skips are correctly gated. It does NOT re-execute the control-plane or executor suites, does not bind a test transcript at this pin, and grants no runtime, deployment or release authority. Fabric runtime remains HOLD."
+        "limits": "This proves the skips are correctly gated. It does NOT re-execute the control-plane or executor suites, does not bind a test transcript at this pin, and grants no runtime, deployment or release authority. Historical gate PASS means the in-scope Wave 1 scaffold/contract-conformance capability passed the accepted UAT gate. It does NOT mean a live production tool-execution runtime was enabled. Live execution remains HOLD and is not claimed by RC1."
       }
     }
   },
@@ -297,7 +297,7 @@
     "every_run_at_its_pin": true,
     "components": {
       "cybrik-suite": "SUCCESS — run 32464960479, 3/3 green at pinned head 7065a703, 0 skipped, 0 failing",
-      "cybrik-soc-command-center": "SUCCESS — run 32460749335, 9/9 green at pinned head 34b6302e, 1 skipped (alert-context-route-db), 0 failing",
+      "cybrik-soc-command-center": "SUCCESS — run 32460749335, 9/9 green at pinned head 695aed8e, 1 skipped (alert-context-route-db), 0 failing",
       "cybrik-cyber-ai-platform": "SUCCESS — run 32452271445, 8/8 green at pinned head b5ab09c8, 0 skipped, 0 failing; job 'test' log reads 1065 passed / 17 skipped / 0 failed",
       "cybrik-security-tool-fabric": "SUCCESS — run 32389505003, 4/4 green at pinned head 0e4fee8d, 2 path-gated skips proven correct (control-plane, executor), 0 failing"
     },
@@ -538,7 +538,7 @@
           "server_version": "PostgreSQL 16.14",
           "findings": [],
           "passed": true,
-          "bound_at_pin": "The pinned SOC head 34b6302 IS the commit that records this drill.",
+          "bound_at_pin": "The pinned SOC head 695aed8 IS the commit that records this drill.",
           "closes": "CODEX-ADJ-005 pre-merge item 3"
         },
         "scope_limit": "Local drills against a developer PostgreSQL instance with a locally held age identity. The RTO covers the restore STEP only, not a full recovery procedure."

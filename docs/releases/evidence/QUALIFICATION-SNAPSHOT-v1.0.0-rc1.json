@@ -14,7 +14,7 @@
     ],
     "authority_of_record": "soc-autonomous-state:HUMAN_BOUNDARIES.json, soc-autonomous-state:AUTHORITY_INBOX.json and soc-autonomous-state:founder-uat-r22/FOUNDER-UAT-DECISION.md — control-plane artifacts outside every suite repository. This file exists BECAUSE that is true, not in spite of it: §9.7 asked for a derived artifact in-repo, and a derived artifact that claimed to be authoritative would recreate the very gap it was meant to document.",
     "verification_split": "Every field below carries an in_repository_corroboration value. VERIFIED means this repository independently observed the fact (read-only GitHub API, or read-only git against a local canonical checkout, at the snapshot timestamp). ABSENT means the claim is reproduced from an external record that nothing committed here can check. Where an external record is reproduced, its sha256 is bound so a reader can detect drift in the bytes that were read — a digest pins the source, it does not make the claim checkable here.",
-    "revision_note": "Revision 4 (2026-08-21, content-base re-pin, catalog alignment and one reclassification; no new product measurement). Changes against revision 3: the cybrik-suite content base advances from 4498bdd3 to 7065a7034991e43a1f486d67f84777766b5d0cba — the authoring parent of the commit carrying this revision — verified 3/3 green read-only under GitHub Actions run 32464960479 at exactly that head (companion push-event run 32464954616 also 3/3 green), with job identifiers re-bound accordingly; SECURITY_TXT_PUBLICATION is reclassified from BLOCKING_OPEN to EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED with POST_DEPLOYMENT_REQUIRED as its single gating class, on unchanged facts (the URL was re-probed 404 on 2026-08-21) and without reopening or weakening RB-001; and a compound_label_rule is added to the taxonomy so the compound label cannot be read as breaking disjointness. No product suite was re-executed and no gate moved. Revision 3 (2026-08-21, classification and prose alignment; no new measurement). Changes against revision 2: residual_item_classification introduces the RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1 shared with RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0; open_items_not_closed_by_this_snapshot becomes a list of classified objects so no item can be read as both blocking and deferred; the W2-F read-token amendment is classified DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and scenario-level NEG-1..NEG-6 rehearsal execution POST_MERGE_REQUIRED against the exact post-merge images; provenance_model mirrors the manifest's content-base / external-release-tag-envelope split; and contract_state.w2_i_transport_binding carries its obligations with explicit classes. Revision 2 (2026-08-21T16:20:00+07:00) advanced the SOC pin from 2822b9e1 to 34b6302 (rebased onto origin/main 4480a412), advanced the Suite content base to 4498bdd, moved codex_challenges, performance_evidence and database_restore_drill from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records, and superseded dangling_evidence_references with external_evidence_reconciliation. Nothing was resolved by authoring a missing document."
+    "revision_note": "Revision 4 (2026-08-21, content-base re-pin, catalog alignment and one reclassification; no new product measurement). Changes against revision 3: the cybrik-suite content base advances from 4498bdd3 to 7065a7034991e43a1f486d67f84777766b5d0cba — the authoring parent of the commit carrying this revision — verified 3/3 green read-only under GitHub Actions run 32464960479 at exactly that head (companion push-event run 32464954616 also 3/3 green), with job identifiers re-bound accordingly; SECURITY_TXT_PUBLICATION is reclassified from BLOCKING_OPEN to EXTERNAL_RESOURCE_REQUIREMENT / POST_DEPLOYMENT_REQUIRED with POST_DEPLOYMENT_REQUIRED as its single gating class, on unchanged facts (the URL was re-probed 404 on 2026-08-21) and without reopening or weakening RB-001; and a compound_label_rule is added to the taxonomy so the compound label cannot be read as breaking disjointness. No product suite was re-executed and no gate moved. Revision 3 (2026-08-21, classification and prose alignment; no new measurement). Changes against revision 2: residual_item_classification introduces the RESIDUAL_ITEM_CLASSIFICATION_TAXONOMY_v1 shared with RELEASE-CANDIDATE-V1.0.0-RC1.md §9.0; open_items_not_closed_by_this_snapshot becomes a list of classified objects so no item can be read as both blocking and deferred; the W2-F read-token amendment is classified DEFERRED_NON_BLOCKING_GOVERNANCE_ITEM and scenario-level NEG-1..NEG-6 rehearsal execution POST_MERGE_REQUIRED against the exact post-merge images; provenance_model mirrors the manifest's content-base / external-release-tag-envelope split; and contract_state.w2_i_transport_binding carries its obligations with explicit classes. Revision 2 (2026-08-21T16:20:00+07:00) advanced the SOC pin from 2822b9e1 to 695aed8 (rebased onto origin/main 4480a412), advanced the Suite content base to 4498bdd, moved codex_challenges, performance_evidence and database_restore_drill from NO_IN_REPOSITORY_RECORD to derived indexes of real control-plane records, and superseded dangling_evidence_references with external_evidence_reconciliation. Nothing was resolved by authoring a missing document."
   },
   "components": {
     "cybrik-suite": {
@@ -58,7 +58,7 @@
     "cybrik-soc-command-center": {
       "pull_request": 13,
       "branch": "fix/copilot-draft-auth",
-      "pinned_sha": "34b6302e6bdc34e3fb334c079680e76166d9b476",
+      "pinned_sha": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f",
       "ci_run_id": 32460749335,
       "ci_workflow": "ci",
       "ci_conclusion": "success",
@@ -70,7 +70,7 @@
       "on_origin_main": false,
       "merged": false,
       "branch_protection_state": "PENDING_REQUIRED_HUMAN_REVIEW",
-      "in_repository_corroboration": "VERIFIED — run 32460749335 (workflow 'ci', event pull_request) and its full job inventory read read-only from the GitHub Actions API at the snapshot timestamp: status completed, conclusion success, head_sha 34b6302e6bdc34e3fb334c079680e76166d9b476 — exactly this pin. Nine jobs concluded success; one, alert-context-route-db, was skipped; none failed. This is a FRESH qualification run at the rebased head, not the superseded run 32447499849.",
+      "in_repository_corroboration": "VERIFIED — run 32460749335 (workflow 'ci', event pull_request) and its full job inventory read read-only from the GitHub Actions API at the snapshot timestamp: status completed, conclusion success, head_sha 695aed8e0e12c9d0e11de5f474e3384d1a4b490f — exactly this pin. Nine jobs concluded success; one, alert-context-route-db, was skipped; none failed. This is a FRESH qualification run at the rebased head, not the superseded run 32447499849.",
       "commit_subject": "docs(backup): record verified age encrypted restore drill evidence (RTO 1.7s, 56 tables)",
       "rebased_on_origin_main": "4480a412b7be59176626c1646874c161337bfade",
       "ci_run_event": "pull_request",
@@ -366,7 +366,7 @@
         "output_artifact": "soc-autonomous-state:reports/codex-challenges/CODEX_EXACT_SUBJECT_CHALLENGE_REPORT_FOUNDER_ADJUDICATED.md",
         "output_artifact_sha256": "bdb818be08f7e3c43456cc6063296624bc29ea99d6de5dc52d5319335588093e",
         "output_artifact_note": "The earliest report in the series is CODEX_EXACT_SUBJECT_CHALLENGE_REPORT.md (sha256 0b17b7c7a47d20b5b577536027dfeecd448df991f96114f919dfbe1b6c120565); its blockers concerned an earlier pin tuple and are superseded by the pins bound here.",
-        "disposition": "THIS REVISION ADDRESSES ALL THREE PRE-MERGE ITEMS. Item 1 (SOC BEHIND main): the pin is advanced to 34b6302, rebased onto main 4480a412, with a fresh qualification run. Item 2 (five unsourced references): reconciled under external_evidence_reconciliation below; none is now cited as an unresolved link. Item 3 (encrypted drill): the age-encrypted drill at 20260821T075437Z is bound under database_restore_drill. The residual CODEX_POST_MERGE_REQUIREMENTS — merge all four PRs under branch protection and run required CI against every merged SHA — are human-only and remain OPEN."
+        "disposition": "THIS REVISION ADDRESSES ALL THREE PRE-MERGE ITEMS. Item 1 (SOC BEHIND main): the pin is advanced to 695aed8, rebased onto main 4480a412, with a fresh qualification run. Item 2 (five unsourced references): reconciled under external_evidence_reconciliation below; none is now cited as an unresolved link. Item 3 (encrypted drill): the age-encrypted drill at 20260821T075437Z is bound under database_restore_drill. The residual CODEX_POST_MERGE_REQUIREMENTS — merge all four PRs under branch protection and run required CI against every merged SHA — are human-only and remain OPEN."
       }
     ],
     "in_repository_corroboration": "ABSENT for every verdict. Nothing committed in cybrik-suite reproduces a Codex adjudication. The output_artifact_sha256 values are digests of control-plane files computed at the snapshot timestamp; they let a reader detect drift in those files, they do not make the verdicts checkable here."
@@ -378,13 +378,13 @@
     "source_artifact_sha256": "e73c2b2cc09a8fdf1b2b5bdbfb919250b3073893aae694e69d4d0d14b6354745",
     "scope_honesty": "This is a MICRO-BENCHMARK baseline of four in-process code paths on a developer workstation. It is NOT a load profile, NOT a throughput figure, NOT a saturation test and NOT a service-level latency measurement. No HTTP request, no database round trip and no concurrency is measured. It does not qualify the candidate for any performance objective, because rc1 declares none.",
     "environment": "macOS / Python 3.12 (services/api/.venv) — single workstation, no isolation, no warm-up control beyond the sample count",
-    "exact_subject_drift": "The four micro-benchmarks were measured against cybrik-soc-command-center@2822b9e1 and cybrik-cyber-ai-platform@6793e217. NEITHER is a pin in this candidate: the SOC pin has advanced to 34b6302 (2822b9e1 is not even an ancestor of it after the rebase) and the Cyber AI pin is b5ab09c8 (6793e217 IS a verified ancestor, 2 commits behind). These numbers are therefore OFF-PIN for SOC and ON-ANCESTOR for Cyber AI. They are recorded as measured, with their real subjects, and not restated as pin-bound.",
+    "exact_subject_drift": "The four micro-benchmarks were measured against cybrik-soc-command-center@2822b9e1 and cybrik-cyber-ai-platform@6793e217. NEITHER is a pin in this candidate: the SOC pin has advanced to 695aed8 (2822b9e1 is not even an ancestor of it after the rebase) and the Cyber AI pin is b5ab09c8 (6793e217 IS a verified ancestor, 2 commits behind). These numbers are therefore OFF-PIN for SOC and ON-ANCESTOR for Cyber AI. They are recorded as measured, with their real subjects, and not restated as pin-bound.",
     "metrics": [
       {
         "metric": "soc_module_import_ms",
         "tool": "python3 time.perf_counter() import cybrik_soc.config, logging",
         "exact_subject": "cybrik-soc-command-center@2822b9e18831e4fc180cb50c455b5e67e3ed365a",
-        "subject_vs_pin": "OFF_PIN — not an ancestor of the SOC pin 34b6302 after the rebase",
+        "subject_vs_pin": "OFF_PIN — not an ancestor of the SOC pin 695aed8 after the rebase",
         "sample_count": 50,
         "min_ms": 0.0001,
         "p50_ms": 0.0002,
@@ -412,7 +412,7 @@
         "metric": "soc_log_scrubbing_latency_ms",
         "tool": "python3 time.perf_counter() cybrik_soc.platform.logging.redact()",
         "exact_subject": "cybrik-soc-command-center@2822b9e18831e4fc180cb50c455b5e67e3ed365a",
-        "subject_vs_pin": "OFF_PIN — not an ancestor of the SOC pin 34b6302 after the rebase",
+        "subject_vs_pin": "OFF_PIN — not an ancestor of the SOC pin 695aed8 after the rebase",
         "sample_count": 1000,
         "min_ms": 0.0059,
         "p50_ms": 0.0061,
@@ -473,7 +473,7 @@
         "artifact_sha256": "69c6cd23a06f1a8cc2540eef6811bc0a74d305c7d98ee157efccae313d425a6c",
         "machine_record": "cybrik-soc-command-center:reports/evidence/restore-drill/20260821T075437Z/drill.json",
         "machine_record_sha256": "84f159015ba298e9be1a9c99360c2923508d636923705057909c22b286e20a5e",
-        "bound_at_pin": "34b6302e6bdc34e3fb334c079680e76166d9b476 — the pinned SOC head is the commit that records this drill",
+        "bound_at_pin": "695aed8e0e12c9d0e11de5f474e3384d1a4b490f — the pinned SOC head is the commit that records this drill",
         "encryption_provider": "age",
         "encrypted_artifact": "cybrik_soc_encrypted_drill-20260821T075434Z.dump.age",
         "encrypted_artifact_sha256": "d072543b3bedfe01d35aa3adeb5c592389c28ca80d3c28ca8dbb4cd6c04c1563",
@@ -732,7 +732,7 @@
           "gate": "SOC_UAT_SURFACE — owner cybrik-soc-command-center, machine status ENGINEERING_SATISFIED, human action 'Integrated on main; confirmed in UAT', ratification PASS",
           "companion_record": "soc-autonomous-state:founder-uat-r22/ACCESSIBILITY-HUMAN-SESSION.md (sha256 63416c304051af893c8ca4718bfec55720660acac8828888a2521696d16494c3) carries the HB-2 human accessibility session",
           "boundary": "HB-5 SOC_UAT_RATIFICATION, decided by Founder 2026-08-20T19:32:56+07:00, authority record AUTHORITY_INBOX.json INBOX-008",
-          "ancestry_note": "The evidenced surface SHA 4480a412 is now a VERIFIED ANCESTOR of the SOC pin 34b6302 (10 commits behind). Under the prior pin 2822b9e1 it was divergent. The walkthrough therefore describes a surface the pin contains.",
+          "ancestry_note": "The evidenced surface SHA 4480a412 is now a VERIFIED ANCESTOR of the SOC pin 695aed8 (10 commits behind). Under the prior pin 2822b9e1 it was divergent. The walkthrough therefore describes a surface the pin contains.",
           "scope_honesty": "Human ratification, not a machine transcript. The Playwright '31 passed' and pytest '279/278/1' figures are WITHDRAWN rather than carried forward: they belong to run 32164562480 at 4480a412, which is an ancestor of the pin but is not the pin. The pin has its own qualification run bound in components.cybrik-soc-command-center."
         },
         "in_repository_corroboration": "ABSENT — the decision record lives in the control plane. The ancestry claim IS verifiable: it was checked with git merge-base --is-ancestor against the local canonical SOC checkout."
