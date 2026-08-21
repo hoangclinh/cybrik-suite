@@ -1,16 +1,28 @@
 # ADR-0011 — Inference-plane transport-binding profile
 
-- Status: `PROPOSED — NOT DECIDED` (candidate v0.2.0 revision; **not** accepted, **not** applied,
-  **not** a stable v1/GA version, **not** an ADR-0001 immutable bundle tag)
+- Status: `ACCEPTED` (v0.2.0 successor revision accepted for implementation; **not** a stable v1/GA
+  version, **not** an ADR-0001 immutable bundle tag, **not** runtime, endpoint, deployment or
+  release authority)
 - Date raised: 2026-07-28
-- Date decided: — (none; Gate W2-I is `NOT OPENED`)
-- Decider: Founder (Gate W2-I; **no delegation of this gate has been granted or exercised**)
-- Acceptance record: none. The in-tree validator and test are conformance evidence only; neither
-  is an acceptance record.
+- Date decided: 2026-08-20 (Gate W2-I `DECIDED — ACCEPT`)
+- Date applied to artifact bytes: 2026-08-21
+- Decider: Decision Council / Founder, at human boundary `HB-4`
+- Acceptance record: `soc-autonomous-state:AUTHORITY_INBOX.json` `INBOX-007` and
+  `soc-autonomous-state:HUMAN_BOUNDARIES.json` `HB-4`
+  (`CLOSED`, `SATISFIED_BY_COUNCIL_DECISION_ACCEPT`). That authority of record is a control-plane
+  artifact **outside every suite repository**; nothing committed in `cybrik-suite` independently
+  corroborates it. The in-tree validator and test remain conformance evidence only and are not the
+  acceptance record.
 - Governing prior decision: the Founder path-ownership arbitration
   [FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md](FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md)
   — **Option A, single-owner compatible revision**, G-W2I-1..G-W2I-5 all answered `Yes` by the
-  Founder on 2026-07-26. That packet is `DECIDED`; **this** ADR is not.
+  Founder on 2026-07-26. That packet is `DECIDED`, and this ADR is now `DECIDED` under it.
+- Applied by: the recorded W2-I status flip, which absorbed the four transport-binding members into
+  the accepted W2-D packet manifest
+  ([`contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json`](../../contracts/compatibility/cybrik-suite-inference-packet.v1.manifest.json),
+  `w2i_transport_binding_acceptance`) and consumed the companion delta record
+  ([`…w2i-proposed-delta.json`](../../contracts/compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json),
+  `x-cybrik-applied: true`).
 - Scope: the cross-product **transport and authorization binding** of the four `ACCEPTED FOR
   IMPLEMENTATION` W2-D inference operations onto the `ACCEPTED FOR IMPLEMENTATION` W2-F two-layer
   trust seam ([ADR-0008](ADR-0008-internal-service-delegation-and-workload-identity.md), realizing
@@ -83,17 +95,19 @@ This ADR is the contract-shape record required by G-W2I-3. It does **not** re-op
 
 ## Decision
 
-**PROPOSED — NOT DECIDED.** Subject to a Founder decision at Gate W2-I, the suite adopts the
-following contract shape.
+**ACCEPTED.** Decided `ACCEPT` by the Decision Council / Founder at Gate W2-I, human boundary
+`HB-4`, on 2026-08-20 and applied to the artifact bytes on 2026-08-21. The suite adopts the
+following contract shape. Acceptance authorizes **contract-first implementation only** — it selects
+no substrate, declares no endpoint, installs no dependency, and certifies no runtime.
 
 ### Selected option — a single W2-D-owned successor revision
 
-The transport/authorization binding enters as **one proposed compatible successor revision of the
+The transport/authorization binding entered as **one compatible successor revision of the
 W2-D-owned inference OpenAPI member**, published at the immutable, version-stamped filename:
 
 > `contracts/openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml`
-> — `info.version: 0.2.0`, `info.x-cybrik-status: PROPOSED`,
-> `info.x-cybrik-not-accepted: true`, `info.x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR`,
+> — `info.version: 0.2.0`, `info.x-cybrik-status: ACCEPTED FOR IMPLEMENTATION`,
+> `info.x-cybrik-not-accepted: false`, `info.x-cybrik-lifecycle-role: CURRENT`,
 > `info.x-cybrik-supersedes: cybrik-ai-inference-plane.v1.openapi.yaml`.
 
 This is explicitly **the selected shape**, and it is explicitly **not**:
@@ -132,19 +146,27 @@ For every `(method, path)` pair across **every** OpenAPI document in `contracts/
 - there is **exactly one** document with lifecycle role `CURRENT`; and
 - there is **at most one** document with lifecycle role `PROPOSED-SUCCESSOR`; and
 - a `PROPOSED-SUCCESSOR` is admissible **only** when it is delta-linked — i.e. named by the
-  companion delta record as the proposed successor of the named current owner.
+  companion delta record as the proposed successor of the named current owner; and
+- a document the accepted manifest labels `SUPERSEDED-SUPPORTED` is **not** an owner, whatever its
+  own `x-cybrik-status` says — supersession is recorded in the manifest, never by rewriting the
+  superseded document.
 
-Today, for the four inference pairs: `CURRENT` = the accepted v0.1.0 predecessor;
-`PROPOSED-SUCCESSOR` = the v0.2.0 file above. Any third document declaring any of the four pairs is
-a defect, whatever its status.
+Before the flip, for the four inference pairs: `CURRENT` = the v0.1.0 predecessor;
+`PROPOSED-SUCCESSOR` = the v0.2.0 file above. **After the flip:** `CURRENT` = the v0.2.0 successor;
+the v0.1.0 predecessor is `SUPERSEDED-SUPPORTED`; there is **no** proposed successor. Any third
+document declaring any of the four pairs is a defect, whatever its status.
 
-### The predecessor stays CURRENT and byte-frozen
+### The predecessor is SUPERSEDED-SUPPORTED and byte-frozen
 
-`contracts/openapi/cybrik-ai-inference-plane.v1.openapi.yaml` remains the **sole current owner** of
-the four operations and remains **byte-frozen**: zero diff against `HEAD`, and no change of its
-`x-cybrik-status` from `ACCEPTED FOR IMPLEMENTATION`. Until a separately recorded Founder status
-flip, **a consumer implements the predecessor**, not the successor. Nothing in this record
-supersedes the predecessor in effect, retires it, or authorizes a product to prefer the successor.
+`contracts/openapi/cybrik-ai-inference-plane.v1.openapi.yaml` is, since the 2026-08-20 flip, no
+longer the current owner of the four operations. It is `SUPERSEDED-SUPPORTED` and remains
+**byte-frozen**: zero diff against its pre-flip bytes (digest
+`731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e`), with its own
+`x-cybrik-status: ACCEPTED FOR IMPLEMENTATION` untouched. Supersession relabelled its **member row**
+in the accepted W2-D manifest and rewrote nothing in the document itself (G-W2I-4). It stays a
+supported implementation target for the duration of the deprecation window: a consumer that
+implemented the predecessor is not broken and is under no obligation to migrate during that window.
+It is **not** retired — retirement is a separate recorded decision that no date yet satisfies.
 
 ### What the successor adds, and nothing else
 
@@ -206,22 +228,30 @@ This record and its successor artifact grant **no**:
   generated response types; (c) the newly bound statuses on operations that previously bound fewer —
   plus a consumer compatibility matrix. A break disclosed is compliant with D2; a break called
   "additive" is a D2 violation.
-- **D3 — deprecation window.** The predecessor is **not** retired by this proposal. Its proposed
-  disposition after any future flip is `SUPERSEDED-SUPPORTED` while staying byte-frozen, and its
-  earliest retirement floor is `max(two subsequent minor releases, 180 days)` from the flip, except
-  in a documented security emergency. Those dates are **PROPOSED and non-binding**; they bind no
-  release date and create no schedule commitment.
+- **D3 — deprecation window.** The predecessor is **not** retired by this decision. Its decided
+  disposition, effective 2026-08-20, is `SUPERSEDED-SUPPORTED` while staying byte-frozen, and its
+  earliest retirement floor is `max(two subsequent minor releases, 180 days)` from the flip — i.e.
+  no earlier than `2027-02-16` **and** not before two further minor releases of the inference plane,
+  the later bound governing, except in a documented security emergency. The release-count bound is
+  not yet met, so **no retirement date is derivable today** and none is authorized. The effective
+  date binds; the retirement date does not exist yet. No release date is changed or consumed.
 - **D4 — format pins.** OpenAPI **3.1.1** within the pinned 3.1.x profile; JSON Schema **2020-12**
   for every referenced schema. No pin is moved, and no format upgrade is requested.
 - **D5 — acceptance mechanics.** The `PROPOSED → CURRENT` transition requires **explicit Founder
   authorization recorded with evidence links in a status-flip commit**. No agent may infer approval.
-  A green validator or test run is a **conformance signal only** and is never acceptance. This ADR
-  is written by an AI agent and is `PROPOSED — NOT DECIDED` precisely because D5 forbids anything
-  else.
-- **D6 — no `PROPOSED` references from accepted records.** Until the flip, the **accepted** W2-D
-  compatibility manifest MUST NOT reference the successor file, the delta record, or any other
-  candidate member — not in its member list and not anywhere in its bytes. The candidate is
-  referenced only by candidate-owned records.
+  A green validator or test run is a **conformance signal only** and is never acceptance. D5 is
+  **satisfied**: the Decision Council / Founder decided `ACCEPT` at `HB-4` on 2026-08-20
+  (`INBOX-007`), and the flip was applied on 2026-08-21 in a change that records that decision and
+  its evidence. The acceptance is the recorded decision — not this document, not the validator, and
+  not any CI run.
+- **D6 — no `PROPOSED` references from accepted records.** D6 forbids an accepted record from
+  referencing an unaccepted one. Until the flip, the accepted W2-D compatibility manifest referenced
+  **none** of the successor file, the delta record, or any other candidate member — not in its
+  member list and not anywhere in its bytes. At the flip the four members became accepted **and**
+  the manifest adopted them, in one whole-packet act, so the references it now carries are
+  accepted → accepted and D6 is not engaged. A half-flip — the manifest adopting a member that is
+  still `PROPOSED`, or a member flipped while the manifest still ignores it — would violate D6 or
+  the single-owner invariant respectively, and the validator rejects both.
 
 ### Operation token registry — and its accepted-vocabulary gap
 
@@ -233,8 +263,8 @@ paper over it:
 |---|---|---|
 | `createInference` | `ai.inference.create` | **ACCEPTED** — W2-F vocabulary |
 | `createAlertSummarization` | `ai.summarization.create` | **ACCEPTED** — W2-F vocabulary |
-| `listModelClasses` | `ai.model_classes.list` | **W2-I PROPOSED — NOT ACCEPTED** |
-| `getModelClassHealth` | `ai.model_class_health.read` | **W2-I PROPOSED — NOT ACCEPTED** |
+| `listModelClasses` | `ai.model_classes.list` | **W2-I ACCEPTED (transport) — NOT W2-F vocabulary** |
+| `getModelClassHealth` | `ai.model_class_health.read` | **W2-I ACCEPTED (transport) — NOT W2-F vocabulary** |
 
 The two create tokens appear verbatim in the accepted W2-F vocabulary
 (`contracts/json-schema/cybrik.svc-common-defs.v1.schema.json` `$defs.operationRef.name`, and
@@ -242,11 +272,17 @@ The two create tokens appear verbatim in the accepted W2-F vocabulary
 accepted W2-F `operationRef.name` is a free-form dotted string with no closed enum, so the read
 tokens are not *rejected* by the accepted contract — they are simply **not accepted vocabulary**.
 
-This is an open gap, not a resolved detail. The consequence: a relying party cannot today
-re-authorize a GET under an accepted operation name, so the two reads' authorization semantics are
-proposal-only. Closing it requires either (a) a W2-F vocabulary extension accepted at its own gate,
-or (b) a Founder decision that the read tokens are accepted as part of Gate W2-I. This ADR proposes
-neither; it records the choice as open (OD-W2I-2 below).
+**This gap survived acceptance and is not closed.** `HB-4` accepted the W2-I transport binding; it
+did **not** amend the accepted W2-F operation-token table, and amending W2-F edits bytes accepted at
+a different gate. So the two read tokens are now accepted *transport* vocabulary while remaining
+absent from accepted *delegation* vocabulary. The consequence is unchanged and now binds an accepted
+contract: a relying party still cannot re-authorize either GET under an accepted operation name, so
+**no W2-F delegation token may lawfully authorize `listModelClasses` or `getModelClassHealth`**
+until the W2-F mapping-notes amendment is separately reviewed and recorded. Implementations of the
+two reads are blocked on that amendment; the two creates are unaffected. This is tracked as an
+undischarged post-acceptance obligation in the accepted manifest
+(`w2i_transport_binding_acceptance.carried_forward_obligations`), in the consumed delta
+(`gate.open_items`), and as `OD-W2I-2` below.
 
 ## Alternatives considered
 
@@ -261,12 +297,12 @@ neither; it records the choice as open (OD-W2I-2 below).
 
 ## Consequences
 
-### If this ADR is later accepted
+### Now that this ADR is accepted
 
-- The suite gains a reviewable, machine-readable statement that every inference operation is
-  authorized only under mTLS **and** a certificate-bound delegation token — as a **proposal**, still
-  requiring the separate status flip described under ADR-0001 D5 before any product may implement
-  against it.
+- The suite has a reviewable, machine-readable statement that every inference operation is
+  authorized only under mTLS **and** a certificate-bound delegation token, and products **may now
+  implement contract-first against it** — with the exception of the two GET operations, whose
+  delegation vocabulary is still unaccepted (see the operation-token registry above).
 - Structural properties (AND-required security, closed error status set, retained accepted error
   branch, preserved operationIds/bodies/parameters/200 bindings, closed operation registry) become
   checkable from bytes.
@@ -278,8 +314,8 @@ neither; it records the choice as open (OD-W2I-2 below).
 
 ### `NOT IMPLEMENTED`
 
-Accepting this ADR would build no client, no server, no route, no middleware, no certificate
-authority, no JWKS resolver, and no deployment. There is today **no HTTP client and no HTTP server**
+Accepting this ADR built no client, no server, no route, no middleware, no certificate authority,
+no JWKS resolver, and no deployment. There is today **no HTTP client and no HTTP server**
 implementing any of the four operations in any suite repository. Implementation is owned and
 separately gated by `cybrik-cyber-ai-platform` (relying party) and `cybrik-soc-command-center`
 (caller), each under its own repository's rules.
@@ -288,15 +324,16 @@ separately gated by `cybrik-cyber-ai-platform` (relying party) and `cybrik-soc-c
 
 Because nothing accepted is mutated, rollback is bounded and total at every stage:
 
-1. **While `PROPOSED` (today).** Delete the candidate artifacts — the successor
-   `contract-0.2.0` file, the companion delta record, the `cybrik.transport-*` schemas, the
-   transport fixtures, and the transport validator/tests. The accepted W2-D and W2-F packets are
-   byte-identical before and after; no accepted manifest references any of them (ADR-0001 D6), so
-   nothing accepted dangles.
-2. **After a future status flip, if one is ever granted.** Revert the flip commit. The predecessor
-   is byte-frozen and stays on disk as `CURRENT`, so reverting restores the exact reviewed bytes
-   rather than reconstructing them; consumers that never migrated are unaffected because migration
-   was never mandatory during the `SUPERSEDED-SUPPORTED` window.
+1. **While `PROPOSED` (historical, through 2026-08-20).** Deleting the candidate artifacts was a
+   total rollback: the accepted W2-D and W2-F packets were byte-identical before and after and no
+   accepted manifest referenced any of them (ADR-0001 D6), so nothing accepted could dangle.
+2. **After the status flip (today).** Revert the flip commit. The predecessor is byte-frozen and
+   still on disk, so reverting restores it as `CURRENT` from the exact reviewed bytes rather than
+   reconstructing them, and returns the manifest to its pre-flip digest
+   `e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b`. Consumers that never migrated
+   are unaffected, because migration was never mandatory during the `SUPERSEDED-SUPPORTED` window.
+   Reverting the bytes does **not** by itself reverse the `HB-4` decision; that would need its own
+   recorded decision.
 3. **After any product implementation** (none exists). Product-side rollback is a feature flag that
    defaults **OFF**, owned by the implementing repository, and is **not** decided here.
 
@@ -304,18 +341,19 @@ No rollback path at any stage requires editing an accepted byte or deleting audi
 
 ## Open Founder decisions
 
-These are **open**. None is answered by this record, and each must be answered before Gate W2-I
-could be decided.
+The `HB-4` decision of 2026-08-20 resolved four of these seven. **Three remain open** and are
+recorded here rather than quietly dropped: acceptance of a contract shape is not acceptance of every
+question the shape raised.
 
-| ID | Open decision |
-|---|---|
-| **OD-W2I-1** | Does the Founder accept this contract shape at all — a single W2-D-owned successor revision, as opposed to alternative **E** (defer, leave transport enforcement product-local)? |
-| **OD-W2I-2** | **Operation-token registry gap.** Are `ai.model_classes.list` and `ai.model_class_health.read` accepted vocabulary as part of Gate W2-I, or must they enter through a separate W2-F vocabulary extension gate? Until answered, the two reads' authorization semantics are proposal-only. |
-| **OD-W2I-3** | Is the D2 break disclosure (AND-required security; `oneOf` widening; newly bound statuses) accepted as the complete and honest break list, or is a further break identified in independent review? |
-| **OD-W2I-4** | Is the D3 proposed disposition — predecessor `SUPERSEDED-SUPPORTED`, byte-frozen, retirement floor `max(two subsequent minor releases, 180 days)` — accepted as the shape, on the explicit understanding that the dates bind no release? |
-| **OD-W2I-5** | Who performs the **independent** security and compatibility review of the final proposed bytes required before any acceptance, given that the candidate was authored with AI assistance and self-review is not independence? |
-| **OD-W2I-6** | Does the Founder grant, withhold, or reserve technical delegation of Gate W2-I? (No delegation has been granted. Gates W2-D/W2-F/W2-G were delegated; that delegation does **not** extend here.) |
-| **OD-W2I-7** | Does the Founder require a product-side conformance harness in `cybrik-cyber-ai-platform` **before** the status flip, or is contract-level evidence sufficient at the flip with runtime conformance gated separately? |
+| ID | Open decision | Disposition |
+|---|---|---|
+| **OD-W2I-1** | Does the Founder accept this contract shape at all — a single W2-D-owned successor revision, as opposed to alternative **E** (defer, leave transport enforcement product-local)? | **RESOLVED (HB-4, 2026-08-20)** — accepted as the shape. |
+| **OD-W2I-2** | **Operation-token registry gap.** Are `ai.model_classes.list` and `ai.model_class_health.read` accepted vocabulary as part of Gate W2-I, or must they enter through a separate W2-F vocabulary extension gate? | **OPEN — NOT resolved by HB-4.** The decision accepted the transport binding and did not amend the accepted W2-F operation-token table. The two reads' *delegation* semantics remain unaccepted, so no delegation token may authorize either read until a separate W2-F amendment is recorded. |
+| **OD-W2I-3** | Is the D2 break disclosure (AND-required security; `oneOf` widening; newly bound statuses) accepted as the complete and honest break list, or is a further break identified in independent review? | **PARTIALLY RESOLVED** — HB-4 accepted the disclosure as recorded. It is still unconfirmed by independent review (see OD-W2I-5), so completeness is asserted, not demonstrated. |
+| **OD-W2I-4** | Is the D3 proposed disposition — predecessor `SUPERSEDED-SUPPORTED`, byte-frozen, retirement floor `max(two subsequent minor releases, 180 days)` — accepted as the shape, on the explicit understanding that the dates bind no release? | **RESOLVED (HB-4, 2026-08-20)** — accepted; effective 2026-08-20, no retirement date fixed, no release date consumed. |
+| **OD-W2I-5** | Who performs the **independent** security and compatibility review of the final bytes, given that the candidate was authored with AI assistance and self-review is not independence? | **OPEN.** No independent post-flip security/compatibility review against the applied digests is recorded in this repository. HB-4 is a governance decision, not a review. |
+| **OD-W2I-6** | Does the Founder grant, withhold, or reserve technical delegation of Gate W2-I? | **RESOLVED (HB-4, 2026-08-20)** — the gate was decided by the Decision Council / Founder directly, not by delegation. No standing delegation of W2-I was created, and none may be inferred for any future W2-I-adjacent gate. |
+| **OD-W2I-7** | Does the Founder require a product-side conformance harness in `cybrik-cyber-ai-platform` **before** the status flip, or is contract-level evidence sufficient at the flip with runtime conformance gated separately? | **OPEN in substance.** The flip proceeded on contract-level evidence, so the question is moot as a precondition, but runtime conformance remains separately gated and undemonstrated: no product transport, mTLS handshake, JWKS verification or TX-* enforcement is evidenced anywhere in this repository. |
 
 ## Standards cited
 
@@ -349,3 +387,24 @@ ADR-0003, ADR-0004, ADR-0005, ADR-0007, and ADR-0009 are cited only as **out-of-
   it: `ai.model_classes.list` and `ai.model_class_health.read` remain **not accepted W2-F
   vocabulary**, and the W2-F mapping-notes amendment that would carry them is a **blocking**
   prerequisite decided at its own gate, not here.
+- 2026-08-20 — **Gate W2-I `DECIDED — ACCEPT`.** The Decision Council / Founder accepted the
+  contract shape at human boundary `HB-4`
+  (`soc-autonomous-state:AUTHORITY_INBOX.json` `INBOX-007`;
+  `soc-autonomous-state:HUMAN_BOUNDARIES.json` `HB-4`, `CLOSED`,
+  `SATISFIED_BY_COUNCIL_DECISION_ACCEPT`). The decision resolved `OD-W2I-1`, `OD-W2I-4` and
+  `OD-W2I-6`, and accepted the `D2` disclosure as recorded (`OD-W2I-3`, partial). It did **not**
+  resolve `OD-W2I-2` — the W2-F operation-token gap — and did **not** supply the independent review
+  under `OD-W2I-5`. The gate authority of record is a control-plane artifact outside every suite
+  repository; `cybrik-suite` holds no independent corroboration of it.
+- 2026-08-21 — **status flip applied to the artifact bytes.** As one whole-packet act: the successor
+  OpenAPI moved to `x-cybrik-status: ACCEPTED FOR IMPLEMENTATION` /
+  `x-cybrik-lifecycle-role: CURRENT`; the three `cybrik.transport-*` schemas and the transport
+  examples manifest moved to `ACCEPTED FOR IMPLEMENTATION`; the accepted W2-D packet manifest
+  absorbed all four members, relabelled the predecessor member row `SUPERSEDED-SUPPORTED` and
+  recorded the acceptance under `w2i_transport_binding_acceptance`; and the companion delta was
+  consumed in place (`x-cybrik-applied: true`) rather than deleted, so the pre-flip digests and the
+  compatibility disclosure survive audit. The predecessor document itself was not touched
+  (`731f4d27…` before and after). Every member carries both its pre-flip and post-flip digest. The
+  conformance validator was re-run green at the flip head as evidence attached to the decision —
+  never as the decision. `OD-W2I-2`, `OD-W2I-5` and the substance of `OD-W2I-7` remain open, and
+  no runtime, endpoint, deployment, GA or release authority follows from any of this.

@@ -53,27 +53,29 @@
 # to dereference. There is exactly one declaration of each shared response.
 openapi: 3.1.1
 info:
-  title: CYBRIK AI model-inference plane (mapping notes) — proposed transport-binding successor
+  title: CYBRIK AI model-inference plane (mapping notes) — transport-binding successor
   version: 0.2.0
-  summary: PROPOSED — NOT ACCEPTED (v0.2.0). Candidate successor revision of the accepted v0.1.0 inference mapping notes, adding the W2-F mTLS + certificate-bound delegation binding. The accepted v0.1.0 remains CURRENT and byte-frozen.
+  summary: ACCEPTED FOR IMPLEMENTATION (v0.2.0; not stable v1/GA). Accepted successor revision of the v0.1.0 inference mapping notes, adding the W2-F mTLS + certificate-bound delegation binding. The v0.1.0 predecessor is SUPERSEDED-SUPPORTED and stays byte-frozen.
   description: >-
     Notes-only mapping of the ACCEPTED W2-D provider-neutral inference schemas onto REST resources,
-    overlaid with the ACCEPTED W2-F two-layer authorization seam. This is a proposed compatible
+    overlaid with the ACCEPTED W2-F two-layer authorization seam. This is the accepted compatible
     successor revision of the W2-D-owned inference plane, not a second plane and not a second owner
     of the same paths. No servers, no endpoints, no provider URLs, no secrets. Every operation
     AND-requires mutual TLS AND a certificate-bound at+jwt delegation token; the authoritative
     tenant/actor/operation/marking derive from the token, the request body is advisory only, and any
     mismatch is rejected fail-closed with a typed transport/authorization error. The accepted
     provider-neutral inference error is retained on every status the predecessor already binds. This
-    remains a mapping-notes document, remains PROPOSED — NOT ACCEPTED, and decides no deployment.
+    remains a mapping-notes document and decides no deployment: acceptance at Gate W2-I (Decision
+    Council / Founder, human boundary HB-4, 2026-08-20) authorizes contract-first implementation
+    only and grants no endpoint, credential, runtime, deployment or release authority.
     Model output is untrusted data and is never an authorization, approval, or action trigger.
-  x-cybrik-status: PROPOSED
-  x-cybrik-not-accepted: true
-  x-cybrik-lifecycle-role: PROPOSED-SUCCESSOR
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-not-accepted: false
+  x-cybrik-lifecycle-role: CURRENT
   x-cybrik-supersedes: cybrik-ai-inference-plane.v1.openapi.yaml
   # Companion W2-I delta record carrying the compatibility disclosure, the per-member digests and the
-  # closed operation-token registry. Forward reference: that record is a separate artifact of this
-  # in-flight packet and is NOT authored by this document.
+  # closed operation-token registry. That record is a separate, now-APPLIED artifact and is NOT
+  # authored by this document.
   x-cybrik-delta-ref: ../compatibility/cybrik-suite-inference-packet.v1.w2i-proposed-delta.json
 
 # No `servers:` — endpoints are intentionally omitted.

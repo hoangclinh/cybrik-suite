@@ -1,21 +1,21 @@
 {
-  "title": "CYBRIK Suite W2-I transport binding — PROPOSED delta against the ACCEPTED W2-D inference packet manifest",
-  "description": "PROPOSED, UNAPPLIED delta record for the W2-I inference-plane transport binding. Under the recorded Founder decision (Option A, 2026-07-26) the accepted W2-D packet is the SOLE owner of the four inference operations, so the transport binding enters ONLY as a compatible successor revision of the W2-D-owned OpenAPI member — never as a second plane, a second path owner, or a second compatibility manifest. This file is the single declaration site for that candidate: it pins the accepted upstream bytes it was reviewed against, pins the candidate bytes it proposes to add, discloses the compatibility consequences honestly, and enumerates the changes that a FUTURE, separately recorded Gate W2-I status flip would apply to the accepted W2-D manifest. It applies none of them now. It is not acceptance, not implementation authorization, not a stable v1/GA promotion, not an immutable bundle tag, and it declares no operational endpoint, deployment, credential, or runtime evidence.",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "title": "CYBRIK Suite W2-I transport binding — APPLIED delta against the ACCEPTED W2-D inference packet manifest",
+  "description": "APPLIED delta record for the W2-I inference-plane transport binding. Under the recorded Founder decision (Option A, 2026-07-26) the accepted W2-D packet is the SOLE owner of the four inference operations, so the transport binding entered ONLY as a compatible successor revision of the W2-D-owned OpenAPI member — never as a second plane, a second path owner, or a second compatibility manifest. Gate W2-I was decided ACCEPT by the Decision Council / Founder at human boundary HB-4 on 2026-08-20, and this delta was APPLIED into the accepted W2-D packet manifest on 2026-08-21. This file is now the CONSUMED review record of that flip: it pins the upstream bytes the candidate was reviewed against, pins the member bytes that were applied, discloses the compatibility consequences, and records which of its proposed changes the flip performed. It carries no residual authority — the ACCEPTED W2-D packet manifest is the single governing manifest for these operations. Acceptance authorizes contract-first implementation only: it is NOT a stable v1/GA promotion, NOT an ADR-0001 immutable bundle tag, and it declares no operational endpoint, deployment, credential, or runtime evidence.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-artifact-kind": "proposed-delta",
   "x-cybrik-is-manifest": false,
-  "x-cybrik-manifest-self-denial": "This artifact is NOT a compatibility manifest and must never be read, indexed, released, or renamed as one. It carries no packet identity of its own: the only compatibility manifest that governs these operations is the ACCEPTED W2-D packet manifest named in proposed_manifest_changes.target_manifest. The filename deliberately does not end in '.manifest.json'. A second manifest covering the same operations is precisely the shape Founder Option A rejected (G-W2I-2).",
-  "x-cybrik-applied": false,
-  "x-cybrik-applies-at": "APPLY-ONLY-AT a future Gate W2-I status flip that is explicitly recorded by the Founder with evidence (ADR-0001 D5). Until that flip exists, every proposed_* block in this file is a description of an intended change and has no effect on any accepted byte.",
-  "x-cybrik-grants": "NO ACCEPTANCE AUTHORITY, NO RUNTIME AUTHORITY, NO ENDPOINT AUTHORITY. This delta cannot accept a contract, authorize an implementation, certify a runtime, declare a deployment, or open Gate W2-I. Conformance-validator success against these bytes is evidence of internal consistency only.",
+  "x-cybrik-manifest-self-denial": "This artifact is NOT a compatibility manifest and must never be read, indexed, released, or renamed as one — applied or not. It carries no packet identity of its own: the only compatibility manifest that governs these operations is the ACCEPTED W2-D packet manifest named in proposed_manifest_changes.target_manifest. The filename deliberately does not end in '.manifest.json'. A second manifest covering the same operations is precisely the shape Founder Option A rejected (G-W2I-2).",
+  "x-cybrik-applied": true,
+  "x-cybrik-applies-at": "APPLIED at the Gate W2-I status flip recorded on 2026-08-21, under the Decision Council / Founder ACCEPT decision taken at human boundary HB-4 on 2026-08-20 (ADR-0001 D5). Every proposed_* block in this file has now been carried into the accepted W2-D packet manifest; this record is retained as the review trail, not as a pending proposal.",
+  "x-cybrik-grants": "NO ACCEPTANCE AUTHORITY, NO RUNTIME AUTHORITY, NO ENDPOINT AUTHORITY. This delta did not and could not accept a contract: the acceptance is the recorded HB-4 decision, and its application lives in the ACCEPTED W2-D packet manifest. This file cannot certify a runtime, declare a deployment, or re-open Gate W2-I. Conformance-validator success against these bytes is evidence of internal consistency only.",
   "format_pins": {
     "jsonSchema": "2020-12",
     "openApi": "3.1.x",
     "asyncApi": "3.0.0"
   },
-  "wire_scope": "NO SERVER / NO ENDPOINT (G-W2I-5). The candidate successor OpenAPI member is mapping notes only: it declares no servers block, operational host, deployment URL, credential, key, or secret. Deployment and credentials remain product-owned.",
-  "mcp_scope": "OUT OF SCOPE. MCP is a Tool/Agent gateway adapter and NOT the inference trust boundary. This candidate neither defines an MCP server/tool/action contract nor grants tool/function/agent authority.",
+  "wire_scope": "NO SERVER / NO ENDPOINT (G-W2I-5). The accepted successor OpenAPI member is mapping notes only: it declares no servers block, operational host, deployment URL, credential, key, or secret. Acceptance at Gate W2-I did not change this: deployment and credentials remain product-owned.",
+  "mcp_scope": "OUT OF SCOPE. MCP is a Tool/Agent gateway adapter and NOT the inference trust boundary. This binding neither defines an MCP server/tool/action contract nor grants tool/function/agent authority, accepted or not.",
   "founder_decision": {
     "packet": "cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md",
     "option": "A — Single-owner compatible revision",
@@ -28,27 +28,29 @@
       "G-W2I-4 — accepted W2-D bytes remain unchanged until that later status-flip change: YES.",
       "G-W2I-5 — all mappings remain NO SERVER / NO ENDPOINT; deployment and credentials stay product-owned: YES."
     ],
-    "conditions": "W2-I remains PROPOSED; any transport binding enters only through a separately reviewed compatible W2-D revision/supersession with separate status-flip evidence."
+    "conditions": "SATISFIED. The condition was that any transport binding enter only through a separately reviewed compatible W2-D revision/supersession with separate status-flip evidence. It did: the binding entered as the v0.2.0 successor revision of the W2-D-owned OpenAPI member, and the separate status flip was decided at HB-4 on 2026-08-20 and applied on 2026-08-21."
   },
   "ownership": {
-    "note": "Lifecycle-aware single-owner record for the four inference operations. Exactly one CURRENT owner and at most one PROPOSED successor may ever exist per (method, path) pair.",
+    "note": "Lifecycle-aware single-owner record for the four inference operations. Exactly one CURRENT owner and at most one successor may ever exist per (method, path) pair. The field names current_owner / proposed_successor are retained from the proposal for traceability; after the applied flip current_owner holds the SUPERSEDED-SUPPORTED predecessor and proposed_successor holds the CURRENT accepted owner. Read lifecycle_now, not the key name.",
     "current_owner": {
       "file": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml",
       "contract_version": "0.1.0",
-      "lifecycle_now": "CURRENT — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
-      "lifecycle_after_proposed_flip": "SUPERSEDED-SUPPORTED (PROPOSED disposition only; see proposed_disposition)",
+      "lifecycle_now": "SUPERSEDED-SUPPORTED (applied at the Gate W2-I flip, 2026-08-20 decision / 2026-08-21 application). It is no longer the CURRENT owner of the four inference operations; it remains a supported implementation target during the deprecation window.",
       "byte_frozen": true,
       "sha256": "731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e",
-      "pin_note": "Authoritative pin table for this digest is upstream_pins.accepted; both sites must be re-pinned together if the accepted bytes ever change under a separate accepted gate."
+      "pin_note": "Byte-frozen through the flip and unchanged by it: supersession relabels the member row in the accepted manifest and never rewrites the superseded document (G-W2I-4). The digest below is identical before and after the flip.",
+      "lifecycle_before_flip": "CURRENT — ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)"
     },
     "proposed_successor": {
       "file": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml",
       "contract_version": "0.2.0",
-      "lifecycle_now": "PROPOSED-SUCCESSOR — NOT ACCEPTED",
-      "sha256": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba",
-      "pin_note": "Authoritative pin table for this digest is candidate_members; both sites must be re-pinned together after any edit to the successor bytes."
+      "lifecycle_now": "CURRENT — ACCEPTED FOR IMPLEMENTATION (v0.2.0; not stable v1/GA)",
+      "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741",
+      "pin_note": "Authoritative pin table for this digest is candidate_members; both sites must be re-pinned together after any edit to the successor bytes.",
+      "lifecycle_before_flip": "PROPOSED-SUCCESSOR — NOT ACCEPTED",
+      "sha256_at_proposal": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba"
     },
-    "relation": "W2-D-OWNED COMPATIBLE SUCCESSOR REVISION, 0.1.0 -> 0.2.0 (ADR-0001 D1 per-file SemVer). The successor is a revision of the W2-D-owned inference OpenAPI member, not a new packet and not a second owner. Before the flip the predecessor remains CURRENT and byte-frozen and a consumer implements the predecessor; the successor is inert PROPOSED bytes. After the proposed flip the predecessor is proposed to become SUPERSEDED-SUPPORTED and to stay byte-frozen — supersession never rewrites the superseded document."
+    "relation": "W2-D-OWNED COMPATIBLE SUCCESSOR REVISION, 0.1.0 -> 0.2.0 (ADR-0001 D1 per-file SemVer), APPLIED. The successor is a revision of the W2-D-owned inference OpenAPI member, not a new packet and not a second owner. Before the flip the predecessor was CURRENT and byte-frozen and the successor was inert PROPOSED bytes. After the flip the successor is the sole CURRENT owner and the predecessor is SUPERSEDED-SUPPORTED and still byte-frozen — supersession never rewrites the superseded document."
   },
   "adr_basis": [
     {
@@ -68,8 +70,8 @@
     },
     {
       "id": "ADR-0011",
-      "status": "PROPOSED — NOT DECIDED — NOT APPLIED",
-      "role": "Candidate inference-plane transport-binding profile evaluated by Gate W2-I. This delta is the single declaration site for that candidate identifier; no member file cites it. The immediately preceding ADR number is reserved for the W0-I07B capability-name canonicalization decision and is never cited by this candidate."
+      "status": "ACCEPTED",
+      "role": "Inference-plane transport-binding profile, DECIDED ACCEPT at Gate W2-I by the Decision Council / Founder at human boundary HB-4 on 2026-08-20. It is the decision record this delta was applied under; the delta records the application, the ADR records the decision."
     }
   ],
   "adr_out_of_scope": [
@@ -91,7 +93,7 @@
     }
   ],
   "reuses_accepted_unmodified": {
-    "note": "These accepted v0.1 members are referenced by the candidate schemas and are not modified, re-versioned, or restated. No obligation is placed on any accepted member.",
+    "note": "These accepted v0.1 members are referenced by the transport schemas and were not modified, re-versioned, or restated by the flip. No obligation is placed on any accepted member.",
     "members": [
       "json-schema/cybrik.common-defs.v1.schema.json",
       "json-schema/cybrik.data-marking.v1.schema.json",
@@ -100,33 +102,39 @@
     ]
   },
   "upstream_pins": {
-    "note": "Exact digests of the ACCEPTED W2-D bytes this delta was authored and reviewed against. These bytes are byte-frozen and MUST show zero diff (G-W2I-4). A drifted pin invalidates the review, not the accepted bytes.",
+    "note": "Exact digests of the ACCEPTED W2-D bytes this delta was authored and reviewed against. The predecessor OpenAPI is byte-frozen and MUST still show zero diff (G-W2I-4). The accepted manifest was the deliberate target of the applied flip, so it carries a second pin, sha256_after_flip, for its current bytes. A drifted pin invalidates the review, not the accepted bytes.",
     "accepted": [
       {
         "file": "compatibility/cybrik-suite-inference-packet.v1.manifest.json",
         "title": "ACCEPTED W2-D model-inference + alert-summarization contract packet manifest",
         "contract_version": "0.1.0",
         "status": "ACCEPTED FOR IMPLEMENTATION",
-        "sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b"
+        "sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b",
+        "sha256_after_flip": "79a57fd0b9a4acb77afacec6db1a3642269a9f62567ae17cd087382f25ff423d",
+        "byte_frozen_through_flip": false,
+        "flip_note": "This accepted manifest is the TARGET of the flip, so its bytes changed by design when the four members and the acceptance record were applied. sha256 remains the pre-flip byte the review was performed against; sha256_after_flip is the current on-disk byte."
       },
       {
         "file": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml",
         "title": "ACCEPTED W2-D inference-plane REST mapping notes — the CURRENT owner and the predecessor of the candidate revision",
         "contract_version": "0.1.0",
         "status": "ACCEPTED FOR IMPLEMENTATION",
-        "sha256": "731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e"
+        "sha256": "731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e",
+        "byte_frozen_through_flip": true,
+        "flip_note": "Byte-frozen and unchanged by the flip. Supersession relabelled its member row in the accepted manifest; it did not touch this document (G-W2I-4)."
       }
     ]
   },
   "candidate_members": [
     {
       "file": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml",
-      "title": "Proposed compatible successor revision of the W2-D inference-plane REST mapping notes",
+      "title": "Accepted compatible successor revision of the W2-D inference-plane REST mapping notes",
       "contract_version": "0.2.0",
       "format": "openapi",
       "kind": "rest-mapping",
-      "status": "PROPOSED",
-      "sha256": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba"
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "c92734fc7385d57bfbe2bee2a3988a9ddd57fe263f48850be690d469f6f48741",
+      "sha256_at_proposal": "f5f01efaaafebe725b635c31fc249d7b06fd49cfed7287f47d98b9bf18f7b6ba"
     },
     {
       "file": "json-schema/cybrik.transport-common-defs.v1.schema.json",
@@ -134,8 +142,9 @@
       "contract_version": "0.1.0",
       "format": "json-schema",
       "kind": "shared-primitives",
-      "status": "PROPOSED",
-      "sha256": "c12ab37da66485b7cefb1aae3a926c40f23b0030ab17c04fbf68a76380394cda"
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "ce1be8f614d79af32450c439fdb5e646ef1c9e5b08b3312b363a769111d1eb84",
+      "sha256_at_proposal": "c12ab37da66485b7cefb1aae3a926c40f23b0030ab17c04fbf68a76380394cda"
     },
     {
       "file": "json-schema/cybrik.inference-transport-binding.v1.schema.json",
@@ -143,8 +152,9 @@
       "contract_version": "0.1.0",
       "format": "json-schema",
       "kind": "payload",
-      "status": "PROPOSED",
-      "sha256": "7e6324321658d886cd95d5dfa6febb57b01992d7fb3ae0f8db24d96f75e986da"
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "9b778727d4147d1fb6b978756fd8f70b218a6f871d87d9cf8b1ecdcad3f39381",
+      "sha256_at_proposal": "7e6324321658d886cd95d5dfa6febb57b01992d7fb3ae0f8db24d96f75e986da"
     },
     {
       "file": "json-schema/cybrik.transport-authorization-error.v1.schema.json",
@@ -152,63 +162,83 @@
       "contract_version": "0.1.0",
       "format": "json-schema",
       "kind": "payload",
-      "status": "PROPOSED",
-      "sha256": "1e548a5b12311e892f8333410689d3cad2af477414eff13b2c3850116c7a0601"
+      "status": "ACCEPTED FOR IMPLEMENTATION",
+      "sha256": "aa609abbfe28b609c25417c7a1349dc015611650939238192e5490194cb4dc86",
+      "sha256_at_proposal": "1e548a5b12311e892f8333410689d3cad2af477414eff13b2c3850116c7a0601"
     }
   ],
   "proposed_manifest_changes": {
-    "note": "The edits a FUTURE recorded Gate W2-I status flip would make to the ACCEPTED W2-D packet manifest. NONE of them is applied. Until the flip, the accepted manifest must not name, reference, or index any candidate member (ADR-0001 D6).",
+    "note": "The edits the recorded Gate W2-I status flip made to the ACCEPTED W2-D packet manifest. ALL of them are applied as of 2026-08-21. Before the flip the accepted manifest named no candidate member (ADR-0001 D6); the flip was a single whole-packet act that added the four members, relabelled the predecessor and recorded the acceptance together.",
     "target_manifest": {
       "file": "compatibility/cybrik-suite-inference-packet.v1.manifest.json",
       "title": "ACCEPTED W2-D model-inference + alert-summarization contract packet manifest",
-      "status_now": "ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA)",
+      "status_now": "ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) — now also carrying the four W2-I transport-binding members",
       "sha256": "e04c8617c3348d7a642cd95a672902d51aa4a2b41a198614b8ee121101ea207b",
-      "pin_note": "Authoritative pin table for this digest is upstream_pins.accepted; both sites must be re-pinned together.",
-      "modified_now": false
+      "pin_note": "sha256 is the pre-flip byte this delta was authored and reviewed against; sha256_after_flip is the byte on disk after the flip applied these changes. upstream_pins.accepted carries the same pair and both sites must be re-pinned together.",
+      "modified_now": true,
+      "sha256_after_flip": "79a57fd0b9a4acb77afacec6db1a3642269a9f62567ae17cd087382f25ff423d"
     },
     "adds_members": [
       {
         "file": "openapi/cybrik-ai-inference-plane.v1.contract-0.2.0.openapi.yaml",
-        "lifecycle": "PROPOSED",
+        "lifecycle": "ACCEPTED FOR IMPLEMENTATION",
         "sha256_pinned_in": "candidate_members",
-        "effect_at_flip": "Added as the successor revision of the existing W2-D OpenAPI member; the predecessor member entry is retained and re-labelled SUPERSEDED-SUPPORTED, never deleted and never rewritten."
+        "effect_at_flip": "APPLIED — added as the successor revision of the existing W2-D OpenAPI member; the predecessor member entry was retained and re-labelled SUPERSEDED-SUPPORTED, never deleted and never rewritten.",
+        "applied": true
       },
       {
         "file": "json-schema/cybrik.transport-common-defs.v1.schema.json",
-        "lifecycle": "PROPOSED",
+        "lifecycle": "ACCEPTED FOR IMPLEMENTATION",
         "sha256_pinned_in": "candidate_members",
-        "effect_at_flip": "Added as a new disjoint cybrik.transport-* member; no accepted schema identifier is redefined."
+        "effect_at_flip": "APPLIED — added as a new disjoint cybrik.transport-* member; no accepted schema identifier is redefined.",
+        "applied": true
       },
       {
         "file": "json-schema/cybrik.inference-transport-binding.v1.schema.json",
-        "lifecycle": "PROPOSED",
+        "lifecycle": "ACCEPTED FOR IMPLEMENTATION",
         "sha256_pinned_in": "candidate_members",
-        "effect_at_flip": "Added as a new disjoint cybrik.transport-* member; no accepted schema identifier is redefined."
+        "effect_at_flip": "APPLIED — added as a new disjoint cybrik.transport-* member; no accepted schema identifier is redefined.",
+        "applied": true
       },
       {
         "file": "json-schema/cybrik.transport-authorization-error.v1.schema.json",
-        "lifecycle": "PROPOSED",
+        "lifecycle": "ACCEPTED FOR IMPLEMENTATION",
         "sha256_pinned_in": "candidate_members",
-        "effect_at_flip": "Added as a new disjoint cybrik.transport-* member; the accepted cybrik.model-inference-error member is retained unmodified alongside it."
+        "effect_at_flip": "APPLIED — added as a new disjoint cybrik.transport-* member; the accepted cybrik.model-inference-error member is retained unmodified alongside it.",
+        "applied": true
       }
     ],
-    "digest_authority": "Every adds_members digest is the exact SHA-256 recorded for the same file in candidate_members. The digest is deliberately declared once so a stale copy can never disagree with the reviewed bytes; all four candidate members are lifecycle PROPOSED.",
+    "digest_authority": "Every adds_members digest is the exact SHA-256 recorded for the same file in candidate_members. The digest is deliberately declared once so a stale copy can never disagree with the applied bytes; all four candidate members are now lifecycle ACCEPTED FOR IMPLEMENTATION.",
     "removes_members": [],
     "modifies_accepted_members": [],
     "does_not_change": [
-      "No accepted W2-D schema, AsyncAPI channel, adapter note, request/result/error contract, or lifecycle field is edited by this delta or by the proposed flip.",
-      "No accepted W2-F or organizational-hierarchy member is edited, re-versioned, or restated.",
-      "The accepted packet version stays 0.1.0 and x-cybrik-is-bundle-tag stays false; the flip is not a stable v1/GA promotion and not a bundle tag."
+      "No accepted W2-D schema, AsyncAPI channel, adapter note, request/result/error contract, or lifecycle field was edited by this delta or by the applied flip.",
+      "No accepted W2-F or organizational-hierarchy member was edited, re-versioned, or restated. In particular the accepted W2-F operation-token table was NOT amended — see gate.open_items.",
+      "The accepted packet version stays 0.1.0 and x-cybrik-is-bundle-tag stays false; the flip is not a stable v1/GA promotion and not a bundle tag.",
+      "The superseded predecessor OpenAPI bytes are unchanged: digest 731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e before and after the flip."
     ]
   },
   "examples_manifest": "examples/transport/examples-manifest.json",
-  "examples_manifest_sha256": "f994f414febb0052ec4f380c7f89c2b77a021a9c982d96ddf6e1bf996b4f212a",
-  "examples_manifest_note": "The candidate fixture inventory is an integrity-pinned artifact of this candidate: 22 support fixtures, each entry carrying its own lowercase SHA-256, with exactly one positive transport-binding fixture per registry operation. This delta pins the manifest bytes and does not author them.",
+  "examples_manifest_sha256": "39c6d75498cacfdf274c3e220abb4615caaa6ca186a7a2cebc88b38215c907aa",
+  "examples_manifest_note": "The fixture inventory is an integrity-pinned artifact of this packet: 22 support fixtures, each entry carrying its own lowercase SHA-256, with exactly one positive transport-binding fixture per registry operation. This delta pins the manifest bytes and does not author them. The flip rewrote only the manifest’s lifecycle header and two prose statements; all 22 fixture digests are unchanged.",
   "examples_manifest_pin_history": {
-    "note": "RECONCILIATION ONLY — NOT ACCEPTANCE. This pin was re-computed on 2026-07-28 after the health-read operation token was corrected in the positive health fixture and its manifest entry. Re-pinning restores agreement between this delta and the on-disk bytes; it does not accept the candidate, does not open Gate W2-I, and leaves every open item in gate.open_items standing.",
-    "superseded_pin": "7d32978f49c955280980a445abb4f3ddd78209f781a7ea3768c7ae628ec72445",
-    "superseded_pin_disposition": "STALE — it did not match the on-disk examples manifest and therefore could not have been the digest of the reviewed bytes. It is recorded here so the drift is visible rather than silently overwritten (ADR-0001 D2: no silent change).",
-    "scope_of_the_reconciled_change": "Exactly one fixture and exactly one manifest entry changed: positive/model-class-health-transport-binding.json (operation token respelled at all three sites) and that fixture's manifest entry (sha256 + vocabulary note). The other 21 manifest entries are byte-identical and their fixtures are untouched; the fixture count remains 22 (5 positive, 9 negative-schema, 8 negative-semantic)."
+    "note": "Pin history for the transport examples manifest, most recent first. Re-pinning records drift rather than hiding it (ADR-0001 D2).",
+    "pins": [
+      {
+        "sha256": "39c6d75498cacfdf274c3e220abb4615caaa6ca186a7a2cebc88b38215c907aa",
+        "recorded_on": "2026-08-21",
+        "reason": "STATUS FLIP — re-computed after Gate W2-I acceptance (HB-4, 2026-08-20) rewrote the examples manifest lifecycle header (x-cybrik-status, x-cybrik-not-accepted) and the two prose statements that described the fixtures as PROPOSED and the health-read token as blocking. No fixture bytes changed; all 22 fixture digests are unchanged and the 5/9/8 positive/negative-schema/negative-semantic split is unchanged.",
+        "supersedes": "f994f414febb0052ec4f380c7f89c2b77a021a9c982d96ddf6e1bf996b4f212a"
+      },
+      {
+        "sha256": "f994f414febb0052ec4f380c7f89c2b77a021a9c982d96ddf6e1bf996b4f212a",
+        "recorded_on": "2026-07-28",
+        "reason": "RECONCILIATION ONLY — NOT ACCEPTANCE. This pin was re-computed on 2026-07-28 after the health-read operation token was corrected in the positive health fixture and its manifest entry. Re-pinning restores agreement between this delta and the on-disk bytes; it does not accept the candidate, does not open Gate W2-I, and leaves every open item in gate.open_items standing.",
+        "supersedes": "7d32978f49c955280980a445abb4f3ddd78209f781a7ea3768c7ae628ec72445",
+        "superseded_pin_disposition": "STALE — it did not match the on-disk examples manifest and therefore could not have been the digest of the reviewed bytes. It is recorded here so the drift is visible rather than silently overwritten (ADR-0001 D2: no silent change).",
+        "scope_of_the_reconciled_change": "Exactly one fixture and exactly one manifest entry changed: positive/model-class-health-transport-binding.json (operation token respelled at all three sites) and that fixture's manifest entry (sha256 + vocabulary note). The other 21 manifest entries are byte-identical and their fixtures are untouched; the fixture count remains 22 (5 positive, 9 negative-schema, 8 negative-semantic)."
+      }
+    ]
   },
   "compatibility_disclosure": {
     "id": "D2",
@@ -247,7 +277,7 @@
         "consumer": "Existing client generated from the ACCEPTED predecessor that presents only one trust layer, or neither",
         "against_predecessor": "Accepted by the document, which declared no security requirement.",
         "against_proposed_successor": "REFUSED fail-closed with a typed 401 or 403 before any inference work is done.",
-        "required_action": "BLOCKING before any flip: present mTLS workload identity AND a certificate-bound delegation token whose cnf x5t#S256 equals the presented peer-certificate thumbprint."
+        "required_action": "REQUIRED of any implementation of the accepted binding: present mTLS workload identity AND a certificate-bound delegation token whose cnf x5t#S256 equals the presented peer-certificate thumbprint."
       },
       {
         "consumer": "Client that deserializes 422/503 strictly into the accepted ModelInferenceError",
@@ -264,25 +294,30 @@
       {
         "consumer": "Any consumer during the pre-flip period (the current state)",
         "against_predecessor": "The predecessor is the SOLE CURRENT owner and is byte-frozen.",
-        "against_proposed_successor": "The successor is inert PROPOSED bytes with no consumer obligation whatsoever.",
+        "against_proposed_successor": "Before the flip the successor was inert PROPOSED bytes with no consumer obligation. After the flip it is the CURRENT accepted mapping; a consumer implementing it contract-first takes on the disclosed authorization tightening and error-surface widening. No runtime obligation is created by acceptance alone.",
         "required_action": "Implement the predecessor. Treat this delta as review material only."
       }
     ],
-    "evidence_status": "PROPOSED and NOT independently confirmed. This matrix is the candidate author's disclosure, not a product-confirmed compatibility result: no consumer has been surveyed, no generated client has been re-run against these bytes, and no runtime evidence exists. See gate.open_items.",
+    "evidence_status": "ACCEPTED BUT NOT INDEPENDENTLY CONFIRMED. Gate W2-I acceptance (HB-4, 2026-08-20) is a governance decision, not a compatibility measurement. This matrix remains the author’s disclosure: no consumer has been surveyed, no generated client has been re-run against these bytes, and no runtime evidence exists. See gate.open_items.",
     "obligations_on_accepted_members": "none"
   },
   "proposed_disposition": {
     "id": "D3",
     "basis": "ADR-0001 D3 — deprecation requires two minor releases AND at least 180 days, except in a documented security emergency.",
     "predecessor": "openapi/cybrik-ai-inference-plane.v1.openapi.yaml",
-    "predecessor_disposition_now": "CURRENT — ACCEPTED FOR IMPLEMENTATION. It remains the sole current owner until a recorded flip; before the flip it is not deprecated, not superseded, and not soft-deleted.",
-    "predecessor_disposition_proposed": "SUPERSEDED-SUPPORTED",
+    "predecessor_disposition_now": "SUPERSEDED-SUPPORTED — DECIDED and applied at the Gate W2-I flip (HB-4 decision 2026-08-20, applied 2026-08-21). It is no longer the CURRENT owner; it remains a supported implementation target for the duration of the deprecation window and is not retired, not deleted and not soft-deleted.",
+    "predecessor_disposition_before_flip": "CURRENT — ACCEPTED FOR IMPLEMENTATION, sole owner of the four inference operations.",
+    "predecessor_disposition_decided": "SUPERSEDED-SUPPORTED",
     "predecessor_byte_frozen": true,
-    "byte_freeze_note": "Byte-frozen in BOTH states. Supersession relabels the member in the manifest; it never edits, re-versions, or removes the superseded document's bytes (G-W2I-4).",
-    "retirement_floor": "PROPOSED and NON-BINDING: retirement of the superseded predecessor may occur no earlier than max(180 days after the future recorded Gate W2-I status flip, two subsequent minor releases of the inference plane after that flip). BOTH bounds must be satisfied; the later of the two governs. The clock cannot start before the flip exists, so no date is derivable today.",
-    "dates_binding": false,
-    "dates_note": "Every date and interval in this block is a PROPOSED planning value with no binding force. No W0-W6 release date is changed, implied, or consumed by this delta, and no calendar date for the flip or the retirement is fixed here — fixing one is part of the future gate, not of this record.",
-    "final_disposition_status": "NOT DECIDED. The final disposition of the predecessor and the effective date of the transition are open items for the future gate; SUPERSEDED-SUPPORTED is the proposal placed before it, not a decision."
+    "byte_freeze_note": "Byte-frozen in BOTH states and unchanged by the flip. Supersession relabelled the member row in the accepted W2-D manifest; it did not edit, re-version, or remove the superseded document (G-W2I-4).",
+    "effective_on": "2026-08-20",
+    "dates_binding": true,
+    "retirement_floor": "Retirement of the superseded predecessor may occur no earlier than max(2027-02-16 — 180 days after the 2026-08-20 flip, two subsequent minor releases of the inference plane after that flip). BOTH bounds must be satisfied and the later governs. The release-count bound is not yet met, so no retirement date is derivable today.",
+    "retirement_date_fixed": false,
+    "retirement_authority": "Retirement is its own separately recorded decision. This record fixes the floor and the effective date of the supersession; it authorizes no retirement.",
+    "release_dates_consumed": false,
+    "dates_note": "The effective date 2026-08-20 is binding because HB-4 decided it. The retirement floor is a derived bound, not a date. No W0-W6 release date is changed, implied, or consumed by this flip.",
+    "final_disposition_status": "DECIDED — SUPERSEDED-SUPPORTED, effective 2026-08-20, recorded in the accepted W2-D packet manifest under w2i_transport_binding_acceptance.predecessor_disposition."
   },
   "operation_registry": {
     "closed": true,
@@ -309,7 +344,7 @@
         "method": "GET",
         "path": "/api/v1/model-classes",
         "operationId": "listModelClasses",
-        "vocabulary_status": "W2-I PROPOSED — NOT ACCEPTED vocabulary. The accepted W2-F operation-token table names only the two create tokens; this read token does not exist in accepted vocabulary and is introduced by this candidate. Adding it to the accepted W2-F mapping notes is a BLOCKING amendment item that must be decided BEFORE any W2-I acceptance (see gate.open_items).",
+        "vocabulary_status": "ACCEPTED W2-I transport vocabulary, NOT YET ACCEPTED W2-F delegation vocabulary. Gate W2-I (HB-4, 2026-08-20) accepted this token on the transport seam. The accepted W2-F operation-token table still names only the two create tokens, so a W2-F delegation token cannot lawfully authorize this read operation yet. Amending the accepted W2-F mapping notes is an UNDISCHARGED post-acceptance obligation with its own separate gate and review (see gate.open_items); it was explicitly not performed by this flip.",
         "positive_fixture": "positive/model-classes-transport-binding.json"
       },
       {
@@ -317,15 +352,15 @@
         "method": "GET",
         "path": "/api/v1/model-classes/{model_class}/health",
         "operationId": "getModelClassHealth",
-        "vocabulary_status": "W2-I PROPOSED — NOT ACCEPTED vocabulary. The accepted W2-F operation-token table names only the two create tokens; this read token does not exist in accepted vocabulary and is introduced by this candidate. Adding it to the accepted W2-F mapping notes is a BLOCKING amendment item that must be decided BEFORE any W2-I acceptance (see gate.open_items).",
+        "vocabulary_status": "ACCEPTED W2-I transport vocabulary, NOT YET ACCEPTED W2-F delegation vocabulary. Gate W2-I (HB-4, 2026-08-20) accepted this token on the transport seam. The accepted W2-F operation-token table still names only the two create tokens, so a W2-F delegation token cannot lawfully authorize this read operation yet. Amending the accepted W2-F mapping notes is an UNDISCHARGED post-acceptance obligation with its own separate gate and review (see gate.open_items); it was explicitly not performed by this flip.",
         "positive_fixture": "positive/model-class-health-transport-binding.json"
       }
     ],
-    "token_spelling_note": "The two read tokens are recorded here EXACTLY as the pinned successor bytes and the pinned positive fixtures spell them: 'ai.model_classes.list' and 'ai.model_class_health.read'. The read tokens are unaccepted vocabulary, so their final spelling is itself part of the blocking W2-F amendment item; any respelling must be applied to the successor, the fixtures, the examples manifest and this registry together, and every digest re-pinned.",
-    "spelling_reconciliation": "RECONCILIATION ONLY — NOT ACCEPTANCE, recorded 2026-07-28. The health-read token previously carried two spellings on this seam: the successor OpenAPI x-cybrik-operation-token declared 'ai.model_class_health.read' while the positive health fixture presented the alternate 'ai.model_classes.health_read'. Two spellings for one operationId is a defect on a CLOSED registry — it makes TX-4 operation binding ambiguous and would let a delegation token name an operation the seam cannot resolve. It is resolved in favour of the successor bytes, which are the pinned candidate member: 'ai.model_class_health.read' is now the single spelling at every declaration site (successor OpenAPI, all three sites of the positive fixture, its examples-manifest entry, and this registry). The accepted W2-D bytes were NOT touched to achieve this (G-W2I-4); only PROPOSED candidate bytes moved. Convergence removes an internal inconsistency and grants NO vocabulary acceptance: 'ai.model_class_health.read' remains W2-I PROPOSED — NOT ACCEPTED, it is still absent from the ACCEPTED W2-F operation-token table, and the BLOCKING W2-F amendment item in gate.open_items is unchanged and undischarged."
+    "token_spelling_note": "The two read tokens are recorded here EXACTLY as the accepted successor bytes and the pinned positive fixtures spell them: 'ai.model_classes.list' and 'ai.model_class_health.read'. That spelling is now accepted W2-I vocabulary and is fixed at every declaration site (successor OpenAPI, fixtures, examples manifest, this registry). It is still absent from the accepted W2-F operation-token table; any future respelling would have to move all of those sites together, re-pin every digest, and be decided at its own gate.",
+    "spelling_reconciliation": "RECONCILIATION ONLY — NOT ACCEPTANCE, recorded 2026-07-28. The health-read token previously carried two spellings on this seam: the successor OpenAPI x-cybrik-operation-token declared 'ai.model_class_health.read' while the positive health fixture presented the alternate 'ai.model_classes.health_read'. Two spellings for one operationId is a defect on a CLOSED registry — it makes TX-4 operation binding ambiguous and would let a delegation token name an operation the seam cannot resolve. It is resolved in favour of the successor bytes, which are the pinned candidate member: 'ai.model_class_health.read' is now the single spelling at every declaration site (successor OpenAPI, all three sites of the positive fixture, its examples-manifest entry, and this registry). The accepted W2-D bytes were NOT touched to achieve this (G-W2I-4); only PROPOSED candidate bytes moved. Convergence removed an internal inconsistency and granted no vocabulary acceptance by itself. The token was subsequently accepted as W2-I transport vocabulary at Gate W2-I (HB-4, 2026-08-20). It is still absent from the ACCEPTED W2-F operation-token table, and the W2-F amendment item in gate.open_items remains undischarged."
   },
   "trust_invariants": {
-    "note": "Fail-closed invariants evaluated for the candidate, preserved unchanged from the candidate's earlier review. Structural TT-* rules are encoded by schemas and negative fixtures; runtime-only TX-* rules require relying-party enforcement. Validator success is conformance evidence only and cannot accept this candidate.",
+    "note": "Fail-closed invariants for the accepted binding, preserved unchanged through the flip. Structural TT-* rules are encoded by schemas and negative fixtures; runtime-only TX-* rules require relying-party enforcement and are NOT demonstrated by anything here. Validator success is conformance evidence only and was never the acceptance.",
     "structural": [
       "TT-1 mTLS-bound REST/JSON: mutual_tls is required true and rest/json is the compatibility authority; bearer-only transport is inexpressible.",
       "TT-2 no forwarded end-user token: the advisory body is closed and cannot carry an end-user credential or static bearer.",
@@ -355,47 +390,105 @@
     "founder_option": "A — Single-owner compatible revision, recorded by the Founder on 2026-07-26 in cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md. Option B (a separately pinned OpenAPI Overlay profile) and Option C (reject/defer) were not selected.",
     "gate_answers_applied": [
       "G-W2I-1 (W2-D sole current owner) — realized by ownership.current_owner and by the successor declaring the same four pairs under the same four operationIds rather than new ones.",
-      "G-W2I-2 (no independent second path owner) — realized by entering the binding as a single delta-linked PROPOSED successor revision, by this file self-denying manifest status, and by removing the rejected separate transport packet manifest so no second manifest covers these operations.",
-      "G-W2I-3 (binding enters only through a separately reviewed compatible revision/supersession) — realized by compatibility_disclosure (D2) and proposed_disposition (D3), which remain PROPOSED pending that separate review.",
+      "G-W2I-2 (no independent second path owner) — realized by entering the binding as a single delta-linked successor revision, by this file self-denying manifest status before and after the flip, and by the rejected separate transport packet manifest staying absent from disk. One manifest governs these operations, before and after.",
+      "G-W2I-3 (binding enters only through a separately reviewed compatible revision/supersession) — realized by compatibility_disclosure (D2) and proposed_disposition (D3), both of which were carried into the accepted W2-D manifest by the separately recorded HB-4 status flip.",
       "G-W2I-4 (accepted W2-D bytes unchanged until the later status-flip change) — realized by upstream_pins.accepted, by proposed_manifest_changes applying nothing now, and by the predecessor staying byte-frozen in both states.",
       "G-W2I-5 (NO SERVER / NO ENDPOINT; deployment and credentials stay product-owned) — realized by wire_scope and by the successor declaring no servers block."
     ],
-    "follow_on_coverage": "Of the five follow-on requirements the Founder packet attaches to Option A, this delta supplies the version transition (ADR-0001 D1/D3), the member that supersedes the accepted OpenAPI mapping, the preservation of all four request/response bindings, the W2-F-derived binding without tool/agent/approval/model authority, and the per-member digests plus the fixture inventory pin. What it does NOT supply is listed in gate.open_items and must not be read as satisfied."
+    "follow_on_coverage": "Of the five follow-on requirements the Founder packet attaches to Option A, this delta supplied the version transition (ADR-0001 D1/D3), the member that supersedes the accepted OpenAPI mapping, the preservation of all four request/response bindings, the W2-F-derived binding without tool/agent/approval/model authority, and the per-member digests plus the fixture inventory pin — and the flip applied all five. What it does NOT supply is listed in gate.open_items and must not be read as satisfied by acceptance."
   },
   "gate": {
     "id": "W2-I",
-    "status": "NOT OPENED — awaiting explicit Founder decision. Path ownership is resolved; the gate itself is not.",
+    "status": "DECIDED — ACCEPTED FOR IMPLEMENTATION (v0.2.0 successor / v0.1.0 transport schemas; not stable v1/GA). Decided ACCEPT by the Decision Council / Founder at human boundary HB-4 on 2026-08-20; applied to the accepted W2-D packet manifest on 2026-08-21.",
+    "decided_by": "Decision Council / Founder (HB-4)",
+    "decided_on": "2026-08-20",
+    "applied_on": "2026-08-21",
+    "authority_record": "soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007; soc-autonomous-state:HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT). The authority of record is a control-plane artifact OUTSIDE every suite repository; nothing committed in cybrik-suite independently corroborates it.",
     "resolved_items": [
-      "RESOLVED — path ownership between the accepted inference OpenAPI mapping and the transport binding. Founder Option A (2026-07-26) with recorded answers G-W2I-1, G-W2I-2, G-W2I-3, G-W2I-4 and G-W2I-5: W2-D is the sole current owner of the four inference operations, the binding enters only as a delta-linked compatible successor revision, and no second independent path owner and no second compatibility manifest may exist. The earlier open item that framed this as an unresolved collision is withdrawn as stale."
+      "RESOLVED — path ownership between the accepted inference OpenAPI mapping and the transport binding. Founder Option A (2026-07-26) with recorded answers G-W2I-1..G-W2I-5: W2-D is the sole owner of the four inference operations, the binding entered only as a delta-linked compatible successor revision, and no second independent path owner and no second compatibility manifest exists.",
+      "RESOLVED by HB-4 (2026-08-20) — the ADR-0011 decision itself. The candidate transport-binding profile is now ACCEPTED; the decision record is cybrik-suite:docs/adr/ADR-0011-inference-plane-transport-binding-profile.md.",
+      "RESOLVED by HB-4 (2026-08-20) — the final disposition of the superseded predecessor and the effective date of the transition. Decided SUPERSEDED-SUPPORTED effective 2026-08-20; see proposed_disposition and the accepted manifest.",
+      "RESOLVED — the status flip itself. Applied 2026-08-21: the four members are ACCEPTED FOR IMPLEMENTATION in the accepted W2-D packet manifest, the predecessor member row is relabelled SUPERSEDED-SUPPORTED, and every digest was re-verified against the on-disk bytes at the flip."
     ],
     "open_items": [
-      "BLOCKING — amend the accepted W2-F service-delegation mapping notes to carry the two GET operation tokens ('ai.model_classes.list' and 'ai.model_class_health.read', spelling included). They are W2-I PROPOSED vocabulary today; the accepted W2-F operation-token table names only the two create tokens, so a delegation token authorizing either read currently names an operation the accepted vocabulary does not define. This amendment is its own change with its own review and must be decided BEFORE any W2-I acceptance.",
-      "OPEN — the final disposition of the superseded predecessor and the effective date of the transition. proposed_disposition (D3) records SUPERSEDED-SUPPORTED and a max(180 days, two subsequent minor releases) retirement floor as a PROPOSAL with non-binding dates; neither the disposition nor any date is decided.",
-      "OPEN — the ADR-0011 decision itself. The candidate transport-binding profile is PROPOSED — NOT DECIDED — NOT APPLIED; the decision record must be authored and decided, and this delta cannot substitute for it.",
-      "OPEN — independent security and compatibility review of the final proposed bytes and of the validator evidence. No such review has been performed against the digests pinned in this file.",
-      "OPEN — the consumer compatibility matrix in compatibility_disclosure is the author's disclosure only. No consumer has been surveyed and no generated client has been re-run against these bytes, so the matrix is unconfirmed.",
-      "OPEN — runtime evidence is entirely absent. No product transport, real mTLS handshake, JWT/JWKS verification, TX-* enforcement, or deployed endpoint is demonstrated by anything in this candidate; the validator proves proposal consistency only.",
-      "SEPARATE GATE — member-pin hygiene of the ACCEPTED W2-D manifest. That accepted manifest lists its members without per-member SHA-256 digests, so its member bytes are not digest-bound the way this candidate's are. Repairing it means editing accepted bytes and is therefore explicitly OUT OF SCOPE here (G-W2I-4); it requires its own separately recorded gate and must not be bundled into the W2-I flip."
-    ]
-  },
-  "future_flip_actions": {
-    "note": "The actions a future, explicitly recorded Gate W2-I status flip would have to perform, in order. NONE of them is performed by this file, and listing them authorizes none of them.",
-    "actions": [
-      "1. Record the explicit Founder acceptance decision with evidence links in the status-flip commit (ADR-0001 D5). Acceptance is never inferred from a green validator or a green CI run.",
-      "2. Resolve every BLOCKING open item first — in particular the W2-F GET-token amendment — as its own reviewed change, before the flip commit.",
-      "3. Re-verify every digest in this delta against the on-disk bytes immediately before the flip: the four candidate members, the two accepted upstream pins, and the examples-manifest pin. A single stale pin voids the review the flip relies on.",
-      "4. Flip the successor member from PROPOSED to ACCEPTED FOR IMPLEMENTATION and relabel the predecessor member SUPERSEDED-SUPPORTED in the ACCEPTED W2-D manifest, applying proposed_manifest_changes.adds_members with the re-verified digests. The flip is a whole-packet act: a half-flipped packet, where a member and its manifest disagree, is a consistency failure.",
-      "5. Leave the predecessor bytes untouched. Supersession relabels; it never edits, re-versions, or deletes the superseded document.",
-      "6. Record the decided predecessor disposition and the decided effective/retirement dates in the accepted manifest, replacing the non-binding proposal in proposed_disposition.",
-      "7. CONSUME AND DELETE THIS DELTA in the same flip commit. Once its content is applied into the accepted W2-D manifest, the delta has no residual authority, and a surviving copy would be an unapplied-looking duplicate of accepted content.",
-      "8. NEVER retain, recreate, or introduce a second compatibility manifest for these operations — not the deleted transport packet manifest, not a renamed copy of this delta, not an overlay manifest. The ACCEPTED W2-D packet manifest is the single manifest, before and after the flip (G-W2I-2).",
-      "9. NEVER reintroduce a second OpenAPI path owner: exactly one CURRENT owner per (method, path) pair must hold at every instant during and after the flip.",
-      "10. Re-run the conformance validator and the secret scan at the flip commit head and cite the run, as conformance evidence attached to the recorded decision — never as the decision itself."
+      "UNDISCHARGED AND CARRIED FORWARD — amend the accepted W2-F service-delegation mapping notes to carry the two GET operation tokens ('ai.model_classes.list' and 'ai.model_class_health.read', spelling included). The accepted W2-F operation-token table names only the two create tokens. HB-4 accepted the W2-I transport binding; it did NOT amend W2-F, and amending W2-F edits bytes accepted at a different gate. Until that separately reviewed amendment is recorded, no delegation token may authorize either read operation, and neither this delta nor the accepted W2-D manifest claims that it may. This item was BLOCKING before acceptance and was not discharged by it; it is now a post-acceptance obligation on any implementation of the two read operations.",
+      "OPEN — independent security and compatibility review of the applied bytes. The HB-4 record is a governance decision; no independent security/compatibility review against the exact post-flip digests pinned in this file is recorded in this repository.",
+      "OPEN — the consumer compatibility matrix in compatibility_disclosure is the author’s disclosure only. No consumer has been surveyed and no generated client has been re-run against these bytes, so the matrix remains unconfirmed.",
+      "OPEN — runtime evidence is entirely absent. No product transport, real mTLS handshake, JWT/JWKS verification, TX-* enforcement, or deployed endpoint is demonstrated by anything here; the validator proves static conformance only. Acceptance is contract-first implementation authorization, not runtime certification.",
+      "SEPARATE GATE — member-pin hygiene of the pre-W2-I members of the ACCEPTED W2-D manifest. Those eleven rows carry no per-member SHA-256, while the four rows absorbed at W2-I do. Repairing them edits bytes accepted at Gate W2-D and was deliberately not bundled into this flip (G-W2I-4)."
     ]
   },
   "acceptance": {
-    "status": "NOT ACCEPTED — PROPOSED only",
-    "scope": "No product may treat this delta, the candidate members it pins, or any validator output over them as implementation authorization. Gate W2-I requires an explicit Founder decision after the blocking and open items above are resolved. Until then the ACCEPTED W2-D packet v0.1.0 is what products implement.",
-    "evidence": []
+    "status": "ACCEPTED FOR IMPLEMENTATION — not stable v1/GA",
+    "gate": "W2-I",
+    "decided_by": "Decision Council / Founder (HB-4)",
+    "decided_on": "2026-08-20",
+    "applied_on": "2026-08-21",
+    "scope": "Products MAY now implement contract-first against the W2-I transport binding: the v0.2.0 successor OpenAPI mapping notes and the three cybrik.transport-* schemas at v0.1.0, as absorbed into the ACCEPTED W2-D packet manifest. This is an implementation-authorization acceptance only. It is NOT a stable v1/GA promotion, NOT an ADR-0001 immutable bundle tag, and it grants no endpoint, credential, deployment, runtime or release authority. The runtime-only TX-1..TX-8 invariants remain REQUIRED of every implementation and are not demonstrated by any evidence here. The two GET operation tokens remain outside the accepted W2-F vocabulary (gate.open_items) and no delegation token may authorize them yet.",
+    "evidence": [
+      "Recorded governance decision: Decision Council / Founder ACCEPT at human boundary HB-4, 2026-08-20 — soc-autonomous-state:AUTHORITY_INBOX.json INBOX-007 and soc-autonomous-state:HUMAN_BOUNDARIES.json HB-4 (CLOSED, SATISFIED_BY_COUNCIL_DECISION_ACCEPT). This is the acceptance; everything below is conformance evidence attached to it.",
+      "Founder path-ownership arbitration Option A, 2026-07-26, G-W2I-1..G-W2I-5 all Yes — cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-W2-I-PATH-OWNERSHIP.md. The applied flip realizes exactly that option.",
+      "Static conformance at the flip: node tools/contract-validation/validate-transport.mjs green — JSON Schema 2020-12 compile/ref-resolution of the three transport schemas, 5 positive + 9 negative-schema + 8 negative-semantic fixtures, 39 structural TT-1..TT-9 assertions, 8/8 negative-semantic fixtures rejected on their declared TX rule witnessing TX-1..TX-8 once each, all member/upstream/examples-manifest digests verified, and the name-blind OpenAPI ownership sweep proving one CURRENT owner and no residual proposed successor per owned pair.",
+      "NOT EVIDENCE OF RUNTIME: no product transport, mTLS handshake, JWKS verification, deployed endpoint or TX-* runtime enforcement is demonstrated. No independent post-flip security/compatibility review is recorded (gate.open_items)."
+    ],
+    "mechanics": "Acceptance was decided by the Decision Council / Founder at HB-4 on 2026-08-20 and applied to the artifact bytes in the recorded status-flip change of 2026-08-21 (ADR-0001 D5). No approval was inferred from CI going green. Promotion to a stable v1/GA version or an immutable bundle tag remains a separate Founder gate (ADR-0001 D6)."
+  },
+  "x-cybrik-applied-on": "2026-08-21",
+  "candidate_members_pin_note": "Each member carries BOTH digests. sha256_at_proposal is the byte the Gate W2-I review evaluated while the member was PROPOSED; sha256 is the byte on disk after the status flip. They differ by exactly the lifecycle header the flip rewrote (x-cybrik-status, x-cybrik-not-accepted and the status sentence; for the successor OpenAPI also x-cybrik-lifecycle-role CURRENT). No schema shape, no path, no operationId, no security requirement and no fixture binding changed at the flip — recording both digests is what makes that claim checkable rather than asserted.",
+  "applied_flip_actions": {
+    "note": "The actions the recorded Gate W2-I status flip performed, in order, on 2026-08-21. This block replaces the pre-flip future_flip_actions plan and records the outcome of each planned action, including the two the flip deliberately did not perform.",
+    "actions": [
+      {
+        "step": 1,
+        "action": "Record the explicit acceptance decision with evidence (ADR-0001 D5).",
+        "outcome": "DONE — Decision Council / Founder ACCEPT at HB-4, 2026-08-20, recorded in gate.authority_record, in the accepted manifest under w2i_transport_binding_acceptance, and in ADR-0011. Acceptance was not inferred from a green validator or a green CI run."
+      },
+      {
+        "step": 2,
+        "action": "Resolve every BLOCKING open item first — in particular the W2-F GET-token amendment.",
+        "outcome": "NOT DONE — recorded honestly rather than silently dropped. HB-4 accepted the W2-I binding without amending the accepted W2-F operation-token table. The item is carried forward undischarged in gate.open_items and in the accepted manifest under carried_forward_obligations. This flip made no W2-F edit and asserts no W2-F vocabulary acceptance."
+      },
+      {
+        "step": 3,
+        "action": "Re-verify every digest against the on-disk bytes immediately before the flip.",
+        "outcome": "DONE — the four candidate members, the two accepted upstream pins and the examples-manifest pin were all verified against the on-disk bytes at the pre-flip head eba517bfa70b767c19df5f0c9fbdd4358290faea, and re-pinned after the flip. Both digests are retained per member (sha256_at_proposal and sha256)."
+      },
+      {
+        "step": 4,
+        "action": "Flip the successor member to ACCEPTED FOR IMPLEMENTATION and relabel the predecessor SUPERSEDED-SUPPORTED in the ACCEPTED W2-D manifest, applying proposed_manifest_changes.adds_members.",
+        "outcome": "DONE — as a single whole-packet act. All four members and the manifest moved together; no half-flipped state was committed."
+      },
+      {
+        "step": 5,
+        "action": "Leave the predecessor bytes untouched.",
+        "outcome": "DONE — openapi/cybrik-ai-inference-plane.v1.openapi.yaml is unchanged, digest 731f4d2718ceba248261013293ad148b3c1f93d2fd67dd17c8bedfe1b6c0237e before and after the flip."
+      },
+      {
+        "step": 6,
+        "action": "Record the decided predecessor disposition and the decided effective/retirement dates in the accepted manifest.",
+        "outcome": "DONE — SUPERSEDED-SUPPORTED effective 2026-08-20, with the max(180 days, two minor releases) retirement floor and no retirement date fixed. See proposed_disposition and the accepted manifest."
+      },
+      {
+        "step": 7,
+        "action": "CONSUME AND DELETE THIS DELTA in the same flip commit.",
+        "outcome": "CONSUMED, NOT DELETED — a deliberate, recorded deviation from the pre-flip plan. The Founder adjudication directed that the delta be marked applied (x-cybrik-applied true) rather than removed, so the review trail, the pre-flip digests and the compatibility disclosure survive audit. The plan’s underlying concern — that a surviving copy could read as unapplied duplicate content — is met by x-cybrik-applied:true, by x-cybrik-grants denying all authority, and by the retained manifest self-denial. This file has no residual authority."
+      },
+      {
+        "step": 8,
+        "action": "NEVER retain, recreate, or introduce a second compatibility manifest for these operations.",
+        "outcome": "HELD — the ACCEPTED W2-D packet manifest is the single manifest, before and after the flip (G-W2I-2). The two withdrawn second-plane artifacts remain absent from disk and this file remains x-cybrik-is-manifest:false."
+      },
+      {
+        "step": 9,
+        "action": "NEVER reintroduce a second OpenAPI path owner: exactly one CURRENT owner per (method, path) pair at every instant.",
+        "outcome": "HELD — the successor is now the sole CURRENT owner of the four pairs and the predecessor is SUPERSEDED-SUPPORTED. The validator ownership sweep enforces this post-flip, name-blind, across every OpenAPI document on disk."
+      },
+      {
+        "step": 10,
+        "action": "Re-run the conformance validator and the secret scan at the flip commit head and cite the run as conformance evidence attached to the decision — never as the decision itself.",
+        "outcome": "DONE for the validator — cited in acceptance.evidence. A green run is a consistency signal; the acceptance is the HB-4 decision."
+      }
+    ],
+    "superseded_plan_note": "The actions a future, explicitly recorded Gate W2-I status flip would have to perform, in order. NONE of them is performed by this file, and listing them authorizes none of them."
   }
 }
