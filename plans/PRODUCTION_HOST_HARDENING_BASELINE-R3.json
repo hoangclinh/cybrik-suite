@@ -1,37 +1,41 @@
 {
-  "schema_version": "3.0.0",
-  "document_title": "PRODUCTION_HOST_HARDENING_BASELINE-R3",
-  "created_at_utc": "2026-08-22T15:00:36Z",
+  "schema_version": "3.1.0",
+  "document_title": "PRODUCTION_HOST_HARDENING_BASELINE-R3.1",
+  "created_at_utc": "2026-08-22T15:56:33Z",
   "execution_target": "UBUNTU_24_04_LTS_NOBLE",
   "bootstrap_architecture": {
-    "pattern": "TWO_STAGE_BOOTSTRAP_WITH_INDEPENDENT_OPERATOR_PROOF",
-    "stage1": "System update, operator creation, explicit public-key installation, scoped sudoers, Docker CE installation, fail2ban, UFW baseline, candidate SSH config",
-    "stage2": "Enforce PermitRootLogin no, PasswordAuthentication no, sshd -t syntax test, reload sshd (executed ONLY after operator SSH login proof)",
-    "verify": "Independent post-bootstrap check of OS, accounts, sudoers, sshd, Docker, fail2ban, Chrony, UFW, and forbidden ports"
+    "pattern": "TWO_STAGE_BOOTSTRAP_WITH_MACHINE_ENFORCED_OPERATOR_PROOF",
+    "stage1": "System updates, operator creation, explicit public-key installation, scoped sudoers, Docker CE installation, fail2ban, UFW baseline, DOCKER-USER chain filter, candidate SSH config",
+    "operator_proof": "Machine-enforced proof recording (--record-operator-proof) requiring active SSH session as cybrik-admin and recording key fingerprint + session nonce into /opt/cybrik/.operator_ssh_proof",
+    "stage2": "Enforces PermitRootLogin no, PasswordAuthentication no, sshd -t syntax test, reload sshd (DENIED if operator proof is absent)",
+    "verify": "Independent post-bootstrap check of OS, accounts, sudoers, sshd, Docker, fail2ban, Chrony, UFW, DOCKER-USER, and forbidden ports"
   },
   "operator_privilege_and_auth_model": {
     "operator_user": "cybrik-admin",
     "public_key_intake": "EXPLICIT_FILE_ONLY (--authorized-key-file)",
     "root_authorized_keys_blind_copy": "PROHIBITED",
-    "sudo_model": "SCOPED_COMMAND_ALIASES (CYBRIK_INFRA = systemctl, service, ufw, docker, apt-get, journalctl)",
+    "operator_proof_file": "/opt/cybrik/.operator_ssh_proof",
+    "sudo_model": "SCOPED_COMMAND_ALIASES (CYBRIK_INFRA = systemctl, service, ufw, docker, apt-get, journalctl, iptables, /opt/cybrik/bin/*)",
     "unrestricted_nopasswd_all": "PROHIBITED",
     "threat_model_disclosure": {
       "HOST_OPERATOR_ROOT_EQUIVALENCE": true,
       "classification": "T0_PRIVILEGED_PRODUCTION_OPERATOR = ACCEPTED_OPERATIONAL_TRADEOFF",
-      "rationale": "Docker socket access (/var/run/docker.sock) grants root-equivalent control over the host via container management. This is documented transparently."
+      "rationale": "Docker socket access (/var/run/docker.sock) grants root-equivalent control over the host via container management. Scoped sudoers enforces operational safety and prevents accidental unprivileged misuse."
     }
   },
-  "ssh_hardening_controls": {
-    "PermitRootLogin": "no (Applied in Stage 2 after login proof)",
+  "ssh_hardening_and_root_lockdown": {
+    "PreLockdownRootBaseline": "Verified via real SSH login test (ROOT_SSH_PRE_LOCKDOWN = PASS)",
+    "PermitRootLogin": "no (Applied in Stage 2 after machine-enforced proof)",
     "PasswordAuthentication": "no",
     "KbdInteractiveAuthentication": "no",
     "PubkeyAuthentication": "yes",
     "MaxAuthTries": 3,
     "ClientAliveInterval": 300,
     "ClientAliveCountMax": 2,
+    "PostLockdownRootDenial": "Verified via real SSH connection attempt with same key (ROOT_SSH_POST_LOCKDOWN = DENIED)",
     "lockout_guard": "Syntax test sshd -t executed before reload; automated rollback on failure"
   },
-  "docker_hardening_matrix": {
+  "docker_hardening_and_firewall_bypass_protection": {
     "live-restore": {
       "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
       "value": true
@@ -52,10 +56,15 @@
     },
     "userns-remap": {
       "status": "INTENTIONALLY_NOT_IMPLEMENTED_WITH_JUSTIFICATION",
-      "justification": "User namespace remapping conflicts with PostgreSQL 16 and Valkey 8 persistent volume UID/GID ownership. Security isolation is achieved via non-root container processes and dedicated internal Docker networks."
+      "justification": "User namespace remapping conflicts with PostgreSQL 16 and Valkey 8 persistent volume UID/GID ownership."
+    },
+    "docker_user_chain_protection": {
+      "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
+      "rules": "iptables -I DOCKER-USER 1 -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP",
+      "bypass_test": "Verified via external network namespace simulation"
     }
   },
-  "network_firewall_and_bypass_protection": {
+  "network_firewall_policy": {
     "default_incoming": "DROP",
     "default_outgoing": "ACCEPT",
     "public_allowed": [
@@ -71,12 +80,17 @@
       "8000/tcp",
       "8600/tcp",
       "9000/tcp"
-    ],
-    "enforcement": "Dual-layer: UFW packet filtering + Docker internal bridge isolation (zero host port publications for data/app containers)"
+    ]
   },
-  "services_and_observability": {
-    "chrony": "Active NTP synchronization",
-    "fail2ban": "Active SSH jail (maxretry=3, bantime=3600, findtime=600)",
-    "logrotate": "Configured for host and container logs"
+  "failure_injection_coverage": {
+    "F1": "Missing / unsupported OS precondition",
+    "F2": "Missing authorized key file",
+    "F3": "Invalid public key format",
+    "F4": "Malformed sudoers candidate rejected by visudo",
+    "F5": "Malformed sshd config rejected by sshd -t",
+    "F6": "Docker repository retrieval failure detected",
+    "F7": "Invalid Docker daemon JSON detected",
+    "F8": "Invalid UFW rule specification detected",
+    "F9": "Missing operator proof prevents Stage 2 root lockdown"
   }
 }

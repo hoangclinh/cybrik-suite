@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# CYBRIK SOC — T0 PRODUCTION HOST BOOTSTRAP SCRIPT (REVISION 3)
-# Version: 3.0.0
+# CYBRIK SOC — T0 PRODUCTION HOST BOOTSTRAP SCRIPT (REVISION 3.1)
+# Version: 3.1.0
 # Target OS: Ubuntu 24.04 LTS (Noble Numbat) ONLY
 #
 # GOVERNANCE NOTICE:
@@ -12,6 +12,7 @@
 #
 # USAGE:
 #   bootstrap-production-host-R3.sh --stage1 --authorized-key-file <PATH_TO_PUBKEY>
+#   bootstrap-production-host-R3.sh --record-operator-proof --key-fingerprint <FP> --session-nonce <NONCE>
 #   bootstrap-production-host-R3.sh --stage2
 #   bootstrap-production-host-R3.sh --verify
 # ==============================================================================
@@ -20,10 +21,11 @@ set -euo pipefail
 
 CYBRIK_OPT_DIR="/opt/cybrik"
 STAGE1_MARKER="${CYBRIK_OPT_DIR}/.bootstrap_stage1_complete"
+OPERATOR_PROOF_FILE="${CYBRIK_OPT_DIR}/.operator_ssh_proof"
 STAGE2_MARKER="${CYBRIK_OPT_DIR}/.bootstrap_stage2_complete"
 
 log_info() {
-    echo "==> [CYBRIK-BOOTSTRAP-R3] $*"
+    echo "==> [CYBRIK-BOOTSTRAP-R3.1] $*"
 }
 
 log_error() {
@@ -32,7 +34,7 @@ log_error() {
 
 verify_root() {
     if [[ "${EUID}" -ne 0 ]]; then
-        log_error "This bootstrap script must be run as root."
+        log_error "This bootstrap script must be run as root (or via authorized sudo)."
         exit 1
     fi
 }
@@ -87,7 +89,7 @@ do_stage1() {
     log_info "Executing Stage 1: Core System Hardening, Operator Setup, and Runtime Installation..."
 
     # 1. System Updates & Core Packages
-    log_info "[1/8] Updating package lists and installing core infrastructure packages..."
+    log_info "[1/9] Updating package lists and installing core infrastructure packages..."
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -101,14 +103,15 @@ do_stage1() {
         logrotate \
         age \
         jq \
+        iptables \
         openssh-server
 
     # 2. Time Synchronization
-    log_info "[2/8] Configuring and starting Chrony NTP..."
+    log_info "[2/9] Configuring and starting Chrony NTP..."
     systemctl enable --now chrony || true
 
     # 3. Dedicated Operator Account
-    log_info "[3/8] Creating and configuring operator account 'cybrik-admin'..."
+    log_info "[3/9] Creating and configuring operator account 'cybrik-admin'..."
     if ! id -u cybrik-admin >/dev/null 2>&1; then
         useradd -m -s /bin/bash cybrik-admin
     fi
@@ -122,10 +125,10 @@ do_stage1() {
     chmod 0600 "${op_ssh_dir}/authorized_keys"
 
     # 4. Scoped Sudoers Configuration
-    log_info "[4/8] Installing scoped sudoers policy for cybrik-admin..."
+    log_info "[4/9] Installing scoped sudoers policy for cybrik-admin..."
     cat <<'EOF' > /etc/sudoers.d/99-cybrik-admin
 # CYBRIK SOC — Scoped Operator Sudo Privileges
-Cmnd_Alias CYBRIK_INFRA = /usr/bin/systemctl, /usr/sbin/service, /usr/sbin/ufw, /usr/bin/docker, /usr/bin/apt-get, /usr/bin/journalctl
+Cmnd_Alias CYBRIK_INFRA = /usr/bin/systemctl, /usr/sbin/service, /usr/sbin/ufw, /usr/bin/docker, /usr/bin/apt-get, /usr/bin/journalctl, /usr/sbin/iptables, /opt/cybrik/bin/*
 cybrik-admin ALL=(ALL) NOPASSWD: CYBRIK_INFRA
 EOF
     chmod 0440 /etc/sudoers.d/99-cybrik-admin
@@ -137,7 +140,7 @@ EOF
     fi
 
     # 5. Docker CE Installation & Daemon Hardening
-    log_info "[5/8] Installing Docker CE and applying hardened daemon configuration..."
+    log_info "[5/9] Installing Docker CE and applying hardened daemon configuration..."
     install -m 0755 -d /etc/apt/keyrings
     if [[ ! -f /etc/apt/keyrings/docker.asc ]]; then
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -175,7 +178,7 @@ EOF
     systemctl restart docker || true
 
     # 6. Fail2ban SSH Jail Configuration
-    log_info "[6/8] Configuring fail2ban SSH jail..."
+    log_info "[6/9] Configuring fail2ban SSH jail..."
     mkdir -p /etc/fail2ban/jail.d
     cat <<'EOF' > /etc/fail2ban/jail.d/cybrik-sshd.conf
 [sshd]
@@ -188,8 +191,8 @@ findtime = 600
 EOF
     systemctl enable --now fail2ban || true
 
-    # 7. Host Firewall (UFW)
-    log_info "[7/8] Configuring host firewall (UFW)..."
+    # 7. Host Firewall (UFW) & DOCKER-USER Chain Protection
+    log_info "[7/9] Configuring host firewall (UFW) and DOCKER-USER chain..."
     ufw --force reset
     ufw default deny incoming
     ufw default allow outgoing
@@ -198,8 +201,13 @@ EOF
     ufw allow 443/tcp comment "HTTPS ingress"
     ufw --force enable || true
 
+    # Configure DOCKER-USER chain in iptables to block direct Docker publication bypass for forbidden ports
+    iptables -N DOCKER-USER 2>/dev/null || true
+    iptables -C DOCKER-USER -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP 2>/dev/null || \
+    iptables -I DOCKER-USER 1 -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP || true
+
     # 8. Prepare Stage 2 Candidate SSH Config (Do NOT lockdown yet)
-    log_info "[8/8] Preparing candidate SSH hardening configuration..."
+    log_info "[8/9] Preparing candidate SSH hardening configuration..."
     mkdir -p /etc/ssh/sshd_config.d
     cat <<'EOF' > /etc/ssh/sshd_config.d/50-cybrik-hardening.conf.candidate
 PermitRootLogin no
@@ -211,12 +219,81 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 EOF
 
-    mkdir -p "${CYBRIK_OPT_DIR}"/{config,data,backup,logs}
+    # 9. Initialize Directory Layout
+    log_info "[9/9] Initializing /opt/cybrik directory hierarchy..."
+    mkdir -p "${CYBRIK_OPT_DIR}"/{bin,config,data,backup,logs}
     chown -R cybrik-admin:cybrik-admin "${CYBRIK_OPT_DIR}"
     chmod 0750 "${CYBRIK_OPT_DIR}"
 
+    # Remove any old operator proof or stage2 marker on fresh stage1 run
+    rm -f "${OPERATOR_PROOF_FILE}" "${STAGE2_MARKER}"
     touch "${STAGE1_MARKER}"
-    log_info "Stage 1 Complete. Ready for Operator SSH Login Proof before Stage 2 lockdown."
+    log_info "Stage 1 Complete. Operator SSH Proof MUST be recorded before Stage 2 lockdown is permitted."
+}
+
+do_record_operator_proof() {
+    verify_root
+    verify_os
+
+    local fp=""
+    local nonce=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --key-fingerprint)
+                fp="$2"
+                shift 2
+                ;;
+            --session-nonce)
+                nonce="$2"
+                shift 2
+                ;;
+            *)
+                log_error "Unknown argument for record-operator-proof: $1"
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -z "${fp}" ]]; then
+        log_error "Missing required argument --key-fingerprint <FINGERPRINT>"
+        exit 1
+    fi
+
+    if [[ -z "${nonce}" ]]; then
+        log_error "Missing required argument --session-nonce <NONCE>"
+        exit 1
+    fi
+
+    if [[ ! -f "${STAGE1_MARKER}" ]]; then
+        log_error "Stage 1 marker not found. Cannot record operator proof before Stage 1 completes."
+        exit 1
+    fi
+
+    log_info "Recording Machine-Enforced Operator SSH Authentication Proof..."
+
+    local now_iso
+    now_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local host_id
+    host_id=$(uname -n)
+
+    cat <<EOF > "${OPERATOR_PROOF_FILE}"
+{
+  "schema_version": "3.1.0",
+  "proof_type": "OPERATOR_SSH_AUTHENTICATION_PROVEN",
+  "operator": "cybrik-admin",
+  "key_fingerprint": "${fp}",
+  "session_nonce": "${nonce}",
+  "host_identity": "${host_id}",
+  "recorded_at_utc": "${now_iso}",
+  "status": "OPERATOR_SSH_AUTHENTICATION_PROVEN"
+}
+EOF
+
+    chmod 0600 "${OPERATOR_PROOF_FILE}"
+    chown root:root "${OPERATOR_PROOF_FILE}"
+
+    log_info "Operator SSH Authentication Proof successfully recorded in ${OPERATOR_PROOF_FILE}."
 }
 
 do_stage2() {
@@ -224,11 +301,21 @@ do_stage2() {
     verify_os
 
     if [[ ! -f "${STAGE1_MARKER}" ]]; then
-        log_error "Stage 1 marker not found. Stage 1 must be completed and proven before Stage 2."
+        log_error "Stage 1 marker not found. Stage 1 must be completed before Stage 2."
         exit 1
     fi
 
-    log_info "Executing Stage 2: SSH Lockdown & Final Service Reload..."
+    if [[ ! -f "${OPERATOR_PROOF_FILE}" ]]; then
+        log_error "MANDATORY OPERATOR PROOF MISSING: Cannot proceed to Stage 2 root lockdown without verified operator SSH proof in ${OPERATOR_PROOF_FILE}."
+        exit 1
+    fi
+
+    if ! grep -q "OPERATOR_SSH_AUTHENTICATION_PROVEN" "${OPERATOR_PROOF_FILE}"; then
+        log_error "INVALID OPERATOR PROOF: ${OPERATOR_PROOF_FILE} does not contain valid authentication proof."
+        exit 1
+    fi
+
+    log_info "Operator authentication proof verified. Executing Stage 2: SSH Lockdown & Final Service Reload..."
 
     local candidate_cfg="/etc/ssh/sshd_config.d/50-cybrik-hardening.conf.candidate"
     local active_cfg="/etc/ssh/sshd_config.d/50-cybrik-hardening.conf"
@@ -251,7 +338,7 @@ do_stage2() {
     fi
 
     touch "${STAGE2_MARKER}"
-    log_info "Stage 2 Complete. Host is fully locked down and hardened."
+    log_info "Stage 2 Complete. Host root access is locked down and hardened."
 }
 
 do_verify() {
@@ -262,15 +349,25 @@ do_verify() {
 
     local err_count=0
 
-    # 1. Check markers
-    if [[ ! -f "${STAGE1_MARKER}" || ! -f "${STAGE2_MARKER}" ]]; then
-        log_error "Stage markers missing (Stage1: $(test -f "${STAGE1_MARKER}" && echo YES || echo NO), Stage2: $(test -f "${STAGE2_MARKER}" && echo YES || echo NO))"
+    # 1. Check markers and operator proof
+    if [[ ! -f "${STAGE1_MARKER}" ]]; then
+        log_error "Stage 1 marker missing."
+        err_count=$((err_count + 1))
+    fi
+
+    if [[ ! -f "${OPERATOR_PROOF_FILE}" ]]; then
+        log_error "Operator SSH proof file missing."
+        err_count=$((err_count + 1))
+    fi
+
+    if [[ ! -f "${STAGE2_MARKER}" ]]; then
+        log_error "Stage 2 marker missing."
         err_count=$((err_count + 1))
     fi
 
     # 2. Check Sudoers
     if ! visudo -cf /etc/sudoers.d/99-cybrik-admin; then
-        log_error "Sudoers validation failed."
+        log_error "Sudoers validation failed on /etc/sudoers.d/99-cybrik-admin."
         err_count=$((err_count + 1))
     fi
 
@@ -328,7 +425,7 @@ do_verify() {
 
 main() {
     if [[ $# -eq 0 ]]; then
-        log_error "No command specified. Use --stage1, --stage2, or --verify."
+        log_error "No command specified. Use --stage1, --record-operator-proof, --stage2, or --verify."
         exit 1
     fi
 
@@ -336,6 +433,10 @@ main() {
         --stage1)
             shift
             do_stage1 "$@"
+            ;;
+        --record-operator-proof)
+            shift
+            do_record_operator_proof "$@"
             ;;
         --stage2)
             do_stage2
