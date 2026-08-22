@@ -225,7 +225,8 @@ jobs:
           sudo iptables -S DOCKER-USER > evidence_output/iptables_docker_user.txt || true
           sudo iptables-save > evidence_output/iptables_save.txt || true
           sudo nft list ruleset > evidence_output/nft_ruleset.txt 2>/dev/null || true
-          sudo chmod 0440 /etc/sudoers.d/* 2>/dev/null || sudo chmod 0440 /etc/sudoers.d/99-cybrik-admin
+          sudo chmod 0440 /etc/sudoers.d/runner 2>/dev/null || true
+          sudo chmod 0440 /etc/sudoers.d/99-cybrik-admin 2>/dev/null || true
           sudo visudo -cf /etc/sudoers.d/99-cybrik-admin > evidence_output/sudoers_check.txt
           sudo visudo -c > evidence_output/visudo_global_check.txt || true
           systemctl is-active chrony > evidence_output/chrony_status.txt
@@ -327,6 +328,7 @@ jobs:
             sudo test ! -f /etc/ssh/sshd_config.d/01-cybrik-hardening.conf
           fi
           rm -f /tmp/f5_key*
+          sudo rm -f /etc/ssh/sshd_config.d/01-cybrik-hardening.conf
 
       - name: 'F6: Transactional Docker Repo Retrieval Failure Injection'
         run: |
@@ -353,6 +355,7 @@ jobs:
             sudo test ! -f /opt/cybrik/.bootstrap_stage1_healthy
           fi
           rm -f /tmp/f7_key*
+          sudo rm -f /etc/docker/daemon.json
 
       - name: 'F8: Transactional Firewall Failure Injection'
         run: |
@@ -369,7 +372,7 @@ jobs:
 
       - name: 'F9: Operator Proof Adversarial Invocations'
         run: |
-          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator* /etc/docker/daemon.json
           ssh-keygen -t ed25519 -N '' -f /tmp/f9_key
           sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f9_key.pub
           NONCE_F9=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
