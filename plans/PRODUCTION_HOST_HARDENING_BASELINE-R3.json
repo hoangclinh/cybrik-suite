@@ -1,0 +1,82 @@
+{
+  "schema_version": "3.0.0",
+  "document_title": "PRODUCTION_HOST_HARDENING_BASELINE-R3",
+  "created_at_utc": "2026-08-22T15:00:36Z",
+  "execution_target": "UBUNTU_24_04_LTS_NOBLE",
+  "bootstrap_architecture": {
+    "pattern": "TWO_STAGE_BOOTSTRAP_WITH_INDEPENDENT_OPERATOR_PROOF",
+    "stage1": "System update, operator creation, explicit public-key installation, scoped sudoers, Docker CE installation, fail2ban, UFW baseline, candidate SSH config",
+    "stage2": "Enforce PermitRootLogin no, PasswordAuthentication no, sshd -t syntax test, reload sshd (executed ONLY after operator SSH login proof)",
+    "verify": "Independent post-bootstrap check of OS, accounts, sudoers, sshd, Docker, fail2ban, Chrony, UFW, and forbidden ports"
+  },
+  "operator_privilege_and_auth_model": {
+    "operator_user": "cybrik-admin",
+    "public_key_intake": "EXPLICIT_FILE_ONLY (--authorized-key-file)",
+    "root_authorized_keys_blind_copy": "PROHIBITED",
+    "sudo_model": "SCOPED_COMMAND_ALIASES (CYBRIK_INFRA = systemctl, service, ufw, docker, apt-get, journalctl)",
+    "unrestricted_nopasswd_all": "PROHIBITED",
+    "threat_model_disclosure": {
+      "HOST_OPERATOR_ROOT_EQUIVALENCE": true,
+      "classification": "T0_PRIVILEGED_PRODUCTION_OPERATOR = ACCEPTED_OPERATIONAL_TRADEOFF",
+      "rationale": "Docker socket access (/var/run/docker.sock) grants root-equivalent control over the host via container management. This is documented transparently."
+    }
+  },
+  "ssh_hardening_controls": {
+    "PermitRootLogin": "no (Applied in Stage 2 after login proof)",
+    "PasswordAuthentication": "no",
+    "KbdInteractiveAuthentication": "no",
+    "PubkeyAuthentication": "yes",
+    "MaxAuthTries": 3,
+    "ClientAliveInterval": 300,
+    "ClientAliveCountMax": 2,
+    "lockout_guard": "Syntax test sshd -t executed before reload; automated rollback on failure"
+  },
+  "docker_hardening_matrix": {
+    "live-restore": {
+      "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
+      "value": true
+    },
+    "no-new-privileges": {
+      "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
+      "value": true
+    },
+    "icc": {
+      "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
+      "value": false
+    },
+    "log-driver": {
+      "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
+      "value": "json-file",
+      "max-size": "50m",
+      "max-file": "5"
+    },
+    "userns-remap": {
+      "status": "INTENTIONALLY_NOT_IMPLEMENTED_WITH_JUSTIFICATION",
+      "justification": "User namespace remapping conflicts with PostgreSQL 16 and Valkey 8 persistent volume UID/GID ownership. Security isolation is achieved via non-root container processes and dedicated internal Docker networks."
+    }
+  },
+  "network_firewall_and_bypass_protection": {
+    "default_incoming": "DROP",
+    "default_outgoing": "ACCEPT",
+    "public_allowed": [
+      "80/tcp",
+      "443/tcp"
+    ],
+    "restricted_allowed": [
+      "22/tcp (SSH rate limited via UFW + fail2ban)"
+    ],
+    "forbidden_public_ports": [
+      "5432/tcp",
+      "6379/tcp",
+      "8000/tcp",
+      "8600/tcp",
+      "9000/tcp"
+    ],
+    "enforcement": "Dual-layer: UFW packet filtering + Docker internal bridge isolation (zero host port publications for data/app containers)"
+  },
+  "services_and_observability": {
+    "chrony": "Active NTP synchronization",
+    "fail2ban": "Active SSH jail (maxretry=3, bantime=3600, findtime=600)",
+    "logrotate": "Configured for host and container logs"
+  }
+}

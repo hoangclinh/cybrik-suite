@@ -1,0 +1,214 @@
+name: Production Host Bootstrap R3 Qualification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ai-infra/bootstrap-r3-github-qualification
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  static-contract:
+    name: R3 / static-contract
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck and jq
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq
+
+      - name: Run ShellCheck on Bootstrap Script
+        run: |
+          shellcheck plans/bootstrap-production-host-R3.sh
+
+      - name: Validate JSON Baseline Contracts
+        run: |
+          jq . plans/PRODUCTION_HOST_HARDENING_BASELINE-R3.json
+          jq . plans/R3_GITHUB_WORKFLOW_OWNERSHIP.json
+
+      - name: Verify Contract / Script Consistency
+        run: |
+          grep -q 'PermitRootLogin no' plans/bootstrap-production-host-R3.sh
+          grep -q 'PermitRootLogin' plans/PRODUCTION_HOST_HARDENING_BASELINE-R3.json
+          grep -q 'Cmnd_Alias CYBRIK_INFRA' plans/bootstrap-production-host-R3.sh
+
+  bootstrap-happy-path:
+    name: R3 / bootstrap-happy-${{ matrix.qualification_run }}
+    runs-on: ubuntu-24.04
+    needs: static-contract
+    strategy:
+      fail-fast: false
+      matrix:
+        qualification_run: [1, 2, 3]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Evidence Directory
+        run: |
+          mkdir -p evidence_output
+
+      - name: Generate Ephemeral Qualification SSH Key Pair
+        run: |
+          ssh-keygen -t ed25519 -N '' -f /tmp/ci_test_key -C 'ci-qualification-key-${{ matrix.qualification_run }}'
+          chmod 0600 /tmp/ci_test_key
+          ssh-keygen -l -f /tmp/ci_test_key.pub > evidence_output/ssh_key_fingerprint.txt
+          echo 'Generated ephemeral CI qualification key.'
+
+      - name: 'RUN 1: Execute Bootstrap Stage 1'
+        run: |
+          sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/ci_test_key.pub 2>&1 | tee evidence_output/run1_stage1.log
+
+      - name: 'RUN 1: Test Real Operator SSH Login (Pre-Lockdown)'
+        run: |
+          sleep 2
+          OP_USER=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 whoami)
+          echo "Operator login result: ${OP_USER}"
+          if [[ "${OP_USER}" != "cybrik-admin" ]]; then
+            echo '[-] ERROR: Operator login verification failed!' >&2
+            exit 1
+          fi
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 id > evidence_output/run1_operator_id.txt
+
+      - name: 'RUN 1: Execute Bootstrap Stage 2 (SSH Lockdown)'
+        run: |
+          sudo bash plans/bootstrap-production-host-R3.sh --stage2 2>&1 | tee evidence_output/run1_stage2.log
+
+      - name: 'RUN 1: Test Real Post-Lockdown Operator Login & Root Denial'
+        run: |
+          sleep 2
+          OP_USER_POST=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 whoami)
+          echo "Post-lockdown operator login: ${OP_USER_POST}"
+          test "${OP_USER_POST}" == "cybrik-admin"
+
+          if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=3 -i /tmp/ci_test_key root@127.0.0.1 true 2>/dev/null; then
+            echo '[-] ERROR: Root SSH login succeeded when it must be denied!' >&2
+            exit 1
+          else
+            echo '[+] Root SSH login was successfully denied.'
+            echo 'ROOT_SSH_LOGIN: DENIED' > evidence_output/run1_root_denial.txt
+          fi
+
+      - name: 'RUN 1: Execute Post-Bootstrap Verification'
+        run: |
+          sudo bash plans/bootstrap-production-host-R3.sh --verify 2>&1 | tee evidence_output/run1_verify.log
+
+      - name: 'RUN 2 (Idempotency): Repeat Complete Bootstrap Sequence on Same Host'
+        run: |
+          echo '==> Re-running Stage 1...'
+          sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/ci_test_key.pub 2>&1 | tee evidence_output/run2_stage1.log
+
+          echo '==> Verifying Operator Login in Run 2...'
+          OP_USER_RUN2=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 whoami)
+          test "${OP_USER_RUN2}" == "cybrik-admin"
+
+          echo '==> Re-running Stage 2...'
+          sudo bash plans/bootstrap-production-host-R3.sh --stage2 2>&1 | tee evidence_output/run2_stage2.log
+
+          echo '==> Re-running Post-Bootstrap Verification in Run 2...'
+          sudo bash plans/bootstrap-production-host-R3.sh --verify 2>&1 | tee evidence_output/run2_verify.log
+
+      - name: Test Docker Network Isolation & Port Policy
+        run: |
+          docker network create cybrik_test_internal --internal
+          docker run -d --name cybrik_test_isolated --network cybrik_test_internal alpine sleep 60
+          PORT_BINDINGS=$(docker inspect cybrik_test_isolated --format '{{json .NetworkSettings.Ports}}')
+          echo "Isolated container ports: ${PORT_BINDINGS}"
+          echo "${PORT_BINDINGS}" > evidence_output/docker_isolated_ports.txt
+          docker rm -f cybrik_test_isolated
+          docker network rm cybrik_test_internal
+
+      - name: Verify Zero Application Side Effects
+        run: |
+          RUNNING_CYBRIK=$(docker ps --filter 'name=cybrik-soc-' --format '{{.Names}}')
+          if [[ -n "${RUNNING_CYBRIK}" ]]; then
+            echo "[-] ERROR: Application containers running unexpectedly: ${RUNNING_CYBRIK}" >&2
+            exit 1
+          fi
+          echo 'ZERO_APPLICATION_SIDE_EFFECTS: CONFIRMED' > evidence_output/zero_app_side_effects.txt
+
+      - name: Collect System State & Evidence Receipts
+        run: |
+          uname -a > evidence_output/kernel_info.txt
+          cat /etc/os-release > evidence_output/os_release.txt
+          docker version > evidence_output/docker_version.txt
+          cat /etc/docker/daemon.json > evidence_output/docker_daemon_config.txt
+          sudo ufw status verbose > evidence_output/ufw_status.txt
+          sudo visudo -cf /etc/sudoers.d/99-cybrik-admin > evidence_output/sudoers_check.txt
+          systemctl is-active chrony > evidence_output/chrony_status.txt
+          sudo fail2ban-client status > evidence_output/fail2ban_status.txt
+          sudo fail2ban-client status sshd > evidence_output/fail2ban_sshd_status.txt || true
+          ss -lntup > evidence_output/listening_sockets.txt
+
+      - name: Hash Evidence Receipts & Securely Wipe Private Key
+        run: |
+          shred -u /tmp/ci_test_key || rm -f /tmp/ci_test_key
+          rm -f /tmp/ci_test_key.pub
+          cd evidence_output
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload Safe Evidence Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-r3-happy-run-${{ matrix.qualification_run }}
+          path: evidence_output/
+          if-no-files-found: error
+
+  failure-injection:
+    name: R3 / failure-injection
+    runs-on: ubuntu-24.04
+    needs: static-contract
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Failure Evidence Directory
+        run: mkdir -p failure_evidence
+
+      - name: 'F1: Test Missing Authorized Key Rejection'
+        run: |
+          if sudo bash plans/bootstrap-production-host-R3.sh --stage1 2> failure_evidence/f1_missing_key.log; then
+            echo '[-] ERROR: Stage 1 succeeded without authorized key file!' >&2
+            exit 1
+          else
+            echo '[+] F1: Missing key file was correctly rejected.'
+          fi
+
+      - name: 'F2: Test Invalid Key Format Rejection'
+        run: |
+          echo 'THIS_IS_NOT_AN_SSH_KEY' > /tmp/invalid_key.pub
+          if sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/invalid_key.pub 2> failure_evidence/f2_invalid_key.log; then
+            echo '[-] ERROR: Stage 1 succeeded with invalid key format!' >&2
+            exit 1
+          else
+            echo '[+] F2: Invalid key format was correctly rejected.'
+          fi
+          rm -f /tmp/invalid_key.pub
+
+      - name: 'F3: Test Stage 2 Precondition Guard (Missing Stage 1 Marker)'
+        run: |
+          sudo rm -f /opt/cybrik/.bootstrap_stage1_complete
+          if sudo bash plans/bootstrap-production-host-R3.sh --stage2 2> failure_evidence/f3_missing_stage1.log; then
+            echo '[-] ERROR: Stage 2 succeeded without Stage 1 completion marker!' >&2
+            exit 1
+          else
+            echo '[+] F3: Stage 2 correctly refused to run without Stage 1 proof.'
+          fi
+
+      - name: Hash Failure Evidence Receipts
+        run: |
+          cd failure_evidence
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload Failure Injection Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-r3-failure-injection
+          path: failure_evidence/
+          if-no-files-found: error

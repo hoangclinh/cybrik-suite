@@ -1,0 +1,13 @@
+{
+  "schema_version": "2.0.0",
+  "document_title": "R3_GITHUB_WORKFLOW_OWNERSHIP",
+  "decided_at_utc": "2026-08-22T15:00:09Z",
+  "workflow_owning_repository": "cybrik-suite",
+  "workflow_path": ".github/workflows/production-host-bootstrap-r3.yml",
+  "policy_sources": [
+    "cybrik-suite:CLAUDE.md (Meta/control repository: docs, contracts, integration harnesses, release control)",
+    "cybrik-suite:AGENTS.md (Suite meta-control rules, integration harnesses)",
+    "cybrik-suite:docs/governance/REVIEWS.md (Cross-repository qualification harness ownership)"
+  ],
+  "governance_justification": "cybrik-suite owns cross-product integration harnesses, release control, and infrastructure qualification. Product repositories (command-center, ai-platform, tool-fabric) contain domain-specific application code and must not host global deployment harness workflows."
+}
