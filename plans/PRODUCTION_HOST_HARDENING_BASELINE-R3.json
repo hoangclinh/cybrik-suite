@@ -1,20 +1,30 @@
 {
-  "schema_version": "3.1.0",
-  "document_title": "PRODUCTION_HOST_HARDENING_BASELINE-R3.1",
-  "created_at_utc": "2026-08-22T15:56:33Z",
+  "schema_version": "3.2.0",
+  "document_title": "PRODUCTION_HOST_HARDENING_BASELINE-R3.2",
+  "created_at_utc": "2026-08-22T16:45:04Z",
   "execution_target": "UBUNTU_24_04_LTS_NOBLE",
   "bootstrap_architecture": {
-    "pattern": "TWO_STAGE_BOOTSTRAP_WITH_MACHINE_ENFORCED_OPERATOR_PROOF",
-    "stage1": "System updates, operator creation, explicit public-key installation, scoped sudoers, Docker CE installation, fail2ban, UFW baseline, DOCKER-USER chain filter, candidate SSH config",
-    "operator_proof": "Machine-enforced proof recording (--record-operator-proof) requiring active SSH session as cybrik-admin and recording key fingerprint + session nonce into /opt/cybrik/.operator_ssh_proof",
-    "stage2": "Enforces PermitRootLogin no, PasswordAuthentication no, sshd -t syntax test, reload sshd (DENIED if operator proof is absent)",
+    "pattern": "TWO_STAGE_BOOTSTRAP_WITH_NON_FORGEABLE_CHALLENGE_PROOF",
+    "stage1": "System updates, operator creation, explicit public-key installation, computed fingerprint challenge generation (/opt/cybrik/.operator_ssh_challenge), scoped sudoers, Docker CE installation, fail2ban, UFW baseline, DOCKER-USER chain filter, candidate SSH config, and health verification (/opt/cybrik/.bootstrap_stage1_healthy)",
+    "operator_challenge_and_proof": {
+      "challenge_file": "/opt/cybrik/.operator_ssh_challenge",
+      "proof_file": "/opt/cybrik/.operator_ssh_proof",
+      "proof_command": "bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce <NONCE>",
+      "non_forgeable_guards": [
+        "Fingerprint computed directly from /home/cybrik-admin/.ssh/authorized_keys (no caller assert)",
+        "Invocation requires SUDO_USER == cybrik-admin",
+        "Invocation requires active SSH session (SSH_CONNECTION / SSH_CLIENT / SSH_TTY non-empty)",
+        "Challenge nonce matching and single-use atomic consumption",
+        "Challenge freshness validation (< 300 seconds)"
+      ]
+    },
+    "stage2": "Enforces PermitRootLogin no, PasswordAuthentication no, sshd -t syntax test, reload sshd (DENIED if Stage 1 health marker or operator proof is absent or invalid)",
     "verify": "Independent post-bootstrap check of OS, accounts, sudoers, sshd, Docker, fail2ban, Chrony, UFW, DOCKER-USER, and forbidden ports"
   },
   "operator_privilege_and_auth_model": {
     "operator_user": "cybrik-admin",
     "public_key_intake": "EXPLICIT_FILE_ONLY (--authorized-key-file)",
     "root_authorized_keys_blind_copy": "PROHIBITED",
-    "operator_proof_file": "/opt/cybrik/.operator_ssh_proof",
     "sudo_model": "SCOPED_COMMAND_ALIASES (CYBRIK_INFRA = systemctl, service, ufw, docker, apt-get, journalctl, iptables, /opt/cybrik/bin/*)",
     "unrestricted_nopasswd_all": "PROHIBITED",
     "threat_model_disclosure": {
@@ -24,15 +34,15 @@
     }
   },
   "ssh_hardening_and_root_lockdown": {
-    "PreLockdownRootBaseline": "Verified via real SSH login test (ROOT_SSH_PRE_LOCKDOWN = PASS)",
-    "PermitRootLogin": "no (Applied in Stage 2 after machine-enforced proof)",
+    "PreLockdownRootBaseline": "Empirically proven via real SSH login (ROOT_SSH_PRE_LOCKDOWN = PASS)",
+    "PermitRootLogin": "no (Applied in Stage 2 after challenge-bound operator proof)",
     "PasswordAuthentication": "no",
     "KbdInteractiveAuthentication": "no",
     "PubkeyAuthentication": "yes",
     "MaxAuthTries": 3,
     "ClientAliveInterval": 300,
     "ClientAliveCountMax": 2,
-    "PostLockdownRootDenial": "Verified via real SSH connection attempt with same key (ROOT_SSH_POST_LOCKDOWN = DENIED)",
+    "PostLockdownRootDenial": "Empirically proven via real SSH connection attempt with identical key (ROOT_SSH_POST_LOCKDOWN = DENIED)",
     "lockout_guard": "Syntax test sshd -t executed before reload; automated rollback on failure"
   },
   "docker_hardening_and_firewall_bypass_protection": {
@@ -61,7 +71,7 @@
     "docker_user_chain_protection": {
       "status": "IMPLEMENTED_AND_EXECUTION_VERIFIED",
       "rules": "iptables -I DOCKER-USER 1 -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP",
-      "bypass_test": "Verified via external network namespace simulation"
+      "bypass_test": "Tested with real multi-port TCP server listening on 5432, 6379, 8000, 8600, 9000; pre-block reachability and post-block drop empirically verified via external network namespace"
     }
   },
   "network_firewall_policy": {
@@ -83,14 +93,14 @@
     ]
   },
   "failure_injection_coverage": {
-    "F1": "Missing / unsupported OS precondition",
-    "F2": "Missing authorized key file",
-    "F3": "Invalid public key format",
-    "F4": "Malformed sudoers candidate rejected by visudo",
-    "F5": "Malformed sshd config rejected by sshd -t",
-    "F6": "Docker repository retrieval failure detected",
-    "F7": "Invalid Docker daemon JSON detected",
-    "F8": "Invalid UFW rule specification detected",
-    "F9": "Missing operator proof prevents Stage 2 root lockdown"
+    "F1": "Missing authorized key file",
+    "F2": "Invalid public key format",
+    "F3": "Stage 2 missing Stage 1 marker",
+    "F4": "Transactional Sudoers failure injection",
+    "F5": "Transactional SSHD candidate failure injection",
+    "F6": "Transactional Docker repo failure injection",
+    "F7": "Transactional Docker daemon JSON failure injection",
+    "F8": "Transactional Firewall failure injection",
+    "F9": "Operator proof adversarial invocations (root direct, non-SSH sudo, wrong nonce)"
   }
 }

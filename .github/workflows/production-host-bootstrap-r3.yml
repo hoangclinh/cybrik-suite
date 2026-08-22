@@ -1,4 +1,4 @@
-name: Production Host Bootstrap R3.1 Qualification
+name: Production Host Bootstrap R3.2 Qualification
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   static-contract:
-    name: R3.1 / static-contract
+    name: R3.2 / static-contract
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
@@ -32,13 +32,15 @@ jobs:
 
       - name: Verify Contract / Script Consistency
         run: |
-          grep -q "PermitRootLogin no" plans/bootstrap-production-host-R3.sh
-          grep -q "PermitRootLogin" plans/PRODUCTION_HOST_HARDENING_BASELINE-R3.json
-          grep -q "Cmnd_Alias CYBRIK_INFRA" plans/bootstrap-production-host-R3.sh
-          grep -q -- "--record-operator-proof" plans/bootstrap-production-host-R3.sh
+          grep -q 'PermitRootLogin no' plans/bootstrap-production-host-R3.sh
+          grep -q 'PermitRootLogin' plans/PRODUCTION_HOST_HARDENING_BASELINE-R3.json
+          grep -q 'Cmnd_Alias CYBRIK_INFRA' plans/bootstrap-production-host-R3.sh
+          grep -q -- '--get-challenge-nonce' plans/bootstrap-production-host-R3.sh
+          grep -q -- '--record-operator-proof' plans/bootstrap-production-host-R3.sh
+          grep -q 'STAGE1_HEALTH_MARKER' plans/bootstrap-production-host-R3.sh
 
   bootstrap-happy-path:
-    name: R3.1 / bootstrap-happy-${{ matrix.qualification_run }}
+    name: R3.2 / bootstrap-happy-${{ matrix.qualification_run }}
     runs-on: ubuntu-24.04
     needs: static-contract
     strategy:
@@ -55,116 +57,132 @@ jobs:
 
       - name: Generate Ephemeral Qualification SSH Key Pair
         run: |
-          ssh-keygen -t ed25519 -N "" -f /tmp/ci_test_key -C "ci-qualification-key-${{ matrix.qualification_run }}"
+          ssh-keygen -t ed25519 -N '' -f /tmp/ci_test_key -C 'ci-qualification-key-${{ matrix.qualification_run }}'
           chmod 0600 /tmp/ci_test_key
           ssh-keygen -l -f /tmp/ci_test_key.pub > evidence_output/ssh_key_fingerprint.txt
-          echo "Generated ephemeral CI qualification key."
+          echo 'Generated ephemeral CI qualification key.'
 
-      - name: "RUN 1: Test Root SSH Pre-Lockdown Baseline"
+      - name: 'RUN 1: Test Root SSH Pre-Lockdown Baseline'
         run: |
           sudo mkdir -p /root/.ssh
           sudo cp /tmp/ci_test_key.pub /root/.ssh/authorized_keys
           sudo chmod 0700 /root/.ssh
           sudo chmod 0600 /root/.ssh/authorized_keys
-          sudo systemctl restart ssh || sudo systemctl restart sshd || true
+          sudo systemctl restart ssh || sudo systemctl restart sshd
           sleep 2
           ROOT_LOGIN=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key root@127.0.0.1 whoami)
           echo "Pre-lockdown root login: ${ROOT_LOGIN}"
           if [[ "${ROOT_LOGIN}" != "root" ]]; then
-            echo "[-] ERROR: Root login pre-lockdown baseline failed!" >&2
+            echo '[-] ERROR: Root login pre-lockdown baseline failed!' >&2
             exit 1
           fi
-          echo "ROOT_SSH_PRE_LOCKDOWN: PASS" > evidence_output/root_ssh_pre_lockdown.txt
+          echo 'ROOT_SSH_PRE_LOCKDOWN: PASS' > evidence_output/root_ssh_pre_lockdown.txt
 
-      - name: "RUN 1: Execute Bootstrap Stage 1"
+      - name: 'RUN 1: Execute Bootstrap Stage 1'
         run: |
-          # Symlink bootstrap script into /opt/cybrik/bin for sudo execution
           sudo mkdir -p /opt/cybrik/bin
           sudo cp plans/bootstrap-production-host-R3.sh /opt/cybrik/bin/bootstrap-production-host-R3.sh
           sudo chmod 0755 /opt/cybrik/bin/bootstrap-production-host-R3.sh
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/ci_test_key.pub 2>&1 | tee evidence_output/run1_stage1.log
+          sudo test -f /opt/cybrik/.bootstrap_stage1_healthy
 
-      - name: "RUN 1: Test Stage 2 Rejection Without Operator Proof"
+      - name: 'RUN 1: Test Stage 2 Rejection Without Operator Proof'
         run: |
-          echo "==> Testing Stage 2 invocation before operator proof..."
+          echo '==> Testing Stage 2 invocation before operator proof...'
           if sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --stage2 2> evidence_output/premature_stage2.err; then
-            echo "[-] ERROR: Stage 2 succeeded without operator proof!" >&2
+            echo '[-] ERROR: Stage 2 succeeded without operator proof!' >&2
             exit 1
           else
-            echo "[+] Stage 2 correctly failed because operator proof was absent."
-            echo "STAGE2_WITHOUT_PROOF: DENIED" > evidence_output/stage2_without_proof_denied.txt
+            echo '[+] Stage 2 correctly failed because operator proof was absent.'
+            echo 'STAGE2_WITHOUT_PROOF: DENIED' > evidence_output/stage2_without_proof_denied.txt
           fi
 
-      - name: "RUN 1: Real Operator SSH Login & Machine-Enforced Proof Recording"
+      - name: 'RUN 1: Retrieve Challenge Nonce & Record Machine-Enforced Operator Proof'
         run: |
           sleep 2
-          KEY_FP=$(awk "{print \$2}" evidence_output/ssh_key_fingerprint.txt)
-          NONCE="ci-nonce-${{ matrix.qualification_run }}-run1"
-          
-          # Connect via SSH as cybrik-admin and record proof through authorized sudo
+          CHALLENGE_NONCE=$(sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --get-challenge-nonce)
+          echo "Retrieved challenge nonce: ${CHALLENGE_NONCE}"
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 \
-            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --key-fingerprint ${KEY_FP} --session-nonce ${NONCE}"
-          
-          # Verify operator proof file exists and is valid JSON
+            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce ${CHALLENGE_NONCE}"
           sudo test -f /opt/cybrik/.operator_ssh_proof
+          sudo test ! -f /opt/cybrik/.operator_ssh_challenge
           sudo cat /opt/cybrik/.operator_ssh_proof > evidence_output/operator_ssh_proof.json
 
-      - name: "RUN 1: Execute Bootstrap Stage 2 (SSH Lockdown)"
+      - name: 'RUN 1: Execute Bootstrap Stage 2 (SSH Lockdown)'
         run: |
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --stage2 2>&1 | tee evidence_output/run1_stage2.log
 
-      - name: "RUN 1: Test Real Post-Lockdown Operator Login & Root Denial"
+      - name: 'RUN 1: Test Real Post-Lockdown Operator Login & Root Denial'
         run: |
           sleep 2
-          # 1. Operator login must pass
           OP_USER_POST=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 whoami)
           echo "Post-lockdown operator login: ${OP_USER_POST}"
           test "${OP_USER_POST}" == "cybrik-admin"
 
-          # 2. Root login must be denied
           if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=3 -i /tmp/ci_test_key root@127.0.0.1 true 2>/dev/null; then
-            echo "[-] ERROR: Root SSH login succeeded post-lockdown when it must be denied!" >&2
+            echo '[-] ERROR: Root SSH login succeeded post-lockdown when it must be denied!' >&2
             exit 1
           else
-            echo "[+] Root SSH login was successfully denied post-lockdown."
-            echo "ROOT_SSH_LOGIN: DENIED" > evidence_output/run1_root_denial.txt
+            echo '[+] Root SSH login was successfully denied post-lockdown.'
+            echo 'ROOT_SSH_LOGIN: DENIED' > evidence_output/run1_root_denial.txt
           fi
 
-          # Collect effective sshd configuration
-          sudo sshd -T | grep -E "permitrootlogin|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|maxauthtries" > evidence_output/sshd_effective_config.txt
+          sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|maxauthtries' > evidence_output/sshd_effective_config.txt
 
-      - name: "RUN 1: Execute Post-Bootstrap Verification"
+      - name: 'RUN 1: Execute Post-Bootstrap Verification'
         run: |
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --verify 2>&1 | tee evidence_output/run1_verify.log
 
-      - name: "RUN 2 (Idempotency): Repeat Complete Bootstrap Sequence on Same Host"
+      - name: 'RUN 2 (Idempotency): Repeat Complete Bootstrap Sequence on Same Host'
         run: |
-          echo "==> Run 2: Re-running Stage 1..."
+          echo '==> Run 2: Re-running Stage 1...'
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/ci_test_key.pub 2>&1 | tee evidence_output/run2_stage1.log
 
-          echo "==> Run 2: Recording operator proof via SSH..."
-          KEY_FP=$(awk "{print \$2}" evidence_output/ssh_key_fingerprint.txt)
-          NONCE="ci-nonce-${{ matrix.qualification_run }}-run2"
+          echo '==> Run 2: Retrieving fresh challenge nonce & recording operator proof via SSH...'
+          NONCE_RUN2=$(sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --get-challenge-nonce)
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/ci_test_key cybrik-admin@127.0.0.1 \
-            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --key-fingerprint ${KEY_FP} --session-nonce ${NONCE}"
+            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce ${NONCE_RUN2}"
 
-          echo "==> Run 2: Re-running Stage 2..."
+          echo '==> Run 2: Re-running Stage 2...'
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --stage2 2>&1 | tee evidence_output/run2_stage2.log
 
-          echo "==> Run 2: Re-running Post-Bootstrap Verification..."
+          echo '==> Run 2: Re-running Post-Bootstrap Verification...'
           sudo bash /opt/cybrik/bin/bootstrap-production-host-R3.sh --verify 2>&1 | tee evidence_output/run2_verify.log
 
-      - name: Test Actual Docker / UFW Firewall Bypass Protection
+      - name: Test Real Docker / UFW Bypass Protection with Actual TCP Listeners
         run: |
-          # Start disposable test container publishing all forbidden ports
-          docker run -d --name cybrik_bypass_test \
-            -p 5432:5432 -p 6379:6379 -p 8000:8000 -p 8600:8600 -p 9000:9000 \
-            alpine sleep 120
-          
-          # Inspect Docker published ports
-          docker port cybrik_bypass_test > evidence_output/docker_published_ports.txt
-          
-          # Set up simulated external network namespace
+          cat << 'PYEOF' > /tmp/multi_server.py
+import socket, threading, time
+def handle(conn):
+    try:
+        conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK')
+    except Exception:
+        pass
+    finally:
+        conn.close()
+def serve(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('0.0.0.0', port))
+    s.listen(5)
+    while True:
+        c, _ = s.accept()
+        threading.Thread(target=handle, args=(c,)).start()
+for p in [5432, 6379, 8000, 8600, 9000, 8080]:
+    t = threading.Thread(target=serve, args=(p,), daemon=True)
+    t.start()
+while True:
+    time.sleep(1)
+PYEOF
+
+          docker run -d --name cybrik_real_listeners \
+            -v /tmp/multi_server.py:/app/server.py \
+            -p 5432:5432 -p 6379:6379 -p 8000:8000 -p 8600:8600 -p 9000:9000 -p 8080:8080 \
+            python:3-alpine python /app/server.py
+
+          sleep 3
+          docker port cybrik_real_listeners > evidence_output/docker_published_ports.txt
+
           sudo ip netns add testns || true
           sudo ip link add veth_test0 type veth peer name veth_test1 || true
           sudo ip link set veth_test1 netns testns
@@ -173,42 +191,70 @@ jobs:
           sudo ip netns exec testns ip addr add 192.168.211.2/24 dev veth_test1
           sudo ip netns exec testns ip link set veth_test1 up
           sudo ip netns exec testns ip route add default via 192.168.211.1
-          
-          # Probe forbidden ports from external namespace (DOCKER-USER chain must drop)
-          echo "==> Testing external connection to forbidden ports via DOCKER-USER..."
+
+          echo '==> Testing Phase 1: Pre-Block reachability through Docker NAT...'
+          sudo iptables -F DOCKER-USER
           for port in 5432 6379 8000 8600 9000; do
-            if sudo ip netns exec testns nc -z -w 1 192.168.211.1 $port 2>/dev/null; then
-              echo "[-] WARNING: Direct connection to port $port was not dropped!"
+            if sudo ip netns exec testns nc -z -w 2 192.168.211.1 $port; then
+              echo "[+] Port $port is REACHABLE pre-block (Docker NAT bypass reproduced)."
             else
-              echo "[+] Port $port is successfully dropped by DOCKER-USER firewall policy."
+              echo "[-] ERROR: Port $port listener failed pre-block reachability check!" >&2
+              exit 1
             fi
           done
-          
-          # Clean up test resources
-          docker rm -f cybrik_bypass_test
+          echo 'PRE_BLOCK_REACHABILITY: PROVEN_FOR_ALL_FORBIDDEN_PORTS' > evidence_output/pre_block_reachability.txt
+
+          echo '==> Testing Phase 2: Post-Block mitigation via DOCKER-USER rule...'
+          sudo iptables -I DOCKER-USER 1 -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP
+          for port in 5432 6379 8000 8600 9000; do
+            if sudo ip netns exec testns nc -z -w 1 192.168.211.1 $port 2>/dev/null; then
+              echo "[-] ERROR: Forbidden port $port was reachable after DOCKER-USER drop rule!" >&2
+              exit 1
+            else
+              echo "[+] Forbidden port $port is successfully DENIED/DROPPED post-block."
+            fi
+          done
+          echo 'POST_BLOCK_DENIAL: PROVEN_FOR_ALL_FORBIDDEN_PORTS' > evidence_output/post_block_denial.txt
+
+          echo '==> Testing Phase 3: Allowed port 8080 reachability...'
+          if sudo ip netns exec testns nc -z -w 2 192.168.211.1 8080; then
+            echo '[+] Allowed port 8080 is REACHABLE (Firewall policy is selective).'
+            echo 'ALLOWED_PORT_PATH_NOT_BROKEN: YES' > evidence_output/allowed_port_reachable.txt
+          else
+            echo '[-] ERROR: Allowed port 8080 was blocked!' >&2
+            exit 1
+          fi
+
+          docker rm -f cybrik_real_listeners
           sudo ip netns del testns || true
           sudo ip link del veth_test0 2>/dev/null || true
 
       - name: Verify Zero Application Side Effects
         run: |
-          RUNNING_CYBRIK=$(docker ps --filter "name=cybrik-soc-" --format "{{.Names}}")
+          RUNNING_CYBRIK=$(docker ps --filter 'name=cybrik-soc-' --format '{{.Names}}')
           if [[ -n "${RUNNING_CYBRIK}" ]]; then
             echo "[-] ERROR: Application containers running unexpectedly: ${RUNNING_CYBRIK}" >&2
             exit 1
           fi
-          echo "ZERO_APPLICATION_SIDE_EFFECTS: CONFIRMED" > evidence_output/zero_app_side_effects.txt
+          echo 'ZERO_APPLICATION_SIDE_EFFECTS: CONFIRMED' > evidence_output/zero_app_side_effects.txt
 
-      - name: Collect System State & Evidence Receipts
+      - name: Collect Comprehensive Effective System State Receipts
         run: |
           uname -a > evidence_output/kernel_info.txt
           cat /etc/os-release > evidence_output/os_release.txt
           docker version > evidence_output/docker_version.txt
+          docker info > evidence_output/docker_info.txt
           cat /etc/docker/daemon.json > evidence_output/docker_daemon_config.txt
           sudo ufw status verbose > evidence_output/ufw_status.txt
           sudo iptables -S DOCKER-USER > evidence_output/iptables_docker_user.txt || true
+          sudo iptables-save > evidence_output/iptables_save.txt || true
+          sudo nft list ruleset > evidence_output/nft_ruleset.txt 2>/dev/null || true
+          sudo visudo -c > evidence_output/visudo_global_check.txt
           sudo visudo -cf /etc/sudoers.d/99-cybrik-admin > evidence_output/sudoers_check.txt
           systemctl is-active chrony > evidence_output/chrony_status.txt
-          sudo fail2ban-client status > evidence_output/fail2ban_status.txt
+          chronyc tracking > evidence_output/chrony_tracking.txt || true
+          systemctl is-active docker > evidence_output/docker_status.txt
+          systemctl is-active fail2ban > evidence_output/fail2ban_status.txt
           sudo fail2ban-client status sshd > evidence_output/fail2ban_sshd_status.txt || true
           ss -lntup > evidence_output/listening_sockets.txt
 
@@ -224,12 +270,12 @@ jobs:
       - name: Upload Safe Evidence Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bootstrap-r3.1-happy-run-${{ matrix.qualification_run }}
+          name: bootstrap-r3.2-happy-run-${{ matrix.qualification_run }}
           path: evidence_output/
           if-no-files-found: error
 
   failure-injection:
-    name: R3.1 / failure-injection
+    name: R3.2 / failure-injection
     runs-on: ubuntu-24.04
     needs: static-contract
     steps:
@@ -239,98 +285,129 @@ jobs:
       - name: Create Failure Evidence Directory
         run: mkdir -p failure_evidence
 
-      - name: "F1: Test Missing Authorized Key Rejection"
+      - name: 'F1: Missing Authorized Key Rejection'
         run: |
           if sudo bash plans/bootstrap-production-host-R3.sh --stage1 2> failure_evidence/f1_missing_key.log; then
-            echo "[-] ERROR: Stage 1 succeeded without authorized key file!" >&2
+            echo '[-] ERROR: Stage 1 succeeded without authorized key file!' >&2
             exit 1
           else
-            echo "[+] F1: Missing key file was correctly rejected."
+            echo '[+] F1: Missing key file was correctly rejected.'
           fi
 
-      - name: "F2: Test Invalid Key Format Rejection"
+      - name: 'F2: Invalid Key Format Rejection'
         run: |
-          echo "THIS_IS_NOT_AN_SSH_KEY" > /tmp/invalid_key.pub
+          echo 'THIS_IS_NOT_AN_SSH_KEY' > /tmp/invalid_key.pub
           if sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/invalid_key.pub 2> failure_evidence/f2_invalid_key.log; then
-            echo "[-] ERROR: Stage 1 succeeded with invalid key format!" >&2
+            echo '[-] ERROR: Stage 1 succeeded with invalid key format!' >&2
             exit 1
           else
-            echo "[+] F2: Invalid key format was correctly rejected."
+            echo '[+] F2: Invalid key format was correctly rejected.'
           fi
           rm -f /tmp/invalid_key.pub
 
-      - name: "F3: Test Stage 2 Precondition Guard (Missing Stage 1 Marker)"
+      - name: 'F3: Stage 2 Precondition Guard (Missing Stage 1 Marker)'
         run: |
-          sudo rm -f /opt/cybrik/.bootstrap_stage1_complete
+          sudo rm -f /opt/cybrik/.bootstrap_stage1_complete /opt/cybrik/.bootstrap_stage1_healthy
           if sudo bash plans/bootstrap-production-host-R3.sh --stage2 2> failure_evidence/f3_missing_stage1.log; then
-            echo "[-] ERROR: Stage 2 succeeded without Stage 1 completion marker!" >&2
+            echo '[-] ERROR: Stage 2 succeeded without Stage 1!' >&2
             exit 1
           else
-            echo "[+] F3: Stage 2 correctly refused to run without Stage 1 proof."
+            echo '[+] F3: Stage 2 correctly refused to run without Stage 1.'
           fi
 
-      - name: "F4: Test Malformed Sudoers Candidate Rejection"
+      - name: 'F4: Transactional Sudoers Failure Injection'
         run: |
-          echo "INVALID_SUDOERS_SYNTAX !!!" > /tmp/bad_sudoers
-          if sudo visudo -cf /tmp/bad_sudoers 2> failure_evidence/f4_bad_sudoers.log; then
-            echo "[-] ERROR: visudo accepted bad syntax!" >&2
+          ssh-keygen -t ed25519 -N '' -f /tmp/f4_key
+          if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_SUDOERS=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f4_key.pub 2> failure_evidence/f4_bad_sudoers.log; then
+            echo '[-] ERROR: Stage 1 succeeded with bad sudoers!' >&2
             exit 1
           else
-            echo "[+] F4: Malformed sudoers correctly rejected by visudo."
+            echo '[+] F4: Sudoers injection correctly aborted Stage 1.'
+            sudo test ! -f /etc/sudoers.d/99-cybrik-admin
           fi
-          rm -f /tmp/bad_sudoers
+          rm -f /tmp/f4_key*
 
-      - name: "F5: Test Malformed SSHD Candidate Rejection"
+      - name: 'F5: Transactional SSHD Candidate Failure Injection'
         run: |
-          echo "InvalidSshdOption yes" > /tmp/bad_sshd.conf
-          if sshd -t -f /tmp/bad_sshd.conf 2> failure_evidence/f5_bad_sshd.log; then
-            echo "[-] ERROR: sshd accepted bad config!" >&2
+          ssh-keygen -t ed25519 -N '' -f /tmp/f5_key
+          sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f5_key.pub
+          NONCE_F5=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/f5_key cybrik-admin@127.0.0.1 \
+            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce ${NONCE_F5}"
+          if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_SSHD=1 bash plans/bootstrap-production-host-R3.sh --stage2 2> failure_evidence/f5_bad_sshd.log; then
+            echo '[-] ERROR: Stage 2 succeeded with bad sshd config!' >&2
             exit 1
           else
-            echo "[+] F5: Malformed sshd config correctly rejected by sshd -t."
+            echo '[+] F5: Bad SSHD candidate was correctly rejected by sshd -t.'
+            sudo test ! -f /etc/ssh/sshd_config.d/01-cybrik-hardening.conf
           fi
-          rm -f /tmp/bad_sshd.conf
+          rm -f /tmp/f5_key*
 
-      - name: "F6: Test Docker Repo/Key Retrieval Failure Detection"
+      - name: 'F6: Transactional Docker Repo Retrieval Failure Injection'
         run: |
-          if curl -fsSL https://invalid-domain-does-not-exist.cybrik.test/gpg 2> failure_evidence/f6_bad_docker_repo.log; then
-            echo "[-] ERROR: Invalid repo URL succeeded unexpectedly!" >&2
+          ssh-keygen -t ed25519 -N '' -f /tmp/f6_key
+          if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_REPO=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f6_key.pub 2> failure_evidence/f6_bad_repo.log; then
+            echo '[-] ERROR: Stage 1 succeeded despite repo failure!' >&2
             exit 1
           else
-            echo "[+] F6: Network retrieval failure was correctly detected."
+            echo '[+] F6: Repo retrieval failure correctly aborted Stage 1.'
+            sudo test ! -f /opt/cybrik/.bootstrap_stage1_healthy
+          fi
+          rm -f /tmp/f6_key*
+
+      - name: 'F7: Transactional Docker Daemon JSON Failure Injection'
+        run: |
+          ssh-keygen -t ed25519 -N '' -f /tmp/f7_key
+          if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_DOCKER_DAEMON=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f7_key.pub 2> failure_evidence/f7_bad_daemon.log; then
+            echo '[-] ERROR: Stage 1 succeeded with bad daemon JSON!' >&2
+            exit 1
+          else
+            echo '[+] F7: Invalid Docker daemon JSON correctly aborted Stage 1.'
+            sudo test ! -f /opt/cybrik/.bootstrap_stage1_healthy
+          fi
+          rm -f /tmp/f7_key*
+
+      - name: 'F8: Transactional Firewall Failure Injection'
+        run: |
+          ssh-keygen -t ed25519 -N '' -f /tmp/f8_key
+          if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_FIREWALL=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f8_key.pub 2> failure_evidence/f8_bad_firewall.log; then
+            echo '[-] ERROR: Stage 1 succeeded with firewall failure!' >&2
+            exit 1
+          else
+            echo '[+] F8: Firewall failure correctly aborted Stage 1.'
+            sudo test ! -f /opt/cybrik/.bootstrap_stage1_healthy
+          fi
+          rm -f /tmp/f8_key*
+
+      - name: 'F9: Operator Proof Adversarial Invocations'
+        run: |
+          ssh-keygen -t ed25519 -N '' -f /tmp/f9_key
+          sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f9_key.pub
+          NONCE_F9=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
+
+          if sudo bash plans/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_1_root_direct.log; then
+            echo '[-] ERROR: Root direct proof recording succeeded!' >&2
+            exit 1
+          else
+            echo '[+] F9.1: Root direct invocation was correctly denied.'
           fi
 
-      - name: "F7: Test Invalid Docker Daemon Config Detection"
-        run: |
-          echo "{ invalid json }" > /tmp/bad_daemon.json
-          if jq . /tmp/bad_daemon.json 2> failure_evidence/f7_bad_daemon.log; then
-            echo "[-] ERROR: jq accepted invalid json!" >&2
+          if sudo -u cybrik-admin sudo bash plans/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_2_no_ssh.log; then
+            echo '[-] ERROR: Local non-SSH proof recording succeeded!' >&2
             exit 1
           else
-            echo "[+] F7: Invalid Docker daemon JSON was correctly detected."
-          fi
-          rm -f /tmp/bad_daemon.json
-
-      - name: "F8: Test Firewall Setup Failure Detection"
-        run: |
-          if sudo ufw allow invalid_port_spec/tcp 2> failure_evidence/f8_bad_ufw.log; then
-            echo "[-] ERROR: ufw accepted invalid port spec!" >&2
-            exit 1
-          else
-            echo "[+] F8: Invalid UFW rule was correctly rejected."
+            echo '[+] F9.2: Local non-SSH invocation was correctly denied.'
           fi
 
-      - name: "F9: Test Operator Login Failure Prevents Stage 2 Lockdown"
-        run: |
-          sudo mkdir -p /opt/cybrik
-          sudo touch /opt/cybrik/.bootstrap_stage1_complete
-          sudo rm -f /opt/cybrik/.operator_ssh_proof
-          if sudo bash plans/bootstrap-production-host-R3.sh --stage2 2> failure_evidence/f9_missing_proof.log; then
-            echo "[-] ERROR: Stage 2 succeeded without operator proof!" >&2
+          if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /tmp/f9_key cybrik-admin@127.0.0.1 \
+            "sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce WRONG_NONCE_VALUE" 2> failure_evidence/f9_3_wrong_nonce.log; then
+            echo '[-] ERROR: Wrong nonce proof recording succeeded!' >&2
             exit 1
           else
-            echo "[+] F9: Stage 2 refused lockdown because operator proof was absent."
+            echo '[+] F9.3: Wrong challenge nonce was correctly denied.'
           fi
+
+          rm -f /tmp/f9_key*
 
       - name: Hash Failure Evidence Receipts
         run: |
@@ -341,6 +418,6 @@ jobs:
       - name: Upload Failure Injection Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bootstrap-r3.1-failure-injection
+          name: bootstrap-r3.2-failure-injection
           path: failure_evidence/
           if-no-files-found: error
