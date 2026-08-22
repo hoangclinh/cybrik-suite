@@ -206,10 +206,10 @@ EOF
     iptables -C DOCKER-USER -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP 2>/dev/null || \
     iptables -I DOCKER-USER 1 -p tcp -m multiport --dports 5432,6379,8000,8600,9000 -j DROP || true
 
-    # 8. Prepare Stage 2 Candidate SSH Config (Do NOT lockdown yet)
+    # 8. Prepare Stage 2 Candidate SSH Config (Named 01-cybrik-hardening.conf to precede other drop-ins)
     log_info "[8/9] Preparing candidate SSH hardening configuration..."
     mkdir -p /etc/ssh/sshd_config.d
-    cat <<'EOF' > /etc/ssh/sshd_config.d/50-cybrik-hardening.conf.candidate
+    cat <<'EOF' > /etc/ssh/sshd_config.d/01-cybrik-hardening.conf.candidate
 PermitRootLogin no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -220,7 +220,7 @@ ClientAliveCountMax 2
 EOF
 
     # 9. Initialize Directory Layout
-    log_info "[9/9] Initializing /opt/cybrik directory hierarchy..."
+    log_info "[9/9] Initializing /opt/cybrik directory layout..."
     mkdir -p "${CYBRIK_OPT_DIR}"/{bin,config,data,backup,logs}
     chown -R cybrik-admin:cybrik-admin "${CYBRIK_OPT_DIR}"
     chmod 0750 "${CYBRIK_OPT_DIR}"
@@ -317,13 +317,16 @@ do_stage2() {
 
     log_info "Operator authentication proof verified. Executing Stage 2: SSH Lockdown & Final Service Reload..."
 
-    local candidate_cfg="/etc/ssh/sshd_config.d/50-cybrik-hardening.conf.candidate"
-    local active_cfg="/etc/ssh/sshd_config.d/50-cybrik-hardening.conf"
+    local candidate_cfg="/etc/ssh/sshd_config.d/01-cybrik-hardening.conf.candidate"
+    local active_cfg="/etc/ssh/sshd_config.d/01-cybrik-hardening.conf"
 
     if [[ ! -f "${candidate_cfg}" ]]; then
         log_error "Candidate SSH config '${candidate_cfg}' not found."
         exit 1
     fi
+
+    # Remove any old 50-cybrik dropin or conflicting cloud-init drop-in
+    rm -f /etc/ssh/sshd_config.d/50-cybrik-hardening.conf /etc/ssh/sshd_config.d/50-cloud-init.conf 2>/dev/null || true
 
     cp "${candidate_cfg}" "${active_cfg}"
 
