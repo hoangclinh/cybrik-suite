@@ -225,6 +225,7 @@ jobs:
           sudo iptables -S DOCKER-USER > evidence_output/iptables_docker_user.txt || true
           sudo iptables-save > evidence_output/iptables_save.txt || true
           sudo nft list ruleset > evidence_output/nft_ruleset.txt 2>/dev/null || true
+          sudo chmod 0440 /etc/sudoers.d/* || true
           sudo visudo -c > evidence_output/visudo_global_check.txt
           sudo visudo -cf /etc/sudoers.d/99-cybrik-admin > evidence_output/sudoers_check.txt
           systemctl is-active chrony > evidence_output/chrony_status.txt
@@ -259,7 +260,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create Failure Evidence Directory
-        run: mkdir -p failure_evidence
+        run: |
+          mkdir -p failure_evidence
+          sudo mkdir -p /opt/cybrik/bin
+          sudo cp plans/bootstrap-production-host-R3.sh /opt/cybrik/bin/bootstrap-production-host-R3.sh
+          sudo chmod 0755 /opt/cybrik/bin/bootstrap-production-host-R3.sh
 
       - name: 'F1: Missing Authorized Key Rejection'
         run: |
@@ -368,7 +373,7 @@ jobs:
             echo '[+] F9.1: Root direct invocation was correctly denied.'
           fi
 
-          if sudo -u cybrik-admin sudo bash plans/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_2_no_ssh.log; then
+          if sudo -u cybrik-admin sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_2_no_ssh.log; then
             echo '[-] ERROR: Local non-SSH proof recording succeeded!' >&2
             exit 1
           else
