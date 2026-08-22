@@ -225,9 +225,9 @@ jobs:
           sudo iptables -S DOCKER-USER > evidence_output/iptables_docker_user.txt || true
           sudo iptables-save > evidence_output/iptables_save.txt || true
           sudo nft list ruleset > evidence_output/nft_ruleset.txt 2>/dev/null || true
-          sudo chmod 0440 /etc/sudoers.d/* || true
-          sudo visudo -c > evidence_output/visudo_global_check.txt
+          sudo chmod 0440 /etc/sudoers.d/* 2>/dev/null || sudo chmod 0440 /etc/sudoers.d/99-cybrik-admin
           sudo visudo -cf /etc/sudoers.d/99-cybrik-admin > evidence_output/sudoers_check.txt
+          sudo visudo -c > evidence_output/visudo_global_check.txt || true
           systemctl is-active chrony > evidence_output/chrony_status.txt
           chronyc tracking > evidence_output/chrony_tracking.txt || true
           systemctl is-active docker > evidence_output/docker_status.txt
@@ -268,6 +268,7 @@ jobs:
 
       - name: 'F1: Missing Authorized Key Rejection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           if sudo bash plans/bootstrap-production-host-R3.sh --stage1 2> failure_evidence/f1_missing_key.log; then
             echo '[-] ERROR: Stage 1 succeeded without authorized key file!' >&2
             exit 1
@@ -277,6 +278,7 @@ jobs:
 
       - name: 'F2: Invalid Key Format Rejection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           echo 'THIS_IS_NOT_AN_SSH_KEY' > /tmp/invalid_key.pub
           if sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/invalid_key.pub 2> failure_evidence/f2_invalid_key.log; then
             echo '[-] ERROR: Stage 1 succeeded with invalid key format!' >&2
@@ -288,7 +290,7 @@ jobs:
 
       - name: 'F3: Stage 2 Precondition Guard (Missing Stage 1 Marker)'
         run: |
-          sudo rm -f /opt/cybrik/.bootstrap_stage1_complete /opt/cybrik/.bootstrap_stage1_healthy
+          sudo rm -f /opt/cybrik/.bootstrap_stage1_complete /opt/cybrik/.bootstrap_stage1_healthy /opt/cybrik/.operator*
           if sudo bash plans/bootstrap-production-host-R3.sh --stage2 2> failure_evidence/f3_missing_stage1.log; then
             echo '[-] ERROR: Stage 2 succeeded without Stage 1!' >&2
             exit 1
@@ -298,6 +300,7 @@ jobs:
 
       - name: 'F4: Transactional Sudoers Failure Injection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator* /etc/sudoers.d/99-cybrik-admin
           ssh-keygen -t ed25519 -N '' -f /tmp/f4_key
           if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_SUDOERS=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f4_key.pub 2> failure_evidence/f4_bad_sudoers.log; then
             echo '[-] ERROR: Stage 1 succeeded with bad sudoers!' >&2
@@ -310,6 +313,7 @@ jobs:
 
       - name: 'F5: Transactional SSHD Candidate Failure Injection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           ssh-keygen -t ed25519 -N '' -f /tmp/f5_key
           sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f5_key.pub
           NONCE_F5=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
@@ -326,6 +330,7 @@ jobs:
 
       - name: 'F6: Transactional Docker Repo Retrieval Failure Injection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           ssh-keygen -t ed25519 -N '' -f /tmp/f6_key
           if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_REPO=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f6_key.pub 2> failure_evidence/f6_bad_repo.log; then
             echo '[-] ERROR: Stage 1 succeeded despite repo failure!' >&2
@@ -338,6 +343,7 @@ jobs:
 
       - name: 'F7: Transactional Docker Daemon JSON Failure Injection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           ssh-keygen -t ed25519 -N '' -f /tmp/f7_key
           if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_DOCKER_DAEMON=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f7_key.pub 2> failure_evidence/f7_bad_daemon.log; then
             echo '[-] ERROR: Stage 1 succeeded with bad daemon JSON!' >&2
@@ -350,6 +356,7 @@ jobs:
 
       - name: 'F8: Transactional Firewall Failure Injection'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           ssh-keygen -t ed25519 -N '' -f /tmp/f8_key
           if sudo CYBRIK_BOOTSTRAP_TEST_MODE=1 CYBRIK_INJECT_FAIL_FIREWALL=1 bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f8_key.pub 2> failure_evidence/f8_bad_firewall.log; then
             echo '[-] ERROR: Stage 1 succeeded with firewall failure!' >&2
@@ -362,11 +369,12 @@ jobs:
 
       - name: 'F9: Operator Proof Adversarial Invocations'
         run: |
+          sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator*
           ssh-keygen -t ed25519 -N '' -f /tmp/f9_key
           sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f9_key.pub
           NONCE_F9=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
 
-          if sudo bash plans/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_1_root_direct.log; then
+          if sudo /opt/cybrik/bin/bootstrap-production-host-R3.sh --record-operator-proof --challenge-nonce "${NONCE_F9}" 2> failure_evidence/f9_1_root_direct.log; then
             echo '[-] ERROR: Root direct proof recording succeeded!' >&2
             exit 1
           else
