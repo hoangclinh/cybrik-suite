@@ -151,32 +151,8 @@ jobs:
 
       - name: Test Real Docker / UFW Bypass Protection with Actual TCP Listeners
         run: |
-          cat << 'PYEOF' > /tmp/multi_server.py
-          import socket, threading, time
-          def handle(conn):
-              try:
-                  conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK')
-              except Exception:
-                  pass
-              finally:
-                  conn.close()
-          def serve(port):
-              s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-              s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-              s.bind(('0.0.0.0', port))
-              s.listen(5)
-              while True:
-                  c, _ = s.accept()
-                  threading.Thread(target=handle, args=(c,)).start()
-          for p in [5432, 6379, 8000, 8600, 9000, 8080]:
-              t = threading.Thread(target=serve, args=(p,), daemon=True)
-              t.start()
-          while True:
-              time.sleep(1)
-PYEOF
-
           docker run -d --name cybrik_real_listeners \
-            -v /tmp/multi_server.py:/app/server.py \
+            -v $(pwd)/plans/multi_port_listener.py:/app/server.py \
             -p 5432:5432 -p 6379:6379 -p 8000:8000 -p 8600:8600 -p 9000:9000 -p 8080:8080 \
             python:3-alpine python /app/server.py
 
