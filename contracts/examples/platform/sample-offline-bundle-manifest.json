@@ -1,0 +1,20 @@
+{
+  "manifest_version": "1.0.0",
+  "bundle_id": "cybrik-platform-bundle-v1.2.3",
+  "signature": "3045022100a1b2c3...",
+  "operator_trust_root": "cybrik-operator-ca",
+  "reversibility_supported": true,
+  "rollback_supported": true,
+  "artifacts": [
+    {
+      "name": "image-registry.tar.gz",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "type": "container-images"
+    },
+    {
+      "name": "manifests.tar.gz",
+      "sha256": "8a9b8c7d6e5f4...",
+      "type": "kubernetes-manifests"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "profile_id": "hybrid-sovereign-v1",
+  "profile_version": "1.0.0",
+  "capability_set": {
+    "oci_image_runtime": "containerd",
+    "execution_isolation": "profile-c",
+    "orchestration": "k8s",
+    "network_segmentation": "cilium",
+    "persistent_storage": "s3-compatible",
+    "relational_datastore": "postgres-16.4",
+    "in_memory_cache": "valkey-8",
+    "secret_management": "hsm",
+    "identity_authentication": "spiffe",
+    "observability": "prometheus-loki",
+    "ai_model_runtime": "vllm",
+    "sovereign_exchange": "cross-domain-gateway",
+    "artifact_offline_update": "custom"
+  },
+  "strength": {
+    "oci_image_runtime": "MANDATORY",
+    "execution_isolation": "MANDATORY",
+    "orchestration": "MANDATORY",
+    "network_segmentation": "MANDATORY",
+    "persistent_storage": "MANDATORY",
+    "relational_datastore": "MANDATORY",
+    "in_memory_cache": "MANDATORY",
+    "secret_management": "MANDATORY",
+    "identity_authentication": "MANDATORY",
+    "observability": "MANDATORY",
+    "ai_model_runtime": "MANDATORY",
+    "sovereign_exchange": "MANDATORY",
+    "artifact_offline_update": "MANDATORY"
+  },
+  "sovereignty_class": "SOVEREIGN",
+  "isolation_floor": "strict"
+}

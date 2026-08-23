@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cybrik.offline-install-update-manifest.v1.schema.json",
+  "title": "CYBRIK Offline Install Update Manifest v1",
+  "type": "object",
+  "properties": {
+    "manifest_version": { "type": "string" },
+    "bundle_id": { "type": "string" },
+    "signature": { "type": "string" },
+    "operator_trust_root": { "type": "string" },
+    "reversibility_supported": { "type": "boolean" },
+    "rollback_supported": { "type": "boolean" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "sha256": { "type": "string" },
+          "type": { "type": "string" }
+        },
+        "required": ["name", "sha256"]
+      }
+    }
+  },
+  "required": [
+    "manifest_version",
+    "bundle_id",
+    "signature",
+    "operator_trust_root",
+    "reversibility_supported",
+    "rollback_supported"
+  ]
+}

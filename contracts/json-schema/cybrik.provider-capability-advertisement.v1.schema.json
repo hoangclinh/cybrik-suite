@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cybrik.provider-capability-advertisement.v1.schema.json",
+  "title": "CYBRIK Provider Capability Advertisement v1",
+  "type": "object",
+  "properties": {
+    "provider_namespace": { "type": "string" },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "capability_id": { "type": "string" },
+          "version": { "type": "string" },
+          "supported": { "type": "boolean" },
+          "details": { "type": "object" }
+        },
+        "required": ["capability_id", "supported"]
+      }
+    }
+  },
+  "required": ["provider_namespace", "capabilities"]
+}

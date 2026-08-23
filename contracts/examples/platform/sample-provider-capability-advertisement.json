@@ -1,0 +1,18 @@
+{
+  "provider_namespace": "com.cybrik.provider.aws",
+  "capabilities": [
+    {
+      "capability_id": "object_lock",
+      "version": "1.0",
+      "supported": true,
+      "details": {
+        "mode": "COMPLIANCE"
+      }
+    },
+    {
+      "capability_id": "cross_domain_gateway",
+      "version": "1.0",
+      "supported": false
+    }
+  ]
+}

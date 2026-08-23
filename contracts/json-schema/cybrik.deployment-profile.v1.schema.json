@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cybrik.deployment-profile.v1.schema.json",
+  "title": "CYBRIK Deployment Profile v1",
+  "type": "object",
+  "properties": {
+    "profile_id": { "type": "string" },
+    "profile_version": { "type": "string" },
+    "capability_set": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "strength": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["MANDATORY", "OPTIONAL"]
+      }
+    },
+    "sovereignty_class": { "type": "string" },
+    "isolation_floor": { "type": "string" }
+  },
+  "required": [
+    "profile_id",
+    "profile_version",
+    "capability_set",
+    "strength",
+    "sovereignty_class",
+    "isolation_floor"
+  ]
+}

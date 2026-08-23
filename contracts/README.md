@@ -156,3 +156,7 @@ PostgreSQL durability, UAT, release, deployment, and production remain out of sc
 verification, durable ordering, fail-closed completion, append-only replay, and retention
 coupling without selecting a signer, key store, ledger, endpoint, deployment, or production
 configuration. See `compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json`.
+
+## Platform Contract (`PROPOSED`)
+
+The Platform Contract (v1.0.0-proposed) is a versioned architectural agreement that defines the 13 required capability slots (OCI Image Runtime, Execution Isolation, Orchestration, etc.) per ADR-0015 §5.2. It introduces the `VERSIONED_DEPLOYMENT_PROFILE` specification and optional provider capability advertisement. It strictly disambiguates orthogonal axes (capacity vs isolation vs conformance subject). This contract does NOT select a specific Kubernetes distribution, hypervisor, or cloud provider. See `contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md` and related schemas in `contracts/json-schema/`.
