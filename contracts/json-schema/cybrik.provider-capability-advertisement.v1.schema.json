@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json",
-  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
-  "x-cybrik-not-accepted": false,
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
   "x-cybrik-contract-version": "0.1.0",
   "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Provider Capability Advertisement v1",
@@ -29,11 +29,39 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "capability_name": { "type": "string" },
-          "slot_id": { "type": "string" },
-          "description": { "type": "string" }
+          "capability_name": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$",
+            "minLength": 2
+          },
+          "slot_id": {
+            "type": "string",
+            "enum": [
+              "oci_container_runtime",
+              "isolation_substrate",
+              "orchestration_capability",
+              "network_segmentation",
+              "storage",
+              "database",
+              "cache",
+              "secrets",
+              "crypto",
+              "identity_workload_identity",
+              "observability",
+              "ai_model_runtime",
+              "artifact_update_mechanism"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5
+          }
         },
-        "required": [ "capability_name", "slot_id", "description" ]
+        "required": [
+          "capability_name",
+          "slot_id",
+          "description"
+        ]
       }
     },
     "conformance_evidence": {
@@ -43,15 +71,34 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "test_identifier": { "type": "string" },
-          "verification_method": { "type": "string" },
-          "report_uri": { "type": "string" }
+          "test_identifier": {
+            "type": "string"
+          },
+          "verification_method": {
+            "type": "string",
+            "enum": [
+              "AUTOMATED_TEST",
+              "STATIC_ANALYSIS",
+              "BENCHMARK"
+            ]
+          },
+          "report_uri": {
+            "type": "string"
+          }
         },
-        "required": [ "test_identifier", "verification_method", "report_uri" ]
+        "required": [
+          "test_identifier",
+          "verification_method",
+          "report_uri"
+        ]
       }
     },
     "degradation_behavior": {
-      "const": "FAIL_CLOSED"
+      "type": "string",
+      "enum": [
+        "FAIL_CLOSED",
+        "EXPLICIT_FALLBACK"
+      ]
     },
     "authenticated_discovery": {
       "const": true
@@ -65,5 +112,6 @@
     "conformance_evidence",
     "degradation_behavior",
     "authenticated_discovery"
-  ]
+  ],
+  "x-cybrik-lifecycle": "PROPOSED"
 }

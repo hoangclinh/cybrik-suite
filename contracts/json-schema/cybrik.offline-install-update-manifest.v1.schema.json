@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json",
-  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
-  "x-cybrik-not-accepted": false,
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
   "x-cybrik-contract-version": "0.1.0",
   "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Offline Install Update Manifest v1",
@@ -23,7 +23,7 @@
       "properties": {
         "signing_key_id": {
           "type": "string",
-          "minLength": 8
+          "pattern": "^[a-zA-Z0-9_-]{8,64}$"
         },
         "public_key_fingerprint": {
           "type": "string",
@@ -31,7 +31,11 @@
         },
         "signature_algorithm": {
           "type": "string",
-          "enum": ["ed25519", "ecdsa-p256-sha256", "rsa-pss-sha256"]
+          "enum": [
+            "ed25519",
+            "ecdsa-p256-sha256",
+            "rsa-pss-sha256"
+          ]
         }
       },
       "required": [
@@ -42,7 +46,7 @@
     },
     "bundle_signature": {
       "type": "string",
-      "minLength": 32
+      "pattern": "^[a-zA-Z0-9+/=_-]{32,512}$"
     },
     "artifacts": {
       "type": "array",
@@ -55,7 +59,8 @@
             "type": "string"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^(?!.*\\.\\.)[a-zA-Z0-9._/-]+$"
           },
           "sha256": {
             "type": "string",
@@ -85,11 +90,33 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "steps": {
-          "type": "array"
+        "preflight_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "apply_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "rollback_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
         }
       },
-      "required": ["steps"]
+      "required": [
+        "preflight_steps",
+        "apply_steps",
+        "rollback_steps"
+      ]
     }
   },
   "required": [
@@ -101,5 +128,6 @@
     "migration_reversibility_guaranteed",
     "rollback_procedure_reference",
     "update_station_workflow"
-  ]
+  ],
+  "x-cybrik-lifecycle": "PROPOSED"
 }

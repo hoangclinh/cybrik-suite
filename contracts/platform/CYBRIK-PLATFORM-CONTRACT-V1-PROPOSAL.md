@@ -44,7 +44,7 @@ Cache: In-memory Key-Value Cache with consistency, eviction semantics, noevictio
 Secrets: Secret Management for storage, rotation, non-exfiltration, startup-presence validation.
 
 ### Slot 9: `crypto`
-Crypto: pluggable provider seam with a stable interface per SOC ADR-0018.
+Crypto: pluggable provider seam with a stable interface per PROPOSED SOC ADR-0018.
 
 ### Slot 10: `identity_workload_identity`
 Identity / workload identity: E2/E3 two-layer trust seam of ADR-0006 and ADR-0008.
@@ -68,7 +68,7 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
 * **sovereignty_class**: E.g., `SOVEREIGN_CUSTOMER_CONTROLLED`, `CONTROLLED_CROSS_DOMAIN`, `OPTIONAL_HYBRID`.
-* **isolation_floor**: The minimum execution isolation level required (`standard_container`, `gvisor_runsc`, `firecracker_jailer`, `kata_runtime_class`).
+* **isolation_floor**: The minimum execution isolation level required.
 
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 
@@ -105,12 +105,3 @@ The `artifact_update_mechanism` capability defines an offline update manifest (`
 - `migration_reversibility_guaranteed: true`
 - `rollback_procedure_reference`
 - `update_station_workflow`
-
-## Appendix: Informative Vendor Reference Targets (Non-Normative)
-
-Specific technologies act as reference targets and provider adapter realizations, and are strictly non-normative:
-* **Orchestration**: Kubernetes
-* **Storage**: MinIO, Ceph
-* **Database**: PostgreSQL
-* **Cache**: Valkey
-* **Secrets**: Vault

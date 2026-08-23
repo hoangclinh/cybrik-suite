@@ -83,12 +83,17 @@ const SCHEMA_FILES = [
   'cybrik.delegation-chain.v1.schema.json',
   'cybrik.execution-receipt.v1.schema.json',
   'cybrik.approval-request.v1.schema.json',
-  'cybrik.approval-decision.v1.schema.json',
+  'cybrik.approval-decision.v1.schema.json'
+];
+
+const PROPOSED_SCHEMA_FILES = [
   'cybrik.deployment-profile.v1.schema.json',
   'cybrik.platform-contract.v1.schema.json',
   'cybrik.provider-capability-advertisement.v1.schema.json',
   'cybrik.offline-install-update-manifest.v1.schema.json',
+  'cybrik.storage-s3-compatibility-subset.v1.schema.json'
 ];
+
 
 // strict: true keeps genuine 2020-12 rigor (unknown-keyword typos, bad tuples, etc.), but we
 // disable two ajv-SPECIFIC lints that flag idiomatic-and-spec-valid 2020-12 constructs:
@@ -102,13 +107,13 @@ const ajv = new Ajv2020({ strict: true, strictTypes: false, strictRequired: fals
 addFormats(ajv);
 // Annotation-only vendor keywords (status honesty markers). Declared so strict mode does not
 // reject them as unknown, while every other strict check stays active.
-for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins']) {
+for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins', 'x-cybrik-lifecycle']) {
   ajv.addKeyword({ keyword: kw });
 }
 
 const schemas = {}; // basename -> { doc, path }
 const idByBasename = {};
-for (const name of SCHEMA_FILES) {
+for (const name of [...SCHEMA_FILES, ...PROPOSED_SCHEMA_FILES]) {
   const p = join(JSON_SCHEMA_DIR, name);
   if (!existsSync(p)) { fail(`missing schema file: json-schema/${name}`); continue; }
   let doc;
@@ -119,7 +124,12 @@ for (const name of SCHEMA_FILES) {
   if (doc.$schema !== DRAFT_2020) fail(`json-schema/${name}: $schema is not 2020-12 (${doc.$schema})`);
   if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
-  checkLifecycle(`json-schema/${name}`, doc);
+  if (SCHEMA_FILES.includes(name)) {
+    checkLifecycle(`json-schema/${name}`, doc);
+  } else {
+    if (doc['x-cybrik-status'] !== 'PROPOSED') fail(`json-schema/${name}: x-cybrik-status must be 'PROPOSED'`);
+    if (doc['x-cybrik-not-accepted'] !== true) fail(`json-schema/${name}: x-cybrik-not-accepted must be true`);
+  }
   const expectedContractVersion = name === 'cybrik.capability.v1.schema.json'
     ? CAPABILITY_VERSION
     : EXPECTED_VERSION;

@@ -5,14 +5,14 @@
   "advertised_capabilities": [
     {
       "capability_name": "oci_container_runtime",
-      "slot_id": "slot1",
+      "slot_id": "oci_container_runtime",
       "description": "Standard OCI runtime"
     }
   ],
   "conformance_evidence": [
     {
       "test_identifier": "test1",
-      "verification_method": "manual",
+      "verification_method": "AUTOMATED_TEST",
       "report_uri": "https://example.com/report1"
     }
   ],

@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "slots": {
+    "oci_container_runtime": { "provided": true, "specification": "spec" },
+    "isolation_substrate": { "provided": true, "specification": "spec" },
+    "orchestration_capability": { "provided": true, "specification": "spec" },
+    "network_segmentation": { "provided": true, "specification": "spec" },
+    "storage": { "provided": true, "specification": "spec" },
+    "database": { "provided": true, "specification": "spec" },
+    "cache": { "provided": true, "specification": "spec" },
+    "secrets": { "provided": true, "specification": "spec" },
+    "crypto": { "provided": true, "specification": "spec" },
+    "identity_workload_identity": { "provided": true, "specification": "spec" },
+    "observability": { "provided": true, "specification": "spec" },
+    "ai_model_runtime": { "provided": true, "specification": "spec" },
+    "artifact_update_mechanism": { "provided": true, "specification": "spec" }
+  }
+}

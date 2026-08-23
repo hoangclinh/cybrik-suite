@@ -1,0 +1,15 @@
+{
+  "provider_identifier": "minio-embedded",
+  "mandatory_operations": {
+    "crud": true,
+    "multipart_upload": true,
+    "presigning": true,
+    "sig_v4": true,
+    "path_style_access": true,
+    "versioning": true,
+    "error_mappings": true
+  },
+  "supported_optional_features": {
+    "object_lock": true
+  }
+}
