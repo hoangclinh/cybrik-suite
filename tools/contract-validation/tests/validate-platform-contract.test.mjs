@@ -115,3 +115,30 @@ test('validate negative platform fixtures', () => {
     assert.equal(ajv.errors[0].message, expected.message, `Mismatch message for ${file}`);
   }
 });
+
+test('in-memory validation: reject full profile with 13 identical slots', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const data = {
+    "target_profile_id": "onprem-standard",
+    "target_profile_version": "1.0.0",
+    "provider_namespace": "evil-corp",
+    "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
+    "advertised_capabilities": Array.from({ length: 13 }, (_, i) => ({
+      "capability_name": `cap-storage-${i}`,
+      "slot_id": "storage",
+      "description": `Storage slot ${i}`
+    })),
+    "conformance_evidence": [
+      {
+        "test_identifier": "test-1",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://example.com/report"
+      }
+    ],
+    "degradation_behavior": "FAIL_CLOSED",
+    "authenticated_discovery": true
+  };
+
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(!valid, 'Should reject 13 copies of storage');
+});

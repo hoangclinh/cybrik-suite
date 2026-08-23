@@ -197,14 +197,49 @@
         "OPTIONAL_HYBRID"
       ]
     },
-    "isolation_floor": {
-      "type": "string",
-      "enum": [
-        "standard_process_container",
-        "syscall_interception_sandbox",
-        "microvm_hardware_virtualization",
-        "hypervisor_runtime_class"
-      ]
+    "isolation_policy": {
+      "type": "object",
+      "required": [
+        "floor",
+        "admitted_risk_classes",
+        "disposable_execution_required",
+        "network_egress_isolation",
+        "no_downgrade_guarantee"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "floor": {
+          "type": "string",
+          "enum": [
+            "standard_process_container",
+            "syscall_interception_sandbox",
+            "microvm_hardware_virtualization",
+            "hypervisor_runtime_class"
+          ]
+        },
+        "admitted_risk_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "UNTRUSTED_CODE_EXECUTION",
+              "DYNAMIC_TENANT_WORKLOAD",
+              "DETERMINISTIC_SERVICE_CONTAINER"
+            ]
+          }
+        },
+        "disposable_execution_required": { "type": "boolean" },
+        "network_egress_isolation": {
+          "type": "string",
+          "enum": [
+            "FAIL_CLOSED_NO_EGRESS",
+            "MEDIATED_EGRESS_BROKER",
+            "RESTRICTED_EGRESS_PROXY"
+          ]
+        },
+        "no_downgrade_guarantee": { "const": true }
+      }
     }
   },
   "required": [
@@ -213,7 +248,7 @@
     "capability_set",
     "strength",
     "sovereignty_class",
-    "isolation_floor"
+    "isolation_policy"
   ],
   "x-cybrik-lifecycle": "PROPOSED"
 }

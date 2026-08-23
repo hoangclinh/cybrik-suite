@@ -1,8 +1,6 @@
-# contracts/ — Cross-product contracts
+# CYBRIK Suite Contracts
 
-Status: MIXED LIFECYCLE (Accepted-for-implementation contract packets v0.1.0 registered below; Platform Contract Proposal v1.0.0 is PROPOSED / NOT ACCEPTED)
-(version 0.1.0). No contract has been accepted; no product may implement any of these until
-explicit Founder acceptance (ADR-0001 D5).
+Status: `MIXED LIFECYCLE` (Accepted-for-implementation contract packets v0.1.0 registered below; Platform Contract Proposal v1.0.0 is PROPOSED / NOT ACCEPTED under ADR-0015)
 
 This directory is the single home for interfaces shared between CYBRIK Suite products.
 Product repositories implement contracts defined here; contracts are never retro-fitted from

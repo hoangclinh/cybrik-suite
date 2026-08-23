@@ -515,6 +515,33 @@ H('H2c', !!negEscChain && chainEscalates(negEscChain), 'negative privilege-escal
 
 // ---------------------------------------------------------------------------
 // Summary
+
+// #10 verify FULL_PROFILE_CONFORMANCE_DECLARATION distinct slots
+const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+const pcaData = {
+  target_profile_id: "onprem-standard",
+  target_profile_version: "1.0.0",
+  provider_namespace: "evil-corp",
+  claim_type: "FULL_PROFILE_CONFORMANCE_DECLARATION",
+  advertised_capabilities: Array.from({ length: 13 }, (_, i) => ({
+    capability_name: "cap-storage-" + i,
+    slot_id: "storage",
+    description: "Storage slot " + i
+  })),
+  conformance_evidence: [
+    {
+      test_identifier: "test-1",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://example.com/report"
+    }
+  ],
+  degradation_behavior: "FAIL_CLOSED",
+  authenticated_discovery: true
+};
+
+const pcaValid = ajv.validate(pcaSchemaId, pcaData);
+H('10', !pcaValid, 'FULL_PROFILE_CONFORMANCE_DECLARATION with 13 identical slots must be rejected');
+
 // ---------------------------------------------------------------------------
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));

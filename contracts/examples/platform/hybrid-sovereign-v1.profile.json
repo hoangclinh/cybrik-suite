@@ -32,5 +32,13 @@
     "artifact_update_mechanism": "MANDATORY"
   },
   "sovereignty_class": "OPTIONAL_HYBRID",
-  "isolation_floor": "microvm_hardware_virtualization"
+  "isolation_policy": {
+    "floor": "microvm_hardware_virtualization",
+    "admitted_risk_classes": [
+      "UNTRUSTED_CODE_EXECUTION"
+    ],
+    "disposable_execution_required": true,
+    "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
+    "no_downgrade_guarantee": true
+  }
 }

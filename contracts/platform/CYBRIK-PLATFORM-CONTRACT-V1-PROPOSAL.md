@@ -47,7 +47,7 @@ Secrets: Secret Management for storage, rotation, non-exfiltration, startup-pres
 Crypto: pluggable provider seam with a stable interface per cybrik-soc-command-center:governance/ADR/ADR-0018-sovereign-encryption-key-management.md (PROPOSED).
 
 ### Slot 10: `identity_workload_identity`
-Identity / workload identity: E2/E3 two-layer trust seam of cybrik-suite:docs/adr/ADR-0006-cross-product-event-and-identity-model.md and cybrik-suite:docs/adr/ADR-0008-internal-service-delegation-and-workload-identity.md (ACCEPTED FOR IMPLEMENTATION — v0.1.0, not stable v1/GA).
+Identity / workload identity: E2/E3 two-layer trust seam of cybrik-suite:docs/adr/ADR-0006-cross-product-event-and-identity-model.md (ACCEPTED) and cybrik-suite:docs/adr/ADR-0008-internal-service-delegation-and-workload-identity.md (ACCEPTED FOR IMPLEMENTATION — v0.1.0, not stable v1/GA).
 
 ### Slot 11: `observability`
 Observability: trace/metric/log semantics and sovereignty classification.
@@ -68,7 +68,7 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
 * **sovereignty_class**: E.g., `SOVEREIGN_CUSTOMER_CONTROLLED`, `CONTROLLED_CROSS_DOMAIN`, `OPTIONAL_HYBRID`.
-* **isolation_floor**: The minimum execution isolation level required.
+* **isolation_policy**: Structural isolation policy modeling minimum execution isolation floor, admitted risk classes, disposable execution requirements, network egress isolation, and downgrade guarantees.
 
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 

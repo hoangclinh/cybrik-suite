@@ -130,11 +130,21 @@
         }
       },
       "then": {
-        "properties": {
-          "advertised_capabilities": {
-            "minItems": 13
-          }
-        }
+        "allOf": [
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "oci_container_runtime" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "isolation_substrate" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "orchestration_capability" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "network_segmentation" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "storage" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "database" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "cache" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "secrets" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "crypto" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "identity_workload_identity" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "observability" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "ai_model_runtime" } }, "required": ["slot_id"] } } } },
+          { "properties": { "advertised_capabilities": { "contains": { "properties": { "slot_id": { "const": "artifact_update_mechanism" } }, "required": ["slot_id"] } } } }
+        ]
       }
     }
   ],

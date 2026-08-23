@@ -32,5 +32,13 @@
     "artifact_update_mechanism": "MANDATORY"
   },
   "sovereignty_class": "CONTROLLED_CROSS_DOMAIN",
-  "isolation_floor": "standard_process_container"
+  "isolation_policy": {
+    "floor": "standard_process_container",
+    "admitted_risk_classes": [
+      "UNTRUSTED_CODE_EXECUTION"
+    ],
+    "disposable_execution_required": true,
+    "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
+    "no_downgrade_guarantee": true
+  }
 }
