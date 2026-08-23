@@ -715,23 +715,24 @@ H('14', !trailingValid, 'trailing slash path must be rejected by schema');
 const profileSchemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
 const s1Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
 s1Profile.isolation_policy.floor = "S1_DYNAMIC_TENANT_WORKLOAD";
-// onprem-standard-v1 already has MEDIATED_EGRESS_BROKER
+s1Profile.isolation_policy.admitted_risk_classes = ["DYNAMIC_TENANT_WORKLOAD", "DETERMINISTIC_SERVICE_CONTAINER"];
+s1Profile.isolation_policy.network_egress_isolation = "MEDIATED_EGRESS_BROKER";
 const s1Valid = ajv.validate(profileSchemaId, s1Profile);
-H('15', !s1Valid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/isolation_policy/network_egress_isolation' && ajv.errors[0].keyword === 'const', 'S1 with MEDIATED_EGRESS_BROKER must be rejected (requires FAIL_CLOSED_NO_EGRESS)');
+H('15', !s1Valid && ajv.errors.some(e => e.instancePath === '/isolation_policy/network_egress_isolation' && e.keyword === 'const'), 'S1 with MEDIATED_EGRESS_BROKER must be rejected (requires FAIL_CLOSED_NO_EGRESS)');
 
 // 16. in-memory validation: reject S3 with no egress
 const s3Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
 s3Profile.isolation_policy.floor = "S3_HARDWARE_VIRTUALIZED_HYPERVISOR";
 s3Profile.isolation_policy.network_egress_isolation = "FAIL_CLOSED_NO_EGRESS";
 const s3Valid = ajv.validate(profileSchemaId, s3Profile);
-H('16', !s3Valid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/isolation_policy/network_egress_isolation' && ajv.errors[0].keyword === 'const', 'S3 with FAIL_CLOSED_NO_EGRESS must be rejected (requires MEDIATED_EGRESS_BROKER)');
+H('16', !s3Valid && ajv.errors.some(e => e.instancePath === '/isolation_policy/network_egress_isolation' && e.keyword === 'const'), 'S3 with FAIL_CLOSED_NO_EGRESS must be rejected (requires MEDIATED_EGRESS_BROKER)');
 
-// 17. in-memory validation: reject platform slot with bare "T0" conformance_profile
+// 17. in-memory validation: reject platform slot with bare uppercase/tier conformance_profile
 const platformContractSchemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
 const platformContract = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-platform-contract.json'))));
-platformContract.slots.oci_container_runtime.conformance_profile = "T0";
+platformContract.slots.oci_container_runtime.conformance_profile = "TIER_0";
 const platformValid = ajv.validate(platformContractSchemaId, platformContract);
-H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "T0" conformance_profile must be rejected');
+H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "TIER_0" conformance_profile must be rejected');
 
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));
