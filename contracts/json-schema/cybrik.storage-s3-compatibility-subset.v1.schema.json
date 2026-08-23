@@ -56,7 +56,8 @@
           "type": "boolean",
           "const": true
         }
-      }
+      },
+      "additionalProperties": false
     },
     "supported_optional_features": {
       "type": "object",
@@ -64,8 +65,53 @@
         "object_lock": {
           "type": "boolean"
         }
+      },
+      "additionalProperties": false
+    },
+    "required_operations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PutObject",
+          "GetObject",
+          "HeadObject",
+          "DeleteObject",
+          "DeleteObjects",
+          "ListObjectsV2",
+          "HeadBucket",
+          "CreateBucket",
+          "CreateMultipartUpload",
+          "UploadPart",
+          "CompleteMultipartUpload",
+          "AbortMultipartUpload",
+          "PutBucketVersioning",
+          "GetBucketVersioning"
+        ]
       }
+    },
+    "addressing_style": {
+      "const": "path_style"
+    },
+    "auth_mechanism": {
+      "const": "AWS4-HMAC-SHA256"
+    },
+    "required_error_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "NoSuchKey",
+          "NoSuchBucket",
+          "AccessDenied",
+          "EntityTooLarge"
+        ]
+      }
+    },
+    "optional_retention": {
+      "type": "boolean"
     }
   },
-  "x-cybrik-contract-version": "0.1.0"
+  "x-cybrik-contract-version": "0.1.0",
+  "additionalProperties": false
 }

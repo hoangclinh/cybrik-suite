@@ -200,10 +200,10 @@
     "isolation_floor": {
       "type": "string",
       "enum": [
-        "standard_container",
-        "gvisor_runsc",
-        "firecracker_jailer",
-        "kata_runtime_class"
+        "standard_process_container",
+        "syscall_interception_sandbox",
+        "microvm_hardware_virtualization",
+        "hypervisor_runtime_class"
       ]
     }
   },

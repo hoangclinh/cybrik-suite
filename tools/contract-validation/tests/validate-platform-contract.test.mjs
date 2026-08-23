@@ -10,10 +10,9 @@ const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
 const ajv = new Ajv2020({ strict: true, strictTypes: false, strictRequired: false, allErrors: true, allowUnionTypes: true });
 addFormats(ajv);
-for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins']) {
+for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins', 'x-cybrik-lifecycle']) {
   ajv.addKeyword({ keyword: kw });
 }
-ajv.addKeyword({ keyword: 'x-cybrik-lifecycle' });
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '../../..');
@@ -56,7 +55,6 @@ test('validate positive platform fixtures', () => {
     assert.ok(existsSync(path), `Missing positive fixture: ${path}`);
     const data = JSON.parse(readFileSync(path, 'utf8'));
     
-    // Determine schema id
     let schemaId;
     if (file.includes('profile')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
     else if (file.includes('advertisement')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
@@ -70,6 +68,21 @@ test('validate positive platform fixtures', () => {
     assert.ok(valid, `Positive fixture ${file} failed validation: ${ajv.errorsText()}`);
   }
 });
+
+const EXPECTED_NEGATIVES = {
+  'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '/operator_trust_root' },
+  'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
+  'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
+  'invalid-missing-evidence-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
+  'invalid-namespace-advertisement.json': { keyword: 'required', instancePath: '' },
+  'invalid-platform-all-false.json': { keyword: 'type', instancePath: '/slots/oci_container_runtime' },
+  'invalid-s3-missing-crud.json': { keyword: 'required', instancePath: '/mandatory_operations' },
+  'invalid-unauthenticated-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
+  'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
+  'malformed-sha256-offline-manifest.json': { keyword: 'required', instancePath: '' },
+  'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set' }
+};
 
 test('validate negative platform fixtures', () => {
   const negatives = readdirSync(join(EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
@@ -89,5 +102,10 @@ test('validate negative platform fixtures', () => {
     
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
+
+    const expected = EXPECTED_NEGATIVES[file];
+    assert.ok(expected, `No expected error mapped for ${file}`);
+    assert.equal(ajv.errors[0].keyword, expected.keyword, `Mismatch keyword for ${file}`);
+    assert.equal(ajv.errors[0].instancePath, expected.instancePath, `Mismatch instancePath for ${file}`);
   }
 });

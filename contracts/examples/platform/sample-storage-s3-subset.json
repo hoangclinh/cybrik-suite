@@ -11,5 +11,30 @@
   },
   "supported_optional_features": {
     "object_lock": true
-  }
+  },
+  "required_operations": [
+    "PutObject",
+    "GetObject",
+    "HeadObject",
+    "DeleteObject",
+    "DeleteObjects",
+    "ListObjectsV2",
+    "HeadBucket",
+    "CreateBucket",
+    "CreateMultipartUpload",
+    "UploadPart",
+    "CompleteMultipartUpload",
+    "AbortMultipartUpload",
+    "PutBucketVersioning",
+    "GetBucketVersioning"
+  ],
+  "addressing_style": "path_style",
+  "auth_mechanism": "AWS4-HMAC-SHA256",
+  "required_error_codes": [
+    "NoSuchKey",
+    "NoSuchBucket",
+    "AccessDenied",
+    "EntityTooLarge"
+  ],
+  "optional_retention": true
 }

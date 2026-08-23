@@ -54,7 +54,8 @@
           },
           "description": {
             "type": "string",
-            "minLength": 5
+            "minLength": 5,
+            "pattern": "\\S+"
           }
         },
         "required": [
@@ -72,7 +73,9 @@
         "additionalProperties": false,
         "properties": {
           "test_identifier": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
           },
           "verification_method": {
             "type": "string",
@@ -83,7 +86,9 @@
             ]
           },
           "report_uri": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
           }
         },
         "required": [

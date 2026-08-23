@@ -196,6 +196,95 @@ if (exManifest) {
 }
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 4b. Platform Example fixtures.
+// ---------------------------------------------------------------------------
+const PLATFORM_EXAMPLES_DIR = join(CONTRACTS, 'examples/platform');
+const platformPositives = [
+  'onprem-airgap-v1.profile.json',
+  'onprem-standard-v1.profile.json',
+  'hybrid-sovereign-v1.profile.json',
+  'private-cloud-v1.profile.json',
+  'sample-platform-contract.json',
+  'sample-provider-capability-advertisement.json',
+  'sample-offline-bundle-manifest.json',
+  'sample-storage-s3-subset.json'
+];
+
+for (const file of platformPositives) {
+  const exPath = join(PLATFORM_EXAMPLES_DIR, file);
+  if (!existsSync(exPath)) { fail(`platform positive example missing on disk: ${file}`); continue; }
+  
+  let schemaName;
+  if (file.includes('profile')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
+  else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+  else if (file.includes('offline-bundle-manifest')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
+  else if (file.includes('platform-contract')) schemaName = 'cybrik.platform-contract.v1.schema.json';
+  else if (file.includes('storage-s3-subset')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
+
+  const validate = validators[schemaName];
+  if (!validate) { fail(`platform example ${file}: no compiled validator for schema ${schemaName}`); continue; }
+  let data;
+  try { data = readJson(exPath); } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
+  const ok = validate(data);
+  bump('positive_total');
+  if (ok) bump('positive_pass');
+  else fail(`platform positive example ${file} FAILED validation against ${schemaName}: ${ajv.errorsText(validate.errors)}`);
+}
+
+const EXPECTED_PLATFORM_NEGATIVES = {
+  'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '/operator_trust_root' },
+  'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
+  'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
+  'invalid-missing-evidence-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
+  'invalid-namespace-advertisement.json': { keyword: 'required', instancePath: '' },
+  'invalid-platform-all-false.json': { keyword: 'type', instancePath: '/slots/oci_container_runtime' },
+  'invalid-s3-missing-crud.json': { keyword: 'required', instancePath: '/mandatory_operations' },
+  'invalid-unauthenticated-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
+  'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
+  'malformed-sha256-offline-manifest.json': { keyword: 'required', instancePath: '' },
+  'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set' }
+};
+
+if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
+  const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
+  const negFiles = fsNode.readdirSync(join(PLATFORM_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  for (const file of negFiles) {
+    const exPath = join(PLATFORM_EXAMPLES_DIR, 'negative', file);
+    
+    let schemaName;
+    if (file.includes('profile') || file.includes('semver')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
+    else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+    else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
+    else if (file.includes('platform')) schemaName = 'cybrik.platform-contract.v1.schema.json';
+    else if (file.includes('s3')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
+    
+    const validate = validators[schemaName];
+    if (!validate) { fail(`platform negative example ${file}: no compiled validator for schema ${schemaName}`); continue; }
+    let data;
+    try { data = readJson(exPath); } catch (e) { fail(`platform negative example ${file}: JSON parse error: ${e.message}`); continue; }
+    
+    const ok = validate(data);
+    bump('negative_schema_total');
+    if (!ok) {
+      bump('negative_schema_reject');
+      const expected = EXPECTED_PLATFORM_NEGATIVES[file];
+      if (!expected) {
+        fail(`platform negative example ${file}: no expected invariant/error mapped!`);
+      } else {
+        const actualErr = validate.errors[0];
+        if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath) {
+          fail(`platform negative example ${file}: expected ${expected.keyword} at '${expected.instancePath}', got ${actualErr.keyword} at '${actualErr.instancePath}'`);
+        }
+      }
+    } else {
+      fail(`platform negative example ${file} unexpectedly VALIDATED against ${schemaName} (must be rejected)`);
+    }
+  }
+}
+
 // 5. Compatibility / version / status manifest.
 // ---------------------------------------------------------------------------
 const compatPath = join(CONTRACTS, 'compatibility', 'cybrik-suite-contract-packet.v1.manifest.json');

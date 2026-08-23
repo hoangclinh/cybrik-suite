@@ -8,5 +8,17 @@
     "versioning": true,
     "error_mappings": true
   },
-  "supported_optional_features": {}
+  "supported_optional_features": {},
+  "required_operations": [
+    "PutObject",
+    "GetObject"
+  ],
+  "addressing_style": "path_style",
+  "auth_mechanism": "AWS4-HMAC-SHA256",
+  "required_error_codes": [
+    "NoSuchKey",
+    "NoSuchBucket",
+    "AccessDenied",
+    "EntityTooLarge"
+  ]
 }

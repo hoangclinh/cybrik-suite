@@ -2,7 +2,7 @@
   "profile_id": "my-profile",
   "profile_version": "1.0.0",
   "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
-  "isolation_floor": "standard_container",
+  "isolation_floor": "invalid_floor",
   "capability_set": {
     "isolation_substrate": "some-provider",
     "orchestration_capability": "some-provider",

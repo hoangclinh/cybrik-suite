@@ -29,7 +29,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "isolation_substrate": {
           "type": "object",
@@ -44,7 +45,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "orchestration_capability": {
           "type": "object",
@@ -59,7 +61,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "network_segmentation": {
           "type": "object",
@@ -74,7 +77,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "storage": {
           "type": "object",
@@ -89,7 +93,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "database": {
           "type": "object",
@@ -104,7 +109,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "cache": {
           "type": "object",
@@ -119,7 +125,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "secrets": {
           "type": "object",
@@ -134,7 +141,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "crypto": {
           "type": "object",
@@ -149,7 +157,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "identity_workload_identity": {
           "type": "object",
@@ -164,7 +173,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "observability": {
           "type": "object",
@@ -179,7 +189,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "ai_model_runtime": {
           "type": "object",
@@ -194,7 +205,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "artifact_update_mechanism": {
           "type": "object",
@@ -209,7 +221,8 @@
             "specification": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "required": [

@@ -32,5 +32,5 @@
     "artifact_update_mechanism": "MANDATORY"
   },
   "sovereignty_class": "CONTROLLED_CROSS_DOMAIN",
-  "isolation_floor": "standard_container"
+  "isolation_floor": "standard_process_container"
 }
