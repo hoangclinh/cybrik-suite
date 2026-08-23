@@ -193,6 +193,11 @@ EOF
         cat <<'EOF' > /etc/docker/daemon.json
 { invalid json }
 EOF
+        if ! systemctl restart docker; then
+            rm -f /etc/docker/daemon.json
+            log_error "Docker daemon failed to start/restart with invalid daemon.json (syntax validation failed)."
+            exit 1
+        fi
     else
         cat <<'EOF' > /etc/docker/daemon.json
 {
@@ -206,12 +211,11 @@ EOF
   }
 }
 EOF
-    fi
-    
-    # Restart Docker and verify healthy
-    if ! systemctl restart docker; then
-        log_error "Docker daemon failed to start/restart."
-        exit 1
+        # Restart Docker and verify healthy
+        if ! systemctl restart docker; then
+            log_error "Docker daemon failed to start/restart."
+            exit 1
+        fi
     fi
 
     # 6. Fail2ban SSH Jail Configuration
