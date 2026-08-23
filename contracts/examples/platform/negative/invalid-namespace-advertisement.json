@@ -1,15 +1,20 @@
 {
-  "provider_namespace": "Provider_Namespace!",
-  "capabilities": [
+  "target_profile_id": "valid-profile-id",
+  "target_profile_version": "1.0.0",
+  "provider_namespace": "-x",
+  "advertised_capabilities": [
     {
-      "capability_id": "oci_container_runtime",
-      "version": "1.0",
-      "supported": true
+      "capability_name": "valid-cap",
+      "slot_id": "storage",
+      "description": "valid description"
     }
   ],
   "conformance_evidence": [
-    "evidence-1",
-    "evidence-2"
+    {
+      "test_identifier": "test-1",
+      "verification_method": "AUTOMATED_TEST",
+      "report_uri": "https://example.com/report"
+    }
   ],
   "degradation_behavior": "FAIL_CLOSED",
   "authenticated_discovery": true

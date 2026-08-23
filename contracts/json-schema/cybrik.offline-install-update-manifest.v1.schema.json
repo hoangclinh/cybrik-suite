@@ -60,7 +60,7 @@
           },
           "path": {
             "type": "string",
-            "pattern": "^(?!.*\\.\\.)[a-zA-Z0-9._/-]+$"
+            "pattern": "^(?!\\/)(?!.*\\.\\.)[a-zA-Z0-9._/-]+$"
           },
           "sha256": {
             "type": "string",

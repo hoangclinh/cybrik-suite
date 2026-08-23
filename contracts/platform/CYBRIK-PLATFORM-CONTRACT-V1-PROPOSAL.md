@@ -94,7 +94,7 @@ The `storage` capability requires a strict minimum S3 compatibility subset inclu
 To allow platform environments to auto-discover capabilities without manual hardcoding, an optional negotiation protocol is defined:
 * **Namespaced Provider Capabilities**: Capabilities are advertised in strict namespaces (`provider_namespace`) to avoid collision.
 * **Capability Advertisement Schema**: A structured JSON mechanism (`cybrik.provider-capability-advertisement.v1.schema.json`) to declare supported capabilities, conformance evidence (`conformance_evidence`), and authenticated discovery (`authenticated_discovery`).
-* **Degradation Behavior**: Must specify `degradation_behavior` as `FAIL_CLOSED` or `EXPLICIT_FALLBACK`.
+* **Degradation Behavior**: Must specify `degradation_behavior` as `FAIL_CLOSED`. If capability discovery fails, times out, is unauthenticated, or fails verification, the consumer MUST treat the capability as absent and fail closed.
 
 ## 7. Offline Install & Update Manifest (OPEN-1)
 

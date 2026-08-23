@@ -10,8 +10,8 @@
   "artifacts": [
     {
       "name": "valid-artifact",
-      "path": "valid/path.tar",
-      "sha256": "invalid-non-hex-sha256",
+      "path": "/etc/passwd",
+      "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
       "size_bytes": 1024
     }
   ],

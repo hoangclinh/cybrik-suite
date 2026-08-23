@@ -1,6 +1,7 @@
 {
-  "provider_identifier": "bad-storage",
+  "provider_identifier": "valid-storage",
   "mandatory_operations": {
+    "crud": true,
     "multipart_upload": true,
     "presigning": true,
     "sig_v4": true,
@@ -9,10 +10,7 @@
     "error_mappings": true
   },
   "supported_optional_features": {},
-  "required_operations": [
-    "PutObject",
-    "GetObject"
-  ],
+  "required_operations": [],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
   "required_error_codes": [

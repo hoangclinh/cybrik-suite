@@ -10,7 +10,11 @@
   "required": [
     "provider_identifier",
     "mandatory_operations",
-    "supported_optional_features"
+    "supported_optional_features",
+    "required_operations",
+    "addressing_style",
+    "auth_mechanism",
+    "required_error_codes"
   ],
   "properties": {
     "provider_identifier": {
@@ -88,7 +92,9 @@
           "PutBucketVersioning",
           "GetBucketVersioning"
         ]
-      }
+      },
+      "minItems": 14,
+      "uniqueItems": true
     },
     "addressing_style": {
       "const": "path_style"
@@ -106,7 +112,9 @@
           "AccessDenied",
           "EntityTooLarge"
         ]
-      }
+      },
+      "minItems": 4,
+      "uniqueItems": true
     },
     "optional_retention": {
       "type": "boolean"

@@ -99,11 +99,7 @@
       }
     },
     "degradation_behavior": {
-      "type": "string",
-      "enum": [
-        "FAIL_CLOSED",
-        "EXPLICIT_FALLBACK"
-      ]
+      "const": "FAIL_CLOSED"
     },
     "authenticated_discovery": {
       "const": true
