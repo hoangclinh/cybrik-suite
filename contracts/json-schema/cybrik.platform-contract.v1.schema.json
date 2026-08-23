@@ -47,7 +47,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -85,7 +87,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -123,7 +127,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -161,7 +167,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -199,7 +207,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -237,7 +247,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -275,7 +287,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -313,7 +327,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -351,7 +367,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -389,7 +407,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -427,7 +447,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -465,7 +487,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         },
@@ -503,7 +527,9 @@
               }
             },
             "conformance_profile": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
             }
           }
         }

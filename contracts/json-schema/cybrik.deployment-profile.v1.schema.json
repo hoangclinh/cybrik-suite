@@ -449,11 +449,34 @@
           "isolation_policy": {
             "properties": {
               "floor": {
-                "enum": [
-                  "S1_DYNAMIC_TENANT_WORKLOAD",
-                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
-                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
-                ]
+                "const": "S1_DYNAMIC_TENANT_WORKLOAD"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "const": "FAIL_CLOSED_NO_EGRESS"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION"
               }
             }
           }
@@ -471,6 +494,33 @@
                   "FAIL_CLOSED_NO_EGRESS",
                   "MEDIATED_EGRESS_BROKER"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "const": "MEDIATED_EGRESS_BROKER"
               }
             }
           }
@@ -573,9 +623,7 @@
               "admitted_risk_classes": {
                 "type": "array",
                 "items": {
-                  "enum": [
-                    "DETERMINISTIC_SERVICE_CONTAINER"
-                  ]
+                  "const": "DETERMINISTIC_SERVICE_CONTAINER"
                 }
               }
             }

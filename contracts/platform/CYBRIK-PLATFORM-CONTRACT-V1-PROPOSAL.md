@@ -65,7 +65,7 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 ### Structure
 * **profile_id**: String identifier.
 * **Core Slot Constraints**: The 9 core runtime slots (oci_container_runtime, isolation_substrate, network_segmentation, storage, database, secrets, crypto, identity_workload_identity, artifact_update_mechanism) MUST be explicitly defined with strength "MANDATORY".
-* **Evidence Binding**: Capability advertisements MUST cryptographically or explicitly bind to conformance evidence. All slots within `capability_set` require non-vacuous constraints arrays (minimum 1 item, minimum 2 characters per item, matching alphanumeric/hyphen/underscore). Advertised capabilities must explicitly link to `conformance_evidence` via `evidence_references`.
+* **Evidence Binding**: Capability advertisements MUST cryptographically or explicitly bind to conformance evidence. All slots within `capability_set` require non-vacuous constraints arrays (minimum 1 item, minimum 2 characters per item, matching alphanumeric/period/hyphen/underscore). Advertised capabilities must explicitly link to `conformance_evidence` via `evidence_references`.
 * **profile_version**: Semver version of the profile.
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
