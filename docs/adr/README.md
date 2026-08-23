@@ -51,6 +51,20 @@ Current W1 contract/control lifecycle is
 in older W1 records without changing their dated provenance. It is not runtime, UAT, stable-v1/GA
 or production evidence.
 
+ADR-0015 (deployment priority, data sovereignty & provider-neutral platform boundary) was registered
+as `PROPOSED`, Decider `FOUNDER`, raised 2026-08-23, and is `ACCEPTED` (Founder, 2026-08-23) —
+decision record only. The Founder accepted the exact independently reviewed R6 bytes (commit
+`6580a4fcdf8d24e203b6e6f98a15dae3c2fea789`, tree `c49f77f2f12eb34fc498f17043b2a223b8bfcef6`;
+independent review `PASS`, `FOUNDER_ACCEPTANCE_SAFE = YES`, no findings); the flip is applied by the
+docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is
+architecture/governance authority only: it grants no implementation, provider, substrate,
+Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`
+remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`, and ADR-0015's eleven open
+questions `OPEN-1` … `OPEN-11` remain open. The Founder deployment-priority policy itself remains
+rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)
+and is not created by this acceptance. Every earlier statement on this page about the ten-ADR base
+catalog describes that catalog before these additive records and flips no existing ADR status.
+
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-0001](ADR-0001-suite-contract-versioning-policy.md) | Suite contract/versioning policy | `ACCEPTED` (2026-07-24) |
@@ -67,6 +81,7 @@ or production evidence.
 | [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; design floor only, runtime and production remain unauthorized |
+| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1` … `OPEN-11` remain open |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
 specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains
@@ -87,6 +102,7 @@ authoritative on ADR status.**
 
 | Document | Purpose | Status |
 |---|---|---|
+| [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md) | Founder deployment-priority and provider policy of 2026-08-23; authoritative provenance for that policy | `DECIDED — RECORDED` (Founder, 2026-08-23) — records policy only; accepts no ADR, selects no technology, authorizes no implementation or production rollout |
 | [ADR-DECISION-SPRINT-2026-07.md](ADR-DECISION-SPRINT-2026-07.md) | Sprint plan: dependency graph, wave board, exit criteria, evidence rules | `DRAFT` — GATE A2/A3 closed 2026-07-24; GATE A4 closed 2026-07-26 |
 | [evidence/README.md](evidence/README.md) | Evidence-packet format and catalog | `DRAFT` |
 | [evidence/ADR-0001-EVIDENCE.md](evidence/ADR-0001-EVIDENCE.md) | Evidence + recommendation for ADR-0001 | `DRAFT` — ADR-0001 since `ACCEPTED` (2026-07-24) |
@@ -101,6 +117,7 @@ authoritative on ADR status.**
 | [FOUNDER-DECISION-PACKET-W1-C1-C2.md](FOUNDER-DECISION-PACKET-W1-C1-C2.md) | W1-C1/C2 contract-gate decision packet (separate gate; flips no ADR status) | Answered 2026-07-26 with `C1-1..C1-10=yes` / `C2-1..C2-10=yes` |
 | [ADR-0003-STATUS-FLIP-APPLICATION.md](ADR-0003-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0003 GATE A4 status flip | `APPLIED 2026-07-26` — decision record only, no implementation authority |
 | [ADR-0005-STATUS-FLIP-APPLICATION.md](ADR-0005-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0005 GATE A4 status flip | `APPLIED 2026-07-26` — decision record only, no implementation authority |
+| [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0015 Founder acceptance status flip (exact reviewed R6) | `APPLIED 2026-08-23` — decision record only, architecture/governance authority, no implementation authority |
 | [W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md](W1-C1-ALERT-CONTEXT-ACCEPTANCE-APPLICATION.md) | Recorded acceptance of W1-C1 and its corrected-state reconciliation | Current correction `20cfa36…` and G1 repin `7185739…` are canonically integrated through PR #1 merge `28c564eb…`; historical `3a2c715…` and rehearsal-only states remain dated provenance |
 | [W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md](W1-C2-INVESTIGATION-LIFECYCLE-ACCEPTANCE-APPLICATION.md) | Recorded acceptance of W1-C2 and corrected Bundle reconciliation | Corrected `5a1ed00…` is canonically integrated through PR #1 merge `28c564eb…`; Bundle v0.1.1 is authoritative for new production while immutable v0.1.0 remains legacy read/replay input |
 | [W1-CONTRACT-RECONCILIATION-APPLICATION.md](W1-CONTRACT-RECONCILIATION-APPLICATION.md) | Exact C1/G1 + corrected C2 two-merge reconciliation application | Current: `CANONICAL-INTEGRATED — STATIC CONTRACT AND CONTROL EVIDENCE ONLY` at PR #1 merge `28c564eb9b6853b73a18a59a2e84ba58fd67816a`; the earlier rehearsal-only/local-commit disposition remains dated provenance; no runtime/UAT/production claim |
