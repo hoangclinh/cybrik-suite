@@ -43,6 +43,32 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
+
+function validatePlatformSemantics(data, schemaId) {
+  if (schemaId.includes('provider-capability-advertisement')) {
+    if (data.advertised_capabilities && data.conformance_evidence) {
+      const validTests = new Set(data.conformance_evidence.map(e => e.test_identifier));
+      for (const cap of data.advertised_capabilities) {
+        for (const ref of (cap.evidence_references || [])) {
+          if (!validTests.has(ref)) {
+            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+          }
+        }
+      }
+    }
+  } else if (schemaId.includes('offline-install-update-manifest')) {
+    if (data.artifacts) {
+      const paths = new Set();
+      for (const art of data.artifacts) {
+        if (paths.has(art.path)) {
+          throw new Error(`Semantic error: duplicate artifact path '${art.path}'`);
+        }
+        paths.add(art.path);
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 0. Lifecycle state. Exactly TWO truthful states are permitted, and the
 //    compatibility manifest is the single source of truth. Neither state is a
@@ -179,7 +205,7 @@ if (exManifest) {
     const ok = validate(data);
     if (ex.kind === 'positive') {
       bump('positive_total');
-      if (ok) bump('positive_pass');
+      if (ok) { bump('positive_pass'); validatePlatformSemantics(data, ex.schema); }
       else fail(`positive example ${ex.file} FAILED validation against ${ex.schema}: ${ajv.errorsText(validate.errors)}`);
     } else if (ex.kind === 'negative-schema') {
       bump('negative_schema_total');
@@ -229,7 +255,7 @@ for (const file of platformPositives) {
   try { data = readJson(exPath); } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
   const ok = validate(data);
   bump('positive_total');
-  if (ok) bump('positive_pass');
+  if (ok) { bump('positive_pass'); validatePlatformSemantics(data, schemaName); }
   else fail(`platform positive example ${file} FAILED validation against ${schemaName}: ${ajv.errorsText(validate.errors)}`);
 }
 

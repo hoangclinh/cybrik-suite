@@ -19,6 +19,32 @@ const ROOT = join(HERE, '../../..');
 const JSON_SCHEMA_DIR = join(ROOT, 'contracts/json-schema');
 const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
 
+
+function validatePlatformSemantics(data, schemaId) {
+  if (schemaId === 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json') {
+    if (data.advertised_capabilities && data.conformance_evidence) {
+      const validTests = new Set(data.conformance_evidence.map(e => e.test_identifier));
+      for (const cap of data.advertised_capabilities) {
+        for (const ref of (cap.evidence_references || [])) {
+          if (!validTests.has(ref)) {
+            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+          }
+        }
+      }
+    }
+  } else if (schemaId === 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json') {
+    if (data.artifacts) {
+      const paths = new Set();
+      for (const art of data.artifacts) {
+        if (paths.has(art.path)) {
+          throw new Error(`Semantic error: duplicate artifact path '${art.path}'`);
+        }
+        paths.add(art.path);
+      }
+    }
+  }
+}
+
 const PLATFORM_SCHEMAS = [
   'cybrik.deployment-profile.v1.schema.json',
   'cybrik.platform-contract.v1.schema.json',
@@ -66,6 +92,7 @@ test('validate positive platform fixtures', () => {
 
     const valid = ajv.validate(schemaId, data);
     assert.ok(valid, `Positive fixture ${file} failed validation: ${ajv.errorsText()}`);
+    validatePlatformSemantics(data, schemaId);
   }
 });
 
@@ -141,4 +168,76 @@ test('in-memory validation: reject full profile with 13 identical slots', () => 
 
   const valid = ajv.validate(schemaId, data);
   assert.ok(!valid, 'Should reject 13 copies of storage');
+});
+
+
+test('in-memory validation: reject advertisement with unresolvable evidence reference', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const data = {
+    "target_profile_id": "onprem-standard",
+    "target_profile_version": "1.0.0",
+    "provider_namespace": "evil-corp",
+    "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
+    "advertised_capabilities": [
+      {
+        "capability_name": "cap-storage",
+        "slot_id": "storage",
+        "description": "Storage slot",
+        "evidence_references": ["missing-test"]
+      }
+    ],
+    "conformance_evidence": [
+      {
+        "test_identifier": "test-1",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://example.com/report"
+      }
+    ],
+    "degradation_behavior": "FAIL_CLOSED",
+    "authenticated_discovery": true
+  };
+
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Should pass JSON schema validation: ' + ajv.errorsText());
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /missing-test/);
+});
+
+test('in-memory validation: reject offline manifest with duplicate artifact paths', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const data = {
+    "bundle_identifier": "my-bundle-1",
+    "release_tag": "v1.2.3",
+    "operator_trust_root": {
+      "signing_key_id": "key-123456",
+      "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature_algorithm": "ed25519"
+    },
+    "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+    "artifacts": [
+      {
+        "name": "image-1",
+        "path": "images/image-1.tar",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 1024
+      },
+      {
+        "name": "image-2",
+        "path": "images/image-1.tar",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "size_bytes": 2048
+      }
+    ],
+    "migration_reversibility_guaranteed": true,
+    "rollback_procedure_reference": "doc://rollback",
+    "update_station_workflow": {
+      "preflight_steps": ["check-disk-space"],
+      "apply_steps": ["extract-images"],
+      "rollback_steps": ["restore-backup"]
+    },
+    "canonicalization_scheme": "RFC_8785_JCS"
+  };
+
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Should pass JSON schema validation: ' + ajv.errorsText());
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /duplicate artifact path/);
 });
