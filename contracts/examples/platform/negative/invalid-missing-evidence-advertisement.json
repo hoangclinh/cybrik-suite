@@ -1,12 +1,12 @@
 {
-  "target_profile_id": "valid-profile-id",
+  "target_profile_id": "onprem-airgap-v1",
   "target_profile_version": "1.0.0",
-  "provider_namespace": "valid-provider",
+  "provider_namespace": "provider-one",
   "advertised_capabilities": [
     {
-      "capability_name": "valid-cap",
-      "slot_id": "storage",
-      "description": "valid description"
+      "capability_name": "oci_container_runtime",
+      "slot_id": "oci_container_runtime",
+      "description": "Standard OCI runtime"
     }
   ],
   "conformance_evidence": [],

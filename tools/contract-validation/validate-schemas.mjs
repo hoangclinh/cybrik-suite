@@ -236,12 +236,12 @@ for (const file of platformPositives) {
 const EXPECTED_PLATFORM_NEGATIVES = {
   'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path' },
   'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
-  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '/operator_trust_root' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '' },
   'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
   'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace' },
-  'invalid-platform-all-false.json': { keyword: 'type', instancePath: '/slots/oci_container_runtime' },
+  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/provided' },
   'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
@@ -252,6 +252,9 @@ const EXPECTED_PLATFORM_NEGATIVES = {
 if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
   const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
   const negFiles = fsNode.readdirSync(join(PLATFORM_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  if (negFiles.length !== Object.keys(EXPECTED_PLATFORM_NEGATIVES).length) {
+    fail(`platform negative examples count mismatch: expected ${Object.keys(EXPECTED_PLATFORM_NEGATIVES).length}, got ${negFiles.length}`);
+  }
   for (const file of negFiles) {
     const exPath = join(PLATFORM_EXAMPLES_DIR, 'negative', file);
     
@@ -271,6 +274,9 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
+      if (validate.errors.length !== 1) {
+        fail(`platform negative example ${file}: expected exactly 1 error, got ${validate.errors.length}`);
+      }
       const expected = EXPECTED_PLATFORM_NEGATIVES[file];
       if (!expected) {
         fail(`platform negative example ${file}: no expected invariant/error mapped!`);

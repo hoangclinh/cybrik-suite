@@ -1,14 +1,26 @@
 {
-  "bundle_identifier": "my-bundle",
-  "release_tag": "v1.0.0",
-  "operator_trust_root": {
-    
-  },
-  "bundle_signature": "0123456789abcdef0123456789abcdef",
+  "bundle_identifier": "my-bundle-1",
+  "release_tag": "v1.2.3",
+  "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
   "artifacts": [
-    { "name": "a1", "path": "/a1", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "size_bytes": 100 }
+    {
+      "name": "image-1",
+      "path": "images/image-1.tar",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 1024
+    }
   ],
   "migration_reversibility_guaranteed": true,
-  "rollback_procedure_reference": "ref123",
-  "update_station_workflow": { "steps": [] }
+  "rollback_procedure_reference": "doc://rollback",
+  "update_station_workflow": {
+    "preflight_steps": [
+      "check-disk-space"
+    ],
+    "apply_steps": [
+      "extract-images"
+    ],
+    "rollback_steps": [
+      "restore-backup"
+    ]
+  }
 }

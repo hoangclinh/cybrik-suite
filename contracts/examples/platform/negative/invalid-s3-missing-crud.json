@@ -1,5 +1,5 @@
 {
-  "provider_identifier": "valid-storage",
+  "provider_identifier": "minio-embedded",
   "mandatory_operations": {
     "crud": true,
     "multipart_upload": true,
@@ -9,7 +9,9 @@
     "versioning": true,
     "error_mappings": true
   },
-  "supported_optional_features": {},
+  "supported_optional_features": {
+    "object_lock": true
+  },
   "required_operations": [],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
@@ -18,5 +20,6 @@
     "NoSuchBucket",
     "AccessDenied",
     "EntityTooLarge"
-  ]
+  ],
+  "optional_retention": true
 }

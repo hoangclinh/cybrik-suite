@@ -71,12 +71,12 @@ test('validate positive platform fixtures', () => {
 
 const EXPECTED_NEGATIVES = {
   'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
-  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '/operator_trust_root' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '' },
   'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
   'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace' },
-  'invalid-platform-all-false.json': { keyword: 'type', instancePath: '/slots/oci_container_runtime' },
+  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/provided' },
   'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
@@ -87,6 +87,7 @@ const EXPECTED_NEGATIVES = {
 
 test('validate negative platform fixtures', () => {
   const negatives = readdirSync(join(EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  assert.equal(negatives.length, Object.keys(EXPECTED_NEGATIVES).length, 'Must have exactly 13 negative fixtures');
   
   for (const file of negatives) {
     let schemaId;
@@ -103,6 +104,7 @@ test('validate negative platform fixtures', () => {
     
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
+    assert.equal(ajv.errors.length, 1, `Expected exactly 1 error for ${file}, got ${ajv.errors.length}: ${ajv.errorsText()}`);
 
     const expected = EXPECTED_NEGATIVES[file];
     assert.ok(expected, `No expected error mapped for ${file}`);
