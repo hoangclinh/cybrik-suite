@@ -1,34 +1,69 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.offline-install-update-manifest.v1.schema.json",
   "title": "CYBRIK Offline Install Update Manifest v1",
   "type": "object",
   "properties": {
-    "manifest_version": { "type": "string" },
-    "bundle_id": { "type": "string" },
-    "signature": { "type": "string" },
-    "operator_trust_root": { "type": "string" },
-    "reversibility_supported": { "type": "boolean" },
-    "rollback_supported": { "type": "boolean" },
+    "release_tag": {
+      "type": "string"
+    },
+    "operator_trust_root": {
+      "type": "object",
+      "properties": {
+        "key_id": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "algorithm": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key_id",
+        "fingerprint",
+        "algorithm"
+      ]
+    },
     "artifacts": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "sha256": { "type": "string" },
-          "type": { "type": "string" }
+          "name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "type": {
+            "type": "string"
+          }
         },
-        "required": ["name", "sha256"]
+        "required": [
+          "name",
+          "sha256"
+        ]
       }
+    },
+    "migration_reversibility_guaranteed": {
+      "const": true
+    },
+    "rollback_procedure_reference": {
+      "type": "string"
+    },
+    "update_station_workflow": {
+      "type": "string"
     }
   },
   "required": [
-    "manifest_version",
-    "bundle_id",
-    "signature",
+    "release_tag",
     "operator_trust_root",
-    "reversibility_supported",
-    "rollback_supported"
+    "artifacts",
+    "migration_reversibility_guaranteed",
+    "rollback_procedure_reference",
+    "update_station_workflow"
   ]
 }

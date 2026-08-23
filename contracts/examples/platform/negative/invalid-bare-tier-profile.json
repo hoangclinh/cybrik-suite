@@ -1,6 +1,8 @@
 {
-  "profile_id": "hybrid-sovereign-v1",
+  "profile_id": "T0",
   "profile_version": "1.0.0",
+  "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
+  "isolation_floor": "standard_container",
   "capability_set": {
     "oci_container_runtime": "some-provider",
     "isolation_substrate": "some-provider",
@@ -30,7 +32,5 @@
     "observability": "MANDATORY",
     "ai_model_runtime": "MANDATORY",
     "artifact_update_mechanism": "MANDATORY"
-  },
-  "sovereignty_class": "OPTIONAL_HYBRID",
-  "isolation_floor": "standard_container"
+  }
 }

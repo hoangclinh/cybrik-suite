@@ -1,23 +1,59 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.provider-capability-advertisement.v1.schema.json",
   "title": "CYBRIK Provider Capability Advertisement v1",
   "type": "object",
   "properties": {
-    "provider_namespace": { "type": "string" },
+    "provider_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
     "capabilities": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "capability_id": { "type": "string" },
-          "version": { "type": "string" },
-          "supported": { "type": "boolean" },
-          "details": { "type": "object" }
+          "capability_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "object"
+          }
         },
-        "required": ["capability_id", "supported"]
+        "required": [
+          "capability_id",
+          "supported"
+        ]
       }
+    },
+    "conformance_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "degradation_behavior": {
+      "type": "string",
+      "enum": [
+        "FAIL_CLOSED",
+        "EXPLICIT_FALLBACK"
+      ]
+    },
+    "authenticated_discovery": {
+      "type": "boolean"
     }
   },
-  "required": ["provider_namespace", "capabilities"]
+  "required": [
+    "provider_namespace",
+    "capabilities",
+    "conformance_evidence",
+    "degradation_behavior",
+    "authenticated_discovery"
+  ]
 }

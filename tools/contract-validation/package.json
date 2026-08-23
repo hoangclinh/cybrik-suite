@@ -39,7 +39,9 @@
     "validate:topology-grant": "node validate-topology-grant.mjs",
     "test:topology-grant": "node --test tests/validate-topology-grant.test.mjs",
     "test:w1-contracts": "node validate.mjs --test-w1-contracts",
-    "test:w1-control": "node --test ../operations/tests/validate-w1-control.test.mjs"
+    "test:w1-control": "node --test ../operations/tests/validate-w1-control.test.mjs",
+    "validate:platform": "node --test tests/validate-platform-contract.test.mjs",
+    "test:platform": "node --test tests/validate-platform-contract.test.mjs"
   },
   "dependencies": {
     "@asyncapi/parser": "3.6.0",

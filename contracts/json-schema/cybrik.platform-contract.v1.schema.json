@@ -1,43 +1,74 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.platform-contract.v1.schema.json",
   "title": "CYBRIK Platform Contract Proposal v1",
   "type": "object",
   "properties": {
-    "version": { "type": "string" },
+    "version": {
+      "type": "string"
+    },
     "slots": {
       "type": "object",
       "properties": {
-        "oci_image_runtime": { "type": "boolean" },
-        "execution_isolation": { "type": "boolean" },
-        "orchestration": { "type": "boolean" },
-        "network_segmentation": { "type": "boolean" },
-        "persistent_storage": { "type": "boolean" },
-        "relational_datastore": { "type": "boolean" },
-        "in_memory_cache": { "type": "boolean" },
-        "secret_management": { "type": "boolean" },
-        "identity_authentication": { "type": "boolean" },
-        "observability": { "type": "boolean" },
-        "ai_model_runtime": { "type": "boolean" },
-        "sovereign_exchange": { "type": "boolean" },
-        "artifact_offline_update": { "type": "boolean" }
+        "oci_container_runtime": {
+          "type": "boolean"
+        },
+        "isolation_substrate": {
+          "type": "boolean"
+        },
+        "orchestration_capability": {
+          "type": "boolean"
+        },
+        "network_segmentation": {
+          "type": "boolean"
+        },
+        "storage": {
+          "type": "boolean"
+        },
+        "database": {
+          "type": "boolean"
+        },
+        "cache": {
+          "type": "boolean"
+        },
+        "secrets": {
+          "type": "boolean"
+        },
+        "crypto": {
+          "type": "boolean"
+        },
+        "identity_workload_identity": {
+          "type": "boolean"
+        },
+        "observability": {
+          "type": "boolean"
+        },
+        "ai_model_runtime": {
+          "type": "boolean"
+        },
+        "artifact_update_mechanism": {
+          "type": "boolean"
+        }
       },
       "required": [
-        "oci_image_runtime",
-        "execution_isolation",
-        "orchestration",
+        "oci_container_runtime",
+        "isolation_substrate",
+        "orchestration_capability",
         "network_segmentation",
-        "persistent_storage",
-        "relational_datastore",
-        "in_memory_cache",
-        "secret_management",
-        "identity_authentication",
+        "storage",
+        "database",
+        "cache",
+        "secrets",
+        "crypto",
+        "identity_workload_identity",
         "observability",
         "ai_model_runtime",
-        "sovereign_exchange",
-        "artifact_offline_update"
+        "artifact_update_mechanism"
       ]
     }
   },
-  "required": ["version", "slots"]
+  "required": [
+    "version",
+    "slots"
+  ]
 }

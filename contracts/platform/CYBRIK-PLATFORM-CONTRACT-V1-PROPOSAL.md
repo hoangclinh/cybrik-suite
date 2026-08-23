@@ -6,7 +6,7 @@
 ## 1. Overview
 This contract defines the 13 minimum capability slots (ADR-0015 §5.2) required to form the substrate for the CYBRIK Autonomous Security Operations platform. It serves as an architectural agreement detailing expectations between the control plane, data plane, and underlying platform capability providers.
 
-This contract explicitly defines boundaries and non-goals to prevent capability bloat.
+This contract explicitly defines boundaries and non-goals to prevent capability bloat. It is purely capability-based and vendor-free. Specific technologies such as PostgreSQL, Valkey, MinIO, Ceph, Vault, and Kubernetes are merely reference targets and provider adapter realizations, not normative hard dependencies.
 
 ### Non-Goals & Boundaries
 * **Does NOT** select a Kubernetes distribution (RKE2, K3s, OpenShift, etc. are NOT selected).
@@ -19,66 +19,44 @@ This contract explicitly defines boundaries and non-goals to prevent capability 
 
 The platform requires 13 fundamental capability slots to operate. Providers MUST fulfill these to the levels required by their respective `VERSIONED_DEPLOYMENT_PROFILE`.
 
-### Slot 1: OCI Image Runtime
-A compliant runtime to execute Open Container Initiative images.
+### Slot 1: `oci_container_runtime`
+OCI / container runtime: image format, rootless posture, verification at load.
 
-### Slot 2: Execution Isolation
-Defines sandbox and isolation per ADR-0005 profiles. Required to run multi-tenant or untrusted workloads securely.
+### Slot 2: `isolation_substrate`
+Isolation substrate: ADR-0005 isolation classes and observable guarantees.
 
-### Slot 3: Orchestration
-Orchestration of compute and container life cycles.
+### Slot 3: `orchestration_capability`
+Orchestration capability: scheduling, lifecycle, health, rollout/rollback. Reference targets include Kubernetes.
 
-### Slot 4: Network Segmentation & DNS Egress Guards
-Network micro-segmentation capabilities and strict DNS-based egress controls to prevent data exfiltration.
+### Slot 4: `network_segmentation`
+Network segmentation: default-deny, segment boundaries, egress mediation, DNS TOCTOU guard seam.
 
-### Slot 5: Persistent Storage & Minimum S3 Compatibility Subset
-S3-compatible object storage requiring:
-- CRUD operations
-- Multipart upload
-- Presigning
-- SigV4 auth
-- Path-style addressing
-- Standard error codes
-- Optional Object Lock/WORM per OPEN-2
+### Slot 5: `storage`
+Storage: durability, integrity, retention, immutability, minimum S3 compatibility subset per OPEN-2.
 
-### Slot 6: Relational Datastore
-- PostgreSQL >= 16.4
-- TLS enforced
-- Dedicated roles
-- RLS with NOBYPASSRLS
+### Slot 6: `database`
+Database: transaction, isolation-level, backup/restore, RLS-compatible semantics. Reference targets include PostgreSQL.
 
-### Slot 7: In-Memory Cache / Key-Value
-- Valkey 8+ / Redis 7.2+
-- TLS enforced
-- Authenticated
-- `noeviction` eviction policy
+### Slot 7: `cache`
+Cache: consistency, eviction semantics, noeviction. Reference targets include Valkey.
 
-### Slot 8: Secret Management
-Requires customer-controlled secret boundaries (e.g., dedicated KMS, HSM, or strictly bounded secret domains).
+### Slot 8: `secrets`
+Secrets: storage, rotation, non-exfiltration, startup-presence validation. Reference targets include Vault.
 
-### Slot 9: Identity & Workload Authentication
-Workload mTLS and scoped service identity bridging.
+### Slot 9: `crypto`
+Crypto: pluggable provider seam with a stable interface per SOC ADR-0018.
 
-### Slot 10: Observability
-- Prometheus metrics endpoint compatibility.
-- Structured JSON logging.
+### Slot 10: `identity_workload_identity`
+Identity / workload identity: E2/E3 two-layer trust seam of ADR-0006 and ADR-0008.
 
-### Slot 11: AI / Model Runtime
-- Local/private model runtime (e.g., vLLM/Ollama).
-- Model provenance validation.
-- Airgap capability.
-- Optional cloud fallback with circuit breaker.
+### Slot 11: `observability`
+Observability: trace/metric/log semantics and sovereignty classification.
 
-### Slot 12: Sovereign Cross-Domain Exchange & Hybrid Controls
-- `SOVEREIGN_CONTROLLED_CROSS_DOMAIN_EXCHANGE`.
-- Strict default-deny egress policies across sovereign boundaries.
+### Slot 12: `ai_model_runtime`
+AI / model runtime: local/private inference, egress posture, model provenance.
 
-### Slot 13: Artifact & Offline Update Mechanism
-- Signed offline bundles.
-- Operator trust root validation.
-- Offline installation support.
-- Migration reversibility.
-- Rollback capability (per OPEN-1).
+### Slot 13: `artifact_update_mechanism`
+Artifact / update mechanism: signed bundles, offline install/update, trust root, rollback per OPEN-1.
 
 ## 3. VERSIONED_DEPLOYMENT_PROFILE Specification (INV-17)
 
@@ -89,8 +67,8 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 * **profile_version**: Semver version of the profile.
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
-* **sovereignty_class**: E.g., `PUBLIC`, `SOVEREIGN`, `AIRGAP`.
-* **isolation_floor**: The minimum execution isolation level required (mapping to ADR-0005).
+* **sovereignty_class**: E.g., `SOVEREIGN_CUSTOMER_CONTROLLED`, `CONTROLLED_CROSS_DOMAIN`, `OPTIONAL_HYBRID`.
+* **isolation_floor**: The minimum execution isolation level required (`standard_container`, `gvisor_runsc`, `firecracker_jailer`, `kata_runtime_class`).
 
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 
@@ -99,9 +77,32 @@ To prevent confusion, the following orthogonal axes are strictly disambiguated:
 * **ISOLATION_TIER**: Focuses strictly on sandboxing technologies, boundary enforcement, and workload isolation levels (ADR-0005).
 * **VERSIONED_DEPLOYMENT_PROFILE**: Defines the conformance subject, packaging the deployment requirements (slots + capabilities).
 
-## 5. Optional Provider Capability Negotiation Protocol (OPEN-5)
+## 5. Minimum S3 Subset Specification (OPEN-2)
+
+The `storage` capability requires a minimum S3 compatibility subset including:
+- CRUD operations
+- Multipart upload
+- Presigning
+- SigV4 auth
+- Path-style addressing
+- Versioning
+- Retention
+- Standard error code mapping
+- Optional Object Lock/WORM
+
+## 6. Optional Provider Capability Negotiation Protocol (OPEN-5)
 
 To allow platform environments to auto-discover capabilities without manual hardcoding, an optional negotiation protocol is defined:
-* **Namespaced Provider Capabilities**: Capabilities are advertised in strict namespaces to avoid collision.
-* **Capability Advertisement Schema**: A structured JSON mechanism (`cybrik.provider-capability-advertisement.v1.schema.json`) for the platform to declare its supported extensions (e.g., Object Lock).
-* **Fail-Closed Discovery**: If discovery fails or is unsupported, the platform defaults to assuming the minimum baseline capability is absent, requiring manual overrides or failing safely.
+* **Namespaced Provider Capabilities**: Capabilities are advertised in strict namespaces (`provider_namespace`) to avoid collision.
+* **Capability Advertisement Schema**: A structured JSON mechanism (`cybrik.provider-capability-advertisement.v1.schema.json`) to declare supported capabilities, conformance evidence (`conformance_evidence`), and authenticated discovery (`authenticated_discovery`).
+* **Degradation Behavior**: Must specify `degradation_behavior` as `FAIL_CLOSED` or `EXPLICIT_FALLBACK`.
+
+## 7. Offline Install & Update Manifest (OPEN-1)
+
+The `artifact_update_mechanism` capability defines an offline update manifest (`cybrik.offline-install-update-manifest.v1.schema.json`) requiring:
+- `release_tag`
+- `operator_trust_root` (key ID, fingerprint, algorithm)
+- Array of `artifacts` with strict hex SHA-256 validation
+- `migration_reversibility_guaranteed: true`
+- `rollback_procedure_reference`
+- `update_station_workflow`

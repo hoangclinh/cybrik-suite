@@ -1,5 +1,5 @@
 {
-  "provider_namespace": "provider-one",
+  "provider_namespace": "Provider_Namespace!",
   "capabilities": [
     {
       "capability_id": "oci_container_runtime",
