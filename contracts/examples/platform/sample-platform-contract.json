@@ -1,56 +1,121 @@
 {
   "slots": {
     "oci_container_runtime": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "oci_container_runtime",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "isolation_substrate": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "isolation_substrate",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "orchestration_capability": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "orchestration_capability",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "network_segmentation": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "network_segmentation",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "storage": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "storage",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "database": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "database",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "cache": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "cache",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "secrets": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "secrets",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "crypto": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "crypto",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "identity_workload_identity": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "identity_workload_identity",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "observability": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "observability",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "ai_model_runtime": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "ai_model_runtime",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     },
     "artifact_update_mechanism": {
-      "provided": true,
-      "specification": "spec"
+      "slot_id": "artifact_update_mechanism",
+      "specification": {
+        "required": true,
+        "description": "Standard capability",
+        "interface_standard": "CYBRIK-STD-1.0"
+      },
+      "conformance_profile": "strict-v1"
     }
   },
   "contract_version": "1.0.0"

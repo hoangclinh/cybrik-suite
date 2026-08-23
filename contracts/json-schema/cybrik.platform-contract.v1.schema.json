@@ -16,210 +16,496 @@
         "oci_container_runtime": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "isolation_substrate": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "orchestration_capability": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "network_segmentation": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "storage": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "database": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "cache": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "secrets": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "crypto": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "identity_workload_identity": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "observability": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "ai_model_runtime": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         },
         "artifact_update_mechanism": {
           "type": "object",
           "required": [
-            "provided"
+            "slot_id",
+            "specification",
+            "conformance_profile"
           ],
+          "additionalProperties": false,
           "properties": {
-            "provided": {
-              "type": "boolean",
-              "const": true
+            "slot_id": {
+              "type": "string"
             },
             "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
               "type": "string"
             }
-          },
-          "additionalProperties": false
+          }
         }
       },
       "required": [

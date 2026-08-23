@@ -70,7 +70,7 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
 * **sovereignty_class**: E.g., `SOVEREIGN_CUSTOMER_CONTROLLED`, `CONTROLLED_CROSS_DOMAIN`, `OPTIONAL_HYBRID`.
-* **isolation_policy**: Structural isolation policy modeling minimum execution isolation floor, admitted risk classes, disposable execution requirements, network egress isolation, and downgrade guarantees.
+* **isolation_policy**: Structural isolation policy modeling minimum execution isolation floor (S0-S4), admitted risk classes, disposable execution requirements, network egress isolation, and downgrade guarantees.
 
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 

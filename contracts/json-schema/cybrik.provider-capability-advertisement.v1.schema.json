@@ -11,11 +11,16 @@
   "properties": {
     "target_profile_id": {
       "type": "string",
-      "pattern": "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"
+      "enum": [
+        "onprem-standard-v1",
+        "onprem-airgap-v1",
+        "private-cloud-v1",
+        "hybrid-sovereign-v1"
+      ]
     },
     "target_profile_version": {
       "type": "string",
-      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+      "const": "1.0.0"
     },
     "provider_namespace": {
       "type": "string",
@@ -111,7 +116,8 @@
           "verification_method",
           "report_uri"
         ]
-      }
+      },
+      "uniqueItems": true
     },
     "degradation_behavior": {
       "const": "FAIL_CLOSED"

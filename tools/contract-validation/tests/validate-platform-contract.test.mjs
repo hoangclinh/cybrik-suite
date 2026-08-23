@@ -23,7 +23,13 @@ const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId === 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json') {
     if (data.advertised_capabilities && data.conformance_evidence) {
-      const validTests = new Set(data.conformance_evidence.map(e => e.test_identifier));
+      const validTests = new Set();
+      for (const e of data.conformance_evidence) {
+        if (validTests.has(e.test_identifier)) {
+          throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
+        }
+        validTests.add(e.test_identifier);
+      }
       for (const cap of data.advertised_capabilities) {
         for (const ref of (cap.evidence_references || [])) {
           if (!validTests.has(ref)) {
@@ -104,7 +110,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
-  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/provided', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/provided/const', params: { allowedValue: true }, message: 'must be equal to constant' },
+  'invalid-platform-all-false.json': { keyword: 'required', instancePath: '/slots/oci_container_runtime/specification', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/required', params: { missingProperty: 'interface_standard' }, message: "must have required property 'interface_standard'" },
   'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 14 }, message: 'must NOT have fewer than 14 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
@@ -147,7 +153,7 @@ test('validate negative platform fixtures', () => {
 test('in-memory validation: reject full profile with 13 identical slots', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
   const data = {
-    "target_profile_id": "onprem-standard",
+    "target_profile_id": "onprem-standard-v1",
     "target_profile_version": "1.0.0",
     "provider_namespace": "evil-corp",
     "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
@@ -175,7 +181,7 @@ test('in-memory validation: reject full profile with 13 identical slots', () => 
 test('in-memory validation: reject advertisement with unresolvable evidence reference', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
   const data = {
-    "target_profile_id": "onprem-standard",
+    "target_profile_id": "onprem-standard-v1",
     "target_profile_version": "1.0.0",
     "provider_namespace": "evil-corp",
     "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
