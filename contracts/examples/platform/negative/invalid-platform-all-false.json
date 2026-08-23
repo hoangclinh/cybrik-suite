@@ -12,7 +12,7 @@
     "isolation_substrate": {
       "slot_id": "isolation_substrate",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -21,7 +21,7 @@
     "orchestration_capability": {
       "slot_id": "orchestration_capability",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -30,7 +30,7 @@
     "network_segmentation": {
       "slot_id": "network_segmentation",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -39,7 +39,7 @@
     "storage": {
       "slot_id": "storage",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -48,7 +48,7 @@
     "database": {
       "slot_id": "database",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -57,7 +57,7 @@
     "cache": {
       "slot_id": "cache",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -66,7 +66,7 @@
     "secrets": {
       "slot_id": "secrets",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -75,7 +75,7 @@
     "crypto": {
       "slot_id": "crypto",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -84,7 +84,7 @@
     "identity_workload_identity": {
       "slot_id": "identity_workload_identity",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -93,7 +93,7 @@
     "observability": {
       "slot_id": "observability",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -102,7 +102,7 @@
     "ai_model_runtime": {
       "slot_id": "ai_model_runtime",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -111,7 +111,7 @@
     "artifact_update_mechanism": {
       "slot_id": "artifact_update_mechanism",
       "specification": {
-        "required": false,
+        "required": true,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },

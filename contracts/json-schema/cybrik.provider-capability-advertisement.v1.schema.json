@@ -150,6 +150,8 @@
           {
             "properties": {
               "advertised_capabilities": {
+                "minItems": 13,
+                "maxItems": 13,
                 "contains": {
                   "properties": {
                     "slot_id": {

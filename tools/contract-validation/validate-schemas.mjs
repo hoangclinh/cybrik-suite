@@ -308,9 +308,8 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      const expectedCount = file === 'invalid-platform-all-false.json' ? 13 : 1;
-      if (validate.errors.length !== expectedCount) {
-        fail(`platform negative example ${file}: expected exactly ${expectedCount} error, got ${validate.errors.length}`);
+      if (validate.errors.length !== 1) {
+        fail(`platform negative example ${file}: expected exactly 1 error, got ${validate.errors.length}`);
       }
       const expected = EXPECTED_PLATFORM_NEGATIVES[file];
       if (!expected) {

@@ -1,7 +1,7 @@
-# Platform Contract Proposal (v1.0.0-proposed)
+# Platform Contract Proposal (v0.1.0-proposed)
 
 **Status:** PROPOSED
-**Authoring Phase:** v0.1.0-proposed to v1.0.0-proposed (Architecture/governance proposal; no implementation authority).
+**Authoring Phase:** v0.1.0-proposed to v0.1.0-proposed (Architecture/governance proposal; no implementation authority).
 
 ## 1. Overview
 This contract defines the 13 minimum capability slots (cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §5.2) required to form the substrate for the CYBRIK Autonomous Security Operations platform. It serves as an architectural agreement detailing expectations between the control plane, data plane, and underlying platform capability providers.

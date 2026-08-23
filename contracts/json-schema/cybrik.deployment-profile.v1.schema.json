@@ -505,6 +505,15 @@
                   "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
                   "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
                 ]
+              },
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "enum": [
+                  "FAIL_CLOSED_NO_EGRESS",
+                  "MEDIATED_EGRESS_BROKER"
+                ]
               }
             }
           }

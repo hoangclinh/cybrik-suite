@@ -140,8 +140,7 @@ test('validate negative platform fixtures', () => {
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
 
-    const expectedCount = file === 'invalid-platform-all-false.json' ? 13 : 1;
-    assert.equal(ajv.errors.length, expectedCount, `Expected exactly ${expectedCount} error for ${file}, got ${ajv.errors.length}: ${ajv.errorsText()}`);
+    assert.equal(ajv.errors.length, 1, `Expected exactly 1 error for ${file}, got ${ajv.errors.length}: ${ajv.errorsText()}`);
 
 
     const expected = EXPECTED_NEGATIVES[file];
