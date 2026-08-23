@@ -51,6 +51,13 @@ Current W1 contract/control lifecycle is
 in older W1 records without changing their dated provenance. It is not runtime, UAT, stable-v1/GA
 or production evidence.
 
+ADR-0015 (deployment priority, data sovereignty & provider-neutral platform boundary) is registered
+as `PROPOSED`, Decider `FOUNDER`, raised 2026-08-23. Registration places the proposal under this
+authoritative catalog at the start of the lifecycle below; it is **not** acceptance, **not** Founder
+ratification, and **not** implementation authority. Every earlier statement on this page that no
+suite ADR is still `PROPOSED` describes the accepted base catalog before this additive record, and
+flips no existing ADR status. No product repository may implement against ADR-0015.
+
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-0001](ADR-0001-suite-contract-versioning-policy.md) | Suite contract/versioning policy | `ACCEPTED` (2026-07-24) |
@@ -67,6 +74,7 @@ or production evidence.
 | [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; design floor only, runtime and production remain unauthorized |
+| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `PROPOSED` (raised 2026-08-23) — Decider `FOUNDER`; consolidation/governance proposal, not accepted, no implementation authority |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
 specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains

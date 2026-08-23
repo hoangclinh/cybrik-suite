@@ -17,8 +17,8 @@
 
 ## 0. Label vocabulary — how to read this ADR
 
-Every normative or descriptive claim below carries exactly one of these labels. A claim without a
-label is framing, not authority.
+Every normative or descriptive claim below carries **one or more** of these labels. A claim without
+a label is framing, not authority.
 
 | Label | Meaning | Who may change it |
 |---|---|---|
@@ -28,8 +28,24 @@ label is framing, not authority.
 | `OPEN_QUESTION` | Explicitly unresolved. Acceptance of this ADR does **not** close it | A later bounded decision |
 | `OPTIONAL_PROFILE` | Permitted but never mandatory; may not become a release or core dependency | Founder, per profile |
 
-Normative keywords `MUST`, `MUST NOT`, `SHOULD`, `MAY` are used in the RFC 2119 sense and apply
-only to `ARCHITECTURAL_INVARIANT` and `FOUNDER_POLICY` items, and only after acceptance.
+**Compound classification.** A single item legitimately carries more than one label — a
+`HISTORICAL_FINDING` that a `FOUNDER_POLICY` then incorporates is both, and remains both. Labels are
+written most-binding-first and joined with `+`.
+
+**Precedence, used only where two labels would give conflicting force:**
+
+1. `OPEN_QUESTION` wins over every other label **for the sub-question it names**. An item labelled
+   `OPEN_QUESTION` creates no binding requirement about that sub-question, whatever else it carries.
+2. `FOUNDER_POLICY` and `ARCHITECTURAL_INVARIANT` are binding, and where both apply the invariant
+   text is the operative wording.
+3. `OPTIONAL_PROFILE` never becomes mandatory by association with a binding label.
+4. `HISTORICAL_FINDING` never acquires binding force from a co-label; it stays dated provenance.
+
+**Where binding language may appear.** Normative keywords `MUST`, `MUST NOT`, `SHOULD`, `MAY` are
+used in the RFC 2119 sense, apply only to `ARCHITECTURAL_INVARIANT` and `FOUNDER_POLICY` items, and
+take effect only after acceptance. Sections labelled `OPEN_QUESTION` describe what is unresolved and
+**create no binding requirement of their own**; where a binding rule is adjacent to an open
+question, the rule lives in §4 as a numbered invariant and the open section cites it by number.
 
 ---
 
@@ -46,9 +62,16 @@ describes a sovereign/air-gap tier with private registry, offline update station
 phone-home. `cybrik-soc-command-center:governance/ADR/ADR-0016-sovereign-airgapped-ai-copilot.md`
 and `…/ADR-0017-dual-diode-a05-mtslcd.md` position the product as a national-sovereignty SOC.
 
-No accepted suite ADR selects, mandates or ranks any cloud provider. A repository scan of every
-`docs/adr/ADR-00*.md` in `cybrik-suite` for `AWS`/`GCP`/`Azure`/`EKS`/`GKE`/`AKS`/managed-service
-identifiers returns **zero** matches.
+No pre-existing suite ADR selects, mandates or ranks any cloud provider. Verified scope, stated
+exactly as scanned: the sixteen `cybrik-suite:docs/adr/ADR-0NNN-*.md` files present in the committed
+tree at `BASE_SHA d2b5c7fe799beb94b1dcf0661350de10417da0a3` — ADR-0001 … ADR-0014 plus the two
+status-flip applications — searched case-insensitively for `AWS`, `GCP`, `Azure`, `amazonaws`,
+`EKS`, `GKE`, `AKS`, `managed kubernetes` and `managed service`, returning **zero** matches.
+
+That scope deliberately excludes this file. ADR-0015 discusses AWS extensively (§10), so any scan
+glob that includes it will match, and a claim of "zero matches across every ADR file" would be false
+the moment this ADR exists. The verified claim is about the pre-existing catalog at `BASE_SHA`, not
+about the directory as it stands after this proposal lands.
 
 ### 1.2 AWS-primary was derived drift, not Founder authority
 
@@ -60,8 +83,8 @@ repository evidence:
 |---|---|---|
 | `AWS_PRIMARY_FOUNDER_AUTHORITY` | `NOT_FOUND` | No accepted suite ADR names a provider (C1) |
 | `AWS_PRIMARY_DEPLOYMENT_DECISION` | `VOID_UNRATIFIED_DERIVED_DRIFT` | The AWS estate exists only in a derived repository |
-| `PRODUCT_CORE_CONTAMINATED` | `NO` | No provider SDK/service in any product runtime path (Decision B, §10.2) |
-| `RC1_TAG_CONTAMINATED` | `NO` | At `v1.0.0-rc1` the only AWS-shaped hits are the S3-protocol client and its SigV4 credential env names, both pointed at self-hosted SeaweedFS (Decision B, §10.2) |
+| `PRODUCT_CORE_CONTAMINATED` | `NO` | No provider-specific infrastructure service is mandatory to any product domain/core contract. The one provider-origin SDK in the products sits in a `PRODUCT_IMPLEMENTATION_ADAPTER` speaking a portable protocol (Decision B, §5.1, §10.2) |
+| `RC1_TAG_CONTAMINATED` | `NO` — **scoped to dependency-bearing runtime paths**, not to document text | At `v1.0.0-rc1` exactly one declared provider-SDK dependency exists across all four repositories, and it is a portable S3-protocol client pointed at self-hosted SeaweedFS. Provider **text** does occur at the tag in architecture, governance and research documents; that is not contamination. See §10.2 for the full scoped statement |
 | `CONTRACTS_CONTAMINATED` | `NO` | `cybrik-suite:contracts/` declares no provider-bound schema; the packet is itself `PROPOSED — NOT ACCEPTED` |
 | `DERIVED_DEPLOYMENT_LAYER_CONTAMINATED` | `YES` | `soc-production-infrastructure:terraform/` declares `provider "aws"` (primary + DR region) and `provider "cloudflare"`, with VPC/ALB/IAM/security-group/observability/S3-WORM/S3-DR modules |
 
@@ -218,34 +241,52 @@ implementation status is described exactly as it is (§7.3), including one `OPEN
 
 `ARCHITECTURAL_INVARIANT`.
 
-Four layers are defined — `PRODUCT_CORE`, `PLATFORM_CONTRACT`, `DEPLOYMENT_PROFILE`,
-`PROVIDER_ADAPTER` (§5). The Platform Contract MUST be capability-based and MUST NOT name vendors.
+Four layers are defined (§5). The top **product layer** has two distinguished parts —
+`PRODUCT_CORE` (domain logic, authority logic, security invariants and portable contracts, behind
+explicit ports) and `PRODUCT_IMPLEMENTATION_ADAPTER` (portable realizations of those ports, which
+MAY hold concrete protocol/runtime/storage knowledge). Below it sit `PLATFORM_CONTRACT`,
+`DEPLOYMENT_PROFILE` and `PROVIDER_ADAPTER`. The Platform Contract MUST be capability-based and MUST
+NOT name vendors, and the normative conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE`
+(§5.3).
 
 ### Decision F — Isolation semantics
 
 `ARCHITECTURAL_INVARIANT`.
 
-Accepted ADR-0005 isolation requirements are preserved. A deployment profile MUST NOT be selected
-that cannot meet the isolation profile required by the risk classes it admits, and a provider
-profile MUST NOT claim support for a tier whose **mandatory** isolation capabilities it cannot
-satisfy. Optional capabilities are not required of every optional profile.
+Accepted ADR-0005 isolation requirements are preserved. A `VERSIONED_DEPLOYMENT_PROFILE` MUST NOT
+be selected that cannot meet the isolation required by the risk classes it admits, and a provider
+adapter MUST NOT declare support for a `VERSIONED_DEPLOYMENT_PROFILE` whose **mandatory** isolation
+capabilities it cannot satisfy. Optional capabilities are not required of every optional adapter.
+
+The conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE`, never `T0`/`T1`/`T2` — those tokens
+carry no executable conformance meaning until the canonical tier contract is accepted (§6.2).
 
 ### Decision G — Deployment profile / tier semantics
 
-`OPEN_QUESTION`. `CANONICAL_T0_T1_T2_SEMANTICS = OPEN`.
+`ARCHITECTURAL_INVARIANT` + `OPEN_QUESTION` — a compound item (§0). The two halves are separated so
+neither borrows force from the other:
 
-The token `T0`/`T1`/`T2` is **reserved** and MUST NOT be given canonical meaning by this ADR. At
-least four incompatible in-repository usages exist across two orthogonal axes (§6.2). One
-versioned tier contract MUST exist before any downstream implementation relies on the names.
+**Binding half** (`ARCHITECTURAL_INVARIANT`, recorded as `INV-15` and `INV-17` in §4): `T0`/`T1`/`T2`
+have no executable conformance meaning, MUST NOT be used as a normative conformance target, and the
+normative conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE` defined in §5.3.
+
+**Open half** (`OPEN_QUESTION` — `CANONICAL_T0_T1_T2_SEMANTICS = OPEN`): what the tokens should
+canonically mean is not decided here and is not decided by this ADR's acceptance. At least four
+incompatible in-repository usages exist across two orthogonal axes (§6.2). Resolving them requires
+one versioned tier contract, produced as separate bounded work.
 
 ### Decision H — Provider adapter governance
 
 `ARCHITECTURAL_INVARIANT`.
 
-Every provider/deployment adapter MUST satisfy the versioned mandatory baseline of every
-deployment tier/profile it claims to support. Provider-specific capabilities MUST be namespaced,
-optional, and capability-advertised, and MUST NOT alter data-sovereignty, authority, isolation or
-artifact-integrity semantics (§8).
+Every deployment/provider adapter MUST satisfy the versioned mandatory baseline of every
+`VERSIONED_DEPLOYMENT_PROFILE` it declares support for. Provider-specific capabilities MUST be
+namespaced, optional, and capability-advertised, and MUST NOT alter data-sovereignty, authority,
+isolation or artifact-integrity semantics (§8).
+
+A declaration of support names a `VERSIONED_DEPLOYMENT_PROFILE` identifier and version. An adapter
+MUST NOT declare support against a tier name, because no accepted contract gives `T0`/`T1`/`T2` a
+conformance meaning (§6.2).
 
 ### Decision I — Provider selection authority
 
@@ -261,7 +302,8 @@ MUST carry the eight fields in §9.1. Candidate sets MUST NOT omit P1/P2 (§9.2)
 
 A planner or controller MUST NOT manufacture a mandatory requirement by selecting a
 provider-native managed service. Every mandatory architecture requirement MUST trace to one of
-five sources; anything untraceable remains `ADVISORY`, `CANDIDATE` or `OPEN` (§10.3).
+at least one of five sources, with all known applicable sources recorded; anything untraceable
+remains `ADVISORY`, `CANDIDATE` or `OPEN` (§10.3).
 
 ---
 
@@ -279,15 +321,21 @@ this ADR is accepted.
 | `INV-5` | A mandatory public-cloud LLM MUST NOT be required by any supported profile (Decision D) |
 | `INV-6` | The Platform Contract MUST be capability-based and MUST NOT name vendors (Decision E) |
 | `INV-7` | A profile MUST NOT be selected that cannot meet the isolation required by the risk classes it admits (Decision F) |
-| `INV-8` | A provider profile MUST NOT claim a tier whose **mandatory** capabilities it cannot satisfy (Decisions F, H) |
-| `INV-9` | Optional capabilities MUST NOT be required of every optional provider profile (Decisions F, H) |
+| `INV-8` | An adapter MUST NOT declare support for a `VERSIONED_DEPLOYMENT_PROFILE` whose **mandatory** capabilities it cannot satisfy (Decisions F, H) |
+| `INV-9` | Optional capabilities MUST NOT be required of every optional provider adapter (Decisions F, H) |
 | `INV-10` | Provider-specific capability names MUST be namespaced and capability-advertised (Decision H) |
 | `INV-11` | A provider adapter MUST NOT weaken sovereignty, authority, isolation or artifact-integrity semantics (Decision H) |
 | `INV-12` | A controller MUST NOT freeze a provider as primary architecture without explicit authority (Decision I) |
 | `INV-13` | A provider candidate set MUST include the P1/P2 deployment priorities (Decision I) |
-| `INV-14` | Every mandatory requirement MUST trace to one of the five authority sources in §10.3 (Decision J) |
-| `INV-15` | `T0`/`T1`/`T2` MUST NOT be relied on by implementation until one versioned tier contract exists (Decision G) |
+| `INV-14` | Every mandatory requirement MUST trace to at least one of the five authority sources in §10.3, with all known applicable sources recorded (Decision J; see `INV-22`) |
+| `INV-15` | `T0`/`T1`/`T2` have **no executable conformance meaning** until the canonical tier contract is accepted, and MUST NOT be used as a normative conformance target (Decision G) |
 | `INV-16` | Status citations MUST carry the source ADR's own qualifier; `PROPOSED` MUST NOT be cited as `ACCEPTED` (§1.5) |
+| `INV-17` | The normative conformance subject MUST be a `VERSIONED_DEPLOYMENT_PROFILE` carrying identifier, version, capability set and per-capability strength (§5.3) |
+| `INV-18` | Where Vietnamese legal interpretation bears on a deployment choice it MUST be marked `LEGAL_REVIEW_REQUIRED`, routed to legal review, and recorded separately from the architecture record (§7.2) |
+| `INV-19` | No artifact MAY assert that S3-compatible systems are interchangeable; the required storage subset MUST be fixed by a versioned contract before portability beyond the proven path is claimed (§14.1) |
+| `INV-20` | The four maturity states MUST be kept distinct, and `TESTED`/`QUALIFIED` MUST NOT be asserted retroactively, by inference, or by association (§7.4) |
+| `INV-21` | A whole repository MUST NOT be classified as `PRODUCT_CORE`; `PRODUCT_CORE` and `PRODUCT_IMPLEMENTATION_ADAPTER` MUST be distinguished within a product repository, and an implementation adapter MUST NOT make a provider-specific infrastructure service mandatory to the domain/core contract (§5.1) |
+| `INV-22` | Every mandatory requirement MUST trace to **at least one** authority source in §10.3, and **all** known applicable sources MUST be recorded (Decision J) |
 
 ---
 
@@ -295,33 +343,72 @@ this ADR is accepted.
 
 `ARCHITECTURAL_INVARIANT` (Decision E).
 
+Four layers. The top layer has **two parts**, and conflating them was the defect R1 carried: a
+product repository is not uniformly substrate-unaware.
+
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ PRODUCT_CORE        domain truth, contracts, policy, authority, receipts     │
-│                     provider-neutral; knows no provider, no substrate        │
+┌─ PRODUCT LAYER ──────────────────────────────────────────────────────────────┐
+│ PRODUCT_CORE                  domain logic, authority logic, security        │
+│                               invariants, portable business/application      │
+│                               contracts — expressed behind explicit ports.   │
+│                               Knows no provider and no substrate.            │
+│ ── ports ────────────────────────────────────────────────────────────────    │
+│ PRODUCT_IMPLEMENTATION_       portable realizations of those ports. MAY hold  │
+│ ADAPTER                       concrete protocol/runtime/storage knowledge     │
+│                               (S3 protocol, OpenAI-compatible HTTP,           │
+│                               PostgreSQL wire). Provider-portable by          │
+│                               construction. Ships with the product.           │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ PLATFORM_CONTRACT   capability-based, versioned, vendor-free                 │
-│                     "what a platform must be able to do", never "who"        │
+│ PLATFORM_CONTRACT             capability-based, versioned, vendor-free.      │
+│                               "what a platform must be able to do", not who. │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ DEPLOYMENT_PROFILE  a named, versioned bundle of Platform Contract           │
-│                     capabilities at stated mandatory/optional strength       │
+│ DEPLOYMENT_PROFILE            a named, VERSIONED_DEPLOYMENT_PROFILE bundling │
+│                               Platform Contract capabilities at stated       │
+│                               MANDATORY / OPTIONAL strength.                 │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ PROVIDER_ADAPTER    one concrete realization; OPTIONAL_PROFILE by default    │
+│ PROVIDER_ADAPTER              one concrete infrastructure realization;       │
+│                               OPTIONAL_PROFILE by default.                   │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Why the split is required.** Accepted `cybrik-suite` ADR-0002 already decided that concrete
+implementation lives inside the products: `G3` accepts *"a thin CYBRIK-owned OpenAI-compatible
+adapter"* presenting one seam over Ollama, vLLM and llama.cpp; `G4` accepts *"one PostgreSQL +
+pgvector"*; `G5` makes any agent SDK *"a replaceable library rather than the contract or authority
+core"*. Its Consequences state that *"CYBRIK owns the stable model and orchestration seams; model
+runtimes and agent SDKs remain replaceable behind those seams."* A model in which whole product
+repositories are substrate-unaware `PRODUCT_CORE` contradicts an accepted ADR. The corrected model
+matches it: the **seam** is core, the **realization behind the seam** is a
+`PRODUCT_IMPLEMENTATION_ADAPTER`.
+
 ### 5.1 Layer rules
 
-- `PRODUCT_CORE` MUST NOT import, reference or branch on a provider identity, a provider service
-  name, or a substrate identity.
+- `PRODUCT_CORE` is **not a repository**; it is the domain-logic, authority-logic,
+  security-invariant and portable-contract subset **within** a product repository, reached only
+  through explicit ports. It MUST NOT import, reference or branch on a provider identity, a
+  provider service name, or a substrate identity. A whole repository MUST NOT be classified as
+  `PRODUCT_CORE` (`INV-21`).
+- A `PRODUCT_IMPLEMENTATION_ADAPTER` realizes a `PRODUCT_CORE` port. It **MAY** contain concrete
+  protocol, runtime and storage implementation knowledge, and it **MUST** remain provider-portable:
+  the protocol it speaks must be satisfiable by more than one deployment without changing the core
+  contract. It **MUST NOT** make a provider-specific infrastructure service mandatory to the
+  domain/core contract, and it **MUST NOT** leak a provider identity through a port signature.
+- The worked example is `cybrik-soc-command-center:ops/pf-workers/pf_workers/s3util.py`: an S3
+  protocol client, concrete about SigV4 and path-style addressing, pointed at self-hosted SeaweedFS
+  through a configured `endpoint_url`. Concrete, and portable. That is exactly a
+  `PRODUCT_IMPLEMENTATION_ADAPTER` — not `PRODUCT_CORE`, and not a `PROVIDER_ADAPTER`.
+- `PROVIDER_ADAPTER` differs from `PRODUCT_IMPLEMENTATION_ADAPTER` by **what it binds**: the former
+  binds a Platform Contract capability to one concrete *infrastructure/provider* realization and is
+  an `OPTIONAL_PROFILE`; the latter binds a product port to a *portable protocol* and ships with the
+  product.
 - `PLATFORM_CONTRACT` MUST express requirements as **capabilities with observable semantics**
   (behaviour, failure mode, guarantee), never as a product name.
-- A `DEPLOYMENT_PROFILE` MUST declare, per capability, whether it is `MANDATORY` or `OPTIONAL` for
-  that profile, and MUST be versioned.
+- A `VERSIONED_DEPLOYMENT_PROFILE` MUST declare, per capability, whether it is `MANDATORY` or
+  `OPTIONAL` for that profile, and MUST carry a profile identifier and version.
 - A `PROVIDER_ADAPTER` MUST advertise the capability set it satisfies and MUST fail closed rather
   than silently degrade a capability it cannot provide.
-- Dependencies point **downward only**: core → contract → profile → adapter. An adapter MUST NOT
-  introduce a requirement upward into the contract or the core.
+- Dependencies point **downward only**: core → (port) → implementation adapter → contract → profile
+  → provider adapter. No lower layer MAY introduce a requirement upward into the core contract.
 
 ### 5.2 Platform Contract capability slots
 
@@ -346,6 +433,30 @@ semantics. **No vendor is selected here, and none may be inferred from this list
 
 Slots 1–13 are the **minimum**. A later Platform Contract MAY add slots; it MUST NOT silently drop
 one.
+
+### 5.3 `VERSIONED_DEPLOYMENT_PROFILE` — the normative conformance subject
+
+`ARCHITECTURAL_INVARIANT` (`INV-17`).
+
+Because no accepted contract gives `T0`/`T1`/`T2` a conformance meaning (§6.2), this ADR needs a
+conformance subject that exists independently of the unresolved tier vocabulary. That subject is the
+`VERSIONED_DEPLOYMENT_PROFILE`.
+
+A `VERSIONED_DEPLOYMENT_PROFILE` is a record that MUST carry:
+
+| Field | Meaning |
+|---|---|
+| profile identifier | a stable name that is **not** a tier token |
+| profile version | so conformance is asserted against exact semantics |
+| capability set | which Platform Contract slots are in scope |
+| strength per capability | `MANDATORY` or `OPTIONAL`, stated per capability |
+| sovereignty class | which §7.1 data classes the profile keeps customer-controlled |
+| isolation floor | the ADR-0005 isolation classes the profile admits |
+
+Every conformance statement in this ADR — Decisions F, H and I, and `INV-7` … `INV-13` — takes a
+`VERSIONED_DEPLOYMENT_PROFILE` as its subject. No profile exists yet; defining the first ones is
+part of the Platform Contract work (`OPEN-10`). Until one exists, no adapter can validly declare
+support for anything, which is the intended fail-closed position.
 
 ---
 
@@ -384,19 +495,32 @@ concretely: the file `deploy/pf/docker-compose.t1.yml` is recorded as carrying *
 sizing*.
 
 Accepted suite ADR-0005 answer `J7` **uses** the labels (Kata `RuntimeClass` at T1/T2, direct
-Firecracker + jailer at T0) without defining them, and
-`cybrik-suite:docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md` states plainly: *"Suite T0/T1/T2
-profiles remain proposals."* So an accepted ADR depends on a vocabulary whose only definitions sit
-in `[PROPOSAL]` and `DRAFT` documents.
+Firecracker + jailer at T0) without defining them. Every definition of the labels sits in a document
+that is itself not accepted: `cybrik-suite:docs/strategy/03-REFERENCE-ARCHITECTURE.md` carries
+`Trạng thái: [PROPOSAL]` in its own header, and the two evidence files are `DRAFT` per the
+authoritative catalog `cybrik-suite:docs/adr/README.md`. Both facts are reproducible from the
+committed tree at `BASE_SHA d2b5c7fe799beb94b1dcf0661350de10417da0a3`. So an accepted ADR depends on
+a vocabulary whose only definitions sit in `[PROPOSAL]` and `DRAFT` documents.
 
-Therefore:
+`NON_AUTHORITATIVE_WORKTREE_ONLY_EVIDENCE` — a further observation, retained because it is useful
+and load-bearing on nothing: an operations file `docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md`
+exists **untracked** in the canonical `cybrik-suite` checkout and states *"Suite T0/T1/T2 profiles
+remain proposals."* It is absent from the committed tree at `BASE_SHA`, is therefore not
+reproducible from repository identity, and is **not** cited as proof of anything in this ADR. It
+corroborates the committed evidence above; it does not carry it. R1 wrongly used it as an
+authoritative source, and this correction removes that dependency rather than committing an
+unrelated file to satisfy the citation.
+
+**T0/T1/T2 has no executable conformance meaning until the canonical tier contract is accepted**
+(`INV-15`, §4). Consequently:
 
 - This ADR **reserves** `T0`/`T1`/`T2` as suite tier tokens and defines none of them.
-- A single **versioned tier contract** MUST be produced before any downstream implementation
-  relies on the names (`INV-15`).
-- Until then, every document using `T0`/`T1`/`T2` SHOULD name its axis explicitly (for example
-  "capacity tier T1" vs "substrate tier T1") so the two axes stop colliding silently.
-- Documents MAY continue to use the tokens as dated historical provenance; nothing is rewritten.
+- The normative conformance subject used throughout this ADR is `VERSIONED_DEPLOYMENT_PROFILE`
+  (§5.3), never a tier name.
+- The binding rules are `INV-15` and `INV-17` in §4. This section states what is unresolved; it
+  creates no requirement of its own.
+- Existing documents using `T0`/`T1`/`T2` keep them as dated evidence and context. Nothing is
+  rewritten, and no such usage becomes a conformance target by being quoted here.
 
 ### 6.3 P3 terminology — cross-domain exchange is not "Hybrid Cloud"
 
@@ -452,12 +576,14 @@ profile carrying it MUST classify it under this section before that profile may 
 
 `OPEN_QUESTION` — `LEGAL_REVIEW_REQUIRED`.
 
+The binding rule is `INV-18` in §4: legal touchpoints are marked `LEGAL_REVIEW_REQUIRED`, routed to
+legal review, and recorded separately from the architecture record. This section adds no requirement
+of its own; it records what is unresolved and where.
+
 This ADR makes an **architectural and product-priority** decision. It makes **no legal judgment**,
 and nothing in it states or implies that public cloud is unlawful.
 
-Where Vietnamese legal interpretation bears on a deployment choice, it MUST be marked
-`LEGAL_REVIEW_REQUIRED` and routed to legal review, separately from the architecture record.
-Existing instances that are already routed and MUST NOT be re-decided here:
+Instances already routed to legal review, none of them re-decided here:
 
 - data-sharing obligations to A05 and the MTSLCD channel (`cybrik-soc-command-center` ADR-0017);
 - state-cipher obligations under the 2011 Cipher Law for classified data
@@ -465,7 +591,8 @@ Existing instances that are already routed and MUST NOT be re-decided here:
 - distribution-licence clearance (`cybrik-soc-command-center:docs/licensing/LEGAL-REVIEW-QD14-DOSSIER.md`,
   recorded as awaiting final legal counter-signature).
 
-Technical architecture conclusions and legal conclusions MUST be kept in separate records.
+Keeping technical-architecture conclusions and legal conclusions in separate records is the binding
+part, and it lives in `INV-18`. The legal interpretations themselves remain unresolved (`OPEN-9`).
 
 ### 7.3 AI sovereignty — current implementation status, stated exactly
 
@@ -491,8 +618,17 @@ Technical architecture conclusions and legal conclusions MUST be kept in separat
   while `guarded_get` issues the request against the original hostname URL — the claim is stronger
   than the implementation. Closing this window (address pinning, a pinned/injected resolver at the
   transport, or an equivalent) is an open hardening decision.
-- The guards' resolver is injectable specifically so an air-gapped deployment can pin resolution —
-  the seam for a fix exists; the decision does not.
+- **The two guards are not symmetric on resolver injection**, and R1 overstated this. Verified:
+  `cybrik-cyber-ai-platform:packages/ai-core/src/cybrik_ai_core/security/egress.py` takes an
+  injected `resolver: Resolver = _default_resolver` parameter, so an air-gapped deployment or a test
+  can pin resolution — a seam for a fix exists there. `cybrik-soc-command-center:services/api/src/
+  cybrik_soc/modules/copilot/llm.py` calls `socket.getaddrinfo(host, port)` directly inside its
+  internal-only check and exposes **no injection point**; a fix there requires a code change, not
+  configuration.
+- **No exploitability is claimed or demonstrated.** What is established from source is structural:
+  validation resolves an address, the transport is then given the hostname, and the validated
+  address is not pinned to the socket. Whether that window is reachable in any deployed
+  configuration has not been tested, and this ADR asserts nothing about it.
 
 **Normative:**
 
@@ -502,34 +638,63 @@ Technical architecture conclusions and legal conclusions MUST be kept in separat
 - SOC ADR-0016 MUST be cited with its `ACCEPTED IN PART` qualifier, and MUST NOT be cited as
   evidence that air-gap is built (its own §S7 states the air-gap/diode/GPU parts are design or V2).
 
-### 7.4 Claim discipline — requirement vs implemented vs qualified
+### 7.4 Claim discipline — the four maturity states
 
-`ARCHITECTURAL_INVARIANT`. Three distinct states MUST be kept distinct in every artifact:
+`ARCHITECTURAL_INVARIANT` (`INV-20`). Four **independent** states MUST be kept distinct in every
+artifact. They are not a ladder that can be climbed by assertion: each state requires its own
+evidence, and none implies the next.
 
-| State | Meaning |
-|---|---|
-| `ARCHITECTURAL_REQUIREMENT` | Decided as policy; nothing is built |
-| `IMPLEMENTED` | Code exists and runs; not proven end to end under the required conditions |
-| `QUALIFIED` | An authoritative end-to-end qualification exists, with evidence |
+| State | Requires | Explicitly does **not** imply |
+|---|---|---|
+| `ARCHITECTURAL_REQUIREMENT` | A decision record fixing the requirement as policy | That anything is built |
+| `IMPLEMENTED` | Code exists in a committed tree and runs | That it is `TESTED` — code that no test exercises is `IMPLEMENTED` and nothing more |
+| `TESTED` | A committed, runnable test exercises the behaviour, with its scope stated (unit / integration / skipped-by-default / conditional) | That it is `QUALIFIED` — a passing unit test is not a qualification |
+| `QUALIFIED` | The **applicable authoritative qualification procedure** was executed end to end under the required conditions, with retained evidence | Anything beyond the exact scope qualified |
+
+An item MUST NOT be marked `TESTED` or `QUALIFIED` retroactively, by inference, or by association
+with a neighbouring item. A test that is skipped when its dependency is unreachable MUST be recorded
+as **conditionally** `TESTED`, with the skip condition named.
 
 Applied to the areas this ADR touches:
 
-- **Offline / air-gap.** `FULL_AIR_GAP_PRODUCTION_QUALIFIED` MUST NOT be claimed. Current evidence
-  supports an *offline-capable architecture* with bounded implemented seams —
-  `cybrik-security-tool-fabric:tests/control-plane/test_offline_no_network.py`, the lock/offline
-  build path in `cybrik-cyber-ai-platform:.github/workflows/ci.yml` — while
-  `cybrik-suite:docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md` records that *"No end-to-end signed
-  offline update, operator-owned trust root, offline upgrade/rollback or private update-station
-  workflow exists."* Status: `ARCHITECTURAL_REQUIREMENT` = yes; `IMPLEMENTED` = partial, bounded
-  seams only; `QUALIFIED` = **no**. See `OPEN-1`.
+| Area | `ARCHITECTURAL_REQUIREMENT` | `IMPLEMENTED` | `TESTED` | `QUALIFIED` |
+|---|---|---|---|---|
+| Offline install / update | **Yes** | **Partial** — bounded seams only | **Partial** — bounded seams only | **No** |
+| Isolation (ADR-0005 profiles) | **Yes**, at ADR-0005's stated strength | **No** | **No** | **No** |
+| AI egress guard (sovereignty) | **Yes** | **Yes** — both guards | **Partial** — validation policy only | **No** |
+| Storage / S3 compatibility | **Yes** | **Yes** — one bounded SeaweedFS path | **Conditional** — see below | **No** |
+
+- **Offline / air-gap.** `FULL_AIR_GAP_PRODUCTION_QUALIFIED` MUST NOT be claimed. `IMPLEMENTED` and
+  `TESTED` are both **partial and bounded**: `cybrik-security-tool-fabric:tests/control-plane/
+  test_offline_no_network.py` is a committed no-network contract test, and
+  `cybrik-cyber-ai-platform:.github/workflows/ci.yml` carries a lock/offline build path. Both are
+  build- and contract-scoped seams, not an install/update path. `QUALIFIED` is **no**: the committed
+  `cybrik-suite:contracts/` tree at `BASE_SHA` holds 386 files and **none** of them is an offline
+  install, update, upgrade/rollback, update-station or operator-trust-root contract, and no accepted
+  suite ADR records such a qualification. The requirement itself is accepted — `cybrik-suite`
+  ADR-0001 states that air-gapped deliveries reference bundles only, ADR-0002 requires the stack to
+  remain local/air-gap capable, and ADR-0008 requires fail-closed behaviour when trust cannot be
+  resolved offline. See `OPEN-1`.
 - **Isolation (ADR-0005).** `gVisor`/`runsc`, `Firecracker`, `jailer`, `KVM`, Kata `RuntimeClass`
   and the control-side egress broker are **accepted architectural/isolation requirements** at
   ADR-0005's own stated strength — *"decision only"*. ADR-0005 states in its own bytes that *"No
   sandbox driver, isolation runtime, egress broker, benchmark or escape test exists or has been run
-  in any product repository, and none is claimed here."* No profile MAY be described as implemented
-  or qualified for these. Its `J10` kernel/hardware/profile/version pins remain deferred to a spike
-  that has not run.
-- **S3 compatibility.** See §14.1 / `OPEN-2`.
+  in any product repository, and none is claimed here."* A scan of the committed trees confirms no
+  sandbox/isolation runtime test exists in any repository. `IMPLEMENTED`, `TESTED` and `QUALIFIED`
+  are therefore all **no**, and no profile MAY be described otherwise. Its `J10`
+  kernel/hardware/profile/version pins remain deferred to a spike that has not run.
+- **AI egress guard.** `IMPLEMENTED` in both products. `TESTED` covers the **validation policy
+  only** — `cybrik-cyber-ai-platform:tests/ai_core/test_security.py` exercises scheme rejection,
+  allowlist rejection, public-resolution rejection, empty-resolution and resolver-error wrapping,
+  and `cybrik-soc-command-center:services/api/tests/unit/test_llm_adapter.py` exercises the SOC
+  guard. **No test covers connect-time address pinning**, which is precisely the open item
+  (`OPEN-3`). `QUALIFIED` is **no**.
+- **Storage / S3 compatibility.** `TESTED` is **conditional**:
+  `cybrik-soc-command-center:ops/pf-workers/tests/test_parquet_archiver.py` runs pure-unit coverage
+  (schema stability, partition keys, dedup, round-trip, compression) unconditionally, but its S3
+  section calls `list_buckets()` first and **skips when no cluster answers**, so the object-store
+  path is exercised only when a SeaweedFS cluster is reachable. `QUALIFIED` is **no**. See §14.1 /
+  `OPEN-2`.
 
 ---
 
@@ -539,9 +704,10 @@ Applied to the areas this ADR touches:
 
 ### 8.1 The baseline rule
 
-Every provider/deployment adapter MUST satisfy the **versioned mandatory baseline of every
-deployment tier/profile it claims to support**. Claiming a profile is a conformance assertion, not
-a label.
+Every deployment/provider adapter MUST satisfy the **versioned mandatory baseline of every
+`VERSIONED_DEPLOYMENT_PROFILE` it declares support for**. A declaration of support is a conformance
+assertion against a profile identifier and version, not a label — and never against a tier name,
+which has no executable conformance meaning (§6.2).
 
 ### 8.2 Provider-specific capabilities
 
@@ -559,21 +725,25 @@ A provider-specific capability:
 
 ### 8.3 Symmetry rule — no over-reach in either direction
 
-- A provider profile MUST NOT claim a tier whose **mandatory** capabilities it cannot satisfy
-  (`INV-8`).
-- An **optional** provider profile MUST NOT be required to implement every **optional** capability
+- An adapter MUST NOT declare support for a `VERSIONED_DEPLOYMENT_PROFILE` whose **mandatory**
+  capabilities it cannot satisfy (`INV-8`).
+- An **optional** provider adapter MUST NOT be required to implement every **optional** capability
   (`INV-9`). Optionality is not a defect, and absence of an optional capability MUST NOT be
   reported as non-conformance.
 - Where a provider cannot satisfy a mandatory capability, the adapter MUST fail closed and the
-  profile claim MUST be withdrawn — it MUST NOT be satisfied by a weaker substitute presented under
-  the same capability name.
+  support declaration MUST be withdrawn — it MUST NOT be satisfied by a weaker substitute presented
+  under the same capability name.
 
 ### 8.4 Capability negotiation
 
-`OPEN_QUESTION` — `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`. The **governance rule** above is
-decided here. The **detailed negotiation protocol** — discovery encoding, version matching,
-degradation reporting, conformance test format — is delegated to the Platform Contract and is not
-specified by this ADR.
+`OPEN_QUESTION` — `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`.
+
+The binding governance rules are §8.2 and §8.3, recorded as `INV-10` and `INV-11` in §4. This
+section adds no requirement.
+
+What remains unresolved: the negotiation protocol itself — discovery encoding, version matching,
+degradation reporting and conformance-test format. It is delegated to the Platform Contract and is
+not specified by this ADR.
 
 ---
 
@@ -649,7 +819,24 @@ OPTIONAL_REFERENCE_ONLY
 
 `PRODUCT_CORE_CONTAMINATED = NO`, `RC1_TAG_CONTAMINATED = NO`, `CONTRACTS_CONTAMINATED = NO`.
 
-The one recurring false positive is worth fixing permanently, because it is exactly the Decision B
+**Scope of the RC1 statement — corrected.** R1 claimed the only AWS-shaped hits at `v1.0.0-rc1` were
+the S3 client and its credential env names. That is false as stated, and the two things it conflated
+must stay separated:
+
+| | At `v1.0.0-rc1` |
+|---|---|
+| **Textual / reference mentions** of `AWS`, `GCP` or `Azure` | **Present**, across roughly twenty `cybrik-suite` files and eighteen `cybrik-soc-command-center` files — architecture documents (`docs/architecture/ENCRYPTION-KEY-MANAGEMENT.md`, `docs/architecture/SIEM-STACK-SOVEREIGNTY-RESEARCH.md`), governance ADRs (SOC ADR-0018, ADR-0019), research documents (`docs/research/SOC-TIER-PERSONA-RESEARCH.md`, `docs/research/GA2-COMPETITIVE-GAP-ANALYSIS.md`), release/evidence records, secret-scanner configuration and contract example payloads |
+| **Dependency-bearing runtime/provider requirement** | **Exactly one**, in `cybrik-soc-command-center:ops/pf-workers/`. Zero in `cybrik-suite`, `cybrik-cyber-ai-platform` and `cybrik-security-tool-fabric` |
+
+`RC1_TAG_CONTAMINATED = NO` is therefore a statement about **dependency-bearing runtime paths**, not
+a claim of tag-wide absence of cloud-provider text. Comparing sovereign alternatives against named
+public clouds in an architecture or research document is the analysis working correctly; it is not
+coupling. Verification method for the dependency claim: scan of every `pyproject.toml`,
+`package.json`, `requirements*.txt` and `go.mod` tracked at the tag in all four repositories for
+provider SDKs (`boto3`, `botocore`, `aws-sdk`, `@aws-*`, `azure-*`, `google-cloud-*`, `oci-sdk`),
+plus a scan for provider-SDK imports in tracked Python sources.
+
+The one dependency is worth characterizing permanently, because it is exactly the Decision B
 case. `cybrik-soc-command-center:ops/pf-workers/pf_workers/s3util.py` uses `boto3` as an
 **S3-protocol client** against self-hosted SeaweedFS: `endpoint_url` is a configured SeaweedFS
 address (`PF_SEAWEED_S3_ENDPOINT`, default `http://localhost:8333`), addressing style is forced to
@@ -669,8 +856,10 @@ provider coupling is a **non-portable endpoint, service or identity requirement*
 `ARCHITECTURAL_INVARIANT` (Decision J).
 
 A planner or controller MUST NOT manufacture a mandatory requirement merely by selecting
-provider-native managed services. Every mandatory architecture requirement MUST trace to exactly
-one of:
+provider-native managed services. Every mandatory architecture requirement MUST trace to **at least
+one** of the following, and **all** applicable supporting sources MUST be recorded where known
+(`INV-22`). A requirement legitimately supported by several accepted authorities MUST list them all;
+recording only one is an incomplete trace, not a compliant one:
 
 1. an **accepted ADR** (cited with its own status qualifier);
 2. an **accepted contract**;
@@ -696,14 +885,14 @@ Under this rule that verdict is `ADVISORY`, not mandatory.
 
 | Area | Impact |
 |---|---|
-| Product core (`cybrik-soc-command-center`, `cybrik-cyber-ai-platform`, `cybrik-security-tool-fabric`) | **None.** No provider coupling exists to remove (§10.2). No code change is required, requested or authorized by this ADR |
+| Product repositories (`cybrik-soc-command-center`, `cybrik-cyber-ai-platform`, `cybrik-security-tool-fabric`) | **None.** These repositories contain both `PRODUCT_CORE` and `PRODUCT_IMPLEMENTATION_ADAPTER` code and are **not** classified wholesale as either (§5.1, `INV-21`). No provider-specific infrastructure service is mandatory to any core contract (§10.2). No code change is required, requested or authorized by this ADR; the per-module classification against the §5.1 boundary is `OPEN-11` |
 | `cybrik-suite:contracts/` | **None.** No contract is amended. The packet remains `PROPOSED — NOT ACCEPTED` at v0.1.0 |
 | `v1.0.0-rc1` tags | **None.** No re-tag, no re-cut, no re-qualification. `RC1_TAG_CONTAMINATED = NO` |
 | Accepted ADRs 0001–0014 | **None.** No status flip, no supersession, no byte change |
 | `soc-production-infrastructure` (derived) | **Reclassified, not deleted.** AWS estate becomes `OPTIONAL_REFERENCE_ONLY`; the platform verdict and provider matrix become advisory input (§9, §10) |
 | `soc-autonomous-state` (derived controller) | Its recorded policy gains an architecture home. The controller MUST NOT treat this ADR as accepted until the Founder accepts it |
 | Documents using `T0`/`T1`/`T2` | **No rewrite.** Tokens are reserved; existing usages remain dated provenance until the tier contract lands (§6.2) |
-| `cybrik-suite:docs/adr/README.md` (ADR catalog) | **Not modified by this proposal.** The catalog is authoritative on ADR status; adding a `PROPOSED` row is a status-authority action. See §18 |
+| `cybrik-suite:docs/adr/README.md` (ADR catalog) | **Additive registration only.** One prose paragraph and one table row register ADR-0015 as `PROPOSED`, Decider `FOUNDER`. No existing ADR status is altered, and registration is not acceptance. See §18 |
 
 No migration is required by this ADR. It is a governance consolidation.
 
@@ -775,11 +964,14 @@ These MUST survive acceptance. Accepting this ADR does **not** close any of them
 | `OPEN-8` | `PROVIDER_SELECTION_AUTHORITY_MODEL` — who holds delegated selection authority, and under what bound | **OPEN** | A delegation record; §9 fixes the *record format*, not the *delegate* |
 | `OPEN-9` | Legal interpretation of deployment location and cross-domain obligations | **OPEN** — `LEGAL_REVIEW_REQUIRED` | Legal review, recorded separately from architecture (§7.2) |
 | `OPEN-10` | Platform Contract slot semantics (all 13 slots, §5.2) | **OPEN** | The Platform Contract itself |
+| `OPEN-11` | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` — the **definition** is resolved in §5.1; the **per-module classification** of existing product code against it is not | **OPEN** (definition resolved, classification open) | A bounded per-repository classification pass, owned by each product repository |
 
 ### 14.1 `S3_COMPATIBILITY_MINIMUM_CONTRACT` — why `OPEN-2` cannot be closed
 
-`OPEN_QUESTION` (`OPEN-2`). It MUST NOT be written anywhere that *"all S3-compatible systems are
-interchangeable."*
+`OPEN_QUESTION` (`OPEN-2`). The binding rule — no assertion that S3-compatible systems are
+interchangeable, and no portability claim beyond the proven path until a versioned contract fixes
+the required subset — is `INV-19` in §4. This section records the evidence and what is unresolved;
+it creates no requirement of its own.
 
 Current evidence proves only a **bounded SeaweedFS-compatible path**. From
 `cybrik-soc-command-center:ops/pf-workers/`, the surface actually exercised is: `put_object`,
@@ -788,8 +980,12 @@ listing, under SigV4 with **path-style addressing forced** (SeaweedFS does not s
 virtual-host buckets), plus a specific error-code mapping (`NoSuchKey`, `NoSuchBucket`, `404`,
 `NotFound` treated as absent).
 
-Nothing proves portability beyond that. A future contract MUST define the subset actually
-required, and MUST state for each whether it is mandatory:
+`TESTED` status is **conditional**, not absolute: the archiver's unit coverage runs
+unconditionally, but its S3 section calls `list_buckets()` and skips when no cluster answers, so the
+object-store path is exercised only against a reachable SeaweedFS (§7.4).
+
+Nothing proves portability beyond that. The subset a future contract has to fix, and whether each
+element is mandatory, is exactly what remains open:
 
 - object CRUD
 - multipart upload
@@ -843,8 +1039,10 @@ architecture):**
 - `docs/strategy/03-REFERENCE-ARCHITECTURE.md` — `[PROPOSAL]`; §1 drivers, §10 deployment tiers
 - `docs/strategy/06-ROADMAP-2026-2029.md` — T0/T1/T2 manifests as a future deliverable
 - `docs/strategy/08-EVALUATION-SECURITY-COMPLIANCE.md` — egress/exfiltration evaluation posture
-- `docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md` — tier profiles remain proposals; no offline
-  update/trust-root/rollback workflow exists
+- *(not cited as authority)* `docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md` —
+  `NON_AUTHORITATIVE_WORKTREE_ONLY_EVIDENCE`: untracked in the canonical checkout, absent from the
+  committed tree at `BASE_SHA`, therefore not reproducible from repository identity. Retained as a
+  corroborating observation only; no normative decision in this ADR depends on it (§6.2)
 - `contracts/README.md` — packet `PROPOSED — NOT ACCEPTED` (v0.1.0)
 - `integration/helm/README.md` — `SCAFFOLD`, no charts
 
@@ -874,7 +1072,17 @@ architecture):**
 **Tool Fabric (`cybrik-security-tool-fabric`):**
 - `tests/control-plane/test_offline_no_network.py` — bounded no-network contract test
 
-**Derived deployment layer (non-authoritative; retained as provenance):**
+**Evidence identity discipline.** Every `cybrik-suite` path cited above is tracked in the committed
+tree at `BASE_SHA d2b5c7fe799beb94b1dcf0661350de10417da0a3`, and every
+`cybrik-soc-command-center` / `cybrik-cyber-ai-platform` / `cybrik-security-tool-fabric` path is
+tracked at that repository's `HEAD`; each was verified individually. The one exception is recorded
+above as `NON_AUTHORITATIVE_WORKTREE_ONLY_EVIDENCE`. The derived sources below are **not under
+version control at all** — `soc-autonomous-state` and `soc-production-infrastructure` are working
+directories with no Git repository, so they carry no commit identity and cannot be pinned. They are
+cited as dated observations of controller and derived-layer state, never as reproducible authority,
+and no `ARCHITECTURAL_INVARIANT` in this ADR rests on them.
+
+**Derived deployment layer (non-authoritative, no commit identity; retained as provenance):**
 - `soc-production-infrastructure:QUARANTINE_NOTICE.md`
 - `soc-production-infrastructure:terraform/` — `provider "aws"` ×2 regions, `provider "cloudflare"`
 - `soc-production-infrastructure:helm/cybrik-soc/`
@@ -908,8 +1116,13 @@ Acceptance requires all of the following, in one bounded Founder review:
    absolute; no claim that any ADR-0005 isolation profile is implemented or qualified.
 8. **Separation preserved.** No legal conclusion is drawn; every legal touchpoint is marked
    `LEGAL_REVIEW_REQUIRED`.
-9. **Catalog reconciliation decided.** The Founder directs whether
-   `cybrik-suite:docs/adr/README.md` is updated to list this ADR, and by whom (§18).
+9. **Catalog already consistent.** No catalog action is required at acceptance time.
+   `cybrik-suite:docs/adr/README.md` already registers ADR-0015 as `PROPOSED`, Decider `FOUNDER`,
+   under the lifecycle it defines. The reviewer confirms only that the registration still reads
+   `PROPOSED` and that no existing ADR status was altered by it. Founder acceptance is then a
+   **separate status transition**, `PROPOSED` → `ACCEPTED`, applied to both this ADR and its catalog
+   row after independent review and under explicit Founder authority — never as a side effect of
+   this review (§18).
 
 On acceptance, and only then, this ADR moves from `PROPOSED` to `ACCEPTED` under the lifecycle in
 `cybrik-suite:docs/adr/README.md`. Acceptance is a decision record. It is not implementation
@@ -917,17 +1130,42 @@ authority.
 
 ---
 
-## 18. Discoverability note (not part of the decision)
+## 18. Catalog registration (not part of the decision)
 
-`cybrik-suite:docs/adr/README.md` states *"This catalog is authoritative on ADR status"* and
-currently records that no suite ADR is `PROPOSED`. This proposal deliberately does **not** edit
-that catalog: writing a status row into the authoritative status record is itself a
-status-authority action, and this ADR claims none. The catalog is therefore **out of date with
-respect to this file until the Founder or a delegated Governor reconciles it**. That reconciliation
-is item 9 of the acceptance criteria.
+`cybrik-suite:docs/adr/README.md` states *"This catalog is authoritative on ADR status"* and defines
+the lifecycle `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). R1 left the catalog unedited and
+deferred the question to acceptance time. That was the wrong reading: a lifecycle that **begins** at
+`PROPOSED` requires a proposal to be registered at `PROPOSED`, or the authoritative catalog is
+silently incomplete while a proposal is in flight.
+
+R2 therefore registers ADR-0015 in that catalog as `PROPOSED`, Decider `FOUNDER`. The registration:
+
+- **is not** acceptance, ratification, or implementation authority;
+- **alters no existing ADR's status** — it is purely additive, one prose paragraph and one row;
+- scopes, rather than contradicts, the catalog's earlier statement that no suite ADR is still
+  `PROPOSED`, in the same additive manner the catalog already uses for ADR-0011 and later records.
+
+Founder acceptance later is a **separate status transition**, `PROPOSED` → `ACCEPTED`, applied to
+this file and its catalog row together, after independent review and under explicit Founder
+authority. Until that transition, no product repository may implement against this ADR.
 
 ## 19. Authoring provenance
 
 Authored as a `PROPOSED` proposal only. No acceptance, no signature, and no acceptance receipt is
-synthesized or implied. No product, contract, infrastructure, Terraform, Helm, deployment or
-controller file was modified in producing this ADR. The only file created is this one.
+synthesized or implied.
+
+- **R1** — this file created. Independent review returned `CHANGES_REQUIRED`,
+  `FOUNDER_ACCEPTANCE_SAFE = NO`.
+- **R2** — this file revised and `docs/adr/README.md` amended additively to register the proposal at
+  `PROPOSED`. Exactly two files, both governance documents. R1 history is retained, not amended or
+  squashed.
+
+R2 corrects, in order: catalog registration; a non-reproducible worktree-only evidence dependency;
+unresolved tier names used as a normative conformance target; an over-broad ADR-scan claim; an
+over-broad RC1 claim; an asymmetric resolver-injection claim; a three-state maturity model missing
+`TESTED`; a `PRODUCT_CORE` boundary that contradicted accepted ADR-0002; and three normative-language
+defects (single-label model, binding text inside open-question sections, and "exactly one" authority
+source).
+
+No product, contract, infrastructure, Terraform, Helm, deployment or controller file was modified in
+producing either revision. No technology was selected in either revision.
