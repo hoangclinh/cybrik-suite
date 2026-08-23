@@ -234,19 +234,19 @@ for (const file of platformPositives) {
 }
 
 const EXPECTED_PLATFORM_NEGATIVES = {
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path' },
-  'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
-  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '' },
-  'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
-  'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
-  'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence' },
-  'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace' },
-  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/provided' },
-  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations' },
-  'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery' },
-  'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
-  'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256' },
-  'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set' }
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!.*\\.\\.)[a-zA-Z0-9._/-]+$' }, message: 'must match pattern "^(?!\\/)(?!.*\\.\\.)[a-zA-Z0-9._/-]+$"' },
+  'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '', schemaPath: '#/required', params: { missingProperty: 'operator_trust_root' }, message: "must have required property 'operator_trust_root'" },
+  'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version', schemaPath: '#/properties/profile_version/pattern', params: { pattern: '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$' }, message: 'must match pattern "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"' },
+  'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
+  'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
+  'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
+  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/provided', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/provided/const', params: { allowedValue: true }, message: 'must be equal to constant' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 14 }, message: 'must NOT have fewer than 14 items' },
+  'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
+  'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
+  'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
+  'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set', schemaPath: '#/properties/capability_set/required', params: { missingProperty: 'artifact_update_mechanism' }, message: "must have required property 'artifact_update_mechanism'" }
 };
 
 if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
@@ -282,8 +282,8 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
         fail(`platform negative example ${file}: no expected invariant/error mapped!`);
       } else {
         const actualErr = validate.errors[0];
-        if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath) {
-          fail(`platform negative example ${file}: expected ${expected.keyword} at '${expected.instancePath}', got ${actualErr.keyword} at '${actualErr.instancePath}'`);
+        if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath || actualErr.schemaPath !== expected.schemaPath || JSON.stringify(actualErr.params) !== JSON.stringify(expected.params) || actualErr.message !== expected.message) {
+          fail(`platform negative example ${file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actualErr)}`);
         }
       }
     } else {

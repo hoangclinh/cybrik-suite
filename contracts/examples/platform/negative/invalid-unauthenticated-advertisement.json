@@ -1,7 +1,8 @@
 {
   "target_profile_id": "onprem-airgap-v1",
   "target_profile_version": "1.0.0",
-  "provider_namespace": "provider-one",
+  "provider_namespace": "cybrik-aws",
+  "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
   "advertised_capabilities": [
     {
       "capability_name": "oci_container_runtime",

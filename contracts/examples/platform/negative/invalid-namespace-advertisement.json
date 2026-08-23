@@ -2,18 +2,19 @@
   "target_profile_id": "onprem-airgap-v1",
   "target_profile_version": "1.0.0",
   "provider_namespace": "_vendor",
+  "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
   "advertised_capabilities": [
     {
       "capability_name": "oci_container_runtime",
       "slot_id": "oci_container_runtime",
-      "description": "Standard OCI runtime"
+      "description": "Standard OCI runtime via containerd"
     }
   ],
   "conformance_evidence": [
     {
-      "test_identifier": "test1",
+      "test_identifier": "oci-conformance-1.0",
       "verification_method": "AUTOMATED_TEST",
-      "report_uri": "https://example.com/report1"
+      "report_uri": "https://vendor.example/reports/oci-conformance-1.0.json"
     }
   ],
   "degradation_behavior": "FAIL_CLOSED",
