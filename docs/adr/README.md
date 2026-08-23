@@ -95,6 +95,7 @@ authoritative on ADR status.**
 
 | Document | Purpose | Status |
 |---|---|---|
+| [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md) | Founder deployment-priority and provider policy of 2026-08-23; authoritative provenance for that policy | `DECIDED — RECORDED` (Founder, 2026-08-23) — records policy only; accepts no ADR, selects no technology, authorizes no implementation or production rollout |
 | [ADR-DECISION-SPRINT-2026-07.md](ADR-DECISION-SPRINT-2026-07.md) | Sprint plan: dependency graph, wave board, exit criteria, evidence rules | `DRAFT` — GATE A2/A3 closed 2026-07-24; GATE A4 closed 2026-07-26 |
 | [evidence/README.md](evidence/README.md) | Evidence-packet format and catalog | `DRAFT` |
 | [evidence/ADR-0001-EVIDENCE.md](evidence/ADR-0001-EVIDENCE.md) | Evidence + recommendation for ADR-0001 | `DRAFT` — ADR-0001 since `ACCEPTED` (2026-07-24) |
