@@ -1,10 +1,13 @@
 # ADR-0015 — Deployment priority, data sovereignty, and provider-neutral platform boundary
 
-- Status: `PROPOSED` — **NOT ACCEPTED**. This ADR decides nothing until the Founder accepts it.
-  It is not implementation, dependency, substrate, product-selection, provisioning, deployment,
-  release or production authority, and it grants none if accepted.
+- Status: `ACCEPTED` (Founder, 2026-08-23) — decision record only; architecture/governance
+  authority only. It is not implementation, dependency, substrate, product-selection,
+  provisioning, deployment, release or production authority, and it grants none. Accepted subject:
+  the exact independently reviewed R6 bytes, commit `6580a4fcdf8d24e203b6e6f98a15dae3c2fea789`, tree
+  `c49f77f2f12eb34fc498f17043b2a223b8bfcef6`.
 - Date raised: 2026-08-23
-- Date decided: — (not decided)
+- Date decided: 2026-08-23 (Founder acceptance; applied by the docs-only
+  [ADR-0015 status-flip application](ADR-0015-STATUS-FLIP-APPLICATION.md))
 - Decider: Founder
 - Type: **consolidation + governance**. This is **not** a technology-selection ADR. No Kubernetes
   distribution, virtualization product, cloud provider, hosting provider, storage product,
@@ -18,6 +21,51 @@
   [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)
   — `DECIDED — RECORDED` (Founder, 2026-08-23). That packet is the **authority**; this ADR is the
   **consolidation** of it into suite architecture and is not accepted by it.
+
+## Acceptance recorded — 2026-08-23
+
+The Founder explicitly accepted this ADR on 2026-08-23, applying to the exact independently
+reviewed R6 subject only — commit `6580a4fcdf8d24e203b6e6f98a15dae3c2fea789`, tree
+`c49f77f2f12eb34fc498f17043b2a223b8bfcef6` — after independent review returned
+`FINAL_ADR_REVIEW_VERDICT = PASS`, `FOUNDER_ACCEPTANCE_SAFE = YES`, `ADR_REVIEW_FINDINGS = NONE`.
+The status flip is applied by the docs-only
+[ADR-0015 status-flip application](ADR-0015-STATUS-FLIP-APPLICATION.md), which is the acceptance
+record. The lifecycle transition is `PROPOSED` → `ACCEPTED` under
+[docs/adr/README.md](README.md), Decider Founder.
+
+- **What is accepted.** The architecture/governance decisions of the reviewed R6 bytes, including
+  the ADR-authored architectural invariants (`INV-1` … `INV-22`, Decision A.2 and Decisions B–J)
+  that §0, §3, §4 and §17 classified as `NOT YET ACCEPTED` / inert while this ADR was `PROPOSED`.
+  Under §0 they take effect on acceptance; this record is that acceptance. The condition named in
+  §2 as `ACCEPTED_SUITE_WIDE_ARCHITECTURE_HOME = OPEN (pending explicit Founder acceptance of
+  ADR-0015)` is satisfied by this acceptance.
+- **What is not created by it.** The Founder deployment-priority policy (Decision A.1, §1.3, §6.1)
+  remains separately rooted in
+  `cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` at R3 commit
+  `e800a283fd6f001a579987630839435206b73160` (`S9`), in force by that packet since 2026-08-23.
+  This acceptance does not create, re-decide, extend or backdate that policy (Acceptance Criterion
+  1A).
+- **What remains open.** All eleven open questions `OPEN-1` … `OPEN-11` (§14) remain `OPEN`
+  exactly as written, per `INV-20` and Acceptance Criterion 6 — including
+  `CANONICAL_T0_T1_T2_SEMANTICS`, `OFFLINE_INSTALL_UPDATE_CONTRACT`,
+  `S3_COMPATIBILITY_MINIMUM_CONTRACT`, `AI_DNS_TOCTOU_EGRESS_GUARD`,
+  `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`, `VIRTUALIZATION_SUBSTRATE_SELECTION`,
+  `KUBERNETES_DISTRIBUTION_SELECTION`, Platform Contract slot semantics and the per-module
+  `PRODUCT_CORE` vs `PRODUCT_IMPLEMENTATION_ADAPTER` classification. `KUBERNETES_PRIMARY_SUBSTRATE`
+  and `VIRTUALIZATION_SUBSTRATE` remain `UNDECIDED`; every candidate remains `NOT_SELECTED`.
+- **What it does not authorize.** Architecture/governance authority only (§12, "What acceptance
+  would *not* authorize"). `PRODUCTION_DEPLOYMENT_AUTHORITY = CLOSED`; `PRODUCTION_DEPLOYED = NO`;
+  `READY_FOR_PRODUCTION_ROLLOUT_DECISION = NO`. No production deployment, rollout, traffic cutover,
+  DNS or cloud mutation, customer or database migration, secret rotation, public release, RC1
+  mutation, provider, Kubernetes-distribution or virtualization selection, AWS cleanup execution,
+  Platform Contract implementation, `OPEN-3` remediation, product-code or infrastructure change is
+  authorized.
+- **Byte discipline.** No decision, invariant, open-question, source-table or evidence text below
+  this block was changed by the acceptance; the body is the reviewed R6 text verbatim. Proposal-time
+  wording in the body ("while this ADR is `PROPOSED`", "not yet accepted", "inert until accepted",
+  "on acceptance") is dated provenance of the proposal and is read as satisfied by this record; the
+  operative status is this header and the catalog. No Founder signature, cryptographic signature or
+  external receipt is synthesized; the Git commit containing this record is its durable identity.
 
 ## 0. Label vocabulary — how to read this ADR
 
