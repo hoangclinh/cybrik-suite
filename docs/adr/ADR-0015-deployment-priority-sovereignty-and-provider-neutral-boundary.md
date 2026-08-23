@@ -227,8 +227,8 @@ working directory.
 
 ### 1.5 Cited ADR statuses, verified from source at authoring time (2026-08-23)
 
-`HISTORICAL_FINDING`. Verified by reading the ADR bytes (`S2`, `S11`, `C1`), not an index or a
-summary; the authoritative catalog (`S1`) agrees. The third column describes how this ADR uses each
+`HISTORICAL_FINDING`. Verified by reading the ADR bytes (`S2`, `S11`, `C1`, `C11`), not an index or
+a summary; the authoritative catalog (`S1`) agrees. The third column describes how this ADR uses each
 source; the citation discipline it describes is not a rule of this section — it is `INV-16` in §4.
 
 | ADR | Verified status string (source) | How this ADR uses it (citation discipline: `INV-16`) |
@@ -242,6 +242,7 @@ source; the citation discipline it describes is not a rule of this section — i
 | `cybrik-soc-command-center` ADR-0018 — Sovereign encryption & key management (`C1`) | **`PROPOSED`** (explicitly *"chờ Founder duyệt; CHƯA implement"*) | Not cited as accepted (`INV-16`). Its pluggable-crypto-provider requirement enters this ADR only as a **capability slot** (§5.2 slot 9), not as an accepted mandate |
 | `cybrik-soc-command-center` ADR-0019 — Sovereign SIEM (Wazuh/OpenSearch/NSM) (`C1`) | **Accepted as to direction — V2 target, DEFERRED** (Founder 2026-07-19); does **not** supersede `cybrik-soc-command-center` ADR-0015 (Security Onion SIEM/NSM foundation) until a stated V2 activation trigger fires | Cited as *direction* with its defer qualification stated; not cited as an active mandate (`INV-16`) |
 | `cybrik-soc-command-center` ADR-0020 — SIEM backend adapter swap-ready (`C1`) | **`Proposed`** (awaiting approval alongside ADR-0019) | Not cited as accepted (`INV-16`). Its *seam-at-the-protocol* reasoning is referenced as **rationale**, not authority |
+| `cybrik-soc-command-center` ADR-0021 — Event bus + event store for the PF track, F-14 (`C11`) | **`ĐÃ CHỐT — Founder duyệt theo đề xuất, 2026-07-20`** (settled; Founder-approved as proposed, F-14): the PF data-plane architecture in effect; its status line adds that the PF licence set is Founder-approved (QĐ-D, 2026-07-22) and points to the QD-14 dossier for final legal confirmation — the dossier's own recorded status is `C10` (§7.2) | Cited for its Founder-approved adoption of the `DATA-PLANE-V2` §4 capacity-axis tiers as packaged data-plane configurations within the SOC scope (§6.2). Not cited as suite-wide deployment-tier authority, and no legal conclusion is drawn from its legal-gate wording (`INV-18`) |
 
 Three further status hazards are recorded so they are not repeated. This section is
 `HISTORICAL_FINDING` only and states no requirement of its own; the binding citation rules are
@@ -265,28 +266,59 @@ Three further status hazards are recorded so they are not repeated. This section
 
 ## 2. Problem
 
-Four failures are visible in the record, and none is closed by an existing decision.
+Four failures were visible in the record when this ADR was first proposed (R1, 2026-08-23). Each is
+classified below by its state at R6 against current evidence, using one of `HISTORICAL_CAUSE` (what
+produced it), `CURRENTLY_REMEDIATED`, `PARTIALLY_REMEDIATED` or `STILL_OPEN` — per-failure state
+markers for this section only, not §0 claim labels, and binding on nothing. None is closed *by
+this ADR*, which is `PROPOSED`; where something has since been remediated, the remediation and its
+source are named rather than the original wording preserved.
 
-1. **Priority has no architecture home.** The Founder deployment priority exists only in a derived
-   controller state file and derived reports. No suite ADR ratifies it, so nothing structurally
-   prevents the next planner from re-deriving a different one.
-2. **A provider became "primary" with no authority.** An AWS estate, a hosted-provider matrix and
-   a self-declared `"verdict": "ACCEPTED"` platform decision were produced in the derived layer,
-   citing `DRAFT` suite evidence among their inputs. No Founder record authorized any of it.
-3. **Candidate sets silently excluded the actual priorities.**
-   `soc-production-infrastructure:plans/PRODUCTION_HOST_PROVIDER_MATRIX.json` evaluates exactly
-   four candidates — Hetzner Cloud, DigitalOcean, Linode/Akamai, AWS EC2 — every one of them a
-   hosted/foreign public provider. A scan for `on-prem`, `private cloud`, `bare-metal`, `colo`,
-   `Proxmox`, `VMware`, `OpenStack` in that file returns **zero** matches. The matrix correctly
-   labels itself `ADVISORY_ONLY_NON_BINDING`; the defect is the **omission**, which makes an
-   advisory ranking structurally incapable of recommending P1 or P2.
+1. **Priority had no durable authority record — remediated; it still has no accepted architecture
+   home — open.** `PARTIALLY_REMEDIATED`.
+   - `HISTORICAL_CAUSE`: before R3 of this ADR, the 2026-08-23 Founder deployment priority was
+     written only in a derived controller state file (`soc-autonomous-state:CURRENT_STATE.json`,
+     `X1`) and derived reports — an unversioned working directory with no commit identity. That
+     provenance weakness was real and is retained as history (§1.3).
+   - `CURRENTLY_REMEDIATED` — durable authority record: since commit `e800a283…` the policy has a
+     Git-identity-bound authoritative record under the repository's canonical
+     `FOUNDER-DECISION-PACKET-*` convention (`S9`). `CURRENT_STATE.json` is now an operational
+     mirror only (`NON_AUTHORITATIVE_CONTEXT_ONLY`) and is no longer the policy authority.
+     `FOUNDER_POLICY_DURABLE_AUTHORITY_RECORD = CLOSED (S9)`.
+   - `STILL_OPEN` — accepted architecture home: no **accepted** suite-wide deployment-architecture
+     ADR consolidates the policy, so accepted architecture still contains nothing that prevents a
+     planner from re-deriving a different ordering. This ADR is that consolidation and is
+     `PROPOSED`; recording `S9` did not accept it, and `S9` decides nothing beyond its own §1.
+     `ACCEPTED_SUITE_WIDE_ARCHITECTURE_HOME = OPEN (pending explicit Founder acceptance of ADR-0015)`.
+2. **A provider became "primary" with no authority.** `PARTIALLY_REMEDIATED`.
+   - `HISTORICAL_CAUSE`: an AWS estate, a hosted-provider matrix and a self-declared
+     `"verdict": "ACCEPTED"` platform decision were produced in the derived layer (`X2`), citing
+     `DRAFT` suite evidence among their inputs. No Founder record authorized any of it.
+   - `CURRENTLY_REMEDIATED` — the authority question: the Founder packet (`S9` §1.3) records
+     `AWS_PRIMARY_FOUNDER_AUTHORITY = NOT_FOUND` and
+     `AWS_PRIMARY_DEPLOYMENT_DECISION = VOID_UNRATIFIED_DERIVED_DRIFT` under Founder authority, and
+     the derived layer's own `QUARANTINE_NOTICE.md` (`X2`) already self-classifies the estate as a
+     quarantined reference implementation.
+   - `STILL_OPEN` — the architecture rule: no accepted suite decision places that disposition under
+     suite architecture authority or prevents a derived layer from freezing a provider again. §10
+     and `INV-12` propose exactly that and bind only on acceptance.
+3. **Candidate sets silently excluded the actual priorities.** `STILL_OPEN`.
+   - `HISTORICAL_CAUSE`: `soc-production-infrastructure:plans/PRODUCTION_HOST_PROVIDER_MATRIX.json`
+     (`X2`) evaluates exactly four candidates — Hetzner Cloud, DigitalOcean, Linode/Akamai, AWS EC2 —
+     every one of them a hosted/foreign public provider. A scan for `on-prem`, `private cloud`,
+     `bare-metal`, `colo`, `Proxmox`, `VMware`, `OpenStack` in that file returns **zero** matches.
+     The matrix correctly labels itself `ADVISORY_ONLY_NON_BINDING`; the defect is the
+     **omission**, which makes an advisory ranking structurally incapable of recommending P1 or P2.
+   - Nothing in accepted architecture yet requires a candidate set to include P1/P2; `INV-13`
+     proposes that requirement and binds only on acceptance.
 4. **Sovereignty, isolation and portability requirements are scattered and differently qualified.**
-   They live across an accepted suite ADR, a partly-accepted SOC ADR, a direction-accepted SOC ADR,
-   two proposed SOC ADRs, and several `[PROPOSAL]` or `DRAFT` strategy and evidence documents. There
-   is no single place that states which of them bind, at what strength, and what remains open.
+   `STILL_OPEN`. They live across an accepted suite ADR, a partly-accepted SOC ADR, a
+   direction-accepted SOC ADR, two proposed SOC ADRs, and several `[PROPOSAL]` or `DRAFT` strategy
+   and evidence documents. There is no single place that states which of them bind, at what
+   strength, and what remains open. This ADR is the proposed single place.
 
-This ADR fixes (1)–(3) by establishing authority rules, and fixes (4) by consolidating — without
-promoting any proposal into authority merely because its content agrees with current policy.
+This ADR proposes to close the open halves of (1)–(3) by establishing authority rules, and (4) by
+consolidating — effective only on acceptance, and without promoting any proposal into authority
+merely because its content agrees with current policy.
 
 ---
 
@@ -385,22 +417,28 @@ be selected that cannot meet the isolation required by the risk classes it admit
 adapter MUST NOT declare support for a `VERSIONED_DEPLOYMENT_PROFILE` whose **mandatory** isolation
 capabilities it cannot satisfy. Optional capabilities are not required of every optional adapter.
 
-The conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE`, never `T0`/`T1`/`T2` — those tokens
-carry no executable conformance meaning until the canonical tier contract is accepted (§6.2).
+The conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE`, never `T0`/`T1`/`T2` — as bare
+tokens they carry no suite-wide executable conformance meaning until the canonical tier contract is
+accepted (§6.2).
 
 ### Decision G — Deployment profile / tier semantics
 
 `ARCHITECTURAL_INVARIANT` + `OPEN_QUESTION` — a compound item (§0). The two halves are separated so
 neither borrows force from the other:
 
-**Binding half** (`ARCHITECTURAL_INVARIANT`, recorded as `INV-15` and `INV-17` in §4): `T0`/`T1`/`T2`
-have no executable conformance meaning, MUST NOT be used as a normative conformance target, and the
-normative conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE` defined in §5.3.
+**Binding half** (`ARCHITECTURAL_INVARIANT`, recorded as `INV-15` and `INV-17` in §4): bare
+`T0`/`T1`/`T2` have no suite-wide executable conformance meaning and MUST NOT be used as a normative
+conformance target; the normative conformance subject is the `VERSIONED_DEPLOYMENT_PROFILE` defined
+in §5.3, and a tier reference that names its vocabulary, axis and version is context, never that
+subject. An approved meaning within one scope (§6.2 usage #3) does not create a suite-wide one.
 
 **Open half** (`OPEN_QUESTION` — `CANONICAL_T0_T1_T2_SEMANTICS = OPEN`): what the tokens should
-canonically mean is not decided here and is not decided by this ADR's acceptance. At least four
-incompatible in-repository usages exist across two orthogonal axes (§6.2). Resolving them requires
-one versioned tier contract, produced as separate bounded work.
+canonically mean **suite-wide** is not decided here and is not decided by this ADR's acceptance. At
+least four in-repository usages exist across two orthogonal axes, mutually incompatible across
+those axes, one of them Founder-approved and authoritative within the SOC data-plane capacity scope
+(§6.2). The open question is the cross-axis
+collision, not the status of any one definition. Resolving it requires one versioned tier contract
+that names the axes, produced as separate bounded work.
 
 ### Decision H — Provider adapter governance
 
@@ -412,8 +450,8 @@ namespaced, optional, and capability-advertised, and MUST NOT alter data-soverei
 isolation or artifact-integrity semantics (§8).
 
 A declaration of support names a `VERSIONED_DEPLOYMENT_PROFILE` identifier and version. An adapter
-MUST NOT declare support against a tier name, because no accepted contract gives `T0`/`T1`/`T2` a
-conformance meaning (§6.2).
+MUST NOT declare support against a bare tier name, because no accepted suite-wide contract gives
+`T0`/`T1`/`T2` a conformance meaning independent of axis and vocabulary (§6.2).
 
 ### Decision I — Provider selection authority
 
@@ -456,7 +494,7 @@ this ADR is accepted.
 | `INV-12` | A controller MUST NOT freeze a provider as primary architecture without explicit authority (Decision I) |
 | `INV-13` | A provider candidate set MUST include the P1/P2 deployment priorities (Decision I) |
 | `INV-14` | Every mandatory architecture requirement MUST trace to **at least one** valid authority source in §10.3, and **all** known applicable supporting authority sources MUST be recorded (Decision J) |
-| `INV-15` | `T0`/`T1`/`T2` have **no executable conformance meaning** until the canonical tier contract is accepted, and MUST NOT be used as a normative conformance target (Decision G) |
+| `INV-15` | Bare `T0`/`T1`/`T2` have **no suite-wide executable conformance meaning** until the canonical tier contract is accepted, and MUST NOT be used as a normative conformance target; a tier reference that names its vocabulary, axis and version is context, never the conformance subject (`INV-17`) (Decision G) |
 | `INV-16` | Status citations MUST carry the source ADR's own qualifier and MUST NOT cite `PROPOSED` material as `ACCEPTED`; every ADR citation MUST be repository-qualified (ADR numbers are per-repository, never suite-global) and MUST resolve against committed `main` bytes rather than a worktree artifact (§1.5) |
 | `INV-17` | The normative conformance subject MUST be a `VERSIONED_DEPLOYMENT_PROFILE` carrying identifier, version, capability set and per-capability strength (§5.3) |
 | `INV-18` | Where Vietnamese legal interpretation bears on a deployment choice it MUST be marked `LEGAL_REVIEW_REQUIRED`, routed to legal review, and recorded separately from the architecture record (§7.2) |
@@ -566,8 +604,9 @@ one.
 
 `ARCHITECTURAL_INVARIANT` (`INV-17`).
 
-Because no accepted contract gives `T0`/`T1`/`T2` a conformance meaning (§6.2), this ADR needs a
-conformance subject that exists independently of the unresolved tier vocabulary. That subject is the
+Because no accepted suite-wide contract gives bare `T0`/`T1`/`T2` a conformance meaning independent
+of axis and vocabulary (§6.2), this ADR needs a conformance subject that exists independently of the
+unresolved tier vocabulary. That subject is the
 `VERSIONED_DEPLOYMENT_PROFILE`.
 
 A `VERSIONED_DEPLOYMENT_PROFILE` is a record that MUST carry:
@@ -608,13 +647,14 @@ not yet accepted); it is not in the packet and is not Founder policy.
 `OPEN_QUESTION` — `CANONICAL_T0_T1_T2_SEMANTICS = OPEN` (Decision G).
 
 The evidence does **not** support consolidating the vocabulary now. At least four in-repository
-usages exist, on two orthogonal axes:
+usages exist, on two orthogonal axes, and one of them is already authoritative within its own
+scope:
 
 | # | Usage | Axis | Source and status |
 |---|---|---|---|
 | 1 | T0 Developer/POC · T1 Enterprise (3+ nodes **or** conformant Kubernetes) · T2 Sovereign/Air-gap | substrate + trust boundary | `cybrik-suite:docs/strategy/03-REFERENCE-ARCHITECTURE.md` §10 — document status `[PROPOSAL]` (`S7`) |
 | 2 | T0 single host/Compose · T1 **conformant Kubernetes** · T2 sovereign/air-gap | substrate (narrower T1 than #1) | `cybrik-suite:docs/adr/evidence/ADR-0005-EVIDENCE.md`, `…/ADR-0004-EVIDENCE.md` — both `DRAFT` (`S10`; status per `S1`) |
-| 3 | T0 demo/dev ≤2k EPS · T1 3-broker cluster 10–50k EPS · T2 = T1 scaled, 50k sustained/100k burst | **throughput/capacity** | `cybrik-soc-command-center:docs/architecture/DATA-PLANE-V2.md` §4 (`C6`), cited by SOC ADR-0021 (`C1`) |
+| 3 | T0 demo/dev ≤2k EPS · T1 standard 3-broker cluster 10–50k EPS · T2 NFR = T1 scaled, 50k sustained/100k burst | **throughput/capacity** (three packaged data-plane sizes) | `cybrik-soc-command-center:docs/architecture/DATA-PLANE-V2.md` §4 (`C6`) — **`ĐÃ CHỐT — Founder duyệt 2026-07-20`** (settled, Founder-approved; *"the official target architecture of the data plane"*); adopted as packaged configurations by SOC ADR-0021 (`C11`) — **`ĐÃ CHỐT — Founder duyệt theo đề xuất, 2026-07-20`**. **Authoritative within the SOC data-plane capacity scope.** Not a suite-wide deployment-tier definition |
 | 4 | `architecture_tier: "T0"` = hardened Linux container host, "scales deterministically to T1 Kubernetes"; `RECOMMENDED_CANDIDATE_FOR_T0` and `HIGHER_COMPLEXITY_T1_FOUNDATION` applied to hosted VPS providers | derived platform + provider sizing | `soc-production-infrastructure:architecture/PRODUCTION_PLATFORM_DECISION.json`, `…:plans/PRODUCTION_HOST_PROVIDER_MATRIX.json` — derived layer (`X2`, context only) |
 
 Usages #1/#2 and #3 are **not reconcilable by naming alone**: under #1 a T2 deployment is defined
@@ -625,12 +665,34 @@ collision concretely: the file `deploy/pf/docker-compose.t1.yml` is recorded as 
 sizing*.
 
 Accepted suite ADR-0005 answer `J7` (`S2`) **uses** the labels (Kata `RuntimeClass` at T1/T2, direct
-Firecracker + jailer at T0) without defining them. Every definition of the labels sits in a document
-that is itself not accepted: `cybrik-suite:docs/strategy/03-REFERENCE-ARCHITECTURE.md` (`S7`) carries
-`Trạng thái: [PROPOSAL]` in its own header, and the two evidence files (`S10`) are `DRAFT` per the
-authoritative catalog `cybrik-suite:docs/adr/README.md` (`S1`). Both facts are reproducible from the
-committed tree at `BASE_SHA d2b5c7fe799beb94b1dcf0661350de10417da0a3`. So an accepted ADR depends on
-a vocabulary whose only definitions sit in `[PROPOSAL]` and `DRAFT` documents.
+Firecracker + jailer at T0) without defining them or naming an axis. The status of the definitions
+differs by axis, and is recorded exactly:
+
+- **Substrate / trust-boundary axis (usages #1 and #2).** Every definition sits in a document that
+  is itself not accepted: `cybrik-suite:docs/strategy/03-REFERENCE-ARCHITECTURE.md` (`S7`) carries
+  `Trạng thái: [PROPOSAL]` in its own header, and the two evidence files (`S10`) are `DRAFT` per the
+  authoritative catalog `cybrik-suite:docs/adr/README.md` (`S1`). Both facts are reproducible from
+  the committed tree at `BASE_SHA d2b5c7fe799beb94b1dcf0661350de10417da0a3`.
+- **Capacity / scale axis (usage #3).** `cybrik-soc-command-center:docs/architecture/DATA-PLANE-V2.md`
+  (`C6`) is **Founder-approved and settled** — its own header reads `Trạng thái: ĐÃ CHỐT — Founder
+  duyệt 2026-07-20` together with ADR-0021, and calls itself the official target architecture of
+  the data plane. Its §4 defines `T0`/`T1`/`T2` by event throughput as three packaged, per-deployment
+  data-plane sizes (T0 demo/dev ≤2k EPS; T1 standard 10–50k EPS; T2 NFR 50k sustained / 100k
+  burst — the V2 acceptance configuration). SOC ADR-0021 (`C11`), equally Founder-approved
+  (`ĐÃ CHỐT — Founder duyệt theo đề xuất, 2026-07-20`), adopts those sizes as its packaged
+  configurations ("T0 compose 1-node → T2 NFR"). That vocabulary is therefore **authoritative
+  within the SOC data-plane capacity scope**: it is neither a proposal nor a draft, and this ADR
+  does not demote it. What it is **not** is a suite-wide deployment-tier definition — it says
+  nothing about substrate, trust boundary or sovereignty, and it was decided within one product's
+  data-plane scope.
+
+So the reason `CANONICAL_T0_T1_T2_SEMANTICS` stays open is **not** that every definition is
+unaccepted. It is **semantic collision across axes**: the same bare token legitimately carries an
+authoritative capacity meaning in one scope and a proposed substrate/trust-boundary meaning in
+another, and one system receives different labels under each — the 1k-EPS air-gapped site above is
+"T2" on one axis and "T0" on the other. Until a canonical, versioned naming contract disambiguates
+the axes, a bare `T0`/`T1`/`T2` cannot act as a suite-wide executable conformance vocabulary; and an
+accepted suite ADR (ADR-0005) already depends on the tokens without naming an axis.
 
 `NON_AUTHORITATIVE_CONTEXT_ONLY` (§0; `X3`) — a further observation, retained because it is useful
 and load-bearing on nothing: an operations file `docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md`
@@ -641,16 +703,20 @@ corroborates the committed evidence above; it does not carry it. R1 wrongly used
 authoritative source, and this correction removes that dependency rather than committing an
 unrelated file to satisfy the citation.
 
-**T0/T1/T2 has no executable conformance meaning until the canonical tier contract is accepted**
-(`INV-15`, §4). Consequently:
+**Bare T0/T1/T2 have no suite-wide executable conformance meaning until the canonical tier contract
+is accepted** (`INV-15`, §4). Consequently:
 
-- This ADR **reserves** `T0`/`T1`/`T2` as suite tier tokens and defines none of them.
+- This ADR **reserves** `T0`/`T1`/`T2` as suite tier tokens and defines none of them suite-wide.
 - The normative conformance subject used throughout this ADR is `VERSIONED_DEPLOYMENT_PROFILE`
-  (§5.3), never a tier name.
+  (§5.3), never a bare tier name. A claim such as "T1" that does not name the vocabulary, axis and
+  version it refers to falls under `INV-15` and `INV-17`; the existence of an approved capacity-axis
+  vocabulary in the SOC data plane does not change that.
 - The binding rules are `INV-15` and `INV-17` in §4. This section states what is unresolved; it
   creates no requirement of its own.
-- Existing documents using `T0`/`T1`/`T2` keep them as dated evidence and context. Nothing is
-  rewritten, and no such usage becomes a conformance target by being quoted here.
+- Existing documents using `T0`/`T1`/`T2` keep them as dated evidence and context — and, for
+  `DATA-PLANE-V2.md` §4 and SOC ADR-0021, as authoritative meaning within their own SOC data-plane
+  scope. Nothing is rewritten, nothing is demoted, and no such usage becomes a suite-wide
+  conformance target by being quoted here.
 
 ### 6.3 P3 terminology — cross-domain exchange is not "Hybrid Cloud"
 
@@ -851,8 +917,8 @@ Applied to the areas this ADR touches:
 
 Every deployment/provider adapter MUST satisfy the **versioned mandatory baseline of every
 `VERSIONED_DEPLOYMENT_PROFILE` it declares support for**. A declaration of support is a conformance
-assertion against a profile identifier and version, not a label — and never against a tier name,
-which has no executable conformance meaning (§6.2).
+assertion against a profile identifier and version, not a label — and never against a bare tier
+name, which has no suite-wide executable conformance meaning (§6.2).
 
 ### 8.2 Provider-specific capabilities
 
@@ -1051,7 +1117,7 @@ that verdict is `ADVISORY`, not mandatory.
 | Accepted ADRs 0001–0014 | **None.** No status flip, no supersession, no byte change |
 | `soc-production-infrastructure` (derived) | **Reclassified, not deleted.** AWS estate becomes `OPTIONAL_REFERENCE_ONLY`; the platform verdict and provider matrix become advisory input (§9, §10) |
 | `soc-autonomous-state` (derived controller) | Its recorded policy gains an architecture home. The controller MUST NOT treat this ADR as accepted until the Founder accepts it |
-| Documents using `T0`/`T1`/`T2` | **No rewrite.** Tokens are reserved; existing usages remain dated provenance until the tier contract lands (§6.2) |
+| Documents using `T0`/`T1`/`T2` | **No rewrite.** Tokens are reserved suite-wide; existing usages remain dated provenance — and, for `DATA-PLANE-V2` §4 and SOC ADR-0021, authoritative meaning within their own SOC data-plane scope — until the tier contract lands (§6.2) |
 | `cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` | **New file.** Records the Founder policy durably under the repository's canonical `FOUNDER-DECISION-PACKET-*` convention. Records policy only — accepts no ADR, selects no technology, authorizes no implementation or rollout |
 | `cybrik-suite:docs/adr/README.md` (ADR catalog) | **Additive registration only.** One prose paragraph and one table row register ADR-0015 as `PROPOSED`, Decider `FOUNDER`. No existing ADR status is altered, and registration is not acceptance. See §18 |
 
@@ -1103,7 +1169,7 @@ production remains Founder-controlled.
 | 2 | **Write a technology-selection ADR** — pick the Kubernetes distribution and virtualization product now | Out of scope by construction, and unsupported: `KUBERNETES_PRIMARY_SUBSTRATE = UNDECIDED`, every candidate `NOT_SELECTED`. Selecting now would repeat the drift with a different vendor |
 | 3 | **Ban public cloud outright** | Wrong on the facts and wrong in kind. The decision is a product/architecture priority, not a legal or moral prohibition. A banned-forever rule would also block a legitimate future customer-driven adapter |
 | 4 | **Delete the AWS estate** | Destroys forensic provenance for the exact drift being corrected, and exceeds this task's scope |
-| 5 | **Consolidate the T0/T1/T2 vocabulary now** by adopting the suite `[PROPOSAL]` definitions | Would promote a `[PROPOSAL]` or `DRAFT` definition into authority purely because it is the most-cited one, and would silently invalidate the orthogonal capacity axis in `DATA-PLANE-V2` |
+| 5 | **Consolidate the T0/T1/T2 vocabulary now** by adopting the suite `[PROPOSAL]` definitions | Would promote a `[PROPOSAL]` or `DRAFT` definition into authority purely because it is the most-cited one, and would silently override the Founder-approved orthogonal capacity axis of `DATA-PLANE-V2` §4 (`C6`) within its own scope |
 | 6 | **Promote SOC ADR-0018/ADR-0020 into this ADR's authority** because their content aligns with sovereignty policy | Both are `PROPOSED`. Content alignment is not authority. They enter only as a capability slot (§5.2 #9) and as rationale (§8) |
 | 7 | **Declare the AI egress guard sufficient** and close the sovereignty question | Overstates the implementation. The validate-then-connect window is real and unclosed (§7.3) |
 
@@ -1121,7 +1187,7 @@ into an implementation or maturity claim — is governed by `INV-20` (§4) and A
 | `OPEN-1` | `OFFLINE_INSTALL_UPDATE_CONTRACT` | **OPEN** | A versioned contract covering signed offline bundles, operator-owned trust root, offline install, upgrade, rollback and update-station workflow. No such contract exists in `cybrik-suite:contracts/` |
 | `OPEN-2` | `S3_COMPATIBILITY_MINIMUM_CONTRACT` | **OPEN** | Platform Contract slot 5 (§14.1) |
 | `OPEN-3` | `AI_DNS_TOCTOU_EGRESS_GUARD` | **OPEN** | A bounded hardening decision on the model-seam and copilot guards (§7.3) |
-| `OPEN-4` | `CANONICAL_T0_T1_T2_SEMANTICS` | **OPEN** — not conclusively resolved by binding evidence (§6.2) | One versioned tier contract |
+| `OPEN-4` | `CANONICAL_T0_T1_T2_SEMANTICS` | **OPEN** — usages on different axes collide; one of them is Founder-approved within the SOC data-plane capacity scope, none is suite-wide (§6.2) | One versioned tier contract that names the axes |
 | `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | Governance rule **decided** here (§8.2/§8.3); detailed protocol **OPEN** | Platform Contract |
 | `OPEN-6` | `VIRTUALIZATION_SUBSTRATE_SELECTION` | **OPEN** — VMware/Proxmox/OpenStack all `NOT_SELECTED` | A separate bounded technology-selection decision |
 | `OPEN-7` | `KUBERNETES_DISTRIBUTION_SELECTION` | **OPEN** — Kubernetes itself `UNDECIDED`; RKE2/K3s/OpenShift all `NOT_SELECTED` | A separate bounded technology-selection decision |
@@ -1230,9 +1296,10 @@ All paths are repository-qualified. Statuses are the sources' own, verified 2026
 - `governance/ADR/ADR-0019-sovereign-siem-wazuh-opensearch-nsm.md` — direction accepted, V2,
   deferred (`C1`)
 - `governance/ADR/ADR-0020-siem-backend-adapter-swap-ready.md` — `Proposed` (`C1`)
-- `governance/ADR/ADR-0021-event-bus-event-store-f14.md` — cites the capacity-axis tiers of
-  `DATA-PLANE-V2` §4 (`C1`)
-- `docs/architecture/DATA-PLANE-V2.md` §4 — capacity-axis T0/T1/T2 (`C6`)
+- `governance/ADR/ADR-0021-event-bus-event-store-f14.md` — `ĐÃ CHỐT — Founder duyệt theo đề xuất,
+  2026-07-20`; adopts the `DATA-PLANE-V2` §4 capacity-axis tiers as packaged configurations (`C11`)
+- `docs/architecture/DATA-PLANE-V2.md` — `ĐÃ CHỐT — Founder duyệt 2026-07-20`; §4 defines the
+  capacity-axis T0/T1/T2, authoritative within the SOC data-plane scope (`C6`)
 - `docs/operations/T1-BRINGUP-EVIDENCE-2026-07-22.md` — T1 file carrying T2 sizing (`C6`)
 - `services/api/src/cybrik_soc/modules/copilot/llm.py` — sovereignty base-URL guard (`C2`)
 - `services/api/src/cybrik_soc/platform/outbound.py` — tenant-facing SSRF guard (`C3`)
@@ -1293,16 +1360,17 @@ and each was re-verified at that commit rather than carried over from R2.
 | `S9` | `cybrik-suite` | `e800a283fd6f001a579987630839435206b73160` (R3 commit on this branch; file unchanged since) | `docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` | `COMMIT_BOUND_REPRODUCIBLE` | **Sole authority for the Founder deployment policy** (§1.3, §1.4, Decision A.1); §1.3 of the packet records `AWS_PRIMARY_FOUNDER_AUTHORITY = NOT_FOUND` and `AWS_PRIMARY_DEPLOYMENT_DECISION = VOID_UNRATIFIED_DERIVED_DRIFT` under Founder authority (§1.2, §10.1) |
 | `S10` | `cybrik-suite` | `d2b5c7fe…` | `docs/adr/evidence/ADR-0004-EVIDENCE.md`, `docs/adr/evidence/ADR-0005-EVIDENCE.md` | `COMMIT_BOUND_REPRODUCIBLE` | `DRAFT` evidence documents (status per `S1`); the second, narrower tier usage (§6.2 #2); the two cited **suite-evidence inputs** to the derived platform decision — two of the four inputs that the `X2` artifact's `derived_from` field declares (the other two being `cybrik-soc-command-center:deploy/` and Cloudflare authoritative DNS) — cited as drift provenance only, never as authority, exclusivity or platform selection (§1.2, §10.3) |
 | `S11` | `cybrik-suite` | `d2b5c7fe…` | `docs/adr/ADR-0001-suite-contract-versioning-policy.md`, `docs/adr/ADR-0004-tool-fabric-control-plane-executor-split.md`, `docs/adr/ADR-0006-cross-product-event-and-identity-model.md`, `docs/adr/ADR-0007-org-hierarchy-and-external-authority-boundary.md`, `docs/adr/ADR-0008-internal-service-delegation-and-workload-identity.md` | `COMMIT_BOUND_REPRODUCIBLE` | Suite ADR status strings and qualifiers as read from the ADR bytes (§1.5, Acceptance Criterion 5); the E2/E3 two-layer trust seam of ADR-0006 and ADR-0008 (§5.2 slot 10) |
-| `C1` | `cybrik-soc-command-center` | `695aed8e…` (RC1) | `governance/ADR/ADR-0015 … ADR-0021` | `COMMIT_BOUND_REPRODUCIBLE` | Verified SOC ADR statuses and qualifiers (§1.5, §7.2); sovereign-SOC positioning of ADR-0016/ADR-0017 (§1.1); the ADR-0015 cross-repository number collision and the intra-SOC 0016 collision that ADR-0016 documents (§1.5); ADR-0021's citation of the capacity-axis tiers (§6.2) |
+| `C1` | `cybrik-soc-command-center` | `695aed8e…` (RC1) | `governance/ADR/ADR-0015 … ADR-0020` | `COMMIT_BOUND_REPRODUCIBLE` | Verified SOC ADR statuses and qualifiers (§1.5, §7.2); sovereign-SOC positioning of ADR-0016/ADR-0017 (§1.1); the ADR-0015 cross-repository number collision and the intra-SOC 0016 collision that ADR-0016 documents (§1.5) |
 | `C2` | `cybrik-soc-command-center` | `695aed8e…` | `services/api/src/cybrik_soc/modules/copilot/llm.py` | `COMMIT_BOUND_REPRODUCIBLE` | Sovereignty guard; `socket.getaddrinfo` at line 98, no injection point (§7.3, §7.4) |
 | `C3` | `cybrik-soc-command-center` | `695aed8e…` | `services/api/src/cybrik_soc/platform/outbound.py` | `COMMIT_BOUND_REPRODUCIBLE` | Docstring claims IP pinning; `client.get(url…)` at line 69 uses the hostname (§7.3) |
 | `C4` | `cybrik-soc-command-center` | `695aed8e…` | `ops/pf-workers/pf_workers/s3util.py`, `ops/pf-workers/pf_workers/parquet_archiver.py`, `ops/pf-workers/pyproject.toml` | `COMMIT_BOUND_REPRODUCIBLE` | boto3 as a portable S3 client; `endpoint_url` + path addressing; the S3 operations actually exercised (`s3util.py` and the archiver's `put_object`) (§1.2, §5.1, §10.2, §14.1) |
 | `C5` | `cybrik-soc-command-center` | `695aed8e…` | `ops/pf-workers/tests/test_parquet_archiver.py` | `COMMIT_BOUND_REPRODUCIBLE` | Conditional `TESTED` — the S3 section skips when no cluster answers (§7.4, §14.1) |
-| `C6` | `cybrik-soc-command-center` | `695aed8e…` | `docs/architecture/DATA-PLANE-V2.md`, `docs/operations/T1-BRINGUP-EVIDENCE-2026-07-22.md` | `COMMIT_BOUND_REPRODUCIBLE` | Competing capacity-axis tier vocabulary; `deploy/pf/docker-compose.t1.yml` recorded as carrying T2 sizing (§6.2) |
+| `C6` | `cybrik-soc-command-center` | `695aed8e…` | `docs/architecture/DATA-PLANE-V2.md`, `docs/operations/T1-BRINGUP-EVIDENCE-2026-07-22.md` | `COMMIT_BOUND_REPRODUCIBLE` | `DATA-PLANE-V2.md`: status exactly as written `ĐÃ CHỐT — Founder duyệt 2026-07-20` (settled, Founder-approved, the official target data-plane architecture); its §4 defines `T0`/`T1`/`T2` on a capacity/throughput axis as three packaged data-plane sizes — an **approved, authoritative tier meaning within the SOC data-plane scope**, and one side of the cross-axis collision (§6.2 #3). Not evidence that all tier definitions are proposal/draft, and not a suite-wide deployment-tier definition. `T1-BRINGUP-EVIDENCE`: records `deploy/pf/docker-compose.t1.yml` as carrying production T2 sizing, showing the collision concretely (§6.2) |
 | `C7` | `cybrik-soc-command-center` | `695aed8e…` | `services/api/src/cybrik_soc/modules/forensics/__init__.py` | `COMMIT_BOUND_REPRODUCIBLE` | WORM / Object Lock is an open checklist item (§14.1) |
 | `C8` | `cybrik-soc-command-center` | `695aed8e…` | `services/api/tests/unit/test_llm_adapter.py` | `COMMIT_BOUND_REPRODUCIBLE` | `TESTED` for the SOC sovereignty guard covers validation policy only — allowlist, public-address rejection with `socket.getaddrinfo` monkeypatched, internal-address acceptance, scheme, external base URL at client construction; no connect-time pinning test (§7.4, `OPEN-3`) |
 | `C9` | `cybrik-soc-command-center` | `695aed8e…` | `docs/operations/RUNBOOK-S16-LAKE-DUAL-WRITE.md` | `COMMIT_BOUND_REPRODUCIBLE` | `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` are SigV4 env-var names assigned from `PF_SEAWEED_S3_*` values and exported for the `aws` CLI against `--endpoint-url http://localhost:8333` (lines 165–168); no AWS endpoint, account or service (§1.2, §10.2) |
 | `C10` | `cybrik-soc-command-center` | `695aed8e…` | `docs/licensing/LEGAL-REVIEW-QD14-DOSSIER.md` | `COMMIT_BOUND_REPRODUCIBLE` | Dossier status as written at the pinned commit: Founder-signed 2026-07-22 as final internal sign-off; no separate internal legal signature exists; external independent legal review optional, contract-triggered (§7.2). Supports a status statement inside an `OPEN_QUESTION` section only; no binding conclusion rests on it |
+| `C11` | `cybrik-soc-command-center` | `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` (RC1) | `governance/ADR/ADR-0021-event-bus-event-store-f14.md` | `COMMIT_BOUND_REPRODUCIBLE` | Status exactly as written: `ĐÃ CHỐT — Founder duyệt theo đề xuất, 2026-07-20` (F-14) — settled, Founder-approved as proposed; the PF data-plane architecture (Kafka KRaft + OpenSearch/Parquet-SeaweedFS + Valkey) in effect. Role: adopts the `DATA-PLANE-V2` §4 capacity-axis `T0`/`T1`/`T2` as packaged configurations ("T0 compose 1-node → T2 NFR") within the SOC data-plane scope — evidence that the tokens already carry an authoritative meaning in one scope (§1.5, §6.2). Not cited as suite-wide deployment-tier authority; its legal-gate wording is recorded, not adjudicated (`C10`, §7.2) |
 | `A1` | `cybrik-cyber-ai-platform` | `f0bf4c63…` (RC1) | `packages/ai-core/src/cybrik_ai_core/security/egress.py` | `COMMIT_BOUND_REPRODUCIBLE` | Injected `resolver` at line 72; public addresses refused by design (§7.3) |
 | `A2` | `cybrik-cyber-ai-platform` | `f0bf4c63…` | `services/ai-api/src/cybrik_ai_api/adapters/ollama.py` | `COMMIT_BOUND_REPRODUCIBLE` | Guard applied at construction, line 82 (§7.3). **Differs from current `HEAD`**; the RC1 bytes are the cited ones |
 | `A3` | `cybrik-cyber-ai-platform` | `f0bf4c63…` | `tests/ai_core/test_security.py` | `COMMIT_BOUND_REPRODUCIBLE` | `TESTED` covers validation policy only, never connect-time pinning (§7.4) |
@@ -1427,7 +1495,25 @@ synthesized or implied.
   `FOUNDER_ACCEPTANCE_SAFE = NO`, with three findings.
 - **R5** — this file revised only, to close the three R4 review findings. Exactly one file. The
   Founder packet and `docs/adr/README.md` are unchanged. R1–R4 history retained, not amended or
+  squashed. Independent review returned `CHANGES_REQUIRED`, `FOUNDER_ACCEPTANCE_SAFE = NO`; all
+  R4 findings passed, two findings remained.
+- **R6** — this file revised only, to close the two R5 review findings. Exactly one file. The
+  Founder packet and `docs/adr/README.md` are unchanged. R1–R5 history retained, not amended or
   squashed.
+
+R6 corrects, in order: §2 temporally qualified — the pre-R3 representation of the Founder
+deployment priority only in derived controller state is now a `HISTORICAL_CAUSE`, the durable
+Git-bound authority record is `CURRENTLY_REMEDIATED` by `S9` at `e800a283…`, and the accepted
+suite-wide architecture home is `STILL_OPEN` pending explicit Founder acceptance of this ADR, with
+each of the four failures classified individually rather than declared uniformly unclosed; and the
+tier-vocabulary evidence corrected — `DATA-PLANE-V2.md` §4 (`C6`) and SOC ADR-0021 (new row `C11`)
+recorded at their exact Founder-approved status as an authoritative capacity-axis `T0`/`T1`/`T2`
+within the SOC data-plane scope, the §6.2 claim that every definition sits in unaccepted material
+replaced by the per-axis statement, the reason `CANONICAL_T0_T1_T2_SEMANTICS` stays open restated
+as cross-axis semantic collision, `C1` narrowed to ADR-0015 … ADR-0020, and Decision G, `INV-15`,
+§5.3, §8.1 and `OPEN-4` qualified so that *bare* tokens have no *suite-wide* executable conformance
+meaning while `VERSIONED_DEPLOYMENT_PROFILE` remains the sole conformance subject. No policy,
+status, open question, invariant number or technology position changed in R6.
 
 R5 corrects, in order: Decision A split into A.1 (the packet's exact Founder-policy values,
 `FOUNDER_POLICY`, already in force by the packet at `e800a283…` and not dependent on this ADR's
@@ -1473,7 +1559,7 @@ R2's undefined ad-hoc label (`NON_AUTHORITATIVE_WORKTREE_ONLY_EVIDENCE`, no long
 this ADR) replaced by the defined `NON_AUTHORITATIVE_CONTEXT_ONLY` provenance class; the provider scan restated as an exact boundary-aware command with controls; Decision J
 grammar repaired; and the duplicate source-trace invariant removed, leaving `INV-14` canonical.
 
-In R3, R4 and R5, as in R1 and R2: no Founder signature, cryptographic signature or acceptance
+In R3 through R6, as in R1 and R2: no Founder signature, cryptographic signature or acceptance
 receipt was synthesized; the recording agent added no policy beyond the Founder directive; and this
 ADR was not accepted.
 
