@@ -9,9 +9,6 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "version": {
-      "type": "string"
-    },
     "slots": {
       "type": "object",
       "additionalProperties": false,
@@ -240,10 +237,14 @@
         "ai_model_runtime",
         "artifact_update_mechanism"
       ]
+    },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
     }
   },
   "required": [
-    "version",
+    "contract_version",
     "slots"
   ],
   "x-cybrik-lifecycle": "PROPOSED"

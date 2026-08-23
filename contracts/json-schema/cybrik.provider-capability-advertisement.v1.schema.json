@@ -349,7 +349,12 @@
               }
             }
           }
-        ]
+        ],
+        "properties": {
+          "advertised_capabilities": {
+            "maxItems": 13
+          }
+        }
       }
     }
   ],

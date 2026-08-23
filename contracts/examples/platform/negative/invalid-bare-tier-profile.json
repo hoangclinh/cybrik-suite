@@ -85,12 +85,12 @@
   },
   "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
   "isolation_policy": {
-    "floor": "standard_process_container",
+    "floor": "syscall_interception_sandbox",
     "admitted_risk_classes": [
       "UNTRUSTED_CODE_EXECUTION"
     ],
     "disposable_execution_required": true,
-    "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
+    "network_egress_isolation": "MEDIATED_EGRESS_BROKER",
     "no_downgrade_guarantee": true
   }
 }

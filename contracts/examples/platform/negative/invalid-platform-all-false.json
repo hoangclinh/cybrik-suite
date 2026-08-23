@@ -1,5 +1,4 @@
 {
-  "version": "1.0.0",
   "slots": {
     "oci_container_runtime": {
       "provided": false,
@@ -53,5 +52,6 @@
       "provided": true,
       "specification": "spec"
     }
-  }
+  },
+  "contract_version": "1.0.0"
 }

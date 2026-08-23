@@ -110,7 +110,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
   'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set', schemaPath: '#/properties/capability_set/required', params: { missingProperty: 'artifact_update_mechanism' }, message: "must have required property 'artifact_update_mechanism'" },
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/))[a-z0-9._/-]+$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/))[a-z0-9._/-]+$"' }
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' }
 };
 
 test('validate negative platform fixtures', () => {
@@ -281,4 +281,37 @@ test('in-memory validation: reject offline manifest with alias collision paths',
   // Skip strict schema validation because ./ is technically invalid structurally now
   // We want to test the semantic normalizer explicitly.
   assert.throws(() => validatePlatformSemantics(data, schemaId), /duplicate artifact path/);
+});
+
+test('in-memory validation: reject offline manifest with trailing slash path', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const data = {
+    "bundle_identifier": "my-bundle-1",
+    "release_tag": "v1.2.3",
+    "operator_trust_root": {
+      "signing_key_id": "key-123456",
+      "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "signature_algorithm": "ed25519"
+    },
+    "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+    "artifacts": [
+      {
+        "name": "image-1",
+        "path": "images/image-1.tar/",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 1024
+      }
+    ],
+    "migration_reversibility_guaranteed": true,
+    "rollback_procedure_reference": "doc://rollback",
+    "update_station_workflow": {
+      "preflight_steps": ["check-disk-space"],
+      "apply_steps": ["extract-images"],
+      "rollback_steps": ["restore-backup"]
+    },
+    "canonicalization_scheme": "RFC_8785_JCS"
+  };
+
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(!valid, 'Should reject trailing slash path');
 });

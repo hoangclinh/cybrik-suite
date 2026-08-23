@@ -4,67 +4,77 @@
   "capability_set": {
     "oci_container_runtime": {
       "constraints": [
-        "some-provider"
+        "oci-runtime-spec-v1.0",
+        "containerd-compatible"
       ]
     },
     "isolation_substrate": {
       "constraints": [
-        "some-provider"
+        "gvisor-syscall-filter",
+        "disposable-sandbox"
       ]
     },
     "orchestration_capability": {
       "constraints": [
-        "some-provider"
+        "k8s-api-v1.28-compatible"
       ]
     },
     "network_segmentation": {
       "constraints": [
-        "some-provider"
+        "cni-network-policy-l3-l4"
       ]
     },
     "storage": {
       "constraints": [
-        "some-provider"
+        "s3-api-v1.0",
+        "posix-filesystem"
       ]
     },
     "database": {
       "constraints": [
-        "some-provider"
+        "postgresql-v15",
+        "acid-transactions"
       ]
     },
     "cache": {
       "constraints": [
-        "some-provider"
+        "valkey-v7-compatible",
+        "in-memory-kv"
       ]
     },
     "secrets": {
       "constraints": [
-        "some-provider"
+        "envelope-encryption",
+        "transit-key-derivation"
       ]
     },
     "crypto": {
       "constraints": [
-        "some-provider"
+        "ed25519-signing",
+        "aes-256-gcm",
+        "pqc-hybrid-agile"
       ]
     },
     "identity_workload_identity": {
       "constraints": [
-        "some-provider"
+        "spiffe-spire-x509",
+        "jwt-svid"
       ]
     },
     "observability": {
       "constraints": [
-        "some-provider"
+        "opentelemetry-metrics-logs-v1.0"
       ]
     },
     "ai_model_runtime": {
       "constraints": [
-        "some-provider"
+        "openai-v1-chat-completions-compatible"
       ]
     },
     "artifact_update_mechanism": {
       "constraints": [
-        "some-provider"
+        "rfc-8785-jcs-verified-bundles",
+        "airgap-reproducible"
       ]
     }
   },
@@ -86,11 +96,12 @@
   "sovereignty_class": "OPTIONAL_HYBRID",
   "isolation_policy": {
     "floor": "microvm_hardware_virtualization",
-    "admitted_risk_classes": [
-      "UNTRUSTED_CODE_EXECUTION"
-    ],
     "disposable_execution_required": true,
     "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
-    "no_downgrade_guarantee": true
+    "no_downgrade_guarantee": true,
+    "admitted_risk_classes": [
+      "UNTRUSTED_CODE_EXECUTION",
+      "DYNAMIC_TENANT_WORKLOAD"
+    ]
   }
 }
