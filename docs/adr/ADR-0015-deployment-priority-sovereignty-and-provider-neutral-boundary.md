@@ -29,7 +29,7 @@ a label is framing, not authority.
 | Label | Meaning | Binding? | Who may change it |
 |---|---|---|---|
 | `HISTORICAL_FINDING` | A fact about what the repositories already recorded before this ADR. Dated provenance. Never rewritten to match current policy. | **No** | Nobody — it is history |
-| `FOUNDER_POLICY` | A Founder decision this ADR consolidates into suite architecture. **New as of 2026-08-23**; not retroactive | **Yes** | Founder |
+| `FOUNDER_POLICY` | A proposition that the Founder decision packet (`S9`) itself states, reproduced here and consolidated into suite architecture. Already in force by the packet's own authority since 2026-08-23, independently of this ADR's acceptance; not retroactive. Only a packet-stated proposition carries this label — a rule authored by this ADR is never `FOUNDER_POLICY`, whatever it consolidates | **Yes** — by the packet, not by this ADR | Founder |
 | `ARCHITECTURAL_INVARIANT` | A binding architecture rule proposed here, effective only on acceptance | **Yes** | Founder, by a later ADR |
 | `DECISION` | A binding decision statement in §3 | **Yes** | Founder, by a later ADR |
 | `OPEN_QUESTION` | Explicitly unresolved. Acceptance of this ADR does **not** close it | **No** | A later bounded decision |
@@ -56,8 +56,9 @@ list below decides the order (`OPEN_QUESTION` before `OPTIONAL_PROFILE` before `
 
 1. `OPEN_QUESTION` wins over every other label **for the sub-question it names**. An item labelled
    `OPEN_QUESTION` creates no binding requirement about that sub-question, whatever else it carries.
-2. `FOUNDER_POLICY` and `ARCHITECTURAL_INVARIANT` are binding, and where both apply the invariant
-   text is the operative wording.
+2. `FOUNDER_POLICY` and `ARCHITECTURAL_INVARIANT` are both binding and are never carried by one
+   item (an ADR-authored rule is never `FOUNDER_POLICY`). Where an invariant builds on a policy,
+   the packet's wording governs the policy and the invariant adds only what it states itself.
 3. `OPTIONAL_PROFILE` never becomes mandatory by association with a binding label.
 4. `HISTORICAL_FINDING` never acquires binding force from a co-label; it stays dated provenance. A
    section labelled `HISTORICAL_FINDING` alone MUST NOT introduce a requirement of its own; where a
@@ -65,8 +66,10 @@ list below decides the order (`OPEN_QUESTION` before `OPTIONAL_PROFILE` before `
    in §4 and the historical section refers to it descriptively.
 
 **Where binding language may appear.** Normative keywords `MUST`, `MUST NOT`, `SHOULD`, `MAY` are
-used in the RFC 2119 sense, apply only to `ARCHITECTURAL_INVARIANT` and `FOUNDER_POLICY` items, and
-take effect only after acceptance. Sections labelled `OPEN_QUESTION` describe what is unresolved and
+used in the RFC 2119 sense and apply only to `ARCHITECTURAL_INVARIANT` and `FOUNDER_POLICY` items.
+An `ARCHITECTURAL_INVARIANT` takes effect only after acceptance of this ADR. A `FOUNDER_POLICY` item
+is already in force by the packet; this ADR's restatement of it adds no force and does not depend
+on acceptance. Sections labelled `OPEN_QUESTION` describe what is unresolved and
 **create no binding requirement of their own**; where a binding rule is adjacent to an open
 question, the rule lives in §4 as a numbered invariant and the open section cites it by number.
 
@@ -158,10 +161,14 @@ record rests on:
 | `DERIVED_DEPLOYMENT_LAYER_CONTAMINATED` | `YES` | `soc-production-infrastructure:terraform/` declares `provider "aws"` (primary + DR region) and `provider "cloudflare"`, with VPC/ALB/IAM/security-group/observability/S3-WORM/S3-DR modules (`X2`; a historical observation about a non-reproducible derived layer, carrying no binding conclusion) |
 
 `soc-production-infrastructure:architecture/PRODUCTION_PLATFORM_DECISION.json` (`X2`) carries
-`"verdict": "ACCEPTED"` and `"architecture_tier": "T0"`, derived from
-`cybrik-suite:docs/adr/evidence/ADR-0004-EVIDENCE.md` and `…/ADR-0005-EVIDENCE.md` (`S10`). Both of
-those sources are `DRAFT` evidence documents per `cybrik-suite:docs/adr/README.md` (`S1`), not
-accepted ADRs, and no Founder acceptance record exists for that platform verdict.
+`"verdict": "ACCEPTED"` and `"architecture_tier": "T0"` and declares four `derived_from` inputs:
+the two suite evidence packets `cybrik-suite:docs/adr/evidence/ADR-0004-EVIDENCE.md` and
+`…/ADR-0005-EVIDENCE.md` (`S10`), `cybrik-soc-command-center:deploy/`, and Cloudflare authoritative
+DNS. The two suite evidence packets are `DRAFT` evidence documents per
+`cybrik-suite:docs/adr/README.md` (`S1`), not accepted ADRs; the other two inputs are a product
+deployment directory and an external service, not decision records. None of the four is a Founder
+decision or an accepted suite ADR, and no Founder acceptance record exists for that platform
+verdict.
 
 `soc-production-infrastructure:QUARANTINE_NOTICE.md` (`X2`) already classifies the AWS Terraform
 estate as `QUARANTINED_REFERENCE_IMPLEMENTATION` and `PRESERVED_AS_DEFERRED_REFERENCE_PROFILE`. That notice
@@ -175,7 +182,10 @@ This ADR exists to place the disposition under suite architecture authority.
 decision record written under the repository's canonical `FOUNDER-DECISION-PACKET-*` convention and
 identified by the Git commit that introduces it. That packet — not this ADR, and not any derived
 artifact — is what a reviewer must read to confirm the policy. It records the policy only; it
-accepts nothing, selects nothing, and authorizes nothing.
+accepts nothing, selects nothing, and authorizes nothing. The policy is in force by that packet,
+and acceptance of this ADR is **not** required to establish it (Decision A.1). The architectural
+consequences this ADR draws from the policy are Decision A.2 — ADR-authored, `ARCHITECTURAL_INVARIANT`,
+not yet accepted — and are never presented as Founder policy.
 
 `soc-autonomous-state:CURRENT_STATE.json` previously carried the only written form of this policy.
 That working directory is **not a Git repository**, so it has no commit identity and cannot be
@@ -191,7 +201,7 @@ document. Historical documents are provider-neutral with on-prem first class (`S
 they were never a P1/P2/P3 ordering, and this ADR does not retroactively make them one. Where a
 derived artifact states an older phrasing of the third priority
 (`soc-production-infrastructure:QUARANTINE_NOTICE.md`, `X2`, records P3 as `HYBRID_CLOUD`), that
-phrasing is dated provenance and is corrected forward by Decision A, not edited backward.
+phrasing is dated provenance and is corrected forward by Decision A.1, not edited backward.
 
 ### 1.4 Substrate status is undecided
 
@@ -261,8 +271,8 @@ Four failures are visible in the record, and none is closed by an existing decis
    controller state file and derived reports. No suite ADR ratifies it, so nothing structurally
    prevents the next planner from re-deriving a different one.
 2. **A provider became "primary" with no authority.** An AWS estate, a hosted-provider matrix and
-   a self-declared `"verdict": "ACCEPTED"` platform decision were produced in the derived layer
-   from `DRAFT` evidence. No Founder record authorized any of it.
+   a self-declared `"verdict": "ACCEPTED"` platform decision were produced in the derived layer,
+   citing `DRAFT` suite evidence among their inputs. No Founder record authorized any of it.
 3. **Candidate sets silently excluded the actual priorities.**
    `soc-production-infrastructure:plans/PRODUCTION_HOST_PROVIDER_MATRIX.json` evaluates exactly
    four candidates — Hetzner Cloud, DigitalOcean, Linode/Akamai, AWS EC2 — every one of them a
@@ -282,12 +292,25 @@ promoting any proposal into authority merely because its content agrees with cur
 
 ## 3. Decision
 
-On acceptance, the following ten decisions become binding. Each is elaborated in its own section
+On acceptance, the following ten decisions become binding — with one stated exception: Decision
+A.1 restates Founder policy that is already in force by the Founder decision packet and does not
+wait on, or result from, acceptance of this ADR. Each decision is elaborated in its own section
 below.
 
 ### Decision A — Deployment priority
 
-`FOUNDER_POLICY` + `ARCHITECTURAL_INVARIANT`.
+Decision A has two halves with different authority. They are separated so that neither borrows
+force from the other: the first is Founder policy that already exists; the second is what this ADR
+proposes to build on it.
+
+**Founder-policy half — Decision A.1, existing Founder policy** (`FOUNDER_POLICY`). Authority:
+the Founder decision packet
+`cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` at commit
+`e800a283fd6f001a579987630839435206b73160` (`S9`), status `DECIDED — RECORDED` (Founder,
+2026-08-23). The four value assignments below are reproduced exactly from the packet's §1.2
+`NEW_FOUNDER_DEPLOYMENT_POLICY` block (the block name and indentation are omitted; the values are
+identical). They are **already in force** by that packet; acceptance of this ADR is **not** required to establish them, and this ADR
+adds nothing to them.
 
 ```
 P1 = ON_PREMISE
@@ -296,10 +319,23 @@ P3 = SOVEREIGN_CONTROLLED_CROSS_DOMAIN_OR_OPTIONAL_HYBRID
 FOREIGN_PUBLIC_CLOUD = DEFERRED_OPTIONAL_DEPLOYMENT_PROFILE
 ```
 
+The packet's own boundaries travel with these values (packet §2): new policy dated 2026-08-23, not
+backdated; no technology selected; no production rollout authority; no implementation authorized;
+AWS not banned; scope exhaustive — only the packet's §1 statements are decided, and nothing beyond
+them may be inferred from it.
+
+**Proposed half — Decision A.2, ADR-authored architectural consequences**
+(`ARCHITECTURAL_INVARIANT`). The three rules below are **not** in the Founder packet. They are
+proposed by this ADR as architectural consequences of A.1. Status while this ADR is `PROPOSED`:
+**NOT YET ACCEPTED**. They become binding architecture only through explicit Founder acceptance of
+ADR-0015 (§17, Acceptance Criterion 1B), and that acceptance grants no implementation authority.
+The dependency clauses of the second rule are consolidated as `INV-2` in §4; the rest of A.2 is
+binding as Decision text only.
+
 - P1 and P2 MUST be supported deployment profiles for any release that claims general
   availability of the product.
 - Foreign public cloud MUST NOT become a release dependency, a core dependency, a CI-gating
-  dependency, or a precondition for qualifying P1 or P2.
+  dependency (these three clauses are `INV-2`), or a precondition for qualifying P1 or P2.
 - No artifact MAY describe a foreign-public-cloud deployment as "the production architecture",
   "primary", or "the target" without a separately accepted ADR that says so.
 
@@ -407,7 +443,7 @@ this ADR is accepted.
 | # | Invariant |
 |---|---|
 | `INV-1` | Product core MUST remain provider-neutral (Decision B) |
-| `INV-2` | Foreign public cloud MUST NOT be a release, core, or CI-gating dependency (Decision A) |
+| `INV-2` | Foreign public cloud MUST NOT be a release, core, or CI-gating dependency (Decision A.2) |
 | `INV-3` | P1 and P2 MUST keep every §7.1 data class inside customer-controlled infrastructure (Decision C) |
 | `INV-4` | Every external transmission MUST be explicit, policy-controlled and separately classified (Decision C) |
 | `INV-5` | A mandatory public-cloud LLM MUST NOT be required by any supported profile (Decision D) |
@@ -556,14 +592,16 @@ support for anything, which is the intended fail-closed position.
 
 ### 6.1 The ordering
 
-`FOUNDER_POLICY` (new 2026-08-23) — see Decision A for the normative text.
+`FOUNDER_POLICY` (Decision A.1, the packet's exact values, in force since 2026-08-23) for the first
+two columns. The third column is the consequence proposed by Decision A.2 (`ARCHITECTURAL_INVARIANT`,
+not yet accepted); it is not in the packet and is not Founder policy.
 
-| Priority | Profile | Status |
+| Priority | Packet value (Decision A.1, `FOUNDER_POLICY`) | Proposed consequence (Decision A.2, `ARCHITECTURAL_INVARIANT`) |
 |---|---|---|
-| **P1** | `ON_PREMISE` | Primary. MUST be a supported profile |
-| **P2** | `PRIVATE_CLOUD` | Primary. MUST be a supported profile |
-| **P3** | `SOVEREIGN_CONTROLLED_CROSS_DOMAIN_OR_OPTIONAL_HYBRID` | Supported composition, per §6.3 |
-| — | `FOREIGN_PUBLIC_CLOUD` | `DEFERRED_OPTIONAL_DEPLOYMENT_PROFILE` — `OPTIONAL_PROFILE` |
+| **P1** | `ON_PREMISE` | Primary. MUST be a supported profile for any GA release |
+| **P2** | `PRIVATE_CLOUD` | Primary. MUST be a supported profile for any GA release |
+| **P3** | `SOVEREIGN_CONTROLLED_CROSS_DOMAIN_OR_OPTIONAL_HYBRID` | — (not an A.2 rule; terminology governed by §6.3) |
+| — | `FOREIGN_PUBLIC_CLOUD = DEFERRED_OPTIONAL_DEPLOYMENT_PROFILE` | `OPTIONAL_PROFILE`; never a release, core or CI-gating dependency (`INV-2`) |
 
 ### 6.2 Tier vocabulary — RESERVED, not defined here
 
@@ -897,7 +935,7 @@ is accurate and is preserved; the artifact is retained as dated provenance.
 
 ## 10. AWS Drift Disposition
 
-`ARCHITECTURAL_INVARIANT` + `HISTORICAL_FINDING` (Decision A applied). The historical half is the
+`ARCHITECTURAL_INVARIANT` + `HISTORICAL_FINDING` (Decision A.1 policy applied). The historical half is the
 absence-of-authority finding (§10.1 first bullet) and the RC1 findings of §10.2; the binding half is
 the classification, retention and adapter conditions of §10.1 and the Decision B application in §10.2.
 
@@ -935,7 +973,7 @@ must stay separated:
 
 | | At `v1.0.0-rc1` |
 |---|---|
-| **Textual / reference mentions** of provider identifiers (the §1.1 token expression) | **Present**, in **2** `cybrik-suite` files (`.gitleaks.toml` secret-scanner configuration, `docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md`) and **12** `cybrik-soc-command-center` files — architecture documents (`docs/architecture/ENCRYPTION-KEY-MANAGEMENT.md`, `docs/architecture/SIEM-STACK-SOVEREIGNTY-RESEARCH.md`), governance ADRs (SOC ADR-0018, ADR-0019), research documents (`docs/research/SOC-TIER-PERSONA-RESEARCH.md`, `docs/research/GA2-COMPETITIVE-GAP-ANALYSIS.md`), the S16 runbook (`C9`), `deploy/pf/docker-compose.t1.yml`, the S3 client `ops/pf-workers/pf_workers/s3util.py` (`C4`), one Sigma rule, one unit test and one vulnerability-scanner fixture; **zero** in `cybrik-cyber-ai-platform` and `cybrik-security-tool-fabric` (`R1`, textual scan). R3 stated "roughly twenty" and "eighteen" files; those figures came from a naive case-insensitive substring search (which also matches e.g. `laws` and `flaws`) and are corrected here to the boundary-aware counts |
+| **Textual / reference mentions** of provider identifiers | Two figures are kept apart and never substituted for each other. **Raw boundary-token hit files** — the mechanical, reproducible result of the §1.1 token expression (`R1`): `cybrik-suite` **2**, `cybrik-soc-command-center` **12**, `cybrik-cyber-ai-platform` **0**, `cybrik-security-tool-fabric` **0**. **Semantic provider-reference files** — a reviewed classification of each raw hit as a genuine cloud-provider reference or a lexical coincidence: `cybrik-suite` **2**, `cybrik-soc-command-center` **11**, `cybrik-cyber-ai-platform` **0**, `cybrik-security-tool-fabric` **0**. The single difference is `cybrik-soc-command-center:services/api/tests/unit/test_no_hardcoded_colors.py`, whose only hit is the CSS named colour `azure` inside a colour-name list (line 52: `… aquamarine azure beige …`) — a lexical hit, not a cloud-provider reference. The 11 SOC semantic references: architecture documents (`docs/architecture/ENCRYPTION-KEY-MANAGEMENT.md`, `docs/architecture/SIEM-STACK-SOVEREIGNTY-RESEARCH.md` — cloud KMS rejected), governance ADRs (SOC ADR-0018, ADR-0019 — cloud KMS rejected), research documents (`docs/research/SOC-TIER-PERSONA-RESEARCH.md`, `docs/research/GA2-COMPETITIVE-GAP-ANALYSIS.md` — Microsoft Sentinel/Azure comparison), the S16 runbook (`C9`, `aws` CLI against SeaweedFS), `deploy/pf/docker-compose.t1.yml` ("AWS S3-style endpoint"), the S3 client `ops/pf-workers/pf_workers/s3util.py` (`C4`), one Sigma rule (Azure AD Connect exclusion) and one vulnerability-scanner fixture (`aws-access-key-id` secret rule). The 2 suite semantic references: `.gitleaks.toml` (AWS/GCP/Azure key rules) and `docs/security/RESPONSIBLE-DISCLOSURE-POLICY.md` (cloud providers out of scope). R3 stated "roughly twenty" and "eighteen" from a naive substring search (which also matches `laws` and `flaws`); R4 corrected to the boundary-aware raw counts; R5 separates the raw counts from the semantic classification |
 | **Dependency-bearing runtime/provider requirement** | **Exactly one**, in `cybrik-soc-command-center:ops/pf-workers/` (`R1`, `C4`). Zero in `cybrik-suite`, `cybrik-cyber-ai-platform` and `cybrik-security-tool-fabric` |
 
 `RC1_TAG_CONTAMINATED = NO` is therefore a statement about **dependency-bearing runtime paths**, not
@@ -946,7 +984,12 @@ coupling. Verification method for the dependency claim (`R1`): scan of every `py
 repositories for provider SDKs (`boto3`, `botocore`, `aws-sdk`, `@aws-*`, `azure-*`,
 `google-cloud-*`, `oci-sdk`), plus a scan for provider-SDK imports in tracked Python sources.
 Verification method for the textual claim (`R1`): `git grep -l -I -E` with the §1.1 token-boundary
-expression across all tracked files at each of the four RC1 peeled commits.
+expression across all tracked files at each of the four RC1 peeled commits gives the **raw
+boundary-token hit** count; each hit is then read and classified as a genuine cloud-provider
+reference or a lexical coincidence, giving the **semantic provider-reference** count, with every
+classification stated per file in the table. The expression is not altered to exclude the
+coincidence, because this ADR defines no principled lexical filter; the reviewed classification is
+recorded instead, so both figures remain reproducible.
 
 The one dependency is worth characterizing permanently, because it is exactly the Decision B
 case. `cybrik-soc-command-center:ops/pf-workers/pf_workers/s3util.py` (`C4`) uses `boto3` as an
@@ -987,9 +1030,12 @@ incomplete, not compliant.
 
 Worked negative example, retained as provenance:
 `soc-production-infrastructure:architecture/PRODUCTION_PLATFORM_DECISION.json` (`X2`) derives a
-platform verdict from `cybrik-suite:docs/adr/evidence/ADR-0004-EVIDENCE.md` and
-`…/ADR-0005-EVIDENCE.md` (`S10`). Both are `DRAFT` **evidence** documents, not accepted ADRs
-(`cybrik-suite:docs/adr/README.md`, `S1`). Under `INV-14` that verdict is `ADVISORY`, not mandatory.
+platform verdict from four declared inputs. Its two suite-evidence inputs,
+`cybrik-suite:docs/adr/evidence/ADR-0004-EVIDENCE.md` and `…/ADR-0005-EVIDENCE.md` (`S10`), are
+`DRAFT` **evidence** documents, not accepted ADRs (`cybrik-suite:docs/adr/README.md`, `S1`); its
+other two inputs, `cybrik-soc-command-center:deploy/` and Cloudflare authoritative DNS, are a
+deployment directory and an external service — none of the five source kinds above. Under `INV-14`
+that verdict is `ADVISORY`, not mandatory.
 
 ---
 
@@ -1244,8 +1290,8 @@ and each was re-verified at that commit rather than carried over from R2.
 | `S6` | `cybrik-suite` | `d2b5c7fe…` | `contracts/` (386 committed files) | `COMMIT_BOUND_REPRODUCIBLE` | No offline-install/update or storage contract exists (`OPEN-1`, `OPEN-2`, §7.4); no provider-identifier or provider-SDK token in any committed contract file (§1.2 `CONTRACTS_CONTAMINATED = NO`) |
 | `S7` | `cybrik-suite` | `d2b5c7fe…` | `docs/strategy/03-REFERENCE-ARCHITECTURE.md` | `COMMIT_BOUND_REPRODUCIBLE` | `[PROPOSAL]` status; §1 on-prem-first, provider-neutral driver; §10 tier axis (§1.1, §1.2, §1.3, §6.2, §10.1) |
 | `S8` | `cybrik-suite` | `d2b5c7fe…` | `integration/helm/README.md`, `contracts/README.md` | `COMMIT_BOUND_REPRODUCIBLE` | Helm `SCAFFOLD`; contracts `PROPOSED — NOT ACCEPTED` (§1.2, §1.4, §11) |
-| `S9` | `cybrik-suite` | `e800a283fd6f001a579987630839435206b73160` (R3 commit on this branch; file unchanged since) | `docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` | `COMMIT_BOUND_REPRODUCIBLE` | **Sole authority for the Founder deployment policy** (§1.3, §1.4, Decision A); §1.3 of the packet records `AWS_PRIMARY_FOUNDER_AUTHORITY = NOT_FOUND` and `AWS_PRIMARY_DEPLOYMENT_DECISION = VOID_UNRATIFIED_DERIVED_DRIFT` under Founder authority (§1.2, §10.1) |
-| `S10` | `cybrik-suite` | `d2b5c7fe…` | `docs/adr/evidence/ADR-0004-EVIDENCE.md`, `docs/adr/evidence/ADR-0005-EVIDENCE.md` | `COMMIT_BOUND_REPRODUCIBLE` | `DRAFT` evidence documents (status per `S1`); the second, narrower tier usage (§6.2 #2); the only inputs of the derived platform verdict (§1.2, §10.3) |
+| `S9` | `cybrik-suite` | `e800a283fd6f001a579987630839435206b73160` (R3 commit on this branch; file unchanged since) | `docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` | `COMMIT_BOUND_REPRODUCIBLE` | **Sole authority for the Founder deployment policy** (§1.3, §1.4, Decision A.1); §1.3 of the packet records `AWS_PRIMARY_FOUNDER_AUTHORITY = NOT_FOUND` and `AWS_PRIMARY_DEPLOYMENT_DECISION = VOID_UNRATIFIED_DERIVED_DRIFT` under Founder authority (§1.2, §10.1) |
+| `S10` | `cybrik-suite` | `d2b5c7fe…` | `docs/adr/evidence/ADR-0004-EVIDENCE.md`, `docs/adr/evidence/ADR-0005-EVIDENCE.md` | `COMMIT_BOUND_REPRODUCIBLE` | `DRAFT` evidence documents (status per `S1`); the second, narrower tier usage (§6.2 #2); the two cited **suite-evidence inputs** to the derived platform decision — two of the four inputs that the `X2` artifact's `derived_from` field declares (the other two being `cybrik-soc-command-center:deploy/` and Cloudflare authoritative DNS) — cited as drift provenance only, never as authority, exclusivity or platform selection (§1.2, §10.3) |
 | `S11` | `cybrik-suite` | `d2b5c7fe…` | `docs/adr/ADR-0001-suite-contract-versioning-policy.md`, `docs/adr/ADR-0004-tool-fabric-control-plane-executor-split.md`, `docs/adr/ADR-0006-cross-product-event-and-identity-model.md`, `docs/adr/ADR-0007-org-hierarchy-and-external-authority-boundary.md`, `docs/adr/ADR-0008-internal-service-delegation-and-workload-identity.md` | `COMMIT_BOUND_REPRODUCIBLE` | Suite ADR status strings and qualifiers as read from the ADR bytes (§1.5, Acceptance Criterion 5); the E2/E3 two-layer trust seam of ADR-0006 and ADR-0008 (§5.2 slot 10) |
 | `C1` | `cybrik-soc-command-center` | `695aed8e…` (RC1) | `governance/ADR/ADR-0015 … ADR-0021` | `COMMIT_BOUND_REPRODUCIBLE` | Verified SOC ADR statuses and qualifiers (§1.5, §7.2); sovereign-SOC positioning of ADR-0016/ADR-0017 (§1.1); the ADR-0015 cross-repository number collision and the intra-SOC 0016 collision that ADR-0016 documents (§1.5); ADR-0021's citation of the capacity-axis tiers (§6.2) |
 | `C2` | `cybrik-soc-command-center` | `695aed8e…` | `services/api/src/cybrik_soc/modules/copilot/llm.py` | `COMMIT_BOUND_REPRODUCIBLE` | Sovereignty guard; `socket.getaddrinfo` at line 98, no injection point (§7.3, §7.4) |
@@ -1262,7 +1308,7 @@ and each was re-verified at that commit rather than carried over from R2.
 | `A3` | `cybrik-cyber-ai-platform` | `f0bf4c63…` | `tests/ai_core/test_security.py` | `COMMIT_BOUND_REPRODUCIBLE` | `TESTED` covers validation policy only, never connect-time pinning (§7.4) |
 | `A4` | `cybrik-cyber-ai-platform` | `f0bf4c63…` | `.github/workflows/ci.yml` | `COMMIT_BOUND_REPRODUCIBLE` | Offline/locked build path (`uv sync --locked`, `uv export --frozen`) (§7.4). **Differs from current `HEAD` and is dirty in the working tree**; the RC1 bytes are the cited ones |
 | `F1` | `cybrik-security-tool-fabric` | `1a419014…` (RC1) | `tests/control-plane/test_offline_no_network.py` | `COMMIT_BOUND_REPRODUCIBLE` | Bounded offline no-network contract test (§7.4) |
-| `R1` | all four repositories | the four RC1 peeled commits above | dependency manifests (`pyproject.toml`, `package.json`, `requirements*.txt`, `go.mod`) and tracked Python imports, scanned for provider SDKs; plus every tracked file scanned for the §1.1 token expression | `COMMIT_BOUND_REPRODUCIBLE` | Exactly one dependency-bearing provider SDK at RC1, in `ops/pf-workers/` (§1.2, §10.2); provider **text** present in 2 `cybrik-suite` and 12 `cybrik-soc-command-center` files and in neither other product (§10.2) |
+| `R1` | all four repositories | the four RC1 peeled commits above | dependency manifests (`pyproject.toml`, `package.json`, `requirements*.txt`, `go.mod`) and tracked Python imports, scanned for provider SDKs; plus every tracked file scanned for the §1.1 token expression, each hit then classified | `COMMIT_BOUND_REPRODUCIBLE` | Exactly one dependency-bearing provider SDK at RC1, in `ops/pf-workers/` (§1.2, §10.2); **raw boundary-token hit files**: `cybrik-suite` 2, `cybrik-soc-command-center` 12, `cybrik-cyber-ai-platform` 0, `cybrik-security-tool-fabric` 0; **semantic provider-reference files** after reviewed classification: 2, 11, 0, 0 — the one lexical false positive is `services/api/tests/unit/test_no_hardcoded_colors.py` (CSS named colour `azure`) (§10.2) |
 | `X1` | `soc-autonomous-state` | **none — not a Git repository** | `CURRENT_STATE.json` | `NON_AUTHORITATIVE_CONTEXT_ONLY` (role: operational mirror) | Context only. Superseded as policy provenance by `S9` (§1.2, §1.3, §1.4) |
 | `X2` | `soc-production-infrastructure` | **none — not a Git repository** | `terraform/`, `helm/`, `council/`, `plans/`, `architecture/`, `discovery/`, `QUARANTINE_NOTICE.md` | `NON_AUTHORITATIVE_CONTEXT_ONLY` | Derived-layer drift observations only (§1.2, §1.3, §2, §6.2, §7.1, §9, §10); no binding conclusion rests on the existence or content of these files |
 | `X3` | `cybrik-suite` | **untracked at BASE** | `docs/operations/W0-RECOVERY-WAVE-2-EVIDENCE.md` | `NON_AUTHORITATIVE_CONTEXT_ONLY` | Corroboration only; no binding conclusion depends on it (§6.2) |
@@ -1287,12 +1333,22 @@ applied *to*; the rule's justification traces to `S1`, `S5`, `S7`, `S9` and `R1`
 
 Acceptance requires all of the following, in one bounded Founder review:
 
-1. **Priority ratified.** The Founder confirms `P1 = ON_PREMISE`, `P2 = PRIVATE_CLOUD`,
-   `P3 = SOVEREIGN_CONTROLLED_CROSS_DOMAIN_OR_OPTIONAL_HYBRID`, and foreign public cloud as
-   `DEFERRED_OPTIONAL_DEPLOYMENT_PROFILE`, as **new** policy dated 2026-08-23 — not backdated. The
-   text under review is
-   `cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md`, and the
-   reviewer confirms this ADR's Decision A does not extend it.
+1. **Founder policy reproduced; ADR-authored consequences reviewed — two distinct confirmations.**
+   - **1A — Existing policy reproduced, not extended and not re-decided.** The Founder confirms
+     that Decision A.1 and §6.1 reproduce `P1 = ON_PREMISE`, `P2 = PRIVATE_CLOUD`,
+     `P3 = SOVEREIGN_CONTROLLED_CROSS_DOMAIN_OR_OPTIONAL_HYBRID` and
+     `FOREIGN_PUBLIC_CLOUD = DEFERRED_OPTIONAL_DEPLOYMENT_PROFILE` exactly as recorded in
+     `cybrik-suite:docs/adr/FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md` at
+     `e800a283…` (`S9`), as **new** policy dated 2026-08-23, neither modified nor backdated. That
+     policy is already in force by the packet. Acceptance of this ADR is **not** needed to
+     establish it, and this criterion does not re-decide it.
+   - **1B — ADR-authored invariants explicitly reviewed.** The Founder explicitly reviews the three
+     Decision A.2 rules — GA releases support P1 and P2; foreign public cloud is never a release,
+     core or CI-gating dependency (`INV-2`) or a P1/P2 qualification precondition; no artifact calls a
+     foreign-public-cloud deployment "primary", "the production architecture" or "the target"
+     without a separately accepted ADR — which are **not** in the packet and are **not yet
+     authorized** by anyone. Acceptance of this ADR is what would make them binding architecture.
+     Even then, acceptance grants no implementation, provisioning, deployment or release authority.
 2. **Invariants ratified — complete set.** All twenty-two invariants `INV-1` … `INV-22` (§4) are
    accepted as written, or amended before acceptance. The reviewer confirms the set is complete and
    contiguous, that no invariant was omitted from review, and that no `INV-` reference elsewhere in
@@ -1367,7 +1423,26 @@ synthesized or implied.
   Independent review returned `CHANGES_REQUIRED`, `FOUNDER_ACCEPTANCE_SAFE = NO`.
 - **R4** — this file revised only, to fix the exact R3 review findings. Exactly one file. The
   Founder packet and `docs/adr/README.md` are unchanged. R1, R2 and R3 history retained, not
-  amended or squashed.
+  amended or squashed. Independent review returned `CHANGES_REQUIRED`,
+  `FOUNDER_ACCEPTANCE_SAFE = NO`, with three findings.
+- **R5** — this file revised only, to close the three R4 review findings. Exactly one file. The
+  Founder packet and `docs/adr/README.md` are unchanged. R1–R4 history retained, not amended or
+  squashed.
+
+R5 corrects, in order: Decision A split into A.1 (the packet's exact Founder-policy values,
+`FOUNDER_POLICY`, already in force by the packet at `e800a283…` and not dependent on this ADR's
+acceptance) and A.2 (the three ADR-authored rules, `ARCHITECTURAL_INVARIANT`, not yet accepted,
+binding only through Founder acceptance of ADR-0015), with §0, §1.3, §3, §6.1 and `INV-2` aligned and
+Acceptance Criterion 1 split into 1A (policy reproduced, not extended, not re-decided) and 1B (the
+ADR-authored invariants explicitly reviewed); every `FOUNDER_POLICY` occurrence audited against the
+packet's §1 and §2; `S10` and its §1.2, §2 and §10.3 references corrected from "the only inputs" to
+two of the four inputs the derived platform decision declares, with the other two named and none of
+them promoted to authority; and the RC1 textual-mention figures separated into raw boundary-token
+hit files (2 / 12 / 0 / 0, mechanical) and semantic provider-reference files (2 / 11 / 0 / 0,
+reviewed), with the single lexical false positive — the CSS named colour `azure` in
+`test_no_hardcoded_colors.py` — stated rather than filtered, in §10.2 and row `R1` alike.
+`RC1_TAG_CONTAMINATED = NO` keeps its dependency-bearing scope unchanged. No policy, status, open
+question, invariant number or technology position changed in R5.
 
 R4 corrects, in order: every cross-repository source-ID citation re-checked for semantic support,
 with the `C1` and `C2` mis-citations for provider-neutral history and absent AWS Founder authority
@@ -1398,9 +1473,9 @@ R2's undefined ad-hoc label (`NON_AUTHORITATIVE_WORKTREE_ONLY_EVIDENCE`, no long
 this ADR) replaced by the defined `NON_AUTHORITATIVE_CONTEXT_ONLY` provenance class; the provider scan restated as an exact boundary-aware command with controls; Decision J
 grammar repaired; and the duplicate source-trace invariant removed, leaving `INV-14` canonical.
 
-In R3 and R4, as in R1 and R2: no Founder signature, cryptographic signature or acceptance receipt
-was synthesized; the recording agent added no policy beyond the Founder directive; and this ADR was
-not accepted.
+In R3, R4 and R5, as in R1 and R2: no Founder signature, cryptographic signature or acceptance
+receipt was synthesized; the recording agent added no policy beyond the Founder directive; and this
+ADR was not accepted.
 
 R2 corrects, in order: catalog registration; a non-reproducible worktree-only evidence dependency;
 unresolved tier names used as a normative conformance target; an over-broad ADR-scan claim; an
