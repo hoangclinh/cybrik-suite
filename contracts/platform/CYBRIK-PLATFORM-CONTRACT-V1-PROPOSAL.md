@@ -6,11 +6,11 @@
 ## 1. Overview
 This contract defines the 13 minimum capability slots (ADR-0015 §5.2) required to form the substrate for the CYBRIK Autonomous Security Operations platform. It serves as an architectural agreement detailing expectations between the control plane, data plane, and underlying platform capability providers.
 
-This contract explicitly defines boundaries and non-goals to prevent capability bloat. It is purely capability-based and vendor-free. Specific technologies such as PostgreSQL, Valkey, MinIO, Ceph, Vault, and Kubernetes are merely reference targets and provider adapter realizations, not normative hard dependencies.
+This contract explicitly defines boundaries and non-goals to prevent capability bloat. It is purely capability-based and vendor-free. Specific technologies are merely reference targets and provider adapter realizations, not normative hard dependencies.
 
 ### Non-Goals & Boundaries
-* **Does NOT** select a Kubernetes distribution (RKE2, K3s, OpenShift, etc. are NOT selected).
-* **Does NOT** select a hypervisor (VMware, Proxmox, OpenStack, etc. are NOT selected).
+* **Does NOT** select an orchestration distribution.
+* **Does NOT** select a hypervisor.
 * **Does NOT** select a cloud provider.
 * **Does NOT** mutate product or infrastructure source code.
 * **Does NOT** reopen RC1 or staging qualification.
@@ -26,22 +26,22 @@ OCI / container runtime: image format, rootless posture, verification at load.
 Isolation substrate: ADR-0005 isolation classes and observable guarantees.
 
 ### Slot 3: `orchestration_capability`
-Orchestration capability: scheduling, lifecycle, health, rollout/rollback. Reference targets include Kubernetes.
+Orchestration capability: scheduling, lifecycle, health, rollout/rollback.
 
 ### Slot 4: `network_segmentation`
 Network segmentation: default-deny, segment boundaries, egress mediation, DNS TOCTOU guard seam.
 
 ### Slot 5: `storage`
-Storage: durability, integrity, retention, immutability, minimum S3 compatibility subset per OPEN-2.
+Storage: durability, integrity, retention, immutability, minimum S3-Compatible Object Store subset per OPEN-2.
 
 ### Slot 6: `database`
-Database: transaction, isolation-level, backup/restore, RLS-compatible semantics. Reference targets include PostgreSQL.
+Database: Relational Datastore with ACID transactions, isolation-level, backup/restore, RLS-compatible semantics.
 
 ### Slot 7: `cache`
-Cache: consistency, eviction semantics, noeviction. Reference targets include Valkey.
+Cache: In-memory Key-Value Cache with consistency, eviction semantics, noeviction.
 
 ### Slot 8: `secrets`
-Secrets: storage, rotation, non-exfiltration, startup-presence validation. Reference targets include Vault.
+Secrets: Secret Management for storage, rotation, non-exfiltration, startup-presence validation.
 
 ### Slot 9: `crypto`
 Crypto: pluggable provider seam with a stable interface per SOC ADR-0018.
@@ -73,22 +73,21 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 
 To prevent confusion, the following orthogonal axes are strictly disambiguated:
-* **DATA_PLANE_CAPACITY_TIER**: Focuses strictly on throughput, capacity, and scaling limits (e.g., T0, T1, T2).
+* **DATA_PLANE_CAPACITY_TIER**: Focuses strictly on throughput, capacity, and scaling limits.
 * **ISOLATION_TIER**: Focuses strictly on sandboxing technologies, boundary enforcement, and workload isolation levels (ADR-0005).
 * **VERSIONED_DEPLOYMENT_PROFILE**: Defines the conformance subject, packaging the deployment requirements (slots + capabilities).
 
 ## 5. Minimum S3 Subset Specification (OPEN-2)
 
-The `storage` capability requires a minimum S3 compatibility subset including:
-- CRUD operations
-- Multipart upload
-- Presigning
-- SigV4 auth
-- Path-style addressing
-- Versioning
-- Retention
-- Standard error code mapping
-- Optional Object Lock/WORM
+The `storage` capability requires a strict minimum S3 compatibility subset including:
+- **CRUD**: PutObject, GetObject, HeadObject, DeleteObject, DeleteObjects, ListObjectsV2, HeadBucket, CreateBucket
+- **Multipart**: CreateMultipartUpload, UploadPart, CompleteMultipartUpload, AbortMultipartUpload
+- **Presigning**: URL presigning for delegation
+- **Authentication**: SigV4 authentication header parsing with SHA-256 payload signing
+- **Addressing**: path-style addressing mandatory
+- **Versioning**: PutBucketVersioning, GetBucketVersioning
+- **Retention**: optional Object Lock / Retention
+- **Error mapping**: standard error code mappings
 
 ## 6. Optional Provider Capability Negotiation Protocol (OPEN-5)
 
@@ -106,3 +105,12 @@ The `artifact_update_mechanism` capability defines an offline update manifest (`
 - `migration_reversibility_guaranteed: true`
 - `rollback_procedure_reference`
 - `update_station_workflow`
+
+## Appendix: Informative Vendor Reference Targets (Non-Normative)
+
+Specific technologies act as reference targets and provider adapter realizations, and are strictly non-normative:
+* **Orchestration**: Kubernetes
+* **Storage**: MinIO, Ceph
+* **Database**: PostgreSQL
+* **Cache**: Valkey
+* **Secrets**: Vault

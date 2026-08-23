@@ -84,6 +84,10 @@ const SCHEMA_FILES = [
   'cybrik.execution-receipt.v1.schema.json',
   'cybrik.approval-request.v1.schema.json',
   'cybrik.approval-decision.v1.schema.json',
+  'cybrik.deployment-profile.v1.schema.json',
+  'cybrik.platform-contract.v1.schema.json',
+  'cybrik.provider-capability-advertisement.v1.schema.json',
+  'cybrik.offline-install-update-manifest.v1.schema.json',
 ];
 
 // strict: true keeps genuine 2020-12 rigor (unknown-keyword typos, bad tuples, etc.), but we

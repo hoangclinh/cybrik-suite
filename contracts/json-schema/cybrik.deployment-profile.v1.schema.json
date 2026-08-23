@@ -1,59 +1,36 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.deployment-profile.v1.schema.json",
+  "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Deployment Profile v1",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "profile_id": {
       "type": "string",
-      "pattern": "^(?!^(T0|T1|T2)$)[a-z0-9][a-z0-9-_]+$"
+      "pattern": "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"
     },
     "profile_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-z0-9.-]+)?$"
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
     },
     "capability_set": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "oci_container_runtime": {
-          "type": "string"
-        },
-        "isolation_substrate": {
-          "type": "string"
-        },
-        "orchestration_capability": {
-          "type": "string"
-        },
-        "network_segmentation": {
-          "type": "string"
-        },
-        "storage": {
-          "type": "string"
-        },
-        "database": {
-          "type": "string"
-        },
-        "cache": {
-          "type": "string"
-        },
-        "secrets": {
-          "type": "string"
-        },
-        "crypto": {
-          "type": "string"
-        },
-        "identity_workload_identity": {
-          "type": "string"
-        },
-        "observability": {
-          "type": "string"
-        },
-        "ai_model_runtime": {
-          "type": "string"
-        },
-        "artifact_update_mechanism": {
-          "type": "string"
-        }
+        "oci_container_runtime": { "type": "string" },
+        "isolation_substrate": { "type": "string" },
+        "orchestration_capability": { "type": "string" },
+        "network_segmentation": { "type": "string" },
+        "storage": { "type": "string" },
+        "database": { "type": "string" },
+        "cache": { "type": "string" },
+        "secrets": { "type": "string" },
+        "crypto": { "type": "string" },
+        "identity_workload_identity": { "type": "string" },
+        "observability": { "type": "string" },
+        "ai_model_runtime": { "type": "string" },
+        "artifact_update_mechanism": { "type": "string" }
       },
       "required": [
         "oci_container_runtime",
@@ -73,98 +50,21 @@
     },
     "strength": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "oci_container_runtime": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "isolation_substrate": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "orchestration_capability": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "network_segmentation": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "storage": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "database": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "cache": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "secrets": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "crypto": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "identity_workload_identity": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "observability": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "ai_model_runtime": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        },
-        "artifact_update_mechanism": {
-          "type": "string",
-          "enum": [
-            "MANDATORY",
-            "OPTIONAL"
-          ]
-        }
+        "oci_container_runtime": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "isolation_substrate": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "orchestration_capability": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "network_segmentation": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "storage": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "database": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "cache": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "secrets": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "crypto": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "identity_workload_identity": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "observability": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "ai_model_runtime": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] },
+        "artifact_update_mechanism": { "type": "string", "enum": ["MANDATORY", "OPTIONAL"] }
       },
       "required": [
         "oci_container_runtime",

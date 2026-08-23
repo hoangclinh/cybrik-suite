@@ -1,0 +1,14 @@
+{
+  "bundle_identifier": "my-bundle",
+  "release_tag": "v1.0.0",
+  "operator_trust_root": {
+    "signing_key_id": "key12345",
+    "public_key_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "signature_algorithm": "ed25519"
+  },
+  "bundle_signature": "0123456789abcdef0123456789abcdef",
+  "artifacts": [],
+  "migration_reversibility_guaranteed": true,
+  "rollback_procedure_reference": "ref123",
+  "update_station_workflow": { "steps": [] }
+}

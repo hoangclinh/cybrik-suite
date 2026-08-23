@@ -1,0 +1,18 @@
+{
+  "profile_id": "my-profile",
+  "profile_version": "1.01.0",
+  "capability_set": {
+    "oci_container_runtime": "v1", "isolation_substrate": "v1", "orchestration_capability": "v1",
+    "network_segmentation": "v1", "storage": "v1", "database": "v1", "cache": "v1",
+    "secrets": "v1", "crypto": "v1", "identity_workload_identity": "v1", "observability": "v1",
+    "ai_model_runtime": "v1", "artifact_update_mechanism": "v1"
+  },
+  "strength": {
+    "oci_container_runtime": "MANDATORY", "isolation_substrate": "MANDATORY", "orchestration_capability": "MANDATORY",
+    "network_segmentation": "MANDATORY", "storage": "MANDATORY", "database": "MANDATORY", "cache": "MANDATORY",
+    "secrets": "MANDATORY", "crypto": "MANDATORY", "identity_workload_identity": "MANDATORY", "observability": "MANDATORY",
+    "ai_model_runtime": "MANDATORY", "artifact_update_mechanism": "MANDATORY"
+  },
+  "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
+  "isolation_floor": "standard_container"
+}

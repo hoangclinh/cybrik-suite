@@ -14,28 +14,169 @@
     "mcp": "2025-11-25"
   },
   "adr_basis": [
-    { "id": "ADR-0001", "status": "ACCEPTED", "role": "versioning/format-pin policy (D1, D4, D5, D6)" },
-    { "id": "ADR-0004", "status": "ACCEPTED", "role": "control-plane/executor split; F5 credential/egress, F6 receipt signing, F7 mandatory bounds, F9 approval-ingress gap" },
-    { "id": "ADR-0006", "status": "ACCEPTED", "role": "CloudEvents-style envelope (E1), workload identity (E2), delegation chain (E3), conditional correlation (E6), naming (E7), MCP-not-a-trust-boundary" }
+    {
+      "id": "ADR-0001",
+      "status": "ACCEPTED",
+      "role": "versioning/format-pin policy (D1, D4, D5, D6)"
+    },
+    {
+      "id": "ADR-0004",
+      "status": "ACCEPTED",
+      "role": "control-plane/executor split; F5 credential/egress, F6 receipt signing, F7 mandatory bounds, F9 approval-ingress gap"
+    },
+    {
+      "id": "ADR-0006",
+      "status": "ACCEPTED",
+      "role": "CloudEvents-style envelope (E1), workload identity (E2), delegation chain (E3), conditional correlation (E6), naming (E7), MCP-not-a-trust-boundary"
+    }
   ],
   "adr_out_of_scope": [
-    { "id": "ADR-0003", "reason": "durable agent orchestration / bus choice — NOT decided by this packet; AsyncAPI declares no servers or bindings (ADR-0006 E4)." },
-    { "id": "ADR-0005", "reason": "sandbox substrate — NOT decided by this packet; isolation profiles S0–S3 are referenced abstractly only." }
+    {
+      "id": "ADR-0003",
+      "reason": "durable agent orchestration / bus choice — NOT decided by this packet; AsyncAPI declares no servers or bindings (ADR-0006 E4)."
+    },
+    {
+      "id": "ADR-0005",
+      "reason": "sandbox substrate — NOT decided by this packet; isolation profiles S0–S3 are referenced abstractly only."
+    }
   ],
   "members": [
-    { "file": "json-schema/cybrik.common-defs.v1.schema.json", "title": "Common definitions", "contract_version": "0.1.0", "sha256": "cecc415ca472eb841985517504fdc721ab303f977f0a2fa1998c37c3514116c0", "format": "json-schema", "kind": "shared-primitives" },
-    { "file": "json-schema/cybrik.data-marking.v1.schema.json", "title": "Data marking", "contract_version": "0.1.0", "sha256": "f0ee58c940f7c865ba8aa620949fb5836ee739ede6afe0c6d6618bc2b7735250", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.envelope.v1.schema.json", "title": "Cross-product envelope", "contract_version": "0.1.0", "sha256": "81328364a365998b74ccf157fdfe3d0cafc10f81b79aba8413e82c8f8e1e4630", "format": "json-schema", "kind": "envelope" },
-    { "file": "json-schema/cybrik.capability.v1.schema.json", "title": "Capability registry entry", "contract_version": "0.1.1", "sha256": "7858dc758e078a0507096cfa742eb61a1cdf1531de89e76b48e1e22649cc6155", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.tool-execution-request.v1.schema.json", "title": "Tool execution request", "contract_version": "0.1.0", "sha256": "acd5fdd6ef286f4e8bc7a292a92e1a9c23603ed3dae7abcfe7cd36fedc8d477b", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.tool-execution-result.v1.schema.json", "title": "Tool execution result", "contract_version": "0.1.0", "sha256": "7cc2ab0d050e43d5a2faab829cdb87194626660843228a2a53bb132cabf551e2", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.delegation-chain.v1.schema.json", "title": "Delegation chain", "contract_version": "0.1.0", "sha256": "8e678f54a94bb0a35672a07b8efd680f83eb5a710fdfa2a06cea26b70290bed3", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.execution-receipt.v1.schema.json", "title": "Execution receipt", "contract_version": "0.1.0", "sha256": "423ce118ae1ddabb0b3d1f13a65526e761356b9f14aa9974555976812cc0839d", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.approval-request.v1.schema.json", "title": "Approval request", "contract_version": "0.1.0", "sha256": "a6b9a1b609c731a4d483e2bfe4e036ab7ec335d70dd7abd1107c63d6707b27fd", "format": "json-schema", "kind": "payload" },
-    { "file": "json-schema/cybrik.approval-decision.v1.schema.json", "title": "Approval decision", "contract_version": "0.1.0", "sha256": "f0a344daea81dbdba85ef4f3ff310bb3390a0733709da080537fa0e62c816710", "format": "json-schema", "kind": "payload" },
-    { "file": "asyncapi/cybrik-suite-events.v1.asyncapi.yaml", "title": "Cross-product event bindings", "contract_version": "0.1.0", "sha256": "eb5eec8cced0c8e63f52c514d84f98c98d4d2346bc58dcfa00419cb74c3fee7f", "format": "asyncapi", "kind": "events" },
-    { "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml", "title": "Fabric control-plane REST mapping notes", "contract_version": "0.1.0", "sha256": "fdaecfa3aa2c7fe2ccdf1d89069bc5250d0d9cc95adbcfa295f327d2c42e130c", "format": "openapi", "kind": "rest-mapping" },
-    { "file": "mcp/cybrik-mcp-mapping-notes.v1.md", "title": "MCP mapping notes", "contract_version": "0.1.0", "sha256": "165bfdfc5bb388e15615db01a172c0ea22abda7bb1f6a13a05b112fbddaf7502", "format": "mcp-notes", "kind": "adapter-notes" }
+    {
+      "file": "json-schema/cybrik.common-defs.v1.schema.json",
+      "title": "Common definitions",
+      "contract_version": "0.1.0",
+      "sha256": "cecc415ca472eb841985517504fdc721ab303f977f0a2fa1998c37c3514116c0",
+      "format": "json-schema",
+      "kind": "shared-primitives"
+    },
+    {
+      "file": "json-schema/cybrik.data-marking.v1.schema.json",
+      "title": "Data marking",
+      "contract_version": "0.1.0",
+      "sha256": "f0ee58c940f7c865ba8aa620949fb5836ee739ede6afe0c6d6618bc2b7735250",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.envelope.v1.schema.json",
+      "title": "Cross-product envelope",
+      "contract_version": "0.1.0",
+      "sha256": "81328364a365998b74ccf157fdfe3d0cafc10f81b79aba8413e82c8f8e1e4630",
+      "format": "json-schema",
+      "kind": "envelope"
+    },
+    {
+      "file": "json-schema/cybrik.capability.v1.schema.json",
+      "title": "Capability registry entry",
+      "contract_version": "0.1.1",
+      "sha256": "7858dc758e078a0507096cfa742eb61a1cdf1531de89e76b48e1e22649cc6155",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.tool-execution-request.v1.schema.json",
+      "title": "Tool execution request",
+      "contract_version": "0.1.0",
+      "sha256": "acd5fdd6ef286f4e8bc7a292a92e1a9c23603ed3dae7abcfe7cd36fedc8d477b",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.tool-execution-result.v1.schema.json",
+      "title": "Tool execution result",
+      "contract_version": "0.1.0",
+      "sha256": "7cc2ab0d050e43d5a2faab829cdb87194626660843228a2a53bb132cabf551e2",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.delegation-chain.v1.schema.json",
+      "title": "Delegation chain",
+      "contract_version": "0.1.0",
+      "sha256": "8e678f54a94bb0a35672a07b8efd680f83eb5a710fdfa2a06cea26b70290bed3",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.execution-receipt.v1.schema.json",
+      "title": "Execution receipt",
+      "contract_version": "0.1.0",
+      "sha256": "423ce118ae1ddabb0b3d1f13a65526e761356b9f14aa9974555976812cc0839d",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.approval-request.v1.schema.json",
+      "title": "Approval request",
+      "contract_version": "0.1.0",
+      "sha256": "a6b9a1b609c731a4d483e2bfe4e036ab7ec335d70dd7abd1107c63d6707b27fd",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.approval-decision.v1.schema.json",
+      "title": "Approval decision",
+      "contract_version": "0.1.0",
+      "sha256": "f0a344daea81dbdba85ef4f3ff310bb3390a0733709da080537fa0e62c816710",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "asyncapi/cybrik-suite-events.v1.asyncapi.yaml",
+      "title": "Cross-product event bindings",
+      "contract_version": "0.1.0",
+      "sha256": "eb5eec8cced0c8e63f52c514d84f98c98d4d2346bc58dcfa00419cb74c3fee7f",
+      "format": "asyncapi",
+      "kind": "events"
+    },
+    {
+      "file": "openapi/cybrik-fabric-control-plane.v1.openapi.yaml",
+      "title": "Fabric control-plane REST mapping notes",
+      "contract_version": "0.1.0",
+      "sha256": "fdaecfa3aa2c7fe2ccdf1d89069bc5250d0d9cc95adbcfa295f327d2c42e130c",
+      "format": "openapi",
+      "kind": "rest-mapping"
+    },
+    {
+      "file": "mcp/cybrik-mcp-mapping-notes.v1.md",
+      "title": "MCP mapping notes",
+      "contract_version": "0.1.0",
+      "sha256": "165bfdfc5bb388e15615db01a172c0ea22abda7bb1f6a13a05b112fbddaf7502",
+      "format": "mcp-notes",
+      "kind": "adapter-notes"
+    },
+    {
+      "file": "json-schema/cybrik.deployment-profile.v1.schema.json",
+      "title": "Deployment profile",
+      "contract_version": "0.1.0",
+      "sha256": "8b99130acab15195e7528080dea57557c1960e6f6f2586b4fadec75ab2d5c7e2",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.platform-contract.v1.schema.json",
+      "title": "Platform contract",
+      "contract_version": "0.1.0",
+      "sha256": "3b7552ed61f4cea9d198ec6c071467dcd697b029eb03fd159dcb9b0595511d4f",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.provider-capability-advertisement.v1.schema.json",
+      "title": "Provider capability advertisement",
+      "contract_version": "0.1.0",
+      "sha256": "e7097bb4fbf2c8485b9cd689b9bb67e1a0ebe863a7e2c14d32134afc97ace27b",
+      "format": "json-schema",
+      "kind": "payload"
+    },
+    {
+      "file": "json-schema/cybrik.offline-install-update-manifest.v1.schema.json",
+      "title": "Offline install manifest",
+      "contract_version": "0.1.0",
+      "sha256": "b43c16927254f541db321c37c2028ae57564a250a11ed2acbb168f074ff78613",
+      "format": "json-schema",
+      "kind": "payload"
+    }
   ],
   "snapshot_history": [
     {
@@ -52,12 +193,42 @@
   "event_correlation_semantics": {
     "note": "Per-event-class correlation rules (ADR-0006 E6): correlation is conditional, not a mandatory triple.",
     "classes": [
-      { "type": "cybrik.soc.alert_snapshot.created.v1", "root": true, "causationid": "absent", "investigationid": "optional" },
-      { "type": "cybrik.fabric.invocation.requested.v1", "root": false, "causationid": "required", "investigationid": "required-if-investigation-scoped" },
-      { "type": "cybrik.fabric.invocation.completed.v1", "root": false, "causationid": "required", "investigationid": "required-if-investigation-scoped" },
-      { "type": "cybrik.fabric.approval.required.v1", "root": false, "causationid": "required", "investigationid": "optional" },
-      { "type": "cybrik.fabric.approval.decided.v1", "root": false, "causationid": "required", "investigationid": "optional" },
-      { "type": "cybrik.fabric.kill_switch.changed.v1", "root": true, "causationid": "absent", "investigationid": "absent" }
+      {
+        "type": "cybrik.soc.alert_snapshot.created.v1",
+        "root": true,
+        "causationid": "absent",
+        "investigationid": "optional"
+      },
+      {
+        "type": "cybrik.fabric.invocation.requested.v1",
+        "root": false,
+        "causationid": "required",
+        "investigationid": "required-if-investigation-scoped"
+      },
+      {
+        "type": "cybrik.fabric.invocation.completed.v1",
+        "root": false,
+        "causationid": "required",
+        "investigationid": "required-if-investigation-scoped"
+      },
+      {
+        "type": "cybrik.fabric.approval.required.v1",
+        "root": false,
+        "causationid": "required",
+        "investigationid": "optional"
+      },
+      {
+        "type": "cybrik.fabric.approval.decided.v1",
+        "root": false,
+        "causationid": "required",
+        "investigationid": "optional"
+      },
+      {
+        "type": "cybrik.fabric.kill_switch.changed.v1",
+        "root": true,
+        "causationid": "absent",
+        "investigationid": "absent"
+      }
     ]
   },
   "cross_ref_integrity": {

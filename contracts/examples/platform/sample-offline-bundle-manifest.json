@@ -1,18 +1,23 @@
 {
+  "bundle_identifier": "my-bundle-1",
   "release_tag": "v1.2.3",
   "operator_trust_root": {
-    "key_id": "key-123",
-    "fingerprint": "abc123def456",
-    "algorithm": "ed25519"
+    "signing_key_id": "key-12345",
+    "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signature_algorithm": "ed25519"
   },
+  "bundle_signature": "0123456789abcdef0123456789abcdef",
   "artifacts": [
     {
       "name": "image-1",
+      "path": "images/image-1.tar",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "type": "oci-image"
+      "size_bytes": 1024
     }
   ],
   "migration_reversibility_guaranteed": true,
   "rollback_procedure_reference": "doc://rollback",
-  "update_station_workflow": "manual"
+  "update_station_workflow": {
+    "steps": []
+  }
 }

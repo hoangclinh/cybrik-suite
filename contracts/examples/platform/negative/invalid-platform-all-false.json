@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "slots": {
+    "oci_container_runtime": false, "isolation_substrate": false, "orchestration_capability": false,
+    "network_segmentation": false, "storage": false, "database": false, "cache": false,
+    "secrets": false, "crypto": false, "identity_workload_identity": false, "observability": false,
+    "ai_model_runtime": false, "artifact_update_mechanism": false
+  }
+}

@@ -1,50 +1,73 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.offline-install-update-manifest.v1.schema.json",
+  "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Offline Install Update Manifest v1",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
+    "bundle_identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-_]+$"
+    },
     "release_tag": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([a-z0-9.-]+))?$"
     },
     "operator_trust_root": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "key_id": {
-          "type": "string"
+        "signing_key_id": {
+          "type": "string",
+          "minLength": 8
         },
-        "fingerprint": {
-          "type": "string"
+        "public_key_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
         },
-        "algorithm": {
-          "type": "string"
+        "signature_algorithm": {
+          "type": "string",
+          "enum": ["ed25519", "ecdsa-p256-sha256", "rsa-pss-sha256"]
         }
       },
       "required": [
-        "key_id",
-        "fingerprint",
-        "algorithm"
+        "signing_key_id",
+        "public_key_fingerprint",
+        "signature_algorithm"
       ]
+    },
+    "bundle_signature": {
+      "type": "string",
+      "minLength": 32
     },
     "artifacts": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "path": {
             "type": "string"
           },
           "sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
           },
-          "type": {
-            "type": "string"
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
           "name",
-          "sha256"
+          "path",
+          "sha256",
+          "size_bytes"
         ]
       }
     },
@@ -52,15 +75,25 @@
       "const": true
     },
     "rollback_procedure_reference": {
-      "type": "string"
+      "type": "string",
+      "minLength": 5
     },
     "update_station_workflow": {
-      "type": "string"
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "type": "array"
+        }
+      },
+      "required": ["steps"]
     }
   },
   "required": [
+    "bundle_identifier",
     "release_tag",
     "operator_trust_root",
+    "bundle_signature",
     "artifacts",
     "migration_reversibility_guaranteed",
     "rollback_procedure_reference",

@@ -1,69 +1,51 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cybrik.platform-contract.v1.schema.json",
+  "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Platform Contract Proposal v1",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "version": {
       "type": "string"
     },
     "slots": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "oci_container_runtime": {
-          "type": "boolean"
-        },
-        "isolation_substrate": {
-          "type": "boolean"
-        },
-        "orchestration_capability": {
-          "type": "boolean"
-        },
-        "network_segmentation": {
-          "type": "boolean"
-        },
-        "storage": {
-          "type": "boolean"
-        },
-        "database": {
-          "type": "boolean"
-        },
-        "cache": {
-          "type": "boolean"
-        },
-        "secrets": {
-          "type": "boolean"
-        },
-        "crypto": {
-          "type": "boolean"
-        },
-        "identity_workload_identity": {
-          "type": "boolean"
-        },
-        "observability": {
-          "type": "boolean"
-        },
-        "ai_model_runtime": {
-          "type": "boolean"
-        },
-        "artifact_update_mechanism": {
-          "type": "boolean"
-        }
+        "oci_container_runtime": { "type": "boolean" },
+        "isolation_substrate": { "type": "boolean" },
+        "orchestration_capability": { "type": "boolean" },
+        "network_segmentation": { "type": "boolean" },
+        "storage": { "type": "boolean" },
+        "database": { "type": "boolean" },
+        "cache": { "type": "boolean" },
+        "secrets": { "type": "boolean" },
+        "crypto": { "type": "boolean" },
+        "identity_workload_identity": { "type": "boolean" },
+        "observability": { "type": "boolean" },
+        "ai_model_runtime": { "type": "boolean" },
+        "artifact_update_mechanism": { "type": "boolean" }
       },
       "required": [
-        "oci_container_runtime",
-        "isolation_substrate",
-        "orchestration_capability",
-        "network_segmentation",
-        "storage",
-        "database",
-        "cache",
-        "secrets",
-        "crypto",
-        "identity_workload_identity",
-        "observability",
-        "ai_model_runtime",
-        "artifact_update_mechanism"
+        "oci_container_runtime", "isolation_substrate", "orchestration_capability", "network_segmentation",
+        "storage", "database", "cache", "secrets", "crypto", "identity_workload_identity",
+        "observability", "ai_model_runtime", "artifact_update_mechanism"
+      ],
+      "anyOf": [
+        { "properties": { "oci_container_runtime": { "const": true } } },
+        { "properties": { "isolation_substrate": { "const": true } } },
+        { "properties": { "orchestration_capability": { "const": true } } },
+        { "properties": { "network_segmentation": { "const": true } } },
+        { "properties": { "storage": { "const": true } } },
+        { "properties": { "database": { "const": true } } },
+        { "properties": { "cache": { "const": true } } },
+        { "properties": { "secrets": { "const": true } } },
+        { "properties": { "crypto": { "const": true } } },
+        { "properties": { "identity_workload_identity": { "const": true } } },
+        { "properties": { "observability": { "const": true } } },
+        { "properties": { "ai_model_runtime": { "const": true } } },
+        { "properties": { "artifact_update_mechanism": { "const": true } } }
       ]
     }
   },

@@ -54,7 +54,6 @@
   "overrides": {
     "brace-expansion": "$brace-expansion"
   },
-  "main": "index.js",
   "directories": {
     "test": "tests"
   },

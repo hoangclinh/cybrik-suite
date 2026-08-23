@@ -1,0 +1,11 @@
+{
+  "target_profile_id": "my-profile",
+  "target_profile_version": "1.0.0",
+  "provider_namespace": "my-provider",
+  "advertised_capabilities": [
+    { "capability_name": "c1", "slot_id": "s1", "description": "desc" }
+  ],
+  "conformance_evidence": [],
+  "degradation_behavior": "FAIL_CLOSED",
+  "authenticated_discovery": true
+}

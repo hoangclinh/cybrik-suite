@@ -1,0 +1,14 @@
+{
+  "bundle_identifier": "my-bundle",
+  "release_tag": "v1.0.0",
+  "operator_trust_root": {
+    
+  },
+  "bundle_signature": "0123456789abcdef0123456789abcdef",
+  "artifacts": [
+    { "name": "a1", "path": "/a1", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "size_bytes": 100 }
+  ],
+  "migration_reversibility_guaranteed": true,
+  "rollback_procedure_reference": "ref123",
+  "update_station_workflow": { "steps": [] }
+}
