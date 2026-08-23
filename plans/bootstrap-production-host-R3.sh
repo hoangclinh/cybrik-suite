@@ -195,6 +195,7 @@ EOF
 EOF
         if ! systemctl restart docker; then
             rm -f /etc/docker/daemon.json
+            systemctl reset-failed docker 2>/dev/null || true
             log_error "Docker daemon failed to start/restart with invalid daemon.json (syntax validation failed)."
             exit 1
         fi
@@ -212,6 +213,7 @@ EOF
 }
 EOF
         # Restart Docker and verify healthy
+        systemctl reset-failed docker 2>/dev/null || true
         if ! systemctl restart docker; then
             log_error "Docker daemon failed to start/restart."
             exit 1

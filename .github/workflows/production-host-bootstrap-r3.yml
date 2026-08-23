@@ -356,6 +356,7 @@ jobs:
           fi
           rm -f /tmp/f7_key*
           sudo rm -f /etc/docker/daemon.json
+          sudo systemctl reset-failed docker 2>/dev/null || true
 
       - name: 'F8: Transactional Firewall Failure Injection'
         run: |
@@ -373,6 +374,7 @@ jobs:
       - name: 'F9: Operator Proof Adversarial Invocations'
         run: |
           sudo rm -f /opt/cybrik/.bootstrap* /opt/cybrik/.operator* /etc/docker/daemon.json
+          sudo systemctl reset-failed docker chrony fail2ban 2>/dev/null || true
           ssh-keygen -t ed25519 -N '' -f /tmp/f9_key
           sudo bash plans/bootstrap-production-host-R3.sh --stage1 --authorized-key-file /tmp/f9_key.pub
           NONCE_F9=$(sudo bash plans/bootstrap-production-host-R3.sh --get-challenge-nonce)
