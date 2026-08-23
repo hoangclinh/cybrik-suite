@@ -95,7 +95,7 @@
   },
   "sovereignty_class": "OPTIONAL_HYBRID",
   "isolation_policy": {
-    "floor": "S2_MICROVM_ISOLATION",
+    "floor": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
     "disposable_execution_required": true,
     "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
     "no_downgrade_guarantee": true,

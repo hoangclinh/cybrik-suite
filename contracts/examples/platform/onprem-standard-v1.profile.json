@@ -95,7 +95,7 @@
   },
   "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
   "isolation_policy": {
-    "floor": "S1_SYSCALL_FILTERED_SANDBOX",
+    "floor": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
     "disposable_execution_required": true,
     "network_egress_isolation": "MEDIATED_EGRESS_BROKER",
     "no_downgrade_guarantee": true,

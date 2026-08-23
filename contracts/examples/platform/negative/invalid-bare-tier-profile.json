@@ -85,7 +85,7 @@
   },
   "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
   "isolation_policy": {
-    "floor": "S1_SYSCALL_FILTERED_SANDBOX",
+    "floor": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
     "admitted_risk_classes": [
       "UNTRUSTED_CODE_EXECUTION"
     ],

@@ -3,15 +3,16 @@
     "oci_container_runtime": {
       "slot_id": "oci_container_runtime",
       "specification": {
-        "required": true,
-        "description": "spec"
+        "required": false,
+        "description": "spec",
+        "interface_standard": "CYBRIK-STD-1.0"
       },
       "conformance_profile": "strict-v1"
     },
     "isolation_substrate": {
       "slot_id": "isolation_substrate",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -20,7 +21,7 @@
     "orchestration_capability": {
       "slot_id": "orchestration_capability",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -29,7 +30,7 @@
     "network_segmentation": {
       "slot_id": "network_segmentation",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -38,7 +39,7 @@
     "storage": {
       "slot_id": "storage",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -47,7 +48,7 @@
     "database": {
       "slot_id": "database",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -56,7 +57,7 @@
     "cache": {
       "slot_id": "cache",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -65,7 +66,7 @@
     "secrets": {
       "slot_id": "secrets",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -74,7 +75,7 @@
     "crypto": {
       "slot_id": "crypto",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -83,7 +84,7 @@
     "identity_workload_identity": {
       "slot_id": "identity_workload_identity",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -92,7 +93,7 @@
     "observability": {
       "slot_id": "observability",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -101,7 +102,7 @@
     "ai_model_runtime": {
       "slot_id": "ai_model_runtime",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },
@@ -110,7 +111,7 @@
     "artifact_update_mechanism": {
       "slot_id": "artifact_update_mechanism",
       "specification": {
-        "required": true,
+        "required": false,
         "description": "spec",
         "interface_standard": "CYBRIK-STD-1.0"
       },

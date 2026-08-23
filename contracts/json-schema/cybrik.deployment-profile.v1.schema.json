@@ -397,11 +397,11 @@
         "floor": {
           "type": "string",
           "enum": [
-            "S0_SHARED_HOST_PROCESS",
-            "S1_SYSCALL_FILTERED_SANDBOX",
-            "S2_MICROVM_ISOLATION",
+            "S0_DETERMINISTIC_SERVICE_CONTAINER",
+            "S1_DYNAMIC_TENANT_WORKLOAD",
+            "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
             "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-            "S4_AIRGAPPED_PHYSICAL_HOST"
+            "S4_NO_FILE_TYPED_DISPOSABLE_EXECUTOR"
           ]
         },
         "admitted_risk_classes": {
@@ -463,10 +463,8 @@
             "properties": {
               "floor": {
                 "enum": [
-                  "S1_SYSCALL_FILTERED_SANDBOX",
-                  "S2_MICROVM_ISOLATION",
-                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                  "S4_AIRGAPPED_PHYSICAL_HOST"
+                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
                 ]
               },
               "disposable_execution_required": {
@@ -503,10 +501,9 @@
             "properties": {
               "floor": {
                 "enum": [
-                  "S1_SYSCALL_FILTERED_SANDBOX",
-                  "S2_MICROVM_ISOLATION",
-                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                  "S4_AIRGAPPED_PHYSICAL_HOST"
+                  "S1_DYNAMIC_TENANT_WORKLOAD",
+                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
                 ]
               }
             }
@@ -520,7 +517,7 @@
           "isolation_policy": {
             "properties": {
               "floor": {
-                "const": "S0_SHARED_HOST_PROCESS"
+                "const": "S0_DETERMINISTIC_SERVICE_CONTAINER"
               }
             }
           }
@@ -536,6 +533,37 @@
                   "enum": [
                     "DETERMINISTIC_SERVICE_CONTAINER"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S4_NO_FILE_TYPED_DISPOSABLE_EXECUTOR"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "admitted_risk_classes": {
+                "not": {
+                  "contains": {
+                    "const": "UNTRUSTED_CODE_EXECUTION"
+                  }
                 }
               }
             }
