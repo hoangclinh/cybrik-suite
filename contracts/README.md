@@ -1,6 +1,6 @@
 # contracts/ — Cross-product contracts
 
-Status: first cross-product contract packet is present, statused `PROPOSED` — **NOT ACCEPTED**
+Status: MIXED LIFECYCLE (Accepted-for-implementation contract packets v0.1.0 registered below; Platform Contract Proposal v1.0.0 is PROPOSED / NOT ACCEPTED)
 (version 0.1.0). No contract has been accepted; no product may implement any of these until
 explicit Founder acceptance (ADR-0001 D5).
 

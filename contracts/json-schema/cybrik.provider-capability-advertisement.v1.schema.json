@@ -122,5 +122,21 @@
     "degradation_behavior",
     "authenticated_discovery"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "claim_type": { "const": "FULL_PROFILE_CONFORMANCE_DECLARATION" }
+        }
+      },
+      "then": {
+        "properties": {
+          "advertised_capabilities": {
+            "minItems": 13
+          }
+        }
+      }
+    }
+  ],
   "x-cybrik-lifecycle": "PROPOSED"
 }

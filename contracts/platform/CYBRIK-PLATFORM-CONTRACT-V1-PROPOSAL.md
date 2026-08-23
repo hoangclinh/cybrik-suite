@@ -23,7 +23,7 @@ The platform requires 13 fundamental capability slots to operate. Providers MUST
 OCI / container runtime: image format, rootless posture, verification at load.
 
 ### Slot 2: `isolation_substrate`
-Isolation substrate: cybrik-suite:docs/adr/ADR-0005-cryptographic-signing-key-hierarchy-and-revocation.md isolation classes and observable guarantees.
+Isolation substrate: cybrik-suite:docs/adr/ADR-0005-sandbox-substrate.md isolation classes and observable guarantees.
 
 ### Slot 3: `orchestration_capability`
 Orchestration capability: scheduling, lifecycle, health, rollout/rollback.
@@ -44,10 +44,10 @@ Cache: In-memory Key-Value Cache with consistency, eviction semantics, noevictio
 Secrets: Secret Management for storage, rotation, non-exfiltration, startup-presence validation.
 
 ### Slot 9: `crypto`
-Crypto: pluggable provider seam with a stable interface per cybrik-soc-command-center:docs/adr/ADR-0018-cryptographic-primitives-and-algorithms.md (PROPOSED).
+Crypto: pluggable provider seam with a stable interface per cybrik-soc-command-center:governance/ADR/ADR-0018-sovereign-encryption-key-management.md (PROPOSED).
 
 ### Slot 10: `identity_workload_identity`
-Identity / workload identity: E2/E3 two-layer trust seam of cybrik-suite:docs/adr/ADR-0006-event-receipt-durability-and-storage.md and cybrik-suite:docs/adr/ADR-0008-tenant-isolation-and-cryptographic-partitioning.md.
+Identity / workload identity: E2/E3 two-layer trust seam of cybrik-suite:docs/adr/ADR-0006-cross-product-event-and-identity-model.md and cybrik-suite:docs/adr/ADR-0008-internal-service-delegation-and-workload-identity.md (ACCEPTED FOR IMPLEMENTATION — v0.1.0, not stable v1/GA).
 
 ### Slot 11: `observability`
 Observability: trace/metric/log semantics and sovereignty classification.
@@ -74,7 +74,7 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 
 To prevent confusion, the following orthogonal axes are strictly disambiguated:
 * **DATA_PLANE_CAPACITY_TIER**: Focuses strictly on throughput, capacity, and scaling limits.
-* **ISOLATION_TIER**: Focuses strictly on sandboxing technologies, boundary enforcement, and workload isolation levels (cybrik-suite:docs/adr/ADR-0005-cryptographic-signing-key-hierarchy-and-revocation.md).
+* **ISOLATION_TIER**: Focuses strictly on sandboxing technologies, boundary enforcement, and workload isolation levels (cybrik-suite:docs/adr/ADR-0005-sandbox-substrate.md).
 * **VERSIONED_DEPLOYMENT_PROFILE**: Defines the conformance subject, packaging the deployment requirements (slots + capabilities).
 
 ## 5. Minimum S3 Subset Specification (OPEN-2)
@@ -94,7 +94,7 @@ The `storage` capability requires a strict minimum S3 compatibility subset inclu
 To allow platform environments to auto-discover capabilities without manual hardcoding, an optional negotiation protocol is defined:
 * **Namespaced Provider Capabilities**: Capabilities are advertised in strict namespaces (`provider_namespace`) to avoid collision.
 * **Capability Advertisement Schema**: A structured JSON mechanism (`cybrik.provider-capability-advertisement.v1.schema.json`) to declare supported capabilities, conformance evidence (`conformance_evidence`), and authenticated discovery (`authenticated_discovery`).
-* **Claim Types**: Advertisements MUST specify `claim_type` as either `PARTIAL_CAPABILITY_ADVERTISEMENT` or `FULL_PROFILE_CONFORMANCE_DECLARATION`. Partial advertisements are evaluated via a fail-closed resolution against mandatory profile requirements (if any required slot is omitted or fails verification, the overall capability set is rejected).
+* **Claim Types**: Advertisements MUST specify `claim_type` as either `PARTIAL_CAPABILITY_ADVERTISEMENT` or `FULL_PROFILE_CONFORMANCE_DECLARATION`. A `FULL_PROFILE_CONFORMANCE_DECLARATION` requires all 13 slots, and consumers fail closed on any missing slot for the claimed profile. Partial advertisements are evaluated via a fail-closed resolution against mandatory profile requirements (if any required slot is omitted or fails verification, the overall capability set is rejected).
 * **Degradation Behavior**: Must specify `degradation_behavior` as `FAIL_CLOSED`. If capability discovery fails, times out, is unauthenticated, or fails verification, the consumer MUST treat the capability as absent and fail closed.
 
 ## 7. Offline Install & Update Manifest (OPEN-1)

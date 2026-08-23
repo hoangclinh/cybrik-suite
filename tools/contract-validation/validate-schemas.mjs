@@ -215,7 +215,7 @@ const platformPositives = [
 for (const file of platformPositives) {
   const exPath = join(PLATFORM_EXAMPLES_DIR, file);
   if (!existsSync(exPath)) { fail(`platform positive example missing on disk: ${file}`); continue; }
-  
+
   let schemaName;
   if (file.includes('profile')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
   else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
@@ -257,19 +257,19 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
   }
   for (const file of negFiles) {
     const exPath = join(PLATFORM_EXAMPLES_DIR, 'negative', file);
-    
+
     let schemaName;
     if (file.includes('profile') || file.includes('semver')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
     else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
     else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform')) schemaName = 'cybrik.platform-contract.v1.schema.json';
     else if (file.includes('s3')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
-    
+
     const validate = validators[schemaName];
     if (!validate) { fail(`platform negative example ${file}: no compiled validator for schema ${schemaName}`); continue; }
     let data;
     try { data = readJson(exPath); } catch (e) { fail(`platform negative example ${file}: JSON parse error: ${e.message}`); continue; }
-    
+
     const ok = validate(data);
     bump('negative_schema_total');
     if (!ok) {

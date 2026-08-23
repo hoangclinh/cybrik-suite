@@ -49,21 +49,21 @@ test('validate positive platform fixtures', () => {
     'sample-offline-bundle-manifest.json',
     'sample-storage-s3-subset.json'
   ];
-  
+
   for (const file of positives) {
     const path = join(EXAMPLES_DIR, file);
     assert.ok(existsSync(path), `Missing positive fixture: ${path}`);
     const data = JSON.parse(readFileSync(path, 'utf8'));
-    
+
     let schemaId;
     if (file.includes('profile')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
     else if (file.includes('advertisement')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
     else if (file.includes('offline-bundle-manifest')) schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform-contract')) schemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
     else if (file.includes('storage-s3-subset')) schemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
-    
+
     assert.ok(schemaId, `Could not determine schemaId for ${file}`);
-    
+
     const valid = ajv.validate(schemaId, data);
     assert.ok(valid, `Positive fixture ${file} failed validation: ${ajv.errorsText()}`);
   }
@@ -88,7 +88,7 @@ const EXPECTED_NEGATIVES = {
 test('validate negative platform fixtures', () => {
   const negatives = readdirSync(join(EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
   assert.equal(negatives.length, Object.keys(EXPECTED_NEGATIVES).length, 'Must have exactly 13 negative fixtures');
-  
+
   for (const file of negatives) {
     let schemaId;
     if (file.includes('profile') || file.includes('semver')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
@@ -101,7 +101,7 @@ test('validate negative platform fixtures', () => {
     const path = join(EXAMPLES_DIR, 'negative', file);
     assert.ok(existsSync(path), `Missing negative fixture: ${path}`);
     const data = JSON.parse(readFileSync(path, 'utf8'));
-    
+
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
     assert.equal(ajv.errors.length, 1, `Expected exactly 1 error for ${file}, got ${ajv.errors.length}: ${ajv.errorsText()}`);
