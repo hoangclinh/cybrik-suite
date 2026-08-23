@@ -23,7 +23,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "oci_container_runtime"
             },
             "specification": {
               "type": "object",
@@ -61,7 +61,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "isolation_substrate"
             },
             "specification": {
               "type": "object",
@@ -99,7 +99,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "orchestration_capability"
             },
             "specification": {
               "type": "object",
@@ -137,7 +137,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "network_segmentation"
             },
             "specification": {
               "type": "object",
@@ -175,7 +175,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "storage"
             },
             "specification": {
               "type": "object",
@@ -213,7 +213,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "database"
             },
             "specification": {
               "type": "object",
@@ -251,7 +251,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "cache"
             },
             "specification": {
               "type": "object",
@@ -289,7 +289,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "secrets"
             },
             "specification": {
               "type": "object",
@@ -327,7 +327,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "crypto"
             },
             "specification": {
               "type": "object",
@@ -365,7 +365,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "identity_workload_identity"
             },
             "specification": {
               "type": "object",
@@ -403,7 +403,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "observability"
             },
             "specification": {
               "type": "object",
@@ -441,7 +441,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "ai_model_runtime"
             },
             "specification": {
               "type": "object",
@@ -479,7 +479,7 @@
           "additionalProperties": false,
           "properties": {
             "slot_id": {
-              "type": "string"
+              "const": "artifact_update_mechanism"
             },
             "specification": {
               "type": "object",

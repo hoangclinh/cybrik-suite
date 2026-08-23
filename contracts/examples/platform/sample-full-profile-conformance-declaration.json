@@ -1,5 +1,5 @@
 {
-  "target_profile_id": "onprem-standard",
+  "target_profile_id": "onprem-standard-v1",
   "target_profile_version": "1.0.0",
   "provider_namespace": "cybrik-reference",
   "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",

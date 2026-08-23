@@ -80,7 +80,8 @@ test('validate positive platform fixtures', () => {
     'sample-platform-contract.json',
     'sample-provider-capability-advertisement.json',
     'sample-offline-bundle-manifest.json',
-    'sample-storage-s3-subset.json'
+    'sample-storage-s3-subset.json',
+    'sample-full-profile-conformance-declaration.json'
   ];
 
   for (const file of positives) {
@@ -89,8 +90,8 @@ test('validate positive platform fixtures', () => {
     const data = JSON.parse(readFileSync(path, 'utf8'));
 
     let schemaId;
-    if (file.includes('profile')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
-    else if (file.includes('advertisement')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+    if (file.includes('.profile.json')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
+    else if (file.includes('advertisement') || file.includes('declaration')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
     else if (file.includes('offline-bundle-manifest')) schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform-contract')) schemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
     else if (file.includes('storage-s3-subset')) schemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
@@ -126,7 +127,7 @@ test('validate negative platform fixtures', () => {
   for (const file of negatives) {
     let schemaId;
     if (file.includes('profile') || file.includes('semver')) schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
-    else if (file.includes('advertisement')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+    else if (file.includes('advertisement') || file.includes('declaration')) schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
     else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform')) schemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
     else if (file.includes('s3')) schemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';

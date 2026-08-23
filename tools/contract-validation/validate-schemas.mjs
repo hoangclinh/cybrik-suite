@@ -242,7 +242,8 @@ const platformPositives = [
   'sample-platform-contract.json',
   'sample-provider-capability-advertisement.json',
   'sample-offline-bundle-manifest.json',
-  'sample-storage-s3-subset.json'
+  'sample-storage-s3-subset.json',
+  'sample-full-profile-conformance-declaration.json'
 ];
 
 for (const file of platformPositives) {
@@ -250,8 +251,8 @@ for (const file of platformPositives) {
   if (!existsSync(exPath)) { fail(`platform positive example missing on disk: ${file}`); continue; }
 
   let schemaName;
-  if (file.includes('profile')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
-  else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+  if (file.includes('.profile.json')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
+  else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
   else if (file.includes('offline-bundle-manifest')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
   else if (file.includes('platform-contract')) schemaName = 'cybrik.platform-contract.v1.schema.json';
   else if (file.includes('storage-s3-subset')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
@@ -293,7 +294,7 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
 
     let schemaName;
     if (file.includes('profile') || file.includes('semver')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
-    else if (file.includes('advertisement')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+    else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
     else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform')) schemaName = 'cybrik.platform-contract.v1.schema.json';
     else if (file.includes('s3')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
@@ -552,7 +553,7 @@ H('H2c', !!negEscChain && chainEscalates(negEscChain), 'negative privilege-escal
 // #10 verify FULL_PROFILE_CONFORMANCE_DECLARATION distinct slots
 const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
 const pcaData = {
-  target_profile_id: "onprem-standard",
+  target_profile_id: "onprem-standard-v1",
   target_profile_version: "1.0.0",
   provider_namespace: "evil-corp",
   claim_type: "FULL_PROFILE_CONFORMANCE_DECLARATION",

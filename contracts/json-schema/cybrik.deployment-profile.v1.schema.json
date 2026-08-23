@@ -50,16 +50,6 @@
                 "minLength": 2,
                 "pattern": "^[a-zA-Z0-9_.-]+$"
               }
-            },
-            "floor": {
-              "type": "string",
-              "enum": [
-                "S0_SHARED_HOST_PROCESS",
-                "S1_SYSCALL_FILTERED_SANDBOX",
-                "S2_MICROVM_ISOLATION",
-                "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                "S4_AIRGAPPED_PHYSICAL_HOST"
-              ]
             }
           },
           "required": [
@@ -407,10 +397,11 @@
         "floor": {
           "type": "string",
           "enum": [
-            "standard_process_container",
-            "syscall_interception_sandbox",
-            "microvm_hardware_virtualization",
-            "hypervisor_runtime_class"
+            "S0_SHARED_HOST_PROCESS",
+            "S1_SYSCALL_FILTERED_SANDBOX",
+            "S2_MICROVM_ISOLATION",
+            "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
+            "S4_AIRGAPPED_PHYSICAL_HOST"
           ]
         },
         "admitted_risk_classes": {
@@ -472,9 +463,10 @@
             "properties": {
               "floor": {
                 "enum": [
-                  "syscall_interception_sandbox",
-                  "microvm_hardware_virtualization",
-                  "hypervisor_runtime_class"
+                  "S1_SYSCALL_FILTERED_SANDBOX",
+                  "S2_MICROVM_ISOLATION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
+                  "S4_AIRGAPPED_PHYSICAL_HOST"
                 ]
               },
               "disposable_execution_required": {
@@ -494,15 +486,11 @@
     {
       "if": {
         "properties": {
-          "capability_set": {
+          "isolation_policy": {
             "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "contains": {
-                      "const": "UNTRUSTED_CODE_EXECUTION"
-                    }
-                  }
+              "admitted_risk_classes": {
+                "contains": {
+                  "const": "DYNAMIC_TENANT_WORKLOAD"
                 }
               }
             }
@@ -511,28 +499,15 @@
       },
       "then": {
         "properties": {
-          "capability_set": {
+          "isolation_policy": {
             "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "enum": [
-                      "S1_SYSCALL_FILTERED_SANDBOX",
-                      "S2_MICROVM_ISOLATION",
-                      "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                      "S4_AIRGAPPED_PHYSICAL_HOST"
-                    ]
-                  },
-                  "disposable_execution_required": {
-                    "const": true
-                  },
-                  "network_egress_isolation": {
-                    "enum": [
-                      "FAIL_CLOSED_NO_EGRESS",
-                      "MEDIATED_EGRESS_BROKER"
-                    ]
-                  }
-                }
+              "floor": {
+                "enum": [
+                  "S1_SYSCALL_FILTERED_SANDBOX",
+                  "S2_MICROVM_ISOLATION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
+                  "S4_AIRGAPPED_PHYSICAL_HOST"
+                ]
               }
             }
           }
@@ -542,16 +517,10 @@
     {
       "if": {
         "properties": {
-          "capability_set": {
+          "isolation_policy": {
             "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "contains": {
-                      "const": "DYNAMIC_TENANT_WORKLOAD"
-                    }
-                  }
-                }
+              "floor": {
+                "const": "S0_SHARED_HOST_PROCESS"
               }
             }
           }
@@ -559,179 +528,14 @@
       },
       "then": {
         "properties": {
-          "capability_set": {
+          "isolation_policy": {
             "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "enum": [
-                      "S1_SYSCALL_FILTERED_SANDBOX",
-                      "S2_MICROVM_ISOLATION",
-                      "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                      "S4_AIRGAPPED_PHYSICAL_HOST"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "const": "S0_SHARED_HOST_PROCESS"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "type": "array",
-                    "items": {
-                      "enum": [
-                        "DETERMINISTIC_SERVICE_CONTAINER"
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "contains": {
-                      "const": "UNTRUSTED_CODE_EXECUTION"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "enum": [
-                      "S1_SYSCALL_FILTERED_SANDBOX",
-                      "S2_MICROVM_ISOLATION",
-                      "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                      "S4_AIRGAPPED_PHYSICAL_HOST"
-                    ]
-                  },
-                  "disposable_execution_required": {
-                    "const": true
-                  },
-                  "network_egress_isolation": {
-                    "enum": [
-                      "FAIL_CLOSED_NO_EGRESS",
-                      "MEDIATED_EGRESS_BROKER"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "contains": {
-                      "const": "DYNAMIC_TENANT_WORKLOAD"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "enum": [
-                      "S1_SYSCALL_FILTERED_SANDBOX",
-                      "S2_MICROVM_ISOLATION",
-                      "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
-                      "S4_AIRGAPPED_PHYSICAL_HOST"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "floor": {
-                    "const": "S0_SHARED_HOST_PROCESS"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "capability_set": {
-            "properties": {
-              "isolation_substrate": {
-                "properties": {
-                  "admitted_risk_classes": {
-                    "type": "array",
-                    "items": {
-                      "enum": [
-                        "DETERMINISTIC_SERVICE_CONTAINER"
-                      ]
-                    }
-                  }
+              "admitted_risk_classes": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "DETERMINISTIC_SERVICE_CONTAINER"
+                  ]
                 }
               }
             }

@@ -95,7 +95,7 @@
   },
   "sovereignty_class": "CONTROLLED_CROSS_DOMAIN",
   "isolation_policy": {
-    "floor": "syscall_interception_sandbox",
+    "floor": "S1_SYSCALL_FILTERED_SANDBOX",
     "disposable_execution_required": true,
     "network_egress_isolation": "MEDIATED_EGRESS_BROKER",
     "no_downgrade_guarantee": true,
