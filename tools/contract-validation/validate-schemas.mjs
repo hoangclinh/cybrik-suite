@@ -275,7 +275,7 @@ const EXPECTED_PLATFORM_NEGATIVES = {
   'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
-  'invalid-platform-all-false.json': { keyword: 'required', instancePath: '/slots/oci_container_runtime/specification', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/required', params: { missingProperty: 'interface_standard' }, message: "must have required property 'interface_standard'" },
+  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
   'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 14 }, message: 'must NOT have fewer than 14 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
@@ -308,8 +308,9 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      if (validate.errors.length !== 1) {
-        fail(`platform negative example ${file}: expected exactly 1 error, got ${validate.errors.length}`);
+      const expectedCount = file === 'invalid-platform-all-false.json' ? 13 : 1;
+      if (validate.errors.length !== expectedCount) {
+        fail(`platform negative example ${file}: expected exactly ${expectedCount} error, got ${validate.errors.length}`);
       }
       const expected = EXPECTED_PLATFORM_NEGATIVES[file];
       if (!expected) {
