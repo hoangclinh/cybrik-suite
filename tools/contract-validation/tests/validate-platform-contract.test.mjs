@@ -164,31 +164,22 @@ test('validate negative platform fixtures', () => {
   }
 });
 
-test('in-memory validation: reject full profile with 13 identical slots', () => {
+test('in-memory validation: reject full profile with duplicated distinct slots', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
-  const data = {
-    "target_profile_id": "onprem-standard-v1",
-    "target_profile_version": "1.0.0",
-    "provider_namespace": "evil-corp",
-    "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
-    "advertised_capabilities": Array.from({ length: 13 }, (_, i) => ({
-      "capability_name": `cap-storage-${i}`,
-      "slot_id": "storage",
-      "description": `Storage slot ${i}`, "evidence_references": ["test-1"]
-    })),
-    "conformance_evidence": [
-      {
-        "test_identifier": "test-1",
-        "verification_method": "AUTOMATED_TEST",
-        "report_uri": "https://example.com/report"
-      }
-    ],
-    "degradation_behavior": "FAIL_CLOSED",
-    "authenticated_discovery": true
-  };
+
+  const original = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(original));
+
+  data.advertised_capabilities[1].slot_id = data.advertised_capabilities[0].slot_id;
 
   const valid = ajv.validate(schemaId, data);
-  assert.ok(!valid, 'Should reject 13 copies of storage');
+  assert.ok(!valid, 'Should reject duplicated distinct slot');
+
+  const hasContainsError = ajv.errors.some(e => e.keyword === 'contains');
+  assert.ok(hasContainsError, 'Should fail the distinct 13-slot contains condition');
+
+  const hasDigestError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'target_profile_digest');
+  assert.ok(!hasDigestError, 'target_profile_digest should be valid and not the reason for failure');
 });
 
 
