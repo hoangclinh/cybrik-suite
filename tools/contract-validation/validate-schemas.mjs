@@ -62,6 +62,16 @@ function validatePlatformSemantics(data, schemaId) {
         }
       }
     }
+    if (data.claim_type === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && data.target_profile_id && data.target_profile_digest) {
+      const profilePath = join(CONTRACTS, 'examples/platform', `${data.target_profile_id}.profile.json`);
+      if (!existsSync(profilePath)) {
+        throw new Error(`Semantic error: target profile fixture '${data.target_profile_id}.profile.json' not found`);
+      }
+      const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+      if (actualDigest !== data.target_profile_digest) {
+        throw new Error(`Semantic error: target_profile_digest '${data.target_profile_digest}' does not match actual digest '${actualDigest}'`);
+      }
+    }
   } else if (schemaId.includes('offline-install-update-manifest')) {
     if (data.artifacts) {
       const paths = new Set();
@@ -608,6 +618,16 @@ try {
   H('11', e.message.includes('missing-test'), 'referential integrity check must catch missing evidence references');
 }
 
+// 18. in-memory validation: reject FULL_PROFILE_CONFORMANCE_DECLARATION with mismatched digest
+const pcaBadDigest = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'))));
+pcaBadDigest.target_profile_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+try {
+  validatePlatformSemantics(pcaBadDigest, pcaSchemaId);
+  fail('digest binding: expected validatePlatformSemantics to throw on mismatched digest');
+} catch (e) {
+  H('18', e.message.includes('does not match actual digest'), 'digest binding check must catch mismatched target profile digest');
+}
+
 // 12. in-memory validation: reject offline manifest with duplicate artifact paths (path uniqueness)
 const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
 const dupManifest = {
@@ -693,89 +713,25 @@ H('14', !trailingValid, 'trailing slash path must be rejected by schema');
 
 // 15. in-memory validation: reject S1 with mediated egress
 const profileSchemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
-const s1Profile = {
-  profile_id: "s1-test-profile",
-  profile_version: "1.0.0",
-  sovereignty_class: "SOVEREIGN_CUSTOMER_CONTROLLED",
-  capability_set: {
-    oci_container_runtime: { constraints: ["a", "b"] },
-    isolation_substrate: { constraints: ["a", "b"] },
-    orchestration_capability: { constraints: ["a", "b"] },
-    network_segmentation: { constraints: ["a", "b"] },
-    storage: { constraints: ["a", "b"] },
-    database: { constraints: ["a", "b"] },
-    cache: { constraints: ["a", "b"] },
-    secrets: { constraints: ["a", "b"] },
-    crypto: { constraints: ["a", "b"] },
-    identity_workload_identity: { constraints: ["a", "b"] },
-    observability: { constraints: ["a", "b"] },
-    ai_model_runtime: { constraints: ["a", "b"] },
-    artifact_update_mechanism: { constraints: ["a", "b"] }
-  },
-  strength: {
-    oci_container_runtime: "MANDATORY",
-    isolation_substrate: "MANDATORY",
-    orchestration_capability: "MANDATORY",
-    network_segmentation: "MANDATORY",
-    storage: "MANDATORY",
-    database: "MANDATORY",
-    cache: "MANDATORY",
-    secrets: "MANDATORY",
-    crypto: "MANDATORY",
-    identity_workload_identity: "MANDATORY",
-    observability: "MANDATORY",
-    ai_model_runtime: "MANDATORY",
-    artifact_update_mechanism: "MANDATORY"
-  },
-  isolation_policy: {
-    floor: "S1_DYNAMIC_TENANT_WORKLOAD",
-    admitted_risk_classes: ["DYNAMIC_TENANT_WORKLOAD"],
-    disposable_execution_required: true,
-    network_egress_isolation: "MEDIATED_EGRESS_BROKER",
-    no_downgrade_guarantee: true
-  }
-};
+const s1Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
+s1Profile.isolation_policy.floor = "S1_DYNAMIC_TENANT_WORKLOAD";
+// onprem-standard-v1 already has MEDIATED_EGRESS_BROKER
 const s1Valid = ajv.validate(profileSchemaId, s1Profile);
-H('15', !s1Valid, 'S1 with MEDIATED_EGRESS_BROKER must be rejected (requires FAIL_CLOSED_NO_EGRESS)');
+H('15', !s1Valid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/isolation_policy/network_egress_isolation' && ajv.errors[0].keyword === 'const', 'S1 with MEDIATED_EGRESS_BROKER must be rejected (requires FAIL_CLOSED_NO_EGRESS)');
 
 // 16. in-memory validation: reject S3 with no egress
-const s3Profile = JSON.parse(JSON.stringify(s1Profile));
+const s3Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
 s3Profile.isolation_policy.floor = "S3_HARDWARE_VIRTUALIZED_HYPERVISOR";
-s3Profile.isolation_policy.admitted_risk_classes = ["UNTRUSTED_CODE_EXECUTION"];
 s3Profile.isolation_policy.network_egress_isolation = "FAIL_CLOSED_NO_EGRESS";
 const s3Valid = ajv.validate(profileSchemaId, s3Profile);
-H('16', !s3Valid, 'S3 with FAIL_CLOSED_NO_EGRESS must be rejected (requires MEDIATED_EGRESS_BROKER)');
+H('16', !s3Valid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/isolation_policy/network_egress_isolation' && ajv.errors[0].keyword === 'const', 'S3 with FAIL_CLOSED_NO_EGRESS must be rejected (requires MEDIATED_EGRESS_BROKER)');
 
 // 17. in-memory validation: reject platform slot with bare "T0" conformance_profile
 const platformContractSchemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
-const platformContract = {
-  contract_version: "1.0.0",
-  slots: {
-    oci_container_runtime: {
-      slot_id: "oci_container_runtime",
-      specification: {
-        required: true,
-        description: "OCI Container Runtime",
-        interface_standard: "v1.0"
-      },
-      conformance_profile: "T0"
-    },
-    isolation_substrate: { slot_id: "isolation_substrate", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    orchestration_capability: { slot_id: "orchestration_capability", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    network_segmentation: { slot_id: "network_segmentation", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    storage: { slot_id: "storage", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    database: { slot_id: "database", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    cache: { slot_id: "cache", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    secrets: { slot_id: "secrets", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    crypto: { slot_id: "crypto", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    identity_workload_identity: { slot_id: "identity_workload_identity", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    observability: { slot_id: "observability", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    ai_model_runtime: { slot_id: "ai_model_runtime", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" },
-    artifact_update_mechanism: { slot_id: "artifact_update_mechanism", specification: { required: true, description: "a", interface_standard: "v1" }, conformance_profile: "t0-profile" }
-  }
-};
+const platformContract = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-platform-contract.json'))));
+platformContract.slots.oci_container_runtime.conformance_profile = "T0";
 const platformValid = ajv.validate(platformContractSchemaId, platformContract);
-H('17', !platformValid, 'Platform contract with bare "T0" conformance_profile must be rejected');
+H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "T0" conformance_profile must be rejected');
 
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));

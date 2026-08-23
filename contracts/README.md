@@ -1,6 +1,8 @@
-# CYBRIK Suite Contracts
+# contracts/ — Cross-product contracts
 
-Status: `MIXED LIFECYCLE` (Accepted-for-implementation contract packets v0.1.0 registered below; Platform Contract Proposal v0.1.0 is PROPOSED / NOT ACCEPTED under ADR-0015)
+Status: first cross-product contract packet is present, statused `PROPOSED` — **NOT ACCEPTED**
+(version 0.1.0). No contract has been accepted; no product may implement any of these until
+explicit Founder acceptance (ADR-0001 D5).
 
 This directory is the single home for interfaces shared between CYBRIK Suite products.
 Product repositories implement contracts defined here; contracts are never retro-fitted from
@@ -154,7 +156,3 @@ PostgreSQL durability, UAT, release, deployment, and production remain out of sc
 verification, durable ordering, fail-closed completion, append-only replay, and retention
 coupling without selecting a signer, key store, ledger, endpoint, deployment, or production
 configuration. See `compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json`.
-
-## Platform Contract (`PROPOSED`)
-
-The Platform Contract (v0.1.0-proposed) is a versioned architectural agreement that defines the 13 required capability slots (OCI Image Runtime, Execution Isolation, Orchestration, etc.) per ADR-0015 §5.2. It introduces the `VERSIONED_DEPLOYMENT_PROFILE` specification and optional provider capability advertisement. It strictly disambiguates orthogonal axes (capacity vs isolation vs conformance subject). This contract does NOT select a specific Kubernetes distribution, hypervisor, or cloud provider. See `contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md` and related schemas in `contracts/json-schema/`.

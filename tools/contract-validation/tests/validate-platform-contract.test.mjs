@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
@@ -36,6 +37,16 @@ function validatePlatformSemantics(data, schemaId) {
             throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
           }
         }
+      }
+    }
+    if (data.claim_type === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && data.target_profile_id && data.target_profile_digest) {
+      const profilePath = join(EXAMPLES_DIR, `${data.target_profile_id}.profile.json`);
+      if (!existsSync(profilePath)) {
+        throw new Error(`Semantic error: target profile fixture '${data.target_profile_id}.profile.json' not found`);
+      }
+      const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+      if (actualDigest !== data.target_profile_digest) {
+        throw new Error(`Semantic error: target_profile_digest '${data.target_profile_digest}' does not match actual digest '${actualDigest}'`);
       }
     }
   } else if (schemaId === 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json') {

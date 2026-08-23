@@ -120,5 +120,5 @@ Platform contract artifacts MUST pass a strict two-phase validation sequence to 
 
 * **Phase 2: Semantic Validation**
   Documents MUST pass semantic validation enforcing referential integrity and normalization invariants that cannot be fully captured in JSON Schema:
-  * **Evidence-Reference Referential Integrity**: Every `evidence_reference` in a capability slot constraint MUST resolve to a unique `conformance_evidence.test_identifier` declared within the same document.
+  * **Evidence-Reference Referential Integrity**: Every `evidence_references` item in a capability slot constraint MUST resolve to a unique `conformance_evidence.test_identifier` declared within the same document.
   * **Normalized Artifact-Path Target Uniqueness**: In offline install/update manifests, there MUST be no duplicate target paths under RFC 3986 / POSIX path normalization (e.g., `/a/b` and `/a/../a/b` are duplicates and must be rejected).
