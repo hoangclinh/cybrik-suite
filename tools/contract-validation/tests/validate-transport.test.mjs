@@ -4517,6 +4517,29 @@ const ADR_README_UAT_MTLS_ADDITIONS = [
     'product `selected=false` and HOLD; D2 remains HOLD and no release gate opens.\n',
   '\n| [DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md](DELEGATED-GOVERNOR-DECISION-UAT-MTLS-ANYCORN-R1.md) | Bounded internal Anycorn B1 evaluation decision for SOC→AI lifecycle mTLS UAT | D1 records the exact isolated B1 artifact as `installed=true`, `pinned=true`, product `selected=false`, and HOLD; D2 and release remain separate gates |',
 ];
+// ADR-0015 (suite deployment priority, data sovereignty and provider-neutral platform boundary):
+// registered at PROPOSED on 2026-08-23 and ACCEPTED by explicit Founder decision on 2026-08-23 against
+// the exact reviewed R6 bytes (6580a4fc…), applied by ADR-0015-STATUS-FLIP-APPLICATION.md. The four
+// literals are the accepted catalog bytes verbatim — one prose block and three rows — and are
+// registered here so the fail-closed base-byte guard keeps pinning every other README byte.
+const ADR_README_ADR0015_ADDITIONS = [
+  '\nADR-0015 (deployment priority, data sovereignty & provider-neutral platform boundary) was registered\n' +
+    'as `PROPOSED`, Decider `FOUNDER`, raised 2026-08-23, and is `ACCEPTED` (Founder, 2026-08-23) —\n' +
+    'decision record only. The Founder accepted the exact independently reviewed R6 bytes (commit\n' +
+    '`6580a4fcdf8d24e203b6e6f98a15dae3c2fea789`, tree `c49f77f2f12eb34fc498f17043b2a223b8bfcef6`;\n' +
+    'independent review `PASS`, `FOUNDER_ACCEPTANCE_SAFE = YES`, no findings); the flip is applied by the\n' +
+    'docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is\n' +
+    'architecture/governance authority only: it grants no implementation, provider, substrate,\n' +
+    'Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`\n' +
+    'remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`, and ADR-0015\'s eleven open\n' +
+    'questions `OPEN-1` … `OPEN-11` remain open. The Founder deployment-priority policy itself remains\n' +
+    'rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)\n' +
+    'and is not created by this acceptance. Every earlier statement on this page about the ten-ADR base\n' +
+    'catalog describes that catalog before these additive records and flips no existing ADR status.\n',
+  '\n| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1` … `OPEN-11` remain open |',
+  '\n| [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md) | Founder deployment-priority and provider policy of 2026-08-23; authoritative provenance for that policy | `DECIDED — RECORDED` (Founder, 2026-08-23) — records policy only; accepts no ADR, selects no technology, authorizes no implementation or production rollout |',
+  '\n| [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0015 Founder acceptance status flip (exact reviewed R6) | `APPLIED 2026-08-23` — decision record only, architecture/governance authority, no implementation authority |',
+];
 const ADR_README_DELEGATION_RECONCILIATION = {
   current:
     'Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a\n' +
@@ -4538,6 +4561,7 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
     ...ADR_README_RECEIPT_TRUST_DURABILITY_ADDITIONS,
     ...ADR_README_F8_RECEIPT_INTEGRITY_ADDITIONS,
     ...ADR_README_UAT_MTLS_ADDITIONS,
+    ...ADR_README_ADR0015_ADDITIONS,
   ]) {
     const occurrences = normalized.split(addition).length - 1;
     assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
