@@ -234,17 +234,18 @@ for (const file of platformPositives) {
 }
 
 const EXPECTED_PLATFORM_NEGATIVES = {
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path' },
   'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
   'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '/operator_trust_root' },
   'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version' },
   'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id' },
-  'invalid-missing-evidence-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
-  'invalid-namespace-advertisement.json': { keyword: 'required', instancePath: '' },
+  'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence' },
+  'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace' },
   'invalid-platform-all-false.json': { keyword: 'type', instancePath: '/slots/oci_container_runtime' },
-  'invalid-s3-missing-crud.json': { keyword: 'required', instancePath: '/mandatory_operations' },
-  'invalid-unauthenticated-advertisement.json': { keyword: 'enum', instancePath: '/advertised_capabilities/0/slot_id' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations' },
+  'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts' },
-  'malformed-sha256-offline-manifest.json': { keyword: 'required', instancePath: '' },
+  'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256' },
   'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set' }
 };
 
