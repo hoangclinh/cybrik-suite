@@ -15,7 +15,7 @@
   ],
   "conformance_evidence": [
     {
-      "test_identifier": "oci-conformance-1.0",
+      "test_identifier": "test-001",
       "verification_method": "AUTOMATED_TEST",
       "report_uri": "https://vendor.example/reports/oci-conformance-1.0.json"
     }

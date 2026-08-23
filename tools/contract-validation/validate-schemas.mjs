@@ -14,7 +14,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join, basename, sep } from 'node:path';
+import { dirname, resolve, join, basename, sep, posix } from 'node:path';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
 import { parse as parseYaml } from 'yaml';
@@ -60,10 +60,11 @@ function validatePlatformSemantics(data, schemaId) {
     if (data.artifacts) {
       const paths = new Set();
       for (const art of data.artifacts) {
-        if (paths.has(art.path)) {
-          throw new Error(`Semantic error: duplicate artifact path '${art.path}'`);
+        const norm = posix.normalize(art.path);
+        if (paths.has(norm)) {
+          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
         }
-        paths.add(art.path);
+        paths.add(norm);
       }
     }
   }
@@ -260,7 +261,7 @@ for (const file of platformPositives) {
 }
 
 const EXPECTED_PLATFORM_NEGATIVES = {
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!.*\\.\\.)[a-zA-Z0-9._/-]+$' }, message: 'must match pattern "^(?!\\/)(?!.*\\.\\.)[a-zA-Z0-9._/-]+$"' },
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/))[a-z0-9._/-]+$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/))[a-z0-9._/-]+$"' },
   'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
   'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '', schemaPath: '#/required', params: { missingProperty: 'operator_trust_root' }, message: "must have required property 'operator_trust_root'" },
   'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version', schemaPath: '#/properties/profile_version/pattern', params: { pattern: '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$' }, message: 'must match pattern "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"' },
@@ -552,11 +553,11 @@ const pcaData = {
   advertised_capabilities: Array.from({ length: 13 }, (_, i) => ({
     capability_name: "cap-storage-" + i,
     slot_id: "storage",
-    description: "Storage slot " + i
+    description: "Storage slot " + i, evidence_references: ["test-001"]
   })),
   conformance_evidence: [
     {
-      test_identifier: "test-1",
+      test_identifier: "test-001",
       verification_method: "AUTOMATED_TEST",
       report_uri: "https://example.com/report"
     }

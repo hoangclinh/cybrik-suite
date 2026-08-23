@@ -15,7 +15,7 @@
   ],
   "conformance_evidence": [
     {
-      "test_identifier": "test1",
+      "test_identifier": "test-001",
       "verification_method": "AUTOMATED_TEST",
       "report_uri": "https://example.com/report1"
     }
