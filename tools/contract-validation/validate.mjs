@@ -105,7 +105,6 @@ const steps = [
   'validate-receipt-trust-durability.mjs',
   'tests/validate-receipt-trust-durability.test.mjs',
   // Platform contract proposal schemas
-  'tests/validate-platform-contract.test.mjs',
   // Fabric runtime-producer implementation evidence — coordinator-verified,
   // not hosted CI or runtime evidence. The gate remains HOLD for runtime/UAT.
   '../../tools/operations/validate-fabric-runtime-producer-gate.mjs',

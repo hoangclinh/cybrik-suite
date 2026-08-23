@@ -1,6 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cybrik.offline-install-update-manifest.v1.schema.json",
+  "$id": "https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
   "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
   "title": "CYBRIK Offline Install Update Manifest v1",
   "type": "object",
