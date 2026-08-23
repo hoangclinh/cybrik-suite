@@ -4,7 +4,7 @@
   "x-cybrik-status": "PROPOSED",
   "x-cybrik-not-accepted": true,
   "x-cybrik-contract-version": "0.1.0",
-  "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
   "title": "CYBRIK Deployment Profile v1",
   "type": "object",
   "additionalProperties": false,
@@ -443,6 +443,40 @@
   ],
   "x-cybrik-lifecycle": "PROPOSED",
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "enum": [
+                  "S1_DYNAMIC_TENANT_WORKLOAD",
+                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "enum": [
+                  "FAIL_CLOSED_NO_EGRESS",
+                  "MEDIATED_EGRESS_BROKER"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {

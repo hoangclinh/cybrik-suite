@@ -156,7 +156,7 @@ absence of raw certificate or authorization material. It opens no socket and sel
 
 Canonical registration is complete: `validate-transport-peer.mjs` and its test are registered in
 `validate.mjs`; W2-K entered when the orchestrator had 23 steps, while the `validate.mjs` header now
-truthfully states the present-day count. These 31 validators include the separately registered
+truthfully states the present-day count. These 32 validators include the separately registered
 Fabric runtime-producer gate and its regression suite plus the C8 topology grant validator and its
 test. The orchestrator's `ALL GREEN`
 banner names W2-K ACCEPTED FOR IMPLEMENTATION / NOT IMPLEMENTED. The W2-I P2-3 additive-byte pin now also carries the exact,

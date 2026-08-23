@@ -110,3 +110,15 @@ The `artifact_update_mechanism` capability defines an offline update manifest (`
 - `migration_reversibility_guaranteed: true`
 - `rollback_procedure_reference`
 - `update_station_workflow`
+
+## 8. Normative Two-Phase Validation Requirement
+
+Platform contract artifacts MUST pass a strict two-phase validation sequence to be considered structurally and semantically valid:
+
+* **Phase 1: Structural Validation**
+  Documents MUST pass structural JSON Schema validation against the normative cybrik.*.v1.schema.json schemas (draft 2020-12).
+
+* **Phase 2: Semantic Validation**
+  Documents MUST pass semantic validation enforcing referential integrity and normalization invariants that cannot be fully captured in JSON Schema:
+  * **Evidence-Reference Referential Integrity**: Every `evidence_reference` in a capability slot constraint MUST resolve to a unique `conformance_evidence.test_identifier` declared within the same document.
+  * **Normalized Artifact-Path Target Uniqueness**: In offline install/update manifests, there MUST be no duplicate target paths under RFC 3986 / POSIX path normalization (e.g., `/a/b` and `/a/../a/b` are duplicates and must be rejected).

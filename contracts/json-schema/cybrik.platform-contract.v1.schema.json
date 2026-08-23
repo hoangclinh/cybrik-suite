@@ -4,7 +4,7 @@
   "x-cybrik-status": "PROPOSED",
   "x-cybrik-not-accepted": true,
   "x-cybrik-contract-version": "0.1.0",
-  "$comment": "Status: PROPOSED. Architectural Platform Contract Proposal v1.0.0.",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
   "title": "CYBRIK Platform Contract Proposal v1",
   "type": "object",
   "additionalProperties": false,

@@ -576,6 +576,118 @@ const pcaData = {
 const pcaValid = ajv.validate(pcaSchemaId, pcaData);
 H('10', !pcaValid, 'FULL_PROFILE_CONFORMANCE_DECLARATION with 13 identical slots must be rejected');
 
+// 11. in-memory validation: reject advertisement with unresolvable evidence reference (referential integrity)
+const pcaUnresolvable = {
+  target_profile_id: "onprem-standard-v1",
+  target_profile_version: "1.0.0",
+  provider_namespace: "evil-corp",
+  claim_type: "PARTIAL_CAPABILITY_ADVERTISEMENT",
+  advertised_capabilities: [
+    {
+      capability_name: "cap-storage",
+      slot_id: "storage",
+      description: "Storage slot",
+      evidence_references: ["missing-test"]
+    }
+  ],
+  conformance_evidence: [
+    {
+      test_identifier: "test-1",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://example.com/report"
+    }
+  ],
+  degradation_behavior: "FAIL_CLOSED",
+  authenticated_discovery: true
+};
+try {
+  validatePlatformSemantics(pcaUnresolvable, pcaSchemaId);
+  fail('referential integrity: expected validatePlatformSemantics to throw on missing evidence reference');
+} catch (e) {
+  H('11', e.message.includes('missing-test'), 'referential integrity check must catch missing evidence references');
+}
+
+// 12. in-memory validation: reject offline manifest with duplicate artifact paths (path uniqueness)
+const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+const dupManifest = {
+  bundle_identifier: "my-bundle-1",
+  release_tag: "v1.2.3",
+  operator_trust_root: {
+    signing_key_id: "key-123456",
+    public_key_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    signature_algorithm: "ed25519"
+  },
+  bundle_signature: "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    },
+    {
+      name: "image-2",
+      path: "images/image-1.tar",
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+      size_bytes: 2048
+    }
+  ],
+  migration_reversibility_guaranteed: true,
+  rollback_procedure_reference: "doc://rollback",
+  update_station_workflow: {
+    preflight_steps: ["check-disk-space"],
+    apply_steps: ["extract-images"],
+    rollback_steps: ["restore-backup"]
+  },
+  canonicalization_scheme: "RFC_8785_JCS"
+};
+try {
+  validatePlatformSemantics(dupManifest, manifestSchemaId);
+  fail('path uniqueness: expected validatePlatformSemantics to throw on duplicate paths');
+} catch (e) {
+  H('12', e.message.includes('duplicate artifact path'), 'path uniqueness check must catch duplicate artifact paths');
+}
+
+// 13. in-memory validation: reject offline manifest with alias collision paths (alias collision)
+const aliasManifest = {
+  ...dupManifest,
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    },
+    {
+      name: "image-2",
+      path: "./images/image-1.tar",
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+      size_bytes: 2048
+    }
+  ]
+};
+try {
+  validatePlatformSemantics(aliasManifest, manifestSchemaId);
+  fail('alias collision: expected validatePlatformSemantics to throw on aliased paths');
+} catch (e) {
+  H('13', e.message.includes('duplicate artifact path'), 'alias collision check must catch aliased artifact paths');
+}
+
+// 14. in-memory validation: reject offline manifest with trailing slash path
+const trailingSlashManifest = {
+  ...dupManifest,
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar/",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    }
+  ]
+};
+const trailingValid = ajv.validate(manifestSchemaId, trailingSlashManifest);
+H('14', !trailingValid, 'trailing slash path must be rejected by schema');
+
 // ---------------------------------------------------------------------------
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));
