@@ -7,7 +7,10 @@
     {
       "capability_name": "oci_container_runtime",
       "slot_id": "oci_container_runtime",
-      "description": "Standard OCI runtime"
+      "description": "Standard OCI runtime",
+      "evidence_references": [
+        "test-001"
+      ]
     }
   ],
   "conformance_evidence": [

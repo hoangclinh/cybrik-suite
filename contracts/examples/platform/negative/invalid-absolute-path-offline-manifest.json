@@ -27,5 +27,6 @@
     "rollback_steps": [
       "restore-backup"
     ]
-  }
+  },
+  "canonicalization_scheme": "RFC_8785_JCS"
 }

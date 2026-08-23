@@ -126,7 +126,7 @@ test('in-memory validation: reject full profile with 13 identical slots', () => 
     "advertised_capabilities": Array.from({ length: 13 }, (_, i) => ({
       "capability_name": `cap-storage-${i}`,
       "slot_id": "storage",
-      "description": `Storage slot ${i}`
+      "description": `Storage slot ${i}`, "evidence_references": ["test-1"]
     })),
     "conformance_evidence": [
       {

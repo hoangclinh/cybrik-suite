@@ -18,8 +18,15 @@
   "migration_reversibility_guaranteed": true,
   "rollback_procedure_reference": "doc://rollback",
   "update_station_workflow": {
-    "preflight_steps": ["check-disk-space"],
-    "apply_steps": ["extract-images"],
-    "rollback_steps": ["restore-backup"]
-  }
+    "preflight_steps": [
+      "check-disk-space"
+    ],
+    "apply_steps": [
+      "extract-images"
+    ],
+    "rollback_steps": [
+      "restore-backup"
+    ]
+  },
+  "canonicalization_scheme": "RFC_8785_JCS"
 }

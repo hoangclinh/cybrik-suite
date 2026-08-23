@@ -77,7 +77,8 @@
           "sha256",
           "size_bytes"
         ]
-      }
+      },
+      "uniqueItems": true
     },
     "migration_reversibility_guaranteed": {
       "const": true
@@ -123,6 +124,9 @@
         "apply_steps",
         "rollback_steps"
       ]
+    },
+    "canonicalization_scheme": {
+      "const": "RFC_8785_JCS"
     }
   },
   "required": [
@@ -133,7 +137,8 @@
     "artifacts",
     "migration_reversibility_guaranteed",
     "rollback_procedure_reference",
-    "update_station_workflow"
+    "update_station_workflow",
+    "canonicalization_scheme"
   ],
   "x-cybrik-lifecycle": "PROPOSED"
 }

@@ -64,6 +64,8 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 
 ### Structure
 * **profile_id**: String identifier.
+* **Core Slot Constraints**: The 9 core runtime slots (oci_container_runtime, isolation_substrate, network_segmentation, storage, database, secrets, crypto, identity_workload_identity, artifact_update_mechanism) MUST be explicitly defined with strength "MANDATORY".
+* **Evidence Binding**: Capability advertisements MUST cryptographically or explicitly bind to conformance evidence. All slots within `capability_set` require non-vacuous constraints arrays (minimum 1 item, minimum 2 characters per item, matching alphanumeric/hyphen/underscore). Advertised capabilities must explicitly link to `conformance_evidence` via `evidence_references`.
 * **profile_version**: Semver version of the profile.
 * **capability_set**: Key-value mappings mapping the 13 slots to specific constraints.
 * **strength**: Specification of which slots are `MANDATORY` or `OPTIONAL` for the profile.
@@ -102,7 +104,9 @@ To allow platform environments to auto-discover capabilities without manual hard
 The `artifact_update_mechanism` capability defines an offline update manifest (`cybrik.offline-install-update-manifest.v1.schema.json`) requiring:
 - `release_tag`
 - `operator_trust_root` (key ID, fingerprint, algorithm)
-- Array of `artifacts` with strict hex SHA-256 validation
+- Array of `artifacts` with strict hex SHA-256 validation and unique paths.
+- `canonicalization_scheme`: strictly required to be "RFC_8785_JCS".
+- Canonical Signature Recipe: The `bundle_signature` MUST be computed as the detached cryptographic signature over the canonical JSON (RFC 8785 JSON Canonicalization Scheme - JCS) representation of the offline manifest object omitting the `bundle_signature` field itself, verified against the `operator_trust_root` public key.
 - `migration_reversibility_guaranteed: true`
 - `rollback_procedure_reference`
 - `update_station_workflow`
