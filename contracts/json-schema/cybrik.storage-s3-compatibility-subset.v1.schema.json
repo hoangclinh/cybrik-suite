@@ -121,5 +121,6 @@
     }
   },
   "x-cybrik-contract-version": "0.1.0",
-  "additionalProperties": false
+  "additionalProperties": false,
+  "description": "Cybrik S3 Compatibility Subset Contract [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
 }

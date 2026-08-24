@@ -150,7 +150,9 @@
         }
       },
       "then": {
-        "required": ["target_profile_digest"],
+        "required": [
+          "target_profile_digest"
+        ],
         "allOf": [
           {
             "properties": {
@@ -371,5 +373,6 @@
       }
     }
   ],
-  "x-cybrik-lifecycle": "PROPOSED"
+  "x-cybrik-lifecycle": "PROPOSED",
+  "description": "CYBRIK Provider Capability Advertisement v1 [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
 }

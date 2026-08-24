@@ -74,12 +74,14 @@ A `VERSIONED_DEPLOYMENT_PROFILE` specifies a concrete set of configurations agai
 
 ## 4. Canonical Tier Semantics Normalization (OPEN-4)
 
-To prevent confusion, the following orthogonal axes are strictly disambiguated:
-* **DATA_PLANE_CAPACITY_TIER**: Focuses strictly on throughput, capacity, and scaling limits.
-* **ISOLATION_TIER**: Focuses strictly on sandboxing technologies, boundary enforcement, and workload isolation levels (cybrik-suite:docs/adr/ADR-0005-sandbox-substrate.md).
-* **VERSIONED_DEPLOYMENT_PROFILE**: Defines the conformance subject, packaging the deployment requirements (slots + capabilities).
+To prevent confusion, the following orthogonal axes are strictly disambiguated. This fully establishes the resolution of OPEN-4 subject to independent verification:
+* **Authoritative SOC Capacity-Tier Namespace**: Remains intact for throughput and capacity only (T0/T1/T2). Bare T0/T1/T2 has no ambiguous suite-wide conformance meaning.
+* **Isolation/Trust Terminology**: Separately namespaced for sandboxing technologies, boundary enforcement, and workload isolation levels (S0/S1/S2/S3/S4).
+* **VERSIONED_DEPLOYMENT_PROFILE**: This is the executable deployment-conformance subject, packaging the deployment requirements (slots + capabilities).
 
 ## 5. Minimum S3 Subset Specification (OPEN-2)
+
+**Role**: `cybrik.storage-s3-compatibility-subset.v1.schema.json` is a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT` defining a candidate minimum interface subset. Platform Contract acceptance does NOT itself constitute final Founder acceptance of the S3 compatibility contract or unresolved Object Lock, retention, error-semantics, or profile-applicability decisions.
 
 The `storage` capability requires a strict minimum S3 compatibility subset including:
 - **CRUD**: PutObject, GetObject, HeadObject, DeleteObject, DeleteObjects, ListObjectsV2, HeadBucket, CreateBucket
@@ -93,6 +95,8 @@ The `storage` capability requires a strict minimum S3 compatibility subset inclu
 
 ## 6. Optional Provider Capability Negotiation Protocol (OPEN-5)
 
+**Role**: `cybrik.provider-capability-advertisement.v1.schema.json` is a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT`. It defines the static CAPABILITY_DECLARATION, CAPABILITY_ADVERTISEMENT, PROFILE_BINDING, EVIDENCE_BINDING, and FAIL_CLOSED_DEGRADATION boundary. It MUST NOT be described as completing the detailed runtime/provider negotiation protocol.
+
 To allow platform environments to auto-discover capabilities without manual hardcoding, an optional negotiation protocol is defined:
 * **Namespaced Provider Capabilities**: Capabilities are advertised in strict namespaces (`provider_namespace`) to avoid collision.
 * **Capability Advertisement Schema**: A structured JSON mechanism (`cybrik.provider-capability-advertisement.v1.schema.json`) to declare supported capabilities, conformance evidence (`conformance_evidence`), and authenticated discovery (`authenticated_discovery`).
@@ -100,6 +104,8 @@ To allow platform environments to auto-discover capabilities without manual hard
 * **Degradation Behavior**: Must specify `degradation_behavior` as `FAIL_CLOSED`. If capability discovery fails, times out, is unauthenticated, or fails verification, the consumer MUST treat the capability as absent and fail closed.
 
 ## 7. Offline Install & Update Manifest (OPEN-1)
+
+**Role**: `cybrik.offline-install-update-manifest.v1.schema.json` is a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT`. Platform Contract acceptance does NOT itself accept the complete: offline installation process, offline update process, upgrade model, rollback model, mirror/update-station workflow, or air-gap qualification.
 
 The `artifact_update_mechanism` capability defines an offline update manifest (`cybrik.offline-install-update-manifest.v1.schema.json`) requiring:
 - `release_tag`
@@ -122,3 +128,39 @@ Platform contract artifacts MUST pass a strict two-phase validation sequence to 
   Documents MUST pass semantic validation enforcing referential integrity and normalization invariants that cannot be fully captured in JSON Schema:
   * **Evidence-Reference Referential Integrity**: Every `evidence_references` item in a capability slot constraint MUST resolve to a unique `conformance_evidence.test_identifier` declared within the same document.
   * **Normalized Artifact-Path Target Uniqueness**: In offline install/update manifests, there MUST be no duplicate target paths under RFC 3986 / POSIX path normalization (e.g., `/a/b` and `/a/../a/b` are duplicates and must be rejected).
+
+
+## 9. Acceptance Scope
+
+Future Platform Contract acceptance grants `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`.
+It does NOT grant:
+- PRODUCT_IMPLEMENTATION
+- DEPLOYMENT_IMPLEMENTATION
+- PROVIDER_SELECTION
+- KUBERNETES_SELECTION
+- VIRTUALIZATION_SELECTION
+- PRODUCTION_DEPLOYMENT
+- RELEASE_AUTHORITY
+
+## 10. Required Open-Item Effect Matrix
+
+The exact effect matrix for all relevant OPEN items is defined below.
+*(Explicitly state: A schema existing in Git is not sufficient reason to mark an OPEN item closed).*
+
+- **OPEN-1** = PARTIALLY_UNBLOCKED
+- **OPEN-2** = PARTIALLY_UNBLOCKED
+- **OPEN-3** = UNAFFECTED
+- **OPEN-4** = RESOLVED_BY_PROPOSAL_IF_ACCEPTED, subject to independent verification
+- **OPEN-5** = PARTIALLY_UNBLOCKED
+- **OPEN-6** = REQUIRES_SEPARATE_DECISION
+- **OPEN-7** = REQUIRES_SEPARATE_DECISION
+- **OPEN-8** = REQUIRES_SEPARATE_DECISION
+- **OPEN-9** = REQUIRES_SEPARATE_LEGAL_TRACK
+- **OPEN-10** = RESOLVED_BY_PROPOSAL_IF_ACCEPTED
+- **OPEN-11** = PARTIALLY_UNBLOCKED / SEPARATE_CLASSIFICATION_REQUIRED
+
+## 11. Next Action Sequence
+
+Following future Platform Contract integration, the successor action sequence is strictly:
+`RECONCILE_ACCEPTED_PLATFORM_CONTRACT → REBUILD_OPEN_ITEM_DEPENDENCY_DAG → SELECT_NEXT_SINGLE_BOUNDED_TASK`.
+No provider/substrate implementation authority is inferred from contract acceptance.
