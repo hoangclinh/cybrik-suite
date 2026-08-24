@@ -347,3 +347,36 @@ test('governance guard: validateOpenItemEffectMatrix probes', () => {
   const unauthorizedEffect = validProposal.replace('OPEN, PARTIALLY_UNBLOCKED', 'INVALID_EFFECT_TEST');
   assert.throws(() => validateOpenItemEffectMatrix(unauthorizedEffect), /Unauthorized effect/);
 });
+
+test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATION-MAP.md', () => {
+  const mapPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATION-MAP.md');
+  assert.ok(existsSync(mapPath), 'PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATION-MAP.md must exist');
+
+  const content = readFileSync(mapPath, 'utf8');
+
+  // Status check
+  assert.match(content, /Status: PROPOSED — PER-MODULE CLASSIFICATION MAP \(v0\.1\.0-proposed\)/, 'Must have proposed status');
+
+  // Three RC1 commits
+  assert.match(content, /f0bf4c630d8e93a0531d16b4522ce0425996a624/, 'Must reference cybrik-cyber-ai-platform RC1 commit f0bf4c630d8e93a0531d16b4522ce0425996a624');
+  assert.match(content, /1a419014ebb432eb56ac35242e0a193fe65a62c6/, 'Must reference cybrik-security-tool-fabric RC1 commit 1a419014ebb432eb56ac35242e0a193fe65a62c6');
+  assert.match(content, /695aed8e0e12c9d0e11de5f474e3384d1a4b490f/, 'Must reference cybrik-soc-command-center RC1 commit 695aed8e0e12c9d0e11de5f474e3384d1a4b490f');
+
+  // Check PRODUCT_CORE and PRODUCT_IMPLEMENTATION_ADAPTER presence for each repository section
+  const sections = content.split('### 2.');
+
+  const platformSection = sections.find(s => s.includes('cybrik-cyber-ai-platform'));
+  assert.ok(platformSection, 'cybrik-cyber-ai-platform section missing');
+  assert.match(platformSection, /PRODUCT_CORE/, 'cybrik-cyber-ai-platform missing PRODUCT_CORE');
+  assert.match(platformSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-cyber-ai-platform missing PRODUCT_IMPLEMENTATION_ADAPTER');
+
+  const fabricSection = sections.find(s => s.includes('cybrik-security-tool-fabric'));
+  assert.ok(fabricSection, 'cybrik-security-tool-fabric section missing');
+  assert.match(fabricSection, /PRODUCT_CORE/, 'cybrik-security-tool-fabric missing PRODUCT_CORE');
+  assert.match(fabricSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-security-tool-fabric missing PRODUCT_IMPLEMENTATION_ADAPTER');
+
+  const socSection = sections.find(s => s.includes('cybrik-soc-command-center'));
+  assert.ok(socSection, 'cybrik-soc-command-center section missing');
+  assert.match(socSection, /PRODUCT_CORE/, 'cybrik-soc-command-center missing PRODUCT_CORE');
+  assert.match(socSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-soc-command-center missing PRODUCT_IMPLEMENTATION_ADAPTER');
+});
