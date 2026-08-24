@@ -6,6 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
+import { validateOpenItemEffectMatrix } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -325,4 +326,24 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
 
   const valid = ajv.validate(schemaId, data);
   assert.ok(!valid, 'Should reject trailing slash path');
+});
+
+test('governance guard: validateOpenItemEffectMatrix probes', () => {
+  const proposalPath = join(ROOT, 'contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
+  const validProposal = readFileSync(proposalPath, 'utf8');
+
+  // Should pass valid proposal
+  validateOpenItemEffectMatrix(validProposal);
+
+  // Should fail swapped title
+  const swappedTitle = validProposal.replace('OFFLINE_INSTALL_UPDATE_CONTRACT', 'SWAPPED_TITLE');
+  assert.throws(() => validateOpenItemEffectMatrix(swappedTitle), /Swapped or incorrect title/);
+
+  // Should fail duplicate ID
+  const duplicateId = validProposal.replace('| OPEN-2 |', '| OPEN-1 |');
+  assert.throws(() => validateOpenItemEffectMatrix(duplicateId), /Duplicate ID OPEN-1/);
+
+  // Should fail unauthorized effect
+  const unauthorizedEffect = validProposal.replace('PARTIALLY_UNBLOCKED, REMAINS_OPEN', 'RESOLVED');
+  assert.throws(() => validateOpenItemEffectMatrix(unauthorizedEffect), /Unauthorized effect/);
 });
