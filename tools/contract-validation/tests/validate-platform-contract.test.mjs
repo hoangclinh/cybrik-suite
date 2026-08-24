@@ -403,4 +403,3 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.match(content, /SCAFFOLD/, 'Must declare SCAFFOLD modules');
   assert.match(content, /PLANNED/, 'Must declare PLANNED modules');
 });
-
