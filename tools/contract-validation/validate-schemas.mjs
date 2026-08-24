@@ -726,24 +726,37 @@ export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const tableStartIndex = lines.findIndex(l => l.includes('## 10. Required Open-Item Effect Matrix'));
   if (tableStartIndex === -1) throw new Error('Missing section: ## 10. Required Open-Item Effect Matrix');
 
-  const headerIndex = lines.findIndex((l, i) => i > tableStartIndex && l.trim().startsWith('| OPEN ID |'));
+  const nextSectionIndex = lines.findIndex((l, i) => i > tableStartIndex && l.startsWith('## '));
+  const sectionEndIndex = nextSectionIndex !== -1 ? nextSectionIndex : lines.length;
+
+  const headerIndex = lines.findIndex((l, i) => i > tableStartIndex && i < sectionEndIndex && l.trim().startsWith('| OPEN ID |'));
   if (headerIndex === -1) throw new Error('Missing table header for Open-Item Effect Matrix');
 
   const rows = [];
-  for (let i = headerIndex + 2; i < lines.length; i++) {
+  let tableEnded = false;
+
+  for (let i = headerIndex + 2; i < sectionEndIndex; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    if (!line.startsWith('|')) break;
+    if (!line.startsWith('|')) {
+      tableEnded = true;
+      continue;
+    }
+
+    if (tableEnded && line.startsWith('|')) {
+      throw new Error('Governance guard failed: Multiple tables or trailing table rows found in Section 10');
+    }
 
     const parts = line.split('|').map(s => s.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-    if (parts.length >= 4) {
-      rows.push({
-        id: parts[0],
-        title: parts[1],
-        status: parts[2],
-        effect: parts[3]
-      });
+    if (parts.length !== 4) {
+      throw new Error(`Governance guard failed: Matrix row must have exactly 4 columns, found ${parts.length}`);
     }
+    rows.push({
+      id: parts[0],
+      title: parts[1],
+      status: parts[2],
+      effect: parts[3]
+    });
   }
 
   if (rows.length !== 11) {
@@ -756,9 +769,9 @@ export function validateOpenItemEffectMatrix(proposalMarkdown) {
     { id: 'OPEN-3', title: '`AI_DNS_TOCTOU_EGRESS_GUARD`', status: 'OPEN', effect: 'UNAFFECTED, REMAINS_OPEN' },
     { id: 'OPEN-4', title: '`CANONICAL_T0_T1_T2_SEMANTICS`', status: 'OPEN in ADR-0015', effect: 'RESOLVED_BY_PROPOSAL_IF_ACCEPTED, subject to independent verification' },
     { id: 'OPEN-5', title: '`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`', status: 'detailed protocol OPEN', effect: 'PARTIALLY_UNBLOCKED, REMAINS_OPEN' },
-    { id: 'OPEN-6', title: '`VIRTUALIZATION_SUBSTRATE_SELECTION`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN' },
-    { id: 'OPEN-7', title: '`KUBERNETES_DISTRIBUTION_SELECTION`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN' },
-    { id: 'OPEN-8', title: '`PROVIDER_SELECTION_AUTHORITY_MODEL`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN' },
+    { id: 'OPEN-6', title: '`VIRTUALIZATION_SUBSTRATE_SELECTION`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_DECISION, REMAINS_OPEN' },
+    { id: 'OPEN-7', title: '`KUBERNETES_DISTRIBUTION_SELECTION`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_DECISION, REMAINS_OPEN' },
+    { id: 'OPEN-8', title: '`PROVIDER_SELECTION_AUTHORITY_MODEL`', status: 'OPEN', effect: 'REQUIRES_SEPARATE_DECISION, REMAINS_OPEN' },
     { id: 'OPEN-9', title: 'Legal interpretation of deployment location and cross-domain obligations', status: 'OPEN / LEGAL_REVIEW_REQUIRED', effect: 'REQUIRES_SEPARATE_LEGAL_TRACK, REMAINS_OPEN' },
     { id: 'OPEN-10', title: 'Platform Contract slot semantics (all 13 slots, §5.2)', status: 'OPEN in ADR-0015', effect: 'RESOLVED_BY_PROPOSAL_IF_ACCEPTED' },
     { id: 'OPEN-11', title: '`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY`', status: 'definition resolved in §5.1, per-module classification OPEN', effect: 'PARTIALLY_UNBLOCKED, PER_MODULE_CLASSIFICATION_REMAINS_OPEN' }
@@ -790,6 +803,40 @@ export function validateOpenItemEffectMatrix(proposalMarkdown) {
 
 // 19. Governance guard: Platform contract OPEN items tracking
 try {
+  const validBaseTable = `## 10. Required Open-Item Effect Matrix
+
+| OPEN ID | Verbatim ADR-0015 Title | Current Status / Semantic Meaning | Effect of Platform Contract Proposal |
+|---|---|---|---|
+| OPEN-1 | \`OFFLINE_INSTALL_UPDATE_CONTRACT\` | OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
+| OPEN-2 | \`S3_COMPATIBILITY_MINIMUM_CONTRACT\` | OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
+| OPEN-3 | \`AI_DNS_TOCTOU_EGRESS_GUARD\` | OPEN | UNAFFECTED, REMAINS_OPEN |
+| OPEN-4 | \`CANONICAL_T0_T1_T2_SEMANTICS\` | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED, subject to independent verification |
+| OPEN-5 | \`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION\` | detailed protocol OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
+| OPEN-6 | \`VIRTUALIZATION_SUBSTRATE_SELECTION\` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
+| OPEN-7 | \`KUBERNETES_DISTRIBUTION_SELECTION\` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
+| OPEN-8 | \`PROVIDER_SELECTION_AUTHORITY_MODEL\` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
+| OPEN-9 | Legal interpretation of deployment location and cross-domain obligations | OPEN / LEGAL_REVIEW_REQUIRED | REQUIRES_SEPARATE_LEGAL_TRACK, REMAINS_OPEN |
+| OPEN-10 | Platform Contract slot semantics (all 13 slots, §5.2) | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED |
+| OPEN-11 | \`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY\` | definition resolved in §5.1, per-module classification OPEN | PARTIALLY_UNBLOCKED, PER_MODULE_CLASSIFICATION_REMAINS_OPEN |
+
+## 11. Next Action Sequence
+`;
+
+  const expectThrow = (md) => {
+    try {
+      validateOpenItemEffectMatrix(md);
+      return false;
+    } catch (e) {
+      return e.message.includes('Governance guard failed');
+    }
+  };
+
+  H('19a', expectThrow(validBaseTable.replace('\`VIRTUALIZATION_SUBSTRATE_SELECTION\`', '\`WRONG_TITLE\`')), 'Matrix probe: swapped title must fail');
+  H('19b', expectThrow(validBaseTable.replace('| OPEN-2 |', '| OPEN-1 |')), 'Matrix probe: duplicate ID must fail');
+  H('19c', expectThrow(validBaseTable.replace('UNAFFECTED, REMAINS_OPEN', 'RESOLVED_BY_PROPOSAL_IF_ACCEPTED')), 'Matrix probe: unauthorized effect must fail');
+  H('19d', expectThrow(validBaseTable.replace('| OPEN-3 |', '| OPEN-3 | EXTRA |')), 'Matrix probe: extra column must fail');
+  H('19e', expectThrow(validBaseTable.replace('| OPEN-11 | \`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY\` | definition resolved in §5.1, per-module classification OPEN | PARTIALLY_UNBLOCKED, PER_MODULE_CLASSIFICATION_REMAINS_OPEN |\n', '')), 'Matrix probe: row count mismatch must fail');
+
   const proposalPath = join(CONTRACTS, 'platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
   const proposalContent = readFileSync(proposalPath, 'utf8');
   validateOpenItemEffectMatrix(proposalContent);

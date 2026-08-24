@@ -117,6 +117,8 @@ The `artifact_update_mechanism` capability defines an offline update manifest (`
 - `rollback_procedure_reference`
 - `update_station_workflow`
 
+As a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT` under OPEN-1 (which remains open), static validation in the contract suite validates manifest schema structure and canonical path invariants; operational cryptographic verification of `bundle_signature` against live operator trust roots is executed at installation/update time by the update-station runtime.
+
 ## 8. Normative Two-Phase Validation Requirement
 
 Platform contract artifacts MUST pass a strict two-phase validation sequence to be considered structurally and semantically valid:
@@ -154,9 +156,9 @@ The exact effect matrix for all relevant OPEN items is defined below.
 | OPEN-3 | `AI_DNS_TOCTOU_EGRESS_GUARD` | OPEN | UNAFFECTED, REMAINS_OPEN |
 | OPEN-4 | `CANONICAL_T0_T1_T2_SEMANTICS` | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED, subject to independent verification |
 | OPEN-5 | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | detailed protocol OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
-| OPEN-6 | `VIRTUALIZATION_SUBSTRATE_SELECTION` | OPEN | REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN |
-| OPEN-7 | `KUBERNETES_DISTRIBUTION_SELECTION` | OPEN | REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN |
-| OPEN-8 | `PROVIDER_SELECTION_AUTHORITY_MODEL` | OPEN | REQUIRES_SEPARATE_FOUNDER_DECISION, REMAINS_OPEN |
+| OPEN-6 | `VIRTUALIZATION_SUBSTRATE_SELECTION` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
+| OPEN-7 | `KUBERNETES_DISTRIBUTION_SELECTION` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
+| OPEN-8 | `PROVIDER_SELECTION_AUTHORITY_MODEL` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
 | OPEN-9 | Legal interpretation of deployment location and cross-domain obligations | OPEN / LEGAL_REVIEW_REQUIRED | REQUIRES_SEPARATE_LEGAL_TRACK, REMAINS_OPEN |
 | OPEN-10 | Platform Contract slot semantics (all 13 slots, §5.2) | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED |
 | OPEN-11 | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` | definition resolved in §5.1, per-module classification OPEN | PARTIALLY_UNBLOCKED, PER_MODULE_CLASSIFICATION_REMAINS_OPEN |
