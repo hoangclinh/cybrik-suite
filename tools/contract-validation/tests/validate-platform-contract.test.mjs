@@ -362,6 +362,12 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.match(content, /1a419014ebb432eb56ac35242e0a193fe65a62c6/, 'Must reference cybrik-security-tool-fabric RC1 commit 1a419014ebb432eb56ac35242e0a193fe65a62c6');
   assert.match(content, /695aed8e0e12c9d0e11de5f474e3384d1a4b490f/, 'Must reference cybrik-soc-command-center RC1 commit 695aed8e0e12c9d0e11de5f474e3384d1a4b490f');
 
+  // Invariant citations
+  assert.match(content, /INV-21/, 'Must cite invariant INV-21');
+  assert.match(content, /INV-1/, 'Must cite invariant INV-1');
+  assert.match(content, /INV-3/, 'Must cite invariant INV-3');
+  assert.match(content, /INV-5/, 'Must cite invariant INV-5');
+
   // Check PRODUCT_CORE and PRODUCT_IMPLEMENTATION_ADAPTER presence for each repository section
   const sections = content.split('### 2.');
 
@@ -369,14 +375,32 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(platformSection, 'cybrik-cyber-ai-platform section missing');
   assert.match(platformSection, /PRODUCT_CORE/, 'cybrik-cyber-ai-platform missing PRODUCT_CORE');
   assert.match(platformSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-cyber-ai-platform missing PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.match(platformSection, /ai-core/, 'cybrik-cyber-ai-platform missing ai-core');
+  assert.match(platformSection, /ai-api/, 'cybrik-cyber-ai-platform missing ai-api');
+  assert.match(platformSection, /ai-worker/, 'cybrik-cyber-ai-platform missing ai-worker');
 
   const fabricSection = sections.find(s => s.includes('cybrik-security-tool-fabric'));
   assert.ok(fabricSection, 'cybrik-security-tool-fabric section missing');
   assert.match(fabricSection, /PRODUCT_CORE/, 'cybrik-security-tool-fabric missing PRODUCT_CORE');
   assert.match(fabricSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-security-tool-fabric missing PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.match(fabricSection, /control-plane/, 'cybrik-security-tool-fabric missing control-plane');
+  assert.match(fabricSection, /executor/, 'cybrik-security-tool-fabric missing executor');
 
   const socSection = sections.find(s => s.includes('cybrik-soc-command-center'));
   assert.ok(socSection, 'cybrik-soc-command-center section missing');
   assert.match(socSection, /PRODUCT_CORE/, 'cybrik-soc-command-center missing PRODUCT_CORE');
   assert.match(socSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-soc-command-center missing PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.match(socSection, /copilot/, 'cybrik-soc-command-center missing copilot');
+  assert.match(socSection, /forensics/, 'cybrik-soc-command-center missing forensics');
+  assert.match(socSection, /pf-workers/, 'cybrik-soc-command-center missing pf-workers');
+  assert.match(socSection, /soar/, 'cybrik-soc-command-center missing soar');
+  assert.match(socSection, /siem/, 'cybrik-soc-command-center missing siem');
+  assert.match(socSection, /ueba/, 'cybrik-soc-command-center missing ueba');
+  assert.match(socSection, /vulnerability/, 'cybrik-soc-command-center missing vulnerability');
+
+  // Verify maturity levels are distinguished
+  assert.match(content, /IMPLEMENTED/, 'Must declare IMPLEMENTED modules');
+  assert.match(content, /SCAFFOLD/, 'Must declare SCAFFOLD modules');
+  assert.match(content, /PLANNED/, 'Must declare PLANNED modules');
 });
+
