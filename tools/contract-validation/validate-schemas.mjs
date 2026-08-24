@@ -721,6 +721,36 @@ platformContract.slots.oci_container_runtime.conformance_profile = "TIER_0";
 const platformValid = ajv.validate(platformContractSchemaId, platformContract);
 H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "TIER_0" conformance_profile must be rejected');
 
+// 19. Governance guard: Platform contract OPEN items tracking
+try {
+  const proposalPath = join(CONTRACTS, 'platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
+  const proposalContent = readFileSync(proposalPath, 'utf8');
+  const expectedOpenItems = [
+    { id: 'OPEN-1', title: '`OFFLINE_INSTALL_UPDATE_CONTRACT`' },
+    { id: 'OPEN-2', title: '`S3_COMPATIBILITY_MINIMUM_CONTRACT`' },
+    { id: 'OPEN-3', title: '`AI_DNS_TOCTOU_EGRESS_GUARD`' },
+    { id: 'OPEN-4', title: '`CANONICAL_T0_T1_T2_SEMANTICS`' },
+    { id: 'OPEN-5', title: '`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`' },
+    { id: 'OPEN-6', title: '`VIRTUALIZATION_SUBSTRATE_SELECTION`' },
+    { id: 'OPEN-7', title: '`KUBERNETES_DISTRIBUTION_SELECTION`' },
+    { id: 'OPEN-8', title: '`PROVIDER_SELECTION_AUTHORITY_MODEL`' },
+    { id: 'OPEN-9', title: 'Legal interpretation of deployment location and cross-domain obligations' },
+    { id: 'OPEN-10', title: 'Platform Contract slot semantics (all 13 slots, §5.2)' },
+    { id: 'OPEN-11', title: '`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY`' }
+  ];
+
+  for (const item of expectedOpenItems) {
+    if (!proposalContent.includes(item.id)) {
+      fail(`Governance guard failed: Proposal missing exact ID ${item.id}`);
+    }
+    if (!proposalContent.includes(item.title)) {
+      fail(`Governance guard failed: Proposal missing exact title for ${item.id}: ${item.title}`);
+    }
+  }
+} catch (e) {
+  fail(`Governance guard failed to read proposal: ${e.message}`);
+}
+
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));
 if (notes.length) for (const n of notes) console.log('note:', n);
