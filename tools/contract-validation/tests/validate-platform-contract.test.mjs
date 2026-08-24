@@ -371,6 +371,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   const validClassifications = new Set([
     'PRODUCT_CORE',
     'PRODUCT_IMPLEMENTATION_ADAPTER',
+    'PROVIDER_ADAPTER',
     'SUPPORTING_TOOLING_OR_TEST',
     'DEPLOYMENT_PROFILE_OR_CONFIG',
     'GOVERNANCE_OR_DOCUMENTATION',
@@ -409,4 +410,3 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.match(socSection, /PRODUCT_CORE/, 'cybrik-soc-command-center missing PRODUCT_CORE');
   assert.match(socSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-soc-command-center missing PRODUCT_IMPLEMENTATION_ADAPTER');
 });
-

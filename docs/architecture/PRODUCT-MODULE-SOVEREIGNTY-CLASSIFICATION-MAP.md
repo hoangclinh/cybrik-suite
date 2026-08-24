@@ -1,6 +1,6 @@
 # Product Module Sovereignty Classification Map (OPEN-11)
 
-**Status: PROPOSED — PER-MODULE CLASSIFICATION MAP (v0.1.0-proposed)**
+Status: PROPOSED — PER-MODULE CLASSIFICATION MAP (v0.1.0-proposed)
 
 > **Note:** Submitted to resolve the per-module classification gap under OPEN-11. Acceptance requires separate Founder / Governor decision. This document proposes an exhaustive, file-accurate classification across all three product repositories at their exact Release Candidate 1 (RC1) commits, but does not claim that OPEN-11 is already accepted or closed.
 
@@ -23,29 +23,34 @@ In accordance with accepted ADR-0015 §5.1 and normative invariants `INV-1`, `IN
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
-| `packages/ai-core/src/cybrik_ai_core/authority.py`, `marking.py`, `policy.py`, `prompts.py`, `telemetry.py`, `errors.py` | `PRODUCT_CORE` | IMPLEMENTED | Pure domain authority, prompt assembly, and policy invariants; no cloud SDKs. |
-| `packages/ai-core/src/cybrik_ai_core/contract/` (`common.py`, `inference.py`, `lifecycle.py`, `summarization.py`) | `PRODUCT_CORE` | IMPLEMENTED | Wire-agnostic Pydantic contract models for inference and summarization. |
-| `packages/ai-core/src/cybrik_ai_core/modelrt/` (`budget.py`, `port.py`, `resilience.py`, `types.py`) | `PRODUCT_CORE` | IMPLEMENTED | Abstract model runtime port interface, token budget tracking, circuit-breaker logic. |
-| `packages/ai-core/src/cybrik_ai_core/orchestration/` (`attempt.py`, `checkpoints.py`, `controller.py`, `durable.py`, `durable_controller.py`, `ports.py`, `state.py`, `errors.py`) | `PRODUCT_CORE` | IMPLEMENTED | State machine and execution loop for durable multi-turn investigations. |
-| `packages/ai-core/src/cybrik_ai_core/orchestration/memory.py` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | In-memory dev/test state store adapter. |
-| `packages/ai-core/src/cybrik_ai_core/security/` (`egress.py`, `untrusted.py`) | `PRODUCT_CORE` | IMPLEMENTED | Inverse-SSRF policy guard (with ADR-0015 §7.3 DNS validate-then-connect caveat) and untrusted input tagging. |
-| `packages/ai-core/src/cybrik_ai_core/delegation/` (`audit.py`, `contract.py`, `ports.py`, `trust.py`, `verifier.py`, `errors.py`) | `PRODUCT_CORE` | IMPLEMENTED | Pure domain verifier logic for service delegation tokens. |
-| `packages/ai-core/src/cybrik_ai_core/delegation/replay.py` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | In-memory dev/test replay store adapter. |
-| `packages/ai-core/src/cybrik_ai_core/delegation/` (`certbind.py`, `jose.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | RFC 8705 certificate thumbprint verification and RFC 9068 `at+jwt` token parsing. |
-| `services/ai-api/src/cybrik_ai_api/adapters/ollama.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Realizes `modelrt.port` over OpenAI-compatible HTTP / REST against local Ollama engine. |
-| `services/ai-api/src/cybrik_ai_api/adapters/stub.py` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | In-memory deterministic model runtime test double. |
-| `services/ai-api/src/cybrik_ai_api/orchestration/postgres.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Realizes durable checkpoint store over PostgreSQL wire protocol (asyncpg / SQLAlchemy). |
-| `services/ai-api/migrations/` (`alembic.ini`, `env.py`, `versions/`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Alembic database migration scripts managing PostgreSQL durable state schemas. |
-| `services/ai-api/src/cybrik_ai_api/transport_security.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | ASGI middleware validating mTLS client certificates. |
-| `services/ai-api/src/cybrik_ai_api/investigations/` (`service.py`, `relying_party.py`, `projection.py`) | `PRODUCT_CORE` | IMPLEMENTED | Domain investigation service, relying party orchestration, and projection logic. |
-| `services/ai-api/src/cybrik_ai_api/investigations/api.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoint adapter exposing investigation operations. |
-| `services/ai-api/src/cybrik_ai_api/summarize/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Core alert summarization business logic. |
-| `services/ai-api/src/cybrik_ai_api/app.py`, `runtime_composition.py`, `runtime_settings.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | ASGI application factory, DI wiring, and configuration environment parsing. |
-| `services/ai-worker/src/cybrik_ai_worker/` | `PRODUCT_IMPLEMENTATION_ADAPTER` | SCAFFOLD | Async background worker package scaffold; unpopulated at RC1. |
-| *vLLM adapter* (planned seam) | `PRODUCT_IMPLEMENTATION_ADAPTER` | PLANNED | Architecture seam (ADR-0002 G3); not implemented at RC1. |
-| *llama.cpp adapter* (planned seam) | `PRODUCT_IMPLEMENTATION_ADAPTER` | PLANNED | Architecture seam (ADR-0002 G3); not implemented at RC1. |
-| `tests/` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | Unit, contract, and lifecycle test suites. |
-| `docs/`, `AGENTS.md`, `README.md` | `GOVERNANCE_OR_DOCUMENTATION` | IMPLEMENTED | Architectural documentation, ADRs, and repository metadata. |
+| `packages/ai-core/src/cybrik_ai_core/authority.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Pure domain authority model and evaluation logic. |
+| `packages/ai-core/src/cybrik_ai_core/marking.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Data classification and tagging domain invariants. |
+| `packages/ai-core/src/cybrik_ai_core/policy.py` | `PRODUCT_CORE` | `IMPLEMENTED` | AI inference safety and usage policy definitions. |
+| `packages/ai-core/src/cybrik_ai_core/prompts.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Domain prompt assembly and template rendering. |
+| `packages/ai-core/src/cybrik_ai_core/telemetry.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Internal domain metrics and event types. |
+| `packages/ai-core/src/cybrik_ai_core/errors.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Domain exception hierarchy. |
+| `packages/ai-core/src/cybrik_ai_core/contract/ (common.py, inference.py, lifecycle.py, summarization.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Wire-agnostic Pydantic contract models. |
+| `packages/ai-core/src/cybrik_ai_core/modelrt/ (budget.py, port.py, resilience.py, types.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Abstract model runtime port, token budget tracker, circuit-breaker. |
+| `packages/ai-core/src/cybrik_ai_core/orchestration/ (attempt.py, checkpoints.py, controller.py, durable.py, durable_controller.py, ports.py, state.py, errors.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Durable investigation execution loop and state machine. |
+| `packages/ai-core/src/cybrik_ai_core/orchestration/memory.py` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | In-memory dev/test state store adapter. |
+| `packages/ai-core/src/cybrik_ai_core/security/ (egress.py, untrusted.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Inverse-SSRF policy guard (with ADR-0015 §7.3 DNS TOCTOU caveat) and untrusted input tagging. |
+| `packages/ai-core/src/cybrik_ai_core/delegation/ (audit.py, contract.py, ports.py, trust.py, verifier.py, errors.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Service delegation token domain verification logic. |
+| `packages/ai-core/src/cybrik_ai_core/delegation/replay.py` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | In-memory dev/test token replay store. |
+| `packages/ai-core/src/cybrik_ai_core/delegation/ (certbind.py, jose.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | RFC 8705 certificate thumbprint verification and RFC 9068 at+jwt token parsing. |
+| `services/ai-api/src/cybrik_ai_api/adapters/ollama.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Realizes modelrt.port over OpenAI-compatible HTTP / REST against local Ollama engine. |
+| `services/ai-api/src/cybrik_ai_api/adapters/stub.py` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | In-memory deterministic model runtime test double. |
+| `services/ai-api/src/cybrik_ai_api/orchestration/postgres.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Realizes durable checkpoint store over PostgreSQL wire protocol (asyncpg / SQLAlchemy). |
+| `services/ai-api/migrations/ (alembic.ini, env.py, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic database schema migrations for PostgreSQL durable state tables. |
+| `services/ai-api/src/cybrik_ai_api/transport_security.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | ASGI TLS-extension resolver extracting client certificates and headers without full PKI chain validation. |
+| `services/ai-api/src/cybrik_ai_api/investigations/ (service.py, relying_party.py, projection.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Domain investigation service, relying party orchestration, and projection logic. |
+| `services/ai-api/src/cybrik_ai_api/investigations/api.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoint adapter exposing investigation operations. |
+| `services/ai-api/src/cybrik_ai_api/summarize/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Core alert summarization business logic. |
+| `services/ai-api/src/cybrik_ai_api/app.py, runtime_composition.py, runtime_settings.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | ASGI application factory, DI wiring, and configuration environment parsing. |
+| `services/ai-worker/src/cybrik_ai_worker/` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | Async background worker package scaffold; unpopulated at RC1. |
+| `*vLLM adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
+| `*llama.cpp adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
+| `tests/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, contract, and lifecycle test suites. |
+| `docs/, AGENTS.md, README.md, pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architectural documentation, ADRs, build configurations, and repository metadata. |
 
 ---
 
@@ -53,15 +58,18 @@ In accordance with accepted ADR-0015 §5.1 and normative invariants `INV-1`, `IN
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
-| `src/control-plane/cybrik_fabric_control/contracts/` (`alert_context.py`, `capability.py`, `effects.py`, `invocation.py`, `jcs.py`, `loader.py`, `provenance.py`) | `PRODUCT_CORE` | IMPLEMENTED | Tool invocation schemas, RFC 8785 JCS canonicalization, capability contracts. |
-| `src/control-plane/cybrik_fabric_control/invocation/` (`models.py`, `ports.py`, `service.py`) | `PRODUCT_CORE` | IMPLEMENTED | Pure in-process R0 `soc.get_alert_context@0.1.0` domain service. |
-| `src/control-plane/cybrik_fabric_control/registry/packet.py` | `PRODUCT_CORE` | IMPLEMENTED | Tool capability registry packet validation and parsing. |
-| `src/control-plane/cybrik_fabric_control/app.py`, `liveness.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | SCAFFOLD | FastAPI HTTP control plane and liveness listener; Wave 0 scaffold, unwired/feature-off R0 at RC1. |
-| `src/executor/internal/tier/tier.go`, `src/executor/internal/version/version.go` | `PRODUCT_CORE` | SCAFFOLD | Go models for opaque R0-R3 labels and SemVer; version `0.0.0` explicitly denotes scaffold (no runtime isolation semantics at RC1). |
-| `src/executor/cmd/executor/main.go` | `PRODUCT_IMPLEMENTATION_ADAPTER` | SCAFFOLD | CLI sandbox launcher entrypoint; scaffold at RC1 (no active Linux isolation/execution implemented at RC1 per ADR-0015 §10). |
-| `contracts-vendor/` | `PRODUCT_CORE` | IMPLEMENTED | Vendored suite contract JSON Schemas and compatibility manifests. |
-| `tests/` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | Control plane unit tests and contract conformance suites. |
-| `docs/`, `AGENTS.md`, `README.md`, `src/README.md` | `GOVERNANCE_OR_DOCUMENTATION` | IMPLEMENTED | Architecture records (ADR-0001..ADR-0004), security policies, specifications. |
+| `src/control-plane/cybrik_fabric_control/contracts/ (alert_context.py, capability.py, effects.py, invocation.py, provenance.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Tool invocation schemas, provenance, and capability contracts. |
+| `src/control-plane/cybrik_fabric_control/contracts/ (jcs.py, loader.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | RFC 8785 JCS canonicalization and JSON schema loading implementation. |
+| `src/control-plane/cybrik_fabric_control/invocation/ (models.py, ports.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Pure in-process R0 soc.get_alert_context@0.1.0 domain ports, models, and service. |
+| `src/control-plane/cybrik_fabric_control/registry/packet.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Tool capability registry packet parsing implementation. |
+| `src/control-plane/cybrik_fabric_control/app.py, liveness.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | FastAPI HTTP control plane and liveness listener; Wave 0 scaffold, unwired/feature-off R0 at RC1. |
+| `src/executor/internal/tier/tier.go` | `PRODUCT_CORE` | `SCAFFOLD` | Go models for opaque R0-R3 labels; scaffold (no runtime isolation semantics at RC1). |
+| `src/executor/internal/version/version.go` | `PRODUCT_CORE` | `SCAFFOLD` | Go models for SemVer parsing; version 0.0.0 explicitly denotes scaffold. |
+| `src/executor/cmd/executor/main.go` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | CLI sandbox launcher entrypoint; scaffold at RC1 (no active Linux isolation/execution implemented at RC1 per ADR-0015 §7.4). |
+| `contracts-vendor/json-schema/` | `PRODUCT_CORE` | `IMPLEMENTED` | Vendored suite contract JSON Schemas. |
+| `tests/, contracts-vendor/fixtures/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Control plane unit tests, contract conformance suites, and test fixtures. |
+| `docs/, AGENTS.md, CLAUDE.md, README.md, SECURITY.md, src/README.md, src/control-plane/README.md, src/executor/README.md, src/executor/tiers/` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture records (ADR-0001..ADR-0004), security policies, specifications. |
+| `src/control-plane/pyproject.toml, requirements*.lock, src/executor/go.mod, Dockerfile` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Build configurations, Go module definitions, dependency locks, and Dockerfiles. |
 
 ---
 
@@ -69,59 +77,62 @@ In accordance with accepted ADR-0015 §5.1 and normative invariants `INV-1`, `IN
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
-| `services/api/src/cybrik_soc/modules/alert/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Alert ingestion, deduplication, and triage domain services. |
-| `services/api/src/cybrik_soc/modules/alert/context/models.py` | `PRODUCT_CORE` | IMPLEMENTED | Alert context domain model definitions. |
-| `services/api/src/cybrik_soc/modules/alert/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for alerts. |
-| `services/api/src/cybrik_soc/modules/alert/context/` (`reader_pg.py`, `store_pg.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | PostgreSQL storage and reader adapter for alert context data. |
-| `services/api/src/cybrik_soc/modules/asset/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Asset inventory and tracking domain logic. |
-| `services/api/src/cybrik_soc/modules/asset/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for assets. |
-| `services/api/src/cybrik_soc/modules/audit/service.py` | `PRODUCT_CORE` | IMPLEMENTED | SOC audit trail domain logic. |
-| `services/api/src/cybrik_soc/modules/audit/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for audit events. |
-| `services/api/src/cybrik_soc/modules/authorization/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Authorization domain logic, RBAC policies, and user permission models. |
-| `services/api/src/cybrik_soc/modules/authorization/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for authorization. |
-| `services/api/src/cybrik_soc/modules/case/` (`service.py`, `timeline.py`) | `PRODUCT_CORE` | IMPLEMENTED | Case management, incident lifecycle, and timeline aggregation logic. |
-| `services/api/src/cybrik_soc/modules/case/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints and SQLAlchemy PostgreSQL persistence models for cases. |
-| `services/api/src/cybrik_soc/modules/connector/service.py` | `PRODUCT_CORE` | IMPLEMENTED | External security tool connector domain definitions. |
-| `services/api/src/cybrik_soc/modules/connector/` (`api.py`, `bootstrap.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, bootstrap loader, and SQLAlchemy database persistence models for connectors. |
-| `services/api/src/cybrik_soc/modules/copilot/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Copilot domain investigation planning and context reasoning. |
-| `services/api/src/cybrik_soc/modules/copilot/llm.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Outbound model client; enforces DNS sovereignty guard (`socket.getaddrinfo` validation, OPEN-3 caveat). |
-| `services/api/src/cybrik_soc/modules/copilot/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints and SQLAlchemy PostgreSQL persistence models for copilot. |
-| `services/api/src/cybrik_soc/modules/datalake/` (`query.py`, `schema.py`, `service.py`) | `PRODUCT_CORE` | IMPLEMENTED | Datalake domain query abstractions, schema definitions, and query service. |
-| `services/api/src/cybrik_soc/modules/datalake/` (`api.py`, `client.py`, `models.py`, `orm.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, search engine / storage query client adapter, and SQLAlchemy persistence models. |
-| `services/api/src/cybrik_soc/modules/forensics/` (`evidence.py`, `service.py`) | `PRODUCT_CORE` | IMPLEMENTED | Forensic artifact parsing, evidence tracking, and custody verification logic. |
-| `services/api/src/cybrik_soc/modules/forensics/` (`api.py`, `models.py`, `repo.py`, `storage.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, SQLAlchemy persistence models, repository, and local filesystem WORM storage adapter. |
-| `services/api/src/cybrik_soc/modules/geoip/metrics.py` | `PRODUCT_CORE` | IMPLEMENTED | GeoIP resolution metrics and domain calculations. |
-| `services/api/src/cybrik_soc/modules/geoip/` (`api.py`, `reader.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints and MaxMind GeoIP database reader adapter. |
-| `services/api/src/cybrik_soc/modules/hunt/` (`compiler_sql.py`, `copilot_suggest.py`, `executions.py`, `hunts.py`, `ioc_pivot.py`, `pivot.py`, `promote.py`, `query_spec.py`, `sigma.py`) | `PRODUCT_CORE` | IMPLEMENTED | Threat hunting hypothesis engine, Sigma rule translator, and query generator. |
-| `services/api/src/cybrik_soc/modules/hunt/` (`api.py`, `datalake.py`, `models.py`, `orm.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, datalake client adapter, and SQLAlchemy database persistence models for hunts. |
-| `services/api/src/cybrik_soc/modules/identity/` (`membership.py`, `service.py`) | `PRODUCT_CORE` | IMPLEMENTED | Identity lifecycle, group membership, and principal scoping domain logic. |
-| `services/api/src/cybrik_soc/modules/identity/` (`api.py`, `membership_api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints and SQLAlchemy database persistence models for identities. |
-| `services/api/src/cybrik_soc/modules/ingest/` (`ecs.py`, `field_maps.py`, `log_parsers.py`, `log_parsers_bsd.py`, `log_parsers_ext.py`, `normalizers.py`, `ocsf.py`, `security_onion.py`, `service.py`, `source_labels.py`, `time_guard.py`) | `PRODUCT_CORE` | IMPLEMENTED | Log ingestion normalizers (OCSF, ECS, Security Onion, BSD syslog), time verification, and domain models. |
-| `services/api/src/cybrik_soc/modules/ingest/` (`api.py`, `models.py`, `pf_bridge.py`, `source_health.py`, `source_health_worker.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, SQLAlchemy models, packet-fabric consumer bridge, and background health polling worker. |
-| `services/api/src/cybrik_soc/modules/ioc/` (`match.py`, `metrics.py`, `normalize.py`, `stix.py`, `taxii.py`) | `PRODUCT_CORE` | IMPLEMENTED | STIX/TAXII domain models, indicator normalization, and match engine. |
-| `services/api/src/cybrik_soc/modules/ioc/` (`api.py`, `csv_import.py`, `feeds_api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints, CSV feed ingestion adapter, and SQLAlchemy database persistence models. |
-| `services/api/src/cybrik_soc/modules/org/` (`contract.py`, `scoping.py`) | `PRODUCT_CORE` | IMPLEMENTED | Multi-organization scoping and tenant isolation domain logic. |
-| `services/api/src/cybrik_soc/modules/org/` (`api.py`, `models.py`, `session.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints, session management adapter, and SQLAlchemy database models. |
-| `services/api/src/cybrik_soc/modules/prefs/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | User preference HTTP router and SQLAlchemy database persistence models. |
-| `services/api/src/cybrik_soc/modules/siem/` (`correlation.py`, `engine.py`, `field_mapping.py`, `rules.py`, `sigma.py`, `sigma_match.py`) | `PRODUCT_CORE` | IMPLEMENTED | Sigma rule parser, correlation engine, and alert generation algorithms. |
-| `services/api/src/cybrik_soc/modules/siem/` (`api.py`, `orm.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints and database persistence models for SIEM rules and alerts. |
-| `services/api/src/cybrik_soc/modules/soar/` (`actions.py`, `audit.py`, `context.py`, `copilot_draft.py`, `copilot_seam.py`, `copilot_tool.py`, `engine.py`, `guards.py`, `library.py`, `playbook.py`, `report.py`, `runtime.py`, `samples.py`, `serialize.py`, `simulate.py`) | `PRODUCT_CORE` | IMPLEMENTED | SOAR playbook engine, execution runtime, approval guards, action simulation, and copilot seam logic. |
-| `services/api/src/cybrik_soc/modules/soar/` (`api.py`, `connectors/fortigate.py`, `expire_worker.py`, `orm.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, DB models, background expiration worker, and FortiGate REST API connector. |
-| `services/api/src/cybrik_soc/modules/tenant/service.py` | `PRODUCT_CORE` | IMPLEMENTED | Multi-tenant isolation and policy domain logic. |
-| `services/api/src/cybrik_soc/modules/tenant/` (`api.py`, `models.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints and SQLAlchemy database persistence models for tenants. |
-| `services/api/src/cybrik_soc/modules/ueba/` (`alerts.py`, `baseline.py`, `baseline_pack.py`, `classification.py`, `detect.py`, `detectors_ah.py`, `detectors_bc.py`, `detectors_dx.py`, `detectors_lm.py`, `detectors_pg.py`, `detectors_ua.py`, `engine.py`, `events.py`, `features.py`, `findings.py`, `iforest.py`, `risk.py`, `stats.py`) | `PRODUCT_CORE` | IMPLEMENTED | User and Entity Behavior Analytics statistical engine, Isolation Forest model, risk scoring, baseline detectors. |
-| `services/api/src/cybrik_soc/modules/ueba/` (`api.py`, `learning_worker.py`, `orm.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI endpoints, database persistence models, and background baseline learning worker. |
-| `services/api/src/cybrik_soc/modules/vulnerability/` (`compliance.py`, `consolidation.py`, `correlation.py`, `cve_enrichment.py`, `exceptions.py`, `intel.py`, `lifecycle.py`, `models.py`, `parsers/`, `policy_config.py`, `remediation.py`, `reporting.py`, `rescore.py`, `risk.py`, `service.py`) | `PRODUCT_CORE` | IMPLEMENTED | Vulnerability lifecycle management, risk rescoring, consolidation, domain dataclasses, and report parsers (Generic, Greenbone, Grype, Nmap, Nuclei, Trivy). |
-| `services/api/src/cybrik_soc/modules/vulnerability/` (`api.py`, `orm.py`, `repo.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | FastAPI HTTP endpoints, SQLAlchemy ORM models, and database repository adapters. |
-| `services/api/src/cybrik_soc/platform/` (`audit_support.py`, `client_ip.py`, `context.py`, `errors.py`, `hooks.py`, `logging.py`, `provenance.py`, `security_txt.py`) | `PRODUCT_CORE` | IMPLEMENTED | Internal platform context models, error structures, provenance logging utilities. |
-| `services/api/src/cybrik_soc/platform/` (`database.py`, `http_body.py`, `outbound.py`, `rate_limit.py`, `secrets.py`, `security.py`, `signing.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing. |
-| `services/api/src/cybrik_soc/platform/svc_delegation/` (`algorithms.py`, `errors.py`, `issuer.py`, `models.py`, `scopes.py`, `signer.py`) | `PRODUCT_CORE` | IMPLEMENTED | Service delegation token model and RFC 9068 minting specifications. |
-| `services/api/src/cybrik_soc/platform/svc_delegation/` (`factory.py`, `principal_adapter.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Delegation token issuer factory and authentication principal adapter. |
-| `ops/pf-workers/pf_workers/` (`__init__.py`, `alert_writer.py`, `config.py`, `correlation_processor.py`, `dlq_processor.py`, `envelope.py`, `indexer.py`, `normalizer.py`, `parquet_archiver.py`, `pipeline_health.py`, `producer_bridge.py`, `retention_sweep.py`, `s3util.py`, `siem_matcher.py`) | `PRODUCT_IMPLEMENTATION_ADAPTER` | IMPLEMENTED | Packet-fabric background stream processing adapters (Kafka consumers, OpenSearch indexers, S3 boto3 SeaweedFS archiver, Parquet writers). |
-| `ops/pf-workers/pf_workers/correlation_rules/` | `PRODUCT_CORE` | IMPLEMENTED | Declarative correlation detection rules (YAML). |
-| `deploy/pf/` (`.env.t1.example`, `certs/`, `docker-compose.pf-demo.yml`, `docker-compose.pf-workers.yml`, `docker-compose.t0.yml`, `docker-compose.t1.bench.yml`, `docker-compose.t1.dev.yml`, `docker-compose.t1.yml`, `staging/docker-compose.staging.yml`, `opensearch/`, `topics-init*.sh`) | `DEPLOYMENT_PROFILE_OR_CONFIG` | IMPLEMENTED | Executable Docker Compose topology definitions and scripts for T0, T1, staging, and demo data-plane pipelines. |
-| `services/api/tests/`, `ops/pf-workers/tests/`, `scripts/tests/` | `SUPPORTING_TOOLING_OR_TEST` | IMPLEMENTED | Unit and integration test suites. |
-| `docs/`, `governance/ADR/`, `reports/`, `third-party/` | `GOVERNANCE_OR_DOCUMENTATION` | IMPLEMENTED | Architecture decision records, sprint review dossiers, third-party license notices, and SBOM documentation. |
+| `services/api/src/cybrik_soc/modules/alert/service.py, contract.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Alert ingestion, deduplication, and triage domain services and contract models. |
+| `services/api/src/cybrik_soc/modules/alert/context/models.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Alert context domain model definitions. |
+| `services/api/src/cybrik_soc/modules/alert/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for alerts. |
+| `services/api/src/cybrik_soc/modules/alert/context/ (reader_pg.py, store_pg.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | PostgreSQL storage and reader adapter for alert context data. |
+| `services/api/src/cybrik_soc/modules/asset/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Asset inventory and tracking domain logic. |
+| `services/api/src/cybrik_soc/modules/asset/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for assets. |
+| `services/api/src/cybrik_soc/modules/audit/service.py, contract.py` | `PRODUCT_CORE` | `IMPLEMENTED` | SOC audit trail domain logic and event models. |
+| `services/api/src/cybrik_soc/modules/audit/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for audit events. |
+| `services/api/src/cybrik_soc/modules/authorization/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Authorization domain logic, RBAC policies, and user permission models. |
+| `services/api/src/cybrik_soc/modules/authorization/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for authorization. |
+| `services/api/src/cybrik_soc/modules/case/ (service.py, timeline.py, contract.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Case management, incident lifecycle, and timeline aggregation logic. |
+| `services/api/src/cybrik_soc/modules/case/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints and SQLAlchemy PostgreSQL persistence models for cases. |
+| `services/api/src/cybrik_soc/modules/connector/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | External security tool connector domain definitions. |
+| `services/api/src/cybrik_soc/modules/connector/ (api.py, bootstrap.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, bootstrap loader, and SQLAlchemy database persistence models for connectors. |
+| `services/api/src/cybrik_soc/modules/copilot/ (planner.py, prompt.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Copilot domain investigation planning, prompt assembly, and context reasoning. |
+| `services/api/src/cybrik_soc/modules/copilot/llm.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Outbound model client; enforces DNS sovereignty guard (socket.getaddrinfo validation, OPEN-3 caveat). |
+| `services/api/src/cybrik_soc/modules/copilot/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints and SQLAlchemy PostgreSQL persistence models for copilot. |
+| `services/api/src/cybrik_soc/modules/datalake/ (query.py, schema.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Datalake domain query abstractions, schema definitions, and query service. |
+| `services/api/src/cybrik_soc/modules/datalake/ (api.py, client.py, models.py, orm.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, search engine / storage query client adapter, and SQLAlchemy persistence models. |
+| `services/api/src/cybrik_soc/modules/events/ (filter.py, models.py, normalizer.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Event normalization, filtering domain logic, and dataclass models. |
+| `services/api/src/cybrik_soc/modules/events/api.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints for event ingestion and queries. |
+| `services/api/src/cybrik_soc/modules/forensics/ (evidence.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Forensic artifact parsing, evidence tracking, and custody verification logic. |
+| `services/api/src/cybrik_soc/modules/forensics/ (api.py, models.py, repo.py, storage.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, SQLAlchemy persistence models, repository, and local filesystem WORM storage adapter. |
+| `services/api/src/cybrik_soc/modules/geoip/metrics.py` | `PRODUCT_CORE` | `IMPLEMENTED` | GeoIP resolution metrics and domain calculations. |
+| `services/api/src/cybrik_soc/modules/geoip/ (api.py, reader.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints and MaxMind GeoIP database reader adapter. |
+| `services/api/src/cybrik_soc/modules/hunt/ (copilot_suggest.py, executions.py, hunts.py, ioc_pivot.py, pivot.py, promote.py, query_spec.py, sigma.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Threat hunting hypothesis engine, Sigma rule translator, query generator, and execution coordinator. |
+| `services/api/src/cybrik_soc/modules/hunt/compiler_sql.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | PostgreSQL SQL query compiler adapter for hunt query specifications. |
+| `services/api/src/cybrik_soc/modules/hunt/ (api.py, datalake.py, models.py, orm.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, datalake client adapter, and SQLAlchemy database persistence models for hunts. |
+| `services/api/src/cybrik_soc/modules/identity/ (membership.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Identity lifecycle, group membership, and principal scoping domain logic. |
+| `services/api/src/cybrik_soc/modules/identity/ (api.py, membership_api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints and SQLAlchemy database persistence models for identities. |
+| `services/api/src/cybrik_soc/modules/ingest/ (ecs.py, field_maps.py, log_parsers.py, log_parsers_bsd.py, log_parsers_ext.py, normalizers.py, ocsf.py, security_onion.py, service.py, source_labels.py, time_guard.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Log ingestion normalizers (OCSF, ECS, Security Onion, BSD syslog), time verification, and domain models. |
+| `services/api/src/cybrik_soc/modules/ingest/ (api.py, models.py, pf_bridge.py, source_health.py, source_health_worker.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, SQLAlchemy models, packet-fabric consumer bridge, and background health polling worker. |
+| `services/api/src/cybrik_soc/modules/ioc/ (match.py, metrics.py, normalize.py, stix.py, taxii.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | STIX/TAXII domain models, indicator normalization, and match engine. |
+| `services/api/src/cybrik_soc/modules/ioc/ (api.py, csv_import.py, feeds_api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints, CSV feed ingestion adapter, and SQLAlchemy database persistence models. |
+| `services/api/src/cybrik_soc/modules/org/ (contract.py, scoping.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Multi-organization scoping and tenant isolation domain logic. |
+| `services/api/src/cybrik_soc/modules/org/ (api.py, models.py, session.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints, session management adapter, and SQLAlchemy database models. |
+| `services/api/src/cybrik_soc/modules/prefs/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | User preference HTTP router and SQLAlchemy database persistence models. |
+| `services/api/src/cybrik_soc/modules/siem/ (correlation.py, engine.py, field_mapping.py, rules.py, sigma.py, sigma_match.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Sigma rule parser, correlation engine, and alert generation algorithms. |
+| `services/api/src/cybrik_soc/modules/siem/ (api.py, orm.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints and database persistence models for SIEM rules and alerts. |
+| `services/api/src/cybrik_soc/modules/soar/ (actions.py, audit.py, context.py, copilot_draft.py, copilot_seam.py, copilot_tool.py, engine.py, guards.py, library.py, playbook.py, report.py, runtime.py, samples.py, serialize.py, simulate.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | SOAR playbook engine, execution runtime, approval guards, action simulation, and copilot seam logic. |
+| `services/api/src/cybrik_soc/modules/soar/ (api.py, connectors/fortigate.py, expire_worker.py, orm.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, DB models, background expiration worker, and FortiGate REST API connector. |
+| `services/api/src/cybrik_soc/modules/tenant/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Multi-tenant isolation and policy domain logic. |
+| `services/api/src/cybrik_soc/modules/tenant/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints and SQLAlchemy database persistence models for tenants. |
+| `services/api/src/cybrik_soc/modules/ueba/ (alerts.py, baseline.py, baseline_pack.py, classification.py, detect.py, detectors_ah.py, detectors_bc.py, detectors_dx.py, detectors_lm.py, detectors_pg.py, detectors_ua.py, engine.py, events.py, features.py, findings.py, iforest.py, risk.py, stats.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | User and Entity Behavior Analytics statistical engine, Isolation Forest model, risk scoring, baseline detectors. |
+| `services/api/src/cybrik_soc/modules/ueba/ (api.py, learning_worker.py, orm.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI endpoints, database persistence models, and background baseline learning worker. |
+| `services/api/src/cybrik_soc/modules/vulnerability/ (compliance.py, consolidation.py, correlation.py, cve_enrichment.py, exceptions.py, intel.py, lifecycle.py, models.py, parsers/common.py, parsers/generic.py, parsers/greenbone.py, parsers/grype.py, parsers/nmap.py, parsers/nuclei.py, parsers/trivy.py, policy_config.py, remediation.py, reporting.py, rescore.py, risk.py, service.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Vulnerability lifecycle management, risk rescoring, consolidation, domain dataclasses (models.py), and report parsers. |
+| `services/api/src/cybrik_soc/modules/vulnerability/ (api.py, orm.py, repo.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints, SQLAlchemy ORM models, and database repository adapters. |
+| `services/api/src/cybrik_soc/platform/ (audit_support.py, client_ip.py, context.py, errors.py, hooks.py, logging.py, provenance.py, security_txt.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Internal platform context models, error structures, provenance logging utilities. |
+| `services/api/src/cybrik_soc/platform/ (database.py, http_body.py, outbound.py, rate_limit.py, secrets.py, security.py, signing.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing. |
+| `services/api/src/cybrik_soc/platform/svc_delegation/ (algorithms.py, errors.py, issuer.py, models.py, scopes.py, signer.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Service delegation token model and RFC 9068 minting specifications. |
+| `services/api/src/cybrik_soc/platform/svc_delegation/ (factory.py, principal_adapter.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Delegation token issuer factory and authentication principal adapter. |
+| `ops/pf-workers/pf_workers/ (__init__.py, alert_writer.py, config.py, correlation_processor.py, dlq_processor.py, envelope.py, indexer.py, normalizer.py, parquet_archiver.py, pipeline_health.py, producer_bridge.py, retention_sweep.py, s3util.py, siem_matcher.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Packet-fabric background stream processing adapters (Kafka consumers, OpenSearch indexers, S3 boto3 SeaweedFS archiver, Parquet writers). |
+| `ops/pf-workers/pf_workers/correlation_rules/` | `PRODUCT_CORE` | `IMPLEMENTED` | Declarative correlation detection rules (YAML). |
+| `deploy/pf/ (.env.t1.example, certs/, docker-compose.pf-demo.yml, docker-compose.pf-workers.yml, docker-compose.t0.yml, docker-compose.t1.bench.yml, docker-compose.t1.dev.yml, docker-compose.t1.yml, staging/docker-compose.staging.yml, opensearch/, topics-init*.sh)` | `DEPLOYMENT_PROFILE_OR_CONFIG` | `IMPLEMENTED` | Executable Docker Compose topology definitions and scripts for T0, T1, staging, and demo data-plane pipelines. |
+| `services/api/tests/, ops/pf-workers/tests/, scripts/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, integration, and benchmark test suites. |
+| `docs/, governance/ADR/, reports/, third-party/, services/api/Dockerfile, services/api/alembic.ini, ops/pf-workers/Dockerfile, pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture decision records, sprint review dossiers, third-party license notices, SBOM documentation, and Docker build specifications. |
 
 ---
 
@@ -133,7 +144,7 @@ In accordance with accepted ADR-0015 §5.1 and normative invariants `INV-1`, `IN
 2. **Verification of Decision B (Portable Implementation Adapters)**:
    - `boto3` in `cybrik-soc-command-center:ops/pf-workers/pf_workers/s3util.py` connects to self-hosted SeaweedFS via S3 wire protocol; it does NOT mandate AWS cloud infrastructure.
    - LLM adapters in `cybrik-cyber-ai-platform` connect via OpenAI-compatible HTTP to local engines (Ollama); zero mandatory public cloud endpoints exist.
-   - Control plane and executor in `cybrik-security-tool-fabric` are at `SCAFFOLD` maturity at RC1 (unwired R0 in-process context domain; no active runtime sandbox execution or isolation implemented at RC1 per ADR-0015 §10).
+   - Control plane and executor in `cybrik-security-tool-fabric` are at `SCAFFOLD` maturity at RC1 (unwired R0 in-process context domain; no active runtime sandbox execution or isolation implemented at RC1 per ADR-0015 §7.4).
 3. **Verification of Invariant `INV-3` & `INV-5` (Data Sovereignty & Local Inference)**:
    - Under the proposed architecture and Platform Contract requirements, customer-controlled data classes are specified to remain within sovereign boundaries without mandatory external telemetry or foreign cloud dependencies.
    - No mandatory public cloud LLM or telemetry service is embedded in any product core.
