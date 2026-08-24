@@ -344,6 +344,6 @@ test('governance guard: validateOpenItemEffectMatrix probes', () => {
   assert.throws(() => validateOpenItemEffectMatrix(duplicateId), /Duplicate ID OPEN-1/);
 
   // Should fail unauthorized effect
-  const unauthorizedEffect = validProposal.replace('PARTIALLY_UNBLOCKED, REMAINS_OPEN', 'RESOLVED');
+  const unauthorizedEffect = validProposal.replace('OPEN, PARTIALLY_UNBLOCKED', 'INVALID_EFFECT_TEST');
   assert.throws(() => validateOpenItemEffectMatrix(unauthorizedEffect), /Unauthorized effect/);
 });

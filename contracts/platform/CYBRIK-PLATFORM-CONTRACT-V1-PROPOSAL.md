@@ -1,7 +1,10 @@
 # Platform Contract Proposal (v0.1.0-proposed)
 
-**Status:** PROPOSED
+**Status:** ACCEPTED (Founder, 2026-08-24) — ARCHITECTURE CONTRACT AUTHORITY ONLY
 **Authoring Phase:** v0.1.0-proposed to v0.1.0-proposed (Architecture/governance proposal; no implementation authority).
+**Decider:** FOUNDER
+**Accepted Subject Commit:** b70482a455150f4f6d01134638993ef076d974b8
+**Accepted Subject Tree:** 9436385fdd94386268e137f21c1fc7863aa5e6d5
 
 ## 1. Overview
 This contract defines the 13 minimum capability slots (cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §5.2) required to form the substrate for the CYBRIK Autonomous Security Operations platform. It serves as an architectural agreement detailing expectations between the control plane, data plane, and underlying platform capability providers.
@@ -151,17 +154,17 @@ The exact effect matrix for all relevant OPEN items is defined below.
 
 | OPEN ID | Verbatim ADR-0015 Title | Current Status / Semantic Meaning | Effect of Platform Contract Proposal |
 |---|---|---|---|
-| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
-| OPEN-2 | `S3_COMPATIBILITY_MINIMUM_CONTRACT` | OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
-| OPEN-3 | `AI_DNS_TOCTOU_EGRESS_GUARD` | OPEN | UNAFFECTED, REMAINS_OPEN |
-| OPEN-4 | `CANONICAL_T0_T1_T2_SEMANTICS` | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED, subject to independent verification |
-| OPEN-5 | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | detailed protocol OPEN | PARTIALLY_UNBLOCKED, REMAINS_OPEN |
-| OPEN-6 | `VIRTUALIZATION_SUBSTRATE_SELECTION` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
-| OPEN-7 | `KUBERNETES_DISTRIBUTION_SELECTION` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
-| OPEN-8 | `PROVIDER_SELECTION_AUTHORITY_MODEL` | OPEN | REQUIRES_SEPARATE_DECISION, REMAINS_OPEN |
-| OPEN-9 | Legal interpretation of deployment location and cross-domain obligations | OPEN / LEGAL_REVIEW_REQUIRED | REQUIRES_SEPARATE_LEGAL_TRACK, REMAINS_OPEN |
-| OPEN-10 | Platform Contract slot semantics (all 13 slots, §5.2) | OPEN in ADR-0015 | RESOLVED_BY_PROPOSAL_IF_ACCEPTED |
-| OPEN-11 | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` | definition resolved in §5.1, per-module classification OPEN | PARTIALLY_UNBLOCKED, PER_MODULE_CLASSIFICATION_REMAINS_OPEN |
+| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-2 | `S3_COMPATIBILITY_MINIMUM_CONTRACT` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-3 | `AI_DNS_TOCTOU_EGRESS_GUARD` | OPEN | OPEN, UNAFFECTED |
+| OPEN-4 | `CANONICAL_T0_T1_T2_SEMANTICS` | RESOLVED | RESOLVED |
+| OPEN-5 | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-6 | `VIRTUALIZATION_SUBSTRATE_SELECTION` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-7 | `KUBERNETES_DISTRIBUTION_SELECTION` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-8 | `PROVIDER_SELECTION_AUTHORITY_MODEL` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-9 | Legal interpretation of deployment location and cross-domain obligations | OPEN | OPEN, REQUIRES_SEPARATE_LEGAL_TRACK |
+| OPEN-10 | Platform Contract slot semantics (all 13 slots, §5.2) | RESOLVED | RESOLVED |
+| OPEN-11 | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` | OPEN | OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN |
 
 ## 11. Next Action Sequence
 

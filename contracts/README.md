@@ -4,6 +4,9 @@ Status: first cross-product contract packet is present, statused `PROPOSED` — 
 (version 0.1.0). No contract has been accepted; no product may implement any of these until
 explicit Founder acceptance (ADR-0001 D5).
 
+* **[Platform Contract Proposal](platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md)**: `ACCEPTED (Founder, 2026-08-24) — ARCHITECTURE CONTRACT AUTHORITY ONLY` (v0.1.0)
+  * Defines the 13 foundational capability slots required from underlying infrastructure to support the product. Evaluated under the strict boundaries of ADR-0015.
+
 This directory is the single home for interfaces shared between CYBRIK Suite products.
 Product repositories implement contracts defined here; contracts are never retro-fitted from
 implementations without review.
