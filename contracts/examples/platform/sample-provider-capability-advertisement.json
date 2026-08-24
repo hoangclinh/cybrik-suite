@@ -1,0 +1,25 @@
+{
+  "target_profile_id": "onprem-airgap-v1",
+  "target_profile_version": "1.0.0",
+  "provider_namespace": "cybrik-aws",
+  "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
+  "advertised_capabilities": [
+    {
+      "capability_name": "oci_container_runtime",
+      "slot_id": "oci_container_runtime",
+      "description": "Standard OCI runtime",
+      "evidence_references": [
+        "test-001"
+      ]
+    }
+  ],
+  "conformance_evidence": [
+    {
+      "test_identifier": "test-001",
+      "verification_method": "AUTOMATED_TEST",
+      "report_uri": "https://example.com/report1"
+    }
+  ],
+  "degradation_behavior": "FAIL_CLOSED",
+  "authenticated_discovery": true
+}

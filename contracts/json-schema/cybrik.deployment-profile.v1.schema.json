@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "title": "CYBRIK Deployment Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "pattern": "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"
+    },
+    "profile_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "capability_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oci_container_runtime": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "isolation_substrate": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "orchestration_capability": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "network_segmentation": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "database": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "cache": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "secrets": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "crypto": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "identity_workload_identity": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "observability": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "ai_model_runtime": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        },
+        "artifact_update_mechanism": {
+          "type": "object",
+          "properties": {
+            "constraints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 2,
+                "pattern": "^[a-zA-Z0-9_.-]+$"
+              }
+            }
+          },
+          "required": [
+            "constraints"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "oci_container_runtime",
+        "isolation_substrate",
+        "orchestration_capability",
+        "network_segmentation",
+        "storage",
+        "database",
+        "cache",
+        "secrets",
+        "crypto",
+        "identity_workload_identity",
+        "observability",
+        "ai_model_runtime",
+        "artifact_update_mechanism"
+      ]
+    },
+    "strength": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oci_container_runtime": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "isolation_substrate": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "orchestration_capability": {
+          "type": "string",
+          "enum": [
+            "MANDATORY",
+            "OPTIONAL"
+          ]
+        },
+        "network_segmentation": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "storage": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "database": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "cache": {
+          "type": "string",
+          "enum": [
+            "MANDATORY",
+            "OPTIONAL"
+          ]
+        },
+        "secrets": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "crypto": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "identity_workload_identity": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        },
+        "observability": {
+          "type": "string",
+          "enum": [
+            "MANDATORY",
+            "OPTIONAL"
+          ]
+        },
+        "ai_model_runtime": {
+          "type": "string",
+          "enum": [
+            "MANDATORY",
+            "OPTIONAL"
+          ]
+        },
+        "artifact_update_mechanism": {
+          "type": "string",
+          "enum": [
+            "MANDATORY"
+          ]
+        }
+      },
+      "required": [
+        "oci_container_runtime",
+        "isolation_substrate",
+        "orchestration_capability",
+        "network_segmentation",
+        "storage",
+        "database",
+        "cache",
+        "secrets",
+        "crypto",
+        "identity_workload_identity",
+        "observability",
+        "ai_model_runtime",
+        "artifact_update_mechanism"
+      ]
+    },
+    "sovereignty_class": {
+      "type": "string",
+      "enum": [
+        "SOVEREIGN_CUSTOMER_CONTROLLED",
+        "CONTROLLED_CROSS_DOMAIN",
+        "OPTIONAL_HYBRID"
+      ]
+    },
+    "isolation_policy": {
+      "type": "object",
+      "required": [
+        "floor",
+        "admitted_risk_classes",
+        "disposable_execution_required",
+        "network_egress_isolation",
+        "no_downgrade_guarantee"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "floor": {
+          "type": "string",
+          "enum": [
+            "S0_DETERMINISTIC_SERVICE_CONTAINER",
+            "S1_DYNAMIC_TENANT_WORKLOAD",
+            "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+            "S3_HARDWARE_VIRTUALIZED_HYPERVISOR",
+            "S4_NO_FILE_TYPED_DISPOSABLE_EXECUTOR"
+          ]
+        },
+        "admitted_risk_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "UNTRUSTED_CODE_EXECUTION",
+              "DYNAMIC_TENANT_WORKLOAD",
+              "DETERMINISTIC_SERVICE_CONTAINER"
+            ]
+          }
+        },
+        "disposable_execution_required": {
+          "type": "boolean"
+        },
+        "network_egress_isolation": {
+          "type": "string",
+          "enum": [
+            "FAIL_CLOSED_NO_EGRESS",
+            "MEDIATED_EGRESS_BROKER",
+            "RESTRICTED_EGRESS_PROXY"
+          ]
+        },
+        "no_downgrade_guarantee": {
+          "const": true
+        }
+      }
+    }
+  },
+  "required": [
+    "profile_id",
+    "profile_version",
+    "capability_set",
+    "strength",
+    "sovereignty_class",
+    "isolation_policy"
+  ],
+  "x-cybrik-lifecycle": "PROPOSED",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S1_DYNAMIC_TENANT_WORKLOAD"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "const": "FAIL_CLOSED_NO_EGRESS"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "enum": [
+                  "FAIL_CLOSED_NO_EGRESS",
+                  "MEDIATED_EGRESS_BROKER"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "const": "MEDIATED_EGRESS_BROKER"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "admitted_risk_classes": {
+                "contains": {
+                  "const": "UNTRUSTED_CODE_EXECUTION"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "enum": [
+                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
+                ]
+              },
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "enum": [
+                  "FAIL_CLOSED_NO_EGRESS",
+                  "MEDIATED_EGRESS_BROKER"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "admitted_risk_classes": {
+                "contains": {
+                  "const": "DYNAMIC_TENANT_WORKLOAD"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "enum": [
+                  "S1_DYNAMIC_TENANT_WORKLOAD",
+                  "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+                  "S3_HARDWARE_VIRTUALIZED_HYPERVISOR"
+                ]
+              },
+              "disposable_execution_required": {
+                "const": true
+              },
+              "network_egress_isolation": {
+                "enum": [
+                  "FAIL_CLOSED_NO_EGRESS",
+                  "MEDIATED_EGRESS_BROKER"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S0_DETERMINISTIC_SERVICE_CONTAINER"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "admitted_risk_classes": {
+                "type": "array",
+                "items": {
+                  "const": "DETERMINISTIC_SERVICE_CONTAINER"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "floor": {
+                "const": "S4_NO_FILE_TYPED_DISPOSABLE_EXECUTOR"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "isolation_policy": {
+            "properties": {
+              "disposable_execution_required": {
+                "const": true
+              },
+              "admitted_risk_classes": {
+                "not": {
+                  "contains": {
+                    "const": "UNTRUSTED_CODE_EXECUTION"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

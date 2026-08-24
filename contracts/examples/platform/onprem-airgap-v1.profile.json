@@ -1,0 +1,107 @@
+{
+  "profile_id": "onprem-airgap-v1",
+  "profile_version": "1.0.0",
+  "capability_set": {
+    "oci_container_runtime": {
+      "constraints": [
+        "oci-runtime-spec-v1.0",
+        "containerd-compatible"
+      ]
+    },
+    "isolation_substrate": {
+      "constraints": [
+        "gvisor-syscall-filter",
+        "disposable-sandbox"
+      ]
+    },
+    "orchestration_capability": {
+      "constraints": [
+        "k8s-api-v1.28-compatible"
+      ]
+    },
+    "network_segmentation": {
+      "constraints": [
+        "cni-network-policy-l3-l4"
+      ]
+    },
+    "storage": {
+      "constraints": [
+        "s3-api-v1.0",
+        "posix-filesystem"
+      ]
+    },
+    "database": {
+      "constraints": [
+        "postgresql-v15",
+        "acid-transactions"
+      ]
+    },
+    "cache": {
+      "constraints": [
+        "valkey-v7-compatible",
+        "in-memory-kv"
+      ]
+    },
+    "secrets": {
+      "constraints": [
+        "envelope-encryption",
+        "transit-key-derivation"
+      ]
+    },
+    "crypto": {
+      "constraints": [
+        "ed25519-signing",
+        "aes-256-gcm",
+        "pqc-hybrid-agile"
+      ]
+    },
+    "identity_workload_identity": {
+      "constraints": [
+        "spiffe-spire-x509",
+        "jwt-svid"
+      ]
+    },
+    "observability": {
+      "constraints": [
+        "opentelemetry-metrics-logs-v1.0"
+      ]
+    },
+    "ai_model_runtime": {
+      "constraints": [
+        "openai-v1-chat-completions-compatible"
+      ]
+    },
+    "artifact_update_mechanism": {
+      "constraints": [
+        "rfc-8785-jcs-verified-bundles",
+        "airgap-reproducible"
+      ]
+    }
+  },
+  "strength": {
+    "oci_container_runtime": "MANDATORY",
+    "isolation_substrate": "MANDATORY",
+    "orchestration_capability": "MANDATORY",
+    "network_segmentation": "MANDATORY",
+    "storage": "MANDATORY",
+    "database": "MANDATORY",
+    "cache": "MANDATORY",
+    "secrets": "MANDATORY",
+    "crypto": "MANDATORY",
+    "identity_workload_identity": "MANDATORY",
+    "observability": "MANDATORY",
+    "ai_model_runtime": "MANDATORY",
+    "artifact_update_mechanism": "MANDATORY"
+  },
+  "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
+  "isolation_policy": {
+    "floor": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",
+    "disposable_execution_required": true,
+    "network_egress_isolation": "FAIL_CLOSED_NO_EGRESS",
+    "no_downgrade_guarantee": true,
+    "admitted_risk_classes": [
+      "UNTRUSTED_CODE_EXECUTION",
+      "DYNAMIC_TENANT_WORKLOAD"
+    ]
+  }
+}

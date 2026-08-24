@@ -1,0 +1,126 @@
+{
+  "$id": "https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cybrik S3 Compatibility Subset Contract",
+  "type": "object",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-lifecycle": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "required": [
+    "provider_identifier",
+    "mandatory_operations",
+    "supported_optional_features",
+    "required_operations",
+    "addressing_style",
+    "auth_mechanism",
+    "required_error_codes"
+  ],
+  "properties": {
+    "provider_identifier": {
+      "type": "string"
+    },
+    "mandatory_operations": {
+      "type": "object",
+      "required": [
+        "crud",
+        "multipart_upload",
+        "presigning",
+        "sig_v4",
+        "path_style_access",
+        "versioning",
+        "error_mappings"
+      ],
+      "properties": {
+        "crud": {
+          "type": "boolean",
+          "const": true
+        },
+        "multipart_upload": {
+          "type": "boolean",
+          "const": true
+        },
+        "presigning": {
+          "type": "boolean",
+          "const": true
+        },
+        "sig_v4": {
+          "type": "boolean",
+          "const": true
+        },
+        "path_style_access": {
+          "type": "boolean",
+          "const": true
+        },
+        "versioning": {
+          "type": "boolean",
+          "const": true
+        },
+        "error_mappings": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "supported_optional_features": {
+      "type": "object",
+      "properties": {
+        "object_lock": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "required_operations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PutObject",
+          "GetObject",
+          "HeadObject",
+          "DeleteObject",
+          "DeleteObjects",
+          "ListObjectsV2",
+          "HeadBucket",
+          "CreateBucket",
+          "CreateMultipartUpload",
+          "UploadPart",
+          "CompleteMultipartUpload",
+          "AbortMultipartUpload",
+          "PutBucketVersioning",
+          "GetBucketVersioning"
+        ]
+      },
+      "minItems": 14,
+      "uniqueItems": true
+    },
+    "addressing_style": {
+      "const": "path_style"
+    },
+    "auth_mechanism": {
+      "const": "AWS4-HMAC-SHA256"
+    },
+    "required_error_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "NoSuchKey",
+          "NoSuchBucket",
+          "AccessDenied",
+          "EntityTooLarge"
+        ]
+      },
+      "minItems": 4,
+      "uniqueItems": true
+    },
+    "optional_retention": {
+      "type": "boolean"
+    }
+  },
+  "x-cybrik-contract-version": "0.1.0",
+  "additionalProperties": false,
+  "description": "Cybrik S3 Compatibility Subset Contract [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
+}

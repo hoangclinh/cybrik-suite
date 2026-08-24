@@ -1,0 +1,104 @@
+{
+  "target_profile_id": "onprem-standard-v1",
+  "target_profile_version": "1.0.0",
+  "target_profile_digest": "190dbf1dfaa6c153646f6eee6f7e6535cf84e736d25d039d0f8ec3bb564f7a9f",
+  "provider_namespace": "cybrik-reference",
+  "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
+  "advertised_capabilities": [
+    {
+      "capability_name": "cap-oci",
+      "slot_id": "oci_container_runtime",
+      "description": "OCI runtime",
+      "evidence_references": ["ev-1"]
+    },
+    {
+      "capability_name": "cap-iso",
+      "slot_id": "isolation_substrate",
+      "description": "Isolation substrate",
+      "evidence_references": ["ev-2"]
+    },
+    {
+      "capability_name": "cap-orch",
+      "slot_id": "orchestration_capability",
+      "description": "Orchestration",
+      "evidence_references": ["ev-3"]
+    },
+    {
+      "capability_name": "cap-net",
+      "slot_id": "network_segmentation",
+      "description": "Network segmentation",
+      "evidence_references": ["ev-4"]
+    },
+    {
+      "capability_name": "cap-store",
+      "slot_id": "storage",
+      "description": "Storage",
+      "evidence_references": ["ev-5"]
+    },
+    {
+      "capability_name": "cap-db",
+      "slot_id": "database",
+      "description": "Database",
+      "evidence_references": ["ev-6"]
+    },
+    {
+      "capability_name": "cap-cache",
+      "slot_id": "cache",
+      "description": "Cache",
+      "evidence_references": ["ev-7"]
+    },
+    {
+      "capability_name": "cap-sec",
+      "slot_id": "secrets",
+      "description": "Secrets",
+      "evidence_references": ["ev-8"]
+    },
+    {
+      "capability_name": "cap-crypt",
+      "slot_id": "crypto",
+      "description": "Crypto",
+      "evidence_references": ["ev-9"]
+    },
+    {
+      "capability_name": "cap-id",
+      "slot_id": "identity_workload_identity",
+      "description": "Identity",
+      "evidence_references": ["ev-10"]
+    },
+    {
+      "capability_name": "cap-obs",
+      "slot_id": "observability",
+      "description": "Observability",
+      "evidence_references": ["ev-11"]
+    },
+    {
+      "capability_name": "cap-ai",
+      "slot_id": "ai_model_runtime",
+      "description": "AI runtime",
+      "evidence_references": ["ev-12"]
+    },
+    {
+      "capability_name": "cap-art",
+      "slot_id": "artifact_update_mechanism",
+      "description": "Artifact update",
+      "evidence_references": ["ev-13"]
+    }
+  ],
+  "conformance_evidence": [
+    { "test_identifier": "ev-1", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/1" },
+    { "test_identifier": "ev-2", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/2" },
+    { "test_identifier": "ev-3", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/3" },
+    { "test_identifier": "ev-4", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/4" },
+    { "test_identifier": "ev-5", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/5" },
+    { "test_identifier": "ev-6", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/6" },
+    { "test_identifier": "ev-7", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/7" },
+    { "test_identifier": "ev-8", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/8" },
+    { "test_identifier": "ev-9", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/9" },
+    { "test_identifier": "ev-10", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/10" },
+    { "test_identifier": "ev-11", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/11" },
+    { "test_identifier": "ev-12", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/12" },
+    { "test_identifier": "ev-13", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/13" }
+  ],
+  "degradation_behavior": "FAIL_CLOSED",
+  "authenticated_discovery": true
+}

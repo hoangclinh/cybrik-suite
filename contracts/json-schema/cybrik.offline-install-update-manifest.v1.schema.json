@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "title": "CYBRIK Offline Install Update Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bundle_identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-_]+$"
+    },
+    "release_tag": {
+      "type": "string",
+      "pattern": "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([a-z0-9.-]+))?$"
+    },
+    "operator_trust_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "signing_key_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,64}$"
+        },
+        "public_key_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "signature_algorithm": {
+          "type": "string",
+          "enum": [
+            "ed25519",
+            "ecdsa-p256-sha256",
+            "rsa-pss-sha256"
+          ]
+        }
+      },
+      "required": [
+        "signing_key_id",
+        "public_key_fingerprint",
+        "signature_algorithm"
+      ]
+    },
+    "bundle_signature": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9+/=_-]{32,512}$"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "sha256",
+          "size_bytes"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "migration_reversibility_guaranteed": {
+      "const": true
+    },
+    "rollback_procedure_reference": {
+      "type": "string",
+      "minLength": 5
+    },
+    "update_station_workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preflight_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
+          }
+        },
+        "apply_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
+          }
+        },
+        "rollback_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
+          }
+        }
+      },
+      "required": [
+        "preflight_steps",
+        "apply_steps",
+        "rollback_steps"
+      ]
+    },
+    "canonicalization_scheme": {
+      "const": "RFC_8785_JCS"
+    }
+  },
+  "required": [
+    "bundle_identifier",
+    "release_tag",
+    "operator_trust_root",
+    "bundle_signature",
+    "artifacts",
+    "migration_reversibility_guaranteed",
+    "rollback_procedure_reference",
+    "update_station_workflow",
+    "canonicalization_scheme"
+  ],
+  "x-cybrik-lifecycle": "PROPOSED",
+  "description": "CYBRIK Offline Install Update Manifest v1 [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
+}

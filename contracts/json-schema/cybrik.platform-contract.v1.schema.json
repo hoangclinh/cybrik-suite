@@ -1,0 +1,563 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "title": "CYBRIK Platform Contract Proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oci_container_runtime": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "oci_container_runtime"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "isolation_substrate": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "isolation_substrate"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "orchestration_capability": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "orchestration_capability"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "network_segmentation": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "network_segmentation"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "storage"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "database": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "database"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "cache": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "cache"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "secrets": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "secrets"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "crypto": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "crypto"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "identity_workload_identity": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "identity_workload_identity"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "observability": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "observability"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "ai_model_runtime": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "ai_model_runtime"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        },
+        "artifact_update_mechanism": {
+          "type": "object",
+          "required": [
+            "slot_id",
+            "specification",
+            "conformance_profile"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "slot_id": {
+              "const": "artifact_update_mechanism"
+            },
+            "specification": {
+              "type": "object",
+              "required": [
+                "required",
+                "description",
+                "interface_standard"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "const": true
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]+$",
+              "minLength": 3
+            }
+          }
+        }
+      },
+      "required": [
+        "oci_container_runtime",
+        "isolation_substrate",
+        "orchestration_capability",
+        "network_segmentation",
+        "storage",
+        "database",
+        "cache",
+        "secrets",
+        "crypto",
+        "identity_workload_identity",
+        "observability",
+        "ai_model_runtime",
+        "artifact_update_mechanism"
+      ]
+    },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    }
+  },
+  "required": [
+    "contract_version",
+    "slots"
+  ],
+  "x-cybrik-lifecycle": "PROPOSED"
+}

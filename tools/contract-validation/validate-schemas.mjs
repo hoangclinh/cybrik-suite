@@ -14,7 +14,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join, basename, sep } from 'node:path';
+import { dirname, resolve, join, basename, sep, posix } from 'node:path';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
 import { parse as parseYaml } from 'yaml';
@@ -42,6 +42,50 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
+
+
+function validatePlatformSemantics(data, schemaId) {
+  if (schemaId.includes('provider-capability-advertisement')) {
+    if (data.advertised_capabilities && data.conformance_evidence) {
+      const validTests = new Set();
+      for (const e of data.conformance_evidence) {
+        if (validTests.has(e.test_identifier)) {
+          throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
+        }
+        validTests.add(e.test_identifier);
+      }
+      for (const cap of data.advertised_capabilities) {
+        for (const ref of (cap.evidence_references || [])) {
+          if (!validTests.has(ref)) {
+            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+          }
+        }
+      }
+    }
+    if (data.claim_type === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && data.target_profile_id && data.target_profile_digest) {
+      const profilePath = join(CONTRACTS, 'examples/platform', `${data.target_profile_id}.profile.json`);
+      if (!existsSync(profilePath)) {
+        throw new Error(`Semantic error: target profile fixture '${data.target_profile_id}.profile.json' not found`);
+      }
+      const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+      if (actualDigest !== data.target_profile_digest) {
+        throw new Error(`Semantic error: target_profile_digest '${data.target_profile_digest}' does not match actual digest '${actualDigest}'`);
+      }
+    }
+  } else if (schemaId.includes('offline-install-update-manifest')) {
+    if (data.artifacts) {
+      const paths = new Set();
+      for (const art of data.artifacts) {
+        const norm = posix.normalize(art.path);
+        if (paths.has(norm)) {
+          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
+        }
+        paths.add(norm);
+      }
+    }
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 0. Lifecycle state. Exactly TWO truthful states are permitted, and the
@@ -83,8 +127,17 @@ const SCHEMA_FILES = [
   'cybrik.delegation-chain.v1.schema.json',
   'cybrik.execution-receipt.v1.schema.json',
   'cybrik.approval-request.v1.schema.json',
-  'cybrik.approval-decision.v1.schema.json',
+  'cybrik.approval-decision.v1.schema.json'
 ];
+
+const PROPOSED_SCHEMA_FILES = [
+  'cybrik.deployment-profile.v1.schema.json',
+  'cybrik.platform-contract.v1.schema.json',
+  'cybrik.provider-capability-advertisement.v1.schema.json',
+  'cybrik.offline-install-update-manifest.v1.schema.json',
+  'cybrik.storage-s3-compatibility-subset.v1.schema.json'
+];
+
 
 // strict: true keeps genuine 2020-12 rigor (unknown-keyword typos, bad tuples, etc.), but we
 // disable two ajv-SPECIFIC lints that flag idiomatic-and-spec-valid 2020-12 constructs:
@@ -98,13 +151,13 @@ const ajv = new Ajv2020({ strict: true, strictTypes: false, strictRequired: fals
 addFormats(ajv);
 // Annotation-only vendor keywords (status honesty markers). Declared so strict mode does not
 // reject them as unknown, while every other strict check stays active.
-for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins']) {
+for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract-version', 'x-cybrik-format-pins', 'x-cybrik-lifecycle']) {
   ajv.addKeyword({ keyword: kw });
 }
 
 const schemas = {}; // basename -> { doc, path }
 const idByBasename = {};
-for (const name of SCHEMA_FILES) {
+for (const name of [...SCHEMA_FILES, ...PROPOSED_SCHEMA_FILES]) {
   const p = join(JSON_SCHEMA_DIR, name);
   if (!existsSync(p)) { fail(`missing schema file: json-schema/${name}`); continue; }
   let doc;
@@ -115,7 +168,12 @@ for (const name of SCHEMA_FILES) {
   if (doc.$schema !== DRAFT_2020) fail(`json-schema/${name}: $schema is not 2020-12 (${doc.$schema})`);
   if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
-  checkLifecycle(`json-schema/${name}`, doc);
+  if (SCHEMA_FILES.includes(name)) {
+    checkLifecycle(`json-schema/${name}`, doc);
+  } else {
+    if (doc['x-cybrik-status'] !== 'PROPOSED') fail(`json-schema/${name}: x-cybrik-status must be 'PROPOSED'`);
+    if (doc['x-cybrik-not-accepted'] !== true) fail(`json-schema/${name}: x-cybrik-not-accepted must be true`);
+  }
   const expectedContractVersion = name === 'cybrik.capability.v1.schema.json'
     ? CAPABILITY_VERSION
     : EXPECTED_VERSION;
@@ -165,7 +223,7 @@ if (exManifest) {
     const ok = validate(data);
     if (ex.kind === 'positive') {
       bump('positive_total');
-      if (ok) bump('positive_pass');
+      if (ok) { bump('positive_pass'); validatePlatformSemantics(data, ex.schema); }
       else fail(`positive example ${ex.file} FAILED validation against ${ex.schema}: ${ajv.errorsText(validate.errors)}`);
     } else if (ex.kind === 'negative-schema') {
       bump('negative_schema_total');
@@ -182,6 +240,103 @@ if (exManifest) {
 }
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 4b. Platform Example fixtures.
+// ---------------------------------------------------------------------------
+const PLATFORM_EXAMPLES_DIR = join(CONTRACTS, 'examples/platform');
+const platformPositives = [
+  'onprem-airgap-v1.profile.json',
+  'onprem-standard-v1.profile.json',
+  'hybrid-sovereign-v1.profile.json',
+  'private-cloud-v1.profile.json',
+  'sample-platform-contract.json',
+  'sample-provider-capability-advertisement.json',
+  'sample-offline-bundle-manifest.json',
+  'sample-storage-s3-subset.json',
+  'sample-full-profile-conformance-declaration.json'
+];
+
+for (const file of platformPositives) {
+  const exPath = join(PLATFORM_EXAMPLES_DIR, file);
+  if (!existsSync(exPath)) { fail(`platform positive example missing on disk: ${file}`); continue; }
+
+  let schemaName;
+  if (file.includes('.profile.json')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
+  else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+  else if (file.includes('offline-bundle-manifest')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
+  else if (file.includes('platform-contract')) schemaName = 'cybrik.platform-contract.v1.schema.json';
+  else if (file.includes('storage-s3-subset')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
+
+  const validate = validators[schemaName];
+  if (!validate) { fail(`platform example ${file}: no compiled validator for schema ${schemaName}`); continue; }
+  let data;
+  try { data = readJson(exPath); } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
+  const ok = validate(data);
+  bump('positive_total');
+  if (ok) { bump('positive_pass'); validatePlatformSemantics(data, schemaName); }
+  else fail(`platform positive example ${file} FAILED validation against ${schemaName}: ${ajv.errorsText(validate.errors)}`);
+}
+
+const EXPECTED_PLATFORM_NEGATIVES = {
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' },
+  'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
+  'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '', schemaPath: '#/required', params: { missingProperty: 'operator_trust_root' }, message: "must have required property 'operator_trust_root'" },
+  'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version', schemaPath: '#/properties/profile_version/pattern', params: { pattern: '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$' }, message: 'must match pattern "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"' },
+  'invalid-lowercase-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
+  'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
+  'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
+  'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 14 }, message: 'must NOT have fewer than 14 items' },
+  'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
+  'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
+  'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
+  'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set', schemaPath: '#/properties/capability_set/required', params: { missingProperty: 'artifact_update_mechanism' }, message: "must have required property 'artifact_update_mechanism'" }
+};
+
+if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
+  const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
+  const negFiles = fsNode.readdirSync(join(PLATFORM_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  if (negFiles.length !== Object.keys(EXPECTED_PLATFORM_NEGATIVES).length) {
+    fail(`platform negative examples count mismatch: expected ${Object.keys(EXPECTED_PLATFORM_NEGATIVES).length}, got ${negFiles.length}`);
+  }
+  for (const file of negFiles) {
+    const exPath = join(PLATFORM_EXAMPLES_DIR, 'negative', file);
+
+    let schemaName;
+    if (file.includes('profile') || file.includes('semver')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
+    else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+    else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
+    else if (file.includes('platform')) schemaName = 'cybrik.platform-contract.v1.schema.json';
+    else if (file.includes('s3')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
+
+    const validate = validators[schemaName];
+    if (!validate) { fail(`platform negative example ${file}: no compiled validator for schema ${schemaName}`); continue; }
+    let data;
+    try { data = readJson(exPath); } catch (e) { fail(`platform negative example ${file}: JSON parse error: ${e.message}`); continue; }
+
+    const ok = validate(data);
+    bump('negative_schema_total');
+    if (!ok) {
+      bump('negative_schema_reject');
+      if (validate.errors.length !== 1) {
+        fail(`platform negative example ${file}: expected exactly 1 error, got ${validate.errors.length}`);
+      }
+      const expected = EXPECTED_PLATFORM_NEGATIVES[file];
+      if (!expected) {
+        fail(`platform negative example ${file}: no expected invariant/error mapped!`);
+      } else {
+        const actualErr = validate.errors[0];
+        if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath || actualErr.schemaPath !== expected.schemaPath || JSON.stringify(actualErr.params) !== JSON.stringify(expected.params) || actualErr.message !== expected.message) {
+          fail(`platform negative example ${file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actualErr)}`);
+        }
+      }
+    } else {
+      fail(`platform negative example ${file} unexpectedly VALIDATED against ${schemaName} (must be rejected)`);
+    }
+  }
+}
+
 // 5. Compatibility / version / status manifest.
 // ---------------------------------------------------------------------------
 const compatPath = join(CONTRACTS, 'compatibility', 'cybrik-suite-contract-packet.v1.manifest.json');
@@ -405,7 +560,290 @@ H('H2c', !!negEscChain && chainEscalates(negEscChain), 'negative privilege-escal
 
 // ---------------------------------------------------------------------------
 // Summary
+
+// #10 verify FULL_PROFILE_CONFORMANCE_DECLARATION distinct slots
+const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+
+const originalPca = readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'));
+const pcaData = JSON.parse(JSON.stringify(originalPca));
+pcaData.advertised_capabilities[1].slot_id = pcaData.advertised_capabilities[0].slot_id;
+
+const pcaValid = ajv.validate(pcaSchemaId, pcaData);
+const pcaHasContains = !pcaValid && ajv.errors.some(e => e.keyword === 'contains');
+const pcaHasNoDigestErr = !pcaValid && !ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'target_profile_digest');
+
+H('10', !pcaValid && pcaHasContains && pcaHasNoDigestErr, 'FULL_PROFILE_CONFORMANCE_DECLARATION with duplicated distinct slot must be rejected via contains keyword');
+
+// 11. in-memory validation: reject advertisement with unresolvable evidence reference (referential integrity)
+const pcaUnresolvable = {
+  target_profile_id: "onprem-standard-v1",
+  target_profile_version: "1.0.0",
+  provider_namespace: "evil-corp",
+  claim_type: "PARTIAL_CAPABILITY_ADVERTISEMENT",
+  advertised_capabilities: [
+    {
+      capability_name: "cap-storage",
+      slot_id: "storage",
+      description: "Storage slot",
+      evidence_references: ["missing-test"]
+    }
+  ],
+  conformance_evidence: [
+    {
+      test_identifier: "test-1",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://example.com/report"
+    }
+  ],
+  degradation_behavior: "FAIL_CLOSED",
+  authenticated_discovery: true
+};
+try {
+  validatePlatformSemantics(pcaUnresolvable, pcaSchemaId);
+  fail('referential integrity: expected validatePlatformSemantics to throw on missing evidence reference');
+} catch (e) {
+  H('11', e.message.includes('missing-test'), 'referential integrity check must catch missing evidence references');
+}
+
+// 18. in-memory validation: reject FULL_PROFILE_CONFORMANCE_DECLARATION with mismatched digest
+const pcaBadDigest = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'))));
+pcaBadDigest.target_profile_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+try {
+  validatePlatformSemantics(pcaBadDigest, pcaSchemaId);
+  fail('digest binding: expected validatePlatformSemantics to throw on mismatched digest');
+} catch (e) {
+  H('18', e.message.includes('does not match actual digest'), 'digest binding check must catch mismatched target profile digest');
+}
+
+// 12. in-memory validation: reject offline manifest with duplicate artifact paths (path uniqueness)
+const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+const dupManifest = {
+  bundle_identifier: "my-bundle-1",
+  release_tag: "v1.2.3",
+  operator_trust_root: {
+    signing_key_id: "key-123456",
+    public_key_fingerprint: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    signature_algorithm: "ed25519"
+  },
+  bundle_signature: "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    },
+    {
+      name: "image-2",
+      path: "images/image-1.tar",
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+      size_bytes: 2048
+    }
+  ],
+  migration_reversibility_guaranteed: true,
+  rollback_procedure_reference: "doc://rollback",
+  update_station_workflow: {
+    preflight_steps: ["check-disk-space"],
+    apply_steps: ["extract-images"],
+    rollback_steps: ["restore-backup"]
+  },
+  canonicalization_scheme: "RFC_8785_JCS"
+};
+try {
+  validatePlatformSemantics(dupManifest, manifestSchemaId);
+  fail('path uniqueness: expected validatePlatformSemantics to throw on duplicate paths');
+} catch (e) {
+  H('12', e.message.includes('duplicate artifact path'), 'path uniqueness check must catch duplicate artifact paths');
+}
+
+// 13. in-memory validation: reject offline manifest with alias collision paths (alias collision)
+const aliasManifest = {
+  ...dupManifest,
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    },
+    {
+      name: "image-2",
+      path: "./images/image-1.tar",
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+      size_bytes: 2048
+    }
+  ]
+};
+try {
+  validatePlatformSemantics(aliasManifest, manifestSchemaId);
+  fail('alias collision: expected validatePlatformSemantics to throw on aliased paths');
+} catch (e) {
+  H('13', e.message.includes('duplicate artifact path'), 'alias collision check must catch aliased artifact paths');
+}
+
+// 14. in-memory validation: reject offline manifest with trailing slash path
+const trailingSlashManifest = {
+  ...dupManifest,
+  artifacts: [
+    {
+      name: "image-1",
+      path: "images/image-1.tar/",
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      size_bytes: 1024
+    }
+  ]
+};
+const trailingValid = ajv.validate(manifestSchemaId, trailingSlashManifest);
+H('14', !trailingValid, 'trailing slash path must be rejected by schema');
+
 // ---------------------------------------------------------------------------
+
+// 15. in-memory validation: reject S1 with mediated egress
+const profileSchemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
+const s1Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
+s1Profile.isolation_policy.floor = "S1_DYNAMIC_TENANT_WORKLOAD";
+s1Profile.isolation_policy.admitted_risk_classes = ["DYNAMIC_TENANT_WORKLOAD", "DETERMINISTIC_SERVICE_CONTAINER"];
+s1Profile.isolation_policy.network_egress_isolation = "MEDIATED_EGRESS_BROKER";
+const s1Valid = ajv.validate(profileSchemaId, s1Profile);
+H('15', !s1Valid && ajv.errors.some(e => e.instancePath === '/isolation_policy/network_egress_isolation' && e.keyword === 'const'), 'S1 with MEDIATED_EGRESS_BROKER must be rejected (requires FAIL_CLOSED_NO_EGRESS)');
+
+// 16. in-memory validation: reject S3 with no egress
+const s3Profile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
+s3Profile.isolation_policy.floor = "S3_HARDWARE_VIRTUALIZED_HYPERVISOR";
+s3Profile.isolation_policy.network_egress_isolation = "FAIL_CLOSED_NO_EGRESS";
+const s3Valid = ajv.validate(profileSchemaId, s3Profile);
+H('16', !s3Valid && ajv.errors.some(e => e.instancePath === '/isolation_policy/network_egress_isolation' && e.keyword === 'const'), 'S3 with FAIL_CLOSED_NO_EGRESS must be rejected (requires MEDIATED_EGRESS_BROKER)');
+
+// 17. in-memory validation: reject platform slot with bare uppercase/tier conformance_profile
+const platformContractSchemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
+const platformContract = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-platform-contract.json'))));
+platformContract.slots.oci_container_runtime.conformance_profile = "TIER_0";
+const platformValid = ajv.validate(platformContractSchemaId, platformContract);
+H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "TIER_0" conformance_profile must be rejected');
+
+export function validateOpenItemEffectMatrix(proposalMarkdown) {
+  const lines = proposalMarkdown.split('\n');
+  const tableStartIndex = lines.findIndex(l => l.includes('## 10. Required Open-Item Effect Matrix'));
+  if (tableStartIndex === -1) throw new Error('Missing section: ## 10. Required Open-Item Effect Matrix');
+
+  const nextSectionIndex = lines.findIndex((l, i) => i > tableStartIndex && l.startsWith('## '));
+  const sectionEndIndex = nextSectionIndex !== -1 ? nextSectionIndex : lines.length;
+
+  const headerIndex = lines.findIndex((l, i) => i > tableStartIndex && i < sectionEndIndex && l.trim().startsWith('| OPEN ID |'));
+  if (headerIndex === -1) throw new Error('Missing table header for Open-Item Effect Matrix');
+
+  const rows = [];
+  let tableEnded = false;
+
+  for (let i = headerIndex + 2; i < sectionEndIndex; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (!line.startsWith('|')) {
+      tableEnded = true;
+      continue;
+    }
+
+    if (tableEnded && line.startsWith('|')) {
+      throw new Error('Governance guard failed: Multiple tables or trailing table rows found in Section 10');
+    }
+
+    const parts = line.split('|').map(s => s.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+    if (parts.length !== 4) {
+      throw new Error(`Governance guard failed: Matrix row must have exactly 4 columns, found ${parts.length}`);
+    }
+    rows.push({
+      id: parts[0],
+      title: parts[1],
+      status: parts[2],
+      effect: parts[3]
+    });
+  }
+
+  if (rows.length !== 11) {
+    throw new Error(`Governance guard failed: Matrix must have exactly 11 rows, found ${rows.length}`);
+  }
+
+  const expectedMatrix = [
+    { id: 'OPEN-1', title: '`OFFLINE_INSTALL_UPDATE_CONTRACT`', status: 'OPEN', effect: 'OPEN, PARTIALLY_UNBLOCKED' },
+    { id: 'OPEN-2', title: '`S3_COMPATIBILITY_MINIMUM_CONTRACT`', status: 'OPEN', effect: 'OPEN, PARTIALLY_UNBLOCKED' },
+    { id: 'OPEN-3', title: '`AI_DNS_TOCTOU_EGRESS_GUARD`', status: 'OPEN', effect: 'OPEN, UNAFFECTED' },
+    { id: 'OPEN-4', title: '`CANONICAL_T0_T1_T2_SEMANTICS`', status: 'RESOLVED', effect: 'RESOLVED' },
+    { id: 'OPEN-5', title: '`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`', status: 'OPEN', effect: 'OPEN, PARTIALLY_UNBLOCKED' },
+    { id: 'OPEN-6', title: '`VIRTUALIZATION_SUBSTRATE_SELECTION`', status: 'OPEN', effect: 'OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION' },
+    { id: 'OPEN-7', title: '`KUBERNETES_DISTRIBUTION_SELECTION`', status: 'OPEN', effect: 'OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION' },
+    { id: 'OPEN-8', title: '`PROVIDER_SELECTION_AUTHORITY_MODEL`', status: 'OPEN', effect: 'OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION' },
+    { id: 'OPEN-9', title: 'Legal interpretation of deployment location and cross-domain obligations', status: 'OPEN', effect: 'OPEN, REQUIRES_SEPARATE_LEGAL_TRACK' },
+    { id: 'OPEN-10', title: 'Platform Contract slot semantics (all 13 slots, §5.2)', status: 'RESOLVED', effect: 'RESOLVED' },
+    { id: 'OPEN-11', title: '`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY`', status: 'OPEN', effect: 'OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN' }
+  ];
+
+  const seenIds = new Set();
+  for (let i = 0; i < expectedMatrix.length; i++) {
+    const row = rows[i];
+    const expected = expectedMatrix[i];
+
+    if (!row) throw new Error(`Governance guard failed: Missing row ${i + 1}`);
+    if (seenIds.has(row.id)) throw new Error(`Governance guard failed: Duplicate ID ${row.id}`);
+    seenIds.add(row.id);
+
+    if (row.id !== expected.id) {
+      throw new Error(`Governance guard failed: Expected ID ${expected.id} at row ${i + 1}, found ${row.id}`);
+    }
+    if (row.title !== expected.title) {
+      throw new Error(`Governance guard failed: Swapped or incorrect title for ${row.id}: ${row.title}`);
+    }
+    if (row.status !== expected.status) {
+      throw new Error(`Governance guard failed: Unauthorized status for ${row.id}: ${row.status}`);
+    }
+    if (row.effect !== expected.effect) {
+      throw new Error(`Governance guard failed: Unauthorized effect for ${row.id}: ${row.effect}`);
+    }
+  }
+}
+
+// 19. Governance guard: Platform contract OPEN items tracking
+try {
+  const validBaseTable = `## 10. Required Open-Item Effect Matrix
+
+| OPEN ID | Verbatim ADR-0015 Title | Current Status / Semantic Meaning | Effect of Platform Contract Proposal |
+|---|---|---|---|
+| OPEN-1 | \`OFFLINE_INSTALL_UPDATE_CONTRACT\` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-2 | \`S3_COMPATIBILITY_MINIMUM_CONTRACT\` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-3 | \`AI_DNS_TOCTOU_EGRESS_GUARD\` | OPEN | OPEN, UNAFFECTED |
+| OPEN-4 | \`CANONICAL_T0_T1_T2_SEMANTICS\` | RESOLVED | RESOLVED |
+| OPEN-5 | \`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION\` | OPEN | OPEN, PARTIALLY_UNBLOCKED |
+| OPEN-6 | \`VIRTUALIZATION_SUBSTRATE_SELECTION\` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-7 | \`KUBERNETES_DISTRIBUTION_SELECTION\` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-8 | \`PROVIDER_SELECTION_AUTHORITY_MODEL\` | OPEN | OPEN, REQUIRES_SEPARATE_FOUNDER_DECISION |
+| OPEN-9 | Legal interpretation of deployment location and cross-domain obligations | OPEN | OPEN, REQUIRES_SEPARATE_LEGAL_TRACK |
+| OPEN-10 | Platform Contract slot semantics (all 13 slots, §5.2) | RESOLVED | RESOLVED |
+| OPEN-11 | \`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY\` | OPEN | OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN |
+
+## 11. Next Action Sequence
+`;
+
+  const expectThrow = (md) => {
+    try {
+      validateOpenItemEffectMatrix(md);
+      return false;
+    } catch (e) {
+      return e.message.includes('Governance guard failed');
+    }
+  };
+
+  H('19a', expectThrow(validBaseTable.replace('\`VIRTUALIZATION_SUBSTRATE_SELECTION\`', '\`WRONG_TITLE\`')), 'Matrix probe: swapped title must fail');
+  H('19b', expectThrow(validBaseTable.replace('| OPEN-2 |', '| OPEN-1 |')), 'Matrix probe: duplicate ID must fail');
+  H('19c', expectThrow(validBaseTable.replace('OPEN, UNAFFECTED', 'RESOLVED')), 'Matrix probe: unauthorized effect must fail');
+  H('19d', expectThrow(validBaseTable.replace('| OPEN-3 |', '| OPEN-3 | EXTRA |')), 'Matrix probe: extra column must fail');
+  H('19e', expectThrow(validBaseTable.replace('| OPEN-11 | \`PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY\` | OPEN | OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN |\n', '')), 'Matrix probe: row count mismatch must fail');
+
+  const proposalPath = join(CONTRACTS, 'platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
+  const proposalContent = readFileSync(proposalPath, 'utf8');
+  validateOpenItemEffectMatrix(proposalContent);
+} catch (e) {
+  fail(e.message);
+}
+
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));
 if (notes.length) for (const n of notes) console.log('note:', n);
