@@ -5698,29 +5698,29 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/ecs.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/field_maps.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_bsd.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_ext.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
@@ -5728,14 +5728,14 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/normalizers.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/ocsf.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Concrete log ingestion wire format parser / normalizer / field mapping adapter."
       },
       "services/api/src/cybrik_soc/modules/ingest/pf_bridge.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
@@ -6393,9 +6393,9 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/algorithms.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Algorithm registry adapter binding PyJWT concrete algorithms to delegation token policy."
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/errors.py": {
         "classification": "PRODUCT_CORE",
