@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '908767158fe8c1ea07ccc40ccf2b26cd52a86aca347f3b34443cd5c782daee67') {
+  if (ledgerDigest !== '382b95e130a86215d563d5bc95ce54e1d3a4c343a49dfac94c8b0b76bf1e6213') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -947,16 +947,23 @@ try {
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/models.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/errors.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/soar/connectors/__init__.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/soar/library.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/ioc/taxii.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/greenbone.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-cyber-ai-platform'].files['tests/README.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/src/cybrik_ai_worker/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/src/cybrik_ai_worker/__init__.py']?.status !== 'SCAFFOLD' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/pyproject.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD' ||
+      ledger['cybrik-security-tool-fabric'].files['tests/README.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['tests/conformance/README.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['tests/control-plane/README.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['tests/executor/README.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/contracts/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/py.typed']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
@@ -967,9 +974,10 @@ try {
 
   for (const [repo, data] of Object.entries(ledger)) {
     for (const [filePath, entry] of Object.entries(data.files)) {
+      if (!filePath || filePath.trim().length === 0) throw new Error(`${repo} empty file path`);
       if (!validClassifications.has(entry.classification)) throw new Error(`${repo}:${filePath} invalid classification ${entry.classification}`);
       if (!validStatuses.has(entry.status)) throw new Error(`${repo}:${filePath} invalid status ${entry.status}`);
-      if (!entry.notes || entry.notes.length === 0) throw new Error(`${repo}:${filePath} empty notes`);
+      if (!entry.notes || entry.notes.trim().length === 0) throw new Error(`${repo}:${filePath} empty notes`);
     }
   }
 
