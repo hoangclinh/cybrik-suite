@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '0a550571a779a9c1e717064f9415b88768b8275b621638aed526b2b32b713815') {
+  if (ledgerDigest !== '6b55e92718a17e3693f5eb424e49e6dc9b381bce53dc596139ae741dc7797900') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -946,13 +946,16 @@ try {
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/signer.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/models.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/errors.py']?.classification !== 'PRODUCT_CORE' ||
-      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/soar/connectors/__init__.py']?.classification !== 'PRODUCT_CORE' ||
-      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/soar/connectors/__init__.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/greenbone.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/src/cybrik_ai_worker/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/src/cybrik_ai_worker/__init__.py']?.status !== 'SCAFFOLD' ||
+      ledger['cybrik-cyber-ai-platform'].files['services/ai-worker/pyproject.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/contracts/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
