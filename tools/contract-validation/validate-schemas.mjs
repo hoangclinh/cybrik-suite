@@ -848,46 +848,66 @@ try {
 try {
   const mapPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATION-MAP.md');
   const ledgerPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json');
-  if (existsSync(mapPath) && existsSync(ledgerPath)) {
-    const mapContent = readFileSync(mapPath, 'utf8');
-    const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
-
-    const validClassifications = new Set([
-      'PRODUCT_CORE',
-      'PRODUCT_IMPLEMENTATION_ADAPTER',
-      'PROVIDER_ADAPTER',
-      'SUPPORTING_TOOLING_OR_TEST',
-      'DEPLOYMENT_PROFILE_OR_CONFIG',
-      'GOVERNANCE_OR_DOCUMENTATION',
-    ]);
-    const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
-
-    const lines = mapContent.split('\n');
-    let mapRows = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
-      const parts = line.split('|').map(s => s.trim());
-      if (parts.length !== 6) throw new Error(`OPEN-11 map line ${i + 1} must have exactly 4 columns`);
-      const [, rawPath, rawClass, rawStatus, notes] = parts;
-      const classification = rawClass.replace(/^`|`$/g, '');
-      const status = rawStatus.replace(/^`|`$/g, '');
-      if (!validClassifications.has(classification)) throw new Error(`Invalid classification: ${classification}`);
-      if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
-      mapRows++;
-    }
-    if (mapRows !== 94) throw new Error(`Expected exactly 94 map rows, got ${mapRows}`);
-
-    const aiFiles = Object.keys(ledger['cybrik-cyber-ai-platform']?.files || {});
-    const fabricFiles = Object.keys(ledger['cybrik-security-tool-fabric']?.files || {});
-    const socFiles = Object.keys(ledger['cybrik-soc-command-center']?.files || {});
-
-    if (aiFiles.length !== 221 || fabricFiles.length !== 132 || socFiles.length !== 1297) {
-      throw new Error(`Ledger counts mismatch: AI=${aiFiles.length}, Fabric=${fabricFiles.length}, SOC=${socFiles.length}`);
-    }
-
-    H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass strict governance validation');
+  if (!existsSync(mapPath) || !existsSync(ledgerPath)) {
+    throw new Error('OPEN-11 map or ledger artifact missing');
   }
+
+  const mapContent = readFileSync(mapPath, 'utf8');
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+
+  const validClassifications = new Set([
+    'PRODUCT_CORE',
+    'PRODUCT_IMPLEMENTATION_ADAPTER',
+    'PROVIDER_ADAPTER',
+    'SUPPORTING_TOOLING_OR_TEST',
+    'DEPLOYMENT_PROFILE_OR_CONFIG',
+    'GOVERNANCE_OR_DOCUMENTATION',
+  ]);
+  const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
+
+  const lines = mapContent.split('\n');
+  let mapRows = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+    const parts = line.split('|').map(s => s.trim());
+    if (parts.length !== 6) throw new Error(`OPEN-11 map line ${i + 1} must have exactly 4 columns`);
+    const [, rawPath, rawClass, rawStatus, notes] = parts;
+    const classification = rawClass.replace(/^`|`$/g, '');
+    const status = rawStatus.replace(/^`|`$/g, '');
+    if (!validClassifications.has(classification)) throw new Error(`Invalid classification: ${classification}`);
+    if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
+    mapRows++;
+  }
+  if (mapRows !== 97) throw new Error(`Expected exactly 97 map rows, got ${mapRows}`);
+
+  if (ledger['cybrik-cyber-ai-platform']?.commit !== 'f0bf4c630d8e93a0531d16b4522ce0425996a624' ||
+      ledger['cybrik-security-tool-fabric']?.commit !== '1a419014ebb432eb56ac35242e0a193fe65a62c6' ||
+      ledger['cybrik-soc-command-center']?.commit !== '695aed8e0e12c9d0e11de5f474e3384d1a4b490f') {
+    throw new Error('Ledger commit SHA bindings mismatch pinned RC1 commits');
+  }
+
+  const aiFiles = Object.keys(ledger['cybrik-cyber-ai-platform']?.files || {});
+  const fabricFiles = Object.keys(ledger['cybrik-security-tool-fabric']?.files || {});
+  const socFiles = Object.keys(ledger['cybrik-soc-command-center']?.files || {});
+
+  if (aiFiles.length !== 221 || fabricFiles.length !== 132 || socFiles.length !== 1297) {
+    throw new Error(`Ledger counts mismatch: AI=${aiFiles.length}, Fabric=${fabricFiles.length}, SOC=${socFiles.length}`);
+  }
+
+  // Semantic oracle checks
+  if (ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-soc-command-center'].files['apps/soc-portal/app/layout.tsx']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/database.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['.gitleaks.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-soc-command-center'].files['SPRINT-0-CLOSURE.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD') {
+    throw new Error('Ledger semantic oracle assertions failed');
+  }
+
+  H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass strict governance and semantic oracle validation');
 } catch (e) {
   fail(e.message);
 }

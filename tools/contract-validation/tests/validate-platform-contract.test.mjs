@@ -410,7 +410,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   }
 
   const rows = parseAndValidateTableRows(content);
-  assert.equal(rows.length, 94, `Expected exactly 94 data rows, got ${rows.length}`);
+  assert.equal(rows.length, 97, `Expected exactly 97 data rows, got ${rows.length}`);
 
   // Negative mutation tests verifying structural validation fail-closed behavior
   assert.throws(() => {
@@ -448,9 +448,9 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
   const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
 
-  assert.ok(ledger['cybrik-cyber-ai-platform'], 'Ledger missing cybrik-cyber-ai-platform');
-  assert.ok(ledger['cybrik-security-tool-fabric'], 'Ledger missing cybrik-security-tool-fabric');
-  assert.ok(ledger['cybrik-soc-command-center'], 'Ledger missing cybrik-soc-command-center');
+  assert.equal(ledger['cybrik-cyber-ai-platform']?.commit, 'f0bf4c630d8e93a0531d16b4522ce0425996a624');
+  assert.equal(ledger['cybrik-security-tool-fabric']?.commit, '1a419014ebb432eb56ac35242e0a193fe65a62c6');
+  assert.equal(ledger['cybrik-soc-command-center']?.commit, '695aed8e0e12c9d0e11de5f474e3384d1a4b490f');
 
   const aiFiles = Object.keys(ledger['cybrik-cyber-ai-platform'].files);
   const fabricFiles = Object.keys(ledger['cybrik-security-tool-fabric'].files);
@@ -460,6 +460,16 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.equal(fabricFiles.length, 132, `Expected 132 Fabric files, got ${fabricFiles.length}`);
   assert.equal(socFiles.length, 1297, `Expected 1297 SOC files, got ${socFiles.length}`);
 
+  // Concrete semantic oracle assertions
+  assert.equal(ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts'].classification, 'SUPPORTING_TOOLING_OR_TEST');
+  assert.equal(ledger['cybrik-soc-command-center'].files['apps/soc-portal/app/layout.tsx'].classification, 'PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.equal(ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/database.py'].classification, 'PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.equal(ledger['cybrik-soc-command-center'].files['.gitleaks.toml'].classification, 'GOVERNANCE_OR_DOCUMENTATION');
+  assert.equal(ledger['cybrik-soc-command-center'].files['SPRINT-0-CLOSURE.md'].classification, 'GOVERNANCE_OR_DOCUMENTATION');
+  assert.equal(ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py'].classification, 'SUPPORTING_TOOLING_OR_TEST');
+  assert.equal(ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py'].classification, 'PRODUCT_IMPLEMENTATION_ADAPTER');
+  assert.equal(ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go'].status, 'SCAFFOLD');
+
   for (const [repo, data] of Object.entries(ledger)) {
     for (const [filePath, entry] of Object.entries(data.files)) {
       assert.ok(validClassifications.has(entry.classification), `${repo}:${filePath} invalid classification ${entry.classification}`);
@@ -468,3 +478,4 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
     }
   }
 });
+
