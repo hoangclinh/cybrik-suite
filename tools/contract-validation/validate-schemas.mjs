@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '9090a5c7a126b54140f2b7c64ad7b2db3451859ad5890b1b5da0ac9cf522cc18') {
+  if (ledgerDigest !== '6b16ad7881d9b5d917dd4b6070e50719517acfb3252ab9008b40afd375fcae89') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -919,6 +919,8 @@ try {
   // Semantic oracle checks
   if (ledger['cybrik-soc-command-center'].files['START-CYBRIK.command']?.classification !== 'DEPLOYMENT_PROFILE_OR_CONFIG' ||
       ledger['cybrik-soc-command-center'].files['Makefile']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-soc-command-center'].files['services/api/.coverage']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-soc-command-center'].files['services/api/dump.rdb']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-soc-command-center'].files['.gitleaks.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-soc-command-center'].files['.gitleaksignore']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||

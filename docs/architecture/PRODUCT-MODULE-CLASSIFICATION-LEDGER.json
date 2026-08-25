@@ -4,132 +4,132 @@
     "files": {
       ".github/workflows/ci.yml": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".gitleaks.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".python-version": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-python-toolchain-and-project-structure.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-local-model-runtime-abstraction.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/MODEL-RUNTIME-PORT.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/SKELETON-SCOPE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-DURABLE-POSTGRES-SLICE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-LIFECYCLE-RUNTIME-COMPOSITION.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/SLICE-1-MODEL-RUNTIME-EXECUTION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/__init__.py": {
@@ -313,8 +313,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/py.typed": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/__init__.py": {
@@ -339,7 +339,7 @@
       },
       "pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/migrations/alembic.ini": {
@@ -369,7 +369,7 @@
       },
       "services/ai-api/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/__init__.py": {
@@ -433,8 +433,8 @@
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/py.typed": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/runtime_composition.py": {
@@ -464,7 +464,7 @@
       },
       "services/ai-worker/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-worker/src/cybrik_ai_worker/__init__.py": {
@@ -473,638 +473,638 @@
         "status": "SCAFFOLD"
       },
       "services/ai-worker/src/cybrik_ai_worker/py.typed": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Background worker package scaffold; unpopulated at RC1.",
-        "status": "SCAFFOLD"
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "status": "IMPLEMENTED"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_investigation_projection.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_investigation_service.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_lifecycle_http.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_lifecycle_relying_party.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_ollama_adapter.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_packaging.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_postgres_durable.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_stub_adapter.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_summarize_service.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_transport_security.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_budget.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_certbind.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_delegation_issuer_binding.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_delegation_units.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_delegation_verifier.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_durable_controller.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_marking.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_orchestration_checkpoints.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_orchestration_controller.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_orchestration_memory_ports.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_orchestration_state.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_packaging.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_policy.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_prompts_telemetry_errors.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_resilience.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_scaffold_integrity.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_core/test_security.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_worker/test_packaging.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/conftest.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/alert-summarization-request.empty-alert-refs.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/alert-summarization-result.ungrounded-citation.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-capability.missing-limits.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-capability.tool-calling-enabled.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.cross-tenant.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.redaction-proceed.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.short-idempotency-key.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.tool-authority.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.unsupported-feature.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-request.vendor-pinned.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-result.marking-downgrade.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/negative/model-inference-result.refused-missing-reason.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/alert-summarization-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/alert-summarization-result.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-capability.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-health.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-inference-error.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-inference-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-inference-result.completed.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/inference/positive/model-inference-result.refused-fallback.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/adapters/cybrik-svc-lifecycle-delegation-mapping-notes.v1.md": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.actor-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.bundle-read-not-delegatable.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.checkpoint-not-delegatable.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.marking-escalation.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.operation-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.org-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.replay.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.scope-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.tenant-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/negative-semantic/svc-lifecycle-request.wrong-audience.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/positive/svc-lifecycle-cancel-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/positive/svc-lifecycle-create-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/positive/svc-lifecycle-status-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/examples/svc-lifecycle/positive/svc-lifecycle-trust-metadata.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle-delegation/provenance.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/compatibility/cybrik-suite-investigation-lifecycle-proposal.v1.manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-schema/investigation-cancel-request.missing-version.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-schema/investigation-checkpoint.sequence-zero.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-schema/investigation-create-request.short-idempotency.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-schema/investigation-create-request.tool-authority.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-schema/investigation-lifecycle-error.existence-leak.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-cancel-request.stale-version.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-cancel-request.terminal-race.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-checkpoint.retry-mutates-terminal-attempt.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-create-request.cross-tenant.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-create-request.idempotency-conflict.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/negative-semantic/investigation-status.org-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/positive/investigation-cancel-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/positive/investigation-checkpoint.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/positive/investigation-create-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/positive/investigation-lifecycle-error.not-found.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/examples/investigation-lifecycle/positive/investigation-status.cancelled.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-cancel-request.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-checkpoint.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-create-request.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-lifecycle-common-defs.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-lifecycle-error.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/json-schema/cybrik.investigation-status.v1.schema.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/openapi/cybrik-ai-investigation-lifecycle-proposal.v1.openapi.yaml": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/lifecycle/provenance.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.forwarded-user-token.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.marking-escalation.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.operation-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.org-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.replay.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.static-bearer.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.tenant-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-request.wrong-audience.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.alg-none.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.expired.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.future.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.missing-cnf.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.missing-jti.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.over-ttl.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.symmetric-alg.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/negative/svc-delegation-token.wrong-cnf.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/positive/svc-delegation-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/positive/svc-delegation-token.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/positive/svc-trust-metadata.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/fixtures/svc/provenance.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_lifecycle_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_lifecycle_delegation_binding.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_lifecycle_http_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_lifecycle_producer_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_lifecycle_provenance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_svc_delegation.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_w2i_transport_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/contract/test_wire_contracts.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "tests/test_workspace.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Test suites or CI workflows.",
+        "notes": "Test suites, test fixtures, or CI workflows.",
         "status": "IMPLEMENTED"
       },
       "uv.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, security policies, or repository metadata.",
+        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       }
     }
@@ -1114,7 +1114,7 @@
     "files": {
       ".github/workflows/ci.yml": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       ".gitignore": {
@@ -1149,162 +1149,162 @@
       },
       "contracts-vendor/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/compatibility/cybrik-suite-alert-context-transport-binding.v1.manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/contracts.lock.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-request.authorization-binding-asserted.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-request.capability-pin-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-result.approval-required.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-result.completed-without-receipt.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-result.output-artifact-locator.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-schema/bound-result.unavailable-with-output.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-semantic/bound-request.idempotency-key-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-semantic/bound-request.tenant-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/negative-semantic/bound-request.w2f-token-as-delegation-ref.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/positive/bound-request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/positive/bound-result.available.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/positive/bound-result.kill-switch-denied.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context-transport/positive/bound-result.unavailable.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/examples-manifest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-schema/request.alert-ref-missing-digest.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-schema/request.execution-grant-in-body.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-schema/request.w2f-delegation-as-tool-grant.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-schema/result.existence-leak.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-semantic/request.cross-tenant-actor.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-semantic/result.clearance-exceeded.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-semantic/result.cross-org.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/negative-semantic/result.digest-mismatch.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/positive/request.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/positive/result.available.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/alert-context/positive/result.unavailable.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/negative/capability.missing-limits.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/positive/capability.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/fixtures/positive/data-marking.json": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/json-schema/cybrik.capability.v1.schema.json": {
@@ -1579,7 +1579,7 @@
       },
       "src/executor/cmd/executor/main_test.go": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "src/executor/go.mod": {
@@ -1594,12 +1594,12 @@
       },
       "src/executor/internal/boundary/boundary_test.go": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/tier/fuzz_test.go": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/tier/tier.go": {
@@ -1609,7 +1609,7 @@
       },
       "src/executor/internal/tier/tier_test.go": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/version/version.go": {
@@ -1619,7 +1619,7 @@
       },
       "src/executor/internal/version/version_test.go": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/README.md": {
@@ -1659,22 +1659,22 @@
       },
       "tests/conformance/test_alert_context_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_capability_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_registry_packet_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_transport_binding_conformance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/README.md": {
@@ -1684,87 +1684,87 @@
       },
       "tests/control-plane/test_alert_context_validation.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_boundary.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_capability_name_canonicalization_red.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_capability_validation.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_ci_admission.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_contract_provenance.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_effect_bridge.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_import_smoke.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_jcs_subset.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_license_policy.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_liveness.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_liveness_property.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_offline_no_network.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_r0_invocation_security.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_r0_invocation_service.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_registry_packet.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_version.py": {
         "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Contract conformance suites, unit tests, test fixtures, or Go tests.",
+        "notes": "Contract conformance suites, unit tests, test fixtures, compatibility manifests, or Go tests.",
         "status": "IMPLEMENTED"
       },
       "tests/executor/README.md": {
@@ -2764,12 +2764,12 @@
       },
       "deploy/cron/cybrik-backup.cron": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/backup/Dockerfile": {
@@ -2779,7 +2779,7 @@
       },
       "deploy/docker/dev-up.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/dev_endpoints.py": {
@@ -2789,22 +2789,22 @@
       },
       "deploy/docker/docker-compose.backup.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/docker-compose.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/geoip/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/initdb/01-roles.sql": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/screenshots/Dockerfile": {
@@ -2819,47 +2819,47 @@
       },
       "deploy/log-collection/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/AGENT-DESIGN.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/agent.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.ps1": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/auditd.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/fluent-bit.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/sysmon-winevtlog.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/signer/cybrik_webhook_signer.py": {
@@ -2874,112 +2874,112 @@
       },
       "deploy/log-collection/vector/vector.yaml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/.env.t1.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/certs/.gitignore": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/certs/gen-certs.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-demo.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-workers.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t0.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.bench.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/opensearch/ism-events-normalized.json": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/staging/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Deployment and log collection documentation.",
+        "notes": "Deployment and log collection architecture documentation.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/staging/docker-compose.staging.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init-demo.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-drill.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "docs/CONTINUITY-HANDOFF.md": {
@@ -4493,8 +4493,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/.coverage": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Domain logic.",
+        "classification": "SUPPORTING_TOOLING_OR_TEST",
+        "notes": "Test coverage artifact or Redis transient database snapshot.",
         "status": "IMPLEMENTED"
       },
       "services/api/Dockerfile": {
@@ -5028,8 +5028,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/dump.rdb": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Domain logic.",
+        "classification": "SUPPORTING_TOOLING_OR_TEST",
+        "notes": "Test coverage artifact or Redis transient database snapshot.",
         "status": "IMPLEMENTED"
       },
       "services/api/pyproject.toml": {
