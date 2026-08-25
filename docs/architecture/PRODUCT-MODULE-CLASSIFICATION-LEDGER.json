@@ -263,8 +263,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/checkpoints.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "Mixed-role file containing CheckpointLog port combined with built-in InMemoryCheckpointLog dev/test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/controller.py": {
@@ -1503,13 +1503,13 @@
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/invocation/ports.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure in-process R0 soc.get_alert_context@0.1.0 domain ports and models.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "Mixed-role file containing IdempotencyStore port combined with DevTestOnlyInMemoryIdempotencyStore test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/invocation/service.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "In-process R0 invocation domain service.",
+        "notes": "Pure in-process R0 soc.get_alert_context@0.1.0 domain ports and models.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/liveness.py": {
@@ -1779,7 +1779,7 @@
     "files": {
       ".dockerignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       ".github/workflows/ci.yml": {
@@ -1789,27 +1789,27 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       ".gitleaks.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       ".gitleaksignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "LICENSE": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "Makefile": {
@@ -1819,22 +1819,22 @@
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "SPRINT-0-CLOSURE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "SPRINT-0-IMPLEMENTATION-PLAN.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Repository metadata, license, security policy, or sprint closure documentation.",
+        "notes": "Root repository metadata, license, security policy, or sprint closure documentation.",
         "status": "IMPLEMENTED"
       },
       "START-CYBRIK.command": {
@@ -5613,8 +5613,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/executions.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "Mixed-role file containing CanonicalQueryExecutor Protocol port combined with concrete execution coordinator and SQL/DSL query reproduction compiler; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/hunts.py": {
