@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '00b2e14ad38151b8e16e1378cf84f0aa5eefd109a245edb5f024279d2665c1cf') {
+  if (ledgerDigest !== '908767158fe8c1ea07ccc40ccf2b26cd52a86aca347f3b34443cd5c782daee67') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 

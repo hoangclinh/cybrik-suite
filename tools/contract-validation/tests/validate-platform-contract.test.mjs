@@ -440,7 +440,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  assert.equal(ledgerDigest, '00b2e14ad38151b8e16e1378cf84f0aa5eefd109a245edb5f024279d2665c1cf', 'Ledger digest mismatch');
+  assert.equal(ledgerDigest, '908767158fe8c1ea07ccc40ccf2b26cd52a86aca347f3b34443cd5c782daee67', 'Ledger digest mismatch');
 
   const ledger = JSON.parse(ledgerRaw);
   const repoKeys = Object.keys(ledger);

@@ -9,132 +9,132 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".gitleaks.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".python-version": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-python-toolchain-and-project-structure.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-local-model-runtime-abstraction.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/MODEL-RUNTIME-PORT.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/SKELETON-SCOPE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-DURABLE-POSTGRES-SLICE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-LIFECYCLE-RUNTIME-COMPOSITION.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/SLICE-1-MODEL-RUNTIME-EXECUTION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/authority.py": {
@@ -144,7 +144,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/contract/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/contract/common.py": {
@@ -169,7 +169,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/audit.py": {
@@ -229,7 +229,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/budget.py": {
@@ -254,7 +254,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/attempt.py": {
@@ -314,12 +314,12 @@
       },
       "packages/ai-core/src/cybrik_ai_core/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/egress.py": {
@@ -339,7 +339,7 @@
       },
       "pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/migrations/alembic.ini": {
@@ -369,17 +369,17 @@
       },
       "services/ai-api/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/ollama.py": {
@@ -399,7 +399,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/investigations/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/investigations/api.py": {
@@ -424,7 +424,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/postgres.py": {
@@ -434,7 +434,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/runtime_composition.py": {
@@ -449,7 +449,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/summarize/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/summarize/service.py": {
@@ -479,7 +479,7 @@
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_investigation_projection.py": {
@@ -1104,7 +1104,7 @@
       },
       "uv.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, test documentation, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       }
     }
@@ -1119,32 +1119,32 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json": {
@@ -1349,102 +1349,102 @@
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-tool-fabric-implementation-stack.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-contract-bundle-consumption-and-conformance-slice.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0003-w1c1-effect-bridge.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0004-c1-g1-correction-resync.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-1-CONTRACT-CONFORMANCE-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__about__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/app.py": {
@@ -1454,7 +1454,7 @@
       },
       "src/control-plane/cybrik_fabric_control/contracts/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/contracts/alert_context.py": {
@@ -1494,7 +1494,7 @@
       },
       "src/control-plane/cybrik_fabric_control/invocation/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/invocation/models.py": {
@@ -1519,12 +1519,12 @@
       },
       "src/control-plane/cybrik_fabric_control/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/registry/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/registry/packet.py": {
@@ -1534,42 +1534,42 @@
       },
       "src/control-plane/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/.golangci.yml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/cmd/executor/main.go": {
@@ -1584,12 +1584,12 @@
       },
       "src/executor/go.mod": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/go.sum": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/boundary/boundary_test.go": {
@@ -1614,7 +1614,7 @@
       },
       "src/executor/internal/version/version.go": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/executor/internal/version/version_test.go": {
@@ -1624,37 +1624,37 @@
       },
       "src/executor/tiers/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r0/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r1/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r2/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r3/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_alert_context_conformance.py": {
@@ -1679,7 +1679,7 @@
       },
       "tests/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_alert_context_validation.py": {
@@ -1769,7 +1769,7 @@
       },
       "tests/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, test documentation, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       }
     }
