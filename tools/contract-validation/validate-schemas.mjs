@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '6b55e92718a17e3693f5eb424e49e6dc9b381bce53dc596139ae741dc7797900') {
+  if (ledgerDigest !== '3c3b71a6a9b8244af81b403396dce22ad972b82916aa351ab31ae908f0fa908d') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -923,7 +923,7 @@ try {
     throw new Error('Total ledger file count mismatch: expected 1650');
   }
 
-  // Semantic oracle checks
+  // Semantic sentinel checks
   if (ledger['cybrik-soc-command-center'].files['START-CYBRIK.command']?.classification !== 'DEPLOYMENT_PROFILE_OR_CONFIG' ||
       ledger['cybrik-soc-command-center'].files['Makefile']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-soc-command-center'].files['services/api/.coverage']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
@@ -962,7 +962,7 @@ try {
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/py.typed']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/internal/version/version.go']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/internal/tier/tier.go']?.classification !== 'PRODUCT_CORE') {
-    throw new Error('Ledger semantic oracle assertions failed');
+    throw new Error('Ledger semantic sentinel checks failed');
   }
 
   for (const [repo, data] of Object.entries(ledger)) {

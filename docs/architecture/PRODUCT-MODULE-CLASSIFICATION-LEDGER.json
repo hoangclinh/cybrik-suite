@@ -6239,7 +6239,7 @@
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Abstract vulnerability parser interface and shared domain utilities.",
+        "notes": "Normalized vulnerability finding dataclasses (ParsedFinding, ParsedReport), error hierarchy (VulnParseError), and sanitization utilities.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/generic.py": {

@@ -440,7 +440,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  assert.equal(ledgerDigest, '6b55e92718a17e3693f5eb424e49e6dc9b381bce53dc596139ae741dc7797900', 'Ledger digest mismatch');
+  assert.equal(ledgerDigest, '3c3b71a6a9b8244af81b403396dce22ad972b82916aa351ab31ae908f0fa908d', 'Ledger digest mismatch');
 
   const ledger = JSON.parse(ledgerRaw);
   const repoKeys = Object.keys(ledger);
@@ -459,7 +459,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.equal(socFiles.length, 1297, `Expected 1297 SOC files, got ${socFiles.length}`);
   assert.equal(aiFiles.length + fabricFiles.length + socFiles.length, 1650, 'Total ledger files must be exactly 1650');
 
-  // Concrete semantic oracle assertions
+  // Concrete semantic sentinel assertions
   assert.equal(ledger['cybrik-soc-command-center'].files['START-CYBRIK.command'].classification, 'DEPLOYMENT_PROFILE_OR_CONFIG');
   assert.equal(ledger['cybrik-soc-command-center'].files['Makefile'].classification, 'SUPPORTING_TOOLING_OR_TEST');
   assert.equal(ledger['cybrik-soc-command-center'].files['services/api/.coverage'].classification, 'SUPPORTING_TOOLING_OR_TEST');
