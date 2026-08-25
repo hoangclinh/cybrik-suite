@@ -9,132 +9,132 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".gitleaks.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".python-version": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-python-toolchain-and-project-structure.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-local-model-runtime-abstraction.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/MODEL-RUNTIME-PORT.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/SKELETON-SCOPE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-DURABLE-POSTGRES-SLICE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-LIFECYCLE-RUNTIME-COMPOSITION.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/SLICE-1-MODEL-RUNTIME-EXECUTION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/authority.py": {
@@ -143,8 +143,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/contract/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/contract/common.py": {
@@ -168,8 +168,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/audit.py": {
@@ -228,8 +228,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/budget.py": {
@@ -253,8 +253,8 @@
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/attempt.py": {
@@ -314,12 +314,12 @@
       },
       "packages/ai-core/src/cybrik_ai_core/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/egress.py": {
@@ -339,7 +339,7 @@
       },
       "pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/migrations/alembic.ini": {
@@ -369,17 +369,17 @@
       },
       "services/ai-api/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Package namespace entrypoint exporting concrete database / runtime adapters.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/ollama.py": {
@@ -398,8 +398,8 @@
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/investigations/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/investigations/api.py": {
@@ -423,8 +423,8 @@
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Package namespace entrypoint exporting concrete database / runtime adapters.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/postgres.py": {
@@ -434,7 +434,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/runtime_composition.py": {
@@ -448,8 +448,8 @@
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/summarize/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Wire-agnostic domain logic, Pydantic contract models, or policy invariants.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/summarize/service.py": {
@@ -464,22 +464,22 @@
       },
       "services/ai-worker/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-worker/src/cybrik_ai_worker/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Background worker package scaffold; unpopulated at RC1.",
-        "status": "SCAFFOLD"
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "status": "IMPLEMENTED"
       },
       "services/ai-worker/src/cybrik_ai_worker/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_investigation_projection.py": {
@@ -1104,7 +1104,7 @@
       },
       "uv.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       }
     }
@@ -1119,32 +1119,32 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json": {
@@ -1349,102 +1349,102 @@
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-tool-fabric-implementation-stack.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-contract-bundle-consumption-and-conformance-slice.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0003-w1c1-effect-bridge.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0004-c1-g1-correction-resync.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-1-CONTRACT-CONFORMANCE-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__about__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/app.py": {
@@ -1453,9 +1453,9 @@
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/contracts/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Tool invocation schemas and capability models.",
-        "status": "IMPLEMENTED"
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/contracts/alert_context.py": {
         "classification": "PRODUCT_CORE",
@@ -1493,9 +1493,9 @@
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/invocation/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "In-process R0 invocation domain service.",
-        "status": "IMPLEMENTED"
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/invocation/models.py": {
         "classification": "PRODUCT_CORE",
@@ -1519,13 +1519,13 @@
       },
       "src/control-plane/cybrik_fabric_control/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/registry/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Tool capability registry packet parsing implementation.",
-        "status": "IMPLEMENTED"
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
+        "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/registry/packet.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
@@ -1534,42 +1534,42 @@
       },
       "src/control-plane/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/.golangci.yml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/cmd/executor/main.go": {
@@ -1584,12 +1584,12 @@
       },
       "src/executor/go.mod": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/go.sum": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/boundary/boundary_test.go": {
@@ -1613,8 +1613,8 @@
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/version/version.go": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Go package defining SemVer constant 0.0.0 and getter; scaffold at RC1.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "SCAFFOLD"
       },
       "src/executor/internal/version/version_test.go": {
@@ -1624,37 +1624,37 @@
       },
       "src/executor/tiers/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r0/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r1/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r2/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r3/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_alert_context_conformance.py": {
@@ -1679,7 +1679,7 @@
       },
       "tests/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_alert_context_validation.py": {
@@ -1769,7 +1769,7 @@
       },
       "tests/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, typing markers, metadata, or scaffold package initialization.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, SemVer constant, or package initialization.",
         "status": "IMPLEMENTED"
       }
     }
@@ -3593,8 +3593,8 @@
         "status": "IMPLEMENTED"
       },
       "ops/backup/cybrik_backup/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL backup, restore, and drill CLI tool adapter.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "ops/backup/cybrik_backup/__main__.py": {
@@ -3698,8 +3698,8 @@
         "status": "IMPLEMENTED"
       },
       "ops/pf-bench/pf_bench/__init__.py": {
-        "classification": "SUPPORTING_TOOLING_OR_TEST",
-        "notes": "Packet-fabric benchmark producer and consumer test harness.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "ops/pf-bench/pf_bench/config.py": {
@@ -3758,8 +3758,8 @@
         "status": "IMPLEMENTED"
       },
       "ops/pf-workers/pf_workers/__init__.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Packet-fabric stream processing worker adapter (Kafka, S3 SeaweedFS, OpenSearch, Parquet).",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "ops/pf-workers/pf_workers/alert_writer.py": {
@@ -5138,8 +5138,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/config.py": {
@@ -5158,8 +5158,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/api.py": {
@@ -5168,8 +5168,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/api.py": {
@@ -5179,27 +5179,27 @@
       },
       "services/api/src/cybrik_soc/modules/alert/context/authorize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/clearance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/digest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/models.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/ports.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/reader_pg.py": {
@@ -5209,12 +5209,12 @@
       },
       "services/api/src/cybrik_soc/modules/alert/context/redact.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/service.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/store_pg.py": {
@@ -5258,8 +5258,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/asset/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/asset/api.py": {
@@ -5278,8 +5278,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/audit/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/audit/api.py": {
@@ -5298,8 +5298,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/authorization/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/authorization/deps.py": {
@@ -5309,7 +5309,7 @@
       },
       "services/api/src/cybrik_soc/modules/authorization/matrix.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/README.md": {
@@ -5318,8 +5318,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/api.py": {
@@ -5343,8 +5343,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/api.py": {
@@ -5368,8 +5368,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/api.py": {
@@ -5404,7 +5404,7 @@
       },
       "services/api/src/cybrik_soc/modules/copilot/shadow_remote_contract.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/shadow_suggest_worker.py": {
@@ -5418,8 +5418,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/api.py": {
@@ -5434,7 +5434,7 @@
       },
       "services/api/src/cybrik_soc/modules/datalake/lifecycle.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/opensearch_adapter.py": {
@@ -5449,12 +5449,12 @@
       },
       "services/api/src/cybrik_soc/modules/datalake/retention.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/search.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/service.py": {
@@ -5463,13 +5463,13 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/access_control.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/api.py": {
@@ -5479,32 +5479,32 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/case_link.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/classification.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/clearance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/collectors.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/copilot_summary.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/custody.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/endpoint.py": {
@@ -5514,22 +5514,22 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/evidence.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/integrity_sweep.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/legal_report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/linkage.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/models.py": {
@@ -5539,7 +5539,7 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/pcap_analysis.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/repo.py": {
@@ -5549,12 +5549,12 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/search.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/store.py": {
@@ -5564,12 +5564,12 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/timeline.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/api.py": {
@@ -5588,8 +5588,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/api.py": {
@@ -5604,7 +5604,7 @@
       },
       "services/api/src/cybrik_soc/modules/hunt/copilot_suggest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/datalake.py": {
@@ -5614,17 +5614,17 @@
       },
       "services/api/src/cybrik_soc/modules/hunt/executions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/hunts.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/ioc_pivot.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/models.py": {
@@ -5639,22 +5639,22 @@
       },
       "services/api/src/cybrik_soc/modules/hunt/pivot.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/promote.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/query_spec.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/sigma.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/README.md": {
@@ -5663,8 +5663,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/api.py": {
@@ -5699,27 +5699,27 @@
       },
       "services/api/src/cybrik_soc/modules/ingest/ecs.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/field_maps.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_bsd.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_ext.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/models.py": {
@@ -5729,12 +5729,12 @@
       },
       "services/api/src/cybrik_soc/modules/ingest/normalizers.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/ocsf.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/pf_bridge.py": {
@@ -5764,12 +5764,12 @@
       },
       "services/api/src/cybrik_soc/modules/ingest/source_labels.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/time_guard.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/README.md": {
@@ -5783,8 +5783,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/api.py": {
@@ -5819,22 +5819,22 @@
       },
       "services/api/src/cybrik_soc/modules/ioc/normalize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/stix.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/taxii.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/api.py": {
@@ -5844,7 +5844,7 @@
       },
       "services/api/src/cybrik_soc/modules/org/contract.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/models.py": {
@@ -5854,7 +5854,7 @@
       },
       "services/api/src/cybrik_soc/modules/org/scoping.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/session.py": {
@@ -5863,8 +5863,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/prefs/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/prefs/api.py": {
@@ -5883,8 +5883,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/api.py": {
@@ -5894,17 +5894,17 @@
       },
       "services/api/src/cybrik_soc/modules/siem/correlation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/field_mapping.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/orm.py": {
@@ -5914,17 +5914,17 @@
       },
       "services/api/src/cybrik_soc/modules/siem/rules.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/sigma.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/sigma_match.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/README.md": {
@@ -5933,13 +5933,13 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/actions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/api.py": {
@@ -5949,12 +5949,12 @@
       },
       "services/api/src/cybrik_soc/modules/soar/audit.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/fortigate.py": {
@@ -5964,12 +5964,12 @@
       },
       "services/api/src/cybrik_soc/modules/soar/context.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_draft.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_seam.py": {
@@ -5979,12 +5979,12 @@
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_tool.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/expire_worker.py": {
@@ -5994,12 +5994,12 @@
       },
       "services/api/src/cybrik_soc/modules/soar/guards.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/library.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/orm.py": {
@@ -6009,12 +6009,12 @@
       },
       "services/api/src/cybrik_soc/modules/soar/playbook.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/runtime.py": {
@@ -6024,17 +6024,17 @@
       },
       "services/api/src/cybrik_soc/modules/soar/samples.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/serialize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/simulate.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/README.md": {
@@ -6043,8 +6043,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/api.py": {
@@ -6063,13 +6063,13 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/alerts.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/api.py": {
@@ -6079,77 +6079,77 @@
       },
       "services/api/src/cybrik_soc/modules/ueba/baseline.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/baseline_pack.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/classification.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detect.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_ah.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_bc.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_dx.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_lm.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_pg.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_ua.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/events.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/features.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/findings.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/iforest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/learning_worker.py": {
@@ -6164,12 +6164,12 @@
       },
       "services/api/src/cybrik_soc/modules/ueba/risk.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/stats.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/README.md": {
@@ -6178,8 +6178,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/api.py": {
@@ -6189,42 +6189,42 @@
       },
       "services/api/src/cybrik_soc/modules/vulnerability/compliance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/consolidation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/correlation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/cve_enrichment.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/exceptions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/intel.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/lifecycle.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/models.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/orm.py": {
@@ -6233,53 +6233,53 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/generic.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/greenbone.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/grype.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/nmap.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/nuclei.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/trivy.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/policy_config.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/remediation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/repo.py": {
@@ -6289,27 +6289,27 @@
       },
       "services/api/src/cybrik_soc/modules/vulnerability/reporting.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/rescore.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/risk.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/service.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/audit_support.py": {
@@ -6319,12 +6319,12 @@
       },
       "services/api/src/cybrik_soc/platform/client_ip.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/context.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/database.py": {
@@ -6349,7 +6349,7 @@
       },
       "services/api/src/cybrik_soc/platform/logging.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/outbound.py": {
@@ -6359,7 +6359,7 @@
       },
       "services/api/src/cybrik_soc/platform/provenance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/rate_limit.py": {
@@ -6388,18 +6388,18 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/__init__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Python package initialization and module namespace marker.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/algorithms.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/errors.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/factory.py": {
@@ -6414,7 +6414,7 @@
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/models.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/principal_adapter.py": {
@@ -6424,7 +6424,7 @@
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/scopes.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/signer.py": {

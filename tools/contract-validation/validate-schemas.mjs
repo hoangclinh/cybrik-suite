@@ -855,11 +855,15 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== 'bfd2db770899d6c2205b439b68788f486530bf19133b597bdb694161a3ed9b47') {
+  if (ledgerDigest !== '1ab796d0dbe7b772e0f3d9c94039d2c83e33cf66effd42b2d3c199abe0dfdfcb') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
   const ledger = JSON.parse(ledgerRaw);
+  const repoKeys = Object.keys(ledger).sort();
+  if (repoKeys.length !== 3 || repoKeys[0] !== 'cybrik-cyber-ai-platform' || repoKeys[1] !== 'cybrik-security-tool-fabric' || repoKeys[2] !== 'cybrik-soc-command-center') {
+    throw new Error('Exact 3 closed top-level repositories expected');
+  }
 
   const validClassifications = new Set([
     'PRODUCT_CORE',
@@ -898,7 +902,7 @@ try {
     sections[currentSec]++;
   }
 
-  if (sections['2.1'] !== 28 || sections['2.2'] !== 13 || sections['2.3'] !== 80 || sections['2.4'] !== 2) {
+  if (sections['2.1'] !== 27 || sections['2.2'] !== 13 || sections['2.3'] !== 72 || sections['2.4'] !== 2) {
     throw new Error(`Section row counts mismatch: ${JSON.stringify(sections)}`);
   }
 
@@ -914,6 +918,9 @@ try {
 
   if (aiFiles.length !== 221 || fabricFiles.length !== 132 || socFiles.length !== 1297) {
     throw new Error(`Ledger counts mismatch: AI=${aiFiles.length}, Fabric=${fabricFiles.length}, SOC=${socFiles.length}`);
+  }
+  if (aiFiles.length + fabricFiles.length + socFiles.length !== 1650) {
+    throw new Error('Total ledger file count mismatch: expected 1650');
   }
 
   // Semantic oracle checks
@@ -931,7 +938,7 @@ try {
       ledger['cybrik-soc-command-center'].files['packages/design-system/tokens/tokens.css']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['ops/backup/cybrik_backup/backup.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/content/sigma/collection_archive_staging.yml']?.classification !== 'PRODUCT_CORE' ||
-      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/__init__.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/context/wire.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/context/models.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/forensics/search.py']?.classification !== 'PRODUCT_CORE' ||
@@ -939,12 +946,24 @@ try {
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/signer.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/models.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/svc_delegation/errors.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD' ||
       ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
-      ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/py.typed']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION') {
+      ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/contracts/__init__.py']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/py.typed']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['src/executor/internal/version/version.go']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-security-tool-fabric'].files['src/executor/internal/tier/tier.go']?.classification !== 'PRODUCT_CORE') {
     throw new Error('Ledger semantic oracle assertions failed');
+  }
+
+  for (const [repo, data] of Object.entries(ledger)) {
+    for (const [filePath, entry] of Object.entries(data.files)) {
+      if (!validClassifications.has(entry.classification)) throw new Error(`${repo}:${filePath} invalid classification ${entry.classification}`);
+      if (!validStatuses.has(entry.status)) throw new Error(`${repo}:${filePath} invalid status ${entry.status}`);
+      if (!entry.notes || entry.notes.length === 0) throw new Error(`${repo}:${filePath} empty notes`);
+    }
   }
 
   H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass strict governance and semantic oracle validation');
