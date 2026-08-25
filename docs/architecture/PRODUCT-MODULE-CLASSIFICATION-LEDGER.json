@@ -1119,32 +1119,32 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "contracts-vendor/compatibility/cybrik-suite-alert-context-packet.v1.manifest.json": {
@@ -1349,103 +1349,103 @@
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-tool-fabric-implementation-stack.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-contract-bundle-consumption-and-conformance-slice.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0003-w1c1-effect-bridge.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0004-c1-g1-correction-resync.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-1-CONTRACT-CONFORMANCE-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__about__.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Domain contracts and definitions.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Domain contracts and definitions.",
-        "status": "IMPLEMENTED"
+        "notes": "Control plane package namespace scaffold (unpopulated at RC1).",
+        "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/app.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
@@ -1518,8 +1518,8 @@
         "status": "SCAFFOLD"
       },
       "src/control-plane/cybrik_fabric_control/py.typed": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Domain contracts and definitions.",
+        "classification": "GOVERNANCE_OR_DOCUMENTATION",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/registry/__init__.py": {
@@ -1534,42 +1534,42 @@
       },
       "src/control-plane/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements-dev.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.in": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/requirements.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/.golangci.yml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/Dockerfile": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/cmd/executor/main.go": {
@@ -1584,12 +1584,12 @@
       },
       "src/executor/go.mod": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/go.sum": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/internal/boundary/boundary_test.go": {
@@ -1624,37 +1624,37 @@
       },
       "src/executor/tiers/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r0/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r1/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r2/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "src/executor/tiers/r3/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "tests/conformance/test_alert_context_conformance.py": {
@@ -1679,7 +1679,7 @@
       },
       "tests/control-plane/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       },
       "tests/control-plane/test_alert_context_validation.py": {
@@ -1769,7 +1769,7 @@
       },
       "tests/executor/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, build/container specifications, security policies, or repository metadata.",
+        "notes": "Architecture records, build/container specifications, typing markers, metadata, or security policies.",
         "status": "IMPLEMENTED"
       }
     }
@@ -2764,12 +2764,12 @@
       },
       "deploy/cron/cybrik-backup.cron": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/backup/Dockerfile": {
@@ -2779,7 +2779,7 @@
       },
       "deploy/docker/dev-up.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/dev_endpoints.py": {
@@ -2789,12 +2789,12 @@
       },
       "deploy/docker/docker-compose.backup.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/docker-compose.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/geoip/README.md": {
@@ -2804,7 +2804,7 @@
       },
       "deploy/docker/initdb/01-roles.sql": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/screenshots/Dockerfile": {
@@ -2834,32 +2834,32 @@
       },
       "deploy/log-collection/agent/cybrik-log-agent/agent.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.ps1": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/auditd.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/fluent-bit.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/sysmon-winevtlog.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/signer/cybrik_webhook_signer.py": {
@@ -2874,12 +2874,12 @@
       },
       "deploy/log-collection/vector/vector.yaml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/.env.t1.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/README.md": {
@@ -2889,47 +2889,47 @@
       },
       "deploy/pf/certs/.gitignore": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/certs/gen-certs.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-demo.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-workers.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t0.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.bench.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/opensearch/ism-events-normalized.json": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/staging/README.md": {
@@ -2939,47 +2939,47 @@
       },
       "deploy/pf/staging/docker-compose.staging.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init-demo.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-drill.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "docs/CONTINUITY-HANDOFF.md": {
@@ -3694,7 +3694,7 @@
       },
       "ops/pf-bench/.gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Packet-fabric benchmark harness package manifest.",
+        "notes": "Packet-fabric benchmark harness package manifest and git metadata.",
         "status": "IMPLEMENTED"
       },
       "ops/pf-bench/pf_bench/__init__.py": {
@@ -3729,7 +3729,7 @@
       },
       "ops/pf-bench/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Packet-fabric benchmark harness package manifest.",
+        "notes": "Packet-fabric benchmark harness package manifest and git metadata.",
         "status": "IMPLEMENTED"
       },
       "ops/pf-bench/scripts/run_smoke.sh": {
@@ -5139,17 +5139,17 @@
       },
       "services/api/src/cybrik_soc/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Root package namespace initialization.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/config.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI ASGI application entrypoint, CORS configuration, and environment variable settings.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/main.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI ASGI application entrypoint, CORS configuration, and environment variable settings.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/README.md": {
@@ -5159,97 +5159,97 @@
       },
       "services/api/src/cybrik_soc/modules/alert/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/authorize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/clearance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/digest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/models.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure dataclass vulnerability/alert context domain models.",
+        "notes": "Pure dataclass value objects and contract domain models.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/ports.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/reader_pg.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/redact.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/service.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/store_pg.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/context/wire.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/metrics.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/pagination.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/related.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/alert/triage.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/asset/README.md": {
@@ -5259,17 +5259,17 @@
       },
       "services/api/src/cybrik_soc/modules/asset/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/asset/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/asset/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/audit/README.md": {
@@ -5279,17 +5279,17 @@
       },
       "services/api/src/cybrik_soc/modules/audit/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/audit/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/audit/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/authorization/README.md": {
@@ -5299,17 +5299,17 @@
       },
       "services/api/src/cybrik_soc/modules/authorization/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/authorization/deps.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/authorization/matrix.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/README.md": {
@@ -5319,22 +5319,22 @@
       },
       "services/api/src/cybrik_soc/modules/case/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/case/service.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/README.md": {
@@ -5344,22 +5344,22 @@
       },
       "services/api/src/cybrik_soc/modules/connector/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/bootstrap.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/connector/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/README.md": {
@@ -5369,187 +5369,187 @@
       },
       "services/api/src/cybrik_soc/modules/copilot/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/gateway.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/lifecycle_create.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/llm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/shadow_remote.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/shadow_remote_contract.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/shadow_suggest_worker.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/copilot/tools.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/es_adapter.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/lifecycle.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/opensearch_adapter.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/retention.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/search.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/service.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/access_control.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/case_link.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/classification.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/clearance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/collectors.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/copilot_summary.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/custody.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/endpoint.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/evidence.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/integrity_sweep.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/legal_report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/linkage.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/pcap_analysis.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/repo.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/search.py": {
@@ -5559,102 +5559,102 @@
       },
       "services/api/src/cybrik_soc/modules/forensics/store.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/forensics/timeline.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/metrics.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/geoip/reader.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/compiler_sql.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/copilot_suggest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/datalake.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/executions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/hunts.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/ioc_pivot.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/pivot.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/promote.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/query_spec.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/sigma.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/README.md": {
@@ -5664,112 +5664,112 @@
       },
       "services/api/src/cybrik_soc/modules/identity/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/membership.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/membership_api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/identity/service.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/ecs.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/field_maps.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_bsd.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/log_parsers_ext.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/normalizers.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/ocsf.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/pf_bridge.py": {
-        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "classification": "PRODUCT_CORE",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/security_onion.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/service.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/source_health.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/source_health_worker.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/source_labels.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ingest/time_guard.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/README.md": {
@@ -5784,97 +5784,97 @@
       },
       "services/api/src/cybrik_soc/modules/ioc/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/csv_import.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/feeds_api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/match.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/metrics.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/normalize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/stix.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ioc/taxii.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/contract.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/scoping.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/session.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/prefs/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/prefs/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/prefs/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/README.md": {
@@ -5884,47 +5884,47 @@
       },
       "services/api/src/cybrik_soc/modules/siem/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/correlation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/field_mapping.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/rules.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/sigma.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/siem/sigma_match.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/README.md": {
@@ -5934,107 +5934,107 @@
       },
       "services/api/src/cybrik_soc/modules/soar/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/actions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/audit.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/fortigate.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/context.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_draft.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_seam.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/copilot_tool.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/expire_worker.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/guards.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/library.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/playbook.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/report.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/runtime.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/samples.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/serialize.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/simulate.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/README.md": {
@@ -6044,132 +6044,132 @@
       },
       "services/api/src/cybrik_soc/modules/tenant/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/models.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "SQLAlchemy / SQLModel database persistence models.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/tenant/service.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/alerts.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/baseline.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/baseline_pack.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/classification.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detect.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_ah.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_bc.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_dx.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_lm.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_pg.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/detectors_ua.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/engine.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/events.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/features.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/findings.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/iforest.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/learning_worker.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/risk.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/ueba/stats.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/README.md": {
@@ -6179,257 +6179,257 @@
       },
       "services/api/src/cybrik_soc/modules/vulnerability/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/api.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/compliance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/consolidation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/correlation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/cve_enrichment.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/exceptions.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/intel.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/lifecycle.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/models.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Pure dataclass vulnerability/alert context domain models.",
+        "notes": "Pure dataclass value objects and contract domain models.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/orm.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/generic.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/greenbone.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/grype.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/nmap.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/nuclei.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/trivy.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/policy_config.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/remediation.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/repo.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "FastAPI router, SQLAlchemy ORM persistence, SQL compiler, or external client adapter.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/reporting.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/rescore.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/risk.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/service.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Core domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/audit_support.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/client_ip.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/context.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/database.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/errors.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/hooks.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/http_body.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/logging.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/outbound.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/provenance.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/rate_limit.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/secrets.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/security.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/security_txt.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "RFC 9116 security.txt well-known HTTP endpoint resolver.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/signing.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/__init__.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/algorithms.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/errors.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/factory.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/issuer.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/models.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/principal_adapter.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing.",
+        "notes": "FastAPI router, SQLAlchemy ORM persistence, httpx outbound client, Redis cache, or concrete adapter.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/scopes.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/platform/svc_delegation/signer.py": {
         "classification": "PRODUCT_CORE",
-        "notes": "Platform context models, error structures, provenance logging utilities, or delegation contracts.",
+        "notes": "Pure domain business logic, state machines, parsers, package namespace entrypoints (__init__.py), or correlation algorithms.",
         "status": "IMPLEMENTED"
       },
       "services/api/tests/contracts/test_alert_context_contract.py": {

@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '6b16ad7881d9b5d917dd4b6070e50719517acfb3252ab9008b40afd375fcae89') {
+  if (ledgerDigest !== 'b5ca3763da71d29e8dda5065cf859f95bd52a11410639f60a2e19f33a042bc01') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -898,7 +898,7 @@ try {
     sections[currentSec]++;
   }
 
-  if (sections['2.1'] !== 28 || sections['2.2'] !== 12 || sections['2.3'] !== 80 || sections['2.4'] !== 2) {
+  if (sections['2.1'] !== 28 || sections['2.2'] !== 13 || sections['2.3'] !== 80 || sections['2.4'] !== 2) {
     throw new Error(`Section row counts mismatch: ${JSON.stringify(sections)}`);
   }
 
@@ -926,14 +926,20 @@ try {
       ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-soc-command-center'].files['apps/soc-portal/app/layout.tsx']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/database.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/errors.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['packages/api-contracts/openapi/generic-webhook.v0.yaml']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['packages/design-system/tokens/tokens.css']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['ops/backup/cybrik_backup/backup.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/content/sigma/collection_archive_staging.yml']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/__init__.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/context/wire.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/context/models.py']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/forensics/search.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
-      ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD') {
+      ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD' ||
+      ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/__init__.py']?.status !== 'SCAFFOLD' ||
+      ledger['cybrik-security-tool-fabric'].files['src/control-plane/cybrik_fabric_control/py.typed']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION') {
     throw new Error('Ledger semantic oracle assertions failed');
   }
 
