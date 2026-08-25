@@ -879,7 +879,7 @@ try {
     if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
     mapRows++;
   }
-  if (mapRows !== 97) throw new Error(`Expected exactly 97 map rows, got ${mapRows}`);
+  if (mapRows !== 117) throw new Error(`Expected exactly 117 map rows, got ${mapRows}`);
 
   if (ledger['cybrik-cyber-ai-platform']?.commit !== 'f0bf4c630d8e93a0531d16b4522ce0425996a624' ||
       ledger['cybrik-security-tool-fabric']?.commit !== '1a419014ebb432eb56ac35242e0a193fe65a62c6' ||
@@ -896,11 +896,18 @@ try {
   }
 
   // Semantic oracle checks
-  if (ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+  if (ledger['cybrik-soc-command-center'].files['START-CYBRIK.command']?.classification !== 'DEPLOYMENT_PROFILE_OR_CONFIG' ||
+      ledger['cybrik-soc-command-center'].files['Makefile']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
+      ledger['cybrik-soc-command-center'].files['.gitleaks.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-soc-command-center'].files['.gitleaksignore']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-soc-command-center'].files['apps/soc-portal/playwright.config.ts']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-soc-command-center'].files['apps/soc-portal/app/layout.tsx']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/platform/database.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
-      ledger['cybrik-soc-command-center'].files['.gitleaks.toml']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
-      ledger['cybrik-soc-command-center'].files['SPRINT-0-CLOSURE.md']?.classification !== 'GOVERNANCE_OR_DOCUMENTATION' ||
+      ledger['cybrik-soc-command-center'].files['packages/api-contracts/openapi/generic-webhook.v0.yaml']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['packages/design-system/tokens/tokens.css']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['ops/backup/cybrik_backup/backup.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
+      ledger['cybrik-soc-command-center'].files['services/api/content/sigma/collection_archive_staging.yml']?.classification !== 'PRODUCT_CORE' ||
+      ledger['cybrik-soc-command-center'].files['services/api/src/cybrik_soc/modules/alert/__init__.py']?.classification !== 'PRODUCT_CORE' ||
       ledger['cybrik-cyber-ai-platform'].files['packages/ai-core/src/cybrik_ai_core/orchestration/memory.py']?.classification !== 'SUPPORTING_TOOLING_OR_TEST' ||
       ledger['cybrik-cyber-ai-platform'].files['services/ai-api/src/cybrik_ai_api/transport_security.py']?.classification !== 'PRODUCT_IMPLEMENTATION_ADAPTER' ||
       ledger['cybrik-security-tool-fabric'].files['src/executor/cmd/executor/main.go']?.status !== 'SCAFFOLD') {

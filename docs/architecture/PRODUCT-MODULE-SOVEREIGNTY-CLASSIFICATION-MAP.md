@@ -11,9 +11,9 @@ In accordance with accepted `cybrik-suite:docs/adr/ADR-0015-deployment-priority-
 * **PRODUCT_CORE** (`INV-21`): Domain logic, authority logic, security invariants, portable business/application contracts reached only through explicit ports. Knows no provider and no substrate. A whole repository MUST NOT be classified as `PRODUCT_CORE`.
 * **PRODUCT_IMPLEMENTATION_ADAPTER** (Decision E): Realizes a `PRODUCT_CORE` port. Contains concrete protocol, runtime, and storage implementation knowledge (S3 protocol, OpenAI-compatible HTTP, PostgreSQL wire, Valkey KV, Ed25519/JCS, mTLS RFC 9068). Must NOT make a provider-specific infrastructure service mandatory to the domain/core contract. Ships with the product.
 * **PROVIDER_ADAPTER**: Binds Platform Contract capability to concrete provider infrastructure (optional profile). Lives in deployment layer / infrastructure configurations, NOT within product core.
-* **SUPPORTING_TOOLING_OR_TEST**: Non-production code (unit tests, integration test fixtures, test doubles, in-memory mock stores, linting/build configurations).
-* **DEPLOYMENT_PROFILE_OR_CONFIG**: Executable container compose / deployment configurations.
-* **GOVERNANCE_OR_DOCUMENTATION**: Governance policies, ADRs, runbooks, security disclosures, license dossiers.
+* **SUPPORTING_TOOLING_OR_TEST**: Non-production code (unit tests, integration test fixtures, test doubles, in-memory mock stores, linting/build configurations, developer test automation).
+* **DEPLOYMENT_PROFILE_OR_CONFIG**: Executable container compose / deployment configurations, systemd services/timers, desktop launch scripts.
+* **GOVERNANCE_OR_DOCUMENTATION**: Governance policies, ADRs, sprint closure dossiers, runbooks, security disclosures, license dossiers.
 
 ---
 
@@ -75,9 +75,33 @@ In accordance with accepted `cybrik-suite:docs/adr/ADR-0015-deployment-priority-
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
+| `START-CYBRIK.command, STOP-CYBRIK.command` | `DEPLOYMENT_PROFILE_OR_CONFIG` | `IMPLEMENTED` | Desktop launch scripts invoking Docker Compose for local development stack. |
+| `Makefile` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Developer build, lint, and test automation Makefile. |
+| `.dockerignore, .gitignore, .gitleaks.toml, .gitleaksignore, CLAUDE.md, LICENSE, README.md, SECURITY.md, SPRINT-0-CLOSURE.md, SPRINT-0-IMPLEMENTATION-PLAN.md` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Root repository metadata, license, security policy, and sprint closure records. |
 | `apps/soc-portal/ (app/, components/, lib/, public/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Next.js React frontend presentation adapter interacting with SOC REST APIs. |
 | `apps/soc-portal/ (e2e/, ui-review/, playwright.config.ts)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Frontend UI E2E, review, and test suites. |
 | `apps/soc-portal/ (package.json, package-lock.json, tsconfig.json, next.config.mjs, next-env.d.ts, Dockerfile, README.md)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Next.js frontend portal configuration and build manifests. |
+| `connectors/ (generic-webhook/README.md, security-onion/README.md)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Connector architecture documentation and integration guides. |
+| `deploy/ (docker/docker-compose*.yml, pf/docker-compose*.yml, pf/staging/docker-compose.staging.yml, cron/, systemd/, log-collection/agent/, log-collection/fluent-bit/, log-collection/vector/, pf/certs/, pf/opensearch/, pf/*.sh, docker/initdb/)` | `DEPLOYMENT_PROFILE_OR_CONFIG` | `IMPLEMENTED` | Executable Docker Compose topologies, systemd services/timers, cron jobs, and log agent configurations. |
+| `deploy/ (docker/dev_endpoints.py, docker/screenshots/)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Development endpoint helpers and screenshot automation scripts. |
+| `deploy/ (README.md, **/README.md, docker/backup/Dockerfile, docker/screenshots/Dockerfile)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Deployment documentation and container build specifications. |
+| `packages/api-contracts/ (openapi/generic-webhook.v0.yaml, schemas/*.json)` | `PRODUCT_CORE` | `IMPLEMENTED` | Wire-agnostic API schemas and OpenAPI definitions. |
+| `packages/design-system/tokens/ (tokens.css, tokens.json)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Frontend design system tokens and style definitions. |
+| `scripts/ (demo_ready_local_digest.py, e2e_smoke.py, run-final-gate.sh, tests/, ui-review/)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Smoke test, digest generator, and UI review development scripts. |
+| `ops/backup/cybrik_backup/ (__init__.py, __main__.py, backup.py, cli.py, crypto.py, drill.py, logging_setup.py, manifest.py, pgclient.py, restore.py, retention.py, snapshot.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | PostgreSQL backup, restore, and drill CLI tool adapter. |
+| `ops/backup/tests/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Backup and restore drill unit tests. |
+| `ops/backup/ (INTEGRATION-CHECKLIST.md, README.md, pyproject.toml)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Backup service documentation and package build manifest. |
+| `ops/pf-bench/ (pf_bench/, scripts/, .gitignore)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Packet-fabric benchmark producer and consumer test harness. |
+| `ops/pf-bench/pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Packet-fabric benchmark harness package manifest. |
+| `ops/pf-workers/pf_workers/ (__init__.py, alert_writer.py, config.py, correlation_processor.py, dlq_processor.py, envelope.py, indexer.py, normalizer.py, parquet_archiver.py, pipeline_health.py, producer_bridge.py, retention_sweep.py, s3util.py, siem_matcher.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Packet-fabric background stream processing adapters (Kafka consumers, OpenSearch indexers, S3 boto3 SeaweedFS archiver, Parquet writers). |
+| `ops/pf-workers/pf_workers/correlation_rules/ (*.yml)` | `PRODUCT_CORE` | `IMPLEMENTED` | Declarative correlation detection rules (YAML). |
+| `ops/pf-workers/ (tests/, scripts/)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Packet-fabric worker test suites and e2e integration scripts. |
+| `ops/pf-workers/ (Dockerfile, Dockerfile.dockerignore, README.md, pyproject.toml, .gitignore)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Packet-fabric worker build specifications and documentation. |
+| `services/api/content/sigma/ (*.yml), services/api/content/ueba_baselines/ (*.yml)` | `PRODUCT_CORE` | `IMPLEMENTED` | Declarative Sigma detection rules and UEBA baseline definitions. |
+| `services/api/content/sigma/tests/ (*.json)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Sigma detection rule test fixtures. |
+| `services/api/content/sigma/NOTICE.md` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Sigma rules third-party attribution notice. |
+| `services/api/alembic/ (env.py, script.py.mako, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic PostgreSQL database migration definitions. |
+| `services/api/scripts/, services/api/tests/, .github/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Service unit/integration test suites, seed scripts, and verification harnesses. |
 | `services/api/src/cybrik_soc/modules/alert/ (context/authorize.py, context/clearance.py, context/digest.py, context/models.py, context/ports.py, context/redact.py, context/service.py, context/wire.py, metrics.py, pagination.py, related.py, triage.py, __init__.py, context/__init__.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Alert context domain service, clearance, metrics, and triage domain logic. |
 | `services/api/src/cybrik_soc/modules/alert/ (api.py, context/api.py, context/reader_pg.py, context/store_pg.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints, PostgreSQL alert context storage/reader, and SQLAlchemy ORM models. |
 | `services/api/src/cybrik_soc/modules/asset/__init__.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Asset module package namespace entrypoint. |
@@ -126,12 +150,8 @@ In accordance with accepted `cybrik-suite:docs/adr/ADR-0015-deployment-priority-
 | `services/api/src/cybrik_soc/platform/ (database.py, http_body.py, outbound.py, rate_limit.py, secrets.py, security.py, signing.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | PostgreSQL connection pool, httpx outbound client with SSRF guard, Redis rate limiting, JWT verification, Ed25519 signing. |
 | `services/api/src/cybrik_soc/platform/svc_delegation/ (algorithms.py, errors.py, issuer.py, models.py, scopes.py, signer.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Service delegation token model and RFC 9068 minting specifications. |
 | `services/api/src/cybrik_soc/platform/svc_delegation/ (factory.py, principal_adapter.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Delegation token issuer factory and authentication principal adapter. |
-| `ops/pf-workers/pf_workers/ (__init__.py, alert_writer.py, config.py, correlation_processor.py, dlq_processor.py, envelope.py, indexer.py, normalizer.py, parquet_archiver.py, pipeline_health.py, producer_bridge.py, retention_sweep.py, s3util.py, siem_matcher.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Packet-fabric background stream processing adapters (Kafka consumers, OpenSearch indexers, S3 boto3 SeaweedFS archiver, Parquet writers). |
-| `ops/pf-workers/pf_workers/correlation_rules/` | `PRODUCT_CORE` | `IMPLEMENTED` | Declarative correlation detection rules (YAML). |
-| `deploy/pf/ (.env.t1.example, certs/, docker-compose.pf-demo.yml, docker-compose.pf-workers.yml, docker-compose.t0.yml, docker-compose.t1.bench.yml, docker-compose.t1.dev.yml, docker-compose.t1.yml, staging/docker-compose.staging.yml, opensearch/, topics-init*.sh)` | `DEPLOYMENT_PROFILE_OR_CONFIG` | `IMPLEMENTED` | Executable Docker Compose topology definitions and scripts for T0, T1, staging, and demo data-plane pipelines. |
-| `services/api/alembic/ (env.py, script.py.mako, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic PostgreSQL database migration definitions. |
-| `services/api/tests/, ops/pf-workers/tests/, scripts/, .github/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, integration, and benchmark test suites, scripts, and CI workflows. |
-| `docs/, governance/, reports/, artifacts/, backlog/, third-party/, services/api/modules/*/README.md, services/api/Dockerfile, services/api/alembic.ini, ops/pf-workers/Dockerfile, pyproject.toml, .gitleaks.toml, .gitignore, SPRINT-0-*.md` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture decision records, sprint review dossiers, third-party license notices, SBOM documentation, and build/metadata specifications. |
+| `services/api/src/cybrik_soc/modules/*/README.md, services/api/src/cybrik_soc/modules/ioc/STIX-TAXII-INTEGRATION-NOTES.md` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Module documentation and integration notes under services/api/src/cybrik_soc/modules/. |
+| `docs/, governance/, reports/, artifacts/, backlog/, third-party/, services/api/Dockerfile, services/api/alembic.ini, pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture decision records, sprint review dossiers, third-party license notices, SBOM documentation, and build/metadata specifications. |
 
 ---
 
