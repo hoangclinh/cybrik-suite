@@ -2764,12 +2764,12 @@
       },
       "deploy/cron/cybrik-backup.cron": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/backup/Dockerfile": {
@@ -2779,7 +2779,7 @@
       },
       "deploy/docker/dev-up.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/dev_endpoints.py": {
@@ -2789,12 +2789,12 @@
       },
       "deploy/docker/docker-compose.backup.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/docker-compose.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/geoip/README.md": {
@@ -2804,7 +2804,7 @@
       },
       "deploy/docker/initdb/01-roles.sql": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/docker/screenshots/Dockerfile": {
@@ -2834,32 +2834,32 @@
       },
       "deploy/log-collection/agent/cybrik-log-agent/agent.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.ps1": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/agent/cybrik-log-agent/install.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/auditd.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/fluent-bit.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/fluent-bit/sysmon-winevtlog.conf": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/log-collection/signer/cybrik_webhook_signer.py": {
@@ -2874,12 +2874,12 @@
       },
       "deploy/log-collection/vector/vector.yaml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/.env.t1.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/README.md": {
@@ -2889,47 +2889,47 @@
       },
       "deploy/pf/certs/.gitignore": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/certs/gen-certs.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-demo.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.pf-workers.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t0.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.bench.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.dev.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/docker-compose.t1.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/opensearch/ism-events-normalized.json": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/staging/README.md": {
@@ -2939,47 +2939,47 @@
       },
       "deploy/pf/staging/docker-compose.staging.yml": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init-demo.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/pf/topics-init.sh": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-backup.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-drill.env.example": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.service": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "deploy/systemd/cybrik-restore-drill.timer": {
         "classification": "DEPLOYMENT_PROFILE_OR_CONFIG",
-        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example), or certificate generation deployment configuration.",
+        "notes": "Docker Compose, systemd, cron, Vector, shell scripts, environment configuration templates (.env.t1.example, .env.example), or certificate generation deployment configuration.",
         "status": "IMPLEMENTED"
       },
       "docs/CONTINUITY-HANDOFF.md": {
@@ -5829,7 +5829,7 @@
       },
       "services/api/src/cybrik_soc/modules/ioc/taxii.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing TaxiiTransport port, GuardedTransport network client, Taxii21Client wire implementation, and TaxiiSimulator test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing TaxiiTransport port, GuardedTransport network client, TaxiiClient wire implementation, and TaxiiSimulator test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/__init__.py": {
