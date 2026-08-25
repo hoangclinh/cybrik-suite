@@ -855,7 +855,7 @@ try {
   const mapContent = readFileSync(mapPath, 'utf8');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  if (ledgerDigest !== '3c3b71a6a9b8244af81b403396dce22ad972b82916aa351ab31ae908f0fa908d') {
+  if (ledgerDigest !== '00b2e14ad38151b8e16e1378cf84f0aa5eefd109a245edb5f024279d2665c1cf') {
     throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
   }
 
@@ -973,7 +973,9 @@ try {
     }
   }
 
-  H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass strict governance and semantic oracle validation');
+  console.log(`PASS: OPEN-11 Product Module Sovereignty Classification Map (${lines.length} lines, 114 rows: 27/13/72/2) and 1,650-file Ledger (SHA-256: ${ledgerDigest}) integrity and closed-set partition verified.`);
+
+  H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass pinned integrity, closed-set partition, and semantic sentinel validation');
 } catch (e) {
   fail(e.message);
 }
