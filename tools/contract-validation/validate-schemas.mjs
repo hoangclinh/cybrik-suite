@@ -853,7 +853,13 @@ try {
   }
 
   const mapContent = readFileSync(mapPath, 'utf8');
-  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+  const ledgerRaw = readFileSync(ledgerPath, 'utf8');
+  const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
+  if (ledgerDigest !== '9090a5c7a126b54140f2b7c64ad7b2db3451859ad5890b1b5da0ac9cf522cc18') {
+    throw new Error(`Ledger digest mismatch: ${ledgerDigest}`);
+  }
+
+  const ledger = JSON.parse(ledgerRaw);
 
   const validClassifications = new Set([
     'PRODUCT_CORE',
@@ -866,20 +872,35 @@ try {
   const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
 
   const lines = mapContent.split('\n');
-  let mapRows = 0;
+  const sections = { '2.1': 0, '2.2': 0, '2.3': 0, '2.4': 0 };
+  let currentSec = null;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+    if (line.startsWith('### 2.1')) currentSec = '2.1';
+    else if (line.startsWith('### 2.2')) currentSec = '2.2';
+    else if (line.startsWith('### 2.3')) currentSec = '2.3';
+    else if (line.startsWith('### 2.4')) currentSec = '2.4';
+    else if (line.startsWith('## 3.')) currentSec = null;
+
+    if (!currentSec || !line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+
+    if (!line.endsWith('|')) throw new Error(`Line ${i + 1} must end with |`);
     const parts = line.split('|').map(s => s.trim());
-    if (parts.length !== 6) throw new Error(`OPEN-11 map line ${i + 1} must have exactly 4 columns`);
+    if (parts[0] !== '' || parts[parts.length - 1] !== '' || parts.length !== 6) {
+      throw new Error(`OPEN-11 map line ${i + 1} must have exactly 4 columns`);
+    }
     const [, rawPath, rawClass, rawStatus, notes] = parts;
     const classification = rawClass.replace(/^`|`$/g, '');
     const status = rawStatus.replace(/^`|`$/g, '');
     if (!validClassifications.has(classification)) throw new Error(`Invalid classification: ${classification}`);
     if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
-    mapRows++;
+    sections[currentSec]++;
   }
-  if (mapRows !== 117) throw new Error(`Expected exactly 117 map rows, got ${mapRows}`);
+
+  if (sections['2.1'] !== 28 || sections['2.2'] !== 12 || sections['2.3'] !== 80 || sections['2.4'] !== 2) {
+    throw new Error(`Section row counts mismatch: ${JSON.stringify(sections)}`);
+  }
 
   if (ledger['cybrik-cyber-ai-platform']?.commit !== 'f0bf4c630d8e93a0531d16b4522ce0425996a624' ||
       ledger['cybrik-security-tool-fabric']?.commit !== '1a419014ebb432eb56ac35242e0a193fe65a62c6' ||

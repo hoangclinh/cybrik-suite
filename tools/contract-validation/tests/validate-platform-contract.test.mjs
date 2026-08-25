@@ -378,75 +378,71 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   ]);
   const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
 
-  function parseAndValidateTableRows(mdContent) {
+  function parseMapSections(mdContent) {
     const lines = mdContent.split('\n');
-    const rows = [];
+    const sections = { '2.1': [], '2.2': [], '2.3': [], '2.4': [] };
+    let currentSec = null;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line.startsWith('|')) continue;
-      if (line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+      if (line.startsWith('### 2.1')) currentSec = '2.1';
+      else if (line.startsWith('### 2.2')) currentSec = '2.2';
+      else if (line.startsWith('### 2.3')) currentSec = '2.3';
+      else if (line.startsWith('### 2.4')) currentSec = '2.4';
+      else if (line.startsWith('## 3.')) currentSec = null;
 
+      if (!currentSec || !line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+
+      assert.ok(line.endsWith('|'), `Line ${i + 1} must end with |`);
       const parts = line.split('|').map(s => s.trim());
       assert.equal(parts[0], '', `Line ${i + 1} must start with |`);
       assert.equal(parts[parts.length - 1], '', `Line ${i + 1} must end with |`);
+      assert.equal(parts.length, 6, `Line ${i + 1} must have exactly 4 columns`);
 
-      const cols = parts.slice(1, -1);
-      assert.equal(cols.length, 4, `Line ${i + 1} must have exactly 4 columns, got ${cols.length}`);
-
-      const [rawPath, rawClassification, rawStatus, notes] = cols;
-      const path = rawPath.replace(/^`|`$/g, '');
-      const classification = rawClassification.replace(/^`|`$/g, '');
+      const [, rawPath, rawClass, rawStatus, notes] = parts;
+      const classification = rawClass.replace(/^`|`$/g, '');
       const status = rawStatus.replace(/^`|`$/g, '');
+      assert.ok(validClassifications.has(classification), `Line ${i + 1} invalid classification: ${classification}`);
+      assert.ok(validStatuses.has(status), `Line ${i + 1} invalid status: ${status}`);
+      assert.ok(rawPath.length > 0, `Line ${i + 1} empty path`);
+      assert.ok(notes.length > 0, `Line ${i + 1} empty notes`);
 
-      assert.ok(validClassifications.has(classification), `Line ${i + 1} has invalid classification: "${classification}"`);
-      assert.ok(validStatuses.has(status), `Line ${i + 1} has invalid status: "${status}"`);
-      assert.ok(path.length > 0, `Line ${i + 1} has empty path`);
-      assert.ok(notes.length > 0, `Line ${i + 1} has empty notes`);
-
-      rows.push({ line: i + 1, path, classification, status, notes });
+      sections[currentSec].push({ line: i + 1, path: rawPath, classification, status, notes });
     }
-    return rows;
+    return sections;
   }
 
-  const rows = parseAndValidateTableRows(content);
-  assert.equal(rows.length, 117, `Expected exactly 117 data rows, got ${rows.length}`);
+  const parsed = parseMapSections(content);
+  assert.equal(parsed['2.1'].length, 28, `Section 2.1 expected 28 rows, got ${parsed['2.1'].length}`);
+  assert.equal(parsed['2.2'].length, 12, `Section 2.2 expected 12 rows, got ${parsed['2.2'].length}`);
+  assert.equal(parsed['2.3'].length, 80, `Section 2.3 expected 80 rows, got ${parsed['2.3'].length}`);
+  assert.equal(parsed['2.4'].length, 2, `Section 2.4 expected 2 rows, got ${parsed['2.4'].length}`);
 
   // Negative mutation tests verifying structural validation fail-closed behavior
   assert.throws(() => {
-    parseAndValidateTableRows(content.replace('| `PRODUCT_CORE` |', '| `product_core` |'));
-  }, /has invalid classification/);
+    parseMapSections(content.replace('| `PRODUCT_CORE` |', '| `product_core` |'));
+  }, /invalid classification/);
 
   assert.throws(() => {
-    parseAndValidateTableRows(content.replace('| `IMPLEMENTED` |', '| `INVALID_STATUS` |'));
-  }, /has invalid status/);
+    parseMapSections(content.replace('| `IMPLEMENTED` |', '| `INVALID_STATUS` |'));
+  }, /invalid status/);
 
   assert.throws(() => {
-    parseAndValidateTableRows(content.replace('| `IMPLEMENTED` |', '|'));
+    parseMapSections(content.replace('| `IMPLEMENTED` |', '|'));
   }, /must have exactly 4 columns/);
 
-  // Check PRODUCT_CORE and PRODUCT_IMPLEMENTATION_ADAPTER presence for each repository section
-  const sections = content.split('### 2.');
+  assert.throws(() => {
+    parseMapSections(content.replace('| `IMPLEMENTED` |', '| `IMPLEMENTED` | extra |'));
+  }, /must have exactly 4 columns/);
 
-  const platformSection = sections.find(s => s.includes('cybrik-cyber-ai-platform'));
-  assert.ok(platformSection, 'cybrik-cyber-ai-platform section missing');
-  assert.match(platformSection, /PRODUCT_CORE/, 'cybrik-cyber-ai-platform missing PRODUCT_CORE');
-  assert.match(platformSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-cyber-ai-platform missing PRODUCT_IMPLEMENTATION_ADAPTER');
-
-  const fabricSection = sections.find(s => s.includes('cybrik-security-tool-fabric'));
-  assert.ok(fabricSection, 'cybrik-security-tool-fabric section missing');
-  assert.match(fabricSection, /PRODUCT_CORE/, 'cybrik-security-tool-fabric missing PRODUCT_CORE');
-  assert.match(fabricSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-security-tool-fabric missing PRODUCT_IMPLEMENTATION_ADAPTER');
-
-  const socSection = sections.find(s => s.includes('cybrik-soc-command-center'));
-  assert.ok(socSection, 'cybrik-soc-command-center section missing');
-  assert.match(socSection, /PRODUCT_CORE/, 'cybrik-soc-command-center missing PRODUCT_CORE');
-  assert.match(socSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-soc-command-center missing PRODUCT_IMPLEMENTATION_ADAPTER');
-
-  // Verify machine-readable classification ledger
+  // Verify machine-readable classification ledger and digest
   const ledgerPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json');
   assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
-  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+  const ledgerRaw = readFileSync(ledgerPath, 'utf8');
+  const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
+  assert.equal(ledgerDigest, '9090a5c7a126b54140f2b7c64ad7b2db3451859ad5890b1b5da0ac9cf522cc18', 'Ledger digest mismatch');
+
+  const ledger = JSON.parse(ledgerRaw);
 
   assert.equal(ledger['cybrik-cyber-ai-platform']?.commit, 'f0bf4c630d8e93a0531d16b4522ce0425996a624');
   assert.equal(ledger['cybrik-security-tool-fabric']?.commit, '1a419014ebb432eb56ac35242e0a193fe65a62c6');
