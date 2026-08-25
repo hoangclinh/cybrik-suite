@@ -368,17 +368,17 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.match(content, /`INV-3`/, 'Must cite invariant INV-3');
   assert.match(content, /`INV-5`/, 'Must cite invariant INV-5');
 
-  function parseAndValidateTableRows(mdContent) {
-    const validClassifications = new Set([
-      'PRODUCT_CORE',
-      'PRODUCT_IMPLEMENTATION_ADAPTER',
-      'PROVIDER_ADAPTER',
-      'SUPPORTING_TOOLING_OR_TEST',
-      'DEPLOYMENT_PROFILE_OR_CONFIG',
-      'GOVERNANCE_OR_DOCUMENTATION',
-    ]);
-    const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
+  const validClassifications = new Set([
+    'PRODUCT_CORE',
+    'PRODUCT_IMPLEMENTATION_ADAPTER',
+    'PROVIDER_ADAPTER',
+    'SUPPORTING_TOOLING_OR_TEST',
+    'DEPLOYMENT_PROFILE_OR_CONFIG',
+    'GOVERNANCE_OR_DOCUMENTATION',
+  ]);
+  const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
 
+  function parseAndValidateTableRows(mdContent) {
     const lines = mdContent.split('\n');
     const rows = [];
 
@@ -442,4 +442,29 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(socSection, 'cybrik-soc-command-center section missing');
   assert.match(socSection, /PRODUCT_CORE/, 'cybrik-soc-command-center missing PRODUCT_CORE');
   assert.match(socSection, /PRODUCT_IMPLEMENTATION_ADAPTER/, 'cybrik-soc-command-center missing PRODUCT_IMPLEMENTATION_ADAPTER');
+
+  // Verify machine-readable classification ledger
+  const ledgerPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json');
+  assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+
+  assert.ok(ledger['cybrik-cyber-ai-platform'], 'Ledger missing cybrik-cyber-ai-platform');
+  assert.ok(ledger['cybrik-security-tool-fabric'], 'Ledger missing cybrik-security-tool-fabric');
+  assert.ok(ledger['cybrik-soc-command-center'], 'Ledger missing cybrik-soc-command-center');
+
+  const aiFiles = Object.keys(ledger['cybrik-cyber-ai-platform'].files);
+  const fabricFiles = Object.keys(ledger['cybrik-security-tool-fabric'].files);
+  const socFiles = Object.keys(ledger['cybrik-soc-command-center'].files);
+
+  assert.equal(aiFiles.length, 221, `Expected 221 AI files, got ${aiFiles.length}`);
+  assert.equal(fabricFiles.length, 132, `Expected 132 Fabric files, got ${fabricFiles.length}`);
+  assert.equal(socFiles.length, 1297, `Expected 1297 SOC files, got ${socFiles.length}`);
+
+  for (const [repo, data] of Object.entries(ledger)) {
+    for (const [filePath, entry] of Object.entries(data.files)) {
+      assert.ok(validClassifications.has(entry.classification), `${repo}:${filePath} invalid classification ${entry.classification}`);
+      assert.ok(validStatuses.has(entry.status), `${repo}:${filePath} invalid status ${entry.status}`);
+      assert.ok(entry.notes && entry.notes.length > 0, `${repo}:${filePath} empty notes`);
+    }
+  }
 });

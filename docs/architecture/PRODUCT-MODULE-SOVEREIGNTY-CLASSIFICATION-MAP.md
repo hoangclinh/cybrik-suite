@@ -2,7 +2,7 @@
 
 Status: PROPOSED — PER-MODULE CLASSIFICATION MAP (v0.1.0-proposed)
 
-> **Note:** Submitted to resolve the per-module classification gap under OPEN-11. Acceptance requires separate Founder / Governor decision. This document proposes an exhaustive, file-accurate classification across all three product repositories at their exact Release Candidate 1 (RC1) commits, but does not claim that OPEN-11 is already accepted or closed.
+> **Note:** Submitted to resolve the per-module classification gap under OPEN-11. Acceptance requires separate Founder / Governor decision. This document proposes an exhaustive, file-accurate classification across all three product repositories at their exact Release Candidate 1 (RC1) commits, but does not claim that OPEN-11 is already accepted or closed. The complete 1,650-file machine-verifiable ledger is recorded in [`docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json`](PRODUCT-MODULE-CLASSIFICATION-LEDGER.json).
 
 ## 1. Purpose & Governing Architectural Rules (ADR-0015 §5.1)
 
@@ -19,7 +19,7 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 
 ## 2. Exhaustive Per-Module Classification Inventory
 
-### 2.1 `cybrik-cyber-ai-platform` (RC1: `f0bf4c630d8e93a0531d16b4522ce0425996a624`)
+### 2.1 `cybrik-cyber-ai-platform` (RC1: `f0bf4c630d8e93a0531d16b4522ce0425996a624` — 221 tracked files)
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
@@ -40,8 +40,8 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `services/ai-api/src/cybrik_ai_api/adapters/ollama.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Realizes modelrt.port over OpenAI-compatible HTTP / REST against local Ollama engine. |
 | `services/ai-api/src/cybrik_ai_api/adapters/stub.py` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | In-memory deterministic model runtime test double. |
 | `services/ai-api/src/cybrik_ai_api/orchestration/postgres.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Realizes durable checkpoint store over PostgreSQL wire protocol (asyncpg / SQLAlchemy). |
-| `services/ai-api/migrations/ (alembic.ini, env.py, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic database schema migrations for PostgreSQL durable state tables. |
-| `services/ai-api/src/cybrik_ai_api/transport_security.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | ASGI TLS-extension resolver (AsgiTlsTransportResolver) that extracts TLS client certificates from the ASGI transport scope (opt-in; default is deny-all); does not read HTTP headers and does not perform full PKI chain validation. |
+| `services/ai-api/migrations/ (alembic.ini, env.py, script.py.mako, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic database schema migrations for PostgreSQL durable state tables. |
+| `services/ai-api/src/cybrik_ai_api/transport_security.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | ASGI TLS-extension resolver (AsgiTlsTransportResolver) extracting TLS client certificates from ASGI transport scope (opt-in; default deny-all); no HTTP header reading, no full PKI chain validation. |
 | `services/ai-api/src/cybrik_ai_api/investigations/ (service.py, relying_party.py, projection.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Domain investigation service, relying party orchestration, and projection logic. |
 | `services/ai-api/src/cybrik_ai_api/investigations/api.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoint adapter exposing investigation operations. |
 | `services/ai-api/src/cybrik_ai_api/summarize/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Core alert summarization business logic. |
@@ -50,11 +50,11 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `*vLLM adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
 | `*llama.cpp adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
 | `tests/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, contract, and lifecycle test suites. |
-| `docs/, AGENTS.md, README.md, pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architectural documentation, ADRs, build configurations, and repository metadata. |
+| `docs/, AGENTS.md, CLAUDE.md, README.md, pyproject.toml, packages/*/pyproject.toml, services/*/pyproject.toml, .gitignore, .github/` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architectural documentation, ADRs, build configurations, and repository metadata. |
 
 ---
 
-### 2.2 `cybrik-security-tool-fabric` (RC1: `1a419014ebb432eb56ac35242e0a193fe65a62c6`)
+### 2.2 `cybrik-security-tool-fabric` (RC1: `1a419014ebb432eb56ac35242e0a193fe65a62c6` — 132 tracked files)
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
@@ -67,13 +67,13 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `src/executor/internal/version/version.go` | `PRODUCT_CORE` | `SCAFFOLD` | Go package defining SemVer constant 0.0.0 and getter; scaffold at RC1. |
 | `src/executor/cmd/executor/main.go` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | CLI entrypoint scaffold; does not implement active isolation or tool execution at RC1 per ADR-0015 §7.4. |
 | `contracts-vendor/json-schema/` | `PRODUCT_CORE` | `IMPLEMENTED` | Vendored suite contract JSON Schemas. |
-| `tests/, contracts-vendor/fixtures/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Control plane unit tests, contract conformance suites, and test fixtures. |
+| `tests/, contracts-vendor/fixtures/, src/executor/internal/*/*_test.go` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Control plane unit tests, contract conformance suites, test fixtures, and executor Go tests. |
 | `docs/, AGENTS.md, CLAUDE.md, README.md, SECURITY.md, src/README.md, src/control-plane/README.md, src/executor/README.md, src/executor/tiers/` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture records (ADR-0001..ADR-0004), security policies, specifications. |
-| `src/control-plane/pyproject.toml, requirements*.lock, src/executor/go.mod, Dockerfile` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Build configurations, Go module definitions, dependency locks, and Dockerfiles. |
+| `src/control-plane/pyproject.toml, requirements*.in, requirements*.lock, src/executor/go.mod, src/executor/go.sum, src/executor/.golangci.yml, Dockerfile` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Build configurations, Go module definitions, dependency locks, and Dockerfiles. |
 
 ---
 
-### 2.3 `cybrik-soc-command-center` (RC1: `695aed8e0e12c9d0e11de5f474e3384d1a4b490f`)
+### 2.3 `cybrik-soc-command-center` (RC1: `695aed8e0e12c9d0e11de5f474e3384d1a4b490f` — 1,297 tracked files)
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
@@ -124,6 +124,8 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `ops/pf-workers/pf_workers/ (__init__.py, alert_writer.py, config.py, correlation_processor.py, dlq_processor.py, envelope.py, indexer.py, normalizer.py, parquet_archiver.py, pipeline_health.py, producer_bridge.py, retention_sweep.py, s3util.py, siem_matcher.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Packet-fabric background stream processing adapters (Kafka consumers, OpenSearch indexers, S3 boto3 SeaweedFS archiver, Parquet writers). |
 | `ops/pf-workers/pf_workers/correlation_rules/` | `PRODUCT_CORE` | `IMPLEMENTED` | Declarative correlation detection rules (YAML). |
 | `deploy/pf/ (.env.t1.example, certs/, docker-compose.pf-demo.yml, docker-compose.pf-workers.yml, docker-compose.t0.yml, docker-compose.t1.bench.yml, docker-compose.t1.dev.yml, docker-compose.t1.yml, staging/docker-compose.staging.yml, opensearch/, topics-init*.sh)` | `DEPLOYMENT_PROFILE_OR_CONFIG` | `IMPLEMENTED` | Executable Docker Compose topology definitions and scripts for T0, T1, staging, and demo data-plane pipelines. |
+| `services/api/src/cybrik_soc/modules/*/__init__.py, services/api/src/cybrik_soc/modules/*/README.md, services/api/src/cybrik_soc/modules/ioc/STIX-TAXII-INTEGRATION-NOTES.md` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Module documentation and package namespace initialization files. |
+| `services/api/alembic/ (env.py, script.py.mako, versions/)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | Alembic PostgreSQL database migration definitions. |
 | `services/api/tests/, ops/pf-workers/tests/, scripts/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, integration, and benchmark test suites. |
 | `docs/, governance/ADR/, reports/, third-party/, services/api/Dockerfile, services/api/alembic.ini, ops/pf-workers/Dockerfile, pyproject.toml` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture decision records, sprint review dossiers, third-party license notices, SBOM documentation, and Docker build specifications. |
 
