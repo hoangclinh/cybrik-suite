@@ -9,132 +9,132 @@
       },
       ".gitignore": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".gitleaks.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       ".python-version": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "AGENTS.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "CLAUDE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "SECURITY.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0001-python-toolchain-and-project-structure.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/ADR-0002-local-model-runtime-abstraction.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/adr/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/MODEL-RUNTIME-PORT.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/architecture/SKELETON-SCOPE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/contracts/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/evaluation/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-DURABLE-POSTGRES-SLICE.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/AI-LIFECYCLE-RUNTIME-COMPOSITION.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/SLICE-1-MODEL-RUNTIME-EXECUTION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/operations/WAVE-0-IMPLEMENTATION-PACKET.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/product/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/releases/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "docs/security/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/authority.py": {
@@ -144,7 +144,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/contract/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/contract/common.py": {
@@ -169,7 +169,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/delegation/audit.py": {
@@ -229,7 +229,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/modelrt/budget.py": {
@@ -254,7 +254,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/attempt.py": {
@@ -314,12 +314,12 @@
       },
       "packages/ai-core/src/cybrik_ai_core/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/security/egress.py": {
@@ -339,7 +339,7 @@
       },
       "pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/migrations/alembic.ini": {
@@ -369,17 +369,17 @@
       },
       "services/ai-api/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/adapters/ollama.py": {
@@ -399,7 +399,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/investigations/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/investigations/api.py": {
@@ -424,7 +424,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/orchestration/postgres.py": {
@@ -434,7 +434,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/runtime_composition.py": {
@@ -449,7 +449,7 @@
       },
       "services/ai-api/src/cybrik_ai_api/summarize/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "services/ai-api/src/cybrik_ai_api/summarize/service.py": {
@@ -464,22 +464,22 @@
       },
       "services/ai-worker/pyproject.toml": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
-        "status": "IMPLEMENTED"
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
+        "status": "SCAFFOLD"
       },
       "services/ai-worker/src/cybrik_ai_worker/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
-        "status": "IMPLEMENTED"
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
+        "status": "SCAFFOLD"
       },
       "services/ai-worker/src/cybrik_ai_worker/py.typed": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
-        "status": "IMPLEMENTED"
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
+        "status": "SCAFFOLD"
       },
       "tests/README.md": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       },
       "tests/ai_api/test_investigation_projection.py": {
@@ -1104,7 +1104,7 @@
       },
       "uv.lock": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Architecture records, package markers, build configurations, typing markers, security policies, or repository metadata.",
+        "notes": "Architecture records, package markers, build configurations, typing markers, worker package scaffold, security policies, or repository metadata.",
         "status": "IMPLEMENTED"
       }
     }
@@ -5953,8 +5953,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/__init__.py": {
-        "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Python package initialization and module namespace marker.",
+        "classification": "PRODUCT_CORE",
+        "notes": "SOAR action connector port (ActionConnector), ConnectorResult value object, and stub connector.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/connectors/fortigate.py": {
@@ -6233,8 +6233,8 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/__init__.py": {
-        "classification": "GOVERNANCE_OR_DOCUMENTATION",
-        "notes": "Python package initialization and module namespace marker.",
+        "classification": "PRODUCT_CORE",
+        "notes": "Vulnerability parser registry and parse_report execution dispatcher.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/parsers/common.py": {
