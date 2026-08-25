@@ -6,7 +6,7 @@ Status: PROPOSED — PER-MODULE CLASSIFICATION MAP (v0.1.0-proposed)
 
 ## 1. Purpose & Governing Architectural Rules (ADR-0015 §5.1)
 
-In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants `INV-1`, `INV-3`, `INV-4`, `INV-5`, `INV-14`, and `INV-21`, this map establishes the concrete, file-level boundary partition across all three product repositories:
+In accordance with accepted `cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §5.1`, Decision E, and normative invariants `INV-1`, `INV-3`, `INV-4`, `INV-5`, `INV-14`, and `INV-21`, this map proposes the concrete, file-level boundary partition across all three product repositories:
 
 * **PRODUCT_CORE** (`INV-21`): Domain logic, authority logic, security invariants, portable business/application contracts reached only through explicit ports. Knows no provider and no substrate. A whole repository MUST NOT be classified as `PRODUCT_CORE`.
 * **PRODUCT_IMPLEMENTATION_ADAPTER** (Decision E): Realizes a `PRODUCT_CORE` port. Contains concrete protocol, runtime, and storage implementation knowledge (S3 protocol, OpenAI-compatible HTTP, PostgreSQL wire, Valkey KV, Ed25519/JCS, mTLS RFC 9068). Must NOT make a provider-specific infrastructure service mandatory to the domain/core contract. Ships with the product.
@@ -47,8 +47,6 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `services/ai-api/src/cybrik_ai_api/summarize/service.py` | `PRODUCT_CORE` | `IMPLEMENTED` | Core alert summarization business logic. |
 | `services/ai-api/src/cybrik_ai_api/app.py, runtime_composition.py, runtime_settings.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | ASGI application factory, DI wiring, and configuration environment parsing. |
 | `services/ai-worker/src/cybrik_ai_worker/` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | Async background worker package scaffold; unpopulated at RC1. |
-| `*vLLM adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
-| `*llama.cpp adapter* (planned seam)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Architecture seam (ADR-0002 G3); not implemented at RC1. |
 | `tests/` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Unit, contract, and lifecycle test suites. |
 | `docs/, AGENTS.md, CLAUDE.md, README.md, pyproject.toml, packages/*/pyproject.toml, services/*/pyproject.toml, .gitignore, .github/` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architectural documentation, ADRs, build configurations, and repository metadata. |
 
@@ -65,7 +63,7 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 | `src/control-plane/cybrik_fabric_control/app.py, liveness.py` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | FastAPI HTTP control plane and liveness listener; Wave 0 scaffold, unwired/feature-off R0 at RC1. |
 | `src/executor/internal/tier/tier.go` | `PRODUCT_CORE` | `SCAFFOLD` | Go models for opaque R0-R3 labels; scaffold (no runtime isolation semantics at RC1). |
 | `src/executor/internal/version/version.go` | `PRODUCT_CORE` | `SCAFFOLD` | Go package defining SemVer constant 0.0.0 and getter; scaffold at RC1. |
-| `src/executor/cmd/executor/main.go` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | CLI entrypoint scaffold; does not implement active isolation or tool execution at RC1 per ADR-0015 §7.4. |
+| `src/executor/cmd/executor/main.go` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `SCAFFOLD` | CLI entrypoint scaffold; does not implement active isolation or tool execution at RC1 per cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §7.4. |
 | `contracts-vendor/json-schema/` | `PRODUCT_CORE` | `IMPLEMENTED` | Vendored suite contract JSON Schemas. |
 | `tests/, contracts-vendor/fixtures/, src/executor/internal/*/*_test.go` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Control plane unit tests, contract conformance suites, test fixtures, and executor Go tests. |
 | `docs/, AGENTS.md, CLAUDE.md, README.md, SECURITY.md, src/README.md, src/control-plane/README.md, src/executor/README.md, src/executor/tiers/` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Architecture records (ADR-0001..ADR-0004), security policies, specifications. |
@@ -77,6 +75,9 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 
 | Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
 |---|---|---|---|
+| `apps/soc-portal/src/ (components/, pages/, hooks/, services/, context/, lib/, App.tsx, main.tsx)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | React/TypeScript frontend presentation adapter interacting with SOC REST APIs. |
+| `apps/soc-portal/src/ (tests/, **/*.test.tsx, **/*.test.ts, **/*.spec.ts)` | `SUPPORTING_TOOLING_OR_TEST` | `IMPLEMENTED` | Frontend UI component and integration test suites. |
+| `apps/soc-portal/ (package.json, package-lock.json, tsconfig*.json, vite.config.ts, tailwind.config.js, postcss.config.js, .eslintrc*, README.md)` | `GOVERNANCE_OR_DOCUMENTATION` | `IMPLEMENTED` | Frontend UI build manifests, TypeScript configs, and application documentation. |
 | `services/api/src/cybrik_soc/modules/alert/ (context/authorize.py, context/clearance.py, context/digest.py, context/models.py, context/ports.py, context/redact.py, context/service.py, context/wire.py, metrics.py, pagination.py, related.py, triage.py)` | `PRODUCT_CORE` | `IMPLEMENTED` | Alert context domain service, clearance, metrics, and triage domain logic. |
 | `services/api/src/cybrik_soc/modules/alert/ (api.py, context/api.py, context/reader_pg.py, context/store_pg.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP endpoints, PostgreSQL alert context storage/reader, and SQLAlchemy ORM models. |
 | `services/api/src/cybrik_soc/modules/asset/ (api.py, models.py)` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `IMPLEMENTED` | FastAPI HTTP router and SQLAlchemy PostgreSQL persistence models for assets. |
@@ -131,6 +132,15 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 
 ---
 
+### 2.4 Architecture Seams & Planned Adapters (Future Evolution — Non-RC1 Tree)
+
+| Path / Subsystem | Boundary Classification | Implementation Status | Port / Protocol Interface & Traceability |
+|---|---|---|---|
+| `*vLLM model runtime adapter*` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Planned local inference engine realization (ADR-0002 G3); not present in RC1 tree. |
+| `*llama.cpp model runtime adapter*` | `PRODUCT_IMPLEMENTATION_ADAPTER` | `PLANNED` | Planned embedded inference engine realization (ADR-0002 G3); not present in RC1 tree. |
+
+---
+
 ## 3. Boundary & Sovereignty Invariant Verification
 
 1. **Verification of Invariant `INV-1` & `INV-21` (No Mono-Core Repository)**:
@@ -139,7 +149,7 @@ In accordance with accepted ADR-0015 §5.1, Decision E, and normative invariants
 2. **Verification of Decision E & ADR-0015 §5.1 (Portable Implementation Adapters)**:
    - `boto3` in `cybrik-soc-command-center:ops/pf-workers/pf_workers/s3util.py` connects to self-hosted SeaweedFS via S3 wire protocol; it does NOT mandate AWS cloud infrastructure.
    - LLM adapters in `cybrik-cyber-ai-platform` connect via OpenAI-compatible HTTP to local engines (Ollama); zero mandatory public cloud endpoints exist.
-   - Control plane and executor in `cybrik-security-tool-fabric` are at `SCAFFOLD` maturity at RC1 (unwired R0 in-process context domain; no active runtime sandbox execution or isolation implemented at RC1 per ADR-0015 §7.4).
+   - Control plane and executor in `cybrik-security-tool-fabric` are at `SCAFFOLD` maturity at RC1 (unwired R0 in-process context domain; no active runtime sandbox execution or isolation implemented at RC1 per cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §7.4).
 3. **Verification of Invariant `INV-3` & `INV-5` (Data Sovereignty & Local Inference)**:
    - Under the proposed architecture and Platform Contract requirements, customer-controlled data classes are specified to remain within sovereign boundaries without mandatory external telemetry or foreign cloud dependencies.
    - No mandatory public cloud LLM or telemetry service is embedded in any product core.

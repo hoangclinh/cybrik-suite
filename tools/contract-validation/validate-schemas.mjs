@@ -844,6 +844,54 @@ try {
   fail(e.message);
 }
 
+// 20. Governance guard: OPEN-11 Product Module Sovereignty Classification Map & Ledger
+try {
+  const mapPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATION-MAP.md');
+  const ledgerPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json');
+  if (existsSync(mapPath) && existsSync(ledgerPath)) {
+    const mapContent = readFileSync(mapPath, 'utf8');
+    const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+
+    const validClassifications = new Set([
+      'PRODUCT_CORE',
+      'PRODUCT_IMPLEMENTATION_ADAPTER',
+      'PROVIDER_ADAPTER',
+      'SUPPORTING_TOOLING_OR_TEST',
+      'DEPLOYMENT_PROFILE_OR_CONFIG',
+      'GOVERNANCE_OR_DOCUMENTATION',
+    ]);
+    const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
+
+    const lines = mapContent.split('\n');
+    let mapRows = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line.startsWith('|') || line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+      const parts = line.split('|').map(s => s.trim());
+      if (parts.length !== 6) throw new Error(`OPEN-11 map line ${i + 1} must have exactly 4 columns`);
+      const [, rawPath, rawClass, rawStatus, notes] = parts;
+      const classification = rawClass.replace(/^`|`$/g, '');
+      const status = rawStatus.replace(/^`|`$/g, '');
+      if (!validClassifications.has(classification)) throw new Error(`Invalid classification: ${classification}`);
+      if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
+      mapRows++;
+    }
+    if (mapRows !== 94) throw new Error(`Expected exactly 94 map rows, got ${mapRows}`);
+
+    const aiFiles = Object.keys(ledger['cybrik-cyber-ai-platform']?.files || {});
+    const fabricFiles = Object.keys(ledger['cybrik-security-tool-fabric']?.files || {});
+    const socFiles = Object.keys(ledger['cybrik-soc-command-center']?.files || {});
+
+    if (aiFiles.length !== 221 || fabricFiles.length !== 132 || socFiles.length !== 1297) {
+      throw new Error(`Ledger counts mismatch: AI=${aiFiles.length}, Fabric=${fabricFiles.length}, SOC=${socFiles.length}`);
+    }
+
+    H('20', true, 'OPEN-11 classification map and 1,650-file ledger pass strict governance validation');
+  }
+} catch (e) {
+  fail(e.message);
+}
+
 console.log('=== JSON Schema / packet / invariants validation ===');
 console.log('counts:', JSON.stringify(counts));
 if (notes.length) for (const n of notes) console.log('note:', n);

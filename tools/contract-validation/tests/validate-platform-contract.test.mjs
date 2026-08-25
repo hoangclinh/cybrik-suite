@@ -410,7 +410,7 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   }
 
   const rows = parseAndValidateTableRows(content);
-  assert.equal(rows.length, 89, `Expected exactly 89 data rows, got ${rows.length}`);
+  assert.equal(rows.length, 94, `Expected exactly 94 data rows, got ${rows.length}`);
 
   // Negative mutation tests verifying structural validation fail-closed behavior
   assert.throws(() => {
