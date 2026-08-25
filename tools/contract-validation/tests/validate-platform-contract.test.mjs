@@ -368,29 +368,62 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.match(content, /`INV-3`/, 'Must cite invariant INV-3');
   assert.match(content, /`INV-5`/, 'Must cite invariant INV-5');
 
-  const validClassifications = new Set([
-    'PRODUCT_CORE',
-    'PRODUCT_IMPLEMENTATION_ADAPTER',
-    'PROVIDER_ADAPTER',
-    'SUPPORTING_TOOLING_OR_TEST',
-    'DEPLOYMENT_PROFILE_OR_CONFIG',
-    'GOVERNANCE_OR_DOCUMENTATION',
-  ]);
+  function parseAndValidateTableRows(mdContent) {
+    const validClassifications = new Set([
+      'PRODUCT_CORE',
+      'PRODUCT_IMPLEMENTATION_ADAPTER',
+      'PROVIDER_ADAPTER',
+      'SUPPORTING_TOOLING_OR_TEST',
+      'DEPLOYMENT_PROFILE_OR_CONFIG',
+      'GOVERNANCE_OR_DOCUMENTATION',
+    ]);
+    const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
 
-  const validStatuses = new Set(['IMPLEMENTED', 'SCAFFOLD', 'PLANNED']);
+    const lines = mdContent.split('\n');
+    const rows = [];
 
-  // Parse table rows
-  const tableRowRegex = /^\|\s*`?([^|`]+)`?\s*\|\s*`?([A-Z_]+)`?\s*\|\s*`?([A-Z_]+)`?\s*\|\s*([^|]+)\s*\|$/gm;
-  let match;
-  let rowCount = 0;
-  while ((match = tableRowRegex.exec(content)) !== null) {
-    const [, path, classification, status] = match;
-    if (path === 'Path / Subsystem' || path.startsWith('---')) continue;
-    assert.ok(validClassifications.has(classification), `Invalid classification: ${classification} on path ${path}`);
-    assert.ok(validStatuses.has(status), `Invalid status: ${status} on path ${path}`);
-    rowCount++;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line.startsWith('|')) continue;
+      if (line.startsWith('|---') || line.includes('Path / Subsystem')) continue;
+
+      const parts = line.split('|').map(s => s.trim());
+      assert.equal(parts[0], '', `Line ${i + 1} must start with |`);
+      assert.equal(parts[parts.length - 1], '', `Line ${i + 1} must end with |`);
+
+      const cols = parts.slice(1, -1);
+      assert.equal(cols.length, 4, `Line ${i + 1} must have exactly 4 columns, got ${cols.length}`);
+
+      const [rawPath, rawClassification, rawStatus, notes] = cols;
+      const path = rawPath.replace(/^`|`$/g, '');
+      const classification = rawClassification.replace(/^`|`$/g, '');
+      const status = rawStatus.replace(/^`|`$/g, '');
+
+      assert.ok(validClassifications.has(classification), `Line ${i + 1} has invalid classification: "${classification}"`);
+      assert.ok(validStatuses.has(status), `Line ${i + 1} has invalid status: "${status}"`);
+      assert.ok(path.length > 0, `Line ${i + 1} has empty path`);
+      assert.ok(notes.length > 0, `Line ${i + 1} has empty notes`);
+
+      rows.push({ line: i + 1, path, classification, status, notes });
+    }
+    return rows;
   }
-  assert.ok(rowCount >= 70, `Expected at least 70 classified rows, got ${rowCount}`);
+
+  const rows = parseAndValidateTableRows(content);
+  assert.equal(rows.length, 89, `Expected exactly 89 data rows, got ${rows.length}`);
+
+  // Negative mutation tests verifying structural validation fail-closed behavior
+  assert.throws(() => {
+    parseAndValidateTableRows(content.replace('| `PRODUCT_CORE` |', '| `product_core` |'));
+  }, /has invalid classification/);
+
+  assert.throws(() => {
+    parseAndValidateTableRows(content.replace('| `IMPLEMENTED` |', '| `INVALID_STATUS` |'));
+  }, /has invalid status/);
+
+  assert.throws(() => {
+    parseAndValidateTableRows(content.replace('| `IMPLEMENTED` |', '|'));
+  }, /must have exactly 4 columns/);
 
   // Check PRODUCT_CORE and PRODUCT_IMPLEMENTATION_ADAPTER presence for each repository section
   const sections = content.split('### 2.');
