@@ -435,12 +435,20 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
     parseMapSections(content.replace('| `IMPLEMENTED` |', '| `IMPLEMENTED` | extra |'));
   }, /must have exactly 4 columns/);
 
+  assert.throws(() => {
+    parseMapSections(content.replace('| `packages/ai-core/src/cybrik_ai_core/authority.py` |', '|  |'));
+  }, /empty path/);
+
+  assert.throws(() => {
+    parseMapSections(content.replace('Pure domain authority model and evaluation logic.', ''));
+  }, /empty notes/);
+
   // Verify machine-readable classification ledger and digest
   const ledgerPath = join(ROOT, 'docs/architecture/PRODUCT-MODULE-CLASSIFICATION-LEDGER.json');
   assert.ok(existsSync(ledgerPath), 'PRODUCT-MODULE-CLASSIFICATION-LEDGER.json must exist');
   const ledgerRaw = readFileSync(ledgerPath, 'utf8');
   const ledgerDigest = createHash('sha256').update(ledgerRaw).digest('hex');
-  assert.equal(ledgerDigest, '0744d684bbf06cae9d201d7d11e317ce5c40f9f3788c5806f6e7404c01fd5bdc', 'Ledger digest mismatch');
+  assert.equal(ledgerDigest, '0071e36423657edcf77085affb23b41534f2e03dfad0af62bffb6fd41d38f02a', 'Ledger digest mismatch');
 
   const ledger = JSON.parse(ledgerRaw);
   const repoKeys = Object.keys(ledger);

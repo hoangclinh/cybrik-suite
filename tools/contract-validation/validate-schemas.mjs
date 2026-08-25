@@ -897,8 +897,10 @@ try {
     const [, rawPath, rawClass, rawStatus, notes] = parts;
     const classification = rawClass.replace(/^`|`$/g, '');
     const status = rawStatus.replace(/^`|`$/g, '');
+    if (!rawPath || rawPath.trim().length === 0) throw new Error(`OPEN-11 map line ${i + 1} empty path`);
     if (!validClassifications.has(classification)) throw new Error(`Invalid classification: ${classification}`);
     if (!validStatuses.has(status)) throw new Error(`Invalid status: ${status}`);
+    if (!notes || notes.trim().length === 0) throw new Error(`OPEN-11 map line ${i + 1} empty notes`);
     sections[currentSec]++;
   }
 
