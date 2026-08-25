@@ -264,7 +264,7 @@
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/checkpoints.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing CheckpointLog port combined with built-in InMemoryCheckpointLog dev/test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing CheckpointLog port combined with built-in InMemoryCheckpointLog dev/test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule §1.1.",
         "status": "IMPLEMENTED"
       },
       "packages/ai-core/src/cybrik_ai_core/orchestration/controller.py": {
@@ -1504,7 +1504,7 @@
       },
       "src/control-plane/cybrik_fabric_control/invocation/ports.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing IdempotencyStore port combined with DevTestOnlyInMemoryIdempotencyStore test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing IdempotencyStore port combined with DevTestOnlyInMemoryIdempotencyStore test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule §1.1.",
         "status": "IMPLEMENTED"
       },
       "src/control-plane/cybrik_fabric_control/invocation/service.py": {
@@ -1574,7 +1574,7 @@
       },
       "src/executor/cmd/executor/main.go": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "CLI entrypoint scaffold; does not implement active isolation or tool execution at RC1 per cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md \u00a77.4.",
+        "notes": "CLI entrypoint scaffold; does not implement active isolation or tool execution at RC1 per cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md §7.4.",
         "status": "SCAFFOLD"
       },
       "src/executor/cmd/executor/main_test.go": {
@@ -5433,9 +5433,9 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/datalake/lifecycle.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Datalake index lifecycle management (ILM/ISM rollover and ES/OS index naming)."
       },
       "services/api/src/cybrik_soc/modules/datalake/opensearch_adapter.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
@@ -5614,7 +5614,7 @@
       },
       "services/api/src/cybrik_soc/modules/hunt/executions.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing CanonicalQueryExecutor Protocol port combined with concrete execution coordinator and SQL/DSL query reproduction compiler; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing CanonicalQueryExecutor Protocol port combined with concrete execution coordinator and SQL/DSL query reproduction compiler; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule §1.1.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/hunt/hunts.py": {
@@ -5829,7 +5829,7 @@
       },
       "services/api/src/cybrik_soc/modules/ioc/taxii.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing TaxiiTransport port, GuardedTransport network client, TaxiiClient wire implementation, and TaxiiSimulator test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing TaxiiTransport port, GuardedTransport network client, TaxiiClient wire implementation, and TaxiiSimulator test double; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule §1.1.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/org/__init__.py": {
@@ -5999,7 +5999,7 @@
       },
       "services/api/src/cybrik_soc/modules/soar/library.py": {
         "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
-        "notes": "Mixed-role file containing SOAR action registry definitions combined with built-in stub action handlers wired by soar/runtime.py; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule \u00a71.1.",
+        "notes": "Mixed-role file containing SOAR action registry definitions combined with built-in stub action handlers wired by soar/runtime.py; classified as PRODUCT_IMPLEMENTATION_ADAPTER per file-level realization rule §1.1.",
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/soar/orm.py": {
@@ -6303,9 +6303,9 @@
         "status": "IMPLEMENTED"
       },
       "services/api/src/cybrik_soc/modules/vulnerability/service.py": {
-        "classification": "PRODUCT_CORE",
-        "notes": "Pure domain business logic, state machines, parsers, or correlation algorithms.",
-        "status": "IMPLEMENTED"
+        "classification": "PRODUCT_IMPLEMENTATION_ADAPTER",
+        "status": "IMPLEMENTED",
+        "notes": "Vulnerability service parsing coordinator with direct concrete parser dependency (parsers.parse_report)."
       },
       "services/api/src/cybrik_soc/platform/__init__.py": {
         "classification": "GOVERNANCE_OR_DOCUMENTATION",
