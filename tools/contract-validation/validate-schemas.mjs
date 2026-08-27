@@ -1770,6 +1770,33 @@ try {
   H('30e', e.message.includes('DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN'), 'storage Object Lock WORM non-degradability check must catch GRANTED_DEGRADED storage capability');
 }
 
+// 30f. in-memory validation: permit degraded storage when profile does not require immutable storage (OPEN-5)
+const privateCloudPath = join(PLATFORM_EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+const pcnDegradedStoragePermitted = JSON.parse(JSON.stringify(pcnSample));
+pcnDegradedStoragePermitted.target_profile_id = 'private-cloud-v1';
+pcnDegradedStoragePermitted.target_profile_digest = privateCloudDigest;
+pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+pcnDegradedStoragePermitted.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    disposition: "GRANTED_DEGRADED",
+    active_mode: "standard_retention_fallback",
+    fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+  }
+];
+let pcnPermittedNoThrow = false;
+try {
+  validatePlatformSemantics(pcnDegradedStoragePermitted, pcnSchemaId);
+  pcnPermittedNoThrow = true;
+} catch (e) {
+  pcnPermittedNoThrow = false;
+}
+H('30f', pcnPermittedNoThrow, 'degraded storage must be permitted when profile does not require immutable storage');
+
+
 
 // ---------------------------------------------------------------------------
 // S3 compatibility subset in-memory assertions (OPEN-2).
