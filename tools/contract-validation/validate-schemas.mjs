@@ -57,6 +57,13 @@ export function validateIJson(bufferOrString, label = 'JSON') {
     throw new Error(`${label}: expected string or Buffer for I-JSON validation`);
   }
 
+  // Reject escaped lone surrogate code points prohibited by RFC 7493 / RFC 8785
+  const UNPAIRED_HIGH_SURROGATE = /(?:^|[^\\])(?:\\\\)*\\u[dD][89a-bA-B][0-9a-fA-F]{2}(?!\\u[dD][c-fC-F][0-9a-fA-F]{2})/;
+  const UNPAIRED_LOW_SURROGATE = /(?:^|[^\\])(?:\\\\)*\\u[dD][c-fC-F][0-9a-fA-F]{2}(?<!\\u[dD][89a-bA-B][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2})/;
+  if (UNPAIRED_HIGH_SURROGATE.test(rawJsonText) || UNPAIRED_LOW_SURROGATE.test(rawJsonText)) {
+    throw new Error(`I-JSON Error in ${label}: escaped lone surrogate code point prohibited by RFC 7493 / RFC 8785`);
+  }
+
   // Reject UTF-8 BOM
   if (rawJsonText.charCodeAt(0) === 0xFEFF) {
     throw new Error(`${label}: I-JSON violation: Byte Order Mark (BOM) is prohibited`);
@@ -821,11 +828,14 @@ for (const file of platformPositives) {
   if (!validate) { fail(`platform example ${file}: no compiled validator for schema ${schemaName}`); continue; }
   let data;
   try {
-    const rawContent = readFileSync(exPath, 'utf8');
     if (schemaName.includes('offline-install-update-manifest')) {
-      validateIJson(rawContent, file);
+      const rawBuffer = readFileSync(exPath);
+      validateIJson(rawBuffer, file);
+      data = JSON.parse(rawBuffer.toString('utf8'));
+    } else {
+      const rawContent = readFileSync(exPath, 'utf8');
+      data = JSON.parse(rawContent);
     }
-    data = JSON.parse(rawContent);
   } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
   const ok = validate(data);
   bump('positive_total');
@@ -869,7 +879,15 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     const validate = validators[schemaName];
     if (!validate) { fail(`platform negative example ${file}: no compiled validator for schema ${schemaName}`); continue; }
     let data;
-    try { data = readJson(exPath); } catch (e) { fail(`platform negative example ${file}: JSON parse error: ${e.message}`); continue; }
+    try {
+      if (schemaName.includes('offline-install-update-manifest')) {
+        const rawBuffer = readFileSync(exPath);
+        validateIJson(rawBuffer, file);
+        data = JSON.parse(rawBuffer.toString('utf8'));
+      } else {
+        data = readJson(exPath);
+      }
+    } catch (e) { fail(`platform negative example ${file}: JSON parse error: ${e.message}`); continue; }
 
     const ok = validate(data);
     bump('negative_schema_total');
@@ -1775,9 +1793,10 @@ try {
 H('37', s3DispatchInvariantsValid, 'S3 strict error dispatch must map payload digest mismatch exclusively to BadDigest (400) and malformed header to InvalidDigest (400), strictly rejecting InvalidArgument and AccessDenied');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
-const validManifestRaw = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8');
+const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));
+const validManifestRaw = validManifestBuf.toString('utf8');
 try {
-  validateIJson(validManifestRaw, 'sample-offline-bundle-manifest.json');
+  validateIJson(validManifestBuf, 'sample-offline-bundle-manifest.json');
   H('26a', true, 'valid offline manifest passes lexical I-JSON validation');
 } catch (e) {
   H('26a', false, `valid offline manifest failed I-JSON: ${e.message}`);
@@ -1817,6 +1836,15 @@ try {
   H('26e', false, 'raw buffer with invalid UTF-8 bytes must be rejected with fatal decoding error');
 } catch (e) {
   H('26e', e.message.includes('malformed UTF-8') || e.message.includes('fatal I-JSON validation error'), 'lexical I-JSON validator must reject raw buffers with invalid UTF-8 bytes with a fatal UTF-8 decoding error');
+}
+
+// 26f. Lexical I-JSON rejects escaped lone surrogates
+const loneSurrogateRaw = validManifestRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\ud800",');
+try {
+  validateIJson(loneSurrogateRaw, 'lone-surrogate-manifest');
+  H('26f', false, 'manifest with escaped lone surrogate must be rejected by lexical I-JSON validator');
+} catch (e) {
+  H('26f', e.message.includes('escaped lone surrogate code point prohibited'), 'lexical I-JSON validator must reject escaped lone surrogate code points');
 }
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');

@@ -288,7 +288,7 @@ test('validate positive platform fixtures', () => {
     const valid = ajv.validate(schemaId, data);
     assert.ok(valid, `Positive fixture ${file} failed validation: ${ajv.errorsText()}`);
     if (file.includes('offline-bundle-manifest')) {
-      assert.doesNotThrow(() => validateIJson(readFileSync(path, 'utf8'), file));
+      assert.doesNotThrow(() => validateIJson(readFileSync(path), file));
     }
     validatePlatformSemantics(data, schemaId);
   }
@@ -629,13 +629,76 @@ test('lexical I-JSON validation: fatal UTF-8 decoding error on malformed bytes',
   const overlongUtf8 = new Uint8Array([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xc0, 0xaf, 0x22, 0x7d]);
   assert.throws(() => validateIJson(overlongUtf8, 'overlong-utf8'), /malformed UTF-8 byte sequence/);
 
-  // Negative: lone surrogate in Buffer
+  // Negative: raw UTF-8 encoded lone surrogate bytes in Buffer
   const loneSurrogateBuf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xed, 0xa0, 0x80, 0x22, 0x7d]);
   assert.throws(() => validateIJson(loneSurrogateBuf, 'lone-surrogate-buf'), /malformed UTF-8 byte sequence/);
 
   // Negative: invalid continuation byte in Buffer
   const invalidContinuationBuf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0x80, 0x22, 0x7d]);
   assert.throws(() => validateIJson(invalidContinuationBuf, 'invalid-continuation-buf'), /malformed UTF-8 byte sequence/);
+
+  // Negative: truncated multi-byte sequence
+  const truncatedUtf8Buf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xe2, 0x82]);
+  assert.throws(() => validateIJson(truncatedUtf8Buf, 'truncated-utf8-buf'), /malformed UTF-8 byte sequence/);
+
+  // Negative: invalid 4-byte sequence exceeding Unicode range
+  const outOfRangeUtf8Buf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xf4, 0x90, 0x80, 0x80, 0x22, 0x7d]);
+  assert.throws(() => validateIJson(outOfRangeUtf8Buf, 'out-of-range-utf8-buf'), /malformed UTF-8 byte sequence/);
+});
+
+test('lexical I-JSON validation: fatal error on escaped lone surrogate code points', () => {
+  const samplePath = join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json');
+  const validRaw = readFileSync(samplePath, 'utf8');
+
+  // Negative: lone high surrogate \ud800
+  const loneHighSurrogate = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\ud800",');
+  assert.throws(
+    () => validateIJson(loneHighSurrogate, 'lone-high-surrogate'),
+    /I-JSON Error in lone-high-surrogate: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Negative: lone high surrogate \uDBFF
+  const loneHighSurrogateMax = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\uDBFF",');
+  assert.throws(
+    () => validateIJson(loneHighSurrogateMax, 'lone-high-surrogate-max'),
+    /I-JSON Error in lone-high-surrogate-max: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Negative: lone low surrogate \udc00
+  const loneLowSurrogate = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\udc00",');
+  assert.throws(
+    () => validateIJson(loneLowSurrogate, 'lone-low-surrogate'),
+    /I-JSON Error in lone-low-surrogate: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Negative: lone low surrogate \uDFFF
+  const loneLowSurrogateMax = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\uDFFF",');
+  assert.throws(
+    () => validateIJson(loneLowSurrogateMax, 'lone-low-surrogate-max'),
+    /I-JSON Error in lone-low-surrogate-max: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Negative: reversed surrogate pair (low before high: \udc00\ud800)
+  const reversedSurrogates = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\udc00\\ud800",');
+  assert.throws(
+    () => validateIJson(reversedSurrogates, 'reversed-surrogates'),
+    /I-JSON Error in reversed-surrogates: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Negative: high surrogate followed by non-surrogate \ud800\u0041
+  const highFollowedByAscii = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\ud800\\u0041",');
+  assert.throws(
+    () => validateIJson(highFollowedByAscii, 'high-followed-by-ascii'),
+    /I-JSON Error in high-followed-by-ascii: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Positive: valid surrogate pair \ud83d\ude00 (emoji 😀) MUST pass
+  const validSurrogatePair = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\ud83d\\ude00",');
+  assert.doesNotThrow(() => validateIJson(validSurrogatePair, 'valid-surrogate-pair'));
+
+  // Positive: escaped backslash before u e.g. \\ud800 (literal backslash + ud800) MUST pass
+  const escapedBackslash = validRaw.replace('"release_tag": "v1.2.3",', '"release_tag": "v1.2.3\\\\ud800",');
+  assert.doesNotThrow(() => validateIJson(escapedBackslash, 'escaped-backslash'));
 });
 
 test('in-memory validation: reject capability negotiation with unverified evidence binding', () => {
