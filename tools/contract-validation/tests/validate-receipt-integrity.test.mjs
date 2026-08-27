@@ -872,8 +872,7 @@ test('F8 additions do not rewrite corpus-wide contract authority wording', () =>
   const contractsReadme = readRepoText('contracts/README.md');
   const schemaReadme = readRepoText('contracts/json-schema/README.md');
   assert.ok(contractsReadme.includes(
-    'No contract has been accepted; no product may implement any of these until\n'
-      + 'explicit Founder acceptance (ADR-0001 D5).',
+    'no product may implement any proposed contract until explicit Founder acceptance (ADR-0001 D5).',
   ));
   assert.ok(contractsReadme.includes(
     'Moving a contract out of `PROPOSED` requires explicit Founder approval. Do not scaffold\n'

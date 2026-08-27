@@ -1,11 +1,30 @@
 # contracts/ — Cross-product contracts
 
-Status: first cross-product contract packet is present, statused `PROPOSED` — **NOT ACCEPTED**
-(version 0.1.0). No contract has been accepted; no product may implement any of these until
-explicit Founder acceptance (ADR-0001 D5).
+Status: Mixed-lifecycle contract corpus containing baseline accepted specifications and active proposals. Proposed contracts carry status `PROPOSED` — **NOT ACCEPTED** (version 0.1.0); no product may implement any proposed contract until explicit Founder acceptance (ADR-0001 D5).
 
-* **[Platform Contract Proposal](platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md)**: `ACCEPTED (Founder, 2026-08-24) — ARCHITECTURE CONTRACT AUTHORITY ONLY` (v0.1.0)
-  * Defines the 13 foundational capability slots required from underlying infrastructure to support the product. Evaluated under the strict boundaries of ADR-0015.
+This directory is the single home for interfaces shared between CYBRIK Suite products.
+Product repositories implement contracts defined here; contracts are never retro-fitted from
+implementations without review.
+
+## Contract Governance & Status Catalog
+
+### Baseline Accepted Suite & Platform Specifications
+The following specifications and packets have been formally accepted through the CYBRIK SDLC governance process:
+
+* **[CYBRIK Platform Contract Specification](platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md)**: `ACCEPTED (Founder, 2026-08-24) — ARCHITECTURE CONTRACT AUTHORITY ONLY` (v0.1.0)
+  * Defines the 13 foundational capability slots required from underlying infrastructure to support the product under ADR-0015.
+* **[W2-D AI Model-Inference & Alert-Summarization Packet](compatibility/cybrik-suite-inference-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION` (v0.1.0; Gate W2-D)
+* **[W2-F Internal Service-Delegation & Workload-Identity Packet](compatibility/cybrik-suite-svc-delegation-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION` (v0.1.0; Gate W2-F)
+* **[Investigation-Lifecycle Service-Delegation Binding](compatibility/cybrik-suite-investigation-lifecycle-svc-delegation-proposal.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0)
+* **[W2-G Organizational-Hierarchy & External-Authority-Boundary Packet](compatibility/cybrik-suite-org-hierarchy-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION` (v0.1.0; Gate W2-G)
+* **[F8 Receipt-Integrity Signature Profile Packet](compatibility/cybrik-suite-receipt-integrity-proposal.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.2.0; Delegated Governor Decision)
+* **[W2-H Resource-Bounds Packet](compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0; Gate W2-H)
+* **[W2-K Transport Peer-Evidence Packet](compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0; Gate W2-K)
+* **[Receipt Trust & Durability Packet](compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0)
+
+### Open-Item Elaboration Proposals (`PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`)
+The following normative specifications elaborate open items identified in `ADR-0015` and `CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md`. All carry status `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed) under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`:
+
 * **[Storage S3-Compatibility Subset Specification](storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
   * Defines the normative minimum S3-compatible object storage subset interface under Platform Contract Slot 5 (`storage`), elaborating open item `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`).
 * **[Offline Installation & Update Manifest Specification](lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
@@ -13,11 +32,8 @@ explicit Founder acceptance (ADR-0001 D5).
 * **[Provider Capability Negotiation Specification](platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
   * Defines the normative provider capability advertisement, discovery, graceful degradation, and lease negotiation protocol under Platform Contract Proposal §6, elaborating open item `OPEN-5` (`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`).
 
-This directory is the single home for interfaces shared between CYBRIK Suite products.
-Product repositories implement contracts defined here; contracts are never retro-fitted from
-implementations without review.
-
-The v1 packet (all `PROPOSED — NOT ACCEPTED`): shared JSON Schemas under `json-schema/` (envelope,
+### Initial Cross-Product Packet (`PROPOSED — NOT ACCEPTED`)
+* The initial v1 packet (all `PROPOSED — NOT ACCEPTED`): shared JSON Schemas under `json-schema/` (envelope,
 data marking, capability, tool execution request/result, delegation chain, execution receipt,
 approval request/decision, common defs); event bindings under `asyncapi/`; a control-plane REST
 mapping under `openapi/`; MCP mapping notes under `mcp/`; the inventory/compatibility manifest
