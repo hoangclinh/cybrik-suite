@@ -42,6 +42,18 @@ const S3_17_MANDATORY_OPS = [
   'ListParts'
 ];
 
+const CORE_MANDATORY_SLOTS = [
+  'oci_container_runtime',
+  'isolation_substrate',
+  'network_segmentation',
+  'storage',
+  'database',
+  'secrets',
+  'crypto',
+  'identity_workload_identity',
+  'artifact_update_mechanism'
+];
+
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
@@ -78,10 +90,40 @@ function validatePlatformSemantics(data, schemaId) {
           throw new Error(`Semantic error: lease valid_until_ms (${valid_until_ms}) must be strictly greater than issued_at_ms (${issued_at_ms})`);
         }
         if (typeof lease.ttl_seconds === 'number') {
-          const expected_ttl = Math.floor((valid_until_ms - issued_at_ms) / 1000);
-          if (lease.ttl_seconds !== expected_ttl) {
-            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ttl}s)`);
+          const duration_ms = valid_until_ms - issued_at_ms;
+          const expected_ms = lease.ttl_seconds * 1000;
+          if (duration_ms !== expected_ms) {
+            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ms}ms expected vs ${duration_ms}ms actual)`);
           }
+        }
+      }
+
+      const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+      if (lease.lease_status === 'ACTIVE_OPTIMAL') {
+        for (const cap of caps) {
+          const capStatus = cap.disposition || cap.status;
+          const fallback = cap.fallback_applied || 'NONE';
+          if (capStatus === 'GRANTED_DEGRADED' || fallback !== 'NONE') {
+            throw new Error(`Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability '${cap.capability_name}' (status: ${capStatus}, fallback: ${fallback})`);
+          }
+        }
+      } else if (lease.lease_status === 'ACTIVE_DEGRADED') {
+        const hasDegraded = caps.some(cap => {
+          const capStatus = cap.disposition || cap.status;
+          const fallback = cap.fallback_applied || 'NONE';
+          return capStatus === 'GRANTED_DEGRADED' && fallback !== 'NONE';
+        });
+        if (!hasDegraded) {
+          throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback`);
+        }
+      }
+    }
+
+    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_slots)) {
+      const requestedSlots = new Set(data.negotiation_request.requested_slots);
+      for (const slot of CORE_MANDATORY_SLOTS) {
+        if (!requestedSlots.has(slot)) {
+          throw new Error(`Semantic error: negotiation_request.requested_slots missing core mandatory slot '${slot}'`);
         }
       }
     }
@@ -670,11 +712,31 @@ test('in-memory validation: reject capability negotiation with inverted timestam
   assert.throws(() => validatePlatformSemantics(data, schemaId), /strictly greater than issued_at_ms/);
 });
 
+test('in-memory validation: reject capability negotiation request missing core mandatory slot', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_request.requested_slots = data.negotiation_request.requested_slots.filter(s => s !== 'storage');
+
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /missing core mandatory slot/);
+});
+
 test('in-memory validation: reject capability negotiation with mismatched ttl_seconds', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
   const data = JSON.parse(JSON.stringify(sample));
   data.agreed_capability_lease.ttl_seconds = 1800; // actual delta is 3600
+
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /does not match timestamp duration/);
+});
+
+test('in-memory validation: reject capability negotiation with subsecond timestamp mismatch', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.agreed_capability_lease.issued_at = "2026-08-27T12:00:00.000Z";
+  data.agreed_capability_lease.valid_until = "2026-08-27T13:00:00.899Z";
+  data.agreed_capability_lease.ttl_seconds = 3600;
 
   assert.throws(() => validatePlatformSemantics(data, schemaId), /does not match timestamp duration/);
 });
@@ -696,6 +758,16 @@ test('in-memory validation: reject capability negotiation with illegal status pa
   data2.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
   const valid2 = ajv.validate(schemaId, data2);
   assert.ok(!valid2, 'Should reject DEGRADED_LEASE_GRANTED with ACTIVE_OPTIMAL');
+});
+
+test('in-memory validation: reject hidden degradation in ACTIVE_OPTIMAL lease', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_status = "AGREED_LEASE_GRANTED";
+  data.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /ACTIVE_OPTIMAL lease cannot contain degraded capability/);
 });
 
 test('in-memory validation: reject storage capability missing 17-op baseline or Object Lock evidence', () => {

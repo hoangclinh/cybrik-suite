@@ -353,6 +353,18 @@ const S3_17_MANDATORY_OPS = [
   'ListParts'
 ];
 
+const CORE_MANDATORY_SLOTS = [
+  'oci_container_runtime',
+  'isolation_substrate',
+  'network_segmentation',
+  'storage',
+  'database',
+  'secrets',
+  'crypto',
+  'identity_workload_identity',
+  'artifact_update_mechanism'
+];
+
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
@@ -389,10 +401,40 @@ function validatePlatformSemantics(data, schemaId) {
           throw new Error(`Semantic error: lease valid_until_ms (${valid_until_ms}) must be strictly greater than issued_at_ms (${issued_at_ms})`);
         }
         if (typeof lease.ttl_seconds === 'number') {
-          const expected_ttl = Math.floor((valid_until_ms - issued_at_ms) / 1000);
-          if (lease.ttl_seconds !== expected_ttl) {
-            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ttl}s)`);
+          const duration_ms = valid_until_ms - issued_at_ms;
+          const expected_ms = lease.ttl_seconds * 1000;
+          if (duration_ms !== expected_ms) {
+            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ms}ms expected vs ${duration_ms}ms actual)`);
           }
+        }
+      }
+
+      const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+      if (lease.lease_status === 'ACTIVE_OPTIMAL') {
+        for (const cap of caps) {
+          const capStatus = cap.disposition || cap.status;
+          const fallback = cap.fallback_applied || 'NONE';
+          if (capStatus === 'GRANTED_DEGRADED' || fallback !== 'NONE') {
+            throw new Error(`Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability '${cap.capability_name}' (status: ${capStatus}, fallback: ${fallback})`);
+          }
+        }
+      } else if (lease.lease_status === 'ACTIVE_DEGRADED') {
+        const hasDegraded = caps.some(cap => {
+          const capStatus = cap.disposition || cap.status;
+          const fallback = cap.fallback_applied || 'NONE';
+          return capStatus === 'GRANTED_DEGRADED' && fallback !== 'NONE';
+        });
+        if (!hasDegraded) {
+          throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback`);
+        }
+      }
+    }
+
+    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_slots)) {
+      const requestedSlots = new Set(data.negotiation_request.requested_slots);
+      for (const slot of CORE_MANDATORY_SLOTS) {
+        if (!requestedSlots.has(slot)) {
+          throw new Error(`Semantic error: negotiation_request.requested_slots missing core mandatory slot '${slot}'`);
         }
       }
     }
@@ -1343,6 +1385,16 @@ pcnMissingMandatory.agreed_capability_lease.mandatory_slots_satisfied = pcnMissi
 const pcnMissingValid = ajv.validate(pcnSchemaId, pcnMissingMandatory);
 H('22', !pcnMissingValid && ajv.errors.some(e => e.keyword === 'contains'), 'Capability negotiation lease missing mandatory oci_container_runtime slot must be rejected via contains');
 
+// 22b. in-memory validation: reject missing core mandatory slot in negotiation_request.requested_slots
+const pcnMissingReqSlot = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingReqSlot.negotiation_request.requested_slots = pcnMissingReqSlot.negotiation_request.requested_slots.filter(s => s !== 'storage');
+try {
+  validatePlatformSemantics(pcnMissingReqSlot, pcnSchemaId);
+  fail('missing requested slot: expected validatePlatformSemantics to throw when core mandatory slot is missing from requested_slots');
+} catch (e) {
+  H('22b', e.message.includes('missing core mandatory slot'), 'negotiation request check must catch missing core mandatory slot');
+}
+
 // 23. in-memory validation: reject ACTIVE_DEGRADED when FAIL_CLOSED_STRICT is set
 const pcnStrictDegraded = JSON.parse(JSON.stringify(pcnSample));
 pcnStrictDegraded.negotiation_request.degradation_policy = "FAIL_CLOSED_STRICT";
@@ -1391,6 +1443,18 @@ try {
   H('27', e.message.includes('does not match timestamp duration'), 'temporal consistency check must catch mismatched ttl_seconds');
 }
 
+// 27b_subsecond_ttl. in-memory validation: reject capability negotiation with subsecond timestamp mismatch
+const pcnSubsecondTtl = JSON.parse(JSON.stringify(pcnSample));
+pcnSubsecondTtl.agreed_capability_lease.issued_at = "2026-08-27T12:00:00.000Z";
+pcnSubsecondTtl.agreed_capability_lease.valid_until = "2026-08-27T13:00:00.899Z";
+pcnSubsecondTtl.agreed_capability_lease.ttl_seconds = 3600;
+try {
+  validatePlatformSemantics(pcnSubsecondTtl, pcnSchemaId);
+  fail('subsecond TTL mismatch: expected validatePlatformSemantics to throw on non-exact millisecond duration');
+} catch (e) {
+  H('27b', e.message.includes('does not match timestamp duration'), 'exact millisecond TTL check must catch subsecond duration mismatch');
+}
+
 // 28a. in-memory validation: reject AGREED_LEASE_GRANTED paired with ACTIVE_DEGRADED
 const pcnIllegalPair1 = JSON.parse(JSON.stringify(pcnSample));
 pcnIllegalPair1.negotiation_status = "AGREED_LEASE_GRANTED";
@@ -1404,6 +1468,17 @@ pcnIllegalPair2.negotiation_status = "DEGRADED_LEASE_GRANTED";
 pcnIllegalPair2.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
 const pcnIllegalPair2Valid = ajv.validate(pcnSchemaId, pcnIllegalPair2);
 H('28b', !pcnIllegalPair2Valid, 'Capability negotiation schema must reject DEGRADED_LEASE_GRANTED with ACTIVE_OPTIMAL lease status');
+
+// 28c. in-memory validation: reject hidden degradation in ACTIVE_OPTIMAL lease
+const pcnHiddenDegradation = JSON.parse(JSON.stringify(pcnSample));
+pcnHiddenDegradation.negotiation_status = "AGREED_LEASE_GRANTED";
+pcnHiddenDegradation.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+try {
+  validatePlatformSemantics(pcnHiddenDegradation, pcnSchemaId);
+  fail('hidden degradation: expected validatePlatformSemantics to throw when ACTIVE_OPTIMAL lease contains degraded capabilities');
+} catch (e) {
+  H('28c', e.message.includes('ACTIVE_OPTIMAL lease cannot contain degraded capability'), 'degradation coupling check must reject degraded capabilities in ACTIVE_OPTIMAL lease');
+}
 
 // 29a. in-memory validation: reject storage capability missing 17-op baseline operations
 const pcnStorageMissingOp = JSON.parse(JSON.stringify(pcnSample));
