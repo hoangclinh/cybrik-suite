@@ -1040,56 +1040,75 @@ test('on-disk deployment profiles declare explicit immutable_storage_required ac
   }
 });
 
-test('in-memory validation: reject capability negotiation with degraded storage when profile requires immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
+test('in-memory validation: reject capability negotiation with degraded storage across all immutable profiles (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 1. Degraded storage_object_lock by capability_name against onprem-standard-v1 (immutable_storage_required: true)
-  const data1 = JSON.parse(JSON.stringify(sample));
-  const storageCap1 = data1.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
-  if (storageCap1) {
-    storageCap1.disposition = "GRANTED_DEGRADED";
-    storageCap1.fallback_applied = "FEATURE_DISABLED_GRACEFUL";
+  const immutableProfiles = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(EXAMPLES_DIR, `${profileId}.profile.json`);
+    assert.ok(existsSync(profilePath), `Profile fixture missing: ${profilePath}`);
+    const profileData = JSON.parse(readFileSync(profilePath, 'utf8'));
+    assert.equal(
+      profileData.slots?.storage?.specification?.immutable_storage_required,
+      true,
+      `${profileId} must mandate immutable_storage_required: true`
+    );
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. Degraded storage_object_lock by capability_name throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const data1 = JSON.parse(JSON.stringify(sample));
+    data1.target_profile_id = profileId;
+    data1.target_profile_digest = profileDigest;
+    data1.agreed_capability_lease.target_profile_id = profileId;
+    data1.agreed_capability_lease.target_profile_digest = profileDigest;
+    data1.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    data1.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_object_lock",
+        slot_id: "storage",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "standard_retention_fallback",
+        fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+      }
+    ];
+
+    assert.ok(ajv.validate(schemaId, data1), `Structurally valid schema for ${profileId}: ` + ajv.errorsText());
+    assert.throws(
+      () => validatePlatformSemantics(data1, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject degraded storage_object_lock`
+    );
+
+    // 2. Degraded storage by slot_id throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const data2 = JSON.parse(JSON.stringify(sample));
+    data2.target_profile_id = profileId;
+    data2.target_profile_digest = profileDigest;
+    data2.agreed_capability_lease.target_profile_id = profileId;
+    data2.agreed_capability_lease.target_profile_digest = profileDigest;
+    data2.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    data2.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_custom_perf",
+        slot_id: "storage",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "slow_emulated_storage",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      }
+    ];
+
+    assert.ok(ajv.validate(schemaId, data2), `Structurally valid schema for ${profileId}: ` + ajv.errorsText());
+    assert.throws(
+      () => validatePlatformSemantics(data2, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject degraded storage slot_id`
+    );
   }
-  assert.ok(ajv.validate(schemaId, data1), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data1, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
-
-  // 2. Degraded storage slot by slot_id against onprem-standard-v1 (immutable_storage_required: true)
-  const data2 = JSON.parse(JSON.stringify(sample));
-  data2.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_custom_perf",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "slow_emulated_storage",
-      fallback_applied: "CORE_EMULATION_FALLBACK"
-    }
-  ];
-  assert.ok(ajv.validate(schemaId, data2), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data2, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
-
-  // 3. Degraded storage capability with both capability_name and slot_id against onprem-standard-v1
-  const data3 = JSON.parse(JSON.stringify(sample));
-  data3.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_object_lock",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "standard_retention_fallback",
-      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
-    }
-  ];
-  assert.ok(ajv.validate(schemaId, data3), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data3, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
 });
 
 test('in-memory validation: permit degraded storage when profile does not require immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
@@ -1097,6 +1116,13 @@ test('in-memory validation: permit degraded storage when profile does not requir
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
   const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+  assert.ok(existsSync(privateCloudPath), 'private-cloud-v1 profile must exist');
+  const privateCloudData = JSON.parse(readFileSync(privateCloudPath, 'utf8'));
+  assert.equal(
+    privateCloudData.slots?.storage?.specification?.immutable_storage_required,
+    false,
+    'private-cloud-v1 must declare immutable_storage_required: false'
+  );
   const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
 
   // 1. Degraded storage_object_lock against private-cloud-v1 (immutable_storage_required: false / not mandated)
@@ -1152,6 +1178,78 @@ test('in-memory validation: permit degraded storage when profile does not requir
     () => validatePlatformSemantics(data3, schemaId),
     /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
   );
+});
+
+test('in-memory validation: reject HEALTH_PROBE with remote WAN target or POST method in offline manifest (OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Valid local HEALTH_PROBE with GET on 127.0.0.1 passes schema validation
+  const valid1 = JSON.parse(JSON.stringify(sample));
+  valid1.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-local-127',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:8080/healthz',
+    parameters: {
+      method: 'GET',
+      expected_status: 200,
+      interval_seconds: 5,
+      retries: 3
+    }
+  });
+  assert.ok(ajv.validate(schemaId, valid1), 'Valid 127.0.0.1 health probe should pass: ' + ajv.errorsText());
+
+  // 2. Valid local HEALTH_PROBE with HEAD on localhost passes schema validation
+  const valid2 = JSON.parse(JSON.stringify(sample));
+  valid2.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-localhost',
+    action: 'HEALTH_PROBE',
+    target: 'http://localhost:8080/readyz',
+    parameters: {
+      method: 'HEAD',
+      expected_status: 200
+    }
+  });
+  assert.ok(ajv.validate(schemaId, valid2), 'Valid localhost health probe should pass: ' + ajv.errorsText());
+
+  // 3. Valid local HEALTH_PROBE with IPv6 [::1] loopback passes schema validation
+  const valid3 = JSON.parse(JSON.stringify(sample));
+  valid3.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-ipv6',
+    action: 'HEALTH_PROBE',
+    target: 'http://[::1]:8080/healthz'
+  });
+  assert.ok(ajv.validate(schemaId, valid3), 'Valid IPv6 loopback health probe should pass: ' + ajv.errorsText());
+
+  // 4. Reject remote WAN target https://external.example.com
+  const invalidWan = JSON.parse(JSON.stringify(sample));
+  invalidWan.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-wan',
+    action: 'HEALTH_PROBE',
+    target: 'https://external.example.com/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, invalidWan), 'Remote WAN target must be rejected by schema');
+
+  // 5. Reject cloud metadata IP target http://169.254.169.254
+  const invalidMetadata = JSON.parse(JSON.stringify(sample));
+  invalidMetadata.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-metadata',
+    action: 'HEALTH_PROBE',
+    target: 'http://169.254.169.254/latest/meta-data'
+  });
+  assert.ok(!ajv.validate(schemaId, invalidMetadata), 'Cloud metadata target 169.254.169.254 must be rejected by schema');
+
+  // 6. Reject mutating method POST
+  const invalidPost = JSON.parse(JSON.stringify(sample));
+  invalidPost.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-post',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:8080/healthz',
+    parameters: {
+      method: 'POST'
+    }
+  });
+  assert.ok(!ajv.validate(schemaId, invalidPost), 'Mutating POST method must be rejected by schema');
 });
 
 
