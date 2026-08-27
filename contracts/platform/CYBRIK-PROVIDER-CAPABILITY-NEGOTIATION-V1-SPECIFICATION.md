@@ -42,7 +42,7 @@ The 9 core mandatory runtime capability slots specified in `ADR-0015` §5.2 and 
 1. `oci_container_runtime` (Rootless posture, load-time image verification)
 2. `isolation_substrate` (Structural isolation floor `S0`–`S4` per `ADR-0005`)
 3. `network_segmentation` (Default-deny boundaries, DNS egress mediation seam)
-4. `storage` (Minimum 17-operation S3-compatible subset per `OPEN-2`)
+4. `storage` (Exact 17-operation S3-compatible closed baseline per `OPEN-2`: `PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`)
 5. `database` (Relational ACID transactions, row-level security semantics)
 6. `secrets` (Zero-exfiltration memory lifecycle, startup presence verification)
 7. `crypto` (Pluggable provider seam, Ed25519/JCS signing per `ADR-0018`)
@@ -58,9 +58,10 @@ If a provider fails to advertise, satisfy, or provide valid conformance evidence
 4. **Isolation Floor Preservation**: Provider capabilities MUST NOT lower the execution isolation floor or relax sandboxing guarantees established by `ADR-0005`.
 
 ### INV-NEG-03: Symmetry & Graceful Degradation on Optional Features (`ADR-0015` §8.3)
-1. **Deterministic Fallbacks**: Optional capabilities (e.g. GPU inference acceleration, distributed caching, object-lock storage) MAY be degraded if and only if deterministic core emulation or graceful feature disabling is available.
+1. **Deterministic Fallbacks**: Optional capabilities (e.g. GPU inference acceleration, distributed caching) MAY be degraded if and only if deterministic core emulation or graceful feature disabling is available. For deployment profiles requiring immutable storage / WORM compliance, Object Lock and WORM retention capabilities MUST NEVER be degraded or disabled.
 2. **Finite Lease Lifespan**: Agreements are issued as finite `agreed_capability_lease` tokens with explicit `target_profile_id`, `target_profile_digest`, `issued_at`, `valid_until`, and `ttl_seconds` (max 86,400 seconds / 24 hours). Unrenewed or expired leases MUST be rejected.
 3. **Degradation Transparency**: All applied fallbacks MUST be explicitly recorded in `agreed_capability_lease.negotiated_optional_capabilities` with active runtime operating mode.
+4. **Strict Status-Pair Coupling**: Handshake outcome status and lease status MUST be strictly coupled: `AGREED_LEASE_GRANTED` pairs ONLY with `ACTIVE_OPTIMAL`; `DEGRADED_LEASE_GRANTED` pairs ONLY with `ACTIVE_DEGRADED`; `TERMINAL_REJECTED` pairs ONLY with `REJECTED_FAIL_CLOSED`.
 
 ### INV-NEG-04: Evidence & Verifiable Discovery Invariant (`ADR-0015` §8.4)
 1. **Mutual Discovery Authentication**: Capability advertisement MUST occur over an authenticated discovery seam (`authenticated_discovery: true`) using mutual TLS or cryptographic token binding (`ADR-0006`). Ambient unauthenticated advertisements MUST be rejected.
@@ -177,13 +178,13 @@ CYBRIK Core validates the response:
                 +---------------------+
 ```
 
-| State | Invariant Condition | Resulting Operational Posture |
+| State / Status Pair | Invariant Condition | Resulting Operational Posture |
 |---|---|---|
 | `NEGOTIATING` | Handshake initiated, awaiting provider response. | Workloads blocked from initialization. |
 | `EVALUATING_EVIDENCE` | Response received; core performing structural & evidence checks. | Workloads blocked; fail-closed timeout active. |
-| `ACTIVE_OPTIMAL` | All mandatory slots valid; all requested optional capabilities granted full support. | Full performance / full feature operation. |
-| `ACTIVE_DEGRADED` | All mandatory slots valid; one or more optional capabilities degraded to fallback. | Normal operation under documented fallback constraints. |
-| `TERMINAL_REJECTED` | Any mandatory slot missing, unauthenticated, or invalid evidence. | Zero workload execution; system fails closed. |
+| `AGREED_LEASE_GRANTED` / `ACTIVE_OPTIMAL` | All mandatory slots valid; all requested optional capabilities granted full support. Strict 1-to-1 status pair. | Full performance / full feature operation. |
+| `DEGRADED_LEASE_GRANTED` / `ACTIVE_DEGRADED` | All mandatory slots valid; one or more optional capabilities degraded to fallback. Strict 1-to-1 status pair. | Normal operation under documented fallback constraints. |
+| `TERMINAL_REJECTED` / `REJECTED_FAIL_CLOSED` | Any mandatory slot missing, unauthenticated, or invalid evidence. Strict 1-to-1 status pair. | Zero workload execution; system fails closed. |
 | `LEASE_EXPIRED` | Lease TTL elapsed without successful renewal. | Workload paused / immediate fail-closed teardown. |
 
 ---
@@ -198,7 +199,7 @@ When an optional capability is not offered or cannot be verified, the handshake 
 | **Slot 2** | `isolation_substrate` | Profile isolation floor (`S0`–`S4`) per `ADR-0005` | Direct KVM / nested microVM hardware acceleration | `CORE_EMULATION_FALLBACK`: Fall back to software-isolated sandbox if within profile floor; otherwise `TERMINAL_REJECTED`. |
 | **Slot 3** | `orchestration_capability` | Basic scheduling, readiness/liveness probes, health lifecycle | Topology spread constraints, dynamic pod autoscaling | `FEATURE_DISABLED_GRACEFUL`: Fall back to static replica counts and standard round-robin scheduling. |
 | **Slot 4** | `network_segmentation` | Default-deny network policy, segment boundaries, DNS egress mediation | eBPF kernel fast-path bypass, hardware network encryption | `CORE_EMULATION_FALLBACK`: Fall back to kernel iptables / standard netfilter firewalling. |
-| **Slot 5** | `storage` | 17 mandatory S3 operations (`OPEN-2`), SigV4, path-style addressing | Object Lock / WORM retention headers | `FEATURE_DISABLED_GRACEFUL`: Application-layer SHA-256 integrity verification; object lock disabled. |
+| **Slot 5** | `storage` | Exact 17-operation closed baseline (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`; `OPEN-2`), SigV4, path-style addressing | Object Lock / WORM retention headers (when optional in profile) | `FEATURE_DISABLED_GRACEFUL`: Application-layer SHA-256 integrity verification; object lock disabled (strictly forbidden if profile requires immutable storage). |
 | **Slot 6** | `database` | Relational datastore, ACID transactions, row-level security (RLS) | Read-replica auto-routing, sharded clustering | `CORE_EMULATION_FALLBACK`: Fall back to single primary transaction pool with read-after-write consistency. |
 | **Slot 7** | `cache` | In-memory key-value cache, predictable consistency, `noeviction` | Multi-node cluster replication | `FEATURE_DISABLED_GRACEFUL`: Fall back to standalone single-node cache instance with in-memory fallback. |
 | **Slot 8** | `secrets` | Secret storage, rotation hooks, zero exfiltration, startup presence check | Hardware HSM envelope key wrapping | `CORE_EMULATION_FALLBACK`: Fall back to software envelope encryption with operator-injected master secret. |
@@ -209,7 +210,7 @@ When an optional capability is not offered or cannot be verified, the handshake 
 | **Slot 13** | `artifact_update_mechanism` | Signed offline bundles, RFC 8785 signature verify, rollback (`OPEN-1`) | Live delta binary streaming | `FEATURE_DISABLED_GRACEFUL`: Fall back to full signed offline bundle package installation. |
 
 ### 4.1 Prohibited Degradation Attempts
-Any attempt to negotiate a degradation on a mandatory baseline (such as permitting public cloud model egress, relaxing default-deny network rules, bypassing database ACID guarantees, or executing as root) is **STRICTLY PROHIBITED** and MUST result in an unrecoverable `TERMINAL_REJECTED` handshake state.
+Any attempt to negotiate a degradation on a mandatory baseline (such as permitting public cloud model egress, relaxing default-deny network rules, bypassing database ACID guarantees, degrading Object Lock / WORM retention when the profile requires immutable storage, or executing as root) is **STRICTLY PROHIBITED** and MUST result in an unrecoverable `TERMINAL_REJECTED` handshake state.
 
 ---
 
@@ -248,7 +249,7 @@ A capability negotiation handshake document captures the complete tripartite int
 | `/target_profile_id` | `string` | Enum `["onprem-standard-v1", "onprem-airgap-v1", "private-cloud-v1", "hybrid-sovereign-v1"]` | Target deployment profile being negotiated against. |
 | `/target_profile_version` | `string` | Const `"1.0.0"` | Version of the deployment profile. |
 | `/target_profile_digest` | `string` | Pattern `^[a-f0-9]{64}$` | SHA-256 digest of the referenced deployment profile artifact. |
-| `/negotiation_status` | `string` | Enum `["AGREED_LEASE_GRANTED", "DEGRADED_LEASE_GRANTED", "TERMINAL_REJECTED"]` | Final outcome status of the negotiation handshake. |
+| `/negotiation_status` | `string` | Enum `["AGREED_LEASE_GRANTED", "DEGRADED_LEASE_GRANTED", "TERMINAL_REJECTED"]` | Final outcome status of the negotiation handshake. Strictly coupled to `lease_status` (`AGREED_LEASE_GRANTED` <-> `ACTIVE_OPTIMAL`, `DEGRADED_LEASE_GRANTED` <-> `ACTIVE_DEGRADED`, `TERMINAL_REJECTED` <-> `REJECTED_FAIL_CLOSED`). |
 | `/negotiation_request/requested_slots` | `array` | MinItems 9, MaxItems 13, unique items | List of required slots (must include 9 core mandatory slots). |
 | `/negotiation_request/client_nonce` | `string` | Pattern `^[a-zA-Z0-9_-]{16,64}$` | Client replay-prevention nonce. |
 | `/advertisement_response/server_nonce` | `string` | Pattern `^[a-zA-Z0-9_-]{16,64}$` | Server replay-prevention nonce. |
@@ -258,8 +259,9 @@ A capability negotiation handshake document captures the complete tripartite int
 | `/agreed_capability_lease/target_profile_id` | `string` | Enum `["onprem-standard-v1", "onprem-airgap-v1", "private-cloud-v1", "hybrid-sovereign-v1"]` | Deployment profile ID bound to the agreed lease. |
 | `/agreed_capability_lease/target_profile_digest` | `string` | Pattern `^[a-f0-9]{64}$` | SHA-256 digest of profile bound to the agreed lease. |
 | `/agreed_capability_lease/issued_at` | `string` | RFC 3339 date-time | Issuance timestamp of the capability lease. |
-| `/agreed_capability_lease/valid_until` | `string` | RFC 3339 date-time | Expiration timestamp of the capability lease. |
-| `/agreed_capability_lease/ttl_seconds` | `integer` | Minimum 1, Maximum 86400 | Authorized lifespan of the capability lease in seconds. |
+| `/agreed_capability_lease/valid_until` | `string` | RFC 3339 date-time | Expiration timestamp of the capability lease (`valid_until_ms > issued_at_ms`). |
+| `/agreed_capability_lease/ttl_seconds` | `integer` | Minimum 1, Maximum 86400 | Authorized lifespan of the capability lease in seconds (`ttl_seconds === (valid_until_ms - issued_at_ms) / 1000`). |
+| `/agreed_capability_lease/lease_status` | `string` | Enum `["ACTIVE_OPTIMAL", "ACTIVE_DEGRADED", "REJECTED_FAIL_CLOSED"]` | Granted lease status. Strictly coupled to `negotiation_status`. |
 | `/agreed_capability_lease/mandatory_slots_satisfied` | `array` | MinItems 9, MaxItems 13, unique items | Array of verified mandatory slot identifiers. |
 | `/agreed_capability_lease/fail_closed_violations` | `array` | Array of strings | Must be empty for active leases; non-empty for rejected handshakes. |
 | `/evidence_binding_verified` | `boolean` | `true` when lease is granted | Verification marker confirming all evidence references resolved. |
@@ -274,13 +276,15 @@ To be deemed valid, any capability negotiation document or runtime handshake exc
 1. Document MUST validate without error against `cybrik.provider-capability-negotiation.v1.schema.json` (JSON Schema 2020-12).
 2. Document MUST adhere to all `additionalProperties: false` object closures.
 3. All format constraints (RFC 3339 timestamps, SHA-256 hex patterns, namespace identifiers) MUST pass strict regex verification.
+4. Status-pair coupling MUST be enforced structurally: `AGREED_LEASE_GRANTED` pairs ONLY with `ACTIVE_OPTIMAL`, `DEGRADED_LEASE_GRANTED` pairs ONLY with `ACTIVE_DEGRADED`, and `TERMINAL_REJECTED` pairs ONLY with `REJECTED_FAIL_CLOSED`.
 
 ### Phase 2: Semantic Conformance & Referential Integrity
 1. **Evidence Referential Integrity (`SR-NEG-01`)**: Every item in `evidence_references` within `advertisement_response.advertised_capabilities` MUST resolve to an exact `test_identifier` defined in `advertisement_response.conformance_evidence`.
 2. **Profile Digest Matching (`SR-NEG-02`)**: `target_profile_digest` (on both root document and `agreed_capability_lease`) MUST exactly match the SHA-256 hash of the on-disk `contracts/examples/platform/<target_profile_id>.profile.json` document.
 3. **Mandatory Slot Completeness (`SR-NEG-03`)**: For any granted lease (`AGREED_LEASE_GRANTED` or `DEGRADED_LEASE_GRANTED`), `agreed_capability_lease.mandatory_slots_satisfied` MUST contain all slots marked mandatory in the referenced deployment profile (including all 9 core slots), and all mandatory slots MUST be advertised with verified evidence references.
-4. **Degradation Integrity (`SR-NEG-04`)**: If any optional capability has `disposition: "GRANTED_DEGRADED"`, `fallback_applied` MUST NOT be `"NONE"`, and the resulting `negotiation_status` MUST be `"DEGRADED_LEASE_GRANTED"`.
-5. **Temporal Consistency (`SR-NEG-05`)**: `agreed_capability_lease.valid_until` MUST be strictly later than `agreed_capability_lease.issued_at`, and the interval MUST equal `ttl_seconds`.
+4. **Storage Slot 17-Operation Baseline & Evidence Verification (`SR-NEG-04`)**: Slot 5 (`storage`) advertisements MUST reference the exact 17-operation closed baseline (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`) with verifiable Object Lock retention evidence.
+5. **Degradation Integrity & Strict Status-Pair Coupling (`SR-NEG-05`)**: If any optional capability has `disposition: "GRANTED_DEGRADED"`, `fallback_applied` MUST NOT be `"NONE"`, and the resulting `negotiation_status` MUST be `"DEGRADED_LEASE_GRANTED"` paired strictly with `lease_status: "ACTIVE_DEGRADED"`. For profiles requiring immutable storage, Object Lock / WORM degradation is strictly forbidden.
+6. **Temporal Consistency & TTL Validation (`SR-NEG-06`)**: `agreed_capability_lease.valid_until` MUST be strictly later than `agreed_capability_lease.issued_at` (`Date.parse(valid_until) > Date.parse(issued_at)`), and `agreed_capability_lease.ttl_seconds` MUST equal `Math.floor((Date.parse(valid_until) - Date.parse(issued_at)) / 1000)`.
 
 ---
 
@@ -299,7 +303,7 @@ In accordance with `ADR-0015` §14 and Platform Contract Proposal §9, authoring
 |---|---|---|---|
 | `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | ADR-0015 §8.2, §8.3, §8.4: Define discovery encoding, version matching, degradation reporting, and conformance evidence. | **ELABORATED & FORMALIZED (PROPOSED)**. Provides normative specification, JSON Schema 2020-12, and handshake fixture. |
 | `OPEN-10` | Platform Contract Slot Semantics | ADR-0015 §5.2: 13 capability slots defined. | **UPHELD**. Operates strictly over the 13 defined capability slots without adding unapproved slots. |
-| `OPEN-2` | Minimum S3 Compatibility Subset | Platform Contract §5: 17 mandatory S3 operations. | **UPHELD**. Enforces S3 operations as non-degradable mandatory baseline under Slot 5 (`storage`). |
+| `OPEN-2` | Minimum S3 Compatibility Subset | Platform Contract §5: 17 mandatory S3 operations. | **UPHELD**. Enforces exact 17-operation S3 closed baseline as non-degradable mandatory baseline under Slot 5 (`storage`). |
 | `OPEN-6`/`7`/`8` | Substrate & Provider Selection | ADR-0015 §14: Architecture authority only. | **PRESERVED**. Retains substrate neutrality; zero vendor lock-in. |
 
 ---

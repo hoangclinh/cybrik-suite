@@ -22,6 +22,26 @@ const JSON_SCHEMA_DIR = join(ROOT, 'contracts/json-schema');
 const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
 
 
+const S3_17_MANDATORY_OPS = [
+  'PutObject',
+  'GetObject',
+  'HeadObject',
+  'DeleteObject',
+  'DeleteObjects',
+  'ListObjectsV2',
+  'HeadBucket',
+  'CreateBucket',
+  'PutObjectRetention',
+  'GetObjectRetention',
+  'PutObjectLegalHold',
+  'GetObjectLegalHold',
+  'CreateMultipartUpload',
+  'UploadPart',
+  'CompleteMultipartUpload',
+  'AbortMultipartUpload',
+  'ListParts'
+];
+
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
@@ -45,6 +65,54 @@ function validatePlatformSemantics(data, schemaId) {
     const targetProfileId = data.target_profile_id;
     const targetProfileDigest = data.target_profile_digest;
     const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+
+    if (data.agreed_capability_lease) {
+      const lease = data.agreed_capability_lease;
+      if (lease.issued_at && lease.valid_until) {
+        const issued_at_ms = Date.parse(lease.issued_at);
+        const valid_until_ms = Date.parse(lease.valid_until);
+        if (Number.isNaN(issued_at_ms) || Number.isNaN(valid_until_ms)) {
+          throw new Error(`Semantic error: invalid timestamp format in lease`);
+        }
+        if (!(valid_until_ms > issued_at_ms)) {
+          throw new Error(`Semantic error: lease valid_until_ms (${valid_until_ms}) must be strictly greater than issued_at_ms (${issued_at_ms})`);
+        }
+        if (typeof lease.ttl_seconds === 'number') {
+          const expected_ttl = Math.floor((valid_until_ms - issued_at_ms) / 1000);
+          if (lease.ttl_seconds !== expected_ttl) {
+            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ttl}s)`);
+          }
+        }
+      }
+    }
+
+    if (isNegotiation && adv.advertised_capabilities) {
+      const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
+      if (storageCap) {
+        if (storageCap.supported_features) {
+          const featureSet = new Set(storageCap.supported_features);
+          for (const op of S3_17_MANDATORY_OPS) {
+            if (!featureSet.has(op)) {
+              throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline`);
+            }
+          }
+        }
+        const storageRefs = new Set(storageCap.evidence_references || []);
+        const hasObjectLockEvidence = (adv.conformance_evidence || []).some(
+          e => storageRefs.has(e.test_identifier) && (
+            e.test_identifier.toLowerCase().includes('object-lock') ||
+            e.test_identifier.toLowerCase().includes('retention') ||
+            e.test_identifier.toLowerCase().includes('worm') ||
+            e.report_uri.toLowerCase().includes('object-lock') ||
+            e.report_uri.toLowerCase().includes('retention') ||
+            e.report_uri.toLowerCase().includes('worm')
+          )
+        );
+        if (!hasObjectLockEvidence) {
+          throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
+        }
+      }
+    }
 
     if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
       const profilePath = join(EXAMPLES_DIR, `${targetProfileId}.profile.json`);
@@ -565,6 +633,63 @@ test('in-memory validation: reject capability negotiation lease missing mandator
 
   assert.throws(() => validatePlatformSemantics(data, schemaId), /mandatory profile slot/);
 });
+
+test('in-memory validation: reject capability negotiation with inverted timestamps', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.agreed_capability_lease.issued_at = "2026-08-27T14:00:00Z";
+  data.agreed_capability_lease.valid_until = "2026-08-27T13:00:00Z";
+
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /strictly greater than issued_at_ms/);
+});
+
+test('in-memory validation: reject capability negotiation with mismatched ttl_seconds', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.agreed_capability_lease.ttl_seconds = 1800; // actual delta is 3600
+
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /does not match timestamp duration/);
+});
+
+test('in-memory validation: reject capability negotiation with illegal status pairs', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // AGREED_LEASE_GRANTED paired with ACTIVE_DEGRADED
+  const data1 = JSON.parse(JSON.stringify(sample));
+  data1.negotiation_status = "AGREED_LEASE_GRANTED";
+  data1.agreed_capability_lease.lease_status = "ACTIVE_DEGRADED";
+  const valid1 = ajv.validate(schemaId, data1);
+  assert.ok(!valid1, 'Should reject AGREED_LEASE_GRANTED with ACTIVE_DEGRADED');
+
+  // DEGRADED_LEASE_GRANTED paired with ACTIVE_OPTIMAL
+  const data2 = JSON.parse(JSON.stringify(sample));
+  data2.negotiation_status = "DEGRADED_LEASE_GRANTED";
+  data2.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  const valid2 = ajv.validate(schemaId, data2);
+  assert.ok(!valid2, 'Should reject DEGRADED_LEASE_GRANTED with ACTIVE_OPTIMAL');
+});
+
+test('in-memory validation: reject storage capability missing 17-op baseline or Object Lock evidence', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Missing operation from 17-op baseline
+  const data1 = JSON.parse(JSON.stringify(sample));
+  const storeCap1 = data1.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap1.supported_features = storeCap1.supported_features.filter(f => f !== 'PutObjectRetention');
+  assert.throws(() => validatePlatformSemantics(data1, schemaId), /missing required S3 operation/);
+
+  // Missing Object Lock retention evidence
+  const data2 = JSON.parse(JSON.stringify(sample));
+  const storeCap2 = data2.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap2.evidence_references = ["ev-store-01"];
+  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01');
+  assert.throws(() => validatePlatformSemantics(data2, schemaId), /lacks Object Lock retention evidence/);
+});
+
 
 test('governance guard: validateOpenItemEffectMatrix probes', () => {
   const proposalPath = join(ROOT, 'contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
