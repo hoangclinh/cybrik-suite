@@ -8,6 +8,46 @@
   "title": "CYBRIK Offline Install Update Manifest v1",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "workflow_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "VERIFY_DIGEST",
+            "PRELOAD_OCI_IMAGE",
+            "APPLY_SQL_MIGRATION",
+            "HEALTH_PROBE",
+            "RESTORE_DATABASE_SNAPSHOT"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parameters": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "action",
+        "target"
+      ]
+    }
+  },
   "properties": {
     "bundle_identifier": {
       "type": "string",
@@ -27,14 +67,13 @@
         },
         "public_key_fingerprint": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "signature_algorithm": {
           "type": "string",
           "enum": [
             "ed25519",
-            "ecdsa-p256-sha256",
-            "rsa-pss-sha256"
+            "ecdsa-p256-sha256"
           ]
         }
       },
@@ -46,7 +85,7 @@
     },
     "bundle_signature": {
       "type": "string",
-      "pattern": "^[a-zA-Z0-9+/=_-]{32,512}$"
+      "pattern": "^(?:[a-f0-9]{128}|[A-Za-z0-9+/]{86}==)$"
     },
     "artifacts": {
       "type": "array",
@@ -95,27 +134,21 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         },
         "apply_steps": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         },
         "rollback_steps": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         }
       },
