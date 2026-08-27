@@ -443,6 +443,9 @@
             },
             "specification": {
               "type": "object",
+              "required": [
+                "immutable_storage_required"
+              ],
               "properties": {
                 "required": {
                   "type": "boolean"
