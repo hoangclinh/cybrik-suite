@@ -434,6 +434,9 @@
     },
     "slots": {
       "type": "object",
+      "required": [
+        "storage"
+      ],
       "properties": {
         "storage": {
           "type": "object",
@@ -477,6 +480,7 @@
     "profile_version",
     "capability_set",
     "strength",
+    "slots",
     "sovereignty_class",
     "isolation_policy"
   ],

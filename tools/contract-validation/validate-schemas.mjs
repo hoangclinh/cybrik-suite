@@ -11,7 +11,7 @@
 //
 // Zero external side effects. Exit 0 = all checks passed; exit 1 = at least one failure.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, basename, sep, posix } from 'node:path';
@@ -355,6 +355,11 @@ export function validateIJson(bufferOrString, label = 'JSON') {
   return result;
 }
 
+export function computePayloadMd5(payloadBytes) {
+  const payload = payloadBytes !== undefined && payloadBytes !== null ? payloadBytes : Buffer.alloc(0);
+  return createHash('md5').update(payload).digest('base64');
+}
+
 export function isMalformedBase64Md5(headerVal) {
   if (typeof headerVal !== 'string') return true;
   const trimmed = headerVal.trim();
@@ -387,14 +392,17 @@ export function dispatchS3PutObject({ payloadBytes, contentMd5Header } = {}) {
     return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   }
 
-  const payload = payloadBytes !== undefined && payloadBytes !== null ? payloadBytes : Buffer.alloc(0);
-  const calculatedMd5 = createHash('md5').update(payload).digest('base64');
+  const calculatedMd5 = computePayloadMd5(payloadBytes);
 
   if (calculatedMd5 !== trimmed) {
     return { http_status: 400, error_code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
   }
 
   return { http_status: 200, error_code: null };
+}
+
+export function dispatchS3Error({ payloadBytes, contentMd5Header } = {}) {
+  return dispatchS3PutObject({ payloadBytes, contentMd5Header });
 }
 
 export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader) {
@@ -587,6 +595,30 @@ export function validatePlatformSemantics(data, schemaId) {
         }
       }
 
+      if (targetProfileId) {
+        const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
+        if (existsSync(profilePath)) {
+          const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+          const immutableStorageMandated =
+            profile.slots?.storage?.specification?.immutable_storage_required === true;
+
+          if (immutableStorageMandated) {
+            const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+            for (const cap of leaseCaps) {
+              const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+              const isDegraded =
+                cap.disposition === 'GRANTED_DEGRADED' ||
+                cap.status === 'GRANTED_DEGRADED' ||
+                (cap.fallback_applied !== undefined && cap.fallback_applied !== 'NONE') ||
+                (cap.effective_fallback !== undefined && cap.effective_fallback !== 'NONE');
+              if (isStorageCap && isDegraded) {
+                throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
+              }
+            }
+          }
+        }
+      }
+
       const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
       if (lease.lease_status === 'ACTIVE_OPTIMAL') {
         for (const cap of caps) {
@@ -717,7 +749,11 @@ export function validatePlatformSemantics(data, schemaId) {
           const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
           for (const cap of leaseCaps) {
             const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
-            const isDegraded = cap.disposition === 'GRANTED_DEGRADED' || cap.status === 'GRANTED_DEGRADED';
+            const isDegraded =
+              cap.disposition === 'GRANTED_DEGRADED' ||
+              cap.status === 'GRANTED_DEGRADED' ||
+              (cap.fallback_applied !== undefined && cap.fallback_applied !== 'NONE') ||
+              (cap.effective_fallback !== undefined && cap.effective_fallback !== 'NONE');
             if (isStorageCap && isDegraded) {
               throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
             }
@@ -960,8 +996,7 @@ const EXPECTED_PLATFORM_NEGATIVES = {
 };
 
 if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
-  const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
-  const negFiles = fsNode.readdirSync(join(PLATFORM_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  const negFiles = readdirSync(join(PLATFORM_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
   if (negFiles.length !== Object.keys(EXPECTED_PLATFORM_NEGATIVES).length) {
     fail(`platform negative examples count mismatch: expected ${Object.keys(EXPECTED_PLATFORM_NEGATIVES).length}, got ${negFiles.length}`);
   }
@@ -1116,8 +1151,7 @@ const EXPECTED_STORAGE_DISPATCH_NEGATIVES = {
 };
 
 if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
-  const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
-  const storageNegFiles = fsNode.readdirSync(join(STORAGE_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  const storageNegFiles = readdirSync(join(STORAGE_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
   const expectedTotalCount = Object.keys(EXPECTED_STORAGE_NEGATIVES).length + Object.keys(EXPECTED_STORAGE_DISPATCH_NEGATIVES).length;
   if (storageNegFiles.length !== expectedTotalCount) {
     fail(`storage negative examples count mismatch: expected ${expectedTotalCount}, got ${storageNegFiles.length}`);

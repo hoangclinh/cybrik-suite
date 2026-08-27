@@ -416,14 +416,14 @@ test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 F
     canonicalization_scheme: "RFC_8785_JCS"
   };
 
-  // Valid probe targets: localhost, 127.0.0.1, ::1, 10.x, 192.168.x, 172.16-31.x
+  // Valid probe targets: localhost, 127.0.0.1, [::1], 10.x, 192.168.x, 172.16-31.x
   const validTargets = [
     "http://127.0.0.1:8080/healthz",
     "http://localhost:8080/readyz",
     "https://10.0.1.5:8443/status",
     "http://192.168.1.100/health",
     "https://172.20.0.2:9000/live",
-    "http://::1:8080/status"
+    "http://[::1]:8080/status"
   ];
   for (const target of validTargets) {
     const copy = JSON.parse(JSON.stringify(baseManifest));
@@ -440,12 +440,13 @@ test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 F
     assert.ok(ok, `Expected method '${method}' to be valid: ` + ajv.errorsText());
   }
 
-  // Invalid targets (public domains, public IPs)
+  // Invalid targets (public domains, public IPs, unbracketed IPv6)
   const invalidTargets = [
     "https://example.com/healthz",
     "http://1.1.1.1/healthz",
     "https://8.8.8.8:8080/readyz",
-    "http://attacker.local/healthz"
+    "http://attacker.local/healthz",
+    "http://::1:8080/status"
   ];
   for (const target of invalidTargets) {
     const copy = JSON.parse(JSON.stringify(baseManifest));
@@ -1252,8 +1253,320 @@ test('in-memory validation: reject HEALTH_PROBE with remote WAN target or POST m
   assert.ok(!ajv.validate(schemaId, invalidPost), 'Mutating POST method must be rejected by schema');
 });
 
+test('in-memory validation: reject deployment profiles missing slots, empty slots, or missing storage/specification (Finding 1 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json'), 'utf8'));
 
+  // 1. Deleting slots entirely is rejected by schema validation
+  const dataNoSlots = JSON.parse(JSON.stringify(sample));
+  delete dataNoSlots.slots;
+  assert.ok(!ajv.validate(schemaId, dataNoSlots), 'Omitting slots from deployment profile must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'slots'),
+    'Schema error must indicate missing slots'
+  );
 
+  // 2. Empty slots: {} is rejected by schema validation
+  const dataEmptySlots = JSON.parse(JSON.stringify(sample));
+  dataEmptySlots.slots = {};
+  assert.ok(!ajv.validate(schemaId, dataEmptySlots), 'Empty slots: {} in deployment profile must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'storage'),
+    'Schema error must indicate missing storage under slots'
+  );
+
+  // 3. Omitting storage from slots is rejected by schema validation
+  const dataNoStorage = JSON.parse(JSON.stringify(sample));
+  delete dataNoStorage.slots.storage;
+  assert.ok(!ajv.validate(schemaId, dataNoStorage), 'Omitting storage from slots must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'storage'),
+    'Schema error must indicate missing storage under slots'
+  );
+
+  // 4. Omitting specification under slots.storage is rejected by schema validation
+  const dataNoSpec = JSON.parse(JSON.stringify(sample));
+  delete dataNoSpec.slots.storage.specification;
+  assert.ok(!ajv.validate(schemaId, dataNoSpec), 'Omitting specification from slots.storage must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'specification'),
+    'Schema error must indicate missing specification under slots.storage'
+  );
+
+  // 5. Omitting immutable_storage_required from specification is rejected by schema validation
+  const dataNoImmutable = JSON.parse(JSON.stringify(sample));
+  delete dataNoImmutable.slots.storage.specification.immutable_storage_required;
+  assert.ok(!ajv.validate(schemaId, dataNoImmutable), 'Omitting immutable_storage_required from storage specification must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'immutable_storage_required'),
+    'Schema error must indicate missing immutable_storage_required'
+  );
+});
+
+test('in-memory validation: reject lease with GRANTED_FULL storage capability with non-NONE fallback under immutable profile (Finding 2 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const immutableProfiles = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(EXAMPLES_DIR, `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. GRANTED_FULL with FEATURE_DISABLED_GRACEFUL fallback on storage_object_lock throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const dataGraceful = JSON.parse(JSON.stringify(sample));
+    dataGraceful.target_profile_id = profileId;
+    dataGraceful.target_profile_digest = profileDigest;
+    dataGraceful.agreed_capability_lease.target_profile_id = profileId;
+    dataGraceful.agreed_capability_lease.target_profile_digest = profileDigest;
+    dataGraceful.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_object_lock",
+        slot_id: "storage",
+        disposition: "GRANTED_FULL",
+        active_mode: "standard_retention_fallback",
+        fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+      }
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(dataGraceful, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject GRANTED_FULL storage_object_lock with FEATURE_DISABLED_GRACEFUL`
+    );
+
+    // 2. GRANTED_FULL with CORE_EMULATION_FALLBACK on storage_object_lock throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const dataEmulation = JSON.parse(JSON.stringify(sample));
+    dataEmulation.target_profile_id = profileId;
+    dataEmulation.target_profile_digest = profileDigest;
+    dataEmulation.agreed_capability_lease.target_profile_id = profileId;
+    dataEmulation.agreed_capability_lease.target_profile_digest = profileDigest;
+    dataEmulation.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_object_lock",
+        slot_id: "storage",
+        disposition: "GRANTED_FULL",
+        active_mode: "emulated_retention",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      }
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(dataEmulation, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject GRANTED_FULL storage_object_lock with CORE_EMULATION_FALLBACK`
+    );
+
+    // 3. GRANTED_FULL with non-NONE fallback on storage slot_id throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const dataStorageSlot = JSON.parse(JSON.stringify(sample));
+    dataStorageSlot.target_profile_id = profileId;
+    dataStorageSlot.target_profile_digest = profileDigest;
+    dataStorageSlot.agreed_capability_lease.target_profile_id = profileId;
+    dataStorageSlot.agreed_capability_lease.target_profile_digest = profileDigest;
+    dataStorageSlot.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_custom_perf",
+        slot_id: "storage",
+        disposition: "GRANTED_FULL",
+        active_mode: "slow_storage",
+        fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+      }
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(dataStorageSlot, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject GRANTED_FULL storage slot with non-NONE fallback`
+    );
+  }
+});
+
+test('in-memory validation: reject fake non-URN Object Lock evidence (Finding 3 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Storage capability with fake unbacked evidence (no Object Lock / retention / WORM evidence) is rejected
+  const dataFake = JSON.parse(JSON.stringify(sample));
+  const storeCap = dataFake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap.evidence_references = ["ev-fake-non-urn"];
+  dataFake.advertisement_response.conformance_evidence = [
+    ...dataFake.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01' && e.test_identifier !== 'ev-store-01'),
+    {
+      test_identifier: "ev-fake-non-urn",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "http://attacker.example.com/fake-evidence.txt"
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(dataFake, schemaId),
+    /lacks Object Lock retention evidence/,
+    'Fake non-URN Object Lock evidence must be rejected'
+  );
+
+  // 2. Storage capability with dangling fake evidence reference is rejected
+  const dataDangling = JSON.parse(JSON.stringify(sample));
+  const storeCapDangling = dataDangling.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapDangling.evidence_references = ["urn:cybrik:evidence:nonexistent-evidence-ref"];
+  assert.throws(
+    () => validatePlatformSemantics(dataDangling, schemaId),
+    /evidence_reference 'urn:cybrik:evidence:nonexistent-evidence-ref' not found in conformance_evidence/,
+    'Dangling fake evidence reference must be rejected'
+  );
+});
+
+test('in-memory validation: reject absolute restore path in RESTORE_DATABASE_SNAPSHOT (Finding 4 / OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Absolute restore path /etc/passwd.db is rejected by schema validation
+  const dataPasswd = JSON.parse(JSON.stringify(sample));
+  dataPasswd.update_station_workflow.rollback_steps = [
+    {
+      step_id: "rollback-restore-attack",
+      action: "RESTORE_DATABASE_SNAPSHOT",
+      target: "/etc/passwd.db"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, dataPasswd), 'Absolute restore path /etc/passwd.db must be rejected by schema');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('/target')),
+    'Schema error must reject absolute restore path pattern'
+  );
+
+  // 2. Absolute restore path /var/lib/cybrik/backup.sql is rejected by schema validation
+  const dataVar = JSON.parse(JSON.stringify(sample));
+  dataVar.update_station_workflow.rollback_steps = [
+    {
+      step_id: "rollback-restore-var",
+      action: "RESTORE_DATABASE_SNAPSHOT",
+      target: "/var/lib/cybrik/backup.sql"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, dataVar), 'Absolute restore path /var/lib/cybrik/backup.sql must be rejected by schema');
+
+  // 3. Dot-dot traversal path snapshots/../../etc/shadow.bak is rejected by schema validation
+  const dataTraversal = JSON.parse(JSON.stringify(sample));
+  dataTraversal.update_station_workflow.rollback_steps = [
+    {
+      step_id: "rollback-restore-traversal",
+      action: "RESTORE_DATABASE_SNAPSHOT",
+      target: "snapshots/../../etc/shadow.bak"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, dataTraversal), 'Traversal restore path must be rejected by schema');
+
+  // 4. Valid relative paths snapshots/backup.db and backups/snapshot.sql pass schema validation
+  const dataValid = JSON.parse(JSON.stringify(sample));
+  dataValid.update_station_workflow.rollback_steps = [
+    {
+      step_id: "rollback-restore-valid",
+      action: "RESTORE_DATABASE_SNAPSHOT",
+      target: "snapshots/backup.db"
+    },
+    {
+      step_id: "rollback-restore-sql",
+      action: "RESTORE_DATABASE_SNAPSHOT",
+      target: "backups/2026-08/snapshot.sql"
+    }
+  ];
+  assert.ok(ajv.validate(schemaId, dataValid), 'Valid relative restore paths must pass schema: ' + ajv.errorsText());
+});
+
+test('in-memory validation: reject invalid health probe URLs: octet, port, unbracketed IPv6 (Finding 5 / OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Invalid octet http://10.999.1.1/healthz is rejected
+  const dataInvalidOctet10 = JSON.parse(JSON.stringify(sample));
+  dataInvalidOctet10.update_station_workflow.apply_steps.push({
+    step_id: 'health-invalid-octet-10',
+    action: 'HEALTH_PROBE',
+    target: 'http://10.999.1.1/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataInvalidOctet10), 'Health probe with invalid octet 10.999.1.1 must be rejected');
+
+  // 2. Invalid octet http://192.168.300.1/healthz is rejected
+  const dataInvalidOctet192 = JSON.parse(JSON.stringify(sample));
+  dataInvalidOctet192.update_station_workflow.apply_steps.push({
+    step_id: 'health-invalid-octet-192',
+    action: 'HEALTH_PROBE',
+    target: 'http://192.168.300.1/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataInvalidOctet192), 'Health probe with invalid octet 192.168.300.1 must be rejected');
+
+  // 3. Invalid port http://127.0.0.1:99999/healthz is rejected
+  const dataInvalidPort99999 = JSON.parse(JSON.stringify(sample));
+  dataInvalidPort99999.update_station_workflow.apply_steps.push({
+    step_id: 'health-invalid-port-99999',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:99999/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataInvalidPort99999), 'Health probe with invalid port 99999 must be rejected');
+
+  // 4. Invalid port http://127.0.0.1:65536/healthz is rejected
+  const dataInvalidPort65536 = JSON.parse(JSON.stringify(sample));
+  dataInvalidPort65536.update_station_workflow.apply_steps.push({
+    step_id: 'health-invalid-port-65536',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:65536/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataInvalidPort65536), 'Health probe with invalid port 65536 must be rejected');
+
+  // 5. Unbracketed IPv6 http://::1/healthz is rejected
+  const dataUnbracketed1 = JSON.parse(JSON.stringify(sample));
+  dataUnbracketed1.update_station_workflow.apply_steps.push({
+    step_id: 'health-unbracketed-ipv6-1',
+    action: 'HEALTH_PROBE',
+    target: 'http://::1/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataUnbracketed1), 'Health probe with unbracketed IPv6 http://::1/healthz must be rejected');
+
+  // 6. Unbracketed IPv6 http://::1:8080/healthz is rejected
+  const dataUnbracketed2 = JSON.parse(JSON.stringify(sample));
+  dataUnbracketed2.update_station_workflow.apply_steps.push({
+    step_id: 'health-unbracketed-ipv6-2',
+    action: 'HEALTH_PROBE',
+    target: 'http://::1:8080/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, dataUnbracketed2), 'Health probe with unbracketed IPv6 http://::1:8080/healthz must be rejected');
+
+  // 7. Valid health probe URLs pass
+  const dataValidProbes = JSON.parse(JSON.stringify(sample));
+  dataValidProbes.update_station_workflow.apply_steps.push(
+    {
+      step_id: 'health-valid-127',
+      action: 'HEALTH_PROBE',
+      target: 'http://127.0.0.1:8080/healthz'
+    },
+    {
+      step_id: 'health-valid-localhost',
+      action: 'HEALTH_PROBE',
+      target: 'http://localhost:3000/readyz'
+    },
+    {
+      step_id: 'health-valid-bracketed-ipv6',
+      action: 'HEALTH_PROBE',
+      target: 'http://[::1]:8080/healthz'
+    },
+    {
+      step_id: 'health-valid-10-net',
+      action: 'HEALTH_PROBE',
+      target: 'http://10.255.0.1:80/healthz'
+    },
+    {
+      step_id: 'health-valid-192-net',
+      action: 'HEALTH_PROBE',
+      target: 'http://192.168.1.100:65535/healthz'
+    },
+    {
+      step_id: 'health-valid-172-net',
+      action: 'HEALTH_PROBE',
+      target: 'http://172.16.0.5:9090/healthz'
+    }
+  );
+  assert.ok(ajv.validate(schemaId, dataValidProbes), 'Valid health probe targets must pass schema: ' + ajv.errorsText());
+});
 
 test('governance guard: validateOpenItemEffectMatrix probes', () => {
   const proposalPath = join(ROOT, 'contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');
