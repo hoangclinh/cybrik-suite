@@ -1,0 +1,13 @@
+{
+  "bucket": "cybrik-forensics-vault",
+  "object_key": "evidence/../incident-1042-audit-bundle.tar.gz",
+  "version_id": "v1.0.0-snapshot-20260827",
+  "retention_mode": "COMPLIANCE",
+  "retain_until_date": "2036-08-27T00:00:00Z",
+  "retention_period_days": 3650,
+  "legal_hold": {
+    "status": "ON"
+  },
+  "object_sha256": "4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b",
+  "compliance_guarantee": true
+}

@@ -26,20 +26,31 @@
     "ListObjectsV2",
     "HeadBucket",
     "CreateBucket",
+    "PutObjectRetention",
+    "GetObjectRetention",
+    "PutObjectLegalHold",
+    "GetObjectLegalHold",
     "CreateMultipartUpload",
     "UploadPart",
     "CompleteMultipartUpload",
     "AbortMultipartUpload",
-    "PutBucketVersioning",
     "PutObjectAclUnsupported"
   ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
   "required_error_codes": [
-    "NoSuchKey",
+    "BadDigest",
+    "InvalidDigest",
     "NoSuchBucket",
+    "NoSuchKey",
+    "NoSuchUpload",
+    "ObjectLockConfigurationNotFoundError",
+    "PreconditionFailed",
     "AccessDenied",
-    "EntityTooLarge"
+    "EntityTooLarge",
+    "InvalidArgument",
+    "InvalidPart",
+    "InvalidPartOrder"
   ],
   "optional_retention": true
 }

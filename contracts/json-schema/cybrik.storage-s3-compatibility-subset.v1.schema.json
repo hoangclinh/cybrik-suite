@@ -90,7 +90,7 @@
       "items": {
         "$ref": "#/$defs/s3Operation"
       },
-      "minItems": 14,
+      "minItems": 17,
       "uniqueItems": true
     },
     "addressing_style": {
@@ -104,13 +104,21 @@
       "items": {
         "type": "string",
         "enum": [
-          "NoSuchKey",
+          "BadDigest",
+          "InvalidDigest",
           "NoSuchBucket",
+          "NoSuchKey",
+          "NoSuchUpload",
+          "ObjectLockConfigurationNotFoundError",
+          "PreconditionFailed",
           "AccessDenied",
-          "EntityTooLarge"
+          "EntityTooLarge",
+          "InvalidArgument",
+          "InvalidPart",
+          "InvalidPartOrder"
         ]
       },
-      "minItems": 4,
+      "minItems": 12,
       "uniqueItems": true
     },
     "optional_retention": {
@@ -133,20 +141,15 @@
         "ListObjectsV2",
         "HeadBucket",
         "CreateBucket",
-        "CreateMultipartUpload",
-        "UploadPart",
-        "CompleteMultipartUpload",
-        "AbortMultipartUpload",
-        "ListParts",
-        "PutBucketVersioning",
-        "GetBucketVersioning",
         "PutObjectRetention",
         "GetObjectRetention",
         "PutObjectLegalHold",
         "GetObjectLegalHold",
-        "ListMultipartUploads",
-        "DeleteBucket",
-        "ListBuckets"
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts"
       ]
     },
     "retentionMode": {
@@ -170,8 +173,8 @@
     },
     "objectKey": {
       "type": "string",
-      "pattern": "^(?!\\/)(?!.*\\/\\/)[a-zA-Z0-9._/-]+$",
-      "description": "Normalized S3 object key without leading slash or adjacent slashes."
+      "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "description": "Normalized S3 object key without leading slash, adjacent slashes, dot-segments, or trailing slash."
     },
     "s3Uri": {
       "type": "string",
@@ -315,7 +318,7 @@
           "items": {
             "$ref": "#/$defs/s3Operation"
           },
-          "minItems": 14,
+          "minItems": 17,
           "uniqueItems": true
         },
         "addressing_style": {
@@ -329,13 +332,21 @@
           "items": {
             "type": "string",
             "enum": [
-              "NoSuchKey",
+              "BadDigest",
+              "InvalidDigest",
               "NoSuchBucket",
+              "NoSuchKey",
+              "NoSuchUpload",
+              "ObjectLockConfigurationNotFoundError",
+              "PreconditionFailed",
               "AccessDenied",
-              "EntityTooLarge"
+              "EntityTooLarge",
+              "InvalidArgument",
+              "InvalidPart",
+              "InvalidPartOrder"
             ]
           },
-          "minItems": 4,
+          "minItems": 12,
           "uniqueItems": true
         },
         "optional_retention": {
