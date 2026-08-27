@@ -690,6 +690,88 @@ test('in-memory validation: reject storage capability missing 17-op baseline or 
   assert.throws(() => validatePlatformSemantics(data2, schemaId), /lacks Object Lock retention evidence/);
 });
 
+test('in-memory validation: reject capability negotiation request missing mandatory slots', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_request.requested_slots = data.negotiation_request.requested_slots.filter(s => s !== 'oci_container_runtime');
+
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(!valid, 'Should reject negotiation request missing mandatory slot oci_container_runtime');
+  assert.ok(ajv.errors.some(e => e.keyword === 'contains'), 'Should fail via contains');
+});
+
+test('in-memory validation: reject ACTIVE_OPTIMAL lease containing degraded capability or non-NONE fallback', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Degraded capability in ACTIVE_OPTIMAL
+  const data1 = JSON.parse(JSON.stringify(sample));
+  data1.negotiation_status = "AGREED_LEASE_GRANTED";
+  data1.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  data1.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "cpu_quantized_emulation",
+      fallback_applied: "CORE_EMULATION_FALLBACK"
+    }
+  ];
+  const valid1 = ajv.validate(schemaId, data1);
+  assert.ok(!valid1, 'Should reject ACTIVE_OPTIMAL with GRANTED_DEGRADED capability');
+
+  // Valid ACTIVE_OPTIMAL passes
+  const data2 = JSON.parse(JSON.stringify(sample));
+  data2.negotiation_status = "AGREED_LEASE_GRANTED";
+  data2.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  data2.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_tensor_direct",
+      fallback_applied: "NONE"
+    }
+  ];
+  const valid2 = ajv.validate(schemaId, data2);
+  assert.ok(valid2, 'Valid ACTIVE_OPTIMAL should pass: ' + ajv.errorsText());
+});
+
+test('in-memory validation: reject ACTIVE_DEGRADED lease with no degraded capability or invalid fallback', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 0 degraded capabilities under ACTIVE_DEGRADED
+  const data1 = JSON.parse(JSON.stringify(sample));
+  data1.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_tensor_direct",
+      fallback_applied: "NONE"
+    }
+  ];
+  const valid1 = ajv.validate(schemaId, data1);
+  assert.ok(!valid1, 'Should reject ACTIVE_DEGRADED with 0 degraded capabilities');
+  assert.ok(ajv.errors.some(e => e.keyword === 'contains'), 'Should fail via contains');
+
+  // GRANTED_DEGRADED but fallback_applied is NONE
+  const data2 = JSON.parse(JSON.stringify(sample));
+  data2.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "cpu_quantized_emulation",
+      fallback_applied: "NONE"
+    }
+  ];
+  const valid2 = ajv.validate(schemaId, data2);
+  assert.ok(!valid2, 'Should reject ACTIVE_DEGRADED with GRANTED_DEGRADED and fallback_applied NONE');
+});
+
 
 test('governance guard: validateOpenItemEffectMatrix probes', () => {
   const proposalPath = join(ROOT, 'contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md');

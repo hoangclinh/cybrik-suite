@@ -145,9 +145,8 @@
           "path_style"
         ],
         "degradation_fallback": {
-          "fallback_supported": true,
-          "fallback_mode": "FEATURE_DISABLED_GRACEFUL",
-          "degradation_notes": "Object Lock retention disabled; client SHA-256 integrity active"
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
           "ev-store-01",
@@ -400,10 +399,10 @@
       {
         "capability_name": "storage_object_lock",
         "slot_id": "storage",
-        "disposition": "GRANTED_DEGRADED",
-        "active_mode": "client_sha256_immutability",
-        "fallback_applied": "FEATURE_DISABLED_GRACEFUL",
-        "notes": "Object Lock headers disabled; client-side cryptographic hashing active"
+        "disposition": "GRANTED_FULL",
+        "active_mode": "native_s3_object_lock",
+        "fallback_applied": "NONE",
+        "notes": "Object Lock retention and legal hold active with native S3 compliance"
       },
       {
         "capability_name": "cache_cluster_replication",

@@ -83,7 +83,54 @@
               "ai_model_runtime",
               "artifact_update_mechanism"
             ]
-          }
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "oci_container_runtime"
+              }
+            },
+            {
+              "contains": {
+                "const": "isolation_substrate"
+              }
+            },
+            {
+              "contains": {
+                "const": "network_segmentation"
+              }
+            },
+            {
+              "contains": {
+                "const": "storage"
+              }
+            },
+            {
+              "contains": {
+                "const": "database"
+              }
+            },
+            {
+              "contains": {
+                "const": "secrets"
+              }
+            },
+            {
+              "contains": {
+                "const": "crypto"
+              }
+            },
+            {
+              "contains": {
+                "const": "identity_workload_identity"
+              }
+            },
+            {
+              "contains": {
+                "const": "artifact_update_mechanism"
+              }
+            }
+          ]
         },
         "requested_optional_capabilities": {
           "type": "array",
@@ -464,6 +511,78 @@
         "mandatory_slots_satisfied",
         "negotiated_optional_capabilities",
         "fail_closed_violations"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "negotiated_optional_capabilities": {
+                "items": {
+                  "properties": {
+                    "disposition": {
+                      "not": {
+                        "const": "GRANTED_DEGRADED"
+                      }
+                    },
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "negotiated_optional_capabilities": {
+                "contains": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_DEGRADED"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "items": {
+                  "if": {
+                    "properties": {
+                      "disposition": {
+                        "const": "GRANTED_DEGRADED"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "fallback_applied": {
+                        "not": {
+                          "const": "NONE"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "evidence_binding_verified": {
