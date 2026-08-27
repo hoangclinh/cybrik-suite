@@ -43,6 +43,90 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
+function validateStringSurrogates(str, label) {
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0xD800 && code <= 0xDBFF) {
+      if (i + 1 < str.length) {
+        const nextCode = str.charCodeAt(i + 1);
+        if (nextCode >= 0xDC00 && nextCode <= 0xDFFF) {
+          i++; // Skip low surrogate of valid surrogate pair
+          continue;
+        }
+      }
+      const hex = code.toString(16).toUpperCase().padStart(4, '0');
+      throw new Error(`I-JSON Error in ${label}: lone or unpaired surrogate code point U+${hex} prohibited by RFC 7493 / RFC 8785`);
+    } else if (code >= 0xDC00 && code <= 0xDFFF) {
+      const hex = code.toString(16).toUpperCase().padStart(4, '0');
+      throw new Error(`I-JSON Error in ${label}: lone or unpaired surrogate code point U+${hex} prohibited by RFC 7493 / RFC 8785`);
+    }
+  }
+}
+
+function validateEscapedSurrogates(rawJsonText, label) {
+  let i = 0;
+  const len = rawJsonText.length;
+  while (i < len) {
+    if (rawJsonText[i] === '\\') {
+      let bsCount = 0;
+      while (i + bsCount < len && rawJsonText[i + bsCount] === '\\') {
+        bsCount++;
+      }
+      const nextIdx = i + bsCount;
+      if (bsCount % 2 === 1 && nextIdx < len) {
+        const escChar = rawJsonText[nextIdx];
+        if (escChar === 'u' || escChar === 'U') {
+          const hexStr = rawJsonText.slice(nextIdx + 1, nextIdx + 5);
+          if (/^[0-9a-fA-F]{4}$/.test(hexStr)) {
+            const codePoint = parseInt(hexStr, 16);
+            if (codePoint >= 0xD800 && codePoint <= 0xDBFF) {
+              // High surrogate: MUST be immediately followed by an escaped low surrogate \uDC00..\uDFFF (with parity 1 backslash)
+              if (
+                nextIdx + 10 < len &&
+                rawJsonText[nextIdx + 5] === '\\' &&
+                (rawJsonText[nextIdx + 6] === 'u' || rawJsonText[nextIdx + 6] === 'U')
+              ) {
+                const lowHexStr = rawJsonText.slice(nextIdx + 7, nextIdx + 11);
+                if (/^[0-9a-fA-F]{4}$/.test(lowHexStr)) {
+                  const lowCodePoint = parseInt(lowHexStr, 16);
+                  if (lowCodePoint >= 0xDC00 && lowCodePoint <= 0xDFFF) {
+                    // Valid surrogate pair escape sequence: advance past both \uXXXX escapes
+                    i = nextIdx + 11;
+                    continue;
+                  }
+                }
+              }
+              throw new Error(`I-JSON Error in ${label}: escaped lone surrogate code point prohibited by RFC 7493 / RFC 8785`);
+            } else if (codePoint >= 0xDC00 && codePoint <= 0xDFFF) {
+              throw new Error(`I-JSON Error in ${label}: escaped lone surrogate code point prohibited by RFC 7493 / RFC 8785`);
+            }
+            i = nextIdx + 5;
+            continue;
+          }
+        }
+      }
+      i = nextIdx;
+    } else {
+      i++;
+    }
+  }
+}
+
+function scanValueSurrogates(val, label) {
+  if (typeof val === 'string') {
+    validateStringSurrogates(val, label);
+  } else if (Array.isArray(val)) {
+    for (const item of val) {
+      scanValueSurrogates(item, label);
+    }
+  } else if (val !== null && typeof val === 'object') {
+    for (const [k, v] of Object.entries(val)) {
+      validateStringSurrogates(k, label);
+      scanValueSurrogates(v, label);
+    }
+  }
+}
+
 export function validateIJson(bufferOrString, label = 'JSON') {
   let rawJsonText;
   if (typeof bufferOrString === 'string') {
@@ -57,17 +141,16 @@ export function validateIJson(bufferOrString, label = 'JSON') {
     throw new Error(`${label}: expected string or Buffer for I-JSON validation`);
   }
 
-  // Reject escaped lone surrogate code points prohibited by RFC 7493 / RFC 8785
-  const UNPAIRED_HIGH_SURROGATE = /(?:^|[^\\])(?:\\\\)*\\u[dD][89a-bA-B][0-9a-fA-F]{2}(?!\\u[dD][c-fC-F][0-9a-fA-F]{2})/;
-  const UNPAIRED_LOW_SURROGATE = /(?:^|[^\\])(?:\\\\)*\\u[dD][c-fC-F][0-9a-fA-F]{2}(?<!\\u[dD][89a-bA-B][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2})/;
-  if (UNPAIRED_HIGH_SURROGATE.test(rawJsonText) || UNPAIRED_LOW_SURROGATE.test(rawJsonText)) {
-    throw new Error(`I-JSON Error in ${label}: escaped lone surrogate code point prohibited by RFC 7493 / RFC 8785`);
-  }
-
   // Reject UTF-8 BOM
   if (rawJsonText.charCodeAt(0) === 0xFEFF) {
     throw new Error(`${label}: I-JSON violation: Byte Order Mark (BOM) is prohibited`);
   }
+
+  // Reject raw unescaped lone surrogate code points in input string
+  validateStringSurrogates(rawJsonText, label);
+
+  // Reject escaped lone surrogate code points prohibited by RFC 7493 / RFC 8785
+  validateEscapedSurrogates(rawJsonText, label);
 
   let pos = 0;
   const len = rawJsonText.length;
@@ -94,7 +177,9 @@ export function validateIJson(bufferOrString, label = 'JSON') {
       if (ch === '"') {
         pos++;
         const strSlice = rawJsonText.slice(start, pos);
-        return JSON.parse(strSlice);
+        const parsed = JSON.parse(strSlice);
+        validateStringSurrogates(parsed, label);
+        return parsed;
       }
       if (ch === '\\') {
         pos += 2;
@@ -266,6 +351,7 @@ export function validateIJson(bufferOrString, label = 'JSON') {
   if (pos < len) {
     throw new Error(`${label}: Trailing characters after JSON root at position ${pos}`);
   }
+  scanValueSurrogates(result, label);
   return result;
 }
 
