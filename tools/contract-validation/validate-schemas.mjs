@@ -632,6 +632,9 @@ export function validateS3MultipartSemantics(manifest) {
   const seenPartNumbers = new Set();
   let lastPartNumber = 0;
 
+  const MIN_NON_FINAL_PART_SIZE = 5 * 1024 * 1024; // 5 MiB = 5,242,880 bytes
+  const MAX_PART_SIZE = 5 * 1024 * 1024 * 1024; // 5 GiB = 5,368,709,120 bytes
+
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     const pNum = part.part_number;
@@ -653,6 +656,21 @@ export function validateS3MultipartSemantics(manifest) {
     }
 
     if (typeof part.size_bytes === 'number') {
+      if (part.size_bytes < 0) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) cannot be negative`
+        );
+      }
+      if (part.size_bytes > 5368709120) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) exceeds maximum part size of 5368709120 bytes (5 GiB) (EntityTooLarge)`
+        );
+      }
+      if (i < parts.length - 1 && part.size_bytes < 5242880) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) is below minimum non-final part size of 5242880 bytes (5 MiB) (EntityTooSmall)`
+        );
+      }
       totalSize += part.size_bytes;
     }
   }
@@ -660,6 +678,12 @@ export function validateS3MultipartSemantics(manifest) {
   if (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes !== totalSize) {
     throw new Error(
       `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes}) does not match sum of part sizes (${totalSize})`
+    );
+  }
+
+  if (totalSize > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
+    throw new Error(
+      `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes || totalSize} bytes) exceeds maximum total size of 5497558138880 bytes (5 TiB) (EntityTooLarge)`
     );
   }
 
@@ -702,27 +726,49 @@ export function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
     const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+    const referencedSet = new Set();
 
-    if (adv.advertised_capabilities) {
+    if (adv.advertised_capabilities || adv.conformance_evidence) {
       const validTests = new Map();
       for (const e of (adv.conformance_evidence || [])) {
         if (validTests.has(e.test_identifier)) {
           throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
         }
+        if (e.status !== 'PASS') {
+          throw new Error(`Semantic error: conformance evidence '${e.test_identifier}' has non-passing status '${e.status}'`);
+        }
+        if (typeof e.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(e.evidence_pack_digest)) {
+          throw new Error(`Semantic error: conformance evidence '${e.test_identifier}' lacks valid SHA-256 evidence_pack_digest`);
+        }
         validTests.set(e.test_identifier, e);
       }
-      for (const cap of adv.advertised_capabilities) {
+
+      const seenSlotIds = new Set();
+
+      for (const cap of (adv.advertised_capabilities || [])) {
+        if (cap.slot_id) {
+          if (seenSlotIds.has(cap.slot_id)) {
+            throw new Error(`Semantic error: advertised_capabilities contains duplicate slot_id '${cap.slot_id}'`);
+          }
+          seenSlotIds.add(cap.slot_id);
+        }
         for (const ref of (cap.evidence_references || [])) {
           const matchingEv = validTests.get(ref);
           if (!matchingEv) {
             throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
           }
-          if (matchingEv.status !== 'PASS') {
-            throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
+          referencedSet.add(ref);
+        }
+      }
+
+      const leaseCaps = data.agreed_capability_lease?.negotiated_optional_capabilities || data.agreed_capability_lease?.agreed_capabilities || [];
+      for (const cap of leaseCaps) {
+        for (const ref of (cap.evidence_references || [])) {
+          const matchingEv = validTests.get(ref);
+          if (!matchingEv) {
+            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
           }
-          if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
-            throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
-          }
+          referencedSet.add(ref);
         }
       }
     }
@@ -1045,6 +1091,12 @@ export function validatePlatformSemantics(data, schemaId) {
             }
           }
         }
+      }
+    }
+
+    for (const e of (adv.conformance_evidence || [])) {
+      if (!referencedSet.has(e.test_identifier)) {
+        throw new Error(`Semantic error: conformance_evidence contains unreferenced or dangling evidence '${e.test_identifier}'`);
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {

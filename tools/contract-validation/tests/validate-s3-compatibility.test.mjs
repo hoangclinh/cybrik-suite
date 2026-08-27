@@ -914,3 +914,224 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
     'total_size_bytes mismatch (low) must throw /total_size_bytes .* does not match sum of part sizes/'
   );
 });
+
+test('S3 multipart schema integer boundaries for part numbers and sizes (Finding R14-01 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  const baseManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. part_number bounds (minimum: 1, maximum: 10000)
+  const badPartNumLow = JSON.parse(JSON.stringify(baseManifest));
+  badPartNumLow.parts[0].part_number = 0;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badPartNumLow), 'part_number = 0 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'minimum' && e.instancePath === '/parts/0/part_number'));
+
+  const badPartNumHigh = JSON.parse(JSON.stringify(baseManifest));
+  badPartNumHigh.parts[0].part_number = 10001;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badPartNumHigh), 'part_number = 10001 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'maximum' && e.instancePath === '/parts/0/part_number'));
+
+  const validPartNumMax = JSON.parse(JSON.stringify(baseManifest));
+  validPartNumMax.parts[0].part_number = 10000;
+  validPartNumMax.parts = [validPartNumMax.parts[0]];
+  validTotalPartsMax(validPartNumMax);
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validPartNumMax), 'part_number = 10000 must be valid in schema');
+
+  // 2. size_bytes bounds (minimum: 0, maximum: 5368709120)
+  const badSizeLow = JSON.parse(JSON.stringify(baseManifest));
+  badSizeLow.parts[0].size_bytes = -1;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badSizeLow), 'size_bytes = -1 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'minimum' && e.instancePath === '/parts/0/size_bytes'));
+
+  const badSizeHigh = JSON.parse(JSON.stringify(baseManifest));
+  badSizeHigh.parts[0].size_bytes = 5368709121;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badSizeHigh), 'size_bytes = 5368709121 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'maximum' && e.instancePath === '/parts/0/size_bytes'));
+
+  const validSizeZero = JSON.parse(JSON.stringify(baseManifest));
+  validSizeZero.parts[0].size_bytes = 0;
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validSizeZero), 'size_bytes = 0 must be valid in schema');
+
+  const validSizeMax = JSON.parse(JSON.stringify(baseManifest));
+  validSizeMax.parts[0].size_bytes = 5368709120;
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validSizeMax), 'size_bytes = 5368709120 must be valid in schema');
+
+  // 3. total_parts bounds (minimum: 1, maximum: 10000)
+  const badTotalPartsLow = JSON.parse(JSON.stringify(baseManifest));
+  badTotalPartsLow.total_parts = 0;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badTotalPartsLow), 'total_parts = 0 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'minimum' && e.instancePath === '/total_parts'));
+
+  const badTotalPartsHigh = JSON.parse(JSON.stringify(baseManifest));
+  badTotalPartsHigh.total_parts = 10001;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badTotalPartsHigh), 'total_parts = 10001 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'maximum' && e.instancePath === '/total_parts'));
+
+  function validTotalPartsMax(m) {
+    m.total_parts = 10000;
+    m.parts[0].part_number = 10000;
+    m.total_size_bytes = m.parts[0].size_bytes;
+  }
+  const validTotalPartsMaxObj = JSON.parse(JSON.stringify(baseManifest));
+  validTotalPartsMaxObj.total_parts = 10000;
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validTotalPartsMaxObj), 'total_parts = 10000 must be valid in schema');
+
+  // 4. total_size_bytes bounds (minimum: 0, maximum: 5497558138880)
+  const badTotalSizeLow = JSON.parse(JSON.stringify(baseManifest));
+  badTotalSizeLow.total_size_bytes = -1;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badTotalSizeLow), 'total_size_bytes = -1 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'minimum' && e.instancePath === '/total_size_bytes'));
+
+  const badTotalSizeHigh = JSON.parse(JSON.stringify(baseManifest));
+  badTotalSizeHigh.total_size_bytes = 5497558138881;
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, badTotalSizeHigh), 'total_size_bytes = 5497558138881 must be rejected');
+  assert.ok(ajv.errors.some(e => e.keyword === 'maximum' && e.instancePath === '/total_size_bytes'));
+
+  const validTotalSizeZero = JSON.parse(JSON.stringify(baseManifest));
+  validTotalSizeZero.total_size_bytes = 0;
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validTotalSizeZero), 'total_size_bytes = 0 must be valid in schema');
+
+  const validTotalSizeMax = JSON.parse(JSON.stringify(baseManifest));
+  validTotalSizeMax.total_size_bytes = 5497558138880;
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validTotalSizeMax), 'total_size_bytes = 5497558138880 must be valid in schema');
+});
+
+test('in-memory validation: S3 multipart upload manifest size thresholds and invariants (Finding R14-03 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  const validManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Non-final part with size below 5242880 bytes (5 MiB) throws EntityTooSmall
+  const smallNonFinalPart = JSON.parse(JSON.stringify(validManifest));
+  smallNonFinalPart.parts[0].size_bytes = 5242879; // 1 byte below 5 MiB
+  smallNonFinalPart.total_size_bytes = 5242879 + 5242880 + 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics(smallNonFinalPart),
+    /Semantic error: multipart upload manifest part 1 size \(5242879 bytes\) is below minimum non-final part size of 5242880 bytes \(5 MiB\) \(EntityTooSmall\)/
+  );
+
+  // 2. Final part with size below 5242880 bytes (e.g. 1024 bytes, 0 bytes) is permitted
+  const smallFinalPart = JSON.parse(JSON.stringify(validManifest));
+  smallFinalPart.parts[2].size_bytes = 1024; // < 5 MiB is allowed on final part
+  smallFinalPart.total_size_bytes = 5242880 + 5242880 + 1024;
+  assert.doesNotThrow(
+    () => validateS3MultipartSemantics(smallFinalPart),
+    'Final part with size < 5 MiB must be permitted'
+  );
+
+  const zeroFinalPart = JSON.parse(JSON.stringify(validManifest));
+  zeroFinalPart.parts[2].size_bytes = 0; // 0 bytes allowed on final part
+  zeroFinalPart.total_size_bytes = 5242880 + 5242880 + 0;
+  assert.doesNotThrow(
+    () => validateS3MultipartSemantics(zeroFinalPart),
+    'Final part with size 0 bytes must be permitted'
+  );
+
+  // 3. Negative: Part with negative size throws error
+  const negativePartSize = JSON.parse(JSON.stringify(validManifest));
+  negativePartSize.parts[0].size_bytes = -1;
+  negativePartSize.total_size_bytes = -1 + 5242880 + 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics(negativePartSize),
+    /Semantic error: multipart upload manifest part 1 size \(-1 bytes\) cannot be negative/
+  );
+
+  // 4. Negative: Part exceeding 5368709120 bytes (5 GiB) throws EntityTooLarge
+  const oversizedPart = JSON.parse(JSON.stringify(validManifest));
+  oversizedPart.parts[0].size_bytes = 5368709121; // 5 GiB + 1 byte
+  oversizedPart.total_size_bytes = 5368709121 + 5242880 + 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics(oversizedPart),
+    /Semantic error: multipart upload manifest part 1 size \(5368709121 bytes\) exceeds maximum part size of 5368709120 bytes \(5 GiB\) \(EntityTooLarge\)/
+  );
+
+  // 5. Negative: Total manifest size exceeding 5497558138880 bytes (5 TiB) throws EntityTooLarge
+  const oversizedManifest = JSON.parse(JSON.stringify(validManifest));
+  oversizedManifest.total_size_bytes = 5497558138881; // 5 TiB + 1 byte
+  assert.throws(
+    () => validateS3MultipartSemantics(oversizedManifest),
+    /Semantic error: multipart upload manifest total_size_bytes/
+  );
+});
+
+test('validateS3MultipartSemantics part size thresholds and non-final/final part rules (Finding R14-03 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  assert.ok(existsSync(samplePath), `Missing sample multipart manifest: ${samplePath}`);
+  const baseManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const FIVE_MIB = 5 * 1024 * 1024; // 5,242,880 bytes
+  const FIVE_GIB = 5 * 1024 * 1024 * 1024; // 5,368,709,120 bytes
+  const ONE_KIB = 1024; // 1,024 bytes
+
+  // 1. Non-final part below 5 MiB (e.g. 1 KiB) is rejected with /below minimum non-final part size|EntityTooSmall/
+  const manifestNonFinalSmall = JSON.parse(JSON.stringify(baseManifest));
+  manifestNonFinalSmall.parts[0].size_bytes = ONE_KIB;
+  manifestNonFinalSmall.total_size_bytes = ONE_KIB + FIVE_MIB + FIVE_MIB;
+  assert.throws(
+    () => validateS3MultipartSemantics(manifestNonFinalSmall),
+    /below minimum non-final part size|EntityTooSmall/,
+    'Non-final part below 5 MiB must be rejected with /below minimum non-final part size|EntityTooSmall/'
+  );
+
+  // 2. Multipart manifest with 0-byte final part and preceding >= 5 MiB parts passes
+  const manifestZeroByteFinal = JSON.parse(JSON.stringify(baseManifest));
+  manifestZeroByteFinal.parts[2].size_bytes = 0;
+  manifestZeroByteFinal.total_size_bytes = FIVE_MIB + FIVE_MIB + 0;
+  assert.doesNotThrow(
+    () => validateS3MultipartSemantics(manifestZeroByteFinal),
+    'Multipart manifest with 0-byte final part and preceding >= 5 MiB parts must pass validateS3MultipartSemantics'
+  );
+
+  // 3. Single-part manifest of 1 KiB passes (since it is the final part)
+  const manifestSinglePart1KiB = {
+    upload_id: "mp-upload-single-part-1kib-test-01",
+    bucket: "cybrik-telemetry-archive",
+    object_key: "single-part/data.bin",
+    total_parts: 1,
+    total_size_bytes: ONE_KIB,
+    overall_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    parts: [
+      {
+        part_number: 1,
+        etag: "\"9b10e4ede7fa2d398e621d2345f8bcf0\"",
+        sha256: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+        size_bytes: ONE_KIB
+      }
+    ]
+  };
+  assert.doesNotThrow(
+    () => validateS3MultipartSemantics(manifestSinglePart1KiB),
+    'Single-part manifest of 1 KiB must pass validateS3MultipartSemantics since it is the final part'
+  );
+
+  // 4. Part exceeding 5 GiB is rejected
+  const manifestExceeding5GiB = JSON.parse(JSON.stringify(baseManifest));
+  manifestExceeding5GiB.parts[1].size_bytes = FIVE_GIB + 1;
+  manifestExceeding5GiB.total_size_bytes = FIVE_MIB + (FIVE_GIB + 1) + FIVE_MIB;
+  assert.throws(
+    () => validateS3MultipartSemantics(manifestExceeding5GiB),
+    /exceeds maximum allowed part size|EntityTooLarge/,
+    'Part exceeding 5 GiB must be rejected'
+  );
+
+  // Also test single-part manifest exceeding 5 GiB is rejected
+  const manifestSingleExceeding5GiB = {
+    upload_id: "mp-upload-single-part-huge-test-01",
+    bucket: "cybrik-telemetry-archive",
+    object_key: "single-part/huge.bin",
+    total_parts: 1,
+    total_size_bytes: FIVE_GIB + 1,
+    overall_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    parts: [
+      {
+        part_number: 1,
+        etag: "\"9b10e4ede7fa2d398e621d2345f8bcf0\"",
+        sha256: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+        size_bytes: FIVE_GIB + 1
+      }
+    ]
+  };
+  assert.throws(
+    () => validateS3MultipartSemantics(manifestSingleExceeding5GiB),
+    /exceeds maximum allowed part size|EntityTooLarge/,
+    'Single part exceeding 5 GiB must be rejected'
+  );
+});

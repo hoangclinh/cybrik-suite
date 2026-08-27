@@ -429,11 +429,13 @@
         },
         "total_parts": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "maximum": 10000
         },
         "total_size_bytes": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0,
+          "maximum": 5497558138880
         },
         "overall_sha256": {
           "$ref": "#/$defs/sha256Hex"
@@ -471,7 +473,8 @@
         },
         "size_bytes": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0,
+          "maximum": 5368709120
         }
       },
       "additionalProperties": false

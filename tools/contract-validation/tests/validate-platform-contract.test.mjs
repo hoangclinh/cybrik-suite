@@ -2049,7 +2049,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     }
   ];
   const validFailStatus = ajv.validate(schemaId, dataFailStatus);
-  assert.ok(validFailStatus, 'Object Lock evidence with status FAIL passes Ajv schema validation: ' + ajv.errorsText());
+  assert.ok(!validFailStatus, 'Object Lock evidence with status FAIL must be rejected by Ajv schema validation');
   assert.throws(
     () => validatePlatformSemantics(dataFailStatus, schemaId),
     /has non-passing status 'FAIL'|failed status 'FAIL'|lacks Object Lock retention evidence/,
@@ -2878,11 +2878,15 @@ test('in-memory validation: conformance_evidence schema requirements (Finding F-
   };
   assert.ok(ajv.validate(schemaId, minValidData), 'Minimal valid conformance evidence must pass: ' + ajv.errorsText());
 
-  // 3. Positive: valid status enum values (PASS, FAIL, INCONCLUSIVE, SKIPPED) pass schema validation
-  for (const st of ['PASS', 'FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+  // 3. Positive: valid status PASS passes schema validation; non-PASS values are rejected
+  const stDataPass = JSON.parse(JSON.stringify(sample));
+  stDataPass.advertisement_response.conformance_evidence[0].status = 'PASS';
+  assert.ok(ajv.validate(schemaId, stDataPass), 'Status PASS must pass schema validation: ' + ajv.errorsText());
+
+  for (const st of ['FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
     const stData = JSON.parse(JSON.stringify(sample));
     stData.advertisement_response.conformance_evidence[0].status = st;
-    assert.ok(ajv.validate(schemaId, stData), `Status '${st}' must pass schema validation: ` + ajv.errorsText());
+    assert.ok(!ajv.validate(schemaId, stData), `Status '${st}' must be rejected by schema validation`);
   }
 
   // 4. Negative: missing status property is rejected
@@ -2903,13 +2907,13 @@ test('in-memory validation: conformance_evidence schema requirements (Finding F-
     'Schema error must indicate missing evidence_pack_digest property'
   );
 
-  // 6. Negative: invalid status enum value is rejected
+  // 6. Negative: invalid status enum/const value is rejected
   const invalidStatus = JSON.parse(JSON.stringify(sample));
   invalidStatus.advertisement_response.conformance_evidence[0].status = 'INVALID_STATUS';
   assert.ok(!ajv.validate(schemaId, invalidStatus), 'Invalid status must be rejected');
   assert.ok(
-    ajv.errors.some(e => e.keyword === 'enum' && e.instancePath.includes('/conformance_evidence/0/status')),
-    'Schema error must indicate invalid enum on status'
+    ajv.errors.some(e => (e.keyword === 'const' || e.keyword === 'enum') && e.instancePath.includes('/conformance_evidence/0/status')),
+    'Schema error must indicate invalid const/enum on status'
   );
 
   // 7. Negative: malformed evidence_pack_digest is rejected (short length, uppercase, non-hex)
@@ -2982,11 +2986,15 @@ test('in-memory validation: standalone provider capability advertisement conform
   };
   assert.ok(ajv.validate(schemaId, minValidData), 'Minimal valid conformance evidence must pass: ' + ajv.errorsText());
 
-  // 3. Positive: valid status enum values pass schema validation
-  for (const st of ['PASS', 'FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+  // 3. Positive: valid status PASS passes schema validation; non-PASS values are rejected
+  const stDataPass = JSON.parse(JSON.stringify(sample));
+  stDataPass.conformance_evidence[0].status = 'PASS';
+  assert.ok(ajv.validate(schemaId, stDataPass), 'Status PASS must pass schema validation: ' + ajv.errorsText());
+
+  for (const st of ['FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
     const stData = JSON.parse(JSON.stringify(sample));
     stData.conformance_evidence[0].status = st;
-    assert.ok(ajv.validate(schemaId, stData), `Status '${st}' must pass schema validation: ` + ajv.errorsText());
+    assert.ok(!ajv.validate(schemaId, stData), `Status '${st}' must be rejected by schema validation`);
   }
 
   // 4. Negative: missing status property is rejected
@@ -3007,13 +3015,13 @@ test('in-memory validation: standalone provider capability advertisement conform
     'Schema error must indicate missing evidence_pack_digest property'
   );
 
-  // 6. Negative: invalid status enum value is rejected
+  // 6. Negative: invalid status enum/const value is rejected
   const invalidStatus = JSON.parse(JSON.stringify(sample));
   invalidStatus.conformance_evidence[0].status = 'INVALID_STATUS';
   assert.ok(!ajv.validate(schemaId, invalidStatus), 'Invalid status must be rejected');
   assert.ok(
-    ajv.errors.some(e => e.keyword === 'enum' && e.instancePath.includes('/conformance_evidence/0/status')),
-    'Schema error must indicate invalid enum on status'
+    ajv.errors.some(e => (e.keyword === 'const' || e.keyword === 'enum') && e.instancePath.includes('/conformance_evidence/0/status')),
+    'Schema error must indicate invalid const/enum on status'
   );
 
   // 7. Negative: malformed evidence_pack_digest is rejected
@@ -3117,7 +3125,7 @@ test('in-memory validation: universal PASS status and valid SHA-256 digest on al
   );
 });
 
-test('in-memory validation: mandatory capability with SKIPPED or INCONCLUSIVE evidence passes Ajv but fails validatePlatformSemantics (Finding F-01 / OPEN-5)', () => {
+test('in-memory validation: mandatory capability with SKIPPED or INCONCLUSIVE evidence is rejected by schema and semantic validation (Finding F-01 / R14-03 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
@@ -3129,9 +3137,9 @@ test('in-memory validation: mandatory capability with SKIPPED or INCONCLUSIVE ev
     assert.ok(ociEv, 'Evidence for ev-oci-01 must exist in sample');
     ociEv.status = nonPassStatus;
 
-    // 1. Passes Ajv schema validation (schema admits SKIPPED and INCONCLUSIVE status enum values)
+    // 1. Rejected by Ajv schema validation (status must be PASS)
     const valid = ajv.validate(schemaId, data);
-    assert.ok(valid, `Mandatory capability with ${nonPassStatus} evidence must pass Ajv schema validation: ` + ajv.errorsText());
+    assert.ok(!valid, `Mandatory capability with ${nonPassStatus} evidence must be rejected by Ajv schema validation`);
 
     // 2. Fails validatePlatformSemantics with /has non-passing status/
     assert.throws(
@@ -3406,14 +3414,14 @@ test('in-memory validation: standalone advertisement conformance_evidence integr
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
 
-  // 1. Non-PASS evidence status is rejected
+  // 1. Non-PASS evidence status is rejected by Ajv schema and validatePlatformSemantics
   for (const nonPassStatus of ['SKIPPED', 'INCONCLUSIVE', 'FAIL']) {
     const data = JSON.parse(JSON.stringify(sample));
     data.conformance_evidence[0].status = nonPassStatus;
 
-    // A. Passes Ajv schema validation (valid enum values)
+    // A. Rejected by Ajv schema validation (status must be PASS)
     const valid = ajv.validate(schemaId, data);
-    assert.ok(valid, `Standalone advertisement with evidence status '${nonPassStatus}' should pass Ajv schema validation: ` + ajv.errorsText());
+    assert.ok(!valid, `Standalone advertisement with evidence status '${nonPassStatus}' must be rejected by Ajv schema validation`);
 
     // B. Rejected by validatePlatformSemantics
     assert.throws(
@@ -3606,5 +3614,183 @@ test('in-memory validation: surplus unrequested optional capability in lease pas
     () => validatePlatformSemantics(data, schemaId),
     /unrequested or surplus|count mismatch/,
     'Four-lease/three-request case (surplus unrequested optional capability in lease) must be rejected by validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: universal PASS status on unreferenced evidence and reverse evidence closure (Finding R14-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // 1. Unreferenced evidence with non-PASS status throws /has non-passing status/
+  const dataNonPassUnreferenced = JSON.parse(JSON.stringify(sample));
+  dataNonPassUnreferenced.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:unreferenced-fail",
+    status: "FAIL",
+    evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    executed_at: "2026-08-25T12:00:00Z",
+    report_uri: "https://example.com/report-fail"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataNonPassUnreferenced, schemaId),
+    /Semantic error: conformance evidence 'urn:cybrik:evidence:unreferenced-fail' has non-passing status 'FAIL'/
+  );
+
+  // 2. Unreferenced evidence with malformed SHA-256 digest throws /lacks valid SHA-256 evidence_pack_digest/
+  const dataBadDigestUnreferenced = JSON.parse(JSON.stringify(sample));
+  dataBadDigestUnreferenced.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:unreferenced-bad-digest",
+    status: "PASS",
+    evidence_pack_digest: "not-a-valid-sha256",
+    executed_at: "2026-08-25T12:00:00Z",
+    report_uri: "https://example.com/report-bad"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataBadDigestUnreferenced, schemaId),
+    /Semantic error: conformance evidence 'urn:cybrik:evidence:unreferenced-bad-digest' lacks valid SHA-256 evidence_pack_digest/
+  );
+
+  // 3. Unreferenced dangling evidence (with PASS status and valid SHA-256 digest) throws /conformance_evidence contains unreferenced or dangling evidence/
+  const dataDanglingUnreferenced = JSON.parse(JSON.stringify(sample));
+  dataDanglingUnreferenced.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:unreferenced-pass",
+    status: "PASS",
+    evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    executed_at: "2026-08-25T12:00:00Z",
+    report_uri: "https://example.com/report-pass"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataDanglingUnreferenced, schemaId),
+    /Semantic error: conformance_evidence contains unreferenced or dangling evidence 'urn:cybrik:evidence:unreferenced-pass'/
+  );
+
+  // 4. Negotiation document with dangling unreferenced evidence in advertisement_response
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const pcnSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const pcnDangling = JSON.parse(JSON.stringify(pcnSample));
+  pcnDangling.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:unreferenced-pcn-pass",
+    status: "PASS",
+    evidence_pack_digest: "a115151515151515151515151515151515151515151515151515151515151515",
+    executed_at: "2026-08-27T12:00:00Z",
+    report_uri: "https://reports.cybrik.example/evidence/dangling.json"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(pcnDangling, pcnSchemaId),
+    /Semantic error: conformance_evidence contains unreferenced or dangling evidence 'urn:cybrik:evidence:unreferenced-pcn-pass'/
+  );
+});
+
+test('in-memory validation: reject duplicate slot_id in advertised_capabilities (Finding R14-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  const dataDupSlot = JSON.parse(JSON.stringify(sample));
+  dataDupSlot.advertised_capabilities.push({
+    capability_name: "oci_container_runtime_secondary",
+    slot_id: "oci_container_runtime",
+    description: "Duplicate slot runtime",
+    evidence_references: [
+      "urn:cybrik:evidence:ev-oci-01"
+    ]
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataDupSlot, schemaId),
+    /Semantic error: advertised_capabilities contains duplicate slot_id 'oci_container_runtime'/
+  );
+});
+
+test('in-memory validation: reject unreferenced/dangling PASS and FAIL evidence in conformance_evidence (Finding R14-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // 1. Positive baseline: sample advertisement passes Ajv and validatePlatformSemantics
+  const validData = JSON.parse(JSON.stringify(sample));
+  assert.ok(ajv.validate(schemaId, validData), 'Baseline advertisement must pass Ajv schema validation');
+  assert.doesNotThrow(() => validatePlatformSemantics(validData, schemaId), 'Baseline advertisement must pass validatePlatformSemantics');
+
+  // 2. Unreferenced / dangling PASS record in conformance_evidence passes Ajv but is rejected by validatePlatformSemantics
+  const dataDanglingPass = JSON.parse(JSON.stringify(sample));
+  dataDanglingPass.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:dangling-pass-test",
+    status: "PASS",
+    evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    executed_at: "2026-08-25T12:00:00Z",
+    report_uri: "https://example.com/dangling-pass-report"
+  });
+
+  const validAjvDanglingPass = ajv.validate(schemaId, dataDanglingPass);
+  assert.ok(validAjvDanglingPass, 'Unreferenced PASS record must pass Ajv schema validation structurally');
+  assert.throws(
+    () => validatePlatformSemantics(dataDanglingPass, schemaId),
+    /unreferenced or dangling evidence/,
+    'Unreferenced PASS record in conformance_evidence must be rejected by validatePlatformSemantics with /unreferenced or dangling evidence/'
+  );
+
+  // 3. Unreferenced non-PASS record in conformance_evidence is rejected by Ajv schema and validatePlatformSemantics
+  const dataDanglingFail = JSON.parse(JSON.stringify(sample));
+  dataDanglingFail.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:dangling-fail-test",
+    status: "FAIL",
+    evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    executed_at: "2026-08-25T12:00:00Z",
+    report_uri: "https://example.com/dangling-fail-report"
+  });
+
+  const validAjvDanglingFail = ajv.validate(schemaId, dataDanglingFail);
+  assert.ok(!validAjvDanglingFail, 'Unreferenced FAIL record must be rejected by Ajv schema validation');
+  assert.throws(
+    () => validatePlatformSemantics(dataDanglingFail, schemaId),
+    /unreferenced or dangling evidence|non-passing status/,
+    'Unreferenced FAIL record in conformance_evidence must be rejected by validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: reject duplicate slot advertisements e.g. conflicting storage slots (Finding R14-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // Duplicate storage slot advertisement (e.g. one compliant, one weak)
+  const data = JSON.parse(JSON.stringify(sample));
+  data.advertised_capabilities = [
+    {
+      capability_name: "storage_compliant_s3",
+      slot_id: "storage",
+      description: "Compliant S3 storage with full Object Lock retention",
+      evidence_references: ["urn:cybrik:evidence:ev-storage-01"]
+    },
+    {
+      capability_name: "storage_weak_s3",
+      slot_id: "storage",
+      description: "Weak S3 storage without Object Lock",
+      evidence_references: ["urn:cybrik:evidence:ev-storage-02"]
+    }
+  ];
+  data.conformance_evidence = [
+    {
+      test_identifier: "urn:cybrik:evidence:ev-storage-01",
+      status: "PASS",
+      evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      executed_at: "2026-08-25T12:00:00Z",
+      report_uri: "https://example.com/report1"
+    },
+    {
+      test_identifier: "urn:cybrik:evidence:ev-storage-02",
+      status: "PASS",
+      evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      executed_at: "2026-08-25T12:00:00Z",
+      report_uri: "https://example.com/report2"
+    }
+  ];
+
+  // 1. Passes Ajv schema validation (PARTIAL_CAPABILITY_ADVERTISEMENT allows arbitrary array items)
+  const validAjv = ajv.validate(schemaId, data);
+  assert.ok(validAjv, 'Duplicate storage slot advertisement passes Ajv structurally: ' + ajv.errorsText());
+
+  // 2. Rejected by validatePlatformSemantics with /duplicate slot_id/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /duplicate slot_id/,
+    'Duplicate storage slot advertisement must be rejected by validatePlatformSemantics with /duplicate slot_id/'
   );
 });
