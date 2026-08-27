@@ -1,11 +1,13 @@
 {
   "$id": "https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Cybrik S3 Compatibility Subset Contract",
+  "title": "CYBRIK S3 Compatibility Subset Contract v1",
+  "description": "CYBRIK S3 Compatibility Subset Contract [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT] under OPEN-2. Defines the minimum S3-compatible object store subset interface, conformance profile, Object Lock retention compliance, multipart upload manifests, and path formatting.",
   "type": "object",
   "x-cybrik-status": "PROPOSED",
   "x-cybrik-lifecycle": "PROPOSED",
   "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
   "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
   "required": [
     "provider_identifier",
@@ -18,7 +20,8 @@
   ],
   "properties": {
     "provider_identifier": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "mandatory_operations": {
       "type": "object",
@@ -68,6 +71,16 @@
       "properties": {
         "object_lock": {
           "type": "boolean"
+        },
+        "retention_modes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/retentionMode"
+          },
+          "uniqueItems": true
+        },
+        "legal_hold": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -75,23 +88,7 @@
     "required_operations": {
       "type": "array",
       "items": {
-        "type": "string",
-        "enum": [
-          "PutObject",
-          "GetObject",
-          "HeadObject",
-          "DeleteObject",
-          "DeleteObjects",
-          "ListObjectsV2",
-          "HeadBucket",
-          "CreateBucket",
-          "CreateMultipartUpload",
-          "UploadPart",
-          "CompleteMultipartUpload",
-          "AbortMultipartUpload",
-          "PutBucketVersioning",
-          "GetBucketVersioning"
-        ]
+        "$ref": "#/$defs/s3Operation"
       },
       "minItems": 14,
       "uniqueItems": true
@@ -118,9 +115,358 @@
     },
     "optional_retention": {
       "type": "boolean"
+    },
+    "path_formatting": {
+      "$ref": "#/$defs/pathFormatting"
     }
   },
-  "x-cybrik-contract-version": "0.1.0",
   "additionalProperties": false,
-  "description": "Cybrik S3 Compatibility Subset Contract [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
+  "$defs": {
+    "s3Operation": {
+      "type": "string",
+      "enum": [
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold",
+        "ListMultipartUploads",
+        "DeleteBucket",
+        "ListBuckets"
+      ]
+    },
+    "retentionMode": {
+      "type": "string",
+      "enum": [
+        "COMPLIANCE",
+        "GOVERNANCE"
+      ]
+    },
+    "legalHoldStatus": {
+      "type": "string",
+      "enum": [
+        "ON",
+        "OFF"
+      ]
+    },
+    "bucketName": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$",
+      "description": "S3 bucket naming conventions: 3-63 characters, lowercase letters, numbers, dots, and hyphens."
+    },
+    "objectKey": {
+      "type": "string",
+      "pattern": "^(?!\\/)(?!.*\\/\\/)[a-zA-Z0-9._/-]+$",
+      "description": "Normalized S3 object key without leading slash or adjacent slashes."
+    },
+    "s3Uri": {
+      "type": "string",
+      "pattern": "^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)[a-zA-Z0-9._/-]+$",
+      "description": "Canonical S3 URI format s3://bucket/key."
+    },
+    "pathStyleUrl": {
+      "type": "string",
+      "pattern": "^https?://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)[a-zA-Z0-9._/-]+$",
+      "description": "Forced path-style access URL http(s)://endpoint/bucket/key."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 64-hex lowercase digest."
+    },
+    "sha256Prefixed": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Prefixed sha256:64-hex digest."
+    },
+    "sha256Digest": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[a-f0-9]{64}$",
+      "description": "SHA-256 digest in either raw 64-hex or sha256:<hex> format."
+    },
+    "etag": {
+      "type": "string",
+      "pattern": "^\"?[a-f0-9]{32}(?:-[0-9]+)?\"?$",
+      "description": "S3 ETag format."
+    },
+    "pathFormatting": {
+      "type": "object",
+      "required": [
+        "addressing_style",
+        "bucket_pattern",
+        "key_pattern"
+      ],
+      "properties": {
+        "addressing_style": {
+          "const": "path_style"
+        },
+        "bucket_pattern": {
+          "type": "string"
+        },
+        "key_pattern": {
+          "type": "string"
+        },
+        "sample_bucket": {
+          "$ref": "#/$defs/bucketName"
+        },
+        "sample_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "sample_path_style_url": {
+          "$ref": "#/$defs/pathStyleUrl"
+        }
+      },
+      "additionalProperties": false
+    },
+    "storageConformanceProfile": {
+      "type": "object",
+      "required": [
+        "provider_identifier",
+        "mandatory_operations",
+        "supported_optional_features",
+        "required_operations",
+        "addressing_style",
+        "auth_mechanism",
+        "required_error_codes"
+      ],
+      "properties": {
+        "provider_identifier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mandatory_operations": {
+          "type": "object",
+          "required": [
+            "crud",
+            "multipart_upload",
+            "presigning",
+            "sig_v4",
+            "path_style_access",
+            "versioning",
+            "error_mappings"
+          ],
+          "properties": {
+            "crud": {
+              "type": "boolean",
+              "const": true
+            },
+            "multipart_upload": {
+              "type": "boolean",
+              "const": true
+            },
+            "presigning": {
+              "type": "boolean",
+              "const": true
+            },
+            "sig_v4": {
+              "type": "boolean",
+              "const": true
+            },
+            "path_style_access": {
+              "type": "boolean",
+              "const": true
+            },
+            "versioning": {
+              "type": "boolean",
+              "const": true
+            },
+            "error_mappings": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "supported_optional_features": {
+          "type": "object",
+          "properties": {
+            "object_lock": {
+              "type": "boolean"
+            },
+            "retention_modes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/retentionMode"
+              },
+              "uniqueItems": true
+            },
+            "legal_hold": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "required_operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/s3Operation"
+          },
+          "minItems": 14,
+          "uniqueItems": true
+        },
+        "addressing_style": {
+          "const": "path_style"
+        },
+        "auth_mechanism": {
+          "const": "AWS4-HMAC-SHA256"
+        },
+        "required_error_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "NoSuchKey",
+              "NoSuchBucket",
+              "AccessDenied",
+              "EntityTooLarge"
+            ]
+          },
+          "minItems": 4,
+          "uniqueItems": true
+        },
+        "optional_retention": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "objectRetentionCompliance": {
+      "type": "object",
+      "required": [
+        "bucket",
+        "object_key",
+        "retention_mode",
+        "retain_until_date",
+        "legal_hold",
+        "object_sha256"
+      ],
+      "properties": {
+        "bucket": {
+          "$ref": "#/$defs/bucketName"
+        },
+        "object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention_mode": {
+          "$ref": "#/$defs/retentionMode"
+        },
+        "retain_until_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "retention_period_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "legal_hold": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "$ref": "#/$defs/legalHoldStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        "object_sha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "compliance_guarantee": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "multipartUploadManifest": {
+      "type": "object",
+      "required": [
+        "upload_id",
+        "bucket",
+        "object_key",
+        "total_parts",
+        "total_size_bytes",
+        "overall_sha256",
+        "parts"
+      ],
+      "properties": {
+        "upload_id": {
+          "type": "string",
+          "minLength": 8
+        },
+        "bucket": {
+          "$ref": "#/$defs/bucketName"
+        },
+        "object_key": {
+          "$ref": "#/$defs/objectKey"
+        },
+        "total_parts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "total_size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "overall_sha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/multipartPart"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "multipartPart": {
+      "type": "object",
+      "required": [
+        "part_number",
+        "etag",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "part_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "etag": {
+          "$ref": "#/$defs/etag"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

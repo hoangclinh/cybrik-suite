@@ -9,6 +9,9 @@
     "node": "20 || >=22"
   },
   "scripts": {
+    "test": "node --test",
+    "test:s3": "node --test tests/validate-s3-compatibility.test.mjs",
+    "validate:s3": "node --test tests/validate-s3-compatibility.test.mjs",
     "validate": "node validate.mjs",
     "validate:dependency-compat": "node --test tests/dependency-compat.test.mjs",
     "validate:schemas": "node validate-schemas.mjs",
