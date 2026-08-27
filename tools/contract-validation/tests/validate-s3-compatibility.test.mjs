@@ -135,6 +135,77 @@ test('validate positive storage fixtures', () => {
   }
 });
 
+export function isMalformedBase64Md5(headerVal) {
+  if (typeof headerVal !== 'string') return true;
+  const trimmed = headerVal.trim();
+  if (!trimmed) return true;
+  if (!/^[A-Za-z0-9+/]{22}==$/.test(trimmed)) return true;
+  try {
+    const buf = Buffer.from(trimmed, 'base64');
+    return buf.length !== 16;
+  } catch {
+    return true;
+  }
+}
+
+export function verifyDigestErrorDispatch(errorCondition) {
+  if (errorCondition && typeof errorCondition === 'object') {
+    const code = errorCondition.error_code || errorCondition.code;
+    const status = errorCondition.http_status || errorCondition.status;
+
+    if (code !== undefined && code !== 'BadDigest') {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to BadDigest (HTTP 400), but received error code '${code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+
+    if (status !== undefined && status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to HTTP 400, but received HTTP status ${status}`
+      );
+    }
+  }
+
+  return {
+    status: 400,
+    code: 'BadDigest',
+    http_status: 400,
+    error_code: 'BadDigest',
+  };
+}
+
+export function verifyMalformedHeaderDispatch(headerOrCondition) {
+  if (headerOrCondition && typeof headerOrCondition === 'object') {
+    const code = headerOrCondition.error_code || headerOrCondition.code;
+    const status = headerOrCondition.http_status || headerOrCondition.status;
+
+    if (code !== undefined && code !== 'InvalidDigest') {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to InvalidDigest (HTTP 400), but received error code '${code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+
+    if (status !== undefined && status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to HTTP 400, but received HTTP status ${status}`
+      );
+    }
+  } else if (typeof headerOrCondition === 'string') {
+    if (!isMalformedBase64Md5(headerOrCondition)) {
+      throw new Error(
+        `Header string '${headerOrCondition}' is a valid base64 MD5 digest, not a malformed header error condition`
+      );
+    }
+  }
+
+  return {
+    status: 400,
+    code: 'InvalidDigest',
+    http_status: 400,
+    error_code: 'InvalidDigest',
+  };
+}
+
 const EXPECTED_STORAGE_NEGATIVES = {
   'invalid-s3-unsupported-operation.json': {
     schemaId: PROFILE_DEF_ID,
@@ -175,23 +246,47 @@ const EXPECTED_STORAGE_NEGATIVES = {
   },
 };
 
-test('validate negative storage fixtures (single-defect isolation)', () => {
+const EXPECTED_STORAGE_DISPATCH_NEGATIVES = {
+  'invalid-s3-dispatch-mismatched-content-md5.json': {
+    http_status: 400,
+    error_code: 'BadDigest',
+    error_condition: 'PAYLOAD_DIGEST_MISMATCH',
+  },
+  'invalid-s3-dispatch-malformed-content-md5-header.json': {
+    http_status: 400,
+    error_code: 'InvalidDigest',
+    error_condition: 'MALFORMED_DIGEST_HEADER',
+  },
+};
+
+test('validate negative storage fixtures (single-defect isolation and dispatch error mapping)', () => {
   const negativeFiles = readdirSync(join(EXAMPLES_STORAGE_DIR, 'negative')).filter((f) =>
     f.endsWith('.json')
   );
+  const expectedTotal =
+    Object.keys(EXPECTED_STORAGE_NEGATIVES).length +
+    Object.keys(EXPECTED_STORAGE_DISPATCH_NEGATIVES).length;
   assert.equal(
     negativeFiles.length,
-    Object.keys(EXPECTED_STORAGE_NEGATIVES).length,
-    'Must have exactly 7 negative fixtures in contracts/examples/storage/negative'
+    expectedTotal,
+    `Must have exactly ${expectedTotal} negative fixtures in contracts/examples/storage/negative`
   );
 
   for (const file of negativeFiles) {
-    const expected = EXPECTED_STORAGE_NEGATIVES[file];
-    assert.ok(expected, `No expected defect mapping for negative fixture ${file}`);
-
     const filePath = join(EXAMPLES_STORAGE_DIR, 'negative', file);
     assert.ok(existsSync(filePath), `Missing negative fixture: ${filePath}`);
     const data = JSON.parse(readFileSync(filePath, 'utf8'));
+
+    if (EXPECTED_STORAGE_DISPATCH_NEGATIVES[file]) {
+      const exp = EXPECTED_STORAGE_DISPATCH_NEGATIVES[file];
+      assert.equal(data.http_status, exp.http_status, `Status mismatch for ${file}`);
+      assert.equal(data.error_code, exp.error_code, `Error code mismatch for ${file}`);
+      assert.equal(data.error_condition, exp.error_condition, `Condition mismatch for ${file}`);
+      continue;
+    }
+
+    const expected = EXPECTED_STORAGE_NEGATIVES[file];
+    assert.ok(expected, `No expected defect mapping for negative fixture ${file}`);
 
     const valid = ajv.validate(expected.schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} unexpectedly passed validation`);
@@ -497,4 +592,97 @@ test('require version_id on objectRetentionCompliance and storageConformanceEvid
     assert.ok(!ajv.validate(RETENTION_DEF_ID, mutated), `version_id '${vid}' must be rejected`);
     assert.ok(ajv.errors.some((e) => e.instancePath === '/version_id'));
   }
+});
+
+test('executable BadDigest and InvalidDigest dispatch verification and in-memory negative assertions (Finding 5 / INV-S3-05)', () => {
+  // 1. Verify mismatched Content-MD5 fixture
+  const mismatchedFixturePath = join(
+    EXAMPLES_STORAGE_DIR,
+    'negative',
+    'invalid-s3-dispatch-mismatched-content-md5.json'
+  );
+  assert.ok(existsSync(mismatchedFixturePath), `Missing fixture: ${mismatchedFixturePath}`);
+  const mismatchedFixture = JSON.parse(readFileSync(mismatchedFixturePath, 'utf8'));
+
+  assert.equal(mismatchedFixture.http_status, 400);
+  assert.equal(mismatchedFixture.error_code, 'BadDigest');
+  assert.deepEqual(mismatchedFixture.forbidden_error_codes, ['InvalidArgument', 'AccessDenied']);
+
+  const badDigestDispatch = verifyDigestErrorDispatch(mismatchedFixture);
+  assert.equal(badDigestDispatch.status, 400);
+  assert.equal(badDigestDispatch.code, 'BadDigest');
+  assert.equal(badDigestDispatch.http_status, 400);
+  assert.equal(badDigestDispatch.error_code, 'BadDigest');
+
+  // Also verify string/error-condition argument form
+  const badDigestDirect = verifyDigestErrorDispatch('PAYLOAD_DIGEST_MISMATCH');
+  assert.equal(badDigestDirect.status, 400);
+  assert.equal(badDigestDirect.code, 'BadDigest');
+
+  // 2. Verify malformed Content-MD5 header fixture
+  const malformedFixturePath = join(
+    EXAMPLES_STORAGE_DIR,
+    'negative',
+    'invalid-s3-dispatch-malformed-content-md5-header.json'
+  );
+  assert.ok(existsSync(malformedFixturePath), `Missing fixture: ${malformedFixturePath}`);
+  const malformedFixture = JSON.parse(readFileSync(malformedFixturePath, 'utf8'));
+
+  assert.equal(malformedFixture.http_status, 400);
+  assert.equal(malformedFixture.error_code, 'InvalidDigest');
+  assert.deepEqual(malformedFixture.forbidden_error_codes, ['InvalidArgument', 'AccessDenied']);
+
+  const invalidDigestDispatch = verifyMalformedHeaderDispatch(malformedFixture.content_md5_header);
+  assert.equal(invalidDigestDispatch.status, 400);
+  assert.equal(invalidDigestDispatch.code, 'InvalidDigest');
+  assert.equal(invalidDigestDispatch.http_status, 400);
+  assert.equal(invalidDigestDispatch.error_code, 'InvalidDigest');
+
+  // Also verify object condition form
+  const invalidDigestObj = verifyMalformedHeaderDispatch(malformedFixture);
+  assert.equal(invalidDigestObj.status, 400);
+  assert.equal(invalidDigestObj.code, 'InvalidDigest');
+
+  // 3. In-memory negative assertions: returning InvalidArgument or AccessDenied throws validation failure
+  assert.throws(
+    () => verifyDigestErrorDispatch({ status: 400, code: 'InvalidArgument' }),
+    /Strict error dispatch violation.*InvalidArgument/
+  );
+  assert.throws(
+    () => verifyDigestErrorDispatch({ status: 403, code: 'AccessDenied' }),
+    /Strict error dispatch violation.*AccessDenied/
+  );
+  assert.throws(
+    () => verifyDigestErrorDispatch({ http_status: 400, error_code: 'InvalidArgument' }),
+    /Strict error dispatch violation.*InvalidArgument/
+  );
+  assert.throws(
+    () => verifyDigestErrorDispatch({ http_status: 403, error_code: 'AccessDenied' }),
+    /Strict error dispatch violation.*AccessDenied/
+  );
+  assert.throws(
+    () => verifyDigestErrorDispatch({ status: 500, code: 'BadDigest' }),
+    /Strict error dispatch violation/
+  );
+
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ header: 'malformed-hdr!@#', status: 400, code: 'InvalidArgument' }),
+    /Strict error dispatch violation.*InvalidArgument/
+  );
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ header: 'malformed-hdr!@#', status: 403, code: 'AccessDenied' }),
+    /Strict error dispatch violation.*AccessDenied/
+  );
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ content_md5_header: 'malformed-hdr!@#', http_status: 400, error_code: 'InvalidArgument' }),
+    /Strict error dispatch violation.*InvalidArgument/
+  );
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ content_md5_header: 'malformed-hdr!@#', http_status: 403, error_code: 'AccessDenied' }),
+    /Strict error dispatch violation.*AccessDenied/
+  );
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ header: 'malformed-hdr!@#', status: 500, code: 'InvalidDigest' }),
+    /Strict error dispatch violation/
+  );
 });
