@@ -1,0 +1,16 @@
+{
+  "test_case": "invalid-s3-dispatch-mismatched-content-md5",
+  "description": "Payload byte digest mismatch must strictly dispatch to BadDigest (HTTP 400), strictly rejecting InvalidArgument or AccessDenied",
+  "error_condition": "PAYLOAD_DIGEST_MISMATCH",
+  "operation": "PutObject",
+  "bucket": "cybrik-audit-vault",
+  "object_key": "evidence/2026/08/incident-1042-audit-bundle.tar.gz",
+  "content_md5_declared": "1B2M2Y8AsgTpgAmY7PhCfg==",
+  "content_md5_computed": "Q2hlY2tzdW0gRmFpbHVyZQ==",
+  "http_status": 400,
+  "error_code": "BadDigest",
+  "forbidden_error_codes": [
+    "InvalidArgument",
+    "AccessDenied"
+  ]
+}

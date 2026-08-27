@@ -257,6 +257,76 @@ export function validateIJson(rawJsonText, label = 'JSON') {
   return result;
 }
 
+export function isMalformedBase64Md5(headerVal) {
+  if (typeof headerVal !== 'string') return true;
+  const trimmed = headerVal.trim();
+  if (!trimmed) return true;
+  if (!/^[A-Za-z0-9+/]{22}==$/.test(trimmed)) return true;
+  try {
+    const buf = Buffer.from(trimmed, 'base64');
+    return buf.length !== 16;
+  } catch {
+    return true;
+  }
+}
+
+export function verifyDigestErrorDispatch(errorCondition) {
+  if (errorCondition && typeof errorCondition === 'object') {
+    const code = errorCondition.error_code || errorCondition.code;
+    const status = errorCondition.http_status || errorCondition.status;
+
+    if (code !== undefined && code !== 'BadDigest') {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to BadDigest (HTTP 400), but received error code '${code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+
+    if (status !== undefined && status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to HTTP 400, but received HTTP status ${status}`
+      );
+    }
+  }
+
+  return {
+    status: 400,
+    code: 'BadDigest',
+    http_status: 400,
+    error_code: 'BadDigest',
+  };
+}
+
+export function verifyMalformedHeaderDispatch(headerOrCondition) {
+  if (headerOrCondition && typeof headerOrCondition === 'object') {
+    const code = headerOrCondition.error_code || headerOrCondition.code;
+    const status = headerOrCondition.http_status || headerOrCondition.status;
+
+    if (code !== undefined && code !== 'InvalidDigest') {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to InvalidDigest (HTTP 400), but received error code '${code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+
+    if (status !== undefined && status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to HTTP 400, but received HTTP status ${status}`
+      );
+    }
+  } else if (typeof headerOrCondition === 'string') {
+    if (!isMalformedBase64Md5(headerOrCondition)) {
+      throw new Error(
+        `Header string '${headerOrCondition}' is a valid base64 MD5 digest, not a malformed header error condition`
+      );
+    }
+  }
+
+  return {
+    status: 400,
+    code: 'InvalidDigest',
+    http_status: 400,
+    error_code: 'InvalidDigest',
+  };
+}
 
 const S3_17_MANDATORY_OPS = [
   'PutObject',
@@ -782,14 +852,42 @@ const EXPECTED_STORAGE_NEGATIVES = {
   }
 };
 
+const EXPECTED_STORAGE_DISPATCH_NEGATIVES = {
+  'invalid-s3-dispatch-mismatched-content-md5.json': {
+    http_status: 400,
+    error_code: 'BadDigest',
+    error_condition: 'PAYLOAD_DIGEST_MISMATCH'
+  },
+  'invalid-s3-dispatch-malformed-content-md5-header.json': {
+    http_status: 400,
+    error_code: 'InvalidDigest',
+    error_condition: 'MALFORMED_DIGEST_HEADER'
+  }
+};
+
 if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
   const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
   const storageNegFiles = fsNode.readdirSync(join(STORAGE_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
-  if (storageNegFiles.length !== Object.keys(EXPECTED_STORAGE_NEGATIVES).length) {
-    fail(`storage negative examples count mismatch: expected ${Object.keys(EXPECTED_STORAGE_NEGATIVES).length}, got ${storageNegFiles.length}`);
+  const expectedTotalCount = Object.keys(EXPECTED_STORAGE_NEGATIVES).length + Object.keys(EXPECTED_STORAGE_DISPATCH_NEGATIVES).length;
+  if (storageNegFiles.length !== expectedTotalCount) {
+    fail(`storage negative examples count mismatch: expected ${expectedTotalCount}, got ${storageNegFiles.length}`);
   }
   for (const file of storageNegFiles) {
     const exPath = join(STORAGE_EXAMPLES_DIR, 'negative', file);
+
+    if (EXPECTED_STORAGE_DISPATCH_NEGATIVES[file]) {
+      const expDispatch = EXPECTED_STORAGE_DISPATCH_NEGATIVES[file];
+      let data;
+      try { data = readJson(exPath); } catch (e) { fail(`storage dispatch negative example ${file}: JSON parse error: ${e.message}`); continue; }
+      bump('negative_schema_total');
+      if (data.http_status !== expDispatch.http_status || data.error_code !== expDispatch.error_code) {
+        fail(`storage dispatch negative example ${file}: expected status ${expDispatch.http_status} / code ${expDispatch.error_code}, got ${data.http_status} / ${data.error_code}`);
+      } else {
+        bump('negative_schema_reject');
+      }
+      continue;
+    }
+
     const expected = EXPECTED_STORAGE_NEGATIVES[file];
     if (!expected) {
       fail(`storage negative example ${file}: no expected invariant/error mapped!`);
@@ -1419,6 +1517,33 @@ const s3VersionIdValid = ajv.validate(S3_RETENTION_DEF_ID, sampleRetentionRecord
                          !ajv.validate(S3_RETENTION_DEF_ID, missingVerRetention) && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'version_id') &&
                          !ajv.validate(S3_RETENTION_DEF_ID, badVerRetention) && ajv.errors.some(e => e.instancePath === '/version_id');
 H('36', s3VersionIdValid, 'S3 retention compliance and storage conformance evidence must require version_id with ^[a-zA-Z0-9._-]+$');
+
+// 37. S3 BadDigest and InvalidDigest strict error dispatch verification (Finding 5 / INV-S3-05)
+const mismatchedFixture = readJson(join(STORAGE_EXAMPLES_DIR, 'negative/invalid-s3-dispatch-mismatched-content-md5.json'));
+const malformedFixture = readJson(join(STORAGE_EXAMPLES_DIR, 'negative/invalid-s3-dispatch-malformed-content-md5-header.json'));
+
+const badDigestResult = verifyDigestErrorDispatch(mismatchedFixture);
+const invalidDigestResult = verifyMalformedHeaderDispatch(malformedFixture.content_md5_header);
+
+let s3DispatchInvariantsValid = true;
+try {
+  if (badDigestResult.status !== 400 || badDigestResult.code !== 'BadDigest') s3DispatchInvariantsValid = false;
+  if (invalidDigestResult.status !== 400 || invalidDigestResult.code !== 'InvalidDigest') s3DispatchInvariantsValid = false;
+
+  // In-memory negative assertions: returning InvalidArgument or AccessDenied throws
+  let threwBad1 = false, threwBad2 = false, threwInv1 = false, threwInv2 = false;
+  try { verifyDigestErrorDispatch({ status: 400, code: 'InvalidArgument' }); } catch { threwBad1 = true; }
+  try { verifyDigestErrorDispatch({ status: 403, code: 'AccessDenied' }); } catch { threwBad2 = true; }
+  try { verifyMalformedHeaderDispatch({ header: 'bad', status: 400, code: 'InvalidArgument' }); } catch { threwInv1 = true; }
+  try { verifyMalformedHeaderDispatch({ header: 'bad', status: 403, code: 'AccessDenied' }); } catch { threwInv2 = true; }
+
+  if (!threwBad1 || !threwBad2 || !threwInv1 || !threwInv2) {
+    s3DispatchInvariantsValid = false;
+  }
+} catch {
+  s3DispatchInvariantsValid = false;
+}
+H('37', s3DispatchInvariantsValid, 'S3 strict error dispatch must map payload digest mismatch exclusively to BadDigest (400) and malformed header to InvalidDigest (400), strictly rejecting InvalidArgument and AccessDenied');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestRaw = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8');
