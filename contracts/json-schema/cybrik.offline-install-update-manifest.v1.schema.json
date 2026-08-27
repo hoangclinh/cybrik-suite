@@ -45,6 +45,141 @@
       "required": [
         "action",
         "target"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "VERIFY_DIGEST"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "PRELOAD_OCI_IMAGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^images\\/(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+\\.tar$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "APPLY_SQL_MIGRATION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^migrations\\/(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+\\.sql$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "transactional": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "HEALTH_PROBE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^https?:\\/\\/(?:[a-zA-Z0-9.-]+|\\[[a-fA-F0-9:]+\\])(?::[0-9]{1,5})?(?:\\/[a-zA-Z0-9._~%!$&'()*+,;=:@/-]*)?$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "HEAD",
+                      "POST"
+                    ]
+                  },
+                  "expected_status": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 599
+                  },
+                  "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "retries": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "RESTORE_DATABASE_SNAPSHOT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^(?:\\/(?!.*\\.\\.)[a-z0-9._/-]+|(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+)\\.(?:sql|db|bak)$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       ]
     }
   },
@@ -56,6 +191,10 @@
     "release_tag": {
       "type": "string",
       "pattern": "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([a-z0-9.-]+))?$"
+    },
+    "manifest_sequence": {
+      "type": "integer",
+      "minimum": 1
     },
     "operator_trust_root": {
       "type": "object",
@@ -70,11 +209,7 @@
           "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "signature_algorithm": {
-          "type": "string",
-          "enum": [
-            "ed25519",
-            "ecdsa-p256-sha256"
-          ]
+          "const": "ed25519"
         }
       },
       "required": [
@@ -83,9 +218,26 @@
         "signature_algorithm"
       ]
     },
-    "bundle_signature": {
-      "type": "string",
-      "pattern": "^(?:[a-f0-9]{128}|[A-Za-z0-9+/]{86}==)$"
+    "detached_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "signature_file": {
+          "const": "manifest.sig"
+        },
+        "key_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "algorithm",
+        "signature_file",
+        "key_fingerprint"
+      ]
     },
     "artifacts": {
       "type": "array",
@@ -165,8 +317,9 @@
   "required": [
     "bundle_identifier",
     "release_tag",
+    "manifest_sequence",
     "operator_trust_root",
-    "bundle_signature",
+    "detached_signature",
     "artifacts",
     "migration_reversibility_guaranteed",
     "rollback_procedure_reference",

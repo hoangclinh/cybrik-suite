@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -177,6 +177,9 @@ test('validate positive platform fixtures', () => {
 
     const valid = ajv.validate(schemaId, data);
     assert.ok(valid, `Positive fixture ${file} failed validation: ${ajv.errorsText()}`);
+    if (file.includes('offline-bundle-manifest')) {
+      assert.doesNotThrow(() => validateIJson(readFileSync(path, 'utf8'), file));
+    }
     validatePlatformSemantics(data, schemaId);
   }
 });
@@ -286,12 +289,17 @@ test('in-memory validation: reject offline manifest with duplicate artifact path
   const data = {
     "bundle_identifier": "my-bundle-1",
     "release_tag": "v1.2.3",
+    "manifest_sequence": 1,
     "operator_trust_root": {
       "signing_key_id": "key-123456",
       "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "detached_signature": {
+      "algorithm": "ed25519",
+      "signature_file": "manifest.sig",
+      "key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "artifacts": [
       {
         "name": "image-1",
@@ -344,12 +352,17 @@ test('in-memory validation: reject offline manifest with alias collision paths',
   const data = {
     "bundle_identifier": "my-bundle-1",
     "release_tag": "v1.2.3",
+    "manifest_sequence": 1,
     "operator_trust_root": {
       "signing_key_id": "key-123456",
       "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "detached_signature": {
+      "algorithm": "ed25519",
+      "signature_file": "manifest.sig",
+      "key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "artifacts": [
       {
         "name": "image-1",
@@ -402,12 +415,17 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
   const data = {
     "bundle_identifier": "my-bundle-1",
     "release_tag": "v1.2.3",
+    "manifest_sequence": 1,
     "operator_trust_root": {
       "signing_key_id": "key-123456",
       "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "detached_signature": {
+      "algorithm": "ed25519",
+      "signature_file": "manifest.sig",
+      "key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "artifacts": [
       {
         "name": "image-1",
@@ -446,6 +464,42 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
 
   const valid = ajv.validate(schemaId, data);
   assert.ok(!valid, 'Should reject trailing slash path');
+});
+
+test('lexical I-JSON validation: duplicate keys, safe integer bounds, float rejection', () => {
+  const samplePath = join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json');
+  const validRaw = readFileSync(samplePath, 'utf8');
+
+  // Positive: sample manifest passes
+  assert.doesNotThrow(() => validateIJson(validRaw, 'sample-offline-bundle-manifest.json'));
+
+  // Negative: duplicate key at root
+  const dupRootKey = validRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 1,\n  "manifest_sequence": 2,');
+  assert.throws(() => validateIJson(dupRootKey, 'dup-root-key'), /duplicate object key 'manifest_sequence'/);
+
+  // Negative: duplicate key in nested object
+  const dupNestedKey = validRaw.replace('"signing_key_id": "key-123456",', '"signing_key_id": "key-123456",\n    "signing_key_id": "key-999999",');
+  assert.throws(() => validateIJson(dupNestedKey, 'dup-nested-key'), /duplicate object key 'signing_key_id'/);
+
+  // Negative: integer exceeding IEEE-754 safe integer range (2^53)
+  const overflowInt = validRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 9007199254740992,');
+  assert.throws(() => validateIJson(overflowInt, 'overflow-int'), /exceeds IEEE-754 safe integer range/);
+
+  // Negative: negative integer below safe integer range -(2^53)
+  const underflowInt = validRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": -9007199254740992,');
+  assert.throws(() => validateIJson(underflowInt, 'underflow-int'), /exceeds IEEE-754 safe integer range/);
+
+  // Negative: floating point number
+  const floatNum = validRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 1.25,');
+  assert.throws(() => validateIJson(floatNum, 'float-num'), /floating-point or scientific notation/);
+
+  // Negative: scientific notation
+  const sciNum = validRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 1e5,');
+  assert.throws(() => validateIJson(sciNum, 'sci-num'), /floating-point or scientific notation/);
+
+  // Negative: BOM rejection
+  const bomRaw = '\uFEFF' + validRaw;
+  assert.throws(() => validateIJson(bomRaw, 'bom-raw'), /Byte Order Mark \(BOM\) is prohibited/);
 });
 
 test('in-memory validation: reject capability negotiation with unverified evidence binding', () => {

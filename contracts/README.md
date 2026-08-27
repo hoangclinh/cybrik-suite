@@ -185,7 +185,7 @@ The following normative specifications elaborate open items identified in `ADR-0
 * **Open Item:** `OPEN-1` (`OFFLINE_INSTALL_UPDATE_CONTRACT`)
 * **Slot:** Slot 13 (`artifact_update_mechanism`)
 * **Normative Schema:** `contracts/json-schema/cybrik.offline-install-update-manifest.v1.schema.json`
-* **Coverage:** Air-gapped bundle archive packaging, detached signatures (Ed25519, ECDSA P-256, RSA-PSS) over RFC 8785 JCS, operator root trust store, exact SHA-256 artifact pinning, and deterministic four-phase update workflow with atomic rollback.
+* **Coverage:** Air-gapped bundle archive packaging, detached Ed25519 signatures over RFC 8785 JCS canonical manifest, manifest_sequence anti-rollback, zero symlink pax archive, operator root trust store, exact SHA-256 artifact pinning, and deterministic four-phase update workflow with atomic rollback.
 
 ### 3. Provider Capability Negotiation Protocol (`contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md`)
 * **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`

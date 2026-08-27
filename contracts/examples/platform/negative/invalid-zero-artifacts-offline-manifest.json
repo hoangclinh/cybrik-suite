@@ -1,12 +1,17 @@
 {
   "bundle_identifier": "my-bundle-1",
   "release_tag": "v1.2.3",
+  "manifest_sequence": 1,
   "operator_trust_root": {
     "signing_key_id": "key-123456",
     "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "signature_algorithm": "ed25519"
   },
-  "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "detached_signature": {
+    "algorithm": "ed25519",
+    "signature_file": "manifest.sig",
+    "key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
   "artifacts": [],
   "migration_reversibility_guaranteed": true,
   "rollback_procedure_reference": "doc://rollback",

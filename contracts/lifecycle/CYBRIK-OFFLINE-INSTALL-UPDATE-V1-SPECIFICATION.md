@@ -15,11 +15,11 @@
 Under the CYBRIK Autonomous Security Operations Platform Contract (ADR-0015 §5.2), capability **Slot 13 (`artifact_update_mechanism`)** mandates a cryptographically verifiable, deterministic, and provider-neutral mechanism for offline installation, air-gapped updates, trust root anchoring, and rollback guarantees.
 
 This specification elaborates **OPEN-1 (`OFFLINE_INSTALL_UPDATE_CONTRACT`)**, providing the complete normative requirements for:
-1. Air-gapped bundle archive packaging (POSIX.1-2001 PAX format), directory hierarchy, and OCI image layout.
-2. Cryptographic signature and trust anchoring via detached Ed25519 (strictly 64 octets) and ECDSA P-256 (IEEE P1363 64 octets or strict DER) signatures over RFC 8785 JSON Canonicalization Scheme (JCS) and I-JSON (RFC 7493) payloads.
-3. Operator-owned root trust store, monotone sequence/version numbers, anti-rollback freshness constraints, offline key rotation state machines, and Key Revocation Lists (KRL/CRL).
-4. Exact SHA-256 digest and byte-size pinning across every container image, Python wheel, binary, database migration script, and metadata file in the archive, with exhaustive 1:1 archive entry whitelisting (fail-closed extraction abort on any unlisted entry).
-5. Deterministic four-phase update-station execution workflow with closed declarative action grammar (forbidding arbitrary shell execution), pre-apply journaling/snapshot, crash-replay recovery, and idempotent procedural rollback.
+1. Air-gapped bundle archive packaging (POSIX.1-2001 PAX format), directory hierarchy, zero symlink enforcement, and OCI image layout.
+2. Cryptographic signature and trust anchoring via detached Ed25519 signatures ONLY (`manifest.sig`, strictly 64 octets binary) over RFC 8785 JSON Canonicalization Scheme (JCS) canonical `manifest.json` under strict I-JSON (RFC 7493) constraints.
+3. Operator-owned root trust store, monotone `manifest_sequence` freshness constraints evaluated against `minimum_freshness_sequence` for monotonic anti-rollback, offline key rotation state machines, and Key Revocation Lists (KRL/CRL).
+4. Exact SHA-256 digest and byte-size pinning across every container image, Python wheel, binary, database migration script, and metadata file in the archive, with exhaustive 1:1 archive entry whitelisting (fail-closed extraction abort on any unlisted entry or symlink).
+5. Deterministic four-phase update-station execution workflow with closed declarative action grammar and strict action-specific parameter schemas (`VERIFY_DIGEST`, `PRELOAD_OCI_IMAGE`, `APPLY_SQL_MIGRATION`, `HEALTH_PROBE`, `RESTORE_DATABASE_SNAPSHOT`), pre-apply journaling/snapshot, crash-replay recovery, and idempotent procedural rollback.
 6. Formal binding to the schema `cybrik.offline-install-update-manifest.v1.schema.json`.
 
 ### 1.2 Normative Conformance Language
@@ -44,7 +44,7 @@ The archive root MUST contain exactly one canonical update manifest named `manif
 ```text
 cybrik-bundle-<release_tag>.tar
 ├── manifest.json                                 # Canonical update manifest (RFC 8785 JCS / I-JSON)
-├── manifest.sig                                  # Detached cryptographic signature (64-byte Ed25519/ECDSA)
+├── manifest.sig                                  # Detached cryptographic signature (exact 64-byte Ed25519 signature over canonical manifest.json)
 ├── images/                                       # OCI container image tarballs / layout
 │   ├── cybrik-soc-portal-v1.2.3.tar
 │   ├── cybrik-ai-api-v1.2.3.tar
@@ -79,10 +79,10 @@ To prevent path traversal, directory escape, alias collisions, archive injection
    - MUST NOT contain double slashes (`//`).
    - MUST NOT terminate with a trailing slash (`/`).
 3. **Normalized Path Uniqueness:** All artifact paths MUST be unique under POSIX and RFC 3986 path normalization. If two artifacts resolve to the same normalized filesystem location (e.g., `images/app.tar` and `images/./app.tar`), the bundle MUST fail validation immediately.
-4. **Symlink & Hardlink Proscription:** Bundles MUST NOT contain symlinks targeting files outside the bundle root, broken symlinks, parent symlinks (`..`), or hardlinks pointing across extraction boundaries.
+4. **Zero Symlink & Hardlink Prohibition:** Any symlink (relative or absolute) and any hardlink are strictly prohibited in the air-gap PAX archive. Bundles MUST NOT contain any symlinks (relative or absolute) or hardlinks under any circumstances. Extraction verifiers MUST reject any bundle containing symlinks or hardlinks with an immediate fail-closed extraction abort.
 5. **Exhaustive 1:1 Archive Entry Manifest Binding & Fail-Closed Whitelisting:**
    - EVERY entry in the tar archive (excluding the root directory itself, `manifest.json`, and `manifest.sig`) MUST be explicitly listed in `artifacts[]` with its exact relative path, SHA-256 digest, and byte size.
-   - Any unlisted file, unrecognized directory entry, hardlink, absolute symlink, parent-traversing symlink, FIFO / named pipe, unix socket, block device node, or character device node encountered during archive traversal MUST cause an immediate fail-closed extraction abort, workspace purge, and recording of an `ARCHIVE_UNLISTED_ENTRY_ABORT` audit violation.
+   - Any unlisted file, unrecognized directory entry, hardlink, symlink (relative or absolute), FIFO / named pipe, unix socket, block device node, or character device node encountered during archive traversal MUST cause an immediate fail-closed extraction abort, workspace purge, and recording of an `ARCHIVE_UNLISTED_ENTRY_ABORT` audit violation.
 
 ### 2.3 Container Image Layout Requirements
 Container images within the `images/` directory MUST conform to one of two standard formats:
@@ -106,50 +106,48 @@ To eliminate signature malleability caused by JSON whitespace, key ordering, and
 
 #### Strict I-JSON & JCS Invariants:
 1. **Duplicate Key Prohibition:** In accordance with RFC 7493 §2.2 and RFC 8785 §3.2.4, JSON objects MUST NOT contain duplicate keys. Update-station JSON parsers MUST operate in strict duplicate-rejection mode and fail closed immediately upon encountering duplicate object keys.
-2. **IEEE-754 Safe Integer Range Invariant:** In accordance with RFC 7493 §2.1, all numeric values (e.g., `size_bytes`, `timeout_seconds`, sequence numbers) MUST be exact integers within the IEEE-754 double-precision safe integer range $[-(2^{53}-1), 2^{53}-1]$ (i.e. $[-9007199254740991, 9007199254740991]$). Floating-point values, scientific notation, or numbers outside this range MUST be rejected.
+2. **IEEE-754 Safe Integer Range Invariant:** In accordance with RFC 7493 §2.1, all numeric values (e.g., `manifest_sequence`, `size_bytes`, `timeout_seconds`) MUST be exact integers within the IEEE-754 double-precision safe integer range $[-(2^{53}-1), 2^{53}-1]$ (i.e. $[-9007199254740991, 9007199254740991]$). Floating-point values, scientific notation, or numbers outside this range MUST be rejected.
 3. **Strict UTF-8 Encoding:** Payloads MUST be strictly UTF-8 encoded without a Byte Order Mark (BOM).
-4. **Detached Signature File:** The primary cryptographic signature MUST be provided as a detached file `manifest.sig` (located in the pax archive root or delivered alongside a standalone manifest). The signature MAY additionally be mirrored in the `bundle_signature` field of `manifest.json`.
+4. **Detached Ed25519 Signature Only:** The cryptographic signature MUST be provided as a detached file `manifest.sig` (located in the pax archive root or delivered alongside `manifest.json`) containing the exact 64-byte Ed25519 binary signature over the RFC 8785 JCS canonical UTF-8 byte stream of `manifest.json`. Embedded signatures, in-band signature envelopes, or signature mirroring inside `manifest.json` are strictly prohibited. The manifest JSON includes a `detached_signature` declaration object specifying the algorithm (`"ed25519"`), signature file (`"manifest.sig"`), and the SHA-256 SPKI fingerprint of the signing key.
 
 #### Signature Computation Algorithm:
-1. Construct the complete manifest JSON object containing all required fields except `bundle_signature`.
-2. Apply RFC 8785 JCS canonicalization to serialize the object into an unambiguous, deterministic UTF-8 byte stream $M_{canon}$.
-3. Compute the cryptographic signature $\Sigma$ over $M_{canon}$ using the operator private key corresponding to `operator_trust_root.signing_key_id`:
-   $$\Sigma = \text{Sign}(K_{priv}, M_{canon})$$
-4. Write $\Sigma$ to `manifest.sig` as raw binary bytes or hexadecimal/base64 text.
-5. If mirroring into `manifest.json`, inject $\Sigma$ into the `bundle_signature` property formatted according to the algorithm profile (128 hex characters or 88 base64 characters).
+1. Construct the complete `manifest.json` object containing all required properties (`bundle_identifier`, `release_tag`, `manifest_sequence`, `operator_trust_root`, `detached_signature`, `artifacts`, `migration_reversibility_guaranteed`, `rollback_procedure_reference`, `update_station_workflow`, `canonicalization_scheme`).
+2. Validate strict I-JSON rules: verify UTF-8 encoding (no BOM), reject duplicate object keys, and verify all numbers are exact integers within IEEE-754 safe integer range $[-(2^{53}-1), 2^{53}-1]$.
+3. Apply RFC 8785 JCS canonicalization over `manifest.json` to serialize the document into an unambiguous, deterministic UTF-8 byte stream $M_{canon}$.
+4. Compute the Ed25519 signature $\Sigma$ (exact 64 binary octets) over $M_{canon}$ using the operator private key corresponding to `operator_trust_root.signing_key_id`:
+   $$\Sigma = \text{Sign}_{\text{Ed25519}}(K_{priv}, M_{canon})$$
+5. Write the exact 64-byte binary signature $\Sigma$ directly to detached file `manifest.sig`.
 
 ```mermaid
 flowchart TD
-    A[Raw Manifest Object] --> B[Remove 'bundle_signature' Field]
-    B --> C[Validate Strict I-JSON Rules: No Dups, Safe Ints]
-    C --> D[Apply RFC 8785 JCS Canonicalization]
-    D --> E[Canonical UTF-8 Bytes M_canon]
-    E --> F[Cryptographic Sign with K_priv]
-    F --> G[Write Detached manifest.sig]
-    G --> H[Inject 'bundle_signature' into manifest.json]
+    A[Construct Complete manifest.json] --> B[Validate Strict I-JSON Rules: No Dups, Safe Ints]
+    B --> C[Apply RFC 8785 JCS Canonicalization]
+    C --> D[Canonical UTF-8 Bytes M_canon]
+    D --> E[Compute Ed25519 Signature with K_priv]
+    E --> F[Write Detached manifest.sig (64 Binary Octets)]
 ```
 
 #### Verification Algorithm:
-1. Parse `manifest.json` and extract `bundle_signature` (or read detached `manifest.sig`).
-2. Verify strict I-JSON rules: reject if duplicate keys or out-of-range numbers are present.
-3. Create a shallow copy of the manifest object, deleting the `bundle_signature` key.
-4. Canonicalize the remaining object using RFC 8785 JCS into byte sequence $M'_{canon}$.
-5. Look up the trusted public key $K_{pub}$ in the local operator root trust store matching `signing_key_id` and `public_key_fingerprint`.
-6. Verify $\Sigma$ against $M'_{canon}$ using $K_{pub}$ and `operator_trust_root.signature_algorithm`:
-   $$\text{Verify}(K_{pub}, M'_{canon}, \Sigma) \stackrel{?}{=} \text{TRUE}$$
-7. If verification fails, the bundle MUST be rejected immediately.
+1. Read `manifest.json` and companion detached `manifest.sig` (verifying `manifest.sig` is exactly 64 binary bytes).
+2. Verify strict I-JSON rules on `manifest.json`: reject if duplicate keys, floating-point numbers, or out-of-safe-range numbers are present.
+3. Look up the trusted public key $K_{pub}$ in `/etc/cybrik/trust-store/trust-store.json` matching `operator_trust_root.signing_key_id` and `operator_trust_root.public_key_fingerprint`. Verify `signature_algorithm` is `ed25519`.
+4. Canonicalize `manifest.json` using RFC 8785 JCS into canonical byte sequence $M_{canon}$.
+5. Verify Ed25519 signature $\Sigma$ against $M_{canon}$ using $K_{pub}$:
+   $$\text{Verify}_{\text{Ed25519}}(K_{pub}, M_{canon}, \Sigma) \stackrel{?}{=} \text{TRUE}$$
+6. Compare `manifest.json`'s `manifest_sequence` against `trust-store.json`'s `minimum_freshness_sequence`. If `manifest_sequence < minimum_freshness_sequence`, terminate with an anti-rollback freshness violation.
+7. If signature verification fails or any check diverges, the bundle MUST be rejected immediately.
 
 ### 3.2 Supported Signature Algorithms & Parameter Closure
-The `operator_trust_root.signature_algorithm` MUST be explicitly declared and restricted to one of the following approved cryptographic suites:
+The cryptographic signature model is unified exclusively on Ed25519. The `operator_trust_root.signature_algorithm` MUST be explicitly declared as `ed25519`:
 
 | Algorithm Identifier | Description | Key Specification | Signature Encoding |
 |---|---|---|---|
-| `ed25519` | EdDSA over Curve25519 (RFC 8032) — **REQUIRED / RECOMMENDED** | 256-bit Ed25519 public key (32 octets) | Exactly 64 octets (128 hex characters conforming to `^[a-f0-9]{128}$` or 88 Base64 characters conforming to `^[A-Za-z0-9+/]{86}==$`) |
-| `ecdsa-p256-sha256` | ECDSA over NIST P-256 with SHA-256 (FIPS 186-4) | 256-bit P-256 public key (SPKI DER) | IEEE P1363 ($r \|\| s$, exactly 64 octets, 128 hex chars or 88 base64 chars) or strict ASN.1 DER (70–72 octets Base64) |
+| `ed25519` | EdDSA over Curve25519 (RFC 8032) — **REQUIRED / EXCLUSIVE** | 256-bit Ed25519 public key (32 octets / SPKI DER) | Exactly 64 octets binary in detached `manifest.sig` |
 
 #### Cryptographic Rejections & Proscriptions:
+- **ECDSA Suites Rejected:** ECDSA (including `ecdsa-p256-sha256`) is PROHIBITED and REJECTED to ensure strict cryptographic algorithm uniformity and prevent signature malleability / DER parsing ambiguities.
 - **RSA-PSS / RSA Suites Rejected:** RSA signatures (including `rsa-pss-sha256`, PKCS#1 v1.5) are PROHIBITED and REJECTED due to key-size ambiguity, padding vulnerabilities, and excessive parsing overhead in air-gapped micro-verifiers.
-- **Embedded / In-Band Header Signatures Rejected:** In-band signature envelopes (e.g., JOSE/JWT headers with embedded JWK/x5c key declarations) MUST NOT be used for bundle authentication.
+- **Embedded / In-Band Header Signatures Rejected:** In-band signature envelopes (e.g., JOSE/JWT headers with embedded JWK/x5c key declarations or embedded signature fields) MUST NOT be used for bundle authentication.
 - **Weak Primitives Rejected:** `none`, `md5`, `sha1`, `secp256k1`, `dsa` MUST be rejected unconditionally.
 
 ### 3.3 Operator Root Trust Store Architecture
@@ -205,7 +203,7 @@ stateDiagram-v2
 
 1. **Monotone Sequence Numbers:** The trust store MUST maintain a strictly increasing monotone positive integer sequence `trust_store_version`.
 2. **Anti-Rollback Freshness Enforcement:** Update stations MUST persist the high-watermark `trust_store_version` and reject any incoming trust store where `trust_store_version < current_watermark`.
-3. **Bundle Freshness Invariant:** Manifests MUST NOT reference keys or versions below `minimum_freshness_sequence`. Any update bundle signed with a key marked `RETIRED` or revoked in `crl.json` MUST be rejected immediately.
+3. **Bundle Freshness & Anti-Rollback Invariant:** Manifests MUST specify a strictly positive integer `manifest_sequence` ($\ge 1$). The update station verifier MUST compare `manifest_sequence` against `minimum_freshness_sequence` in `trust-store.json`. If `manifest_sequence < minimum_freshness_sequence`, or if the bundle is signed with a key marked `RETIRED` or revoked in `crl.json`, the bundle MUST be rejected immediately.
 4. **Key Lifecycle States:**
    - **ACTIVE:** Authorized to sign new update bundles and verify current installations.
    - **RETIRING:** Authorized to verify existing and in-flight bundles; prohibited from signing new bundles.
@@ -242,7 +240,7 @@ During bundle ingestion and verification:
 2. **Streaming Digest Calculation:** As files are extracted or read from the archive, their contents are streamed through a SHA-256 digest accumulator.
 3. **Fail-Closed Digest Matching & Whitelist Reconciler:**
    - The computed SHA-256 digest and total byte count are compared against the manifest entries. If any byte diverges or the digest does not match, the entire staging workspace is purged and the update is rejected.
-   - Every archive entry is reconciled against `artifacts[]`. Any unlisted file or unexpected node type immediately halts the workflow.
+   - Every archive entry is reconciled against `artifacts[]`. Any unlisted file, symlink, or unexpected node type immediately halts the workflow.
 
 ---
 
@@ -270,18 +268,18 @@ stateDiagram-v2
     ROLLED_BACK --> [*]
 ```
 
-### 5.2 Closed Declarative Action Grammar (No Arbitrary Shell Execution)
+### 5.2 Closed Declarative Action Grammar & Action Parameter Schemas
 To eliminate arbitrary command injection and privilege escalation vectors, workflow steps MUST NOT contain arbitrary shell script commands or unconstrained binary executions.
 
-All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be structured declarative objects conforming to the closed action grammar:
+All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be structured declarative objects conforming to the closed action grammar with action-specific target constraints and parameter schemas:
 
-| Action Verb | Purpose & Scope | Target Specification | Execution Invariants |
-|---|---|---|---|
-| `VERIFY_DIGEST` | Validate cryptographic SHA-256 digest and byte size | Artifact path or volume reference | Read-only; fail-closed on mismatch |
-| `PRELOAD_OCI_IMAGE` | Ingest OCI image archive into local container runtime storage | Path to `.tar` image archive in `images/` | No network egress; local socket only |
-| `APPLY_SQL_MIGRATION` | Execute forward (`.up.sql`) or reverse (`.down.sql`) migration script | Path to SQL migration script in `migrations/` | Wrapped in ACID transaction block |
-| `HEALTH_PROBE` | Execute deterministic HTTP GET or TCP readiness/liveness probe | Local endpoint URI (e.g. `http://127.0.0.1:8080/healthz`) | Timeout bounded; failure triggers rollback |
-| `RESTORE_DATABASE_SNAPSHOT` | Restore database schema/data from verified pre-apply snapshot | Path to pre-apply snapshot file | Idempotent restoration on rollback |
+| Action Verb | Purpose & Scope | Target Specification Constraint | Valid Parameters Schema | Execution Invariants |
+|---|---|---|---|---|
+| `VERIFY_DIGEST` | Validate cryptographic SHA-256 digest and byte size | Relative artifact path matching `^(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+[a-z0-9._-]$` | `{}` (empty object) | Read-only; fail-closed on mismatch |
+| `PRELOAD_OCI_IMAGE` | Ingest OCI image archive into local container runtime storage | Relative path in `images/` matching `^images/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.tar$` | `{}` (empty object) | No network egress; local socket only |
+| `APPLY_SQL_MIGRATION` | Execute forward (`.up.sql`) or reverse (`.down.sql`) migration script | Relative path in `migrations/` matching `^migrations/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.sql$` | Optional `{"transactional": boolean}` | Wrapped in ACID transaction block |
+| `HEALTH_PROBE` | Execute deterministic HTTP GET or TCP readiness/liveness probe | HTTP/HTTPS URI matching `^https?://(?:[a-zA-Z0-9.-]+|\[[a-fA-F0-9:]+\])(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%!$&'()*+,;=:@/-]*)?$` | Optional `{"method": "GET"\|"HEAD"\|"POST", "expected_status": int(200-599), "interval_seconds": int(>=1), "retries": int(>=0)}` | Timeout bounded; failure triggers rollback |
+| `RESTORE_DATABASE_SNAPSHOT` | Restore database schema/data from verified pre-apply snapshot | File path matching `^(?:/(?!.*\.\.)[a-z0-9._/-]+|(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+)\.(?:sql|db|bak)$` | `{}` (empty object) | Idempotent restoration on rollback |
 
 #### Declarative Step Object Structure:
 ```json
@@ -299,9 +297,9 @@ All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be 
 In Stage 1, the update station processes the raw bundle in an isolated staging workspace (`/tmp/cybrik-update-staging-<uuid>/`) with permissions `0700` without modifying live production state:
 
 1. **Phase 1 Structural Schema Validation:** Validate `manifest.json` against `cybrik.offline-install-update-manifest.v1.schema.json`.
-2. **Phase 2 Semantic Path & Whitelist Validation:** Normalize all `artifacts[].path` entries; ensure no duplicate paths, traversal tokens, or unlisted archive entries exist.
+2. **Phase 2 Semantic Path & Whitelist Validation:** Normalize all `artifacts[].path` entries; ensure no duplicate paths, traversal tokens, symlinks (relative or absolute), or unlisted archive entries exist.
 3. **Trust Anchor Resolution:** Retrieve `operator_trust_root.signing_key_id` from `/etc/cybrik/trust-store/trust-store.json`. Verify key is `ACTIVE` and not revoked in `crl.json`. Verify public key fingerprint matches `operator_trust_root.public_key_fingerprint` conforming to `^sha256:[a-f0-9]{64}$`.
-4. **Canonical Signature Verification:** Reconstruct canonical manifest bytes omitting `bundle_signature` via RFC 8785 JCS under I-JSON rules; verify `bundle_signature` (or `manifest.sig`) with the trusted public key.
+4. **Canonical Signature Verification:** Reconstruct canonical manifest bytes of `manifest.json` via RFC 8785 JCS under I-JSON rules; verify detached `manifest.sig` (strictly 64 bytes) with the trusted Ed25519 public key. Verify `manifest_sequence >= minimum_freshness_sequence`.
 5. **Artifact Integrity Verification:** Streamingly unpack each artifact to the staging directory; compute SHA-256 digest and byte size; verify 100% concordance with `artifacts[]`.
 
 ### 5.4 Stage 2: Pre-Apply Validation, Pre-Apply Journaling & Database Snapshot
@@ -367,12 +365,13 @@ The offline update manifest is governed by the schema `cybrik.offline-install-up
 |---|---|---|---|
 | `bundle_identifier` | `string` | **REQUIRED** | Unique alphanumeric bundle ID matching `^[a-z0-9][a-z0-9-_]+$` |
 | `release_tag` | `string` | **REQUIRED** | SemVer release tag matching `^v(0\|[1-9]\d*)\.(0\|[1-9]\d*)\.(0\|[1-9]\d*)(?:-([a-z0-9.-]+))?$` |
-| `operator_trust_root` | `object` | **REQUIRED** | Operator signing key metadata containing `signing_key_id`, `public_key_fingerprint` (`^sha256:[a-f0-9]{64}$`), and `signature_algorithm` (`ed25519` or `ecdsa-p256-sha256`) |
-| `bundle_signature` | `string` | **REQUIRED** | Detached cryptographic signature over canonical JCS manifest bytes (exactly 64 octets Ed25519 or ECDSA P-256) |
+| `manifest_sequence` | `integer` | **REQUIRED** | Monotonic positive integer sequence ($\ge 1$) evaluated against `minimum_freshness_sequence` for anti-rollback enforcement |
+| `operator_trust_root` | `object` | **REQUIRED** | Operator signing key metadata containing `signing_key_id`, `public_key_fingerprint` (`^sha256:[a-f0-9]{64}$`), and `signature_algorithm` (`ed25519`) |
+| `detached_signature` | `object` | **REQUIRED** | Detached signature declaration specifying `algorithm` (`ed25519`), `signature_file` (`manifest.sig`), and `key_fingerprint` (`^sha256:[a-f0-9]{64}$`) |
 | `artifacts` | `array` | **REQUIRED** | List of $\ge 1$ artifacts with `name`, `path`, `sha256`, and `size_bytes` |
 | `migration_reversibility_guaranteed` | `boolean` | **REQUIRED** | MUST be constant `true` |
 | `rollback_procedure_reference` | `string` | **REQUIRED** | URI/reference to rollback documentation (min length: 5) |
-| `update_station_workflow` | `object` | **REQUIRED** | Workflow object containing `preflight_steps[]`, `apply_steps[]`, and `rollback_steps[]` adhering to closed declarative action grammar |
+| `update_station_workflow` | `object` | **REQUIRED** | Workflow object containing `preflight_steps[]`, `apply_steps[]`, and `rollback_steps[]` adhering to closed declarative action grammar and action parameter schemas |
 | `canonicalization_scheme` | `string` | **REQUIRED** | MUST be constant `"RFC_8785_JCS"` |
 
 ### 6.2 Complete Normative Example
@@ -381,12 +380,17 @@ The offline update manifest is governed by the schema `cybrik.offline-install-up
 {
   "bundle_identifier": "cybrik-soc-update-20260827-01",
   "release_tag": "v0.1.0",
+  "manifest_sequence": 1,
   "operator_trust_root": {
     "signing_key_id": "key-ops-release-2026a",
     "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "signature_algorithm": "ed25519"
   },
-  "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "detached_signature": {
+    "algorithm": "ed25519",
+    "signature_file": "manifest.sig",
+    "key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
   "artifacts": [
     {
       "name": "cybrik-soc-portal-image",
@@ -527,12 +531,12 @@ The `artifact_update_mechanism` capability (Slot 13) is evaluated across the fou
 | Threat / Failure Scenario | Attack Vector / Mechanism | Mitigation & Contractual Guarantee |
 |---|---|---|
 | **Tampered Artifact in Transit** | Modifying container image layer or SQL migration script inside the tarball archive. | **Fail-Closed Digest Verification:** Streaming SHA-256 computation over artifact bytes matches against signed `manifest.json`. Any divergence immediately halts the update. |
-| **Unlisted Archive Entry / Archive Bomb** | Injecting unlisted files, FIFOs, device nodes, or symlinks into the PAX archive. | **Exhaustive 1:1 Archive Whitelisting:** Every archive entry MUST match an entry in `artifacts[]`. Any unlisted entry or unexpected file type causes immediate fail-closed extraction abort and workspace purge. |
-| **Manifest Modification / Forgery** | Altering `artifacts[].sha256` or workflow steps in `manifest.json`. | **RFC 8785 JCS Cryptographic Signing:** Detached signature verification fails because attacker cannot forge signature under operator private key. |
-| **Arbitrary Code Execution via Workflow** | Embedding malicious shell scripts or arbitrary commands in workflow steps. | **Closed Declarative Action Grammar:** Steps restricted to `VERIFY_DIGEST`, `PRELOAD_OCI_IMAGE`, `APPLY_SQL_MIGRATION`, `HEALTH_PROBE`, `RESTORE_DATABASE_SNAPSHOT`, forbidding arbitrary shell execution. |
+| **Unlisted Archive Entry / Archive Bomb** | Injecting unlisted files, FIFOs, device nodes, or symlinks into the PAX archive. | **Exhaustive 1:1 Archive Whitelisting & Zero Symlinks:** Every archive entry MUST match an entry in `artifacts[]`. Any unlisted entry, relative symlink, absolute symlink, or unexpected file type causes immediate fail-closed extraction abort and workspace purge. |
+| **Manifest Modification / Forgery** | Altering `artifacts[].sha256` or workflow steps in `manifest.json`. | **RFC 8785 JCS Detached Ed25519 Signing:** Detached `manifest.sig` verification fails because attacker cannot forge Ed25519 signature under operator private key. |
+| **Arbitrary Code Execution via Workflow** | Embedding malicious shell scripts or arbitrary commands in workflow steps. | **Closed Declarative Action Grammar:** Steps restricted to `VERIFY_DIGEST`, `PRELOAD_OCI_IMAGE`, `APPLY_SQL_MIGRATION`, `HEALTH_PROBE`, `RESTORE_DATABASE_SNAPSHOT` with strict parameter schemas, forbidding arbitrary shell execution. |
 | **Path Traversal / Host File Overwrite** | Malicious relative paths (e.g., `../../../../etc/shadow`). | **Strict Path Regex & Normalization:** Schema regex `^(?!/)...` and Phase 2 POSIX normalization reject all dot-segments, absolute paths, and aliased paths. |
 | **Compromised Signing Key** | Adversary obtains an older or compromised operator signing key. | **Offline CRL / Revocation Check:** Verifier consults local `crl.json` before signature check; revoked `signing_key_id` or fingerprint triggers fatal abort. |
-| **Replay of Deprecated / Vulnerable Bundle** | Attacker replays a validly signed, older bundle containing known vulnerabilities. | **Monotone Sequence & Freshness Watermark:** Update station enforces strictly monotone `trust_store_version` and `release_tag` progression, rejecting downgrade attempts. |
+| **Replay of Deprecated / Vulnerable Bundle** | Attacker replays a validly signed, older bundle containing known vulnerabilities. | **Monotone Sequence & Freshness Watermark:** Update station enforces strictly monotone `manifest_sequence >= minimum_freshness_sequence` and `trust_store_version` progression, rejecting downgrade attempts. |
 | **System Crash During Cutover** | Power loss, kernel panic, or verifier crash during container rollout or SQL migration. | **Pre-Apply Journaling & Crash-Replay Recovery:** Persistent atomic journal at `/var/lib/cybrik/journal/<bundle_id>.journal` enables deterministic crash recovery or rollback from pre-apply snapshot. |
 | **Partial Failure During Apply** | Uncaught error during container rollout or SQL migration. | **Stage 4 Automated Rollback & ACID Migrations:** Reversible SQL migrations (`migration_reversibility_guaranteed: true`) and declarative rollback steps restore pre-update state. |
 | **Disk Exhaustion During Extraction** | Large bundle exhausts host disk space, causing denial of service. | **Preflight Quota Reservation:** Stage 2 preflight validates $\ge 2.5\times$ aggregate `size_bytes` disk headroom before any extraction begins. |

@@ -43,6 +43,220 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
+export function validateIJson(rawJsonText, label = 'JSON') {
+  if (typeof rawJsonText !== 'string') {
+    if (Buffer.isBuffer(rawJsonText)) {
+      rawJsonText = rawJsonText.toString('utf8');
+    } else {
+      throw new Error(`${label}: expected string or Buffer for I-JSON validation`);
+    }
+  }
+
+  // Reject UTF-8 BOM
+  if (rawJsonText.charCodeAt(0) === 0xFEFF) {
+    throw new Error(`${label}: I-JSON violation: Byte Order Mark (BOM) is prohibited`);
+  }
+
+  let pos = 0;
+  const len = rawJsonText.length;
+
+  function skipWhitespace() {
+    while (pos < len) {
+      const ch = rawJsonText.charCodeAt(pos);
+      if (ch === 0x20 || ch === 0x09 || ch === 0x0A || ch === 0x0D) {
+        pos++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  function parseString() {
+    const start = pos;
+    if (rawJsonText[pos] !== '"') {
+      throw new Error(`${label}: Expected '"' at position ${pos}`);
+    }
+    pos++;
+    while (pos < len) {
+      const ch = rawJsonText[pos];
+      if (ch === '"') {
+        pos++;
+        const strSlice = rawJsonText.slice(start, pos);
+        return JSON.parse(strSlice);
+      }
+      if (ch === '\\') {
+        pos += 2;
+      } else {
+        if (ch.charCodeAt(0) < 0x20) {
+          throw new Error(`${label}: Unescaped control character in string at position ${pos}`);
+        }
+        pos++;
+      }
+    }
+    throw new Error(`${label}: Unterminated string at position ${pos}`);
+  }
+
+  function parseNumber() {
+    const start = pos;
+    if (rawJsonText[pos] === '-') pos++;
+    if (pos >= len) throw new Error(`${label}: Invalid number at position ${start}`);
+
+    if (rawJsonText[pos] === '0') {
+      pos++;
+    } else if (rawJsonText[pos] >= '1' && rawJsonText[pos] <= '9') {
+      while (pos < len && rawJsonText[pos] >= '0' && rawJsonText[pos] <= '9') {
+        pos++;
+      }
+    } else {
+      throw new Error(`${label}: Invalid number format at position ${start}`);
+    }
+
+    let isFloat = false;
+    if (pos < len && rawJsonText[pos] === '.') {
+      isFloat = true;
+      pos++;
+      if (pos >= len || rawJsonText[pos] < '0' || rawJsonText[pos] > '9') {
+        throw new Error(`${label}: Invalid decimal number at position ${start}`);
+      }
+      while (pos < len && rawJsonText[pos] >= '0' && rawJsonText[pos] <= '9') {
+        pos++;
+      }
+    }
+
+    if (pos < len && (rawJsonText[pos] === 'e' || rawJsonText[pos] === 'E')) {
+      isFloat = true;
+      pos++;
+      if (pos < len && (rawJsonText[pos] === '+' || rawJsonText[pos] === '-')) {
+        pos++;
+      }
+      if (pos >= len || rawJsonText[pos] < '0' || rawJsonText[pos] > '9') {
+        throw new Error(`${label}: Invalid exponent in number at position ${start}`);
+      }
+      while (pos < len && rawJsonText[pos] >= '0' && rawJsonText[pos] <= '9') {
+        pos++;
+      }
+    }
+
+    const numStr = rawJsonText.slice(start, pos);
+
+    // I-JSON (RFC 7493 §2.1) + Specification §3.1 Invariant:
+    // Numbers MUST be exact integers within IEEE-754 double safe integer range: [-(2^53 - 1), 2^53 - 1]
+    // i.e. [-9007199254740991, 9007199254740991].
+    // Floating-point values, scientific notation, or numbers outside this range MUST be rejected.
+    if (isFloat) {
+      throw new Error(`${label}: I-JSON violation: floating-point or scientific notation number '${numStr}' is prohibited; exact integers only`);
+    }
+
+    const bigNum = BigInt(numStr);
+    const MIN_SAFE = -9007199254740991n; // -(2^53 - 1)
+    const MAX_SAFE = 9007199254740991n;  // 2^53 - 1
+    if (bigNum < MIN_SAFE || bigNum > MAX_SAFE) {
+      throw new Error(`${label}: I-JSON violation: integer ${numStr} exceeds IEEE-754 safe integer range [-(2^53-1), 2^53-1]`);
+    }
+
+    return Number(bigNum);
+  }
+
+  function parseObject() {
+    pos++; // skip '{'
+    skipWhitespace();
+    const seenKeys = new Set();
+    const obj = {};
+
+    if (pos < len && rawJsonText[pos] === '}') {
+      pos++;
+      return obj;
+    }
+
+    while (pos < len) {
+      skipWhitespace();
+      if (rawJsonText[pos] !== '"') {
+        throw new Error(`${label}: Expected string key at position ${pos}`);
+      }
+      const key = parseString();
+      if (seenKeys.has(key)) {
+        throw new Error(`${label}: I-JSON violation: duplicate object key '${key}' detected`);
+      }
+      seenKeys.add(key);
+
+      skipWhitespace();
+      if (rawJsonText[pos] !== ':') {
+        throw new Error(`${label}: Expected ':' after key '${key}' at position ${pos}`);
+      }
+      pos++; // skip ':'
+
+      skipWhitespace();
+      const val = parseValue();
+      obj[key] = val;
+
+      skipWhitespace();
+      if (rawJsonText[pos] === '}') {
+        pos++;
+        return obj;
+      }
+      if (rawJsonText[pos] === ',') {
+        pos++;
+        continue;
+      }
+      throw new Error(`${label}: Expected ',' or '}' in object at position ${pos}`);
+    }
+    throw new Error(`${label}: Unterminated object at position ${pos}`);
+  }
+
+  function parseArray() {
+    pos++; // skip '['
+    skipWhitespace();
+    const arr = [];
+
+    if (pos < len && rawJsonText[pos] === ']') {
+      pos++;
+      return arr;
+    }
+
+    while (pos < len) {
+      skipWhitespace();
+      const val = parseValue();
+      arr.push(val);
+
+      skipWhitespace();
+      if (rawJsonText[pos] === ']') {
+        pos++;
+        return arr;
+      }
+      if (rawJsonText[pos] === ',') {
+        pos++;
+        continue;
+      }
+      throw new Error(`${label}: Expected ',' or ']' in array at position ${pos}`);
+    }
+    throw new Error(`${label}: Unterminated array at position ${pos}`);
+  }
+
+  function parseValue() {
+    skipWhitespace();
+    if (pos >= len) throw new Error(`${label}: Unexpected end of input`);
+
+    const ch = rawJsonText[pos];
+    if (ch === '{') return parseObject();
+    if (ch === '[') return parseArray();
+    if (ch === '"') return parseString();
+    if (ch === '-' || (ch >= '0' && ch <= '9')) return parseNumber();
+    if (rawJsonText.startsWith('true', pos)) { pos += 4; return true; }
+    if (rawJsonText.startsWith('false', pos)) { pos += 5; return false; }
+    if (rawJsonText.startsWith('null', pos)) { pos += 4; return null; }
+
+    throw new Error(`${label}: Unexpected token '${ch}' at position ${pos}`);
+  }
+
+  skipWhitespace();
+  const result = parseValue();
+  skipWhitespace();
+  if (pos < len) {
+    throw new Error(`${label}: Trailing characters after JSON root at position ${pos}`);
+  }
+  return result;
+}
+
 
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
@@ -336,7 +550,13 @@ for (const file of platformPositives) {
   const validate = validators[schemaName];
   if (!validate) { fail(`platform example ${file}: no compiled validator for schema ${schemaName}`); continue; }
   let data;
-  try { data = readJson(exPath); } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
+  try {
+    const rawContent = readFileSync(exPath, 'utf8');
+    if (schemaName.includes('offline-install-update-manifest')) {
+      validateIJson(rawContent, file);
+    }
+    data = JSON.parse(rawContent);
+  } catch (e) { fail(`platform example ${file}: JSON parse error: ${e.message}`); continue; }
   const ok = validate(data);
   bump('positive_total');
   if (ok) { bump('positive_pass'); validatePlatformSemantics(data, schemaName); }
@@ -686,12 +906,17 @@ const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-instal
 const dupManifest = {
   bundle_identifier: "my-bundle-1",
   release_tag: "v1.2.3",
+  manifest_sequence: 1,
   operator_trust_root: {
     signing_key_id: "key-123456",
     public_key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     signature_algorithm: "ed25519"
   },
-  bundle_signature: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  detached_signature: {
+    algorithm: "ed25519",
+    signature_file: "manifest.sig",
+    key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
   artifacts: [
     {
       name: "image-1",
@@ -844,6 +1069,42 @@ try {
   fail('mandatory slot fulfillment: expected validatePlatformSemantics to throw when mandatory slot is missing from advertised capabilities');
 } catch (e) {
   H('25', e.message.includes('mandatory profile slot'), 'mandatory slot fulfillment check must catch missing advertised capability for required slot');
+}
+
+// 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
+const validManifestRaw = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8');
+try {
+  validateIJson(validManifestRaw, 'sample-offline-bundle-manifest.json');
+  H('26a', true, 'valid offline manifest passes lexical I-JSON validation');
+} catch (e) {
+  H('26a', false, `valid offline manifest failed I-JSON: ${e.message}`);
+}
+
+// 26b. Lexical I-JSON rejects duplicate keys in manifest JSON
+const dupKeyRaw = validManifestRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 1,\n  "manifest_sequence": 2,');
+try {
+  validateIJson(dupKeyRaw, 'duplicate-key-manifest');
+  H('26b', false, 'duplicate key in manifest must be rejected by lexical I-JSON validator');
+} catch (e) {
+  H('26b', e.message.includes('duplicate object key'), 'lexical I-JSON validator must reject duplicate object keys');
+}
+
+// 26c. Lexical I-JSON rejects numbers outside IEEE-754 safe integer range [-(2^53 - 1), 2^53 - 1]
+const outOfRangeRaw = validManifestRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 9007199254740992,');
+try {
+  validateIJson(outOfRangeRaw, 'out-of-range-manifest');
+  H('26c', false, 'out-of-range integer in manifest must be rejected by lexical I-JSON validator');
+} catch (e) {
+  H('26c', e.message.includes('exceeds IEEE-754 safe integer range'), 'lexical I-JSON validator must reject integers outside IEEE-754 safe integer range');
+}
+
+// 26d. Lexical I-JSON rejects floating-point / scientific notation numbers
+const floatNumRaw = validManifestRaw.replace('"manifest_sequence": 1,', '"manifest_sequence": 1.5,');
+try {
+  validateIJson(floatNumRaw, 'float-manifest');
+  H('26d', false, 'floating-point number in manifest must be rejected by lexical I-JSON validator');
+} catch (e) {
+  H('26d', e.message.includes('floating-point or scientific notation'), 'lexical I-JSON validator must reject floating-point numbers');
 }
 
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
