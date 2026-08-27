@@ -12,7 +12,9 @@
   "required": [
     "provider_identifier",
     "mandatory_operations",
-    "supported_optional_features",
+    "object_lock_supported",
+    "retention_modes_supported",
+    "legal_hold_supported",
     "required_operations",
     "addressing_style",
     "auth_mechanism",
@@ -66,24 +68,21 @@
       },
       "additionalProperties": false
     },
-    "supported_optional_features": {
-      "type": "object",
-      "properties": {
-        "object_lock": {
-          "type": "boolean"
-        },
-        "retention_modes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/retentionMode"
-          },
-          "uniqueItems": true
-        },
-        "legal_hold": {
-          "type": "boolean"
-        }
+    "object_lock_supported": {
+      "type": "boolean",
+      "const": true
+    },
+    "retention_modes_supported": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/retentionMode"
       },
-      "additionalProperties": false
+      "minItems": 2,
+      "uniqueItems": true
+    },
+    "legal_hold_supported": {
+      "type": "boolean",
+      "const": true
     },
     "required_operations": {
       "type": "array",
@@ -120,9 +119,6 @@
       },
       "minItems": 12,
       "uniqueItems": true
-    },
-    "optional_retention": {
-      "type": "boolean"
     },
     "path_formatting": {
       "$ref": "#/$defs/pathFormatting"
@@ -240,7 +236,9 @@
       "required": [
         "provider_identifier",
         "mandatory_operations",
-        "supported_optional_features",
+        "object_lock_supported",
+        "retention_modes_supported",
+        "legal_hold_supported",
         "required_operations",
         "addressing_style",
         "auth_mechanism",
@@ -294,24 +292,21 @@
           },
           "additionalProperties": false
         },
-        "supported_optional_features": {
-          "type": "object",
-          "properties": {
-            "object_lock": {
-              "type": "boolean"
-            },
-            "retention_modes": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/retentionMode"
-              },
-              "uniqueItems": true
-            },
-            "legal_hold": {
-              "type": "boolean"
-            }
+        "object_lock_supported": {
+          "type": "boolean",
+          "const": true
+        },
+        "retention_modes_supported": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/retentionMode"
           },
-          "additionalProperties": false
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "legal_hold_supported": {
+          "type": "boolean",
+          "const": true
         },
         "required_operations": {
           "type": "array",
@@ -348,9 +343,6 @@
           },
           "minItems": 12,
           "uniqueItems": true
-        },
-        "optional_retention": {
-          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -360,6 +352,7 @@
       "required": [
         "bucket",
         "object_key",
+        "version_id",
         "retention_mode",
         "retain_until_date",
         "legal_hold",
@@ -374,6 +367,7 @@
         },
         "version_id": {
           "type": "string",
+          "pattern": "^[a-zA-Z0-9._-]+$",
           "minLength": 1
         },
         "retention_mode": {
@@ -407,6 +401,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "storageConformanceEvidence": {
+      "$ref": "#/$defs/objectRetentionCompliance"
     },
     "multipartUploadManifest": {
       "type": "object",

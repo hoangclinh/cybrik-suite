@@ -147,6 +147,12 @@ const EXPECTED_STORAGE_NEGATIVES = {
     instancePath: '',
     missingProperty: 'retention_mode',
   },
+  'invalid-s3-missing-version-id-evidence.json': {
+    schemaId: RETENTION_DEF_ID,
+    keyword: 'required',
+    instancePath: '',
+    missingProperty: 'version_id',
+  },
   'invalid-s3-malformed-digest.json': {
     schemaId: MULTIPART_DEF_ID,
     keyword: 'pattern',
@@ -176,7 +182,7 @@ test('validate negative storage fixtures (single-defect isolation)', () => {
   assert.equal(
     negativeFiles.length,
     Object.keys(EXPECTED_STORAGE_NEGATIVES).length,
-    'Must have exactly 6 negative fixtures in contracts/examples/storage/negative'
+    'Must have exactly 7 negative fixtures in contracts/examples/storage/negative'
   );
 
   for (const file of negativeFiles) {
@@ -397,5 +403,98 @@ test('mandatory operations boolean flags must all be true', () => {
     assert.ok(!ajv.validate(PROFILE_DEF_ID, mutated), `Flag '${flag}: false' must be rejected`);
     assert.equal(ajv.errors.length, 1, `Expected 1 error when '${flag}' is false`);
     assert.equal(ajv.errors[0].keyword, 'const');
+  }
+});
+
+test('mandate root and profile WORM support (object_lock, retention_modes, legal_hold)', () => {
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  // Root and Profile: object_lock_supported must be const true
+  assert.ok(ajv.validate(PROFILE_DEF_ID, baseProfile));
+  assert.ok(ajv.validate(S3_SCHEMA_ID, baseProfile));
+
+  const badObjectLock = { ...baseProfile, object_lock_supported: false };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, badObjectLock));
+  assert.equal(ajv.errors[0].keyword, 'const');
+
+  const missingObjectLock = { ...baseProfile };
+  delete missingObjectLock.object_lock_supported;
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, missingObjectLock));
+  assert.equal(ajv.errors[0].keyword, 'required');
+  assert.equal(ajv.errors[0].params.missingProperty, 'object_lock_supported');
+
+  // retention_modes_supported must contain at least 2 items (COMPLIANCE and GOVERNANCE)
+  const singleMode = { ...baseProfile, retention_modes_supported: ['COMPLIANCE'] };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, singleMode));
+  assert.equal(ajv.errors[0].keyword, 'minItems');
+
+  const invalidMode = { ...baseProfile, retention_modes_supported: ['COMPLIANCE', 'INVALID_MODE'] };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, invalidMode));
+  assert.equal(ajv.errors[0].keyword, 'enum');
+
+  const dupMode = { ...baseProfile, retention_modes_supported: ['COMPLIANCE', 'COMPLIANCE'] };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, dupMode));
+  assert.equal(ajv.errors[0].keyword, 'uniqueItems');
+
+  // legal_hold_supported must be const true
+  const badLegalHold = { ...baseProfile, legal_hold_supported: false };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, badLegalHold));
+  assert.equal(ajv.errors[0].keyword, 'const');
+
+  const missingLegalHold = { ...baseProfile };
+  delete missingLegalHold.legal_hold_supported;
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, missingLegalHold));
+  assert.equal(ajv.errors[0].keyword, 'required');
+  assert.equal(ajv.errors[0].params.missingProperty, 'legal_hold_supported');
+});
+
+test('require version_id on objectRetentionCompliance and storageConformanceEvidence', () => {
+  const EVIDENCE_DEF_ID = `${S3_SCHEMA_ID}#/$defs/storageConformanceEvidence`;
+  const sampleRetentionPath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-object-retention-compliance.json');
+  const baseRetention = JSON.parse(readFileSync(sampleRetentionPath, 'utf8'));
+
+  // Valid record passes on both defs
+  assert.ok(ajv.validate(RETENTION_DEF_ID, baseRetention));
+  assert.ok(ajv.validate(EVIDENCE_DEF_ID, baseRetention));
+
+  // Missing version_id must fail
+  const missingVersion = { ...baseRetention };
+  delete missingVersion.version_id;
+  assert.ok(!ajv.validate(RETENTION_DEF_ID, missingVersion));
+  assert.equal(ajv.errors.length, 1);
+  assert.equal(ajv.errors[0].keyword, 'required');
+  assert.equal(ajv.errors[0].params.missingProperty, 'version_id');
+
+  assert.ok(!ajv.validate(EVIDENCE_DEF_ID, missingVersion));
+  assert.equal(ajv.errors.length, 1);
+  assert.equal(ajv.errors[0].keyword, 'required');
+  assert.equal(ajv.errors[0].params.missingProperty, 'version_id');
+
+  // version_id pattern assertions: ^[a-zA-Z0-9._-]+$
+  const validVersionIds = [
+    'v1.0.0-snapshot-20260827',
+    'v1',
+    'version_123',
+    'abc.def-ghi_123',
+    '3',
+  ];
+  for (const vid of validVersionIds) {
+    const mutated = { ...baseRetention, version_id: vid };
+    assert.ok(ajv.validate(RETENTION_DEF_ID, mutated), `version_id '${vid}' must be valid`);
+  }
+
+  const invalidVersionIds = [
+    '', // empty (fails minLength and pattern)
+    'version with spaces',
+    'v1@latest',
+    'v1#hash',
+    'v1$lock',
+    'v1/segment',
+  ];
+  for (const vid of invalidVersionIds) {
+    const mutated = { ...baseRetention, version_id: vid };
+    assert.ok(!ajv.validate(RETENTION_DEF_ID, mutated), `version_id '${vid}' must be rejected`);
+    assert.ok(ajv.errors.some((e) => e.instancePath === '/version_id'));
   }
 });

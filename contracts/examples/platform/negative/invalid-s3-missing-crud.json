@@ -9,9 +9,12 @@
     "versioning": true,
     "error_mappings": true
   },
-  "supported_optional_features": {
-    "object_lock": true
-  },
+  "object_lock_supported": true,
+  "retention_modes_supported": [
+    "COMPLIANCE",
+    "GOVERNANCE"
+  ],
+  "legal_hold_supported": true,
   "required_operations": [],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
@@ -28,6 +31,5 @@
     "InvalidArgument",
     "InvalidPart",
     "InvalidPartOrder"
-  ],
-  "optional_retention": true
+  ]
 }

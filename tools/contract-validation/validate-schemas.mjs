@@ -403,6 +403,134 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 4c. Storage S3 Subset Example fixtures & conformance assertions (OPEN-2).
+// ---------------------------------------------------------------------------
+const STORAGE_EXAMPLES_DIR = join(CONTRACTS, 'examples/storage');
+const S3_SCHEMA_ID = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+const S3_PROFILE_DEF_ID = `${S3_SCHEMA_ID}#/$defs/storageConformanceProfile`;
+const S3_RETENTION_DEF_ID = `${S3_SCHEMA_ID}#/$defs/objectRetentionCompliance`;
+const S3_EVIDENCE_DEF_ID = `${S3_SCHEMA_ID}#/$defs/storageConformanceEvidence`;
+const S3_MULTIPART_DEF_ID = `${S3_SCHEMA_ID}#/$defs/multipartUploadManifest`;
+const S3_RETENTION_MODE_DEF_ID = `${S3_SCHEMA_ID}#/$defs/retentionMode`;
+const S3_LEGAL_HOLD_DEF_ID = `${S3_SCHEMA_ID}#/$defs/legalHoldStatus`;
+const S3_BUCKET_NAME_DEF_ID = `${S3_SCHEMA_ID}#/$defs/bucketName`;
+const S3_OBJECT_KEY_DEF_ID = `${S3_SCHEMA_ID}#/$defs/objectKey`;
+const S3_URI_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Uri`;
+const S3_PATH_STYLE_URL_DEF_ID = `${S3_SCHEMA_ID}#/$defs/pathStyleUrl`;
+const S3_OP_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Operation`;
+
+const storagePositives = [
+  { file: 's3-storage-conformance-profile.json', schemaId: S3_PROFILE_DEF_ID, alsoRoot: true },
+  { file: 's3-object-retention-compliance.json', schemaId: S3_RETENTION_DEF_ID, alsoDef: S3_EVIDENCE_DEF_ID },
+  { file: 's3-multipart-upload-manifest.json', schemaId: S3_MULTIPART_DEF_ID }
+];
+
+for (const pos of storagePositives) {
+  const exPath = join(STORAGE_EXAMPLES_DIR, 'positive', pos.file);
+  if (!existsSync(exPath)) { fail(`storage positive example missing on disk: ${pos.file}`); continue; }
+  let data;
+  try { data = readJson(exPath); } catch (e) { fail(`storage positive example ${pos.file}: JSON parse error: ${e.message}`); continue; }
+
+  const ok = ajv.validate(pos.schemaId, data);
+  bump('positive_total');
+  if (ok) {
+    bump('positive_pass');
+  } else {
+    fail(`storage positive example ${pos.file} FAILED validation against ${pos.schemaId}: ${ajv.errorsText(ajv.errors)}`);
+  }
+
+  if (pos.alsoRoot) {
+    const rootOk = ajv.validate(S3_SCHEMA_ID, data);
+    bump('positive_total');
+    if (rootOk) bump('positive_pass');
+    else fail(`storage positive example ${pos.file} FAILED validation against root schema: ${ajv.errorsText(ajv.errors)}`);
+  }
+  if (pos.alsoDef) {
+    const defOk = ajv.validate(pos.alsoDef, data);
+    bump('positive_total');
+    if (defOk) bump('positive_pass');
+    else fail(`storage positive example ${pos.file} FAILED validation against ${pos.alsoDef}: ${ajv.errorsText(ajv.errors)}`);
+  }
+}
+
+const EXPECTED_STORAGE_NEGATIVES = {
+  'invalid-s3-unsupported-operation.json': {
+    schemaId: S3_PROFILE_DEF_ID,
+    keyword: 'enum',
+    instancePath: '/required_operations/16'
+  },
+  'invalid-s3-missing-retention-mode.json': {
+    schemaId: S3_RETENTION_DEF_ID,
+    keyword: 'required',
+    instancePath: '',
+    missingProperty: 'retention_mode'
+  },
+  'invalid-s3-missing-version-id-evidence.json': {
+    schemaId: S3_RETENTION_DEF_ID,
+    keyword: 'required',
+    instancePath: '',
+    missingProperty: 'version_id'
+  },
+  'invalid-s3-malformed-digest.json': {
+    schemaId: S3_MULTIPART_DEF_ID,
+    keyword: 'pattern',
+    instancePath: '/parts/0/sha256'
+  },
+  'invalid-s3-dot-segment-path.json': {
+    schemaId: S3_RETENTION_DEF_ID,
+    keyword: 'pattern',
+    instancePath: '/object_key'
+  },
+  'invalid-s3-unsupported-error-code.json': {
+    schemaId: S3_PROFILE_DEF_ID,
+    keyword: 'enum',
+    instancePath: '/required_error_codes/11'
+  },
+  'invalid-s3-missing-mandatory-op.json': {
+    schemaId: S3_PROFILE_DEF_ID,
+    keyword: 'minItems',
+    instancePath: '/required_operations'
+  }
+};
+
+if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
+  const fsNode = (typeof fs !== 'undefined' ? fs : await import('node:fs'));
+  const storageNegFiles = fsNode.readdirSync(join(STORAGE_EXAMPLES_DIR, 'negative')).filter(f => f.endsWith('.json'));
+  if (storageNegFiles.length !== Object.keys(EXPECTED_STORAGE_NEGATIVES).length) {
+    fail(`storage negative examples count mismatch: expected ${Object.keys(EXPECTED_STORAGE_NEGATIVES).length}, got ${storageNegFiles.length}`);
+  }
+  for (const file of storageNegFiles) {
+    const exPath = join(STORAGE_EXAMPLES_DIR, 'negative', file);
+    const expected = EXPECTED_STORAGE_NEGATIVES[file];
+    if (!expected) {
+      fail(`storage negative example ${file}: no expected invariant/error mapped!`);
+      continue;
+    }
+    let data;
+    try { data = readJson(exPath); } catch (e) { fail(`storage negative example ${file}: JSON parse error: ${e.message}`); continue; }
+
+    const ok = ajv.validate(expected.schemaId, data);
+    bump('negative_schema_total');
+    if (!ok) {
+      bump('negative_schema_reject');
+      if (ajv.errors.length !== 1) {
+        fail(`storage negative example ${file}: expected exactly 1 error, got ${ajv.errors.length}: ${JSON.stringify(ajv.errors)}`);
+      } else {
+        const actualErr = ajv.errors[0];
+        if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath) {
+          fail(`storage negative example ${file}: expected keyword ${expected.keyword} at ${expected.instancePath}, got ${actualErr.keyword} at ${actualErr.instancePath}`);
+        }
+        if (expected.missingProperty && actualErr.params?.missingProperty !== expected.missingProperty) {
+          fail(`storage negative example ${file}: expected missingProperty ${expected.missingProperty}, got ${actualErr.params?.missingProperty}`);
+        }
+      }
+    } else {
+      fail(`storage negative example ${file} unexpectedly VALIDATED against ${expected.schemaId} (must be rejected)`);
+    }
+  }
+}
+
 // 5. Compatibility / version / status manifest.
 // ---------------------------------------------------------------------------
 const compatPath = join(CONTRACTS, 'compatibility', 'cybrik-suite-contract-packet.v1.manifest.json');
@@ -845,6 +973,101 @@ try {
 } catch (e) {
   H('25', e.message.includes('mandatory profile slot'), 'mandatory slot fulfillment check must catch missing advertised capability for required slot');
 }
+
+// ---------------------------------------------------------------------------
+// S3 compatibility subset in-memory assertions (OPEN-2).
+// ---------------------------------------------------------------------------
+// 26. S3 closed 17-operation catalog assertions
+const CLOSED_17_S3_OPERATIONS = [
+  'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+  'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+  'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+  'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+  'AbortMultipartUpload', 'ListParts'
+];
+const s3OpValidator = ajv.getSchema(S3_OP_DEF_ID);
+const s3OpsAllValid = !!s3OpValidator && CLOSED_17_S3_OPERATIONS.every(op => s3OpValidator(op));
+const s3BadOpsRejected = !s3OpValidator('PutObjectAclUnsupported') && !s3OpValidator('RestoreObjectTier') && !s3OpValidator('ListBuckets');
+H('26', s3OpsAllValid && s3BadOpsRejected, 'S3 closed 17-operation catalog must accept all 17 operations and reject non-S3 operations');
+
+// 27. S3 closed 12-error codes assertions
+const CLOSED_12_S3_ERROR_CODES = [
+  'BadDigest', 'InvalidDigest', 'NoSuchBucket', 'NoSuchKey', 'NoSuchUpload',
+  'ObjectLockConfigurationNotFoundError', 'PreconditionFailed', 'AccessDenied',
+  'EntityTooLarge', 'InvalidArgument', 'InvalidPart', 'InvalidPartOrder'
+];
+const sampleS3Profile = readJson(join(STORAGE_EXAMPLES_DIR, 'positive/s3-storage-conformance-profile.json'));
+const s3ErrorsAllValid = CLOSED_12_S3_ERROR_CODES.every(errCode => {
+  const mutated = { ...sampleS3Profile, required_error_codes: [errCode, ...CLOSED_12_S3_ERROR_CODES.filter(c => c !== errCode)] };
+  return ajv.validate(S3_PROFILE_DEF_ID, mutated);
+});
+const badErrorCodeProfile = { ...sampleS3Profile, required_error_codes: ['NonExistentErrorCode', ...CLOSED_12_S3_ERROR_CODES.slice(1)] };
+const s3BadErrorRejected = !ajv.validate(S3_PROFILE_DEF_ID, badErrorCodeProfile) && ajv.errors.length === 1 && ajv.errors[0].keyword === 'enum';
+H('27', s3ErrorsAllValid && s3BadErrorRejected, 'S3 closed 12-error taxonomy must validate all 12 error codes and reject unsupported codes');
+
+// 28. S3 retention modes coverage (COMPLIANCE, GOVERNANCE)
+const retModeValidator = ajv.getSchema(S3_RETENTION_MODE_DEF_ID);
+const retModesValid = retModeValidator('COMPLIANCE') && retModeValidator('GOVERNANCE');
+const retModesInvalid = ['STANDARD', 'BYPASS_GOVERNANCE', 'compliance', 'NONE'].every(m => !retModeValidator(m));
+H('28', retModesValid && retModesInvalid, 'Object lock retention modes must only accept COMPLIANCE and GOVERNANCE');
+
+// 29. S3 legal hold status coverage (ON, OFF)
+const legalHoldValidator = ajv.getSchema(S3_LEGAL_HOLD_DEF_ID);
+const legalHoldValid = legalHoldValidator('ON') && legalHoldValidator('OFF');
+const legalHoldInvalid = ['ENABLED', 'DISABLED', 'on', 'off', 'TRUE'].every(s => !legalHoldValidator(s));
+H('29', legalHoldValid && legalHoldInvalid, 'Legal hold status must only accept ON and OFF');
+
+// 30. S3 path formatting and bucket naming rules
+const bucketValidator = ajv.getSchema(S3_BUCKET_NAME_DEF_ID);
+const bucketValid = ['my-bucket', 'cybrik-audit-vault', 'telemetry.archive-2026', 'abc', 'a'.repeat(63)].every(b => bucketValidator(b));
+const bucketInvalid = ['MyBucket', 'ab', 'a'.repeat(64), '-bucket', 'bucket-', '.bucket', 'bucket.', 'bucket with space', 'bucket/nested'].every(b => !bucketValidator(b));
+H('30', bucketValid && bucketInvalid, 'S3 bucket naming rules must enforce 3-63 chars, lowercase, no leading/trailing dot/dash');
+
+// 31. S3 object key normalization with dot-segment rejection
+const keyValidator = ajv.getSchema(S3_OBJECT_KEY_DEF_ID);
+const keyValid = ['evidence.tar.gz', 'forensics/2026/08/incident-1042-evidence.bundle', 'a/b/c/d/file.json'].every(k => keyValidator(k));
+const keyInvalid = ['/leading/slash', 'adjacent//slashes', '', './leading-dot-slash', '../dot-dot', 'key/../dot-dot', 'key/./dot-slash', 'key/trailing-slash/', 'key/.hidden'].every(k => !keyValidator(k));
+H('31', keyValid && keyInvalid, 'S3 object key normalization must strictly reject dot-segments, leading/trailing/adjacent slashes');
+
+// 32. S3 URI and path-style URL formatting
+const s3UriValidator = ajv.getSchema(S3_URI_DEF_ID);
+const pathStyleUrlValidator = ajv.getSchema(S3_PATH_STYLE_URL_DEF_ID);
+const s3UriValid = s3UriValidator('s3://cybrik-audit/evidence/bundle.tar.gz') && !s3UriValidator('http://cybrik-audit/evidence/bundle.tar.gz') && !s3UriValidator('s3:///evidence/bundle.tar.gz');
+const pathStyleUrlValid = pathStyleUrlValidator('https://storage.internal.cybrik:9000/cybrik-audit/evidence/bundle.tar.gz') && pathStyleUrlValidator('http://127.0.0.1:9000/bucket/key') && !pathStyleUrlValidator('https://storage.internal.cybrik//key');
+H('32', s3UriValid && pathStyleUrlValid, 'S3 URI and path-style URL formats must enforce canonical syntax');
+
+// 33. S3 mandatory addressing style and auth mechanism
+const badAddressingProfile = { ...sampleS3Profile, addressing_style: 'virtual_host' };
+const badAuthProfile = { ...sampleS3Profile, auth_mechanism: 'Bearer' };
+const s3AddressingAuthValid = !ajv.validate(S3_PROFILE_DEF_ID, badAddressingProfile) && ajv.errors[0].keyword === 'const' && !ajv.validate(S3_PROFILE_DEF_ID, badAuthProfile) && ajv.errors[0].keyword === 'const';
+H('33', s3AddressingAuthValid, 'S3 profile must mandate addressing_style=path_style and auth_mechanism=AWS4-HMAC-SHA256');
+
+// 34. S3 mandatory operations boolean flags
+const s3FlagsValid = ['crud', 'multipart_upload', 'presigning', 'sig_v4', 'path_style_access', 'versioning', 'error_mappings'].every(flag => {
+  const mutated = { ...sampleS3Profile, mandatory_operations: { ...sampleS3Profile.mandatory_operations, [flag]: false } };
+  return !ajv.validate(S3_PROFILE_DEF_ID, mutated) && ajv.errors.length === 1 && ajv.errors[0].keyword === 'const';
+});
+H('34', s3FlagsValid, 'S3 mandatory operations boolean flags must all be const true');
+
+// 35. S3 mandated root and profile WORM support (Finding 3)
+const badObjectLock = { ...sampleS3Profile, object_lock_supported: false };
+const singleModeProfile = { ...sampleS3Profile, retention_modes_supported: ['COMPLIANCE'] };
+const badLegalHoldProfile = { ...sampleS3Profile, legal_hold_supported: false };
+const s3WormValid = !ajv.validate(S3_PROFILE_DEF_ID, badObjectLock) && ajv.errors[0].keyword === 'const' &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, singleModeProfile) && ajv.errors[0].keyword === 'minItems' &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, badLegalHoldProfile) && ajv.errors[0].keyword === 'const';
+H('35', s3WormValid, 'S3 schema must mandate root/profile WORM support (object_lock_supported: true, retention_modes_supported: minItems 2, legal_hold_supported: true)');
+
+// 36. S3 version_id on retention evidence (Finding 3)
+const sampleRetentionRecord = readJson(join(STORAGE_EXAMPLES_DIR, 'positive/s3-object-retention-compliance.json'));
+const missingVerRetention = { ...sampleRetentionRecord };
+delete missingVerRetention.version_id;
+const badVerRetention = { ...sampleRetentionRecord, version_id: 'bad version with spaces' };
+const s3VersionIdValid = ajv.validate(S3_RETENTION_DEF_ID, sampleRetentionRecord) &&
+                         ajv.validate(S3_EVIDENCE_DEF_ID, sampleRetentionRecord) &&
+                         !ajv.validate(S3_RETENTION_DEF_ID, missingVerRetention) && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'version_id') &&
+                         !ajv.validate(S3_RETENTION_DEF_ID, badVerRetention) && ajv.errors.some(e => e.instancePath === '/version_id');
+H('36', s3VersionIdValid, 'S3 retention compliance and storage conformance evidence must require version_id with ^[a-zA-Z0-9._-]+$');
 
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');
