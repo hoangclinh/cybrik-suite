@@ -718,6 +718,108 @@ test('lexical I-JSON validation: fatal error on escaped lone surrogate code poin
   assert.doesNotThrow(() => validateIJson(escapedBackslash, 'escaped-backslash'));
 });
 
+test('lexical I-JSON validation: airtight lone surrogate detection across backslash-parity and raw characters (OPEN-1)', () => {
+  // Codex finding regression: {"x":"\\ud800\udc00"} (escaped backslash + literal ud800 + raw U+DC00 low surrogate)
+  const codexFinding = '{"x":"\\\\ud800\udc00"}';
+  assert.throws(
+    () => validateIJson(codexFinding, 'codex-finding-regression'),
+    /I-JSON Error in codex-finding-regression: lone or unpaired surrogate code point U\+DC00 prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Escaped backslash before high surrogate followed by escaped low surrogate: {"x":"\\ud800\\udc00"} (literal \ud800 + escaped \udc00 lone low surrogate)
+  const escapedBsThenLowSurrogate = '{"x":"\\\\ud800\\udc00"}';
+  assert.throws(
+    () => validateIJson(escapedBsThenLowSurrogate, 'escaped-bs-then-low-surrogate'),
+    /I-JSON Error in escaped-bs-then-low-surrogate: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Escaped high surrogate followed by escaped backslash and literal udc00: {"x":"\ud800\\udc00"} (escaped \ud800 lone high surrogate)
+  const highSurrogateThenEscapedBs = '{"x":"\\ud800\\\\udc00"}';
+  assert.throws(
+    () => validateIJson(highSurrogateThenEscapedBs, 'high-surrogate-then-escaped-bs'),
+    /I-JSON Error in high-surrogate-then-escaped-bs: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // 3 backslashes before ud800 (1 escaped backslash + 1 lone high surrogate escape): {"x":"\\\ud800"}
+  const tripleBsLoneHigh = '{"x":"\\\\\\ud800"}';
+  assert.throws(
+    () => validateIJson(tripleBsLoneHigh, 'triple-bs-lone-high'),
+    /I-JSON Error in triple-bs-lone-high: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // 5 backslashes before ud800 (2 escaped backslashes + 1 lone high surrogate escape): {"x":"\\\\\ud800"}
+  const fiveBsLoneHigh = '{"x":"\\\\\\\\\\ud800"}';
+  assert.throws(
+    () => validateIJson(fiveBsLoneHigh, 'five-bs-lone-high'),
+    /I-JSON Error in five-bs-lone-high: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // 3 backslashes before ud800 and 1 backslash before udc00 (escaped backslash + valid surrogate pair) MUST pass: {"x":"\\\ud800\udc00"}
+  const tripleBsValidSurrogatePair = '{"x":"\\\\\\ud800\\udc00"}';
+  assert.doesNotThrow(() => validateIJson(tripleBsValidSurrogatePair, 'triple-bs-valid-surrogate-pair'));
+
+  // 4 backslashes before ud800 and 4 backslashes before udc00 (literal \\ud800\\udc00) MUST pass: {"x":"\\\\ud800\\\\udc00"}
+  const fourBsLiteral = '{"x":"\\\\\\\\ud800\\\\\\\\udc00"}';
+  assert.doesNotThrow(() => validateIJson(fourBsLiteral, 'four-bs-literal'));
+
+  // Raw lone high surrogate code unit in string value
+  const rawLoneHigh = '{"x":"prefix\uD800suffix"}';
+  assert.throws(
+    () => validateIJson(rawLoneHigh, 'raw-lone-high'),
+    /I-JSON Error in raw-lone-high: lone or unpaired surrogate code point U\+D800 prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Raw lone low surrogate code unit in string value
+  const rawLoneLow = '{"x":"prefix\uDC00suffix"}';
+  assert.throws(
+    () => validateIJson(rawLoneLow, 'raw-lone-low'),
+    /I-JSON Error in raw-lone-low: lone or unpaired surrogate code point U\+DC00 prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Raw reversed surrogate code units in string value
+  const rawReversed = '{"x":"prefix\uDC00\uD800suffix"}';
+  assert.throws(
+    () => validateIJson(rawReversed, 'raw-reversed'),
+    /I-JSON Error in raw-reversed: lone or unpaired surrogate code point U\+DC00 prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Raw valid surrogate pair code units (😀) MUST pass
+  const rawValidSurrogatePair = '{"x":"prefix\uD83D\uDE00suffix"}';
+  assert.doesNotThrow(() => validateIJson(rawValidSurrogatePair, 'raw-valid-surrogate-pair'));
+
+  // Lone surrogate in object key
+  const loneSurrogateKey = '{"\\ud800": "value"}';
+  assert.throws(
+    () => validateIJson(loneSurrogateKey, 'lone-surrogate-key'),
+    /I-JSON Error in lone-surrogate-key: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Raw lone surrogate in object key
+  const rawLoneSurrogateKey = '{"\uDC00": "value"}';
+  assert.throws(
+    () => validateIJson(rawLoneSurrogateKey, 'raw-lone-surrogate-key'),
+    /I-JSON Error in raw-lone-surrogate-key: lone or unpaired surrogate code point U\+DC00 prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Valid surrogate pair in object key MUST pass
+  const validSurrogateKey = '{"\\ud83d\\ude00_k1": "value", "\uD83D\uDE00_k2": "value2"}';
+  assert.doesNotThrow(() => validateIJson(validSurrogateKey, 'valid-surrogate-key'));
+
+  // Lone surrogate in array element
+  const loneSurrogateArray = '["valid", "\\udc00", "also valid"]';
+  assert.throws(
+    () => validateIJson(loneSurrogateArray, 'lone-surrogate-array'),
+    /I-JSON Error in lone-surrogate-array: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+
+  // Deeply nested lone surrogate
+  const nestedLoneSurrogate = '{"level1": {"level2": [{"key": "\\ud800"}]}}';
+  assert.throws(
+    () => validateIJson(nestedLoneSurrogate, 'nested-lone-surrogate'),
+    /I-JSON Error in nested-lone-surrogate: escaped lone surrogate code point prohibited by RFC 7493 \/ RFC 8785/
+  );
+});
+
 test('in-memory validation: reject capability negotiation with unverified evidence binding', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
