@@ -112,6 +112,7 @@
           "PreconditionFailed",
           "AccessDenied",
           "EntityTooLarge",
+          "EntityTooSmall",
           "InvalidArgument",
           "InvalidPart",
           "InvalidPartOrder"
@@ -336,6 +337,7 @@
               "PreconditionFailed",
               "AccessDenied",
               "EntityTooLarge",
+              "EntityTooSmall",
               "InvalidArgument",
               "InvalidPart",
               "InvalidPartOrder"

@@ -3794,3 +3794,87 @@ test('in-memory validation: reject duplicate slot advertisements e.g. conflictin
     'Duplicate storage slot advertisement must be rejected by validatePlatformSemantics with /duplicate slot_id/'
   );
 });
+
+test('cross-artifact domain equality: conformance_evidence status const "PASS" matches specification §5.2 (Finding R15-02 / OPEN-5)', () => {
+  const specPath = join(ROOT, 'contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md');
+  const advSchemaPath = join(JSON_SCHEMA_DIR, 'cybrik.provider-capability-advertisement.v1.schema.json');
+  const negSchemaPath = join(JSON_SCHEMA_DIR, 'cybrik.provider-capability-negotiation.v1.schema.json');
+
+  assert.ok(existsSync(specPath), `Specification file missing: ${specPath}`);
+  assert.ok(existsSync(advSchemaPath), `Advertisement schema missing: ${advSchemaPath}`);
+  assert.ok(existsSync(negSchemaPath), `Negotiation schema missing: ${negSchemaPath}`);
+
+  // 1. Parse markdown specification §5.2 table
+  const specContent = readFileSync(specPath, 'utf8');
+  const tableRowMatch = specContent.match(
+    /\|\s*`?\/advertisement_response\/conformance_evidence\[\]\.status`?\s*\|\s*`?string`?\s*\|\s*([^|]+)\|\s*([^|]+)\|/
+  );
+  assert.ok(tableRowMatch, 'Specification §5.2 table must contain row for conformance_evidence[].status');
+
+  const rawConstraint = tableRowMatch[1].trim();
+  assert.match(
+    rawConstraint,
+    /Const\s*`?"PASS"`?/i,
+    `Specification §5.2 constraint must specify Const "PASS" (got '${rawConstraint}')`
+  );
+
+  // 2. Parse JSON schemas
+  const advSchema = JSON.parse(readFileSync(advSchemaPath, 'utf8'));
+  const negSchema = JSON.parse(readFileSync(negSchemaPath, 'utf8'));
+
+  const advStatusConst = advSchema.properties?.conformance_evidence?.items?.properties?.status?.const;
+  assert.equal(
+    advStatusConst,
+    'PASS',
+    'cybrik.provider-capability-advertisement.v1.schema.json must specify status.const === "PASS"'
+  );
+
+  const negStatusConst =
+    negSchema.properties?.advertisement_response?.properties?.conformance_evidence?.items?.properties?.status?.const;
+  assert.equal(
+    negStatusConst,
+    'PASS',
+    'cybrik.provider-capability-negotiation.v1.schema.json must specify status.const === "PASS"'
+  );
+
+  // 3. Cross-artifact domain equality assertion
+  const specConstValue = (rawConstraint.match(/"([^"]+)"/) || rawConstraint.match(/`([^`]+)`/))[1];
+  assert.equal(
+    specConstValue,
+    'PASS',
+    'Specification §5.2 status domain must be "PASS"'
+  );
+  assert.equal(
+    advStatusConst,
+    specConstValue,
+    'Advertisement JSON Schema status const must equal specification §5.2 status const'
+  );
+  assert.equal(
+    negStatusConst,
+    specConstValue,
+    'Negotiation JSON Schema status const must equal specification §5.2 status const'
+  );
+
+  // 4. In-memory validation: non-PASS statuses fail both schema and semantic validation
+  const advSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sampleAdv = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  const invalidStatuses = ['FAIL', 'INCONCLUSIVE', 'SKIPPED', 'UNKNOWN', 'ERROR', '', 'pass', 'Pass'];
+  for (const nonPass of invalidStatuses) {
+    const mutated = JSON.parse(JSON.stringify(sampleAdv));
+    mutated.conformance_evidence[0].status = nonPass;
+
+    const validAjv = ajv.validate(advSchemaId, mutated);
+    assert.ok(!validAjv, `status='${nonPass}' must be rejected by JSON Schema const validation`);
+    assert.ok(
+      ajv.errors.some((e) => e.keyword === 'const' && e.instancePath === '/conformance_evidence/0/status'),
+      `Schema error for status='${nonPass}' must be keyword const on /conformance_evidence/0/status`
+    );
+
+    assert.throws(
+      () => validatePlatformSemantics(mutated, advSchemaId),
+      /has non-passing status/,
+      `status='${nonPass}' must be rejected by validatePlatformSemantics`
+    );
+  }
+});

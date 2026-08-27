@@ -85,7 +85,7 @@ A conforming Platform Contract Slot 5 storage provider MUST satisfy the followin
 * **`INV-S3-05` (Strict End-to-End Digest Verification & Strict Error Dispatch)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers, failing closed strictly with `BadDigest` (HTTP 400) on payload digest mismatch and `InvalidDigest` (HTTP 400) on malformed digest headers. Returning `InvalidArgument` or `AccessDenied` in lieu of `BadDigest`/`InvalidDigest` is strictly forbidden.
 * **`INV-S3-06` (Version-Level Object Lock Immutability & Version-Scoped Evidence)**: The provider MUST enforce WORM retention on individual object versions in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or overwrite of protected version IDs until the retain-until date expires. Every retention and legal-hold evidence assertion (`objectRetentionCompliance`) MUST strictly bind to an explicit non-empty `version_id`. Key-level or unversioned evidence assertions are strictly prohibited.
 * **`INV-S3-07` (Legal Hold Independence)**: Legal hold status MUST operate independently of retention expiration dates, preventing version deletion while `Status=ON`.
-* **`INV-S3-08` (Standard Error Taxonomy)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope conforming to the 12-error taxonomy.
+* **`INV-S3-08` (Standard Error Taxonomy)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope conforming to the 13-error taxonomy.
 * **`INV-S3-09` (Multipart Upload Integrity, Manifest Ordering, Cardinality & Size Boundaries)**: Multipart uploads MUST be atomic upon completion, guarantee part checksum consistency, and enforce strict manifest ordering, cardinality, and part/object size boundary rules during `CompleteMultipartUpload`. Parts listed in the completion manifest MUST be sorted in strictly ascending numerical order by `PartNumber` (1 to 10,000) with strictly positive cardinality (1 to 10,000 parts) and zero duplicate part numbers. Any out-of-order part list or duplicate part entry MUST be rejected with HTTP 400 `InvalidPartOrder`. Declared part ETags MUST match stored part ETags exactly, or be rejected with HTTP 400 `InvalidPart`. Furthermore, part and object size thresholds are strictly enforced: all non-final parts MUST be at least 5 MiB (5,242,880 bytes) in size (5 MiB minimum non-final part size); the final part MAY be 0 bytes or greater (0-byte minimum final part size); all individual parts MUST NOT exceed 5 GiB (5,368,709,120 bytes) maximum part size; and the total assembled object size MUST NOT exceed 5 TiB (5,497,558,138,880 bytes) maximum object size.
 * **`INV-S3-10` (Strong Consistency)**: Read-after-write consistency MUST be guaranteed for `PutObject`, `CompleteMultipartUpload`, and `DeleteObject`.
 
@@ -871,9 +871,9 @@ Conforming storage providers MUST format all error responses as XML adhering to 
 </Error>
 ```
 
-### 9.1 Normative 12-Error Code Taxonomy
+### 9.1 Normative 13-Error Code Taxonomy
 
-Conforming providers MUST implement and return exactly the 12 error codes defined below:
+Conforming providers MUST implement and return exactly the 13 error codes defined below:
 
 | # | Error Code (`<Code>`) | HTTP Status | Trigger Condition / Semantic Meaning |
 |---|---|---|---|
@@ -886,9 +886,10 @@ Conforming providers MUST implement and return exactly the 12 error codes define
 | 7 | `PreconditionFailed` | `412 Precondition Failed` | At least one condition specified in conditional headers (`If-Match`, `If-None-Match`, `If-Modified-Since`, `If-Unmodified-Since`) evaluated to false. |
 | 8 | `AccessDenied` | `403 Forbidden` | Invalid authentication credentials, SigV4 signature mismatch, missing permissions, or attempt to overwrite/delete a WORM-locked object version. |
 | 9 | `EntityTooLarge` | `400 Bad Request` | Proposed object payload or part segment exceeds the maximum allowed size boundary (5 GiB). |
-| 10 | `InvalidArgument` | `400 Bad Request` | An invalid argument or malformed XML body was supplied (e.g., part number outside 1–10,000, unknown retention mode, malformed XML structure). MUST NOT be returned in lieu of `BadDigest` or `InvalidDigest`. |
-| 11 | `InvalidPart` | `400 Bad Request` | One or more declared parts in `CompleteMultipartUpload` were not found or the provided part ETag does not match the stored part ETag. |
-| 12 | `InvalidPartOrder` | `400 Bad Request` | The list of parts in `CompleteMultipartUpload` was not in strictly ascending numerical order by part number, or contained duplicate part numbers. |
+| 10 | `EntityTooSmall` | `400 Bad Request` | Proposed part size in multipart upload is below the minimum allowed part size boundary (5 MiB for non-final parts). |
+| 11 | `InvalidArgument` | `400 Bad Request` | An invalid argument or malformed XML body was supplied (e.g., part number outside 1–10,000, unknown retention mode, malformed XML structure). MUST NOT be returned in lieu of `BadDigest` or `InvalidDigest`. |
+| 12 | `InvalidPart` | `400 Bad Request` | One or more declared parts in `CompleteMultipartUpload` were not found or the provided part ETag does not match the stored part ETag. |
+| 13 | `InvalidPartOrder` | `400 Bad Request` | The list of parts in `CompleteMultipartUpload` was not in strictly ascending numerical order by part number, or contained duplicate part numbers. |
 
 ---
 

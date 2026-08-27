@@ -451,6 +451,32 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         reason: 'MALFORMED_HEADER_SYNTAX',
       };
     }
+    if (
+      norm === 'EntityTooSmall' ||
+      norm === 'PART_TOO_SMALL' ||
+      norm === 'NON_FINAL_PART_TOO_SMALL'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'EntityTooSmall',
+        status: 400,
+        code: 'EntityTooSmall',
+        reason: 'PART_TOO_SMALL',
+      };
+    }
+    if (
+      norm === 'EntityTooLarge' ||
+      norm === 'PART_TOO_LARGE' ||
+      norm === 'PAYLOAD_TOO_LARGE'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'EntityTooLarge',
+        status: 400,
+        code: 'EntityTooLarge',
+        reason: 'PART_TOO_LARGE',
+      };
+    }
     if (isMalformedBase64Md5(norm)) {
       return {
         http_status: 400,
@@ -485,6 +511,32 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'InvalidDigest',
         reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    if (
+      code === 'EntityTooSmall' ||
+      reason === 'PART_TOO_SMALL' ||
+      reason === 'NON_FINAL_PART_TOO_SMALL'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'EntityTooSmall',
+        status: 400,
+        code: 'EntityTooSmall',
+        reason: reason || 'PART_TOO_SMALL',
+      };
+    }
+    if (
+      code === 'EntityTooLarge' ||
+      reason === 'PART_TOO_LARGE' ||
+      reason === 'PAYLOAD_TOO_LARGE'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'EntityTooLarge',
+        status: 400,
+        code: 'EntityTooLarge',
+        reason: reason || 'PART_TOO_LARGE',
       };
     }
   }
@@ -708,6 +760,22 @@ const S3_17_MANDATORY_OPS = [
   'CompleteMultipartUpload',
   'AbortMultipartUpload',
   'ListParts'
+];
+
+export const S3_CANONICAL_ERROR_CODES = [
+  'BadDigest',
+  'InvalidDigest',
+  'NoSuchBucket',
+  'NoSuchKey',
+  'NoSuchUpload',
+  'ObjectLockConfigurationNotFoundError',
+  'PreconditionFailed',
+  'AccessDenied',
+  'EntityTooLarge',
+  'EntityTooSmall',
+  'InvalidArgument',
+  'InvalidPart',
+  'InvalidPartOrder'
 ];
 
 const CORE_MANDATORY_SLOTS = [
@@ -2219,20 +2287,20 @@ const s3OpsAllValid = !!s3OpValidator && CLOSED_17_S3_OPERATIONS.every(op => s3O
 const s3BadOpsRejected = !s3OpValidator('PutObjectAclUnsupported') && !s3OpValidator('RestoreObjectTier') && !s3OpValidator('ListBuckets');
 H('26', s3OpsAllValid && s3BadOpsRejected, 'S3 closed 17-operation catalog must accept all 17 operations and reject non-S3 operations');
 
-// 27. S3 closed 12-error codes assertions
-const CLOSED_12_S3_ERROR_CODES = [
+// 27. S3 closed 13-error codes assertions
+const CLOSED_13_S3_ERROR_CODES = [
   'BadDigest', 'InvalidDigest', 'NoSuchBucket', 'NoSuchKey', 'NoSuchUpload',
   'ObjectLockConfigurationNotFoundError', 'PreconditionFailed', 'AccessDenied',
-  'EntityTooLarge', 'InvalidArgument', 'InvalidPart', 'InvalidPartOrder'
+  'EntityTooLarge', 'EntityTooSmall', 'InvalidArgument', 'InvalidPart', 'InvalidPartOrder'
 ];
 const sampleS3Profile = readJson(join(STORAGE_EXAMPLES_DIR, 'positive/s3-storage-conformance-profile.json'));
-const s3ErrorsAllValid = CLOSED_12_S3_ERROR_CODES.every(errCode => {
-  const mutated = { ...sampleS3Profile, required_error_codes: [errCode, ...CLOSED_12_S3_ERROR_CODES.filter(c => c !== errCode)] };
+const s3ErrorsAllValid = CLOSED_13_S3_ERROR_CODES.every(errCode => {
+  const mutated = { ...sampleS3Profile, required_error_codes: [errCode, ...CLOSED_13_S3_ERROR_CODES.filter(c => c !== errCode)] };
   return ajv.validate(S3_PROFILE_DEF_ID, mutated);
 });
-const badErrorCodeProfile = { ...sampleS3Profile, required_error_codes: ['NonExistentErrorCode', ...CLOSED_12_S3_ERROR_CODES.slice(1)] };
+const badErrorCodeProfile = { ...sampleS3Profile, required_error_codes: ['NonExistentErrorCode', ...CLOSED_13_S3_ERROR_CODES.slice(1)] };
 const s3BadErrorRejected = !ajv.validate(S3_PROFILE_DEF_ID, badErrorCodeProfile) && ajv.errors.length === 1 && ajv.errors[0].keyword === 'enum';
-H('27', s3ErrorsAllValid && s3BadErrorRejected, 'S3 closed 12-error taxonomy must validate all 12 error codes and reject unsupported codes');
+H('27', s3ErrorsAllValid && s3BadErrorRejected, 'S3 closed 13-error taxonomy must validate all 13 error codes and reject unsupported codes');
 
 // 28. S3 retention modes coverage (COMPLIANCE, GOVERNANCE)
 const retModeValidator = ajv.getSchema(S3_RETENTION_MODE_DEF_ID);

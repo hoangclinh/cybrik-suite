@@ -81,7 +81,7 @@ const CLOSED_17_S3_OPERATIONS = [
   'ListParts',
 ];
 
-const CLOSED_12_S3_ERROR_CODES = [
+const CLOSED_13_S3_ERROR_CODES = [
   'BadDigest',
   'InvalidDigest',
   'NoSuchBucket',
@@ -91,6 +91,7 @@ const CLOSED_12_S3_ERROR_CODES = [
   'PreconditionFailed',
   'AccessDenied',
   'EntityTooLarge',
+  'EntityTooSmall',
   'InvalidArgument',
   'InvalidPart',
   'InvalidPartOrder',
@@ -271,21 +272,21 @@ test('cover all 17 S3 operations in closed operations catalog', () => {
   assert.equal(validateOp.errors.length, 1);
 });
 
-test('cover all 12 S3 error codes in conformance profile error code enum', () => {
+test('cover all 13 S3 error codes in conformance profile error code enum (Finding R15-01 / OPEN-2)', () => {
   const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
   const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
 
-  for (const errCode of CLOSED_12_S3_ERROR_CODES) {
+  for (const errCode of CLOSED_13_S3_ERROR_CODES) {
     const mutated = {
       ...baseProfile,
-      required_error_codes: [errCode, ...CLOSED_12_S3_ERROR_CODES.filter((c) => c !== errCode)],
+      required_error_codes: [errCode, ...CLOSED_13_S3_ERROR_CODES.filter((c) => c !== errCode)],
     };
     assert.ok(ajv.validate(PROFILE_DEF_ID, mutated), `Error code '${errCode}' must be valid`);
   }
 
   const badErrorCodeProfile = {
     ...baseProfile,
-    required_error_codes: ['NonExistentErrorCode', ...CLOSED_12_S3_ERROR_CODES.slice(1)],
+    required_error_codes: ['NonExistentErrorCode', ...CLOSED_13_S3_ERROR_CODES.slice(1)],
   };
   assert.ok(!ajv.validate(PROFILE_DEF_ID, badErrorCodeProfile));
   assert.equal(ajv.errors.length, 1);
@@ -1133,5 +1134,78 @@ test('validateS3MultipartSemantics part size thresholds and non-final/final part
     () => validateS3MultipartSemantics(manifestSingleExceeding5GiB),
     /exceeds maximum allowed part size|EntityTooLarge/,
     'Single part exceeding 5 GiB must be rejected'
+  );
+});
+
+test('EntityTooSmall dispatch mapping, error conditions, and schema validation (Finding R15-01 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Schema validation: EntityTooSmall is valid in required_error_codes
+  const profileWithEntityTooSmall = {
+    ...baseProfile,
+    required_error_codes: [...CLOSED_13_S3_ERROR_CODES],
+  };
+  assert.ok(
+    ajv.validate(PROFILE_DEF_ID, profileWithEntityTooSmall),
+    `Conformance profile with all 13 error codes including EntityTooSmall must pass schema validation: ${ajv.errorsText()}`
+  );
+  assert.ok(
+    ajv.validate(S3_SCHEMA_ID, profileWithEntityTooSmall),
+    `Root S3 schema must validate profile with EntityTooSmall: ${ajv.errorsText()}`
+  );
+
+  // 1b. Schema validation: unsupported error code is rejected by enum keyword
+  const profileWithUnsupportedCode = {
+    ...baseProfile,
+    required_error_codes: ['EntityTooTiny', ...CLOSED_13_S3_ERROR_CODES.slice(1)],
+  };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, profileWithUnsupportedCode));
+  assert.equal(ajv.errors.length, 1);
+  assert.equal(ajv.errors[0].keyword, 'enum');
+  assert.equal(ajv.errors[0].instancePath, '/required_error_codes/0');
+
+  // 2. Dispatch mapping: dispatchS3Error string triggers
+  const dispatchDirect = dispatchS3Error('EntityTooSmall');
+  assert.equal(dispatchDirect.http_status, 400);
+  assert.equal(dispatchDirect.error_code, 'EntityTooSmall');
+  assert.equal(dispatchDirect.status, 400);
+  assert.equal(dispatchDirect.code, 'EntityTooSmall');
+  assert.equal(dispatchDirect.reason, 'PART_TOO_SMALL');
+
+  const dispatchPartTooSmall = dispatchS3Error('PART_TOO_SMALL');
+  assert.equal(dispatchPartTooSmall.http_status, 400);
+  assert.equal(dispatchPartTooSmall.error_code, 'EntityTooSmall');
+  assert.equal(dispatchPartTooSmall.status, 400);
+  assert.equal(dispatchPartTooSmall.code, 'EntityTooSmall');
+
+  const dispatchNonFinalPart = dispatchS3Error('NON_FINAL_PART_TOO_SMALL');
+  assert.equal(dispatchNonFinalPart.http_status, 400);
+  assert.equal(dispatchNonFinalPart.error_code, 'EntityTooSmall');
+
+  // 3. Dispatch mapping: dispatchS3Error object triggers
+  const dispatchObjCode = dispatchS3Error({ error_code: 'EntityTooSmall' });
+  assert.equal(dispatchObjCode.http_status, 400);
+  assert.equal(dispatchObjCode.error_code, 'EntityTooSmall');
+
+  const dispatchObjCondition = dispatchS3Error({ error_condition: 'PART_TOO_SMALL' });
+  assert.equal(dispatchObjCondition.http_status, 400);
+  assert.equal(dispatchObjCondition.error_code, 'EntityTooSmall');
+
+  const dispatchObjReason = dispatchS3Error({ reason: 'NON_FINAL_PART_TOO_SMALL' });
+  assert.equal(dispatchObjReason.http_status, 400);
+  assert.equal(dispatchObjReason.error_code, 'EntityTooSmall');
+
+  // 4. Semantic dispatch integration: validateS3MultipartSemantics throws EntityTooSmall for non-final part < 5 MiB
+  const multipartPath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  const validManifest = JSON.parse(readFileSync(multipartPath, 'utf8'));
+
+  const smallNonFinalManifest = JSON.parse(JSON.stringify(validManifest));
+  smallNonFinalManifest.parts[0].size_bytes = 5242879; // 1 byte below 5 MiB
+  smallNonFinalManifest.total_size_bytes = 5242879 + 5242880 + 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics(smallNonFinalManifest),
+    /EntityTooSmall/,
+    'Non-final part below 5 MiB must throw EntityTooSmall error'
   );
 });
