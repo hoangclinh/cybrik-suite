@@ -711,10 +711,7 @@ function validatePlatformSemantics(data, schemaId) {
         }
 
         const immutableStorageMandated =
-          profile.slots?.storage?.specification?.immutable_storage_required === true ||
-          profile.slots?.storage?.specification?.required === true ||
-          mandatorySlots.includes('storage') ||
-          profile.strength?.storage === 'MANDATORY';
+          profile.slots?.storage?.specification?.immutable_storage_required === true;
 
         if (immutableStorageMandated) {
           const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
