@@ -269,16 +269,72 @@ export function isMalformedBase64Md5(headerVal) {
   if (!/^[A-Za-z0-9+/]{22}==$/.test(trimmed)) return true;
   try {
     const buf = Buffer.from(trimmed, 'base64');
-    return buf.length !== 16;
+    return buf.length !== 16 || buf.toString('base64') !== trimmed;
   } catch {
     return true;
   }
 }
 
-export function verifyDigestErrorDispatch(errorCondition) {
-  if (errorCondition && typeof errorCondition === 'object') {
-    const code = errorCondition.error_code || errorCondition.code;
-    const status = errorCondition.http_status || errorCondition.status;
+export function dispatchS3PutObject({ payloadBytes, contentMd5Header } = {}) {
+  if (typeof contentMd5Header !== 'string') {
+    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  }
+
+  const trimmed = contentMd5Header.trim();
+  if (!trimmed || !/^[A-Za-z0-9+/]{22}==$/.test(trimmed)) {
+    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  }
+
+  try {
+    const buf = Buffer.from(trimmed, 'base64');
+    if (buf.length !== 16 || buf.toString('base64') !== trimmed) {
+      return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
+  } catch {
+    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  }
+
+  const payload = payloadBytes !== undefined && payloadBytes !== null ? payloadBytes : Buffer.alloc(0);
+  const calculatedMd5 = createHash('md5').update(payload).digest('base64');
+
+  if (calculatedMd5 !== trimmed) {
+    return { http_status: 400, error_code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+  }
+
+  return { http_status: 200, error_code: null };
+}
+
+export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader) {
+  if (
+    arguments.length >= 2 ||
+    (payloadOrCondition && typeof payloadOrCondition === 'object' && ('payloadBytes' in payloadOrCondition || ('contentMd5Header' in payloadOrCondition && !('http_status' in payloadOrCondition) && !('error_code' in payloadOrCondition))))
+  ) {
+    const payloadBytes = arguments.length >= 2 ? payloadOrCondition : payloadOrCondition.payloadBytes;
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : payloadOrCondition.contentMd5Header;
+    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header });
+
+    if (result.error_code !== 'BadDigest') {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to BadDigest (HTTP 400), but received error code '${result.error_code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+    if (result.http_status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: payload byte digest mismatch must exclusively map to HTTP 400, but received HTTP status ${result.http_status}`
+      );
+    }
+    return {
+      status: 400,
+      code: 'BadDigest',
+      http_status: 400,
+      error_code: 'BadDigest',
+      reason: result.reason,
+    };
+  }
+
+  if (payloadOrCondition && typeof payloadOrCondition === 'object') {
+    const code = payloadOrCondition.error_code || payloadOrCondition.code;
+    const status = payloadOrCondition.http_status || payloadOrCondition.status;
 
     if (code !== undefined && code !== 'BadDigest') {
       throw new Error(
@@ -298,10 +354,38 @@ export function verifyDigestErrorDispatch(errorCondition) {
     code: 'BadDigest',
     http_status: 400,
     error_code: 'BadDigest',
+    reason: (payloadOrCondition && typeof payloadOrCondition === 'object' && payloadOrCondition.reason) || 'PAYLOAD_DIGEST_MISMATCH',
   };
 }
 
-export function verifyMalformedHeaderDispatch(headerOrCondition) {
+export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader) {
+  if (
+    arguments.length >= 2 ||
+    (headerOrCondition && typeof headerOrCondition === 'object' && ('payloadBytes' in headerOrCondition || ('contentMd5Header' in headerOrCondition && !('http_status' in headerOrCondition) && !('error_code' in headerOrCondition))))
+  ) {
+    const payloadBytes = arguments.length >= 2 ? headerOrCondition : headerOrCondition.payloadBytes;
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : headerOrCondition.contentMd5Header;
+    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header });
+
+    if (result.error_code !== 'InvalidDigest') {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to InvalidDigest (HTTP 400), but received error code '${result.error_code}' (InvalidArgument/AccessDenied/other are strictly forbidden)`
+      );
+    }
+    if (result.http_status !== 400) {
+      throw new Error(
+        `Strict error dispatch violation: malformed digest header must exclusively map to HTTP 400, but received HTTP status ${result.http_status}`
+      );
+    }
+    return {
+      status: 400,
+      code: 'InvalidDigest',
+      http_status: 400,
+      error_code: 'InvalidDigest',
+      reason: result.reason,
+    };
+  }
+
   if (headerOrCondition && typeof headerOrCondition === 'object') {
     const code = headerOrCondition.error_code || headerOrCondition.code;
     const status = headerOrCondition.http_status || headerOrCondition.status;
@@ -330,6 +414,7 @@ export function verifyMalformedHeaderDispatch(headerOrCondition) {
     code: 'InvalidDigest',
     http_status: 400,
     error_code: 'InvalidDigest',
+    reason: (headerOrCondition && typeof headerOrCondition === 'object' && headerOrCondition.reason) || 'MALFORMED_HEADER_SYNTAX',
   };
 }
 
@@ -1653,11 +1738,24 @@ H('36', s3VersionIdValid, 'S3 retention compliance and storage conformance evide
 const mismatchedFixture = readJson(join(STORAGE_EXAMPLES_DIR, 'negative/invalid-s3-dispatch-mismatched-content-md5.json'));
 const malformedFixture = readJson(join(STORAGE_EXAMPLES_DIR, 'negative/invalid-s3-dispatch-malformed-content-md5-header.json'));
 
-const badDigestResult = verifyDigestErrorDispatch(mismatchedFixture);
-const invalidDigestResult = verifyMalformedHeaderDispatch(malformedFixture.content_md5_header);
+const realPayloadBytes = Buffer.from('CYBRIK_IMMUTABLE_AUDIT_LOG_BUNDLE_PAYLOAD_2026_TEST');
+const realPayloadMd5 = createHash('md5').update(realPayloadBytes).digest('base64');
+const mismatchedMd5 = '1B2M2Y8AsgTpgAmY7PhCfg=='; // Valid base64, does not match realPayloadBytes
+const malformedMd5 = 'invalid-base64-header-!@#$%';
+
+const matchedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: realPayloadMd5 });
+const mismatchDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: mismatchedMd5 });
+const malformedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: malformedMd5 });
+
+const badDigestResult = verifyDigestErrorDispatch(realPayloadBytes, mismatchedMd5);
+const invalidDigestResult = verifyMalformedHeaderDispatch(realPayloadBytes, malformedMd5);
 
 let s3DispatchInvariantsValid = true;
 try {
+  if (matchedDispatch.http_status !== 200 || matchedDispatch.error_code !== null) s3DispatchInvariantsValid = false;
+  if (mismatchDispatch.http_status !== 400 || mismatchDispatch.error_code !== 'BadDigest' || mismatchDispatch.reason !== 'PAYLOAD_DIGEST_MISMATCH') s3DispatchInvariantsValid = false;
+  if (malformedDispatch.http_status !== 400 || malformedDispatch.error_code !== 'InvalidDigest' || malformedDispatch.reason !== 'MALFORMED_HEADER_SYNTAX') s3DispatchInvariantsValid = false;
+
   if (badDigestResult.status !== 400 || badDigestResult.code !== 'BadDigest') s3DispatchInvariantsValid = false;
   if (invalidDigestResult.status !== 400 || invalidDigestResult.code !== 'InvalidDigest') s3DispatchInvariantsValid = false;
 
