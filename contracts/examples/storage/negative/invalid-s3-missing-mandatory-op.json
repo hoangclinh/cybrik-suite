@@ -9,14 +9,12 @@
     "versioning": true,
     "error_mappings": true
   },
-  "supported_optional_features": {
-    "object_lock": true,
-    "retention_modes": [
-      "COMPLIANCE",
-      "GOVERNANCE"
-    ],
-    "legal_hold": true
-  },
+  "object_lock_supported": true,
+  "retention_modes_supported": [
+    "COMPLIANCE",
+    "GOVERNANCE"
+  ],
+  "legal_hold_supported": true,
   "required_operations": [
     "PutObject",
     "GetObject",
@@ -50,6 +48,5 @@
     "InvalidArgument",
     "InvalidPart",
     "InvalidPartOrder"
-  ],
-  "optional_retention": true
+  ]
 }
