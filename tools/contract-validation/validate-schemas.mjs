@@ -368,33 +368,134 @@ export function isMalformedBase64Md5(headerVal) {
   }
 }
 
+export function computePayloadMd5(payloadBytes) {
+  const payload = payloadBytes !== undefined && payloadBytes !== null
+    ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
+        ? payloadBytes
+        : Buffer.from(payloadBytes))
+    : Buffer.alloc(0);
+  return createHash('md5').update(payload).digest('base64');
+}
+
 export function dispatchS3PutObject({ payloadBytes, contentMd5Header } = {}) {
   if (typeof contentMd5Header !== 'string') {
     return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   }
 
   const trimmed = contentMd5Header.trim();
-  if (!trimmed || !/^[A-Za-z0-9+/]{22}==$/.test(trimmed)) {
+  if (isMalformedBase64Md5(trimmed)) {
     return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   }
 
-  try {
-    const buf = Buffer.from(trimmed, 'base64');
-    if (buf.length !== 16 || buf.toString('base64') !== trimmed) {
-      return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-    }
-  } catch {
-    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-  }
-
-  const payload = payloadBytes !== undefined && payloadBytes !== null ? payloadBytes : Buffer.alloc(0);
-  const calculatedMd5 = createHash('md5').update(payload).digest('base64');
+  const calculatedMd5 = computePayloadMd5(payloadBytes);
 
   if (calculatedMd5 !== trimmed) {
     return { http_status: 400, error_code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
   }
 
   return { http_status: 200, error_code: null };
+}
+
+export function dispatchS3Error(conditionOrOptions, maybeHeader) {
+  if (
+    arguments.length >= 2 ||
+    (conditionOrOptions &&
+      typeof conditionOrOptions === 'object' &&
+      ('payloadBytes' in conditionOrOptions || 'contentMd5Header' in conditionOrOptions))
+  ) {
+    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : conditionOrOptions?.payloadBytes;
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : conditionOrOptions?.contentMd5Header;
+    if (isMalformedBase64Md5(contentMd5Header)) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    const computed = computePayloadMd5(payloadBytes);
+    if (computed !== (typeof contentMd5Header === 'string' ? contentMd5Header.trim() : '')) {
+      return {
+        http_status: 400,
+        error_code: 'BadDigest',
+        status: 400,
+        code: 'BadDigest',
+        reason: 'PAYLOAD_DIGEST_MISMATCH',
+      };
+    }
+    return { http_status: 200, error_code: null, status: 200, code: null };
+  }
+
+  if (typeof conditionOrOptions === 'string') {
+    const norm = conditionOrOptions.trim();
+    if (norm === 'BadDigest' || norm === 'PAYLOAD_DIGEST_MISMATCH') {
+      return {
+        http_status: 400,
+        error_code: 'BadDigest',
+        status: 400,
+        code: 'BadDigest',
+        reason: 'PAYLOAD_DIGEST_MISMATCH',
+      };
+    }
+    if (
+      norm === 'InvalidDigest' ||
+      norm === 'MALFORMED_DIGEST_HEADER' ||
+      norm === 'MALFORMED_HEADER_SYNTAX'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    if (isMalformedBase64Md5(norm)) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+  }
+
+  if (conditionOrOptions && typeof conditionOrOptions === 'object') {
+    const code = conditionOrOptions.error_code || conditionOrOptions.code;
+    const reason = conditionOrOptions.error_condition || conditionOrOptions.reason;
+    if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH') {
+      return {
+        http_status: 400,
+        error_code: 'BadDigest',
+        status: 400,
+        code: 'BadDigest',
+        reason: 'PAYLOAD_DIGEST_MISMATCH',
+      };
+    }
+    if (
+      code === 'InvalidDigest' ||
+      reason === 'MALFORMED_DIGEST_HEADER' ||
+      reason === 'MALFORMED_HEADER_SYNTAX'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+  }
+
+  return {
+    http_status: 400,
+    error_code: 'BadDigest',
+    status: 400,
+    code: 'BadDigest',
+    reason: 'PAYLOAD_DIGEST_MISMATCH',
+  };
 }
 
 export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader) {
@@ -629,8 +730,67 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
         const storageRefs = new Set(storageCap.evidence_references || []);
+        const validTests = new Set((adv.conformance_evidence || []).map(e => e.test_identifier));
+
+        // Validate Object Lock evidence bindings against structured URN evidence IDs declared in advertisement.evidence_bindings
+        const evidenceBindings = adv.evidence_bindings || data.evidence_bindings;
+        let boundObjectLockEvidenceId = null;
+        if (evidenceBindings) {
+          if (typeof evidenceBindings === 'object') {
+            if (Array.isArray(evidenceBindings)) {
+              for (const binding of evidenceBindings) {
+                const isLockBinding =
+                  binding.capability_name === 'storage_object_lock' ||
+                  binding.slot_id === 'storage' ||
+                  binding.feature === 'object_lock' ||
+                  (typeof binding.name === 'string' && binding.name.toLowerCase().includes('object-lock'));
+                if (isLockBinding) {
+                  const evId = binding.evidence_id || binding.test_identifier || binding.urn;
+                  if (evId) {
+                    boundObjectLockEvidenceId = evId;
+                    if (!storageRefs.has(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding '${evId}' not found in storage evidence references`);
+                    }
+                    if (!validTests.has(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding '${evId}' not found in conformance evidence`);
+                    }
+                    if (evId.startsWith('urn:') && !/^urn:[a-z0-9][a-z0-9-]{0,31}:[a-z0-9()+,\-.:=@;$_!*'%/?#]+$/i.test(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding URN '${evId}' is malformed`);
+                    }
+                  }
+                }
+              }
+            } else {
+              for (const [key, val] of Object.entries(evidenceBindings)) {
+                const isLockKey =
+                  key === 'storage_object_lock' ||
+                  key === 'storage' ||
+                  key === 'object_lock' ||
+                  key.toLowerCase().includes('object-lock') ||
+                  key.toLowerCase().includes('retention');
+                if (isLockKey) {
+                  const evId = typeof val === 'string' ? val : (val?.evidence_id || val?.test_identifier || val?.urn);
+                  if (evId) {
+                    boundObjectLockEvidenceId = evId;
+                    if (!storageRefs.has(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding '${evId}' for '${key}' not found in storage evidence references`);
+                    }
+                    if (!validTests.has(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding '${evId}' for '${key}' not found in conformance evidence`);
+                    }
+                    if (typeof evId === 'string' && evId.startsWith('urn:') && !/^urn:[a-z0-9][a-z0-9-]{0,31}:[a-z0-9()+,\-.:=@;$_!*'%/?#]+$/i.test(evId)) {
+                      throw new Error(`Semantic error: Object Lock evidence binding URN '${evId}' is malformed`);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
         const hasObjectLockEvidence = (adv.conformance_evidence || []).some(
           e => storageRefs.has(e.test_identifier) && (
+            (boundObjectLockEvidenceId && e.test_identifier === boundObjectLockEvidenceId) ||
             e.test_identifier.toLowerCase().includes('object-lock') ||
             e.test_identifier.toLowerCase().includes('retention') ||
             e.test_identifier.toLowerCase().includes('worm') ||
@@ -717,9 +877,12 @@ export function validatePlatformSemantics(data, schemaId) {
           const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
           for (const cap of leaseCaps) {
             const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
-            const isDegraded = cap.disposition === 'GRANTED_DEGRADED' || cap.status === 'GRANTED_DEGRADED';
-            if (isStorageCap && isDegraded) {
-              throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
+            if (isStorageCap) {
+              const disposition = cap.disposition || cap.status;
+              const fallback = cap.fallback_applied || cap.fallback || 'NONE';
+              if (disposition !== 'GRANTED_FULL' || fallback !== 'NONE') {
+                throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease (disposition: ${disposition}, fallback: ${fallback})`);
+              }
             }
           }
         }

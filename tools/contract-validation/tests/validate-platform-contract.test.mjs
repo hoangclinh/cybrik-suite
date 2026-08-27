@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, computePayloadMd5, isMalformedBase64Md5 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -1178,6 +1178,281 @@ test('in-memory validation: permit degraded storage when profile does not requir
     () => validatePlatformSemantics(data3, schemaId),
     /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
   );
+});
+
+test('in-memory validation: structurally enforce disposition and fallback coupling (Finding 2 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. GRANTED_FULL with fallback_applied: NONE passes schema validation
+  const data1 = JSON.parse(JSON.stringify(sample));
+  data1.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(ajv.validate(schemaId, data1), 'GRANTED_FULL with fallback NONE must pass: ' + ajv.errorsText());
+
+  // 2. GRANTED_FULL with fallback_applied: CORE_EMULATION_FALLBACK is rejected structurally
+  const data2 = JSON.parse(JSON.stringify(sample));
+  data2.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "CORE_EMULATION_FALLBACK"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, data2), 'GRANTED_FULL with non-NONE fallback must be rejected by schema');
+
+  // 3. GRANTED_FULL with fallback_applied: FEATURE_DISABLED_GRACEFUL is rejected structurally
+  const data3 = JSON.parse(JSON.stringify(sample));
+  data3.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, data3), 'GRANTED_FULL with non-NONE fallback must be rejected by schema');
+});
+
+test('in-memory validation: reject immutable storage with non-GRANTED_FULL disposition or non-NONE fallback (Finding 6 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const immutableProfiles = ['onprem-standard-v1', 'onprem-airgap-v1', 'hybrid-sovereign-v1'];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(EXAMPLES_DIR, `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. REJECTED_UNSUPPORTED disposition on storage capability throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const dataUnsupported = JSON.parse(JSON.stringify(sample));
+    dataUnsupported.target_profile_id = profileId;
+    dataUnsupported.target_profile_digest = profileDigest;
+    dataUnsupported.agreed_capability_lease.target_profile_id = profileId;
+    dataUnsupported.agreed_capability_lease.target_profile_digest = profileDigest;
+    dataUnsupported.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    dataUnsupported.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_object_lock",
+        slot_id: "storage",
+        disposition: "REJECTED_UNSUPPORTED",
+        active_mode: "unsupported",
+        fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+      },
+      {
+        capability_name: "ai_tensor_acceleration",
+        slot_id: "ai_model_runtime",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "cpu_quantized_emulation",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      }
+    ];
+
+    assert.throws(
+      () => validatePlatformSemantics(dataUnsupported, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
+    );
+
+    // 2. Non-NONE fallback on storage capability throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const dataNonNoneFallback = JSON.parse(JSON.stringify(sample));
+    dataNonNoneFallback.target_profile_id = profileId;
+    dataNonNoneFallback.target_profile_digest = profileDigest;
+    dataNonNoneFallback.agreed_capability_lease.target_profile_id = profileId;
+    dataNonNoneFallback.agreed_capability_lease.target_profile_digest = profileDigest;
+    dataNonNoneFallback.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    dataNonNoneFallback.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_custom_opt",
+        slot_id: "storage",
+        disposition: "GRANTED_FULL",
+        active_mode: "direct",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      },
+      {
+        capability_name: "ai_tensor_acceleration",
+        slot_id: "ai_model_runtime",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "cpu_quantized_emulation",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      }
+    ];
+
+    assert.throws(
+      () => validatePlatformSemantics(dataNonNoneFallback, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
+    );
+  }
+});
+
+test('in-memory validation: Object Lock evidence binding against structured URN evidence IDs (Finding 6 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Valid structured URN evidence binding in object form passes semantic validation
+  const dataObj = JSON.parse(JSON.stringify(sample));
+  dataObj.advertisement_response.evidence_bindings = {
+    storage_object_lock: "urn:cybrik:evidence:test-object-lock-01"
+  };
+  const storeCapObj = dataObj.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapObj.evidence_references.push("urn:cybrik:evidence:test-object-lock-01");
+  dataObj.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:test-object-lock-01",
+    verification_method: "AUTOMATED_TEST",
+    report_uri: "https://reports.cybrik.example/evidence/urn-lock-01.json"
+  });
+
+  assert.doesNotThrow(() => validatePlatformSemantics(dataObj, schemaId));
+
+  // 2. Valid structured URN evidence binding in array form passes semantic validation
+  const dataArr = JSON.parse(JSON.stringify(sample));
+  dataArr.advertisement_response.evidence_bindings = [
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      evidence_id: "urn:iso:std:iso-iec:27001:evidence:lock-01"
+    }
+  ];
+  const storeCapArr = dataArr.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapArr.evidence_references.push("urn:iso:std:iso-iec:27001:evidence:lock-01");
+  dataArr.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:iso:std:iso-iec:27001:evidence:lock-01",
+    verification_method: "AUTOMATED_TEST",
+    report_uri: "https://reports.cybrik.example/evidence/iso-lock-01.json"
+  });
+
+  assert.doesNotThrow(() => validatePlatformSemantics(dataArr, schemaId));
+
+  // 3. Object Lock evidence binding missing from storage evidence references throws
+  const dataMissingRef = JSON.parse(JSON.stringify(sample));
+  dataMissingRef.advertisement_response.evidence_bindings = {
+    storage_object_lock: "urn:cybrik:evidence:test-object-lock-02"
+  };
+  dataMissingRef.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:test-object-lock-02",
+    verification_method: "AUTOMATED_TEST",
+    report_uri: "https://reports.cybrik.example/evidence/urn-lock-02.json"
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataMissingRef, schemaId),
+    /Object Lock evidence binding 'urn:cybrik:evidence:test-object-lock-02'.*not found in storage evidence references/
+  );
+
+  // 4. Object Lock evidence binding missing from conformance evidence throws
+  const dataMissingEv = JSON.parse(JSON.stringify(sample));
+  dataMissingEv.advertisement_response.evidence_bindings = {
+    storage_object_lock: "urn:cybrik:evidence:test-object-lock-03"
+  };
+  const storeCapMissingEv = dataMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapMissingEv.evidence_references.push("urn:cybrik:evidence:test-object-lock-03");
+
+  assert.throws(
+    () => validatePlatformSemantics(dataMissingEv, schemaId),
+    /evidence_reference 'urn:cybrik:evidence:test-object-lock-03' not found in conformance_evidence/
+  );
+
+  // 5. Malformed URN in evidence binding throws
+  const dataBadUrn = JSON.parse(JSON.stringify(sample));
+  dataBadUrn.advertisement_response.evidence_bindings = {
+    storage_object_lock: "urn:::invalid-urn"
+  };
+  const storeCapBadUrn = dataBadUrn.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapBadUrn.evidence_references.push("urn:::invalid-urn");
+  dataBadUrn.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:::invalid-urn",
+    verification_method: "AUTOMATED_TEST",
+    report_uri: "https://reports.cybrik.example/evidence/bad-urn.json"
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataBadUrn, schemaId),
+    /Object Lock evidence binding URN 'urn:::invalid-urn' is malformed/
+  );
+});
+
+test('canonical S3 dispatch helpers: dispatchS3Error, computePayloadMd5, isMalformedBase64Md5 (Finding 6 / OPEN-2)', () => {
+  // 1. computePayloadMd5
+  const buf = Buffer.from('TEST_PAYLOAD_FOR_MD5_CANONICAL');
+  const expectedMd5 = createHash('md5').update(buf).digest('base64');
+  assert.equal(computePayloadMd5(buf), expectedMd5);
+  assert.equal(computePayloadMd5('TEST_PAYLOAD_FOR_MD5_CANONICAL'), expectedMd5);
+  assert.equal(computePayloadMd5(new Uint8Array(buf)), expectedMd5);
+  assert.equal(computePayloadMd5(null), createHash('md5').update(Buffer.alloc(0)).digest('base64'));
+  assert.equal(computePayloadMd5(undefined), createHash('md5').update(Buffer.alloc(0)).digest('base64'));
+
+  // 2. isMalformedBase64Md5
+  assert.equal(isMalformedBase64Md5(expectedMd5), false);
+  assert.equal(isMalformedBase64Md5('not-valid-md5'), true);
+  assert.equal(isMalformedBase64Md5(''), true);
+  assert.equal(isMalformedBase64Md5(null), true);
+  assert.equal(isMalformedBase64Md5(12345), true);
+  assert.equal(isMalformedBase64Md5('AAAA=='), true);
+
+  // 3. dispatchS3Error with options object
+  const validDispatch = dispatchS3Error({ payloadBytes: buf, contentMd5Header: expectedMd5 });
+  assert.equal(validDispatch.http_status, 200);
+  assert.equal(validDispatch.error_code, null);
+
+  const mismatchDispatch = dispatchS3Error({ payloadBytes: buf, contentMd5Header: '1B2M2Y8AsgTpgAmY7PhCfg==' });
+  assert.equal(mismatchDispatch.http_status, 400);
+  assert.equal(mismatchDispatch.error_code, 'BadDigest');
+  assert.equal(mismatchDispatch.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  const malformedDispatch = dispatchS3Error({ payloadBytes: buf, contentMd5Header: 'malformed!' });
+  assert.equal(malformedDispatch.http_status, 400);
+  assert.equal(malformedDispatch.error_code, 'InvalidDigest');
+  assert.equal(malformedDispatch.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. dispatchS3Error with string condition
+  assert.equal(dispatchS3Error('BadDigest').error_code, 'BadDigest');
+  assert.equal(dispatchS3Error('PAYLOAD_DIGEST_MISMATCH').error_code, 'BadDigest');
+  assert.equal(dispatchS3Error('InvalidDigest').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('MALFORMED_DIGEST_HEADER').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('MALFORMED_HEADER_SYNTAX').error_code, 'InvalidDigest');
+
+  // 5. dispatchS3Error with two arguments (payloadBytes, contentMd5Header)
+  const twoArgValid = dispatchS3Error(buf, expectedMd5);
+  assert.equal(twoArgValid.http_status, 200);
+  assert.equal(twoArgValid.error_code, null);
+
+  const twoArgMismatch = dispatchS3Error(buf, '1B2M2Y8AsgTpgAmY7PhCfg==');
+  assert.equal(twoArgMismatch.http_status, 400);
+  assert.equal(twoArgMismatch.error_code, 'BadDigest');
+
+  const twoArgMalformed = dispatchS3Error(buf, 'bad-header-val');
+  assert.equal(twoArgMalformed.http_status, 400);
+  assert.equal(twoArgMalformed.error_code, 'InvalidDigest');
 });
 
 test('in-memory validation: reject HEALTH_PROBE with remote WAN target or POST method in offline manifest (OPEN-1)', () => {

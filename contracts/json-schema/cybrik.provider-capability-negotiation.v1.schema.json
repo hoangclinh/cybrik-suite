@@ -489,6 +489,24 @@
               "disposition",
               "active_mode",
               "fallback_applied"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_FULL"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                }
+              }
             ]
           }
         },
