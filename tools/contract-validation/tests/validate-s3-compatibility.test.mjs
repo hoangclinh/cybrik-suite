@@ -51,7 +51,7 @@ const S3_URI_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Uri`;
 const PATH_STYLE_URL_DEF_ID = `${S3_SCHEMA_ID}#/$defs/pathStyleUrl`;
 const S3_OP_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Operation`;
 
-const CORE_13_S3_OPERATIONS = [
+const CLOSED_17_S3_OPERATIONS = [
   'PutObject',
   'GetObject',
   'HeadObject',
@@ -60,11 +60,30 @@ const CORE_13_S3_OPERATIONS = [
   'ListObjectsV2',
   'HeadBucket',
   'CreateBucket',
+  'PutObjectRetention',
+  'GetObjectRetention',
+  'PutObjectLegalHold',
+  'GetObjectLegalHold',
   'CreateMultipartUpload',
   'UploadPart',
   'CompleteMultipartUpload',
   'AbortMultipartUpload',
   'ListParts',
+];
+
+const CLOSED_12_S3_ERROR_CODES = [
+  'BadDigest',
+  'InvalidDigest',
+  'NoSuchBucket',
+  'NoSuchKey',
+  'NoSuchUpload',
+  'ObjectLockConfigurationNotFoundError',
+  'PreconditionFailed',
+  'AccessDenied',
+  'EntityTooLarge',
+  'InvalidArgument',
+  'InvalidPart',
+  'InvalidPartOrder',
 ];
 
 test('schema governance and lifecycle invariants', () => {
@@ -120,7 +139,7 @@ const EXPECTED_STORAGE_NEGATIVES = {
   'invalid-s3-unsupported-operation.json': {
     schemaId: PROFILE_DEF_ID,
     keyword: 'enum',
-    instancePath: '/required_operations/13',
+    instancePath: '/required_operations/16',
   },
   'invalid-s3-missing-retention-mode.json': {
     schemaId: RETENTION_DEF_ID,
@@ -133,6 +152,21 @@ const EXPECTED_STORAGE_NEGATIVES = {
     keyword: 'pattern',
     instancePath: '/parts/0/sha256',
   },
+  'invalid-s3-dot-segment-path.json': {
+    schemaId: RETENTION_DEF_ID,
+    keyword: 'pattern',
+    instancePath: '/object_key',
+  },
+  'invalid-s3-unsupported-error-code.json': {
+    schemaId: PROFILE_DEF_ID,
+    keyword: 'enum',
+    instancePath: '/required_error_codes/11',
+  },
+  'invalid-s3-missing-mandatory-op.json': {
+    schemaId: PROFILE_DEF_ID,
+    keyword: 'minItems',
+    instancePath: '/required_operations',
+  },
 };
 
 test('validate negative storage fixtures (single-defect isolation)', () => {
@@ -142,7 +176,7 @@ test('validate negative storage fixtures (single-defect isolation)', () => {
   assert.equal(
     negativeFiles.length,
     Object.keys(EXPECTED_STORAGE_NEGATIVES).length,
-    'Must have exactly 3 negative fixtures in contracts/examples/storage/negative'
+    'Must have exactly 6 negative fixtures in contracts/examples/storage/negative'
   );
 
   for (const file of negativeFiles) {
@@ -176,19 +210,47 @@ test('validate negative storage fixtures (single-defect isolation)', () => {
   }
 });
 
-test('cover all 13 core S3 operations in operations catalog', () => {
+test('cover all 17 S3 operations in closed operations catalog', () => {
   const validateOp = ajv.getSchema(S3_OP_DEF_ID);
   assert.ok(validateOp, `Missing schema for ${S3_OP_DEF_ID}`);
 
-  for (const op of CORE_13_S3_OPERATIONS) {
-    assert.ok(validateOp(op), `Core operation '${op}' must be valid in s3Operation definition`);
+  for (const op of CLOSED_17_S3_OPERATIONS) {
+    assert.ok(validateOp(op), `Operation '${op}' must be valid in s3Operation definition`);
   }
 
-  // Non-S3 operations must fail
+  // Non-S3 operations or excluded operations must fail
   assert.ok(!validateOp('PutObjectAclUnsupported'));
   assert.equal(validateOp.errors.length, 1);
   assert.ok(!validateOp('RestoreObjectTier'));
   assert.equal(validateOp.errors.length, 1);
+  assert.ok(!validateOp('PutBucketVersioning'));
+  assert.equal(validateOp.errors.length, 1);
+  assert.ok(!validateOp('GetBucketVersioning'));
+  assert.equal(validateOp.errors.length, 1);
+  assert.ok(!validateOp('ListBuckets'));
+  assert.equal(validateOp.errors.length, 1);
+});
+
+test('cover all 12 S3 error codes in conformance profile error code enum', () => {
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  for (const errCode of CLOSED_12_S3_ERROR_CODES) {
+    const mutated = {
+      ...baseProfile,
+      required_error_codes: [errCode, ...CLOSED_12_S3_ERROR_CODES.filter((c) => c !== errCode)],
+    };
+    assert.ok(ajv.validate(PROFILE_DEF_ID, mutated), `Error code '${errCode}' must be valid`);
+  }
+
+  const badErrorCodeProfile = {
+    ...baseProfile,
+    required_error_codes: ['NonExistentErrorCode', ...CLOSED_12_S3_ERROR_CODES.slice(1)],
+  };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, badErrorCodeProfile));
+  assert.equal(ajv.errors.length, 1);
+  assert.equal(ajv.errors[0].keyword, 'enum');
+  assert.equal(ajv.errors[0].instancePath, '/required_error_codes/0');
 });
 
 test('object lock retention modes coverage (COMPLIANCE, GOVERNANCE)', () => {
@@ -251,7 +313,7 @@ test('path formatting and bucket naming rules', () => {
   }
 });
 
-test('object key normalization and path formatting', () => {
+test('object key normalization and path formatting with strict dot-segment rejection', () => {
   const validateKey = ajv.getSchema(OBJECT_KEY_DEF_ID);
   assert.ok(validateKey, `Missing schema for ${OBJECT_KEY_DEF_ID}`);
 
@@ -269,6 +331,12 @@ test('object key normalization and path formatting', () => {
     '/leading/slash/key', // leading slash forbidden
     'adjacent//slashes', // double slash forbidden
     '', // empty forbidden
+    './leading-dot-slash/key', // leading ./ forbidden
+    '../dot-dot/key', // leading .. forbidden
+    'key/../dot-dot', // interior .. forbidden
+    'key/./dot-slash', // interior /. forbidden
+    'key/trailing-slash/', // trailing slash forbidden
+    'key/.hidden', // interior /. forbidden
   ];
   for (const k of invalidKeys) {
     assert.ok(!validateKey(k), `Object key '${k}' must be rejected`);
