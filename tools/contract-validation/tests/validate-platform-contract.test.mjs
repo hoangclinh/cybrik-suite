@@ -935,8 +935,8 @@ test('in-memory validation: reject storage capability missing 17-op baseline or 
   // Missing Object Lock retention evidence
   const data2 = JSON.parse(JSON.stringify(sample));
   const storeCap2 = data2.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCap2.evidence_references = ["ev-store-01"];
-  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01');
+  storeCap2.evidence_references = ["urn:cybrik:evidence:ev-store-01"];
+  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:ev-store-object-lock-01');
   assert.throws(() => validatePlatformSemantics(data2, schemaId), /lacks Object Lock retention evidence/);
 });
 
@@ -1112,11 +1112,68 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   const hasMissingSpecError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'specification');
   assert.ok(hasMissingSpecError, 'Schema error must indicate missing specification under slots.storage');
 
+  // Omitting storage under slots is rejected (Finding 1 / OPEN-5)
+  const dataNoStorage = JSON.parse(JSON.stringify(sample));
+  delete dataNoStorage.slots.storage;
+  const validNoStorage = ajv.validate(schemaId, dataNoStorage);
+  assert.ok(!validNoStorage, 'Omitting storage from slots must be rejected');
+  const hasMissingStorageError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'storage');
+  assert.ok(hasMissingStorageError, 'Schema error must indicate missing storage under slots');
+
+  // Omitting slots from top-level is rejected (Finding 1 / OPEN-5)
+  const dataNoSlots = JSON.parse(JSON.stringify(sample));
+  delete dataNoSlots.slots;
+  const validNoSlots = ajv.validate(schemaId, dataNoSlots);
+  assert.ok(!validNoSlots, 'Omitting slots from top-level must be rejected');
+  const hasMissingSlotsError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'slots');
+  assert.ok(hasMissingSlotsError, 'Schema error must indicate missing slots at top-level');
+
   // Explicit boolean false immutable_storage_required is accepted by schema (valid boolean type)
   const data4 = JSON.parse(JSON.stringify(sample));
   data4.slots.storage.specification.immutable_storage_required = false;
   const valid4 = ajv.validate(schemaId, data4);
   assert.ok(valid4, 'Explicit boolean false immutable_storage_required should be valid in schema: ' + ajv.errorsText());
+});
+
+test('in-memory validation: structured evidence URI enforcement in provider capability negotiation (Finding 3 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Valid structured URNs pass schema validation
+  const validURIs = [
+    'urn:cybrik:evidence:ev-oci-01',
+    'urn:cybrik:evidence:store:lock:v1',
+    'urn:cybrik:evidence:test_01-abc',
+    'urn:cybrik:evidence:a:b:c:d'
+  ];
+  for (const uri of validURIs) {
+    const data = JSON.parse(JSON.stringify(sample));
+    data.advertisement_response.advertised_capabilities[0].evidence_references = [uri];
+    data.advertisement_response.conformance_evidence[0].test_identifier = uri;
+    const ok = ajv.validate(schemaId, data);
+    assert.ok(ok, `Expected evidence URI '${uri}' to pass schema validation: ` + ajv.errorsText());
+  }
+
+  // Invalid evidence URIs rejected by schema pattern
+  const invalidURIs = [
+    'ev-oci-01',
+    'https://example.com/report.json',
+    'urn:other:evidence:ev-01',
+    'urn:cybrik:evidence:',
+    'urn:cybrik:evidence:invalid@char',
+    'urn:cybrik:evidence:trailing:',
+    ':urn:cybrik:evidence:leading',
+    'urn:cybrik:evidence:space not allowed'
+  ];
+  for (const uri of invalidURIs) {
+    const data = JSON.parse(JSON.stringify(sample));
+    data.advertisement_response.advertised_capabilities[0].evidence_references = [uri];
+    data.advertisement_response.conformance_evidence[0].test_identifier = uri;
+    const ok = ajv.validate(schemaId, data);
+    assert.ok(!ok, `Expected invalid evidence URI '${uri}' to be rejected by schema`);
+    const hasPatternError = ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('evidence_references'));
+    assert.ok(hasPatternError, `Expected pattern error on evidence_references for '${uri}'`);
+  }
 });
 
 test('on-disk deployment profiles declare explicit immutable_storage_required across all 4 profiles (Finding 1 / OPEN-5)', () => {

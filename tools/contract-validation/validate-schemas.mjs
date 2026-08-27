@@ -1697,8 +1697,8 @@ try {
 // 29b. in-memory validation: reject storage capability missing Object Lock retention evidence
 const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
 const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-storeCap2.evidence_references = ["ev-store-01"];
-pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01');
+storeCap2.evidence_references = ["urn:cybrik:evidence:ev-store-01"];
+pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:ev-store-object-lock-01');
 try {
   validatePlatformSemantics(pcnStorageMissingLockEv, pcnSchemaId);
   fail('storage Object Lock evidence: expected validatePlatformSemantics to throw when Object Lock evidence is missing');

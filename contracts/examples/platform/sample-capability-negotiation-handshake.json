@@ -66,7 +66,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-oci-01"
+          "urn:cybrik:evidence:ev-oci-01"
         ]
       },
       {
@@ -82,7 +82,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-iso-01"
+          "urn:cybrik:evidence:ev-iso-01"
         ]
       },
       {
@@ -99,7 +99,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-orch-01"
+          "urn:cybrik:evidence:ev-orch-01"
         ]
       },
       {
@@ -116,7 +116,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-net-01"
+          "urn:cybrik:evidence:ev-net-01"
         ]
       },
       {
@@ -149,8 +149,8 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-store-01",
-          "ev-store-object-lock-01"
+          "urn:cybrik:evidence:ev-store-01",
+          "urn:cybrik:evidence:ev-store-object-lock-01"
         ]
       },
       {
@@ -167,7 +167,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-db-01"
+          "urn:cybrik:evidence:ev-db-01"
         ]
       },
       {
@@ -184,7 +184,7 @@
           "degradation_notes": "Standalone cache node; cluster replication disabled"
         },
         "evidence_references": [
-          "ev-cache-01"
+          "urn:cybrik:evidence:ev-cache-01"
         ]
       },
       {
@@ -201,7 +201,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-sec-01"
+          "urn:cybrik:evidence:ev-sec-01"
         ]
       },
       {
@@ -218,7 +218,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-crypt-01"
+          "urn:cybrik:evidence:ev-crypt-01"
         ]
       },
       {
@@ -235,7 +235,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-id-01"
+          "urn:cybrik:evidence:ev-id-01"
         ]
       },
       {
@@ -251,7 +251,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-obs-01"
+          "urn:cybrik:evidence:ev-obs-01"
         ]
       },
       {
@@ -268,7 +268,7 @@
           "degradation_notes": "GPU acceleration absent; CPU quantized inference active"
         },
         "evidence_references": [
-          "ev-ai-01"
+          "urn:cybrik:evidence:ev-ai-01"
         ]
       },
       {
@@ -285,78 +285,78 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "ev-art-01"
+          "urn:cybrik:evidence:ev-art-01"
         ]
       }
     ],
     "conformance_evidence": [
       {
-        "test_identifier": "ev-oci-01",
+        "test_identifier": "urn:cybrik:evidence:ev-oci-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-oci-01.json"
       },
       {
-        "test_identifier": "ev-iso-01",
+        "test_identifier": "urn:cybrik:evidence:ev-iso-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-iso-01.json"
       },
       {
-        "test_identifier": "ev-orch-01",
+        "test_identifier": "urn:cybrik:evidence:ev-orch-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-orch-01.json"
       },
       {
-        "test_identifier": "ev-net-01",
+        "test_identifier": "urn:cybrik:evidence:ev-net-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-net-01.json"
       },
       {
-        "test_identifier": "ev-store-01",
+        "test_identifier": "urn:cybrik:evidence:ev-store-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-01.json"
       },
       {
-        "test_identifier": "ev-store-object-lock-01",
+        "test_identifier": "urn:cybrik:evidence:ev-store-object-lock-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-object-lock-01.json"
       },
       {
-        "test_identifier": "ev-db-01",
+        "test_identifier": "urn:cybrik:evidence:ev-db-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-db-01.json"
       },
       {
-        "test_identifier": "ev-cache-01",
+        "test_identifier": "urn:cybrik:evidence:ev-cache-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-cache-01.json"
       },
       {
-        "test_identifier": "ev-sec-01",
+        "test_identifier": "urn:cybrik:evidence:ev-sec-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-sec-01.json"
       },
       {
-        "test_identifier": "ev-crypt-01",
+        "test_identifier": "urn:cybrik:evidence:ev-crypt-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-crypt-01.json"
       },
       {
-        "test_identifier": "ev-id-01",
+        "test_identifier": "urn:cybrik:evidence:ev-id-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-id-01.json"
       },
       {
-        "test_identifier": "ev-obs-01",
+        "test_identifier": "urn:cybrik:evidence:ev-obs-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-obs-01.json"
       },
       {
-        "test_identifier": "ev-ai-01",
+        "test_identifier": "urn:cybrik:evidence:ev-ai-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-ai-01.json"
       },
       {
-        "test_identifier": "ev-art-01",
+        "test_identifier": "urn:cybrik:evidence:ev-art-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-art-01.json"
       }
