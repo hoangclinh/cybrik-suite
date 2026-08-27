@@ -1,0 +1,578 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json",
+  "x-cybrik-status": "PROPOSED",
+  "x-cybrik-not-accepted": true,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "title": "CYBRIK Provider Capability Negotiation Handshake v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "handshake_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "minLength": 3
+    },
+    "protocol_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "provider_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "minLength": 2
+    },
+    "target_profile_id": {
+      "type": "string",
+      "enum": [
+        "onprem-standard-v1",
+        "onprem-airgap-v1",
+        "private-cloud-v1",
+        "hybrid-sovereign-v1"
+      ]
+    },
+    "target_profile_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "target_profile_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "negotiation_status": {
+      "type": "string",
+      "enum": [
+        "AGREED_LEASE_GRANTED",
+        "DEGRADED_LEASE_GRANTED",
+        "TERMINAL_REJECTED"
+      ]
+    },
+    "negotiation_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requested_slots": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 13,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "oci_container_runtime",
+              "isolation_substrate",
+              "orchestration_capability",
+              "network_segmentation",
+              "storage",
+              "database",
+              "cache",
+              "secrets",
+              "crypto",
+              "identity_workload_identity",
+              "observability",
+              "ai_model_runtime",
+              "artifact_update_mechanism"
+            ]
+          }
+        },
+        "requested_optional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "required_for_optimal": {
+                "type": "boolean"
+              },
+              "preferred_fallback": {
+                "type": "string",
+                "enum": [
+                  "CORE_EMULATION_FALLBACK",
+                  "FEATURE_DISABLED_GRACEFUL"
+                ]
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "required_for_optimal",
+              "preferred_fallback"
+            ]
+          }
+        },
+        "client_nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{16,64}$"
+        },
+        "degradation_policy": {
+          "type": "string",
+          "enum": [
+            "FAIL_CLOSED_ON_MANDATORY_GRACEFUL_ON_OPTIONAL",
+            "FAIL_CLOSED_STRICT"
+          ]
+        }
+      },
+      "required": [
+        "request_id",
+        "timestamp",
+        "requested_slots",
+        "requested_optional_capabilities",
+        "client_nonce",
+        "degradation_policy"
+      ]
+    },
+    "advertisement_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "response_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "server_nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{16,64}$"
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": [
+            "PARTIAL_CAPABILITY_ADVERTISEMENT",
+            "FULL_PROFILE_CONFORMANCE_DECLARATION"
+          ]
+        },
+        "advertised_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "is_mandatory": {
+                "type": "boolean"
+              },
+              "supported_features": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S+"
+                }
+              },
+              "degradation_fallback": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fallback_supported": {
+                    "type": "boolean"
+                  },
+                  "fallback_mode": {
+                    "type": "string",
+                    "enum": [
+                      "CORE_EMULATION_FALLBACK",
+                      "FEATURE_DISABLED_GRACEFUL",
+                      "NONE_REQUIRED"
+                    ]
+                  },
+                  "degradation_notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "fallback_supported",
+                  "fallback_mode"
+                ]
+              },
+              "evidence_references": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S+"
+                }
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "is_mandatory",
+              "supported_features",
+              "degradation_fallback",
+              "evidence_references"
+            ]
+          }
+        },
+        "conformance_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "test_identifier": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S+"
+              },
+              "verification_method": {
+                "type": "string",
+                "enum": [
+                  "AUTOMATED_TEST",
+                  "STATIC_ANALYSIS",
+                  "BENCHMARK"
+                ]
+              },
+              "report_uri": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S+"
+              }
+            },
+            "required": [
+              "test_identifier",
+              "verification_method",
+              "report_uri"
+            ]
+          }
+        },
+        "degradation_behavior": {
+          "const": "FAIL_CLOSED"
+        },
+        "authenticated_discovery": {
+          "const": true
+        }
+      },
+      "required": [
+        "response_id",
+        "timestamp",
+        "server_nonce",
+        "claim_type",
+        "advertised_capabilities",
+        "conformance_evidence",
+        "degradation_behavior",
+        "authenticated_discovery"
+      ]
+    },
+    "agreed_capability_lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lease_ttl_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "lease_status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_OPTIMAL",
+            "ACTIVE_DEGRADED",
+            "REJECTED_FAIL_CLOSED"
+          ]
+        },
+        "mandatory_slots_satisfied": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 13,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "oci_container_runtime",
+              "isolation_substrate",
+              "orchestration_capability",
+              "network_segmentation",
+              "storage",
+              "database",
+              "cache",
+              "secrets",
+              "crypto",
+              "identity_workload_identity",
+              "observability",
+              "ai_model_runtime",
+              "artifact_update_mechanism"
+            ]
+          }
+        },
+        "negotiated_optional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "GRANTED_FULL",
+                  "GRANTED_DEGRADED",
+                  "REJECTED_UNSUPPORTED"
+                ]
+              },
+              "active_mode": {
+                "type": "string",
+                "minLength": 2
+              },
+              "fallback_applied": {
+                "type": "string",
+                "enum": [
+                  "CORE_EMULATION_FALLBACK",
+                  "FEATURE_DISABLED_GRACEFUL",
+                  "NONE"
+                ]
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "disposition",
+              "active_mode",
+              "fallback_applied"
+            ]
+          }
+        },
+        "fail_closed_violations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "lease_id",
+        "issued_at",
+        "expires_at",
+        "lease_ttl_seconds",
+        "lease_status",
+        "mandatory_slots_satisfied",
+        "negotiated_optional_capabilities",
+        "fail_closed_violations"
+      ]
+    },
+    "evidence_binding_verified": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "handshake_id",
+    "protocol_version",
+    "provider_namespace",
+    "target_profile_id",
+    "target_profile_version",
+    "target_profile_digest",
+    "negotiation_status",
+    "negotiation_request",
+    "advertisement_response",
+    "agreed_capability_lease",
+    "evidence_binding_verified"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "enum": [
+              "AGREED_LEASE_GRANTED",
+              "DEGRADED_LEASE_GRANTED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "evidence_binding_verified": {
+            "const": true
+          },
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "enum": [
+                  "ACTIVE_OPTIMAL",
+                  "ACTIVE_DEGRADED"
+                ]
+              },
+              "fail_closed_violations": {
+                "maxItems": 0
+              },
+              "mandatory_slots_satisfied": {
+                "minItems": 9,
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "oci_container_runtime"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "isolation_substrate"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "network_segmentation"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "storage"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "database"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "secrets"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "crypto"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "identity_workload_identity"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "artifact_update_mechanism"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "const": "TERMINAL_REJECTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "REJECTED_FAIL_CLOSED"
+              },
+              "fail_closed_violations": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

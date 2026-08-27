@@ -1,0 +1,396 @@
+{
+  "handshake_id": "hs-20260827-onprem-std-01",
+  "protocol_version": "1.0.0",
+  "provider_namespace": "cybrik-reference",
+  "target_profile_id": "onprem-standard-v1",
+  "target_profile_version": "1.0.0",
+  "target_profile_digest": "190dbf1dfaa6c153646f6eee6f7e6535cf84e736d25d039d0f8ec3bb564f7a9f",
+  "negotiation_status": "DEGRADED_LEASE_GRANTED",
+  "negotiation_request": {
+    "request_id": "req-onprem-init-01",
+    "timestamp": "2026-08-27T12:00:00Z",
+    "requested_slots": [
+      "oci_container_runtime",
+      "isolation_substrate",
+      "orchestration_capability",
+      "network_segmentation",
+      "storage",
+      "database",
+      "cache",
+      "secrets",
+      "crypto",
+      "identity_workload_identity",
+      "observability",
+      "ai_model_runtime",
+      "artifact_update_mechanism"
+    ],
+    "requested_optional_capabilities": [
+      {
+        "capability_name": "ai_tensor_acceleration",
+        "slot_id": "ai_model_runtime",
+        "required_for_optimal": true,
+        "preferred_fallback": "CORE_EMULATION_FALLBACK"
+      },
+      {
+        "capability_name": "storage_object_lock",
+        "slot_id": "storage",
+        "required_for_optimal": false,
+        "preferred_fallback": "FEATURE_DISABLED_GRACEFUL"
+      },
+      {
+        "capability_name": "cache_cluster_replication",
+        "slot_id": "cache",
+        "required_for_optimal": false,
+        "preferred_fallback": "FEATURE_DISABLED_GRACEFUL"
+      }
+    ],
+    "client_nonce": "c-nonce-9876543210abcdef9876543210abcdef",
+    "degradation_policy": "FAIL_CLOSED_ON_MANDATORY_GRACEFUL_ON_OPTIONAL"
+  },
+  "advertisement_response": {
+    "response_id": "resp-onprem-adv-01",
+    "timestamp": "2026-08-27T12:00:01Z",
+    "server_nonce": "s-nonce-1234567890fedcba1234567890fedcba",
+    "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
+    "advertised_capabilities": [
+      {
+        "capability_name": "cap-oci",
+        "slot_id": "oci_container_runtime",
+        "is_mandatory": true,
+        "supported_features": [
+          "rootless_execution",
+          "image_v2_digest_check"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-oci-01"
+        ]
+      },
+      {
+        "capability_name": "cap-iso",
+        "slot_id": "isolation_substrate",
+        "is_mandatory": true,
+        "supported_features": [
+          "gvisor_runsc",
+          "isolation_floor_s1"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-iso-01"
+        ]
+      },
+      {
+        "capability_name": "cap-orch",
+        "slot_id": "orchestration_capability",
+        "is_mandatory": true,
+        "supported_features": [
+          "k8s_scheduling",
+          "rolling_update",
+          "health_probes"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-orch-01"
+        ]
+      },
+      {
+        "capability_name": "cap-net",
+        "slot_id": "network_segmentation",
+        "is_mandatory": true,
+        "supported_features": [
+          "default_deny",
+          "dns_egress_seam",
+          "segment_boundaries"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-net-01"
+        ]
+      },
+      {
+        "capability_name": "cap-store",
+        "slot_id": "storage",
+        "is_mandatory": true,
+        "supported_features": [
+          "s3_crud_14_ops",
+          "sig_v4",
+          "path_style"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": true,
+          "fallback_mode": "FEATURE_DISABLED_GRACEFUL",
+          "degradation_notes": "Object Lock retention disabled; client SHA-256 integrity active"
+        },
+        "evidence_references": [
+          "ev-store-01"
+        ]
+      },
+      {
+        "capability_name": "cap-db",
+        "slot_id": "database",
+        "is_mandatory": true,
+        "supported_features": [
+          "relational_acid",
+          "row_level_security",
+          "serializable_snapshot"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-db-01"
+        ]
+      },
+      {
+        "capability_name": "cap-cache",
+        "slot_id": "cache",
+        "is_mandatory": false,
+        "supported_features": [
+          "in_memory_kv",
+          "noeviction_policy"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": true,
+          "fallback_mode": "FEATURE_DISABLED_GRACEFUL",
+          "degradation_notes": "Standalone cache node; cluster replication disabled"
+        },
+        "evidence_references": [
+          "ev-cache-01"
+        ]
+      },
+      {
+        "capability_name": "cap-sec",
+        "slot_id": "secrets",
+        "is_mandatory": true,
+        "supported_features": [
+          "zero_exfiltration_memory",
+          "startup_presence_check",
+          "rotation_hook"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-sec-01"
+        ]
+      },
+      {
+        "capability_name": "cap-crypt",
+        "slot_id": "crypto",
+        "is_mandatory": true,
+        "supported_features": [
+          "ed25519_jcs",
+          "pluggable_provider_seam",
+          "rfc_8785"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-crypt-01"
+        ]
+      },
+      {
+        "capability_name": "cap-id",
+        "slot_id": "identity_workload_identity",
+        "is_mandatory": true,
+        "supported_features": [
+          "e2_e3_mtls",
+          "delegation_token_120s",
+          "spiffe_id"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-id-01"
+        ]
+      },
+      {
+        "capability_name": "cap-obs",
+        "slot_id": "observability",
+        "is_mandatory": false,
+        "supported_features": [
+          "sovereign_structured_logs",
+          "local_metrics"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-obs-01"
+        ]
+      },
+      {
+        "capability_name": "cap-ai",
+        "slot_id": "ai_model_runtime",
+        "is_mandatory": true,
+        "supported_features": [
+          "sovereign_local_inference",
+          "loopback_egress_guard"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": true,
+          "fallback_mode": "CORE_EMULATION_FALLBACK",
+          "degradation_notes": "GPU acceleration absent; CPU quantized inference active"
+        },
+        "evidence_references": [
+          "ev-ai-01"
+        ]
+      },
+      {
+        "capability_name": "cap-art",
+        "slot_id": "artifact_update_mechanism",
+        "is_mandatory": true,
+        "supported_features": [
+          "signed_offline_bundle",
+          "rfc_8785_verification",
+          "atomic_rollback"
+        ],
+        "degradation_fallback": {
+          "fallback_supported": false,
+          "fallback_mode": "NONE_REQUIRED"
+        },
+        "evidence_references": [
+          "ev-art-01"
+        ]
+      }
+    ],
+    "conformance_evidence": [
+      {
+        "test_identifier": "ev-oci-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-oci-01.json"
+      },
+      {
+        "test_identifier": "ev-iso-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-iso-01.json"
+      },
+      {
+        "test_identifier": "ev-orch-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-orch-01.json"
+      },
+      {
+        "test_identifier": "ev-net-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-net-01.json"
+      },
+      {
+        "test_identifier": "ev-store-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-store-01.json"
+      },
+      {
+        "test_identifier": "ev-db-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-db-01.json"
+      },
+      {
+        "test_identifier": "ev-cache-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-cache-01.json"
+      },
+      {
+        "test_identifier": "ev-sec-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-sec-01.json"
+      },
+      {
+        "test_identifier": "ev-crypt-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-crypt-01.json"
+      },
+      {
+        "test_identifier": "ev-id-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-id-01.json"
+      },
+      {
+        "test_identifier": "ev-obs-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-obs-01.json"
+      },
+      {
+        "test_identifier": "ev-ai-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-ai-01.json"
+      },
+      {
+        "test_identifier": "ev-art-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-art-01.json"
+      }
+    ],
+    "degradation_behavior": "FAIL_CLOSED",
+    "authenticated_discovery": true
+  },
+  "agreed_capability_lease": {
+    "lease_id": "lease-onprem-std-20260827-01",
+    "issued_at": "2026-08-27T12:00:02Z",
+    "expires_at": "2026-08-27T13:00:02Z",
+    "lease_ttl_seconds": 3600,
+    "lease_status": "ACTIVE_DEGRADED",
+    "mandatory_slots_satisfied": [
+      "oci_container_runtime",
+      "isolation_substrate",
+      "orchestration_capability",
+      "network_segmentation",
+      "storage",
+      "database",
+      "cache",
+      "secrets",
+      "crypto",
+      "identity_workload_identity",
+      "observability",
+      "ai_model_runtime",
+      "artifact_update_mechanism"
+    ],
+    "negotiated_optional_capabilities": [
+      {
+        "capability_name": "ai_tensor_acceleration",
+        "slot_id": "ai_model_runtime",
+        "disposition": "GRANTED_DEGRADED",
+        "active_mode": "cpu_quantized_emulation",
+        "fallback_applied": "CORE_EMULATION_FALLBACK",
+        "notes": "Inference latency budget scaled from 50ms to 250ms"
+      },
+      {
+        "capability_name": "storage_object_lock",
+        "slot_id": "storage",
+        "disposition": "GRANTED_DEGRADED",
+        "active_mode": "client_sha256_immutability",
+        "fallback_applied": "FEATURE_DISABLED_GRACEFUL",
+        "notes": "Object Lock headers disabled; client-side cryptographic hashing active"
+      },
+      {
+        "capability_name": "cache_cluster_replication",
+        "slot_id": "cache",
+        "disposition": "GRANTED_DEGRADED",
+        "active_mode": "standalone_noeviction",
+        "fallback_applied": "FEATURE_DISABLED_GRACEFUL",
+        "notes": "Single-node cache active with in-memory fallback"
+      }
+    ],
+    "fail_closed_violations": []
+  },
+  "evidence_binding_verified": true
+}
