@@ -98,27 +98,34 @@
         "properties": {
           "test_identifier": {
             "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "pattern": "^urn:cybrik:evidence:[a-zA-Z0-9_-]+(?::[a-zA-Z0-9_-]+)*$"
           },
-          "verification_method": {
+          "status": {
             "type": "string",
             "enum": [
-              "AUTOMATED_TEST",
-              "STATIC_ANALYSIS",
-              "BENCHMARK"
+              "PASS",
+              "FAIL",
+              "INCONCLUSIVE",
+              "SKIPPED"
             ]
+          },
+          "evidence_pack_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "executed_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "report_uri": {
             "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "format": "uri"
           }
         },
         "required": [
           "test_identifier",
-          "verification_method",
-          "report_uri"
+          "status",
+          "evidence_pack_digest"
         ]
       },
       "uniqueItems": true

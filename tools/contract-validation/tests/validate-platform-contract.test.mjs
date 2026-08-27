@@ -160,13 +160,15 @@ test('in-memory validation: reject advertisement with unresolvable evidence refe
         "capability_name": "cap-storage",
         "slot_id": "storage",
         "description": "Storage slot",
-        "evidence_references": ["missing-test"]
+        "evidence_references": ["urn:cybrik:evidence:missing-test"]
       }
     ],
     "conformance_evidence": [
       {
-        "test_identifier": "test-1",
-        "verification_method": "AUTOMATED_TEST",
+        "test_identifier": "urn:cybrik:evidence:test-1",
+        "status": "PASS",
+        "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "executed_at": "2026-08-25T12:00:00Z",
         "report_uri": "https://example.com/report"
       }
     ],
@@ -2956,6 +2958,110 @@ test('in-memory validation: conformance_evidence schema requirements (Finding F-
   );
 });
 
+test('in-memory validation: standalone provider capability advertisement conformance_evidence schema requirements (Finding F-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // 1. Positive: valid evidence with all optional and required fields passes
+  const validData = JSON.parse(JSON.stringify(sample));
+  validData.conformance_evidence[0] = {
+    test_identifier: 'urn:cybrik:evidence:ev-oci-01',
+    status: 'PASS',
+    evidence_pack_digest: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://reports.cybrik.example/report.json'
+  };
+  assert.ok(ajv.validate(schemaId, validData), 'Valid conformance evidence must pass: ' + ajv.errorsText());
+
+  // 2. Positive: valid evidence with only required fields (omitting executed_at and report_uri) passes
+  const minValidData = JSON.parse(JSON.stringify(sample));
+  minValidData.conformance_evidence[0] = {
+    test_identifier: 'urn:cybrik:evidence:ev-oci-01',
+    status: 'PASS',
+    evidence_pack_digest: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+  };
+  assert.ok(ajv.validate(schemaId, minValidData), 'Minimal valid conformance evidence must pass: ' + ajv.errorsText());
+
+  // 3. Positive: valid status enum values pass schema validation
+  for (const st of ['PASS', 'FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+    const stData = JSON.parse(JSON.stringify(sample));
+    stData.conformance_evidence[0].status = st;
+    assert.ok(ajv.validate(schemaId, stData), `Status '${st}' must pass schema validation: ` + ajv.errorsText());
+  }
+
+  // 4. Negative: missing status property is rejected
+  const missingStatus = JSON.parse(JSON.stringify(sample));
+  delete missingStatus.conformance_evidence[0].status;
+  assert.ok(!ajv.validate(schemaId, missingStatus), 'Missing status must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'status'),
+    'Schema error must indicate missing status property'
+  );
+
+  // 5. Negative: missing evidence_pack_digest property is rejected
+  const missingDigest = JSON.parse(JSON.stringify(sample));
+  delete missingDigest.conformance_evidence[0].evidence_pack_digest;
+  assert.ok(!ajv.validate(schemaId, missingDigest), 'Missing evidence_pack_digest must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'evidence_pack_digest'),
+    'Schema error must indicate missing evidence_pack_digest property'
+  );
+
+  // 6. Negative: invalid status enum value is rejected
+  const invalidStatus = JSON.parse(JSON.stringify(sample));
+  invalidStatus.conformance_evidence[0].status = 'INVALID_STATUS';
+  assert.ok(!ajv.validate(schemaId, invalidStatus), 'Invalid status must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' && e.instancePath.includes('/conformance_evidence/0/status')),
+    'Schema error must indicate invalid enum on status'
+  );
+
+  // 7. Negative: malformed evidence_pack_digest is rejected
+  const badDigests = [
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde', // 63 chars
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0', // 65 chars
+    '0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF', // uppercase
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg', // non-hex 'g'
+    ''
+  ];
+  for (const badDig of badDigests) {
+    const badDigestData = JSON.parse(JSON.stringify(sample));
+    badDigestData.conformance_evidence[0].evidence_pack_digest = badDig;
+    assert.ok(!ajv.validate(schemaId, badDigestData), `Bad digest '${badDig}' must be rejected`);
+    assert.ok(
+      ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('/conformance_evidence/0/evidence_pack_digest')),
+      `Schema error must indicate pattern mismatch for digest '${badDig}'`
+    );
+  }
+
+  // 8. Negative: legacy verification_method / additional properties rejected by additionalProperties: false
+  const extraProps = JSON.parse(JSON.stringify(sample));
+  extraProps.conformance_evidence[0].verification_method = 'AUTOMATED_TEST';
+  assert.ok(!ajv.validate(schemaId, extraProps), 'Legacy verification_method must be rejected by additionalProperties: false');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === 'verification_method'),
+    'Schema error must indicate unexpected property verification_method'
+  );
+
+  // 9. Negative: invalid executed_at format rejected
+  const badDate = JSON.parse(JSON.stringify(sample));
+  badDate.conformance_evidence[0].executed_at = 'not-a-date-time';
+  assert.ok(!ajv.validate(schemaId, badDate), 'Invalid executed_at date-time format must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'format' && e.instancePath.includes('/conformance_evidence/0/executed_at')),
+    'Schema error must indicate format error on executed_at'
+  );
+
+  // 10. Negative: invalid report_uri format rejected
+  const badReportUri = JSON.parse(JSON.stringify(sample));
+  badReportUri.conformance_evidence[0].report_uri = 'not a valid uri with spaces';
+  assert.ok(!ajv.validate(schemaId, badReportUri), 'Invalid report_uri format must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'format' && e.instancePath.includes('/conformance_evidence/0/report_uri')),
+    'Schema error must indicate format error on report_uri'
+  );
+});
+
 test('in-memory validation: universal PASS status and valid SHA-256 digest on all capability evidence (Finding F-01 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
@@ -2987,6 +3093,27 @@ test('in-memory validation: universal PASS status and valid SHA-256 digest on al
   assert.throws(
     () => validatePlatformSemantics(dataBadDigest, schemaId),
     /Semantic error: conformance evidence 'urn:cybrik:evidence:ev-db-01' lacks valid SHA-256 evidence_pack_digest/
+  );
+
+  // 4. Standalone advertisement: Non-PASS status rejected
+  const standaloneSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const standaloneSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  for (const nonPass of ['FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+    const standaloneNonPass = JSON.parse(JSON.stringify(standaloneSample));
+    standaloneNonPass.conformance_evidence[0].status = nonPass;
+    assert.throws(
+      () => validatePlatformSemantics(standaloneNonPass, standaloneSchemaId),
+      new RegExp(`Semantic error: conformance evidence 'urn:cybrik:evidence:ev-oci-01' has non-passing status '${nonPass}'`)
+    );
+  }
+
+  // 5. Standalone advertisement: Malformed SHA-256 digest rejected
+  const standaloneBadDigest = JSON.parse(JSON.stringify(standaloneSample));
+  standaloneBadDigest.conformance_evidence[0].evidence_pack_digest = 'bad-digest-format';
+  assert.throws(
+    () => validatePlatformSemantics(standaloneBadDigest, standaloneSchemaId),
+    /Semantic error: conformance evidence 'urn:cybrik:evidence:ev-oci-01' lacks valid SHA-256 evidence_pack_digest/
   );
 });
 
@@ -3195,7 +3322,7 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
     dataOmitted.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'cache_cluster_replication');
   assert.throws(
     () => validatePlatformSemantics(dataOmitted, schemaId),
-    /Semantic error: requested optional capability 'cache_cluster_replication' is not resolved in agreed_capability_lease/
+    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'cache' is not resolved in agreed_capability_lease/
   );
 
   // 3. Negative: additional requested optional capability omitted from agreed lease
@@ -3208,7 +3335,29 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
   });
   assert.throws(
     () => validatePlatformSemantics(dataExtraReq, schemaId),
-    /Semantic error: requested optional capability 'custom_acceleration' is not resolved in agreed_capability_lease/
+    /Semantic error: requested optional capability 'custom_acceleration' for slot 'ai_model_runtime' is not resolved in agreed_capability_lease/
+  );
+
+  // 4. Negative: slot mismatch with same capability_name (composite key closure)
+  const dataSlotMismatch = JSON.parse(JSON.stringify(sample));
+  const cacheReq = dataSlotMismatch.negotiation_request.requested_optional_capabilities.find(c => c.capability_name === 'cache_cluster_replication');
+  cacheReq.slot_id = 'database';
+  assert.throws(
+    () => validatePlatformSemantics(dataSlotMismatch, schemaId),
+    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'database' is not resolved in agreed_capability_lease/
+  );
+
+  // 5. Negative: cardinality closure (requesting duplicate capability but lease only resolves one)
+  const dataDupReq = JSON.parse(JSON.stringify(sample));
+  dataDupReq.negotiation_request.requested_optional_capabilities.push({
+    capability_name: "cache_cluster_replication",
+    slot_id: "cache",
+    required_for_optimal: false,
+    preferred_fallback: "FEATURE_DISABLED_GRACEFUL"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataDupReq, schemaId),
+    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'cache' is not resolved in agreed_capability_lease/
   );
 });
 
@@ -3250,5 +3399,96 @@ test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional cap
     () => validatePlatformSemantics(data, schemaId),
     /is not resolved in agreed_capability_lease/,
     'ACTIVE_OPTIMAL lease omitting requested optional capability must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
+  );
+});
+
+test('in-memory validation: standalone advertisement conformance_evidence integrity (Finding F-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // 1. Non-PASS evidence status is rejected
+  for (const nonPassStatus of ['SKIPPED', 'INCONCLUSIVE', 'FAIL']) {
+    const data = JSON.parse(JSON.stringify(sample));
+    data.conformance_evidence[0].status = nonPassStatus;
+
+    // A. Passes Ajv schema validation (valid enum values)
+    const valid = ajv.validate(schemaId, data);
+    assert.ok(valid, `Standalone advertisement with evidence status '${nonPassStatus}' should pass Ajv schema validation: ` + ajv.errorsText());
+
+    // B. Rejected by validatePlatformSemantics
+    assert.throws(
+      () => validatePlatformSemantics(data, schemaId),
+      /has non-passing status/,
+      `Standalone advertisement with evidence status '${nonPassStatus}' must be rejected by validatePlatformSemantics`
+    );
+  }
+
+  // 2. Evidence with missing evidence_pack_digest is rejected
+  const dataMissingDigest = JSON.parse(JSON.stringify(sample));
+  delete dataMissingDigest.conformance_evidence[0].evidence_pack_digest;
+  const validMissingDigest = ajv.validate(schemaId, dataMissingDigest);
+  assert.ok(!validMissingDigest, 'Standalone advertisement with missing evidence_pack_digest must be rejected by Ajv');
+  assert.throws(
+    () => validatePlatformSemantics(dataMissingDigest, schemaId),
+    /lacks valid SHA-256 evidence_pack_digest/,
+    'Standalone advertisement with missing evidence_pack_digest must fail validatePlatformSemantics'
+  );
+
+  // 3. Evidence with malformed evidence_pack_digest is rejected
+  const dataBadDigest = JSON.parse(JSON.stringify(sample));
+  dataBadDigest.conformance_evidence[0].evidence_pack_digest = 'not-a-valid-sha256';
+  const validBadDigest = ajv.validate(schemaId, dataBadDigest);
+  assert.ok(!validBadDigest, 'Standalone advertisement with malformed evidence_pack_digest must be rejected by Ajv');
+  assert.throws(
+    () => validatePlatformSemantics(dataBadDigest, schemaId),
+    /lacks valid SHA-256 evidence_pack_digest/,
+    'Standalone advertisement with malformed evidence_pack_digest must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: negotiation request with slot mismatch rejected (Finding F-03 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Request specifies ai_tensor_acceleration for slot 'storage', while lease resolves ai_tensor_acceleration for slot 'ai_model_runtime'
+  const data = JSON.parse(JSON.stringify(sample));
+  const reqAiCap = data.negotiation_request.requested_optional_capabilities.find(c => c.capability_name === 'ai_tensor_acceleration');
+  assert.ok(reqAiCap, 'ai_tensor_acceleration must be in requested_optional_capabilities');
+  reqAiCap.slot_id = 'storage';
+
+  // 1. Passes Ajv schema validation (schema checks array item structure without cross-slot resolution matching)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Slot-mismatched negotiation request must pass Ajv schema validation: ' + ajv.errorsText());
+
+  // 2. Fails validatePlatformSemantics with /for slot 'storage' is not resolved in agreed_capability_lease/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /for slot 'storage' is not resolved in agreed_capability_lease/,
+    'Slot mismatch (requested slot storage vs lease slot ai_model_runtime) must fail validatePlatformSemantics with /for slot \'storage\' is not resolved in agreed_capability_lease/'
+  );
+});
+
+test('in-memory validation: duplicate requested optional capability cardinality mismatch rejected (Finding F-03 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Duplicate requested optional capability (cardinality 2 in request), while resolved only once in lease (cardinality 1 in lease)
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_request.requested_optional_capabilities.push({
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    required_for_optimal: true,
+    preferred_fallback: "FEATURE_DISABLED_GRACEFUL"
+  });
+
+  // 1. Passes Ajv schema validation (schema admits repeated optional capability requests structurally)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Duplicate requested optional capability must pass Ajv schema validation: ' + ajv.errorsText());
+
+  // 2. Fails validatePlatformSemantics with /is not resolved in agreed_capability_lease/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /is not resolved in agreed_capability_lease/,
+    'Duplicate requested optional capability with cardinality mismatch must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
   );
 });

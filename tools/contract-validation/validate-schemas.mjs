@@ -663,17 +663,11 @@ export function validatePlatformSemantics(data, schemaId) {
           if (!matchingEv) {
             throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
           }
-          if (isNegotiation) {
-            if (matchingEv.status !== 'PASS') {
-              throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
-            }
-            if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
-              throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
-            }
-          } else {
-            if (matchingEv.status === 'FAIL' || matchingEv.status === 'FAILED') {
-              throw new Error(`Semantic error: conformance evidence '${ref}' has failed status '${matchingEv.status}'`);
-            }
+          if (matchingEv.status !== 'PASS') {
+            throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
+          }
+          if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
+            throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
           }
         }
       }
@@ -761,14 +755,23 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    // F-03: Requested-to-lease closure
+    // F-03: Requested-to-lease composite key and cardinality closure
     if (data.negotiation_request && data.negotiation_request.requested_optional_capabilities && data.agreed_capability_lease) {
-      const leaseOptCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [];
-      const leaseCapNames = new Set(leaseOptCaps.map(c => c.capability_name));
+      const remainingLeaseCaps = [...(data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [])];
       for (const req of data.negotiation_request.requested_optional_capabilities) {
-        if (!leaseCapNames.has(req.capability_name)) {
-          throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is not resolved in agreed_capability_lease`);
+        const idx = remainingLeaseCaps.findIndex(c => {
+          if (c.capability_name !== req.capability_name) return false;
+          if (req.slot_id && c.slot_id && c.slot_id !== req.slot_id) return false;
+          return true;
+        });
+        if (idx === -1) {
+          if (req.slot_id) {
+            throw new Error(`Semantic error: requested optional capability '${req.capability_name}' for slot '${req.slot_id}' is not resolved in agreed_capability_lease`);
+          } else {
+            throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is not resolved in agreed_capability_lease`);
+          }
         }
+        remainingLeaseCaps.splice(idx, 1);
       }
     }
 
@@ -1646,13 +1649,15 @@ const pcaUnresolvable = {
       capability_name: "cap-storage",
       slot_id: "storage",
       description: "Storage slot",
-      evidence_references: ["missing-test"]
+      evidence_references: ["urn:cybrik:evidence:missing-test"]
     }
   ],
   conformance_evidence: [
     {
-      test_identifier: "test-1",
-      verification_method: "AUTOMATED_TEST",
+      test_identifier: "urn:cybrik:evidence:test-1",
+      status: "PASS",
+      evidence_pack_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      executed_at: "2026-08-25T12:00:00Z",
       report_uri: "https://example.com/report"
     }
   ],

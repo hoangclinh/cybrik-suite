@@ -9,95 +9,95 @@
       "capability_name": "cap-oci",
       "slot_id": "oci_container_runtime",
       "description": "OCI runtime",
-      "evidence_references": ["ev-1"]
+      "evidence_references": ["urn:cybrik:evidence:ev-1"]
     },
     {
       "capability_name": "cap-iso",
       "slot_id": "isolation_substrate",
       "description": "Isolation substrate",
-      "evidence_references": ["ev-2"]
+      "evidence_references": ["urn:cybrik:evidence:ev-2"]
     },
     {
       "capability_name": "cap-orch",
       "slot_id": "orchestration_capability",
       "description": "Orchestration",
-      "evidence_references": ["ev-3"]
+      "evidence_references": ["urn:cybrik:evidence:ev-3"]
     },
     {
       "capability_name": "cap-net",
       "slot_id": "network_segmentation",
       "description": "Network segmentation",
-      "evidence_references": ["ev-4"]
+      "evidence_references": ["urn:cybrik:evidence:ev-4"]
     },
     {
       "capability_name": "cap-store",
       "slot_id": "storage",
       "description": "Storage",
-      "evidence_references": ["ev-5"]
+      "evidence_references": ["urn:cybrik:evidence:ev-5"]
     },
     {
       "capability_name": "cap-db",
       "slot_id": "database",
       "description": "Database",
-      "evidence_references": ["ev-6"]
+      "evidence_references": ["urn:cybrik:evidence:ev-6"]
     },
     {
       "capability_name": "cap-cache",
       "slot_id": "cache",
       "description": "Cache",
-      "evidence_references": ["ev-7"]
+      "evidence_references": ["urn:cybrik:evidence:ev-7"]
     },
     {
       "capability_name": "cap-sec",
       "slot_id": "secrets",
       "description": "Secrets",
-      "evidence_references": ["ev-8"]
+      "evidence_references": ["urn:cybrik:evidence:ev-8"]
     },
     {
       "capability_name": "cap-crypt",
       "slot_id": "crypto",
       "description": "Crypto",
-      "evidence_references": ["ev-9"]
+      "evidence_references": ["urn:cybrik:evidence:ev-9"]
     },
     {
       "capability_name": "cap-id",
       "slot_id": "identity_workload_identity",
       "description": "Identity",
-      "evidence_references": ["ev-10"]
+      "evidence_references": ["urn:cybrik:evidence:ev-10"]
     },
     {
       "capability_name": "cap-obs",
       "slot_id": "observability",
       "description": "Observability",
-      "evidence_references": ["ev-11"]
+      "evidence_references": ["urn:cybrik:evidence:ev-11"]
     },
     {
       "capability_name": "cap-ai",
       "slot_id": "ai_model_runtime",
       "description": "AI runtime",
-      "evidence_references": ["ev-12"]
+      "evidence_references": ["urn:cybrik:evidence:ev-12"]
     },
     {
       "capability_name": "cap-art",
       "slot_id": "artifact_update_mechanism",
       "description": "Artifact update",
-      "evidence_references": ["ev-13"]
+      "evidence_references": ["urn:cybrik:evidence:ev-13"]
     }
   ],
   "conformance_evidence": [
-    { "test_identifier": "ev-1", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/1" },
-    { "test_identifier": "ev-2", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/2" },
-    { "test_identifier": "ev-3", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/3" },
-    { "test_identifier": "ev-4", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/4" },
-    { "test_identifier": "ev-5", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/5" },
-    { "test_identifier": "ev-6", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/6" },
-    { "test_identifier": "ev-7", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/7" },
-    { "test_identifier": "ev-8", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/8" },
-    { "test_identifier": "ev-9", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/9" },
-    { "test_identifier": "ev-10", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/10" },
-    { "test_identifier": "ev-11", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/11" },
-    { "test_identifier": "ev-12", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/12" },
-    { "test_identifier": "ev-13", "verification_method": "AUTOMATED_TEST", "report_uri": "https://example.com/13" }
+    { "test_identifier": "urn:cybrik:evidence:ev-1", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/1" },
+    { "test_identifier": "urn:cybrik:evidence:ev-2", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/2" },
+    { "test_identifier": "urn:cybrik:evidence:ev-3", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/3" },
+    { "test_identifier": "urn:cybrik:evidence:ev-4", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/4" },
+    { "test_identifier": "urn:cybrik:evidence:ev-5", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/5" },
+    { "test_identifier": "urn:cybrik:evidence:ev-6", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/6" },
+    { "test_identifier": "urn:cybrik:evidence:ev-7", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/7" },
+    { "test_identifier": "urn:cybrik:evidence:ev-8", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/8" },
+    { "test_identifier": "urn:cybrik:evidence:ev-9", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/9" },
+    { "test_identifier": "urn:cybrik:evidence:ev-10", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/10" },
+    { "test_identifier": "urn:cybrik:evidence:ev-11", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/11" },
+    { "test_identifier": "urn:cybrik:evidence:ev-12", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/12" },
+    { "test_identifier": "urn:cybrik:evidence:ev-13", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/13" }
   ],
   "degradation_behavior": "FAIL_CLOSED",
   "authenticated_discovery": true

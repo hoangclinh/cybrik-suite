@@ -9,14 +9,16 @@
       "slot_id": "oci_container_runtime",
       "description": "Standard OCI runtime",
       "evidence_references": [
-        "test-001"
+        "urn:cybrik:evidence:ev-001"
       ]
     }
   ],
   "conformance_evidence": [
     {
-      "test_identifier": "test-001",
-      "verification_method": "AUTOMATED_TEST",
+      "test_identifier": "urn:cybrik:evidence:ev-001",
+      "status": "PASS",
+      "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "executed_at": "2026-08-25T12:00:00Z",
       "report_uri": "https://example.com/report1"
     }
   ],
