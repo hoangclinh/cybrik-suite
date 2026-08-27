@@ -23,7 +23,7 @@ The following normative specifications elaborate the foundational platform contr
 * **Specification:** [`contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md`](../../contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md)
 * **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
 * **Normative Schema:** `contracts/json-schema/cybrik.storage-s3-compatibility-subset.v1.schema.json`
-* **Summary:** Defines the minimum 13 S3 operations required for control plane, data plane, and WORM compliance persistence (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`). Mandates path-style addressing and SigV4 authentication.
+* **Summary:** Defines the exact 17 mandatory S3 operations required for control plane, data plane, and WORM compliance persistence (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`). Mandates version-scoped Object Lock WORM, path-style addressing, AWS SigV4 authentication, and strict `BadDigest`/`InvalidDigest` error dispatch.
 
 ### 1.2 Slot 13: Offline Installation & Update Manifest (`OPEN-1`)
 * **Specification:** [`contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md`](../../contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md)
