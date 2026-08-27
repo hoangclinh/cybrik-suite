@@ -512,6 +512,44 @@
                     }
                   }
                 }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_FULL"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "enum": [
+                        "GRANTED_DEGRADED",
+                        "REJECTED_UNSUPPORTED"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fallback_applied": {
+                      "enum": [
+                        "CORE_EMULATION_FALLBACK",
+                        "FEATURE_DISABLED_GRACEFUL"
+                      ]
+                    }
+                  }
+                }
               }
             ]
           }
@@ -551,9 +589,7 @@
                 "items": {
                   "properties": {
                     "disposition": {
-                      "not": {
-                        "const": "GRANTED_DEGRADED"
-                      }
+                      "const": "GRANTED_FULL"
                     },
                     "fallback_applied": {
                       "const": "NONE"

@@ -647,21 +647,33 @@ const CORE_MANDATORY_SLOTS = [
 export function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
-    if (adv.advertised_capabilities && adv.conformance_evidence) {
-      const validTests = new Set();
-      for (const e of adv.conformance_evidence) {
+    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+
+    if (adv.advertised_capabilities) {
+      const validTests = new Map();
+      for (const e of (adv.conformance_evidence || [])) {
         if (validTests.has(e.test_identifier)) {
           throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
         }
-        if (e.status === 'FAIL' || e.status === 'FAILED') {
-          throw new Error(`Semantic error: conformance evidence '${e.test_identifier}' has failed status '${e.status}'`);
-        }
-        validTests.add(e.test_identifier);
+        validTests.set(e.test_identifier, e);
       }
       for (const cap of adv.advertised_capabilities) {
         for (const ref of (cap.evidence_references || [])) {
-          if (!validTests.has(ref)) {
+          const matchingEv = validTests.get(ref);
+          if (!matchingEv) {
             throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+          }
+          if (isNegotiation) {
+            if (matchingEv.status !== 'PASS') {
+              throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
+            }
+            if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
+              throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
+            }
+          } else {
+            if (matchingEv.status === 'FAIL' || matchingEv.status === 'FAILED') {
+              throw new Error(`Semantic error: conformance evidence '${ref}' has failed status '${matchingEv.status}'`);
+            }
           }
         }
       }
@@ -669,7 +681,6 @@ export function validatePlatformSemantics(data, schemaId) {
     const claimType = adv.claim_type || data.claim_type;
     const targetProfileId = data.target_profile_id;
     const targetProfileDigest = data.target_profile_digest;
-    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
 
     if (data.agreed_capability_lease) {
       const lease = data.agreed_capability_lease;
@@ -691,6 +702,8 @@ export function validatePlatformSemantics(data, schemaId) {
         }
       }
 
+      const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+
       if (targetProfileId) {
         const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
         if (existsSync(profilePath)) {
@@ -699,12 +712,13 @@ export function validatePlatformSemantics(data, schemaId) {
             profile.slots?.storage?.specification?.immutable_storage_required === true;
 
           if (immutableStorageMandated) {
-            const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
-            for (const cap of leaseCaps) {
+            for (const cap of caps) {
               const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
               const isDegraded =
                 cap.disposition === 'GRANTED_DEGRADED' ||
                 cap.status === 'GRANTED_DEGRADED' ||
+                cap.disposition === 'REJECTED_UNSUPPORTED' ||
+                cap.status === 'REJECTED_UNSUPPORTED' ||
                 (cap.fallback_applied !== undefined && cap.fallback_applied !== 'NONE') ||
                 (cap.effective_fallback !== undefined && cap.effective_fallback !== 'NONE');
               if (isStorageCap && isDegraded) {
@@ -715,23 +729,45 @@ export function validatePlatformSemantics(data, schemaId) {
         }
       }
 
-      const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+      // F-02: Biconditional coupling between disposition and fallback_applied
+      for (const cap of caps) {
+        const capStatus = cap.disposition || cap.status;
+        const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
+        if (capStatus === 'GRANTED_FULL' && fallback !== 'NONE') {
+          throw new Error(`Semantic error: capability '${cap.capability_name || cap.slot_id}' with disposition 'GRANTED_FULL' cannot have fallback '${fallback}' (must be 'NONE')`);
+        }
+        if (fallback === 'NONE' && capStatus !== 'GRANTED_FULL') {
+          throw new Error(`Semantic error: capability '${cap.capability_name || cap.slot_id}' with fallback 'NONE' must have disposition 'GRANTED_FULL' (got '${capStatus}')`);
+        }
+      }
+
       if (lease.lease_status === 'ACTIVE_OPTIMAL') {
         for (const cap of caps) {
           const capStatus = cap.disposition || cap.status;
-          const fallback = cap.fallback_applied || 'NONE';
-          if (capStatus === 'GRANTED_DEGRADED' || fallback !== 'NONE') {
+          const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
+          if (capStatus === 'GRANTED_DEGRADED' || capStatus === 'REJECTED_UNSUPPORTED' || capStatus !== 'GRANTED_FULL' || fallback !== 'NONE') {
             throw new Error(`Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability '${cap.capability_name}' (status: ${capStatus}, fallback: ${fallback})`);
           }
         }
       } else if (lease.lease_status === 'ACTIVE_DEGRADED') {
         const hasDegraded = caps.some(cap => {
           const capStatus = cap.disposition || cap.status;
-          const fallback = cap.fallback_applied || 'NONE';
+          const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
           return capStatus === 'GRANTED_DEGRADED' && fallback !== 'NONE';
         });
         if (!hasDegraded) {
           throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback`);
+        }
+      }
+    }
+
+    // F-03: Requested-to-lease closure
+    if (data.negotiation_request && data.negotiation_request.requested_optional_capabilities && data.agreed_capability_lease) {
+      const leaseOptCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [];
+      const leaseCapNames = new Set(leaseOptCaps.map(c => c.capability_name));
+      for (const req of data.negotiation_request.requested_optional_capabilities) {
+        if (!leaseCapNames.has(req.capability_name)) {
+          throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is not resolved in agreed_capability_lease`);
         }
       }
     }
@@ -879,7 +915,7 @@ export function validatePlatformSemantics(data, schemaId) {
         for (const cap of (adv.advertised_capabilities || [])) {
           advertisedMap.set(cap.slot_id, cap);
         }
-        const evidenceSet = new Set((adv.conformance_evidence || []).map(e => e.test_identifier));
+        const evidenceMap = new Map((adv.conformance_evidence || []).map(e => [e.test_identifier, e]));
 
         for (const slot of mandatorySlots) {
           if (!satisfiedSlots.has(slot)) {
@@ -894,8 +930,12 @@ export function validatePlatformSemantics(data, schemaId) {
             throw new Error(`Semantic error: mandatory profile slot '${slot}' lacks evidence references`);
           }
           for (const ref of refs) {
-            if (!evidenceSet.has(ref)) {
+            const ev = evidenceMap.get(ref);
+            if (!ev) {
               throw new Error(`Semantic error: mandatory profile slot '${slot}' evidence reference '${ref}' not found in conformance evidence`);
+            }
+            if (ev.status && ev.status !== 'PASS') {
+              throw new Error(`Semantic error: mandatory profile slot '${slot}' conformance evidence '${ref}' has non-passing status '${ev.status}'`);
             }
           }
         }
@@ -1975,15 +2015,12 @@ pcnDegradedStoragePermitted.target_profile_id = 'private-cloud-v1';
 pcnDegradedStoragePermitted.target_profile_digest = privateCloudDigest;
 pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
 pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_digest = privateCloudDigest;
-pcnDegradedStoragePermitted.agreed_capability_lease.negotiated_optional_capabilities = [
-  {
-    capability_name: "storage_object_lock",
-    slot_id: "storage",
-    disposition: "GRANTED_DEGRADED",
-    active_mode: "standard_retention_fallback",
-    fallback_applied: "FEATURE_DISABLED_GRACEFUL"
-  }
-];
+const storageOptionalPermitted = pcnDegradedStoragePermitted.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+if (storageOptionalPermitted) {
+  storageOptionalPermitted.disposition = "GRANTED_DEGRADED";
+  storageOptionalPermitted.active_mode = "standard_retention_fallback";
+  storageOptionalPermitted.fallback_applied = "FEATURE_DISABLED_GRACEFUL";
+}
 let pcnPermittedNoThrow = false;
 try {
   validatePlatformSemantics(pcnDegradedStoragePermitted, pcnSchemaId);

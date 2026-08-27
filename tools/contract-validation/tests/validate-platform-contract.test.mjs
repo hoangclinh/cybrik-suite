@@ -971,6 +971,22 @@ test('in-memory validation: reject ACTIVE_OPTIMAL lease containing degraded capa
   const valid1 = ajv.validate(schemaId, data1);
   assert.ok(!valid1, 'Should reject ACTIVE_OPTIMAL with GRANTED_DEGRADED capability');
 
+  // REJECTED_UNSUPPORTED capability in ACTIVE_OPTIMAL
+  const dataRejected = JSON.parse(JSON.stringify(sample));
+  dataRejected.negotiation_status = "AGREED_LEASE_GRANTED";
+  dataRejected.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  dataRejected.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "REJECTED_UNSUPPORTED",
+      active_mode: "disabled",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  const validRejected = ajv.validate(schemaId, dataRejected);
+  assert.ok(!validRejected, 'Should reject ACTIVE_OPTIMAL with REJECTED_UNSUPPORTED capability');
+
   // Valid ACTIVE_OPTIMAL passes
   const data2 = JSON.parse(JSON.stringify(sample));
   data2.negotiation_status = "AGREED_LEASE_GRANTED";
@@ -1299,15 +1315,12 @@ test('in-memory validation: permit degraded storage when profile does not requir
   data1.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data1.agreed_capability_lease.target_profile_digest = privateCloudDigest;
   data1.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
-  data1.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_object_lock",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "standard_retention_fallback",
-      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
-    }
-  ];
+  const storeCap1 = data1.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+  if (storeCap1) {
+    storeCap1.disposition = "GRANTED_DEGRADED";
+    storeCap1.active_mode = "standard_retention_fallback";
+    storeCap1.fallback_applied = "FEATURE_DISABLED_GRACEFUL";
+  }
 
   assert.ok(ajv.validate(schemaId, data1), 'Structurally valid schema: ' + ajv.errorsText());
   assert.doesNotThrow(
@@ -1322,15 +1335,15 @@ test('in-memory validation: permit degraded storage when profile does not requir
   data2.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data2.agreed_capability_lease.target_profile_digest = privateCloudDigest;
   data2.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
-  data2.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_custom_perf",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "slow_emulated_storage",
-      fallback_applied: "CORE_EMULATION_FALLBACK"
-    }
-  ];
+  const storeCap2 = data2.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+  if (storeCap2) {
+    storeCap2.capability_name = "storage_custom_perf";
+    storeCap2.disposition = "GRANTED_DEGRADED";
+    storeCap2.active_mode = "slow_emulated_storage";
+    storeCap2.fallback_applied = "CORE_EMULATION_FALLBACK";
+  }
+  const reqStore = data2.negotiation_request.requested_optional_capabilities.find(c => c.capability_name === 'storage_object_lock');
+  if (reqStore) reqStore.capability_name = "storage_custom_perf";
 
   assert.ok(ajv.validate(schemaId, data2), 'Structurally valid schema: ' + ajv.errorsText());
   assert.doesNotThrow(
@@ -1340,10 +1353,11 @@ test('in-memory validation: permit degraded storage when profile does not requir
 
   // 3. Degraded storage with fallback_applied: "NONE" under ACTIVE_DEGRADED must be rejected by lease invariants
   const data3 = JSON.parse(JSON.stringify(data1));
-  data3.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = "NONE";
+  const storeCap3 = data3.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+  if (storeCap3) storeCap3.fallback_applied = "NONE";
   assert.throws(
     () => validatePlatformSemantics(data3, schemaId),
-    /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
+    /capability 'storage_object_lock' with fallback 'NONE' must have disposition 'GRANTED_FULL'|ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
   );
 });
 
@@ -1410,6 +1424,46 @@ test('in-memory validation: structurally enforce disposition and fallback coupli
     }
   ];
   assert.ok(!ajv.validate(schemaId, data3), 'GRANTED_FULL with non-NONE fallback must be rejected by schema');
+
+  // 4. GRANTED_DEGRADED with fallback_applied: NONE is rejected structurally
+  const data4 = JSON.parse(JSON.stringify(sample));
+  data4.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "cpu_quantized",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, data4), 'GRANTED_DEGRADED with fallback NONE must be rejected by schema');
+
+  // 5. REJECTED_UNSUPPORTED with fallback_applied: NONE is rejected structurally
+  const data5 = JSON.parse(JSON.stringify(sample));
+  data5.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "REJECTED_UNSUPPORTED",
+      active_mode: "disabled",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(!ajv.validate(schemaId, data5), 'REJECTED_UNSUPPORTED with fallback NONE must be rejected by schema');
 });
 
 test('in-memory validation: reject immutable storage with non-GRANTED_FULL disposition or non-NONE fallback (Finding 6 / OPEN-5)', () => {
@@ -2899,5 +2953,302 @@ test('in-memory validation: conformance_evidence schema requirements (Finding F-
   assert.ok(
     ajv.errors.some(e => e.keyword === 'format' && e.instancePath.includes('/conformance_evidence/0/report_uri')),
     'Schema error must indicate format error on report_uri'
+  );
+});
+
+test('in-memory validation: universal PASS status and valid SHA-256 digest on all capability evidence (Finding F-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Missing evidence reference for a non-storage capability (e.g., ai_model_runtime)
+  const dataMissingRef = JSON.parse(JSON.stringify(sample));
+  const aiCap = dataMissingRef.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'ai_model_runtime');
+  aiCap.evidence_references = ['urn:cybrik:evidence:ev-ai-missing'];
+  assert.throws(
+    () => validatePlatformSemantics(dataMissingRef, schemaId),
+    /Semantic error: evidence_reference 'urn:cybrik:evidence:ev-ai-missing' not found in conformance_evidence/
+  );
+
+  // 2. Non-PASS status on non-storage capability evidence (status: 'FAIL', 'INCONCLUSIVE', 'SKIPPED')
+  for (const nonPassStatus of ['FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+    const dataNonPass = JSON.parse(JSON.stringify(sample));
+    const evAi = dataNonPass.advertisement_response.conformance_evidence.find(e => e.test_identifier === 'urn:cybrik:evidence:ev-ai-01');
+    evAi.status = nonPassStatus;
+    assert.throws(
+      () => validatePlatformSemantics(dataNonPass, schemaId),
+      new RegExp(`Semantic error: conformance evidence 'urn:cybrik:evidence:ev-ai-01' has non-passing status '${nonPassStatus}'`)
+    );
+  }
+
+  // 3. Malformed SHA-256 digest on non-storage capability evidence
+  const dataBadDigest = JSON.parse(JSON.stringify(sample));
+  const evDb = dataBadDigest.advertisement_response.conformance_evidence.find(e => e.test_identifier === 'urn:cybrik:evidence:ev-db-01');
+  evDb.evidence_pack_digest = 'not-a-valid-sha256';
+  assert.throws(
+    () => validatePlatformSemantics(dataBadDigest, schemaId),
+    /Semantic error: conformance evidence 'urn:cybrik:evidence:ev-db-01' lacks valid SHA-256 evidence_pack_digest/
+  );
+});
+
+test('in-memory validation: mandatory capability with SKIPPED or INCONCLUSIVE evidence passes Ajv but fails validatePlatformSemantics (Finding F-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  for (const nonPassStatus of ['SKIPPED', 'INCONCLUSIVE']) {
+    const data = JSON.parse(JSON.stringify(sample));
+    const ociEv = data.advertisement_response.conformance_evidence.find(
+      e => e.test_identifier === 'urn:cybrik:evidence:ev-oci-01'
+    );
+    assert.ok(ociEv, 'Evidence for ev-oci-01 must exist in sample');
+    ociEv.status = nonPassStatus;
+
+    // 1. Passes Ajv schema validation (schema admits SKIPPED and INCONCLUSIVE status enum values)
+    const valid = ajv.validate(schemaId, data);
+    assert.ok(valid, `Mandatory capability with ${nonPassStatus} evidence must pass Ajv schema validation: ` + ajv.errorsText());
+
+    // 2. Fails validatePlatformSemantics with /has non-passing status/
+    assert.throws(
+      () => validatePlatformSemantics(data, schemaId),
+      /has non-passing status/,
+      `Mandatory capability with ${nonPassStatus} evidence must fail validatePlatformSemantics with /has non-passing status/`
+    );
+  }
+});
+
+test('in-memory validation: biconditional coupling and ACTIVE_OPTIMAL invariants (Finding F-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. GRANTED_FULL with fallback_applied !== 'NONE' throws biconditional coupling error
+  const dataFullWithFallback = JSON.parse(JSON.stringify(sample));
+  const cap1 = dataFullWithFallback.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock');
+  cap1.disposition = 'GRANTED_FULL';
+  cap1.fallback_applied = 'FEATURE_DISABLED_GRACEFUL';
+  // Use private-cloud-v1 to avoid immutable storage check triggering first
+  const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+  const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+  dataFullWithFallback.target_profile_id = 'private-cloud-v1';
+  dataFullWithFallback.target_profile_digest = privateCloudDigest;
+  dataFullWithFallback.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  dataFullWithFallback.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  assert.throws(
+    () => validatePlatformSemantics(dataFullWithFallback, schemaId),
+    /Semantic error: capability 'storage_object_lock' with disposition 'GRANTED_FULL' cannot have fallback 'FEATURE_DISABLED_GRACEFUL' \(must be 'NONE'\)/
+  );
+
+  // 2. fallback_applied === 'NONE' with disposition !== 'GRANTED_FULL' throws biconditional coupling error
+  const dataNoneWithDegraded = JSON.parse(JSON.stringify(sample));
+  dataNoneWithDegraded.target_profile_id = 'private-cloud-v1';
+  dataNoneWithDegraded.target_profile_digest = privateCloudDigest;
+  dataNoneWithDegraded.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  dataNoneWithDegraded.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  const cap2 = dataNoneWithDegraded.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'ai_tensor_acceleration');
+  cap2.disposition = 'GRANTED_DEGRADED';
+  cap2.fallback_applied = 'NONE';
+  assert.throws(
+    () => validatePlatformSemantics(dataNoneWithDegraded, schemaId),
+    /Semantic error: capability 'ai_tensor_acceleration' with fallback 'NONE' must have disposition 'GRANTED_FULL' \(got 'GRANTED_DEGRADED'\)/
+  );
+
+  const dataNoneWithUnsupported = JSON.parse(JSON.stringify(sample));
+  dataNoneWithUnsupported.target_profile_id = 'private-cloud-v1';
+  dataNoneWithUnsupported.target_profile_digest = privateCloudDigest;
+  dataNoneWithUnsupported.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  dataNoneWithUnsupported.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  const cap2b = dataNoneWithUnsupported.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'ai_tensor_acceleration');
+  cap2b.disposition = 'REJECTED_UNSUPPORTED';
+  cap2b.fallback_applied = 'NONE';
+  assert.throws(
+    () => validatePlatformSemantics(dataNoneWithUnsupported, schemaId),
+    /Semantic error: capability 'ai_tensor_acceleration' with fallback 'NONE' must have disposition 'GRANTED_FULL' \(got 'REJECTED_UNSUPPORTED'\)/
+  );
+
+  // 3. ACTIVE_OPTIMAL lease rejecting REJECTED_UNSUPPORTED
+  const dataOptUnsupported = JSON.parse(JSON.stringify(sample));
+  dataOptUnsupported.negotiation_status = 'AGREED_LEASE_GRANTED';
+  dataOptUnsupported.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  for (const c of dataOptUnsupported.agreed_capability_lease.negotiated_optional_capabilities) {
+    c.disposition = 'GRANTED_FULL';
+    c.fallback_applied = 'NONE';
+  }
+  dataOptUnsupported.agreed_capability_lease.negotiated_optional_capabilities[0].disposition = 'REJECTED_UNSUPPORTED';
+  dataOptUnsupported.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = 'FEATURE_DISABLED_GRACEFUL';
+  assert.throws(
+    () => validatePlatformSemantics(dataOptUnsupported, schemaId),
+    /Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability 'ai_tensor_acceleration'/
+  );
+
+  // 4. ACTIVE_OPTIMAL lease rejecting GRANTED_DEGRADED
+  const dataOptDegraded = JSON.parse(JSON.stringify(sample));
+  dataOptDegraded.negotiation_status = 'AGREED_LEASE_GRANTED';
+  dataOptDegraded.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  for (const c of dataOptDegraded.agreed_capability_lease.negotiated_optional_capabilities) {
+    c.disposition = 'GRANTED_FULL';
+    c.fallback_applied = 'NONE';
+  }
+  dataOptDegraded.agreed_capability_lease.negotiated_optional_capabilities[0].disposition = 'GRANTED_DEGRADED';
+  dataOptDegraded.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = 'CORE_EMULATION_FALLBACK';
+  assert.throws(
+    () => validatePlatformSemantics(dataOptDegraded, schemaId),
+    /Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability 'ai_tensor_acceleration'/
+  );
+});
+
+test('in-memory validation: REJECTED_UNSUPPORTED with fallback_applied NONE is rejected by Ajv and validatePlatformSemantics (Finding F-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const data = JSON.parse(JSON.stringify(sample));
+  // Set an optional capability in ACTIVE_DEGRADED lease to REJECTED_UNSUPPORTED with fallback_applied: "NONE"
+  data.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "REJECTED_UNSUPPORTED",
+      active_mode: "unsupported_rejected",
+      fallback_applied: "NONE",
+      notes: "No fallback applied to rejected unsupported capability"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standalone_noeviction",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+
+  // 1. Rejected by Ajv schema validation (biconditional coupling requires fallback_applied to be non-NONE for REJECTED_UNSUPPORTED)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(!valid, 'REJECTED_UNSUPPORTED with fallback_applied NONE must be rejected by Ajv schema validation');
+
+  // 2. Rejected by validatePlatformSemantics
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /must have disposition 'GRANTED_FULL'|must have a valid non-NONE fallback applied/,
+    'REJECTED_UNSUPPORTED with fallback_applied NONE must be rejected by validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: ACTIVE_OPTIMAL lease containing REJECTED_UNSUPPORTED capability with graceful fallback is rejected by Ajv and validatePlatformSemantics (Finding F-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_status = "AGREED_LEASE_GRANTED";
+  data.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  data.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "REJECTED_UNSUPPORTED",
+      active_mode: "cpu_quantized_emulation",
+      fallback_applied: "CORE_EMULATION_FALLBACK",
+      notes: "Unsupported acceleration falling back to CPU emulation"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_replication",
+      fallback_applied: "NONE"
+    }
+  ];
+
+  // 1. Rejected by Ajv schema validation (ACTIVE_OPTIMAL requires disposition: GRANTED_FULL and fallback_applied: NONE for all items)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(!valid, 'ACTIVE_OPTIMAL lease containing REJECTED_UNSUPPORTED capability must be rejected by Ajv schema validation');
+
+  // 2. Rejected by validatePlatformSemantics
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /ACTIVE_OPTIMAL lease cannot contain degraded capability/,
+    'ACTIVE_OPTIMAL lease containing REJECTED_UNSUPPORTED capability must be rejected by validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: requested-to-lease closure verification (Finding F-03 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Positive: all requested optional capabilities are resolved in the agreed lease
+  const validData = JSON.parse(JSON.stringify(sample));
+  assert.doesNotThrow(() => validatePlatformSemantics(validData, schemaId));
+
+  // 2. Negative: requested optional capability omitted from agreed lease
+  const dataOmitted = JSON.parse(JSON.stringify(sample));
+  dataOmitted.agreed_capability_lease.negotiated_optional_capabilities =
+    dataOmitted.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'cache_cluster_replication');
+  assert.throws(
+    () => validatePlatformSemantics(dataOmitted, schemaId),
+    /Semantic error: requested optional capability 'cache_cluster_replication' is not resolved in agreed_capability_lease/
+  );
+
+  // 3. Negative: additional requested optional capability omitted from agreed lease
+  const dataExtraReq = JSON.parse(JSON.stringify(sample));
+  dataExtraReq.negotiation_request.requested_optional_capabilities.push({
+    capability_name: "custom_acceleration",
+    slot_id: "ai_model_runtime",
+    required_for_optimal: false,
+    preferred_fallback: "CORE_EMULATION_FALLBACK"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataExtraReq, schemaId),
+    /Semantic error: requested optional capability 'custom_acceleration' is not resolved in agreed_capability_lease/
+  );
+});
+
+test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional capability passes Ajv but fails validatePlatformSemantics (Finding F-03 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_status = "AGREED_LEASE_GRANTED";
+  data.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  // negotiation_request requests 3 optional capabilities:
+  // - ai_tensor_acceleration
+  // - storage_object_lock
+  // - cache_cluster_replication
+  // agreed_capability_lease silently omits cache_cluster_replication:
+  data.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    }
+  ];
+
+  // 1. Passes Ajv schema validation (schema validates structural array format without verifying request-to-lease closure)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Omitting requested optional capability must pass Ajv schema validation: ' + ajv.errorsText());
+
+  // 2. Fails validatePlatformSemantics with /is not resolved in agreed_capability_lease/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /is not resolved in agreed_capability_lease/,
+    'ACTIVE_OPTIMAL lease omitting requested optional capability must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
   );
 });
