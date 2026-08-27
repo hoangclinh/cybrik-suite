@@ -1099,7 +1099,7 @@ test('in-memory validation: reject storage or storage_object_lock degradation in
   assert.ok(valid3, 'Should accept valid non-storage degradation: ' + ajv.errorsText());
 });
 
-test('in-memory validation: validate immutable_storage_required in deployment profile schema (Finding 4 / OPEN-5)', () => {
+test('in-memory validation: validate immutable_storage_required in deployment profile schema (Finding 2 & 4 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json'), 'utf8'));
 
@@ -1113,6 +1113,20 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   data2.slots.storage.specification.immutable_storage_required = "true";
   const valid2 = ajv.validate(schemaId, data2);
   assert.ok(!valid2, 'Non-boolean immutable_storage_required must be rejected');
+
+  // Omitting immutable_storage_required when storage specification is defined is rejected
+  const data3 = JSON.parse(JSON.stringify(sample));
+  delete data3.slots.storage.specification.immutable_storage_required;
+  const valid3 = ajv.validate(schemaId, data3);
+  assert.ok(!valid3, 'Omitting immutable_storage_required from storage specification must be rejected');
+  const hasMissingPropError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'immutable_storage_required');
+  assert.ok(hasMissingPropError, 'Schema error must indicate missing immutable_storage_required');
+
+  // Explicit boolean false immutable_storage_required is accepted by schema (valid boolean type)
+  const data4 = JSON.parse(JSON.stringify(sample));
+  data4.slots.storage.specification.immutable_storage_required = false;
+  const valid4 = ajv.validate(schemaId, data4);
+  assert.ok(valid4, 'Explicit boolean false immutable_storage_required should be valid in schema: ' + ajv.errorsText());
 });
 
 test('in-memory validation: reject capability negotiation with degraded immutable storage', () => {
