@@ -582,6 +582,46 @@
               }
             }
           }
+        },
+        {
+          "properties": {
+            "negotiated_optional_capabilities": {
+              "not": {
+                "contains": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_DEGRADED"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ],
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "slot_id": {
+                          "const": "storage"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "capability_name": {
+                          "const": "storage_object_lock"
+                        }
+                      },
+                      "required": [
+                        "capability_name"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -832,6 +872,50 @@
               "lease_status": {
                 "not": {
                   "const": "ACTIVE_DEGRADED"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "agreed_capability_lease": {
+          "properties": {
+            "negotiated_optional_capabilities": {
+              "not": {
+                "contains": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_DEGRADED"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ],
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "slot_id": {
+                          "const": "storage"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "capability_name": {
+                          "const": "storage_object_lock"
+                        }
+                      },
+                      "required": [
+                        "capability_name"
+                      ]
+                    }
+                  ]
                 }
               }
             }
