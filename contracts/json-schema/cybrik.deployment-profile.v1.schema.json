@@ -434,6 +434,9 @@
     },
     "slots": {
       "type": "object",
+      "required": [
+        "storage"
+      ],
       "properties": {
         "storage": {
           "type": "object",
@@ -478,7 +481,8 @@
     "capability_set",
     "strength",
     "sovereignty_class",
-    "isolation_policy"
+    "isolation_policy",
+    "slots"
   ],
   "x-cybrik-lifecycle": "PROPOSED",
   "allOf": [
