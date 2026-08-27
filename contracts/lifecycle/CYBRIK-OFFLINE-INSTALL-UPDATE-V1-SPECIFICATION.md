@@ -149,7 +149,8 @@ The cryptographic signature model is unified exclusively on Ed25519. The `operat
 - **RSA-PSS / RSA Suites Rejected:** RSA signatures (including `rsa-pss-sha256`, PKCS#1 v1.5) are PROHIBITED and REJECTED due to key-size ambiguity, padding vulnerabilities, and excessive parsing overhead in air-gapped micro-verifiers.
 - **Embedded / In-Band Header Signatures Rejected:** In-band signature envelopes (e.g., JOSE/JWT headers with embedded JWK/x5c key declarations or embedded signature fields) MUST NOT be used for bundle authentication.
 - **Weak Primitives Rejected:** `none`, `md5`, `sha1`, `secp256k1`, `dsa` MUST be rejected unconditionally.
-- **Zero Outbound Network Egress & Health Probe Parameter Closure:** In accordance with the airgap zero-outbound-network invariant (ADR-0015 §1.2), all workflow actions MUST NOT initiate outbound connections to arbitrary remote domains or WAN addresses. `HEALTH_PROBE` action targets are strictly restricted to local loopback (`localhost`, `127.0.0.1`, `::1`) or private enclave endpoints (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and HTTP probe methods are strictly restricted to read-only idempotent methods (`GET`, `HEAD`). Mutating methods (`POST`, `PUT`, `DELETE`) and arbitrary WAN/domain targets are unconditionally rejected.
+- **Zero Outbound Network Egress, Strict Octet/Port Validation & Health Probe Parameter Closure:** In accordance with the airgap zero-outbound-network invariant (ADR-0015 §1.2), all workflow actions MUST NOT initiate outbound connections to arbitrary remote domains or WAN addresses. `HEALTH_PROBE` action targets are strictly restricted to local loopback (`localhost`, `127.0.0.1`, bracketed IPv6 `[::1]`) or private enclave endpoints (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). All IPv4 octets MUST strictly validate within range `0..255`, ports MUST strictly validate within valid TCP port range `1..65535` (rejecting port 0 or out-of-range ports), IPv6 loopback addresses MUST be bracketed (`[::1]`, rejecting unbracketed `::1`), and HTTP probe methods are strictly restricted to read-only idempotent methods (`GET`, `HEAD`). Mutating methods (`POST`, `PUT`, `DELETE`), arbitrary WAN/domain targets, unbracketed IPv6 strings, invalid octets (>255), and invalid ports (0 or >65535) are unconditionally rejected.
+- **Snapshot Binding & Safe Restoration Parameter Closure:** For `RESTORE_DATABASE_SNAPSHOT` actions, `target` is strictly bound to relative snapshot paths (`snapshots/<path>.(sql|db|bak)`) or pre-apply snapshot variables (`$PRE_APPLY_SNAPSHOT/<path>.(sql|db|bak)`). Absolute host filesystem paths (e.g., `/etc/passwd.db` or root paths) and directory traversal sequences are strictly rejected to eliminate arbitrary file overwrite and host filesystem escape vectors.
 
 ### 3.3 Operator Root Trust Store Architecture
 Air-gapped environments MUST maintain a local, operator-curated, write-protected root trust store on the update station host.
@@ -279,8 +280,8 @@ All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be 
 | `VERIFY_DIGEST` | Validate cryptographic SHA-256 digest and byte size | Relative artifact path matching `^(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+[a-z0-9._-]$` | `{}` (empty object) | Read-only; fail-closed on mismatch |
 | `PRELOAD_OCI_IMAGE` | Ingest OCI image archive into local container runtime storage | Relative path in `images/` matching `^images/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.tar$` | `{}` (empty object) | No network egress; local socket only |
 | `APPLY_SQL_MIGRATION` | Execute forward (`.up.sql`) or reverse (`.down.sql`) migration script | Relative path in `migrations/` matching `^migrations/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.sql$` | Optional `{"transactional": boolean}` | Wrapped in ACID transaction block |
-| `HEALTH_PROBE` | Execute deterministic HTTP GET/HEAD readiness/liveness probe | Local loopback / private enclave URI matching `^https?:\/\/(localhost\|127\.0\.0\.1\|\[::1\]\|::1\|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\|192\.168\.[0-9]{1,3}\.[0-9]{1,3}\|172\.(1[6-9]\|2[0-9]\|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3})(?::[0-9]{1,5})?(?:\/.*)?$` | Optional `{"method": "GET"\|"HEAD", "expected_status": int(200-599), "interval_seconds": int(>=1), "retries": int(>=0)}` | Read-only idempotent; zero outbound WAN network egress; timeout bounded; failure triggers rollback |
-| `RESTORE_DATABASE_SNAPSHOT` | Restore database schema/data from verified pre-apply snapshot | File path matching `^(?:/(?!.*\.\.)[a-z0-9._/-]+|(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+)\.(?:sql|db|bak)$` | `{}` (empty object) | Idempotent restoration on rollback |
+| `HEALTH_PROBE` | Execute deterministic HTTP GET/HEAD readiness/liveness probe | Local loopback / private enclave URI strictly matching `^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|10\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])|172\.(?:1[6-9]|2[0-9]|3[0-1])\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])|192\.168\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))(?::(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:\/[a-zA-Z0-9_\-\.\/]*)*$` | Optional `{"method": "GET"\|"HEAD", "expected_status": int(200-599), "interval_seconds": int(>=1), "retries": int(>=0)}` | Read-only idempotent; zero outbound WAN network egress; strictly validated octets (0-255) and ports (1-65535); bracketed IPv6 [::1] loopback; timeout bounded; failure triggers rollback |
+| `RESTORE_DATABASE_SNAPSHOT` | Restore database schema/data from verified pre-apply snapshot | Relative snapshot journal path or pre-apply snapshot variable matching `^(?:snapshots\/|\$PRE_APPLY_SNAPSHOT\/)[a-zA-Z0-9_\-\.\/]+\.(?:sql|db|bak)$` | `{}` (empty object) | Idempotent restoration on rollback; strictly bound to snapshot journal or pre-apply snapshot variable; absolute host paths rejected |
 
 #### Declarative Step Object Structure:
 ```json
@@ -337,11 +338,11 @@ Stage 3 executes all declarative actions specified in `update_station_workflow.a
    - Switch local traffic router / ingress endpoints to new instances.
    - Drain active connections from superseded instances.
 5. **Post-Deployment Health Probe Gate (`HEALTH_PROBE`):**
-   - Execute local readiness and liveness probes against core service endpoints (`/healthz`, `/readyz`) strictly restricted to local loopback (`localhost`, `127.0.0.1`, `::1`) or private enclave subnets (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) using read-only idempotent methods (`GET`, `HEAD`) per the airgap zero-outbound-network invariant.
+   - Execute local readiness and liveness probes against core service endpoints (`/healthz`, `/readyz`) strictly restricted to local loopback (`localhost`, `127.0.0.1`, bracketed `[::1]`) or private enclave subnets (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) with strictly validated octets (`0..255`) and ports (`1..65535`) using read-only idempotent methods (`GET`, `HEAD`) per the airgap zero-outbound-network invariant.
    - Monitor error rates and latency across a configurable stabilization window (default: 120 seconds).
 6. **Crash-Replay Recovery:**
    - If a host crash, kernel panic, or power outage occurs while journal state is `"APPLYING"`, the update-station verifier upon daemon restart reads `/var/lib/cybrik/journal/<bundle_id>.journal`.
-   - If recovery is triggered, the verifier deterministically replays remaining idempotent apply steps or initiates automated rollback using the recorded pre-update database snapshot.
+   - If recovery is triggered, the verifier deterministically replays remaining idempotent apply steps or initiates automated rollback using the recorded pre-update database snapshot bound via `$PRE_APPLY_SNAPSHOT` or relative `snapshots/` journal references.
 7. **Completion:** On successful stabilization, mark journal state as `"CUTOVER_ACTIVE"`, decommission superseded container instances, and archive the installation manifest to `/var/log/cybrik/updates/`.
 
 ### 5.6 Stage 4: Automated & Idempotent Procedural Rollback
@@ -351,7 +352,7 @@ If any error occurs during Stage 3 (`apply_steps`), if post-deployment health pr
 2. **Traffic Reversion:** Traffic routing and internal service delegations are immediately switched back to the previous stable workload instances.
 3. **Database Schema Rollback (`APPLY_SQL_MIGRATION` / `RESTORE_DATABASE_SNAPSHOT`):**
    - If database migrations were committed, execute reverse migration scripts (`migrations/*.down.sql`) in reverse numerical order within a transaction block.
-   - If down-migrations fail or mid-flight corruption is detected, execute declarative action `RESTORE_DATABASE_SNAPSHOT` targeting the Stage 2 pre-apply snapshot.
+   - If down-migrations fail or mid-flight corruption is detected, execute declarative action `RESTORE_DATABASE_SNAPSHOT` targeting the Stage 2 pre-apply snapshot bound via `$PRE_APPLY_SNAPSHOT` or relative `snapshots/` journal references.
 4. **Runtime Cleanup:** Stop and remove newly spawned failing container instances; prune transient staging files.
 5. **Finalization:** Atomically write `"ROLLED_BACK"` to `/var/lib/cybrik/journal/<bundle_id>.journal` and record failure telemetry to `/var/log/cybrik/updates/failure.log`.
 
@@ -491,7 +492,7 @@ The offline update manifest is governed by the schema `cybrik.offline-install-up
       {
         "step_id": "rollback-restore-snapshot",
         "action": "RESTORE_DATABASE_SNAPSHOT",
-        "target": "/var/backups/cybrik/snapshots/pre-v0.1.0.sql",
+        "target": "$PRE_APPLY_SNAPSHOT/pre-v0.1.0.sql",
         "description": "Restore pre-apply database snapshot"
       },
       {

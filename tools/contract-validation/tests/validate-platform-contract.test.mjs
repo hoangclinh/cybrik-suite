@@ -416,14 +416,19 @@ test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 F
     canonicalization_scheme: "RFC_8785_JCS"
   };
 
-  // Valid probe targets: localhost, 127.0.0.1, ::1, 10.x, 192.168.x, 172.16-31.x
+  // Valid probe targets: localhost, 127.0.0.1, [::1], 10.x, 192.168.x, 172.16-31.x
   const validTargets = [
     "http://127.0.0.1:8080/healthz",
     "http://localhost:8080/readyz",
     "https://10.0.1.5:8443/status",
+    "http://10.255.255.255:65535/healthz",
     "http://192.168.1.100/health",
+    "http://192.168.0.1:80/status",
     "https://172.20.0.2:9000/live",
-    "http://::1:8080/status"
+    "https://172.16.0.1:1/live",
+    "https://172.31.255.255:443/live",
+    "http://[::1]:8080/status",
+    "http://localhost/healthz"
   ];
   for (const target of validTargets) {
     const copy = JSON.parse(JSON.stringify(baseManifest));
@@ -440,12 +445,20 @@ test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 F
     assert.ok(ok, `Expected method '${method}' to be valid: ` + ajv.errorsText());
   }
 
-  // Invalid targets (public domains, public IPs)
+  // Invalid targets (public domains, public IPs, invalid octets, invalid ports, unbracketed IPv6)
   const invalidTargets = [
     "https://example.com/healthz",
     "http://1.1.1.1/healthz",
     "https://8.8.8.8:8080/readyz",
-    "http://attacker.local/healthz"
+    "http://attacker.local/healthz",
+    "http://10.256.1.1:8080/healthz",
+    "http://172.15.0.1:8080/healthz",
+    "http://172.32.0.1:8080/healthz",
+    "http://192.168.1.300/healthz",
+    "http://127.0.0.1:0/healthz",
+    "http://127.0.0.1:65536/healthz",
+    "http://127.0.0.1:70000/healthz",
+    "http://::1:8080/status"
   ];
   for (const target of invalidTargets) {
     const copy = JSON.parse(JSON.stringify(baseManifest));
@@ -460,6 +473,93 @@ test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 F
     copy.update_station_workflow.preflight_steps[0].parameters.method = method;
     const ok = ajv.validate(schemaId, copy);
     assert.ok(!ok, `Expected method '${method}' to be rejected`);
+  }
+});
+
+test('in-memory validation: offline manifest RESTORE_DATABASE_SNAPSHOT restrictions (OPEN-1 Finding 4)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const baseManifest = {
+    bundle_identifier: "my-bundle-1",
+    release_tag: "v1.2.3",
+    manifest_sequence: 1,
+    operator_trust_root: {
+      signing_key_id: "key-123456",
+      public_key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      signature_algorithm: "ed25519"
+    },
+    detached_signature: {
+      algorithm: "ed25519",
+      signature_file: "manifest.sig",
+      key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    artifacts: [
+      {
+        name: "image-1",
+        path: "images/image-1.tar",
+        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        size_bytes: 1024
+      }
+    ],
+    migration_reversibility_guaranteed: true,
+    rollback_procedure_reference: "doc://rollback",
+    update_station_workflow: {
+      preflight_steps: [
+        {
+          step_id: "preflight-verify",
+          action: "VERIFY_DIGEST",
+          target: "images/image-1.tar"
+        }
+      ],
+      apply_steps: [
+        {
+          step_id: "apply-preload",
+          action: "PRELOAD_OCI_IMAGE",
+          target: "images/image-1.tar"
+        }
+      ],
+      rollback_steps: [
+        {
+          step_id: "rollback-restore",
+          action: "RESTORE_DATABASE_SNAPSHOT",
+          target: "snapshots/backup.db"
+        }
+      ]
+    },
+    canonicalization_scheme: "RFC_8785_JCS"
+  };
+
+  // Valid restore targets: relative snapshot paths or $PRE_APPLY_SNAPSHOT variables
+  const validTargets = [
+    "snapshots/backup.db",
+    "snapshots/initial.sql",
+    "snapshots/sub/archive.bak",
+    "$PRE_APPLY_SNAPSHOT/pre-v1.2.3.sql",
+    "$PRE_APPLY_SNAPSHOT/nested/dir/dump.db",
+    "$PRE_APPLY_SNAPSHOT/snapshot.bak"
+  ];
+  for (const target of validTargets) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.rollback_steps[0].target = target;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(ok, `Expected restore target '${target}' to be valid: ` + ajv.errorsText());
+  }
+
+  // Invalid restore targets: absolute host paths, arbitrary relative paths, invalid extensions
+  const invalidTargets = [
+    "/etc/passwd.db",
+    "/var/backups/cybrik/snapshots/pre-v1.2.3.sql",
+    "/snapshots/backup.db",
+    "other/backup.db",
+    "backup.db",
+    "snapshots/backup.txt",
+    "snapshots/backup.tar",
+    "$PRE_APPLY_SNAPSHOT/backup.json"
+  ];
+  for (const target of invalidTargets) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.rollback_steps[0].target = target;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(!ok, `Expected restore target '${target}' to be rejected`);
   }
 });
 
