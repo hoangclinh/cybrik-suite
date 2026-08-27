@@ -1428,6 +1428,57 @@ try {
   H('29b', e.message.includes('lacks Object Lock retention evidence'), 'storage Object Lock evidence check must catch missing retention evidence');
 }
 
+// 30a. in-memory validation: reject capability negotiation request missing mandatory slots
+const pcnMissingReqSlot = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingReqSlot.negotiation_request.requested_slots = pcnMissingReqSlot.negotiation_request.requested_slots.filter(s => s !== 'oci_container_runtime');
+const pcnMissingReqSlotValid = ajv.validate(pcnSchemaId, pcnMissingReqSlot);
+H('30a', !pcnMissingReqSlotValid && ajv.errors.some(e => e.keyword === 'contains'), 'Capability negotiation request missing mandatory slot in requested_slots must be rejected via contains');
+
+// 30b. in-memory validation: reject ACTIVE_OPTIMAL lease containing degraded capability or non-NONE fallback
+const pcnOptimalWithDegraded = JSON.parse(JSON.stringify(pcnSample));
+pcnOptimalWithDegraded.negotiation_status = "AGREED_LEASE_GRANTED";
+pcnOptimalWithDegraded.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+pcnOptimalWithDegraded.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_DEGRADED",
+    active_mode: "cpu_quantized_emulation",
+    fallback_applied: "CORE_EMULATION_FALLBACK"
+  }
+];
+const pcnOptimalWithDegradedValid = ajv.validate(pcnSchemaId, pcnOptimalWithDegraded);
+H('30b', !pcnOptimalWithDegradedValid, 'ACTIVE_OPTIMAL lease containing GRANTED_DEGRADED capability must be rejected');
+
+// 30c. in-memory validation: reject ACTIVE_DEGRADED lease with 0 degraded capabilities
+const pcnDegradedNoDegradations = JSON.parse(JSON.stringify(pcnSample));
+pcnDegradedNoDegradations.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_FULL",
+    active_mode: "gpu_tensor_direct",
+    fallback_applied: "NONE"
+  }
+];
+const pcnDegradedNoDegradationsValid = ajv.validate(pcnSchemaId, pcnDegradedNoDegradations);
+H('30c', !pcnDegradedNoDegradationsValid && ajv.errors.some(e => e.keyword === 'contains'), 'ACTIVE_DEGRADED lease with 0 degraded capabilities must be rejected via contains');
+
+// 30d. in-memory validation: reject ACTIVE_DEGRADED lease where degraded capability has fallback_applied NONE
+const pcnDegradedWithNoneFallback = JSON.parse(JSON.stringify(pcnSample));
+pcnDegradedWithNoneFallback.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_DEGRADED",
+    active_mode: "cpu_quantized_emulation",
+    fallback_applied: "NONE"
+  }
+];
+const pcnDegradedWithNoneFallbackValid = ajv.validate(pcnSchemaId, pcnDegradedWithNoneFallback);
+H('30d', !pcnDegradedWithNoneFallbackValid, 'ACTIVE_DEGRADED lease with GRANTED_DEGRADED and fallback_applied NONE must be rejected');
+
+
 // ---------------------------------------------------------------------------
 // S3 compatibility subset in-memory assertions (OPEN-2).
 // ---------------------------------------------------------------------------
